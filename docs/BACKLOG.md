@@ -115,6 +115,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 - Deterministic scene capture Milestone 4: automatic stride-1 VRLOG-to-web export and an unchecked Make web export option in the 8081 recording workflow; finalisation-gated export, local viewer link, and independent export retry: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Deterministic scene capture Milestone 5: versioned fixtures and capture recipes, before/after review artefacts, and evaluation of Happo or equivalent visual review; reproduce a known trail-alignment defect before demonstrating fixes: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
+- Backpack capture: quasi-static stabilisation of a worn sensor (keyframe registration, re-rendering into reference rays, stability gate, self-occlusion mask, per-frame pose provenance), a `survey` segment kind for the tilted walk that feeds the spatial priors service, IMU-in-PCAP capture gated on a measured motion spectrum, and a Raspberry Pi perf baseline; record-then-process throughout: [design doc](plans/lidar-backpack-capture-plan.md) `L`
+- LiDAR market watch: weekly scheduled check of vendor announcements and used listings against the 100 m spinning-unit selection rule, logged to [the market watch page](platform/hardware/lidar-market-watch.md) `S`
 
 ### v0.6.0 - Deployment & packaging (060)
 
