@@ -135,16 +135,20 @@ def load_done(csv_path):
 
 
 def remove_recordings(run_dir):
+    """Delete the VRLOG frames and index under <run_dir>/<case>/{first,repeat},
+    keeping every JSON. The tool nests the case id under -out, so the arms are
+    two levels down; an earlier version looked one level up and removed
+    nothing (the smoke test recorded recordings_removed=0)."""
     removed = 0
     for arm in ("first", "repeat"):
-        for name in ("frames", "index.bin"):
-            p = run_dir / arm / name
+        for p in run_dir.glob(f"*/{arm}/*"):
+            if p.name not in ("frames", "index.bin"):
+                continue
             if p.is_dir():
                 shutil.rmtree(p)
-                removed += 1
-            elif p.exists():
+            else:
                 p.unlink()
-                removed += 1
+            removed += 1
     return removed
 
 
