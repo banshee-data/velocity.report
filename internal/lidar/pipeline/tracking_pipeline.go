@@ -283,6 +283,12 @@ type TrackingPipelineConfig struct {
 	// Zero disables voxel downsampling.
 	VoxelLeafSize float64
 
+	// DensityPreservingCap scales DBSCAN's MinPts with the subsample fraction
+	// whenever a frame exceeds foreground_max_input_points, so the busiest
+	// frames keep the density threshold the quiet ones run at (gap analysis
+	// D6). Off by default; see l4perception.DBSCANParams.
+	DensityPreservingCap bool
+
 	// FeatureExportFunc, when non-nil, is called for every confirmed track
 	// after classification. This hook allows exporting feature vectors for
 	// ML training data collection. The callback receives the track's
@@ -766,6 +772,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			maxInputPoints = 8000
 		}
 		dbscanParams.MaxInputPoints = maxInputPoints
+		dbscanParams.ScaleMinPtsWhenSubsampled = cfg.DensityPreservingCap
 
 		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
 		if len(lowerGroundRejected) > 0 {

@@ -237,6 +237,33 @@ type DBSCANParams struct {
 	// MaxSamplePoints bounds retained evidence per accepted cluster. Zero is
 	// disabled; production defaults remain off pending the Pi memory gate.
 	MaxSamplePoints int
+	// ScaleMinPtsWhenSubsampled keeps the density threshold fixed when the
+	// cap subsamples a frame (gap analysis D6). DBSCAN's core condition is a
+	// count inside a fixed radius; thinning N points to M keeps each with
+	// probability f = M/N, so every neighbourhood's expected count falls by f
+	// while MinPts does not, and the effective threshold becomes MinPts/f:
+	// 7.5 for a 12,000-point frame at the shipped cap of 8000, 10 at 16,000.
+	// The frames over the cap are the busiest ones, and the sparse objects
+	// near the threshold are the distant and partly occluded ones, so recall
+	// is lost exactly where the scene has most in it. With this set the
+	// core test uses round(MinPts * f), floored at 2 (the point and one
+	// neighbour), which restores the original threshold in expectation.
+	// Default false: measured before it is shipped.
+	ScaleMinPtsWhenSubsampled bool
+}
+
+// effectiveMinPts is the core-point threshold that leaves the density
+// criterion unchanged after keeping kept of total points (see
+// DBSCANParams.ScaleMinPtsWhenSubsampled). It never drops below 2.
+func effectiveMinPts(minPts, kept, total int) int {
+	if total <= 0 || kept >= total || minPts <= 0 {
+		return minPts
+	}
+	scaled := int(math.Round(float64(minPts) * float64(kept) / float64(total)))
+	if scaled < 2 {
+		return 2
+	}
+	return scaled
 }
 
 // DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
@@ -285,8 +312,11 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 	// Safety cap: subsample when point count exceeds the threshold to
 	// prevent O(n²) worst-case DBSCAN on unexpectedly dense frames.
 	if params.MaxInputPoints > 0 && len(points) > params.MaxInputPoints {
-		diagf("DBSCAN subsampling: input_points=%d capped_points=%d",
-			len(points), params.MaxInputPoints)
+		if params.ScaleMinPtsWhenSubsampled {
+			params.MinPts = effectiveMinPts(params.MinPts, params.MaxInputPoints, len(points))
+		}
+		diagf("DBSCAN subsampling: input_points=%d capped_points=%d min_pts=%d",
+			len(points), params.MaxInputPoints, params.MinPts)
 		points = uniformSubsample(points, params.MaxInputPoints)
 	}
 

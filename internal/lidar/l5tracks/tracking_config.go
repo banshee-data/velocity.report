@@ -132,6 +132,15 @@ type TrackerConfig struct {
 	// refuse to compare before anyone had measured whether the change helps.
 	CoupledProcessNoise    bool
 	JosephCovarianceUpdate bool
+
+	// CascadedAssociation matches confirmed tracks to clusters first and
+	// offers only the clusters they leave to tentative tracks (gap analysis
+	// S2/S3, after DeepSORT's matching cascade). With one joint assignment a
+	// tentative track a frame old can outbid a confirmed track coasting
+	// through one miss for the same cluster, because the assignment sees two
+	// costs and no history. Default false: the campaign's ground-truth and
+	// label-free harnesses measure it against the shipped behaviour first.
+	CascadedAssociation bool
 	// MeasurementSourceMode is empty/OBB by default. medoid_v0 is a replay-only
 	// reference arm used to establish an A/B acceptance baseline.
 	MeasurementSourceMode   MeasurementSource
@@ -150,6 +159,14 @@ type TrackerConfig struct {
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
 	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
 	OBBAxisCoherenceEnabled     bool    // Experimental axis selection and coherent observed envelope
+	// OBBHeadingFlipRule applies AB3DMOT's orientation correction before
+	// Guard 3: a PCA heading more than 90 degrees from the track's smoothed
+	// heading is flipped by 180 degrees, on the grounds that a body cannot
+	// reverse its orientation within one frame (gap analysis P3). It is
+	// stated without reference to velocity, so it also disambiguates a
+	// stationary object, where the velocity and displacement resolvers have
+	// nothing to work with. Default false; measured before it ships.
+	OBBHeadingFlipRule bool
 
 	// MinAssociableExtentMetres is the smallest cluster extent that may be
 	// associated with a metre-scale track. 0 disables the fragment guard.

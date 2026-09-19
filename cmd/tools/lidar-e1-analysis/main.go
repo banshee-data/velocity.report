@@ -103,7 +103,10 @@ func main() {
 			"E1.1: maximum straight-line residual RMS in metres for a track to serve as a reference")
 		minEstimates = flag.Int("min-estimates", 20,
 			"E1.1: minimum estimates per track, which at 10 Hz is the plan's 2 second window")
-		minCell = flag.Int("min-cell", 30, "E1.1: minimum observations before a cell is reported")
+		minCell          = flag.Int("min-cell", 30, "E1.1: minimum observations before a cell is reported")
+		measurementNoise = flag.Float64("measurement-noise", 0.05,
+			"E1.4: the filter's configured isotropic R in m^2, printed beside the measured noise floor")
+		residualsJSON = flag.String("residuals-json", "", "optional path for the E1.2/E1.4 machine-readable result")
 	)
 	flag.Parse()
 
@@ -138,13 +141,24 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("\n%s\n", joinStats)
-	reportConditionalMeans(joined, conditionalConfig{
+	cfg := conditionalConfig{
 		minSpeedMps:    *minSpeed,
 		maxResidualRMS: *maxResidual,
 		minEstimates:   *minEstimates,
 		minCellCount:   *minCell,
 		aspectBinDeg:   *aspectBinDeg,
-	})
+	}
+	reportConditionalMeans(joined, cfg)
+
+	tracks, err := loadTrackSeries(*dbPath, sites)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "loading track series: %v\n", err)
+		os.Exit(1)
+	}
+	if err := reportResidualStructure(analyzeResidualStructure(tracks, samples, cfg, *measurementNoise), *residualsJSON); err != nil {
+		fmt.Fprintf(os.Stderr, "writing residual report: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func readManifest(path string) (map[string]string, error) {

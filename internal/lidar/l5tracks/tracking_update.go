@@ -326,6 +326,29 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				}
 			}
 
+			// AB3DMOT's orientation correction (Weng 2020 §3, gap P3): a
+			// measured heading more than 90° from the track's own is the
+			// same axis seen the other way round, not a reversal, so add π.
+			// Velocity and displacement have already resolved the sign for
+			// a moving track and agree with this; a stationary track has
+			// neither, and without the rule an axis flip in the PCA output
+			// walks its heading through the smoother frame by frame.
+			if t.Config.OBBHeadingFlipRule && track.ObservationCount > 1 {
+				delta := float64(newOBBHeading - track.OBBHeadingRad)
+				for delta > math.Pi {
+					delta -= 2 * math.Pi
+				}
+				for delta < -math.Pi {
+					delta += 2 * math.Pi
+				}
+				if math.Abs(delta) > math.Pi/2 {
+					newOBBHeading += math.Pi
+					if newOBBHeading > math.Pi {
+						newOBBHeading -= 2 * math.Pi
+					}
+				}
+			}
+
 			// Guard 3: Reject 90° jumps. After disambiguation, if the
 			// heading delta vs the previous smoothed heading is near ±90°,
 			// this is almost certainly a PCA axis swap for a near-square

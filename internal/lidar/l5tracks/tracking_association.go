@@ -191,11 +191,61 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		return associations
 	}
 
-	// Build cost matrix [nClusters × nTracks].
-	costMatrix := make([][]float32, nClusters)
+	allClusters := make([]int, nClusters)
+	for ci := range allClusters {
+		allClusters[ci] = ci
+	}
+
+	if !t.Config.CascadedAssociation {
+		for ci, trackID := range t.assignClusters(clusters, allClusters, activeTrackIDs, dt) {
+			associations[ci] = trackID
+		}
+		return associations
+	}
+
+	// Cascade (S2/S3): confirmed tracks choose first, over every cluster;
+	// tentative tracks then compete only for what is left. Order within each
+	// stage is still the creation-sequence order above.
+	var confirmed, tentative []string
+	for _, trackID := range activeTrackIDs {
+		if t.Tracks[trackID].TrackState == TrackConfirmed {
+			confirmed = append(confirmed, trackID)
+		} else {
+			tentative = append(tentative, trackID)
+		}
+	}
+	taken := t.assignClusters(clusters, allClusters, confirmed, dt)
+	for ci, trackID := range taken {
+		associations[ci] = trackID
+	}
+	remaining := make([]int, 0, nClusters-len(taken))
 	for ci := range clusters {
-		costMatrix[ci] = make([]float32, nTracks)
-		for tj, trackID := range activeTrackIDs {
+		if _, done := taken[ci]; !done {
+			remaining = append(remaining, ci)
+		}
+	}
+	for ci, trackID := range t.assignClusters(clusters, remaining, tentative, dt) {
+		associations[ci] = trackID
+	}
+	return associations
+}
+
+// assignClusters solves one optimal assignment between the clusters named by
+// clusterIdx and the given tracks, and returns cluster index -> track ID for
+// every pair the assignment accepted. Gating, the fragment guard and the
+// extent-compatibility term are applied here, so the cascade's stages and
+// the joint assignment share one cost definition.
+func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trackIDs []string, dt float32) map[int]string {
+	assigned := map[int]string{}
+	if len(clusterIdx) == 0 || len(trackIDs) == 0 {
+		return assigned
+	}
+
+	// Build cost matrix [len(clusterIdx) × len(trackIDs)].
+	costMatrix := make([][]float32, len(clusterIdx))
+	for row, ci := range clusterIdx {
+		costMatrix[row] = make([]float32, len(trackIDs))
+		for tj, trackID := range trackIDs {
 			track := t.Tracks[trackID]
 
 			// Fragment guard: the gate is otherwise a 6 m radius on position
@@ -208,16 +258,16 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 			// With the soft cost disabled the fragment guard forbids the
 			// pairing outright, which is the behaviour D1.5 shipped.
 			if t.Config.AssociationExtentCostWeight <= 0 && t.isFragmentFor(track, clusters[ci]) {
-				costMatrix[ci][tj] = float32(hungarianlnf)
+				costMatrix[row][tj] = float32(hungarianlnf)
 				track.FragmentPairingsRejected++
 				continue
 			}
 
 			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
-				costMatrix[ci][tj] = float32(hungarianlnf)
+				costMatrix[row][tj] = float32(hungarianlnf)
 			} else {
-				costMatrix[ci][tj] = dist2 + t.extentCompatibilityCost(track, clusters[ci])
+				costMatrix[row][tj] = dist2 + t.extentCompatibilityCost(track, clusters[ci])
 			}
 		}
 	}
@@ -226,25 +276,24 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	assign := HungarianAssign(costMatrix)
 
 	// Populate associations and record debug info.
-	for ci := range clusters {
+	for row, ci := range clusterIdx {
 		bestTrackIdx := -1
-		if ci < len(assign) && assign[ci] >= 0 {
-			bestTrackIdx = assign[ci]
+		if row < len(assign) && assign[row] >= 0 {
+			bestTrackIdx = assign[row]
 		}
 
 		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
-			for tj, trackID := range activeTrackIDs {
+			for tj, trackID := range trackIDs {
 				accepted := (tj == bestTrackIdx)
-				t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, costMatrix[ci][tj], accepted)
+				t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, costMatrix[row][tj], accepted)
 			}
 		}
 
-		if bestTrackIdx >= 0 && bestTrackIdx < nTracks {
-			associations[ci] = activeTrackIDs[bestTrackIdx]
+		if bestTrackIdx >= 0 && bestTrackIdx < len(trackIDs) {
+			assigned[ci] = trackIDs[bestTrackIdx]
 		}
 	}
-
-	return associations
+	return assigned
 }
 
 // mahalanobisDistanceSquared computes the squared Mahalanobis distance for gating.
