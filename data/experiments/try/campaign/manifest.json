@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "budget_hours": 2.6,
+  "budget_hours": 8.6,
   "poll_interval_seconds": 60,
   "notes": "Future-work manifest for docs/plans/lidar-parameter-experiment-campaign-2026-09.md. supervisor.py rereads this file between every pass, so params/depends_on on any stage still 'pending' can be edited between check-ins without disturbing stages already 'done'/'blocked'/'failed'. Never edit a non-pending stage's recorded status/result -- that's the completed-work record.",
   "stages": [
@@ -1230,6 +1230,1049 @@
         "finalized_at": "2026-09-18T23:52:13-0700"
       },
       "finished_at": "2026-09-18T23:52:13-0700"
+    },
+    {
+      "id": "analyze_post_settle_ord01",
+      "type": "analyze_post_settle",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "_comment": "Every raw settling report holds metrics_history (the four convergence criteria at every frame) that only the first-converged frame was ever read from. Asks whether a setting that settles the grid on time also keeps it settled, and whether the five 'inert' L3 keys move anything after the grid locks. Also found while building it: no two runs have identical per-frame metrics (0 of 24 sites, any key), so exact-equality 'inert' tests are invalid; the rule is threshold-based.",
+        "results": "data/experiments/try/l3-settling-sweep/results.csv",
+        "out": "data/experiments/try/l3-settling-sweep/post-settle-analysis.json"
+      }
+    },
+    {
+      "id": "gt_oat_l3sens_kirk0_dd98",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.005,
+            0.05,
+            0.2
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.005,
+            0.05,
+            0.065
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1,
+            5
+          ],
+          "l3.ema_baseline_v1.closeness_multiplier": [
+            1.5,
+            5
+          ],
+          "l3.ema_baseline_v1.safety_margin_metres": [
+            0.05,
+            0.3
+          ],
+          "l3.ema_baseline_v1.post_settle_update_fraction": [
+            0.1
+          ]
+        },
+        "_comment": "L3 'sensitive' verdicts so far are about settling *timing*. Does moving those keys to the flagged values change recall or track count against human labels? 13 settings + warmup + 3 baselines, ~40 s each.",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3sens-kirk0-dd98"
+      }
+    },
+    {
+      "id": "gt_oat_l3sens_kirk1_60a4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_l3sens_kirk0_dd98"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.005,
+            0.05,
+            0.2
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.005,
+            0.05,
+            0.065
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1,
+            5
+          ],
+          "l3.ema_baseline_v1.closeness_multiplier": [
+            1.5,
+            5
+          ],
+          "l3.ema_baseline_v1.safety_margin_metres": [
+            0.05,
+            0.3
+          ],
+          "l3.ema_baseline_v1.post_settle_update_fraction": [
+            0.1
+          ]
+        },
+        "_comment": "Same 13 settings on the richest labelled run (~90 s each, ~25 min).",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3sens-kirk1-60a4"
+      }
+    },
+    {
+      "id": "analyze_gt_oat_l3sens",
+      "type": "analyze_gt_oat",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_l3sens_kirk1_60a4"
+      ],
+      "params": {
+        "source_stages": [
+          "gt_oat_l3sens_kirk0_dd98",
+          "gt_oat_l3sens_kirk1_60a4"
+        ],
+        "out_name": "gt-oat-analysis-l3sens.json"
+      }
+    },
+    {
+      "id": "lf_columbus_broadway_o0",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. Columbus-Broadway has 7 segments (35 min continuous).",
+        "pcap_file": "s2/s2_sf_3_20260902132037_00002.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o0"
+      }
+    },
+    {
+      "id": "l3_long_baseline_o0",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 0,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 0. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o1",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 1,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 1. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o2",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 2,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 2. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o3",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 3,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 3. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o4",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 4,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 4. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o5",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 5,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 5. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o6",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 6,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 6. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "l3_long_baseline_o7",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {},
+        "capture_ordinal": 7,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "Default config over the whole 5-minute segment at every site that has segment 7. Every other L3 result used the first 120 s only."
+      }
+    },
+    {
+      "id": "analyze_l3_long_baseline",
+      "type": "analyze_post_settle",
+      "status": "pending",
+      "depends_on": [
+        "l3_long_baseline_o0",
+        "l3_long_baseline_o1",
+        "l3_long_baseline_o2",
+        "l3_long_baseline_o3",
+        "l3_long_baseline_o4",
+        "l3_long_baseline_o5",
+        "l3_long_baseline_o6",
+        "l3_long_baseline_o7"
+      ],
+      "params": {
+        "_comment": "Does the default config settle and stay settled across every one of the 110 five-minute segments?",
+        "results": "data/experiments/try/l3-long-window/results.csv",
+        "out": "data/experiments/try/l3-long-window/post-settle-baseline.json"
+      }
+    },
+    {
+      "id": "lf_lombard_laguna_o0",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. Lombard-Laguna has 8 segments (40 min continuous).",
+        "pcap_file": "s2/s2_sf_2_20260902105830_00019.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-lombard-laguna-o0"
+      }
+    },
+    {
+      "id": "l3_long_guardrails_o0",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [
+        "l3_long_baseline_o0"
+      ],
+      "params": {
+        "sweep": {
+          "neighbour_confirmation_count": [
+            1
+          ],
+          "noise_relative": [
+            0.035,
+            0.05
+          ],
+          "background_update_fraction": [
+            0.05,
+            0.1
+          ]
+        },
+        "capture_ordinal": 0,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "The guardrail values over full 300 s segments. 120 s windows cannot show whether a setting settles and then falls out again (post-settle analysis found background_update_fraction>=0.1 does exactly that)."
+      }
+    },
+    {
+      "id": "lf_columbus_broadway_o4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each.",
+        "pcap_file": "s2/s2_sf_3_20260902134038_00006.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o4"
+      }
+    },
+    {
+      "id": "l3_holdout_o3_sensitive",
+      "type": "l3_replicate_planned",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sensitivity_file": "sensitivity-analysis-v3b.json",
+        "keys": [
+          "neighbour_confirmation_count",
+          "noise_relative",
+          "background_update_fraction",
+          "seed_from_first"
+        ],
+        "ordinal": 3,
+        "skip_baseline": false,
+        "duration_seconds": 120,
+        "_comment": "Held-out window: segment 3 was never used to derive a verdict. Prediction fixed before it runs: the same four keys are sensitive (nbr=1, noise>=0.05, bg>=0.05, seed_from_first=false lost) and nothing else flips."
+      }
+    },
+    {
+      "id": "analyze_l3_holdout_o3",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": [
+        "l3_holdout_o3_sensitive"
+      ],
+      "params": {
+        "out_name": "replicate-consistency-holdout-o3.json"
+      }
+    },
+    {
+      "id": "l3_long_guardrails_o3",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [
+        "l3_long_baseline_o3"
+      ],
+      "params": {
+        "sweep": {
+          "neighbour_confirmation_count": [
+            1
+          ],
+          "noise_relative": [
+            0.035,
+            0.05
+          ],
+          "background_update_fraction": [
+            0.05,
+            0.1
+          ]
+        },
+        "capture_ordinal": 3,
+        "duration_seconds": 300,
+        "skip_baseline": false,
+        "out_dir": "data/experiments/try/l3-long-window",
+        "_comment": "The guardrail values over full 300 s segments. 120 s windows cannot show whether a setting settles and then falls out again (post-settle analysis found background_update_fraction>=0.1 does exactly that)."
+      }
+    },
+    {
+      "id": "analyze_l3_long_guardrails",
+      "type": "analyze_post_settle",
+      "status": "pending",
+      "depends_on": [
+        "l3_long_guardrails_o0",
+        "l3_long_guardrails_o3"
+      ],
+      "params": {
+        "results": "data/experiments/try/l3-long-window/results.csv",
+        "out": "data/experiments/try/l3-long-window/post-settle-guardrails.json"
+      }
+    },
+    {
+      "id": "lf_lombard_laguna_o3",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each.",
+        "pcap_file": "s2/s2_sf_2_20260902111331_00022.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-lombard-laguna-o3"
+      }
+    },
+    {
+      "id": "lf_columbus_broadway_o2",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each.",
+        "pcap_file": "s2/s2_sf_3_20260902133037_00004.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o2"
+      }
+    },
+    {
+      "id": "lf_haight_divisadero_o1",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. A different site, for geometry rather than time.",
+        "pcap_file": "s2/s2-1_20260901130345_00004.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-haight-divisadero-o1"
+      }
+    },
+    {
+      "id": "lf_embarcadero_bryant_o1",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. A different site, for geometry rather than time.",
+        "pcap_file": "s2/s2_sf_8_20260903144538_00012.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-embarcadero-bryant-o1"
+      }
+    },
+    {
+      "id": "lf_fulton_divisadero_o1",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. A different site, for geometry rather than time.",
+        "pcap_file": "s2/s2-1_20260901140350_00016.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-fulton-divisadero-o1"
+      }
+    },
+    {
+      "id": "lf_1st_mission_o1",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each. A different site, for geometry rather than time.",
+        "pcap_file": "s2/s2_sf_8_20260903141536_00006.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-1st-mission-o1"
+      }
+    },
+    {
+      "id": "analyze_label_free_l4l5_interim",
+      "type": "analyze_label_free_oat",
+      "status": "pending",
+      "depends_on": [
+        "lf_columbus_broadway_o0",
+        "lf_lombard_laguna_o0",
+        "lf_columbus_broadway_o4",
+        "lf_lombard_laguna_o3",
+        "lf_columbus_broadway_o2",
+        "lf_haight_divisadero_o1",
+        "lf_embarcadero_bryant_o1",
+        "lf_fulton_divisadero_o1",
+        "lf_1st_mission_o1"
+      ],
+      "params": {
+        "source_stages": [
+          "lf_columbus_broadway_o0",
+          "lf_lombard_laguna_o0",
+          "lf_columbus_broadway_o4",
+          "lf_lombard_laguna_o3",
+          "lf_columbus_broadway_o2",
+          "lf_haight_divisadero_o1",
+          "lf_embarcadero_bryant_o1",
+          "lf_fulton_divisadero_o1",
+          "lf_1st_mission_o1"
+        ],
+        "gt_analyses": [
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis.json",
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis-l3keys.json",
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis-l3sens.json"
+        ],
+        "out": "data/experiments/try/l5-gt-sweep/label-free-analysis-interim.json",
+        "_comment": "Interim, so a budget cut still leaves an analysis of what ran."
+      }
+    },
+    {
+      "id": "gt_oat_dose_kirk0_dd98",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            2,
+            3,
+            10
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            5,
+            7
+          ]
+        },
+        "_comment": "Dose-response between the extremes already tested. reacquisition_boost_multiplier (default 5) moved matched by +1/-3 (kirk0) and +4/-2 (kirk1) at values 1/20, mostly below threshold but the same sign on both captures; hits_to_confirm=6 was kirk0's only near-improvement.",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-dose-kirk0-dd98"
+      }
+    },
+    {
+      "id": "gt_oat_dose_kirk1_60a4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_dose_kirk0_dd98"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            2,
+            3,
+            10
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            5,
+            7
+          ]
+        },
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-dose-kirk1-60a4"
+      }
+    },
+    {
+      "id": "analyze_gt_oat_dose",
+      "type": "analyze_gt_oat",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_dose_kirk1_60a4"
+      ],
+      "params": {
+        "source_stages": [
+          "gt_oat_dose_kirk0_dd98",
+          "gt_oat_dose_kirk1_60a4"
+        ],
+        "out_name": "gt-oat-analysis-dose.json"
+      }
+    },
+    {
+      "id": "lf_columbus_broadway_o6",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each.",
+        "pcap_file": "s2/s2_sf_3_20260902135038_00008.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o6"
+      }
+    },
+    {
+      "id": "lf_lombard_laguna_o6",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "label_free": true,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            1.4
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            12
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            6
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5
+          ],
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.background_update_fraction": [
+            0.05,
+            0.1
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.05
+          ],
+          "l3.ema_baseline_v1.neighbour_confirmation_count": [
+            1
+          ]
+        },
+        "_comment": "No labelled reference exists for this capture, so this records how far each setting moves the track count (never whether it is right). Full 300 s segment; 13 settings + warmup + 3 baselines, ~45 s each.",
+        "pcap_file": "s2/s2_sf_2_20260902112832_00025.pcap",
+        "duration_seconds": 300,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-lombard-laguna-o6"
+      }
+    },
+    {
+      "id": "l3_holdout_o2_sensitive",
+      "type": "l3_replicate_planned",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sensitivity_file": "sensitivity-analysis-v3b.json",
+        "keys": [
+          "neighbour_confirmation_count",
+          "noise_relative",
+          "background_update_fraction",
+          "seed_from_first"
+        ],
+        "ordinal": 2,
+        "skip_baseline": false,
+        "duration_seconds": 120,
+        "_comment": "Held-out window: segment 2 was never used to derive a verdict. Prediction fixed before it runs: the same four keys are sensitive (nbr=1, noise>=0.05, bg>=0.05, seed_from_first=false lost) and nothing else flips."
+      }
+    },
+    {
+      "id": "analyze_l3_holdout_o2",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": [
+        "l3_holdout_o2_sensitive"
+      ],
+      "params": {
+        "out_name": "replicate-consistency-holdout-o2.json"
+      }
+    },
+    {
+      "id": "analyze_label_free_l4l5",
+      "type": "analyze_label_free_oat",
+      "status": "pending",
+      "depends_on": [
+        "lf_columbus_broadway_o0",
+        "lf_lombard_laguna_o0",
+        "lf_columbus_broadway_o4",
+        "lf_lombard_laguna_o3",
+        "lf_columbus_broadway_o2",
+        "lf_haight_divisadero_o1",
+        "lf_embarcadero_bryant_o1",
+        "lf_fulton_divisadero_o1",
+        "lf_1st_mission_o1",
+        "lf_columbus_broadway_o6",
+        "lf_lombard_laguna_o6"
+      ],
+      "params": {
+        "source_stages": [
+          "lf_columbus_broadway_o0",
+          "lf_lombard_laguna_o0",
+          "lf_columbus_broadway_o4",
+          "lf_lombard_laguna_o3",
+          "lf_columbus_broadway_o2",
+          "lf_haight_divisadero_o1",
+          "lf_embarcadero_bryant_o1",
+          "lf_fulton_divisadero_o1",
+          "lf_1st_mission_o1",
+          "lf_columbus_broadway_o6",
+          "lf_lombard_laguna_o6"
+        ],
+        "gt_analyses": [
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis.json",
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis-l3keys.json",
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis-l3sens.json",
+          "data/experiments/try/l5-gt-sweep/gt-oat-analysis-dose.json"
+        ],
+        "out": "data/experiments/try/l5-gt-sweep/label-free-analysis.json"
+      }
+    },
+    {
+      "id": "finalize_v5",
+      "type": "finalize",
+      "status": "pending",
+      "depends_on": [
+        "analyze_label_free_l4l5",
+        "analyze_l3_long_guardrails",
+        "analyze_l3_long_baseline",
+        "analyze_l3_holdout_o2",
+        "analyze_gt_oat_l3sens",
+        "analyze_gt_oat_dose",
+        "analyze_post_settle_ord01"
+      ],
+      "params": {}
     }
-  ]
+  ],
+  "min_free_gb": 3
 }

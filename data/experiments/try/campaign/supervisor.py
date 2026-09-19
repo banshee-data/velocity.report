@@ -30,6 +30,7 @@ the wall-clock budget in manifest.json is spent.
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -516,9 +517,33 @@ def values_short_of_sites(csv_path, sweep, ordinal, n_sites):
     ]
 
 
-def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
+def baseline_rows_found(csv_path, ordinal):
+    """How many `_baseline=default` rows results.csv holds at this ordinal. A
+    sweep with skip_baseline=False is expected to leave one per site; the
+    sweep's own value check cannot see a missing baseline."""
+    import csv as csv_mod
+
+    if not csv_path.exists():
+        return 0
+    with csv_path.open() as f:
+        return sum(
+            1
+            for row in csv_mod.DictReader(f)
+            if row["param_key"] == "_baseline"
+            and row.get("capture_ordinal", "0") == str(ordinal)
+            and not row.get("error")
+        )
+
+
+def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True, out_dir=None):
     """Shared by every stage that drives run_sweep.py from an inline sweep
-    spec. Returns (status, info)."""
+    spec. Returns (status, info). out_dir (relative to the repo root) sends
+    results.csv and raw/ somewhere other than l3-settling-sweep/, used when
+    the window length differs from the 120 s every existing row was run at:
+    load_done() keys rows by (site, key, value, ordinal) only, so a different
+    duration written into the same CSV would be silently skipped or mixed."""
+    results_dir = REPO_ROOT / out_dir if out_dir else L3_DIR
+    results_csv = results_dir / "results.csv"
     if another_sweep_already_running():
         return "pending", {
             "note": "another L3 driver is active; waiting rather than starting a second one"
@@ -535,14 +560,14 @@ def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
         "--duration-seconds",
         duration,
     ]
+    if out_dir:
+        args += ["--out-dir", results_dir]
     if skip_baseline:
         args.append("--skip-baseline")
     code, stdout, stderr = run_py(L3_DIR / "run_sweep.py", args, timeout=6 * 3600)
     if code != 0:
         return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
-    broken, never_ran, total = values_all_errored(
-        L3_DIR / "results.csv", sweep, ordinal
-    )
+    broken, never_ran, total = values_all_errored(results_csv, sweep, ordinal)
     info = {
         "n_values": total,
         "stdout_tail": stdout.strip().splitlines()[-3:],
@@ -559,7 +584,17 @@ def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
     from run_sweep import load_sites
 
     n_sites = len(load_sites(ordinal))
-    short = values_short_of_sites(L3_DIR / "results.csv", sweep, ordinal, n_sites)
+    if not skip_baseline:
+        n_base = baseline_rows_found(results_csv, ordinal)
+        if n_base < n_sites:
+            info["warning"] = (
+                f"only {n_base} of {n_sites} sites have a _baseline row at ordinal "
+                f"{ordinal} in {results_csv.name}; every comparison against the "
+                "baseline would silently use a subset of sites"
+            )
+            info["baseline_rows"] = n_base
+            return "failed", info
+    short = values_short_of_sites(results_csv, sweep, ordinal, n_sites)
     if short:
         info["warning"] = (
             f"{len(short)} of {total} values have fewer than {n_sites} rows in "
@@ -582,6 +617,7 @@ def handle_l3_sweep_json(stage, manifest):
         p.get("capture_ordinal", 0),
         p.get("duration_seconds", 120),
         p.get("skip_baseline", True),
+        p.get("out_dir"),
     )
 
 
@@ -604,7 +640,12 @@ def handle_l3_replicate_planned(stage, manifest):
     if not sweep:
         return "done_no_op", {"reason": "every key was inert", "plan": stdout.strip()}
     status, info = run_l3_sweep(
-        sweep, spec_path, 1, p.get("duration_seconds", 120), skip_baseline=True
+        sweep,
+        spec_path,
+        p.get("ordinal", 1),
+        p.get("duration_seconds", 120),
+        skip_baseline=p.get("skip_baseline", True),
+        out_dir=p.get("out_dir"),
     )
     info["plan"] = stdout.strip()
     return status, info
@@ -655,17 +696,25 @@ def handle_analyze_l3_repeat_check(stage, manifest):
 def handle_gt_oat_sweep(stage, manifest):
     p = stage["params"]
     out_dir = REPO_ROOT / p["out_dir"]
-    code, stdout, stderr = run_py(
-        L5_DIR / "run_gt_oat_sweep.py",
-        [
-            "--velocity-bin",
-            BIN_DIR / "velocity-isolated",
+    if p.get("label_free"):
+        # No labelled reference exists for this capture: record what the run
+        # produced, never a score (run_gt_oat_sweep.py --label-free).
+        scoring = ["--label-free"]
+    else:
+        scoring = [
             "--gt-eval-bin",
             BIN_DIR / "lidar-ground-truth-eval",
             "--reference-db",
             REPO_ROOT / p["reference_db"],
             "--reference-run-id",
             p["reference_run_id"],
+        ]
+    code, stdout, stderr = run_py(
+        L5_DIR / "run_gt_oat_sweep.py",
+        scoring
+        + [
+            "--velocity-bin",
+            BIN_DIR / "velocity-isolated",
             "--pcap-file",
             p["pcap_file"],
             "--pcap-root",
@@ -734,6 +783,39 @@ def handle_analyze_gt_oat(stage, manifest):
     }
 
 
+def handle_analyze_post_settle(stage, manifest):
+    p = stage["params"]
+    results = REPO_ROOT / p["results"]
+    if not results.exists():
+        return "blocked", {"reason": f"{p['results']} missing"}
+    out = REPO_ROOT / p["out"]
+    code, stdout, stderr = run_py(
+        L3_DIR / "analyze_post_settle.py", ["--results", results, "--out", out]
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
+def handle_analyze_label_free_oat(stage, manifest):
+    p = stage["params"]
+    by_id = {s["id"]: s for s in manifest["stages"]}
+    out = REPO_ROOT / p["out"]
+    args = ["--out", out]
+    for gt_path in p.get("gt_analyses", []):
+        args += ["--gt-analysis", REPO_ROOT / gt_path]
+    for dep_id in p["source_stages"]:
+        out_dir = (by_id[dep_id].get("result") or {}).get("out_dir")
+        if out_dir and (Path(out_dir) / "results.csv").exists():
+            args += ["--results", Path(out_dir) / "results.csv"]
+    if "--results" not in args:
+        return "blocked", {"reason": "no source stage produced results"}
+    code, stdout, stderr = run_py(L5_DIR / "analyze_label_free_oat.py", args)
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
 def handle_recover_raw_rows(stage, manifest):
     """Rebuild results.csv rows whose raw reports survived (see
     recover_rows_from_raw.py). Idempotent: a second run recovers nothing."""
@@ -795,6 +877,8 @@ HANDLERS = {
     "analyze_l3_repeat_check": handle_analyze_l3_repeat_check,
     "gt_oat_sweep": handle_gt_oat_sweep,
     "recover_raw_rows": handle_recover_raw_rows,
+    "analyze_post_settle": handle_analyze_post_settle,
+    "analyze_label_free_oat": handle_analyze_label_free_oat,
     "analyze_gt_oat": handle_analyze_gt_oat,
     "finalize": handle_finalize,
 }
@@ -905,8 +989,20 @@ def main():
 
             handler = HANDLERS[stage["type"]]
             log(f"running stage {stage['id']} ({stage['type']})")
+            free_gb = shutil.disk_usage(REPO_ROOT).free / 2**30
+            min_free_gb = manifest.get("min_free_gb", 3)
             try:
-                new_status, info = handler(stage, manifest)
+                if free_gb < min_free_gb:
+                    # Every stage writes something (raw reports, isolated DBs,
+                    # CSV rows); on a volume this full a half-written result is
+                    # worse than none, so nothing is started. Blocked, not
+                    # failed: it needs a person to free space.
+                    new_status, info = "blocked", {
+                        "reason": f"{free_gb:.1f} GiB free on the data volume, below "
+                        f"min_free_gb={min_free_gb}; stage not started"
+                    }
+                else:
+                    new_status, info = handler(stage, manifest)
             except Exception as e:
                 new_status, info = "failed", {"exception": repr(e)}
 

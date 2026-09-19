@@ -33,16 +33,30 @@ Reuses run_l5_gt_sweep.py's server/HTTP helpers. Same isolation guarantees:
 its own throwaway server, its own db, exits 3 (blocked, not failed) if the UDP
 port is taken.
 
+--label-free runs the identical plan (warmup, start/middle/end baselines,
+every key at its default plus one override) on a capture that has no labelled
+reference run, and records what the candidate run produced instead of scoring
+it: candidate_count (every row of lidar_run_tracks, the same quantity
+EvaluateGroundTruth calls candidate_count), confirmed_count, short_track_count
+(tracks under 1 s) and median_track_seconds. It says how far a setting moves the
+output, never whether the movement is right; analyze_label_free_oat.py labels
+its results that way. Use it only to check whether a direction seen on a
+labelled capture also appears on a longer, unlabelled stretch.
+
 Usage:
     python3 run_gt_oat_sweep.py --velocity-bin ... --gt-eval-bin ... \
         --reference-db sensor_data.db --reference-run-id <id> \
         --pcap-file kirk0.pcapng --duration-seconds 95 \
         --sweep-json '{"l5.cv_kf_v1.hits_to_confirm": [1, 2, 6, 8]}' --out-dir <dir>
+    python3 run_gt_oat_sweep.py --velocity-bin ... --gt-eval-bin ... --label-free \
+        --pcap-file s2/<segment>.pcap --duration-seconds 300 --sweep-json ... --out-dir <dir>
 """
 
 import argparse
 import csv
 import json
+import sqlite3
+import statistics
 import subprocess
 import sys
 import time
@@ -81,6 +95,66 @@ CSV_FIELDS = [
     "wall_duration_seconds",
     "error",
 ]
+# Appended only in --label-free mode, after CSV_FIELDS, so an existing scored
+# results.csv keeps its header.
+LABEL_FREE_EXTRA = ["confirmed_count", "short_track_count", "median_track_seconds"]
+
+
+def candidate_stats(db_path, run_id):
+    """What a run produced, without a reference. candidate_count matches the
+    scored mode: every lidar_run_tracks row of the run."""
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = con.execute(
+            "SELECT track_state, start_unix_nanos, end_unix_nanos "
+            "FROM lidar_run_tracks WHERE run_id = ?",
+            (run_id,),
+        ).fetchall()
+    finally:
+        con.close()
+    secs = [(e - s) / 1e9 for _, s, e in rows if e is not None]
+    return {
+        "candidate_count": len(rows),
+        "confirmed_count": sum(1 for st, _, _ in rows if st == "confirmed"),
+        "short_track_count": sum(1 for x in secs if x < 1.0),
+        "median_track_seconds": round(statistics.median(secs), 3) if secs else "",
+    }
+
+
+def score_against_reference(args, server_db, candidate_run_id):
+    proc = subprocess.run(
+        [
+            args.gt_eval_bin,
+            "-reference-db",
+            args.reference_db,
+            "-reference-run-id",
+            args.reference_run_id,
+            "-candidate-db",
+            str(server_db),
+            "-candidate-run-id",
+            candidate_run_id,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"lidar-ground-truth-eval exit {proc.returncode}: {proc.stderr.strip()}"
+        )
+    score = json.loads(proc.stdout)
+    return {
+        k: score[k]
+        for k in (
+            "detection_rate",
+            "fragmentation",
+            "false_positive_rate",
+            "composite_score",
+            "matched_count",
+            "reference_count",
+            "candidate_count",
+        )
+    }
 
 
 def get_path(obj, dotted):
@@ -131,9 +205,15 @@ def load_done(csv_path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--velocity-bin", required=True)
-    ap.add_argument("--gt-eval-bin", required=True)
-    ap.add_argument("--reference-db", required=True)
-    ap.add_argument("--reference-run-id", required=True)
+    ap.add_argument("--gt-eval-bin", default="")
+    ap.add_argument("--reference-db", default="")
+    ap.add_argument("--reference-run-id", default="")
+    ap.add_argument(
+        "--label-free",
+        action="store_true",
+        help="no labelled reference: record the candidate's track statistics "
+        "instead of scoring it (see the module docstring)",
+    )
     ap.add_argument("--pcap-file", required=True)
     ap.add_argument("--pcap-root", default="/Volumes/lidar/lidar")
     ap.add_argument("--udp-port", type=int, default=2369)
@@ -144,6 +224,12 @@ def main():
     ap.add_argument("--sweep-json", required=True)
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args()
+
+    if args.label_free == bool(args.reference_run_id):
+        ap.error("pass either --label-free or --reference-run-id/--reference-db")
+    if args.reference_run_id and not args.reference_db:
+        ap.error("--reference-run-id needs --reference-db")
+    fields = CSV_FIELDS + (LABEL_FREE_EXTRA if args.label_free else [])
 
     sweep = json.loads(args.sweep_json)
     out_dir = Path(args.out_dir)
@@ -205,14 +291,14 @@ def main():
         plan = build_plan(sweep)
         print(f"{len(plan)} planned runs; {len(done)} already done", file=sys.stderr)
 
-        with RowAppender(csv_path, CSV_FIELDS) as writer:
+        with RowAppender(csv_path, fields) as writer:
             writer.writeheader()
 
             for path, value, repeat in plan:
                 if (path, str(value), str(repeat)) in done:
                     continue
                 t0 = time.time()
-                row = {k: "" for k in CSV_FIELDS}
+                row = {k: "" for k in fields}
                 row.update(
                     {
                         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -254,37 +340,11 @@ def main():
                             "params changed during replay: " + "; ".join(bad)
                         )
 
-                    score_proc = subprocess.run(
-                        [
-                            args.gt_eval_bin,
-                            "-reference-db",
-                            args.reference_db,
-                            "-reference-run-id",
-                            args.reference_run_id,
-                            "-candidate-db",
-                            str(server_db),
-                            "-candidate-run-id",
-                            candidate_run_id,
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=60,
+                    row.update(
+                        candidate_stats(server_db, candidate_run_id)
+                        if args.label_free
+                        else score_against_reference(args, server_db, candidate_run_id)
                     )
-                    if score_proc.returncode != 0:
-                        raise RuntimeError(
-                            f"lidar-ground-truth-eval exit {score_proc.returncode}: {score_proc.stderr.strip()}"
-                        )
-                    score = json.loads(score_proc.stdout)
-                    for k in (
-                        "detection_rate",
-                        "fragmentation",
-                        "false_positive_rate",
-                        "composite_score",
-                        "matched_count",
-                        "reference_count",
-                        "candidate_count",
-                    ):
-                        row[k] = score[k]
                 except Exception as e:
                     row["error"] = str(e)
 
@@ -295,7 +355,11 @@ def main():
                     + (
                         f"error={row['error']}"
                         if row["error"]
-                        else f"matched={row['matched_count']}/{row['reference_count']} cand={row['candidate_count']}"
+                        else (
+                            f"cand={row['candidate_count']} confirmed={row['confirmed_count']} short={row['short_track_count']}"
+                            if args.label_free
+                            else f"matched={row['matched_count']}/{row['reference_count']} cand={row['candidate_count']}"
+                        )
                     ),
                     file=sys.stderr,
                     flush=True,
