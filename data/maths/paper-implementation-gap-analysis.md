@@ -1,18 +1,73 @@
 # Paper-vs-Implementation gap analysis
 
-- **Scope:** All 24 downloaded papers cross-referenced against production code (L3–L8)
+- **Scope:** Papers in [references.bib](references.bib) cross-referenced against production code (L3–L8). See [Source inventory](#source-inventory) for which papers were actually in hand for each section.
 - **Method:** Trace each algorithm from the paper through the Go implementation. Note where the code deviates from the paper's intent, where edge cases go unhandled, and where the behaviour is plausible but untested.
+- **Last revised:** 2026-09-19, against the paper texts themselves, the current code, and the results of the [2026-09 parameter experiment campaign](../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md). See [Revision 2026-09-19](#revision-2026-09-19).
 
 ---
 
 ## Summary of findings
 
-| Severity                  | Count | Description                                                                          |
-| ------------------------- | ----- | ------------------------------------------------------------------------------------ |
-| **Mathematical gap**      | 7     | Implementation deviates from the paper's mathematical formulation                    |
-| **Missing edge case**     | 9     | The paper describes a condition the implementation does not handle                   |
-| **Missing test**          | 11    | The behaviour is implemented, but the paper-specified edge case has no test coverage |
-| **Future work (blocked)** | 8     | Requires papers that are currently behind paywalls                                   |
+Open rows only; rows closed by a measured outcome are counted separately.
+
+| Severity                  | Open | Description                                                                          |
+| ------------------------- | ---- | ------------------------------------------------------------------------------------ |
+| **Mathematical gap**      | 12   | Implementation deviates from the paper's mathematical formulation                    |
+| **Missing edge case**     | 5    | The paper describes a condition the implementation does not handle                   |
+| **Missing test**          | 9    | The behaviour is implemented, but the paper-specified edge case has no test coverage |
+| **Future work (blocked)** | 6    | Requires papers that are still not in hand                                           |
+| Closed                    | 9    | K1, K2, K6, P1, P2, HW1, C1, M3, B6 — see each section's measured outcome            |
+
+The three rows that matter most, in order, and why:
+
+1. **S3** — association cost is bare Mahalanobis distance while coasting tracks have their covariance deliberately inflated, so a coasting track outbids a freshly updated one for the same cluster. DeepSORT names this exact failure and it applies here with more force than in the paper. Moving tracks coast on 34–57% of their frames in the measured corpus, so this is the common case rather than the edge case.
+2. **M5** — the ground-truth evaluator matches whole tracks on temporal overlap alone. It cannot see state-estimate quality at all, and it scores a fragmented track as an undetected one. Every ground-truth result in the campaign is read through it.
+3. **B7 / HW1** — the L3 acceptance window is 86–98% model-imposed rather than learned, which is precisely what Stauffer & Grimson's per-distribution threshold exists to avoid. The campaign shows narrowing it has no settling cost.
+
+---
+
+## Revision 2026-09-19
+
+This pass re-read the doc against three things it had not been checked against before: the paper texts, the code as it stands now, and the first campaign results. It changed more than expected, in three ways.
+
+**Several "paper intent" statements did not survive contact with the papers.** Only 19 entries of [references.bib](references.bib) had ever been downloaded (plus MOT16 under a mined filename), not the 24 the header claimed, and the ones this doc leaned on hardest — Ester (1996), Kalman (1960), AB3DMOT — were not among them. Five were obtained for this pass. The corrections:
+
+| Section | What the doc said                                                                                               | What the paper says                                                                                                                                                                                                                                  |
+| ------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §2      | AB3DMOT is "SORT extended to 3D with Mahalanobis gating and a 7-state model"                                    | 11-dimensional state $(x, y, z, \theta, l, w, h, s, v_x, v_y, v_z)$; association by 3D IoU (or centre distance) with a minimum-IoU rejection. No Mahalanobis distance anywhere. It also has an orientation-correction rule this doc never mentioned. |
+| §2      | K1's $Q$ is the "continuous white-noise jerk model"                                                             | It is the white-noise **acceleration** model. Jerk noise belongs to the three-state CA model. Neither is in Kalman (1960).                                                                                                                           |
+| §2      | Kalman (1960) is needed "to verify our notation and noise model assumptions"                                    | The paper has no separate measurement-noise term at all: $y(t) = M x(t)$, with noise carried as state. $R$, the discretised $Q$, and the Joseph form are textbook developments. K6 closes; K1 was never blocked on it.                               |
+| §6      | "SORT processes confirmed tracks first"                                                                         | SORT solves one global assignment over all targets. The cascade is DeepSORT's, and it orders by **time since last update**, not by confirmed-versus-tentative.                                                                                       |
+| §8      | Patchwork++ uses "curvature-based region growing" and "curvature discontinuity" to separate kerbs from objects  | Neither appears in the paper. Concentric zones and per-zone plane fits are Patchwork (2021). Patchwork++ adds reflected-noise removal, vertical-plane rejection, adaptive thresholds, and temporal revert.                                           |
+| §10     | Schöller shows CV "degrades beyond ~5 second prediction horizon" and "recommends tuning the observation window" | The paper evaluates exactly one horizon (4.8 s), on pedestrians only, with no Kalman filter and no process noise. Its finding on history is the opposite: only the most recent step is predictive.                                                   |
+
+**Several rows had been overtaken by the code.** K4/S1 (size-aware association) and G1 (slope-aware ground removal) are both partly implemented. M3's tests exist. D2's semantics are confirmed by reading. B6 was never blocked: the implementation does not use Welford's algorithm at all, and a sentence in this doc's own HW1 section said it did.
+
+**The campaign produced evidence that bears on nine rows**, mapped in [Campaign evidence map](#campaign-evidence-map-2026-09). It also produced two conclusions this review disagrees with, both on mathematical grounds: that `closeness_multiplier` is insensitive while `noise_relative` is sensitive (they are one knob, tested over different spans — see B7), and that no metric can see the L5 noise parameters (NIS can, needs no labels, and is already instrumented — see K9).
+
+New rows: D6, K9, K10, B7, M5. Reclassified: S3 (edge case → mathematical gap, raised to High). Errata this pass found in sibling documents, which it did not edit, are listed in [Errata in sibling documents](#errata-in-sibling-documents).
+
+### Source inventory
+
+"In hand" means the text was read for this revision. Cached copies live outside the repository in citation-needed's corpus cache (`eval/corpus/cache/{pdf,markdown}`); copies obtained for this pass are in [data/maths/papers/](papers/), which is gitignored.
+
+| Paper                                                                           | Key                                                       | In hand      | Source                                                                                                                                                    |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SORT, DeepSORT                                                                  | `Bewley2016`, `Wojke2017DeepSORT`                         | Yes          | Corpus cache                                                                                                                                              |
+| HOTA, MOT16                                                                     | `Luiten2021HOTA`, `Milan2016MOTBenchmark`                 | Yes          | Corpus cache (MOT16 as `MOT16Benchmark2016`)                                                                                                              |
+| Schöller, Patchwork++                                                           | `Scholler2020`, `Lim2022Patchwork`                        | Yes          | Corpus cache                                                                                                                                              |
+| nuScenes, SemanticKITTI, Waymo, Panoptic nuScenes                               | `Caesar2020`, `Behley2019`, `Sun2020Waymo`, `Fong2021…`   | Yes          | Corpus cache                                                                                                                                              |
+| DBSCAN                                                                          | `Ester1996`                                               | Yes, **new** | AAAI proceedings archive                                                                                                                                  |
+| Kalman filter                                                                   | `Kalman1960`                                              | Yes, **new** | Carnegie Mellon course archive                                                                                                                            |
+| AB3DMOT                                                                         | `Weng2020`                                                | Yes, **new** | arXiv 1907.03961                                                                                                                                          |
+| Adaptive background mixture models                                              | `Stauffer1999`                                            | Yes, **new** | MIT AI Lab publications                                                                                                                                   |
+| Patchwork                                                                       | `Lim2021`                                                 | Yes, **new** | arXiv 2108.05560                                                                                                                                          |
+| CLEAR MOT                                                                       | `Bernardin2008`                                           | No           | Open access, but the publisher's consent wall defeated a scripted fetch. MOT16 §4.1 and HOTA restate the definitions in full, so M1 is not blocked on it. |
+| DBSCAN revisited                                                                | `Schubert2017DBSCANR`                                     | No           | Author copy did not resolve                                                                                                                               |
+| Welford, Kuhn, Munkres, Blom, Julier, Campello, Jolliffe, Mahalanobis, Fischler | —                                                         | No           | Paywalled or print-only                                                                                                                                   |
+| PointPillars, PointNet++, CenterPoint, Liu HD map                               | `Lang2019`, `Qi2017PointNetPP`, `Yin2021`, `Liu2020HDMap` | No           | No DOI in the bib entry, so citation-needed never attempted them; all on arXiv                                                                            |
+
+One finding about the tooling rather than the maths: citation-needed skips any bib entry without a `doi` field before it creates a database row, so `Ester1996`, `Weng2020`, `Lang2019`, `Yin2021` and four others were never attempted despite being freely available. Adding `eprint`/`url` handling there would recover most of the remaining open-access gaps in one run.
 
 ---
 
@@ -22,9 +77,15 @@
 
 DBSCAN defines three point categories: **core**, **border**, and **noise**. Border points are reachable from a core point but are not themselves core. The original paper assigns border points to the cluster of the _first_ core point that reaches them during expansion; a deliberate choice that makes the result order-dependent when a border point sits between two clusters.
 
+Verified against the paper (now in hand), with three points the earlier pass did not have:
+
+- **The neighbourhood includes the point itself.** Definition 1 is $N_{Eps}(p) = \{q \in D \mid dist(p, q) \le Eps\}$, and $p$ satisfies it. A core point therefore needs `MinPts` points _including itself_.
+- **The parameters are global by construction**, and the paper says so when explaining why a shared point must be a border point in both clusters: "since we use global parameters". Variable density is outside the algorithm's design, not an oversight in ours.
+- **The paper supplies its own parameter heuristic** (§4.2): fix `MinPts` = 4 for two-dimensional data, plot every point's distance to its 4th-nearest neighbour in descending order, and take `Eps` at the first "valley". It is interactive and label-free.
+
 ### Implementation status
 
-`l4perception/dbscan_clusterer.go` uses 2D Euclidean distance in XY, grid-accelerated neighbourhood queries, and deterministic output sorting. See [clustering-maths.md](clustering-maths.md) for the mathematical specification.
+`l4perception/cluster.go` (`DBSCAN`, wrapped by `dbscan_clusterer.go`) uses 2D Euclidean distance in XY, grid-accelerated neighbourhood queries, and deterministic output sorting. When a frame exceeds `foreground_max_input_points` (shipped: 8000) it is uniformly subsampled first, with a seed hashed from the points so replay is reproducible. See [clustering-maths.md](clustering-maths.md) for the mathematical specification.
 
 ### Gaps
 
