@@ -38,7 +38,8 @@ every key at its default plus one override) on a capture that has no labelled
 reference run, and records what the candidate run produced instead of scoring
 it: candidate_count (every row of lidar_run_tracks, the same quantity
 EvaluateGroundTruth calls candidate_count), confirmed_count, short_track_count
-(tracks under 1 s) and median_track_seconds. It says how far a setting moves the
+(tracks under 1 s) and median_track_seconds. Scored mode records the same
+track statistics beside the score. It says how far a setting moves the
 output, never whether the movement is right; analyze_label_free_oat.py labels
 its results that way. Use it only to check whether a direction seen on a
 labelled capture also appears on a longer, unlabelled stretch.
@@ -94,10 +95,17 @@ CSV_FIELDS = [
     "candidate_count",
     "wall_duration_seconds",
     "error",
+    # Track statistics of the candidate run, recorded in both modes since
+    # 2026-09-19 so a recall gain can be told from fragmentation: a setting
+    # that doubles matched_count while halving median_track_seconds has not
+    # recovered vehicles, it has cut them into pieces. mean_matched_iou is the
+    # mean temporal IoU of the matched pairs (scored mode only): matches that
+    # barely clear the 0.3 threshold are weaker evidence than ones near 1.
+    "confirmed_count",
+    "short_track_count",
+    "median_track_seconds",
+    "mean_matched_iou",
 ]
-# Appended only in --label-free mode, after CSV_FIELDS, so an existing scored
-# results.csv keeps its header.
-LABEL_FREE_EXTRA = ["confirmed_count", "short_track_count", "median_track_seconds"]
 
 
 def candidate_stats(db_path, run_id):
@@ -143,7 +151,7 @@ def score_against_reference(args, server_db, candidate_run_id):
             f"lidar-ground-truth-eval exit {proc.returncode}: {proc.stderr.strip()}"
         )
     score = json.loads(proc.stdout)
-    return {
+    out = {
         k: score[k]
         for k in (
             "detection_rate",
@@ -155,6 +163,9 @@ def score_against_reference(args, server_db, candidate_run_id):
             "candidate_count",
         )
     }
+    ious = [m["temporal_iou"] for m in score.get("matches") or []]
+    out["mean_matched_iou"] = round(statistics.mean(ious), 4) if ious else ""
+    return out
 
 
 def get_path(obj, dotted):
@@ -229,7 +240,7 @@ def main():
         ap.error("pass either --label-free or --reference-run-id/--reference-db")
     if args.reference_run_id and not args.reference_db:
         ap.error("--reference-run-id needs --reference-db")
-    fields = CSV_FIELDS + (LABEL_FREE_EXTRA if args.label_free else [])
+    fields = CSV_FIELDS
 
     sweep = json.loads(args.sweep_json)
     out_dir = Path(args.out_dir)
@@ -340,11 +351,11 @@ def main():
                             "params changed during replay: " + "; ".join(bad)
                         )
 
-                    row.update(
-                        candidate_stats(server_db, candidate_run_id)
-                        if args.label_free
-                        else score_against_reference(args, server_db, candidate_run_id)
-                    )
+                    row.update(candidate_stats(server_db, candidate_run_id))
+                    if not args.label_free:
+                        row.update(
+                            score_against_reference(args, server_db, candidate_run_id)
+                        )
                 except Exception as e:
                     row["error"] = str(e)
 

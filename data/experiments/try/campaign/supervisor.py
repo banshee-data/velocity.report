@@ -40,6 +40,7 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[3]
 L3_DIR = REPO_ROOT / "data/experiments/try/l3-settling-sweep"
 L5_DIR = REPO_ROOT / "data/experiments/try/l5-gt-sweep"
+NIS_DIR = REPO_ROOT / "data/experiments/try/l5-nis-sweep"
 BIN_DIR = HERE / "bin"
 
 TERMINAL = {
@@ -816,6 +817,85 @@ def handle_analyze_label_free_oat(stage, manifest):
     return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
 
 
+def handle_nis_sweep(stage, manifest):
+    """One corpus case through lidar-state-estimation-baseline per tuning
+    config, scored by per-band NIS (run_nis_sweep.py). Offline: no server, no
+    UDP port, deterministic by construction (the tool refuses to report a run
+    whose repeat is not byte-identical)."""
+    p = stage["params"]
+    out_dir = REPO_ROOT / p["out_dir"]
+    code, stdout, stderr = run_py(
+        NIS_DIR / "run_nis_sweep.py",
+        [
+            "--baseline-bin",
+            BIN_DIR / "lidar-state-estimation-baseline",
+            "--site",
+            p["site"],
+            "--configs-json",
+            json.dumps(p["configs"]),
+            "--out-dir",
+            out_dir,
+            "--duration",
+            p.get("duration", 120),
+            "--warmup",
+            p.get("warmup", 70),
+            "--pcap-root",
+            p.get("pcap_root", "/Volumes/lidar/lidar"),
+        ],
+        timeout=5 * 3600,
+    )
+    if code == 3:
+        blocked = out_dir / "blocked.json"
+        reason = (
+            json.loads(blocked.read_text())["reason"]
+            if blocked.exists()
+            else "unknown (exit 3, no blocked.json)"
+        )
+        return "blocked", {"reason": reason}
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    import csv as csv_mod
+
+    rows = []
+    csv_path = out_dir / "results.csv"
+    if csv_path.exists():
+        with csv_path.open() as f:
+            rows = list(csv_mod.DictReader(f))
+    errored = [r for r in rows if r.get("error")]
+    configs_ok = {r["config"] for r in rows if not r.get("error")}
+    info = {
+        "out_dir": str(out_dir),
+        "n_rows": len(rows),
+        "n_configs_ok": len(configs_ok),
+        "n_errors": len(errored),
+        "stderr_tail": stderr.strip().splitlines()[-4:],
+    }
+    if errored:
+        info["warning"] = (
+            f"{len(errored)} config(s) errored; first: {errored[0]['error'][:300]}"
+        )
+    if not configs_ok:
+        return "failed", info
+    return "done", info
+
+
+def handle_analyze_nis_sweep(stage, manifest):
+    p = stage["params"]
+    by_id = {s["id"]: s for s in manifest["stages"]}
+    out = NIS_DIR / p.get("out_name", "nis-analysis.json")
+    args = ["--out", out]
+    for dep_id in p["source_stages"]:
+        out_dir = (by_id[dep_id].get("result") or {}).get("out_dir")
+        if out_dir and (Path(out_dir) / "results.csv").exists():
+            args += ["--results", Path(out_dir) / "results.csv"]
+    if "--results" not in args:
+        return "blocked", {"reason": "no source stage produced results"}
+    code, stdout, stderr = run_py(NIS_DIR / "analyze_nis_sweep.py", args)
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
 def handle_recover_raw_rows(stage, manifest):
     """Rebuild results.csv rows whose raw reports survived (see
     recover_rows_from_raw.py). Idempotent: a second run recovers nothing."""
@@ -878,6 +958,8 @@ HANDLERS = {
     "gt_oat_sweep": handle_gt_oat_sweep,
     "recover_raw_rows": handle_recover_raw_rows,
     "analyze_post_settle": handle_analyze_post_settle,
+    "nis_sweep": handle_nis_sweep,
+    "analyze_nis_sweep": handle_analyze_nis_sweep,
     "analyze_label_free_oat": handle_analyze_label_free_oat,
     "analyze_gt_oat": handle_analyze_gt_oat,
     "finalize": handle_finalize,
