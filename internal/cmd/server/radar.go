@@ -149,18 +149,31 @@ func installedApplianceLayoutPresent() bool {
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar        = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen        = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
-	lidarUDPPort       = serveFlags.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarUDPRcvBuf     = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
-	lidarNoParse       = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarForward       = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort       = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr       = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarFGForward     = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
-	lidarFGFwdPort     = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
-	lidarFGFwdAddr     = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
-	lidarPCAPDir       = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar    = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen    = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
+	lidarUDPPort   = serveFlags.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarUDPRcvBuf = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
+	lidarNoParse   = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarForward   = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort   = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr   = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	// Write paths are set independently of --lidar-pcap-dir rather than derived
+	// from it.
+	//
+	// Captures are large and usually live on an external volume; recordings and
+	// plots are written continuously while those captures are being read. When
+	// the write path is derived from the capture path, pointing the capture path
+	// at an external disk silently moves the writes there too, and a replay then
+	// contends with itself for one device's bandwidth.
+	//
+	// Both defaults are the path the derived form produced under the default
+	// --lidar-pcap-dir, so a deployment that sets neither flag is unchanged.
+	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
+	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
 	// Repeatable. Capture roots are the volumes the capture index scans; the
 	// web UI selects among them and cannot add one, which is what keeps the
@@ -724,30 +737,23 @@ func Main(args []string) int {
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
 		lidarServer = server.NewServer(server.Config{
-			Address:           *lidarListen,
-			Stats:             packetStats,
-			ForwardingEnabled: *lidarForward && lidarForwardPortCfg > 0,
-			ForwardAddr:       *lidarFwdAddr,
-			ForwardPort:       lidarForwardPortCfg,
-			ParsingEnabled:    !*lidarNoParse,
-			UDPPort:           lidarUDPListenPort,
-			DB:                lidarDB,
-			SensorID:          lidarSensorID,
-			Parser:            parser,
-			FrameBuilder:      frameBuilder,
-			PCAPSafeDir:       *lidarPCAPDir,
-			CaptureRoots:      lidarCaptureRoots,
-			VRLogSafeDir: func() string {
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
-				if err != nil {
-					log.Printf("Warning: failed to resolve VRLOG safe dir: %v", err)
-					return filepath.Join(*lidarPCAPDir, "vrlog")
-				}
-				return baseDir
-			}(),
+			Address:            *lidarListen,
+			Stats:              packetStats,
+			ForwardingEnabled:  *lidarForward && lidarForwardPortCfg > 0,
+			ForwardAddr:        *lidarFwdAddr,
+			ForwardPort:        lidarForwardPortCfg,
+			ParsingEnabled:     !*lidarNoParse,
+			UDPPort:            lidarUDPListenPort,
+			DB:                 lidarDB,
+			SensorID:           lidarSensorID,
+			Parser:             parser,
+			FrameBuilder:       frameBuilder,
+			PCAPSafeDir:        *lidarPCAPDir,
+			CaptureRoots:       lidarCaptureRoots,
+			VRLogSafeDir:       resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
 			PacketForwarder:    packetForwarder,
 			UDPListenerConfig:  udpListenerConfig,
-			PlotsBaseDir:       filepath.Join(*lidarPCAPDir, "plots"),
+			PlotsBaseDir:       *lidarPlotsDir,
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
 			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
@@ -770,7 +776,7 @@ func Main(args []string) int {
 					vrlogRecorderPath = ""
 				}
 
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
+				baseDir, err := filepath.Abs(*lidarVRLogDir)
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return ""

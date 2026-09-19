@@ -239,6 +239,15 @@ bin/typst.exe
 # internal/lidar/perf/baseline/ and are not matched by this.
 *_benchmark.json
 
+# =============================================================================
+# Local make overrides
+# =============================================================================
+# Machine-specific paths — chiefly LIDAR_PCAP_DIR, when captures sit on an
+# external volume rather than under LIDAR_DATA_DIR. Untracked on purpose: one
+# developer's mount point is not a project default, and hardcoding one in the
+# Makefile is the thing local.mk replaces.
+local.mk
+
 # Basemap tiles for the scene map: a build artefact, fetched once by
 # `make cache-basemap` and cached on disk. 21 MB of PNGs that OpenStreetMap
 # already serves is not something to keep in git history.

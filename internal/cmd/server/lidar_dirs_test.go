@@ -7,6 +7,62 @@ import (
 	"testing"
 )
 
+// The point of these tests is the independence, not the paths.
+//
+// Recordings and plots used to be derived from --lidar-pcap-dir, so pointing
+// the capture path at an external volume moved the writes there too and a
+// replay contended with itself for one device. A future tidy-up that folds
+// them back into one path would reintroduce exactly that, and every other test
+// in this package would still pass.
+
+// TestVRLogAndPlotsDirsAreIndependentFlags fails if either write path is
+// derived from the capture path again.
+func TestVRLogAndPlotsDirsAreIndependentFlags(t *testing.T) {
+	for _, name := range []string{"lidar-vrlog-dir", "lidar-plots-dir"} {
+		if serveFlags.Lookup(name) == nil {
+			t.Errorf("flag %q is not registered: write paths must be settable without --lidar-pcap-dir", name)
+		}
+	}
+}
+
+// TestWritePathDefaultsDoNotFollowTheCaptureDir pins the decoupling: setting
+// only the capture directory must leave the recording and plot directories
+// where they were.
+func TestWritePathDefaultsDoNotFollowTheCaptureDir(t *testing.T) {
+	vrlogDefault := flagDefault(t, "lidar-vrlog-dir")
+	plotsDefault := flagDefault(t, "lidar-plots-dir")
+	pcapDefault := flagDefault(t, "lidar-pcap-dir")
+
+	// Both defaults are the path the old derived form produced under the
+	// default capture directory, so a deployment setting neither flag is
+	// unchanged. Asserting equality here is what keeps that promise.
+	if want := filepath.Join(pcapDefault, "vrlog"); vrlogDefault != want {
+		t.Errorf("vrlog default = %q, want %q: existing deployments would move", vrlogDefault, want)
+	}
+	if want := filepath.Join(pcapDefault, "plots"); plotsDefault != want {
+		t.Errorf("plots default = %q, want %q: existing deployments would move", plotsDefault, want)
+	}
+
+	// And the decoupling itself: an external capture volume must not drag the
+	// writes onto it. This is the contention the split exists to prevent.
+	const external = "/Volumes/lidar/lidar"
+	for _, dir := range []string{vrlogDefault, plotsDefault} {
+		if strings.HasPrefix(dir, external) {
+			t.Errorf("write default %q sits under the capture volume", dir)
+		}
+	}
+}
+
+// TestWritePathDefaultsAreNotAbsoluteMachinePaths guards against someone
+// "fixing" a default by hardcoding their own disk.
+func TestWritePathDefaultsAreNotAbsoluteMachinePaths(t *testing.T) {
+	for _, name := range []string{"lidar-vrlog-dir", "lidar-plots-dir", "lidar-pcap-dir"} {
+		if got := flagDefault(t, name); filepath.IsAbs(got) {
+			t.Errorf("%s default = %q: defaults are repo-relative so they work on any machine", name, got)
+		}
+	}
+}
+
 // TestAnnotationDirIsItsOwnFlag pins the two properties the annotation pack
 // directory needs. It is registered as a flag of its own, so it can be set
 // without moving --lidar-pcap-dir: captures usually live on an external
