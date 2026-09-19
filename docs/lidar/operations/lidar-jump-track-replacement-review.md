@@ -3,7 +3,7 @@
 - **Status:** Reviewed and frozen
 - **Scope:** Production database (`sensor_data.db`), all tracks with lifetime peak speed ≥ 6 m/s
 - **Answers:** Q8 in [lidar-state-estimation-plan.md](../../plans/lidar-state-estimation-plan.md#21-open-questions-and-experiments-needed) — "Do replacement jump candidates represent the same phenomenon?"
-- **Frozen artefact:** [lidar-jump-track-replacement-20260915.json](lidar-jump-track-replacement-20260915.json), SHA-256 `21b2e500400150ee4185fa30386a4c70697d8fb179699a174f620415dedf6647`
+- **Frozen artefact:** `/Volumes/lidar/lidar/manifests/lidar-jump-track-replacement-20260915.candidates.json` (1,973,531 bytes), SHA-256 `21b2e500400150ee4185fa30386a4c70697d8fb179699a174f620415dedf6647` — see [Frozen artefact](#frozen-artefact) for the layout
 - **Related:** [State estimation](../../plans/lidar-state-estimation-plan.md) Section 1.5 (extractor description), [Phase 0/1 corpus baseline](state-estimation-phase01-corpus-baseline.md)
 
 ## Background
@@ -137,3 +137,89 @@ different `sensor_data.db` snapshot is immediately visible as a different digest
 silent mismatch. The 5.0 m defect/genuine threshold and the top-33 selection are this review's
 judgement calls, not the extractor's: reproducing the raw candidate list does not reproduce the
 classification without repeating the review above.
+
+## Frozen artefact
+
+The artefact lives on the capture volume, not in the repository: it is a 1.9 MB generated review
+queue whose bulk is 2,136 candidate records, and only 33 of those are the frozen regression set.
+It follows the same convention as the other derived state-estimation artefacts under
+`/Volumes/lidar/lidar/manifests/`.
+
+|         |                                                                                        |
+| ------- | -------------------------------------------------------------------------------------- |
+| Path    | `/Volumes/lidar/lidar/manifests/lidar-jump-track-replacement-20260915.candidates.json` |
+| Size    | 1,973,531 bytes (19,249 lines)                                                         |
+| SHA-256 | `21b2e500400150ee4185fa30386a4c70697d8fb179699a174f620415dedf6647`                     |
+| Schema  | `schema_version: 1`, `review_schema_version: 1`                                        |
+
+Verify a copy before trusting it:
+
+```
+shasum -a 256 /Volumes/lidar/lidar/manifests/lidar-jump-track-replacement-20260915.candidates.json
+```
+
+### Header fields
+
+Extraction parameters and provenance, all at the top level:
+
+| Field                     | Value                                                     | Meaning                                             |
+| ------------------------- | --------------------------------------------------------- | --------------------------------------------------- |
+| `method`                  | `five_point_time_xy_fit_v1`                               | Extractor algorithm identity                        |
+| `reference_status`        | `replacement_candidates_not_original_33_not_ground_truth` | Explicit disclaimer carried in the data             |
+| `input_rows_sha256`       | `5c228f7d9300…d050`                                       | Digest of the exact ordered input rows              |
+| `input_rows`              | 662,499                                                   | Observation rows screened                           |
+| `eligible_windows`        | 254,201                                                   | Five-point windows that admitted a fit              |
+| `lifetime_min_speed_mps`  | 6                                                         | Track lifetime peak-speed floor                     |
+| `local_fit_min_speed_mps` | 2                                                         | Local fit speed floor                               |
+| `max_gap_seconds`         | 0.3                                                       | Maximum inter-observation gap within a window       |
+| `threshold_metres`        | 0.5                                                       | Lateral-residual screening threshold                |
+| `candidate_count`         | 2,136                                                     | Length of `candidates`                              |
+| `source_basename`         | `sensor_data.db`                                          | Source database, basename only — no host path       |
+| `extractor_sha256`        | `39d6cb4102b3…6ff2`                                       | Digest of `scripts/lidar-jump-candidates.py` as run |
+| `review_date`             | `2026-09-15`                                              | When the classification below was applied           |
+| `review_methodology`      | prose                                                     | The Q8 judgement, restated in full above            |
+| `review_summary`          | object                                                    | The three disposition counts                        |
+
+### Candidate records
+
+`candidates` is an array of 2,136 objects, grouped into three contiguous runs by `review_status` —
+27 excluded, then 33 confirmed, then 2,076 deferred. The confirmed and deferred runs are ordered by
+`max_lateral_residual_m` descending; the excluded run is not residual-ordered. Each record has seven
+fields:
+
+| Field                    | Type   | Meaning                                                            |
+| ------------------------ | ------ | ------------------------------------------------------------------ |
+| `track_id`               | string | Track identifier. 27 legacy `track_<n>`, 2,109 modern `trk_<uuid>` |
+| `sensor_id`              | string | `hesai-pandar40p` throughout                                       |
+| `event_count`            | int    | Observations in the track                                          |
+| `max_lateral_residual_m` | float  | Peak lateral residual — the severity key                           |
+| `peak_timestamp_ns`      | int    | Wall clock of the peak residual                                    |
+| `review_status`          | string | One of the three dispositions below                                |
+| `review_note`            | string | Group-level note, not per-record: one of two distinct strings      |
+
+The legacy/modern identifier split is exactly the disposition split, which corroborates the root
+cause above: all 27 excluded tracks carry pre-UUID `track_<n>` identifiers, and every one of the
+2,109 genuine candidates carries a `trk_<uuid>` identifier.
+
+`review_status` partitions the population exactly. Note that the per-record value for the frozen set
+is `reviewed_confirmed_candidate`, while the corresponding key in the `review_summary` header object
+is `reviewed_confirmed_candidate_frozen_set` — they count the same 33 records:
+
+| `review_status` (per record)            |     n | Meaning                                                       |
+| --------------------------------------- | ----: | ------------------------------------------------------------- |
+| `reviewed_confirmed_candidate`          |    33 | **The regression set.** Residuals 1.97 m – 3.50 m             |
+| `reviewed_excluded_distinct_phenomenon` |    27 | Storage-layer identity collision. Residuals 6.52 m – 129.78 m |
+| `reviewed_deferred`                     | 2,076 | Genuine-phenomenon pool. Residuals 0.50 m – 1.96 m            |
+
+Only the 33 rows carrying `reviewed_confirmed_candidate` constitute the replacement regression set.
+The other 2,103 are retained context: the 27 root-caused and closed, the 2,076 available should the
+set need widening.
+
+### Selecting the frozen set
+
+```
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); \
+  print(json.dumps([c for c in d['candidates'] \
+  if c['review_status']=='reviewed_confirmed_candidate'], indent=2))" \
+  /Volumes/lidar/lidar/manifests/lidar-jump-track-replacement-20260915.candidates.json
+```
