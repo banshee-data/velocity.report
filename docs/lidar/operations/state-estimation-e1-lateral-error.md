@@ -203,3 +203,63 @@ placements' true-north-aligned ones.
 Updated tally: **E1.1 and E1.3 now reproduce at four independent placements** (three S2 windows
 plus `clar0`), with a fifth (`kirk0`) recorded but underpowered. E1.2 and E1.4 remain open, as
 above — no code implements either yet.
+
+## Addendum: E1.2 and E1.4 run on Columbus (2026-09-19)
+
+- **Scope:** `lidar-e1-analysis` now implements both remaining parts of E1 (`residuals.go`), run
+  on the Columbus evidence database `evidence/columbus-medoid-20260916/observations/observations.db`
+  (102,013 observations, 77,891 estimates over 2,685 tracks) with the shipped
+  `measurement_noise` of 0.05 m² for comparison.
+- **Result:** [state-estimation-e1-residuals-columbus-20260919.json](state-estimation-e1-residuals-columbus-20260919.json)
+  (`sha256:af7f9b1555b0dd531a2e9084b7c3c2c886cf2318f7d15bc22b6e8cf254a013d0`).
+
+**E1.4, the stationary noise floor.** A body that is not moving has a constant true position, so the
+scatter of a position candidate on it is measurement noise and nothing else. Tracks with mean speed
+under 0.3 m/s over at least 50 frames: 68 accepted, but only three carry the observation-level
+candidates (the others fail the 40-point cluster or 30-retained-point rules that E1.3 applies), so the
+candidate rows are two tracks at 0-20 m and one at 20-40 m and are read as such.
+
+| Series     | Range   | Tracks |   Obs | σ major | σ minor | σ isotropic | ÷ √R (0.224 m) |
+| ---------- | ------- | -----: | ----: | ------: | ------: | ----------: | -------------: |
+| medoid     | 0-20 m  |      2 |   963 | 1.129 m | 0.086 m |     0.801 m |           3.58 |
+| obb_centre | 0-20 m  |      2 |   963 | 1.161 m | 0.072 m |     0.822 m |           3.68 |
+| near_edge  | 0-20 m  |      2 |   963 | 1.204 m | 0.127 m |     0.856 m |           3.83 |
+| medoid     | 20-40 m |      1 |    66 | 0.241 m | 0.177 m |     0.211 m |           0.94 |
+| estimate   | 0-20 m  |     22 | 4,946 | 0.566 m | 0.107 m |     0.402 m |           1.80 |
+| estimate   | 20-40 m |     37 | 7,610 | 0.448 m | 0.062 m |     0.323 m |           1.44 |
+| estimate   | 40 m +  |      9 | 1,573 | 0.040 m | 0.019 m |     0.032 m |           0.14 |
+
+The floor is anisotropic by an order of magnitude: on the near stationary bodies every observation
+candidate scatters by 1.1-1.2 m along its principal axis and by 0.07-0.13 m across it, against one
+isotropic 0.22 m in the filter. The near-edge candidate does not narrow it, which is consistent with
+the measurement being the body's visible extent changing under passing occluders rather than a
+centre-of-visible-surface bias. The filter posterior halves the along-axis scatter and leaves the
+across-axis one; at 40 m and beyond the posterior barely moves (0.03 m), which is under-confidence,
+not accuracy. Two tracks are two tracks: this stratum needs the other 65 stationary tracks to be
+usable, which means relaxing the point-count rules for the stationary case specifically.
+
+**E1.2, the straight-segment residual spectrum.** Tracks accepted as E1.1 accepts them (speed ≥ 3 m/s,
+straight-line residual RMS ≤ 0.5 m, ≥ 20 estimates, and here ≥ 30 frames): 165. The lateral offset
+of each series from the fitted path, in frame order, tested for whiteness with the sample
+autocorrelation at lags 1-10 and Ljung-Box Q(10) against χ²₁₀ at 95% (18.307):
+
+| Series         | Tracks | White at 95% | Share | Median ρ₁ | Median Q(10) | Median σ |
+| -------------- | -----: | -----------: | ----: | --------: | -----------: | -------: |
+| medoid         |     42 |            6 |  0.14 |     0.707 |         51.3 |  0.276 m |
+| obb_centre     |     42 |            7 |  0.17 |     0.704 |         57.2 |  0.247 m |
+| nearest_corner |     42 |           11 |  0.26 |     0.564 |         28.0 |  0.418 m |
+| near_edge      |     41 |            9 |  0.22 |     0.607 |         53.6 |  0.268 m |
+| estimate       |    165 |           13 |  0.08 |     0.777 |         65.1 |  0.243 m |
+
+No candidate's lateral residual is white. A median lag-1 autocorrelation of 0.56-0.71 on a
+10 Hz series is a deterministic component that persists across many frames, which is what an
+aspect-dependent bias sliding along a passing vehicle produces and what measurement noise does not.
+The filter posterior is the least white of all, as smoothing a red input must make it. The
+nearest-corner candidate is the whitest and also the noisiest, the trade the plan's Section 3
+anticipated. The candidate series cover 41-42 of the 165 tracks because the observation-level rules
+above exclude the rest; the posterior covers all 165.
+
+**What this closes.** E1.2 and E1.4 are run, not open. Both point the same way as E1.1/E1.3 and as
+the gap analysis's K9: the error is structured and anisotropic, and a scalar R cannot represent it.
+G-GEO-1 still needs held-out geometry, excursion and fragmentation criteria; nothing here supplies
+those.
