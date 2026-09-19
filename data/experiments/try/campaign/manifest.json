@@ -991,7 +991,7 @@
     {
       "id": "l3_interaction_grid_bg_noise",
       "type": "l3_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_v3b"
       ],
@@ -1006,24 +1006,43 @@
         "policy": "mildest",
         "levels_name": "interaction-levels-bg-noise.json",
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "levels": {
+          "background_update_fraction": [
+            0.02,
+            0.05
+          ],
+          "noise_relative": [
+            0.02,
+            0.05
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T22:14:13-0700"
     },
     {
       "id": "analyze_l3_interaction_grid_bg_noise",
       "type": "analyze_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_interaction_grid_bg_noise"
       ],
       "params": {
         "levels_name": "interaction-levels-bg-noise.json",
         "analysis_name": "interaction-grid-analysis-bg-noise.json"
-      }
+      },
+      "result": {
+        "summary": "overall_verdict: compounding (scored 24 sites, counts={'compounding': 20, 'additive': 4}, lost_convergence={})",
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/interaction-grid-analysis-bg-noise.json"
+      },
+      "finished_at": "2026-09-18T22:14:13-0700"
     },
     {
       "id": "gt_oat_l3keys_kirk0_dd98",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_bg_noise",
         "build_gt_eval_cli",
@@ -1060,12 +1079,19 @@
         "pcap_file": "kirk0.pcapng",
         "duration_seconds": 95,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3keys-kirk0-dd98"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-l3keys-kirk0-dd98",
+        "n_rows": 14,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T22:17:07-0700"
     },
     {
       "id": "gt_oat_l3keys_kirk1_60a4",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "gt_oat_l3keys_kirk0_dd98"
       ],
@@ -1100,12 +1126,19 @@
         "pcap_file": "kirk1.pcapng",
         "duration_seconds": 190,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3keys-kirk1-60a4"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-l3keys-kirk1-60a4",
+        "n_rows": 14,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T22:37:25-0700"
     },
     {
       "id": "analyze_gt_oat_l3keys",
       "type": "analyze_gt_oat",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "gt_oat_l3keys_kirk1_60a4"
       ],
@@ -1116,12 +1149,21 @@
           "gt_oat_l3keys_kirk1_60a4"
         ],
         "out_name": "gt-oat-analysis-l3keys.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "oat-l3keys-kirk0-dd98: reliable, T={'matched': 2, 'candidates': 13}, visible keys: ['reacquisition_boost_multiplier']",
+          "oat-l3keys-kirk1-60a4: reliable, T={'matched': 5, 'candidates': 15}, visible keys: []",
+          "consistent pareto improvements: []"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/gt-oat-analysis-l3keys.json"
+      },
+      "finished_at": "2026-09-18T22:37:25-0700"
     },
     {
       "id": "l3_extended_replicate_v2",
       "type": "l3_replicate_planned",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_gt_oat_l3keys"
       ],
@@ -1136,30 +1178,58 @@
           "freeze_threshold_multiplier"
         ],
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "n_values": 19,
+        "stdout_tail": [],
+        "plan": "replicate: ['freeze_threshold_multiplier', 'locked_baseline_multiplier', 'locked_baseline_threshold', 'min_confidence_floor', 'reacquisition_boost_multiplier']; skipped inert: []"
+      },
+      "finished_at": "2026-09-18T23:52:13-0700"
     },
     {
       "id": "analyze_l3_extended_replicate_v2",
       "type": "analyze_replicate_consistency",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_extended_replicate_v2"
       ],
       "params": {
         "out_name": "replicate-consistency-extended-v2.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "background_update_fraction: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "closeness_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "freeze_threshold_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "locked_baseline_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "locked_baseline_threshold: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "min_confidence_floor: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "neighbour_confirmation_count: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "noise_relative: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "post_settle_update_fraction: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "reacquisition_boost_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "safety_margin_metres: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "seed_from_first: AGREE -- {'0': 'sensitive', '1': 'sensitive'}"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/replicate-consistency-extended-v2.json"
+      },
+      "finished_at": "2026-09-18T23:52:13-0700"
     },
     {
       "id": "finalize_v4",
       "type": "finalize",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_bg_noise",
         "analyze_l3_extended_replicate_v2",
         "analyze_l3_interaction_grid_v3b",
         "analyze_gt_oat_l3keys"
       ],
-      "params": {}
+      "params": {},
+      "result": {
+        "finalized_at": "2026-09-18T23:52:13-0700"
+      },
+      "finished_at": "2026-09-18T23:52:13-0700"
     }
   ]
 }
