@@ -53,7 +53,7 @@ live requirement to the Raspberry Pi.
 | Survey walk                  | No segment kind; a tilted walk is classified as motion and discarded                                          | Medium   | v0.6.x                             |
 | IMU capture                  | No daemon, no packet format, no calibration path                                                              | Medium   | After the motion spectrum is known |
 | Field compute                | No Pi baseline; live feedback claims are unsupported                                                          | Low      | v0.6.x                             |
-| Sensor supply                | Pandar40P is discontinued; no tracked alternatives meet the 100 m rule                                        | Low      | Continuous                         |
+| Sensor supply                | Pandar40P is a legacy model supplied used; alternatives meeting the 100 m rule were untracked                 | Low      | Continuous                         |
 
 ## Design / approach
 
