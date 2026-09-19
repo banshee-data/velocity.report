@@ -396,7 +396,7 @@
     {
       "id": "l3_interaction_grid_v3",
       "type": "l3_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_sensitivity_v2"
       ],
@@ -410,12 +410,26 @@
         "max_keys": 2,
         "levels_name": "interaction-levels-v3.json",
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "levels": {
+          "neighbour_confirmation_count": [
+            1,
+            3
+          ],
+          "noise_relative": [
+            0.02,
+            0.065
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T14:49:50-0700"
     },
     {
       "id": "analyze_l3_interaction_grid_v3",
       "type": "analyze_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_interaction_grid_v3"
       ],
@@ -423,12 +437,17 @@
         "_comment": "Additive-vs-compounding verdict, now censoring-aware (sites where a run hit the replay-window cap are 'censored', never 'additive').",
         "levels_name": "interaction-levels-v3.json",
         "analysis_name": "interaction-grid-analysis-v3.json"
-      }
+      },
+      "result": {
+        "summary": "overall_verdict: compounding (scored 9 sites, counts={'lost_convergence': 13, 'censored': 2, 'compounding': 8, 'additive': 1})",
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/interaction-grid-analysis-v3.json"
+      },
+      "finished_at": "2026-09-18T14:49:50-0700"
     },
     {
       "id": "l3_repeat_check",
       "type": "l3_repeat_check",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_v3",
         "build_settling_eval"
@@ -450,23 +469,36 @@
           }
         ],
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T15:23:20-0700"
     },
     {
       "id": "analyze_l3_repeat_check",
       "type": "analyze_l3_repeat_check",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_repeat_check"
       ],
       "params": {
         "_comment": "Noise floor per site, the list of unstable sites, and whether each sensitivity verdict survives excluding them."
-      }
+      },
+      "result": {
+        "summary": [
+          "baseline: 0/24 sites bit-identical across repeats, 1 unstable, max frame spread 10",
+          "nbr1: 0/24 sites bit-identical across repeats, 0 unstable, max frame spread 0",
+          "verdicts changed after excluding 1 unstable site(s): none"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/repeat-check-analysis.json"
+      },
+      "finished_at": "2026-09-18T15:23:20-0700"
     },
     {
       "id": "gt_oat_sweep_kirk0_dd98",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_repeat_check",
         "build_gt_eval_cli",
@@ -520,12 +552,19 @@
         "pcap_file": "kirk0.pcapng",
         "duration_seconds": 95,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-kirk0-dd98"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-kirk0-dd98",
+        "n_rows": 29,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T15:29:17-0700"
     },
     {
       "id": "gt_oat_sweep_kirk1_60a4",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "gt_oat_sweep_kirk0_dd98"
       ],
@@ -577,12 +616,19 @@
         "pcap_file": "kirk1.pcapng",
         "duration_seconds": 190,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-kirk1-60a4"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-kirk1-60a4",
+        "n_rows": 29,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T16:16:58-0700"
     },
     {
       "id": "analyze_gt_oat",
       "type": "analyze_gt_oat",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "gt_oat_sweep_kirk1_60a4"
       ],
@@ -593,12 +639,21 @@
           "gt_oat_sweep_kirk1_60a4"
         ],
         "out_name": "gt-oat-analysis.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "oat-kirk0-dd98: reliable, T={'matched': 2, 'candidates': 13}, visible keys: ['foreground_dbscan_eps', 'foreground_min_cluster_points', 'hits_to_confirm', 'max_misses_confirmed']",
+          "oat-kirk1-60a4: reliable, T={'matched': 5, 'candidates': 15}, visible keys: ['foreground_dbscan_eps', 'foreground_min_cluster_points', 'hits_to_confirm', 'max_misses_confirmed']",
+          "consistent pareto improvements: []"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/gt-oat-analysis.json"
+      },
+      "finished_at": "2026-09-18T16:16:58-0700"
     },
     {
       "id": "l3_extended_sweep_a",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_gt_oat",
         "build_settling_eval"
@@ -625,7 +680,12 @@
         "capture_ordinal": 0,
         "duration_seconds": 120,
         "skip_baseline": true
-      }
+      },
+      "result": {
+        "n_values": 9,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T16:54:39-0700"
     },
     {
       "id": "l3_extended_sweep_b",

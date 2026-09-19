@@ -1,10 +1,10 @@
 {
-  "updated_at": "2026-09-18T14:40:09-0700",
-  "elapsed_hours": 0.0,
+  "updated_at": "2026-09-18T16:54:39-0700",
+  "elapsed_hours": 2.22,
   "budget_hours": 7,
   "stage_status_counts": {
-    "done": 19,
-    "pending": 15
+    "done": 27,
+    "pending": 7
   },
   "stages": [
     {
@@ -163,43 +163,67 @@
     },
     {
       "id": "l3_interaction_grid_v3",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_l3_interaction_grid_v3",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": "overall_verdict: compounding (scored 9 sites, counts={'lost_convergence': 13, 'censored': 2, 'compounding': 8, 'additive': 1})"
+      }
     },
     {
       "id": "l3_repeat_check",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_l3_repeat_check",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "baseline: 0/24 sites bit-identical across repeats, 1 unstable, max frame spread 10",
+          "nbr1: 0/24 sites bit-identical across repeats, 0 unstable, max frame spread 0",
+          "verdicts changed after excluding 1 unstable site(s): none"
+        ]
+      }
     },
     {
       "id": "gt_oat_sweep_kirk0_dd98",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "gt_oat_sweep_kirk1_60a4",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_gt_oat",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "oat-kirk0-dd98: reliable, T={'matched': 2, 'candidates': 13}, visible keys: ['foreground_dbscan_eps', 'foreground_min_cluster_points', 'hits_to_confirm', 'max_misses_confirmed']",
+          "oat-kirk1-60a4: reliable, T={'matched': 5, 'candidates': 15}, visible keys: ['foreground_dbscan_eps', 'foreground_min_cluster_points', 'hits_to_confirm', 'max_misses_confirmed']",
+          "consistent pareto improvements: []"
+        ]
+      }
     },
     {
       "id": "l3_extended_sweep_a",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "l3_extended_sweep_b",
