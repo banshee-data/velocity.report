@@ -46,6 +46,10 @@ import time
 import urllib.request
 from pathlib import Path
 
+# One shared row writer for every sweep driver (see its docstring for why).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "l3-settling-sweep"))
+from row_appender import RowAppender  # noqa: E402
+
 CSV_FIELDS = [
     "timestamp",
     "git_sha",
@@ -226,7 +230,6 @@ def main():
             return 1
 
         done = load_done(csv_path)
-        write_header = not csv_path.exists()
         combos = [
             (pnp, pnv, mn)
             for pnp in LEVELS["process_noise_pos"]
@@ -234,12 +237,8 @@ def main():
             for mn in LEVELS["measurement_noise"]
         ]
 
-        import csv as csv_mod
-
-        with csv_path.open("a", newline="") as f:
-            writer = csv_mod.DictWriter(f, fieldnames=CSV_FIELDS)
-            if write_header:
-                writer.writeheader()
+        with RowAppender(csv_path, CSV_FIELDS) as writer:
+            writer.writeheader()
 
             for pnp, pnv, mn in combos:
                 key = (str(pnp), str(pnv), str(mn))
@@ -326,7 +325,6 @@ def main():
 
                 row["wall_duration_seconds"] = round(time.time() - t0, 2)
                 writer.writerow(row)
-                f.flush()
                 print(
                     f"{key}: {'error=' + row['error'] if row['error'] else 'composite_score=' + str(row['composite_score'])}",
                     file=sys.stderr,

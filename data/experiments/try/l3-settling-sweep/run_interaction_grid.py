@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from param_types import coerce  # noqa: E402
+from row_appender import RowAppender  # noqa: E402
 from run_sweep import DEFAULT_TUNING, git_sha, load_sites, run_one  # noqa: E402
 
 CSV_FIELDS = [
@@ -158,7 +159,6 @@ def main():
     ]
 
     done = load_done(csv_path)
-    write_header = not csv_path.exists()
 
     plan = [(site_id, overrides) for site_id in site_ids for overrides in combos]
     print(
@@ -166,10 +166,8 @@ def main():
         file=sys.stderr,
     )
 
-    with csv_path.open("a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        if write_header:
-            writer.writeheader()
+    with RowAppender(csv_path, CSV_FIELDS) as writer:
+        writer.writeheader()
 
         n_run = 0
         for site_id, overrides in plan:
@@ -208,7 +206,6 @@ def main():
                 error,
             )
             writer.writerow(row)
-            f.flush()
             n_run += 1
             if error:
                 print(f"    ERROR: {error}", file=sys.stderr)

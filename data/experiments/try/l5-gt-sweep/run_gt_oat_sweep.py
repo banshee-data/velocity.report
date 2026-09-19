@@ -50,6 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from run_l5_gt_sweep import (  # noqa: E402
+    RowAppender,
     git_sha,
     http_get,
     http_post,
@@ -204,11 +205,8 @@ def main():
         plan = build_plan(sweep)
         print(f"{len(plan)} planned runs; {len(done)} already done", file=sys.stderr)
 
-        write_header = not csv_path.exists()
-        with csv_path.open("a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            if write_header:
-                writer.writeheader()
+        with RowAppender(csv_path, CSV_FIELDS) as writer:
+            writer.writeheader()
 
             for path, value, repeat in plan:
                 if (path, str(value), str(repeat)) in done:
@@ -292,7 +290,6 @@ def main():
 
                 row["wall_duration_seconds"] = round(time.time() - t0, 2)
                 writer.writerow(row)
-                f.flush()
                 print(
                     f"{path}={value} r{repeat}: "
                     + (

@@ -23,7 +23,13 @@ two-bar shape (absolute + relative) as analyze_sensitivity.py, same
 rationale: an absolute floor stops small baselines from flagging on noise, a
 relative floor stops large baselines from flagging on unremarkable wobble.
 Lost convergence (baseline or joint combo didn't settle) is its own bucket,
-not folded into the numeric gap.
+not folded into the numeric gap. It is split by cause, because the two causes
+mean opposite things for the interaction question: "joint_only" (every
+single-key run converged but the joint run did not) is the strongest form of
+compounding; "single_key" (one key alone already stops convergence) says that
+key is dangerous by itself and leaves nothing to interact. The overall verdict
+still ignores both buckets (only sites with a numeric gap are scored) and
+reports the breakdown next to it.
 
 Censoring: a run can't report a settling frame past the replay window, so a
 frame within CENSOR_MARGIN of total_frames only says "at least this late". If
@@ -113,7 +119,12 @@ def analyze(rows, levels):
             site_results[site_id] = {"verdict": "baseline_did_not_converge"}
             continue
         if jf is None or jf < 0 or any(v is None or v < 0 for v in sf.values()):
-            site_results[site_id] = {"verdict": "lost_convergence"}
+            single_lost = [k for k in keys if sf[k] is None or sf[k] < 0]
+            site_results[site_id] = {
+                "verdict": "lost_convergence",
+                "lost_by": "single_key" if single_lost else "joint_only",
+                "single_keys_lost": single_lost,
+            }
             continue
 
         singles_censored = any(is_censored(singles[k]) for k in keys)
@@ -154,6 +165,11 @@ def analyze(rows, levels):
         if verdict in ("compounding", "cancelling", "additive")
     )
 
+    lost_breakdown = defaultdict(int)
+    for v in site_results.values():
+        if v["verdict"] == "lost_convergence":
+            lost_breakdown[v["lost_by"]] += 1
+
     overall = "inconclusive"
     if n_scored > 0:
         for verdict in ("compounding", "cancelling"):
@@ -174,6 +190,7 @@ def analyze(rows, levels):
         "n_sites_scored": n_scored,
         "n_sites_total": len(site_results),
         "verdict_counts": dict(counts),
+        "lost_convergence_breakdown": dict(lost_breakdown),
         "overall_verdict": overall,
         "sites": site_results,
     }
@@ -196,7 +213,8 @@ def main():
         sys.exit(1)
     print(
         f"overall_verdict: {result['overall_verdict']} "
-        f"(scored {result['n_sites_scored']} sites, counts={result['verdict_counts']})"
+        f"(scored {result['n_sites_scored']} sites, counts={result['verdict_counts']}, "
+        f"lost_convergence={result['lost_convergence_breakdown']})"
     )
 
 

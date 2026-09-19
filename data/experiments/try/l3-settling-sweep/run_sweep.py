@@ -38,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from param_types import coerce  # noqa: E402
+from row_appender import RowAppender  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_TUNING = REPO_ROOT / "config" / "tuning.defaults.json"
@@ -331,7 +332,6 @@ def main():
         site_ids = site_ids[: args.limit_sites]
 
     done = load_done(csv_path)
-    write_header = not csv_path.exists()
 
     plan = []
     for site_id in site_ids:
@@ -346,10 +346,8 @@ def main():
         file=sys.stderr,
     )
 
-    with csv_path.open("a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        if write_header:
-            writer.writeheader()
+    with RowAppender(csv_path, CSV_FIELDS) as writer:
+        writer.writeheader()
 
         completed_rows = []
         if csv_path.exists():
@@ -407,7 +405,6 @@ def main():
                 error,
             )
             writer.writerow(row)
-            f.flush()
             completed_rows.append(row)
             n_run += 1
 

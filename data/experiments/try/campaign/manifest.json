@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "budget_hours": 7,
+  "budget_hours": 2.5,
   "poll_interval_seconds": 60,
   "notes": "Future-work manifest for docs/plans/lidar-parameter-experiment-campaign-2026-09.md. supervisor.py rereads this file between every pass, so params/depends_on on any stage still 'pending' can be edited between check-ins without disturbing stages already 'done'/'blocked'/'failed'. Never edit a non-pending stage's recorded status/result -- that's the completed-work record.",
   "stages": [
@@ -888,6 +888,140 @@
         "finalized_at": "2026-09-18T19:07:49-0700"
       },
       "finished_at": "2026-09-18T19:07:49-0700"
+    },
+    {
+      "id": "recover_extended_sweep_b_rows",
+      "type": "recover_raw_rows",
+      "status": "pending",
+      "depends_on": [
+        "finalize_v3"
+      ],
+      "params": {
+        "_comment": "l3_extended_sweep_b was recorded done but results.csv holds only 6 of its 24 sites (112 of 456 rows): a git commit at 17:14:49 ran the mixed-line-ending pre-commit hook, which replaced results.csv while run_sweep.py held it open, and every later row went to the unlinked file. The raw settling-eval reports for all 456 runs survived. This rebuilds the 344 missing rows from them, verifying each report's capture, config value and timestamp window (recover_rows_from_raw.py), so the 'inert' verdict on these 5 keys stops resting on 6 mostly-fast sites. before = the stage's finish time plus 1s slack.",
+        "keys": [
+          "reacquisition_boost_multiplier",
+          "min_confidence_floor",
+          "locked_baseline_threshold",
+          "locked_baseline_multiplier",
+          "freeze_threshold_multiplier"
+        ],
+        "capture_ordinal": 0,
+        "duration_seconds": 120.0,
+        "after": "2026-09-18T16:54:39-0700",
+        "before": "2026-09-18T18:14:53-0700",
+        "record_name": "results-recovered-rows.json"
+      }
+    },
+    {
+      "id": "analyze_l3_sensitivity_v3b",
+      "type": "analyze_l3_sensitivity",
+      "status": "pending",
+      "depends_on": [
+        "recover_extended_sweep_b_rows"
+      ],
+      "params": {
+        "_comment": "Same analysis as analyze_l3_sensitivity_v3, over the recovered rows. Written to a new file so the original v3 output stays as the record of what was concluded from 6 sites.",
+        "out_name": "sensitivity-analysis-v3b.json"
+      }
+    },
+    {
+      "id": "analyze_l3_repeat_check_v2",
+      "type": "analyze_l3_repeat_check",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_sensitivity_v3b"
+      ],
+      "params": {
+        "_comment": "analyze_l3_repeat_check ran at 15:23, before any extended key existed, so its 'do verdicts survive excluding unstable sites' check covered only the four Batch 1 keys. Rerun against the full results.csv.",
+        "out_name": "repeat-check-analysis-v2.json"
+      }
+    },
+    {
+      "id": "analyze_l3_interaction_grid_v3b",
+      "type": "analyze_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_repeat_check_v2"
+      ],
+      "params": {
+        "_comment": "Same 2x2 as v3 with lost-convergence sites split into joint_only (each key alone converges, together they do not: compounding) and single_key (one key alone already stops convergence).",
+        "levels_name": "interaction-levels-v3.json",
+        "analysis_name": "interaction-grid-analysis-v3b.json"
+      }
+    },
+    {
+      "id": "l3_extended_replicate_v2",
+      "type": "l3_replicate_planned",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_v3b"
+      ],
+      "params": {
+        "_comment": "The five sweep-b keys were skipped by l3_extended_replicate as inert, on 6 sites. If the recovered 24-site data still shows no change at any site/value this runs nothing (done_no_op); any key that turns out to have an effect is replicated on the ordinal-1 window like every other key. Worst case 19 values x 23 sites, ~78 min.",
+        "sensitivity_file": "sensitivity-analysis-v3b.json",
+        "keys": [
+          "reacquisition_boost_multiplier",
+          "min_confidence_floor",
+          "locked_baseline_threshold",
+          "locked_baseline_multiplier",
+          "freeze_threshold_multiplier"
+        ],
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_extended_replicate_v2",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": [
+        "l3_extended_replicate_v2"
+      ],
+      "params": {
+        "out_name": "replicate-consistency-extended-v2.json"
+      }
+    },
+    {
+      "id": "l3_interaction_grid_bg_noise",
+      "type": "l3_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_extended_replicate_v2"
+      ],
+      "params": {
+        "_comment": "Replaces the uninformative top-2 grid (background_update_fraction x seed_from_first: seed_from_first=false alone never converges at any of 24 sites, so no frame delta exists to add up). background_update_fraction and noise_relative are the two continuous sensitive keys whose interaction is untested; policy 'mildest' puts each at the sensitive value nearest its default (0.05 and 0.05, each flagged at 6/24 sites alone) so the single-key runs do not saturate. 4 combos x 24 sites, ~18 min.",
+        "sensitivity_file": "sensitivity-analysis-v3b.json",
+        "only_keys": [
+          "background_update_fraction",
+          "noise_relative"
+        ],
+        "max_keys": 2,
+        "policy": "mildest",
+        "levels_name": "interaction-levels-bg-noise.json",
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_interaction_grid_bg_noise",
+      "type": "analyze_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "l3_interaction_grid_bg_noise"
+      ],
+      "params": {
+        "levels_name": "interaction-levels-bg-noise.json",
+        "analysis_name": "interaction-grid-analysis-bg-noise.json"
+      }
+    },
+    {
+      "id": "finalize_v4",
+      "type": "finalize",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_bg_noise",
+        "analyze_l3_extended_replicate_v2",
+        "analyze_l3_interaction_grid_v3b"
+      ],
+      "params": {}
     }
   ]
 }
