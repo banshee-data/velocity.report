@@ -914,6 +914,20 @@ def main():
                 log(f"  {stage['id']}: not ready yet ({info})")
                 continue
 
+            # Reload before saving. A handler can run for over an hour, and the
+            # manifest we hold was read before it started: saving that copy would
+            # silently discard any edit to a still-pending stage made meanwhile,
+            # which is exactly how a check-in revises future work.
+            manifest = load_manifest(manifest_path)
+            fresh = next(
+                (s for s in manifest["stages"] if s["id"] == stage["id"]), None
+            )
+            if fresh is None:
+                log(
+                    f"  {stage['id']}: removed from the manifest while running; result not recorded ({new_status})"
+                )
+                continue
+            stage = fresh
             stage["status"] = new_status
             stage["result"] = info
             stage["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
