@@ -745,23 +745,16 @@ func Main(args []string) int {
 				}
 				return baseDir
 			}(),
-			PacketForwarder:   packetForwarder,
-			UDPListenerConfig: udpListenerConfig,
-			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
-			AnnotationPacksDir: func() string {
-				baseDir, err := filepath.Abs(*lidarAnnotationDir)
-				if err != nil {
-					log.Printf("Warning: failed to resolve annotation pack dir: %v", err)
-					return *lidarAnnotationDir
-				}
-				return baseDir
-			}(),
-			TuningConfig:     tuningCfg,
-			OnPCAPStarted:    pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPStopped:    replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
-			PlaybackProbe:    visualiserPlaybackProbe{server: visualiserServer},
-			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
+			PacketForwarder:    packetForwarder,
+			UDPListenerConfig:  udpListenerConfig,
+			PlotsBaseDir:       filepath.Join(*lidarPCAPDir, "plots"),
+			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
+			TuningConfig:       tuningCfg,
+			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
+			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
+			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
 			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
