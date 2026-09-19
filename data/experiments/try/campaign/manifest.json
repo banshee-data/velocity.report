@@ -1376,7 +1376,7 @@
     {
       "id": "lf_columbus_broadway_o0",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -1417,7 +1417,14 @@
         "pcap_file": "s2/s2_sf_3_20260902132037_00002.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o0"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o0",
+        "n_rows": 17,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-19T00:52:07-0700"
     },
     {
       "id": "l3_long_baseline_o0",
