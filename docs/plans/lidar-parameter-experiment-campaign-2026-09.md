@@ -323,6 +323,81 @@ sensitive value of each; a one-at-a-time ground-truth sweep of the five L3 keys
 at their extremes on both labelled captures (`gt_oat_l3keys_*`); and, last and
 resumable, the ordinal-1 replicate of the five keys.
 
+### Fifth pass (2026-09-19, fourth check-in)
+
+Pass 4 finished in 1.9 h of its 2.6 h budget: 46/46 stages `done`, no `warning`.
+Its answers:
+
+- **`background_update_fraction` × `noise_relative` compound.** At 0.05 × 0.05 all
+  24 sites score: 20 compounding, 4 additive (3 of those have no delta at all),
+  none lose convergence, jointly or singly. 17 of the 24 have a joint delta of
+  50 frames or more, each more than twice the sum of its two single-key deltas.
+  Three "compounding" sites (joint delta 10-13 frames) sit at the threshold and
+  are marginal.
+- **The five post-settle L3 keys** (`reacquisition_boost_multiplier`,
+  `min_confidence_floor`, `locked_baseline_threshold`,
+  `locked_baseline_multiplier`, `freeze_threshold_multiplier`) move nothing the
+  ground-truth metric can see on either labelled capture, except
+  `reacquisition_boost_multiplier=20` on kirk0 (matched 4 against a warm
+  baseline of 7, a Pareto regression; kirk1 not visible). Baselines were
+  bit-stable at both (7/16, 81 candidates; 10/49, 95). At value 1 the same key
+  moves matched by +1 (kirk0) and +4 (kirk1), the same sign at both but below
+  threshold at both, so it is a lead, not a finding.
+- **The ordinal-1 replicate agrees** for all 12 keys (`any_disagreement` false).
+
+Reading the raw reports for this pass found what a 120 s window could not show:
+
+- **Settling frame is not the whole story.** Every raw report carries
+  `metrics_history`, the four convergence criteria at every frame; only the first
+  converged frame had ever been read. The recorded settling frame equals the
+  first all-criteria-true frame for 2078 of 2078 converged rows (`analyze_post_settle.py`),
+  so the two views are consistent, and the rest of the history says more. Once
+  settled, the default config stays settled at 23 of 24 sites at ordinal 0 and
+  23 of 23 at ordinal 1 (`pierce-haight` falls out of the settled state at
+  ordinal 0: 94% of its post-settle frames are settled, 3 lapses, the longest 5.4 s). `background_update_fraction` ≥ 0.1 and `neighbour_confirmation_count`
+  = 1 do not only delay settling: at 0.2 the median site is in the settled
+  state for about half of the window after first converging.
+- **No two runs have identical per-frame metrics.** Not at any of 24 sites for any
+  key, including keys whose settling frame is identical at 23 of 24 sites. The
+  frame is robust to run-to-run noise in coverage and confidence; exact-equality
+  "inert" tests on the trajectory are invalid, and the analyzer does not make one.
+- **Every existing L3 result covers 120 s of at most two of a site's segments.**
+  Each S2 site has 3–8 five-minute segments (110 in total, ~9 h of traffic;
+  `columbus-broadway` has 7, `lombard-laguna` 8).
+- **Ground-truth labels stop at kirk1's 177.8 s.** kirk0 (83.5 s) and kirk1 are the
+  only captures with usable labels (the rest have 1–4). Nothing on the S2 corpus
+  can be scored against a reference, so "longer stretches" for L4/L5 means
+  label-free: how far a setting moves the output, never whether it is right.
+
+Queued for this pass (`budget_hours` 8.6, `min_free_gb` 3; ordered by what changes a
+decision, each block independent of the others):
+
+1. `analyze_post_settle_ord01`: the post-settle analysis of everything recorded.
+2. `gt_oat_l3sens_*` (kirk0, kirk1): the sensitive L3 keys against human labels.
+   Their "sensitive" verdicts are about settling time; nobody has checked whether
+   moving them changes recall or track count.
+3. `l3_long_baseline_o0..o7`: the default config over the full 300 s of all 110
+   segments, in `l3-long-window/` (a separate results file, because a different
+   window length must not be mixed into rows keyed only by site/key/value/ordinal).
+   Then `l3_long_guardrails_o0/o3`: the guardrail values over 300 s.
+4. `l3_holdout_o3/o2_sensitive`: two segments never used to derive a verdict, with a
+   prediction fixed before they run (the same four keys are sensitive and nothing
+   else flips).
+5. `lf_*`: the label-free sweep (13 settings across L3/L4/L5, warmup and three
+   baselines) on 11 full segments: `columbus-broadway` ordinals 0/2/4/6 and
+   `lombard-laguna` 0/3/6 (35-40 min of continuous street each) plus four other
+   sites. `analyze_label_free_oat.py` reports, per setting, whether the direction
+   seen on kirk0/kirk1 also appears; it uses the ground-truth analyzer's
+   reliability and threshold rules and never ranks values.
+6. `gt_oat_dose_*`: intermediate values of `reacquisition_boost_multiplier` and
+   `hits_to_confirm` on both labelled captures (the two leads).
+
+Harness changes: `run_gt_oat_sweep.py --label-free` (checked to reproduce the
+scored candidate counts exactly: baseline 81, `hits_to_confirm=1` 141); `run_l3_sweep`
+takes `out_dir`, `ordinal` and a `_baseline` row-count guard; the supervisor
+refuses to start a stage with under `min_free_gb` free (the data volume had
+16 GiB free when this pass started).
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)
