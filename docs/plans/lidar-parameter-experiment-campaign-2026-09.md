@@ -398,6 +398,130 @@ takes `out_dir`, `ordinal` and a `_baseline` row-count guard; the supervisor
 refuses to start a stage with under `min_free_gb` free (the data volume had
 16 GiB free when this pass started).
 
+#### Revised at the 01:00 review (2026-09-19)
+
+The pass was reviewed against the [gap-analysis revision](../../data/maths/paper-implementation-gap-analysis.md#revision-2026-09-19)
+after its first two stages, and re-aimed. What those two stages had shown:
+
+- **Median track lifetime is 0.37 s** at Columbus-Broadway on the default config
+  (525 tracks over 300 s, 499 under a second, baselines bit-identical three times).
+  `hits_to_confirm=6` gives 417 tracks at a median 0.58 s; turning the
+  reacquisition boost off gives 636 (+21%); `background_update_fraction` 0.05/0.1,
+  `noise_relative` 0.05 and `neighbour_confirmation_count` 1 move the count by at
+  most 6, so the settling-sensitive settings do not reach the tracker there.
+- **kirk0: `closeness_multiplier=1.5` recovers 13 of 16 labelled tracks** against a
+  warm baseline of 7 (153 candidates against 81); 5.0 drops it to 4 (58). The one
+  L3 key settling-eval called insensitive is the one the tracker sees, as B7/HW1
+  predict. Whether that is recall or fragmentation is what the scored harness now
+  records (short-track count, median lifetime, mean matched IoU; verified on kirk0:
+  `hits_to_confirm=6` matched 9/16 at a median 0.56 s and mean IoU 0.58 against
+  0.36 s and 0.57 for the baseline).
+- **The `background_update_fraction` verdict is the criterion, not the model.**
+  Re-scoring the sweep from the raw reports with the spread-delta criterion scaled
+  by α (`analyze_alpha_normalised.py`, B2's proposal) flags **0 of 24 sites at every
+  value** in both windows, against 6/17/24 under the fixed threshold, and the two
+  runs that never converged at 0.2 converge. The guardrail on this key is withdrawn
+  for settling; the `noise_relative` guardrail is restated as window width.
+
+Cut (pending stages marked `skipped` with the reason recorded): `l3_long_guardrails_o3`,
+`l3_holdout_o2_*`, and six of the eleven label-free segments. Added: `gt_oat_window_*`
+(closeness 2/2.5/4/7.5 and noise 0.01/0.015/0.03 on both labelled captures) and
+`l3_b7_prediction` (closeness 7.5 and 9.75 at 24 sites, B7's falsifiable prediction).
+
+**Pass 6, queued behind this run by `launch_pass6.py`:** the NIS-scored L5 noise
+sweep K9 asks for, through `lidar-state-estimation-baseline -tuning` (offline,
+repeat-verified, per-band NIS in `tracking_baseline.json`; no evidence database, so
+no disk pressure). Nine configs per site, six sites in priority order, one segment
+per site: the tool counts packets and digests every declared capture of a case
+before it replays, twice, so a 20 s scoring run at Columbus took 641 s against the
+full seven-segment case; `first-segment-corpus.json` declares one capture per case.
+`analyze_nis_sweep.py` measures distance from the consistency targets (mean NIS 2,
+5% exceedance) per band and never minimises; a config that looks better by
+associating less is reported as `censoring_changed`.
+
+**E1.2 and E1.4 ran** on the Columbus evidence database
+(`lidar-e1-analysis`, branch `dd/state-est/gap-fixes`). E1.4: the stationary noise
+floor is anisotropic, medoid σ 1.13 m along the principal axis and 0.09 m across it
+at 0-20 m (two tracks, 963 observations), against the configured isotropic
+√R = 0.22 m; the filter posterior at 20-40 m sits at 0.45 × 0.06 m. E1.2: the lateral
+residual on 165 straight segments is red for every candidate: 14-26% of tracks pass
+Ljung-Box Q(10) at 95%, median lag-1 autocorrelation 0.56-0.71, and the posterior is
+the least white (8%, ρ₁ 0.78). Both are the signature K9 predicts of a
+measurement-model error no scalar R can carry.
+
+**Code, on `dd/state-est/gap-fixes` (worktree, tests only, nothing default-on):**
+`CascadedAssociation` (S2/S3), `ScaleMinPtsWhenSubsampled` / `DensityPreservingCap`
+(D6) and `OBBHeadingFlipRule` (P3: without it a stationary track whose PCA sign
+alternates walks its heading 26.6° in 40 frames), each with the test that pins the
+shipped behaviour beside the option; pin tests for D1, D2, D3, H1, H2, K4 (the
+extent cost's first evaluation: identities swap at weight 0, hold at 1), V1, B1 and
+B2. Each option is measurable with the harnesses above before any default moves.
+
+#### Results (2026-09-19, 08:15 check-in)
+
+Pass 5 finished at 05:23 (4.8 h of 8.6), pass 6 at 06:16 (0.9 h of 4.0: the
+first-segment corpus made a config about a minute). 87 stages `done`, 9 `skipped`
+(the review's cuts, reasons recorded), 2 `failed`: both label-free analyses, which
+ran before `gt-oat-analysis-l3sens.json` existed because their `depends_on` did not
+list the ground-truth analyses they read; the analyzer was run by hand once its
+inputs existed and `label-free-analysis.json` is the record. No stage carries a
+`warning`.
+
+- **The acceptance window holds on kirk1 and is monotone on both captures.**
+  `closeness_multiplier` 1.5 / 2 / 2.5 / shipped 3 / 4 / 5 / 7.5 recovers 13 / 13 / 10 / 7 /
+  5 / 4 / 4 of 16 on kirk0 and 22 / 33 / 17 / 10 / 2 / 2 / 2 of 49 on kirk1, with
+  candidates 153 / 112 / 95 / 81 / 68 / 58 / 49 and 214 / 171 / 131 / 95 / 63 / 49 / 36.
+  Median track lifetime is 0.36 s at every value on both captures and short-track
+  counts scale with candidates; mean matched IoU is flat or higher (kirk1 at 2.0:
+  0.67 against 0.61). The extra tracks are the same population, not existing tracks
+  cut up: a recall gain with a 40-80% inflation cost that temporal-IoU matching
+  cannot price. `noise_relative` 0.005-0.065 moves nothing at the tracker on either
+  capture, against B7's product model; both runtime paths read it through
+  `effectiveCellParams`, so the asymmetry is open.
+- **B7's settling prediction holds.** `closeness_multiplier` 5 / 7.5 / 9.75 flags
+  3 / 9 / 16 of 24 sites against `noise_relative` 0.035 / 0.05 / 0.065's 1 / 6 / 13 at the
+  same widenings; narrowing (1.5, 2.25) flags none. The key is `sensitive` in
+  `sensitivity-analysis-v4.json`.
+- **NIS (six sites, 54 configs, all repeat-verified).** Moving bands are over-confident
+  everywhere at baseline (mean NIS 1.5-3.6, exceedance 6-17%) and the slow band
+  under-confident (0.44-0.99). `process_noise_pos` ×4 is the only setting that moves
+  the moving bands toward consistency at every site (toward in 9 of 11 bands, never
+  away, no association-rate change) and it pushes the slow band further away at 3
+  of 6; ×0.25 of either process noise is a consistent regression; `measurement_noise`
+  ×4 helps the moving bands at 4 sites and overshoots at 1st-mission, where they
+  were already near 1.5-1.7. No config is consistent in both bands, as K9 predicts.
+  The `all_x0.25` control did not scale NIS by 4: association rates fell at 5 sites,
+  which is the gate ceasing to admit everything once S shrinks, and the metric's
+  censoring caveat made visible.
+- **Default config over all 110 segments:** 110 converge (median frame 11, max 704 at
+  `marina-broderick` o0) and 106 stay settled; `broadway-gough` and
+  `fulton-divisadero` (o4), `california-leon-baker` and `pierce-haight` (o5) fall out
+  for 7-43% of the window. At 300 s the only guardrail that survives on its own terms
+  is `neighbour_confirmation_count = 1` (5 of 24 never converge, the rest settled 57%
+  of the time); `noise_relative` 0.05 is post-settle insensitive (3 of 24) and
+  `background_update_fraction` 0.1's 7 of 24 is the α-floor again.
+- **Hold-out o3** confirmed the pre-registered prediction: the same four keys
+  sensitive, nothing else flipped.
+- **Dose-response.** `hits_to_confirm` 7 is a Pareto improvement on kirk0 (9/16 at 54
+  candidates) and a track-count reduction on kirk1 (9/49 at 75, mean IoU 0.50 against
+  0.61), median lifetime 0.66 s on both; label-free, 6 removes 108-213 tracks at all
+  five segments. `reacquisition_boost_multiplier` stays a lead: 10 and 20 lose recall
+  on kirk0 past threshold, kirk1 falls 14 / 12 / 12 / 10 / 10 / 8 across 1 / 2 / 3 / 5 / 10 / 20
+  inside its threshold of 5.
+- **Label-free direction transfer** (five 300 s segments): eps 0.4, min points 3 and
+  `hits_to_confirm` 1 give more tracks and min points 12 and `hits_to_confirm` 6 fewer
+  at every segment, agreeing with the labelled captures; the L3 settling-sensitive
+  settings move nothing; boost-off and `max_misses_confirmed` 5 are mixed.
+
+Next, in order: measure `closeness_multiplier` 2.0 and 2.5 on the long label-free
+segments and inspect the extra candidates against the reference runs' unlabelled
+tracks before any default moves; plumb `CascadedAssociation` into the runtime params
+so the GT and label-free harnesses can score it (its mechanism is the one
+`hits_to_confirm` 1 exposed); then `DensityPreservingCap` on the busy segments; the
+flip rule needs the D2 course-alignment harness, not these. `process_noise_pos` ×4
+deserves one GT and label-free run before Phase 3 decides how R and Q vary with
+speed.
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)
