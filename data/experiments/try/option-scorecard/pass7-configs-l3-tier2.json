@@ -1,0 +1,36 @@
+{
+  "_comment": "Pass 7, L3 tier 2. Run into the SAME --out-root as pass7-configs-l3.json: the sweep skips any (site, config) already recorded without an error, so tier 1's baseline and baseline_again are reused rather than repeated, and every arm here is scored against the same baseline. Six arms x 24 sites is about 3.5 h at the tier-1 rate, which is what is left of a 9 h night after tier 1. Tier 1 asks where the foreground threshold should sit; tier 2 asks about the terms that feed it — how fast the background tracks, how much spatial support a cell needs, the additive floor, and what happens after settling.",
+
+  "baseline": {},
+  "baseline_again": {},
+
+  "_ema_rate": "background_update_fraction is the EMA rate the background tracks at before settling; default 0.02. A quarter and two and a half times it bracket the default, separating 'the background is stale' from 'the background is chasing the foreground'.",
+  "background_update_0p005": {
+    "overrides": { "l3.ema_baseline_v1.background_update_fraction": 0.005 }
+  },
+  "background_update_0p05": {
+    "overrides": { "l3.ema_baseline_v1.background_update_fraction": 0.05 }
+  },
+
+  "_spatial_support": "neighbour_confirmation_count is how many neighbouring cells must agree before a cell is called foreground; default 3. Dropping to 2 is the cheapest way to ask whether the spatial-support requirement, rather than the threshold, is what discards sparse returns at range.",
+  "neighbour_confirmation_2": {
+    "overrides": { "l3.ema_baseline_v1.neighbour_confirmation_count": 2 }
+  },
+
+  "_additive_floor": "safety_margin_metres is the additive floor under the foreground test; default 0.15. It dominates where the variance term is small, which is exactly the settled far field, so it is the other half of the same decision the closeness curve probes.",
+  "safety_margin_0p30": {
+    "overrides": { "l3.ema_baseline_v1.safety_margin_metres": 0.3 }
+  },
+
+  "_post_settle_full": "Tier 1 tries a tenth of the pre-settle rate after settling. This is the full rate, which makes the frozen-vs-adapting question a three-point comparison (0 = shipped, 0.002, 0.02) rather than a single probe.",
+  "post_settle_update_0p02": {
+    "overrides": { "l3.ema_baseline_v1.post_settle_update_fraction": 0.02 },
+    "keep_vrlog": true
+  },
+
+  "_b8_interaction": "Tier 1 crosses the region-override defect with the closeness multiplier. This crosses it with the noise term instead, so the pair says whether B8 interacts with the threshold generally or only through one of its two terms.",
+  "no_region_overrides__noise_0p04": {
+    "experiments": ["no_region_overrides"],
+    "overrides": { "l3.ema_baseline_v1.noise_relative": 0.04 }
+  }
+}
