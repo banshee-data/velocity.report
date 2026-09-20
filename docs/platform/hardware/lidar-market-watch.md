@@ -2,7 +2,7 @@
 
 - **Status:** Active
 - **Cadence:** Weekly, by a scheduled Claude routine; entries by hand are welcome too
-- **Related plan:** [lidar-backpack-capture-plan.md](../../plans/lidar-backpack-capture-plan.md)
+- **Related plan:** [lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md)
 
 A running log of spinning LiDAR units that could replace or supplement the Hesai Pandar40P for
 backpack and tripod survey capture. The Pandar40P is a legacy model with no published new-unit
@@ -13,14 +13,29 @@ Sensor facts for the unit in service live in the
 
 ## Selection rule
 
-| Requirement               | Value                                           | Why                                                                       |
-| ------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------- |
-| Range at 10% reflectivity | 100 m or more                                   | Junction approaches and speeds at range; excludes the Livox Mid-360 class |
-| Horizontal coverage       | 360°, multi-ring spinning                       | The L3 background model is a ring-by-azimuth range image                  |
-| Interface                 | Ethernet UDP point packets                      | L1 parses UDP; PCAP is the capture artefact                               |
-| Built-in IMU              | Preferred, not required                         | Tier 1 of the plan's hardware ladder without a bracket                    |
-| Weight and power          | Stated by the vendor                            | Backpack carried, battery powered                                         |
-| Price                     | New list price or used asking price, with a URL | Only prices a page actually states                                        |
+| Requirement               | Value                                           | Why                                                                                  |
+| ------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Range at 10% reflectivity | 100 m or more                                   | Junction approaches and speeds at range; excludes the Livox Mid-360 class            |
+| Horizontal coverage       | 360°, multi-ring spinning                       | The L3 background model is a ring-by-azimuth range image                             |
+| Interface                 | Ethernet UDP point packets                      | L1 parses UDP; PCAP is the capture artefact                                          |
+| Built-in IMU              | Preferred, not required                         | Tier 1 of the plan's hardware ladder without a bracket                               |
+| Weight and power          | Stated by the vendor                            | Backpack carried, battery powered                                                    |
+| Price                     | New list price or used asking price, with a URL | Only prices a page actually states                                                   |
+| Budget                    | LiDAR plus IMU under US $500 in total           | A used LiDAR at or under about US $450 and an IMU under US $50; an activist's budget |
+
+## Shortlist
+
+Units that met both the range rule and the budget rule in the latest snapshot, with the used
+asking prices seen. A model appears here only with a listing URL in the log.
+
+| Model           | Range at 10% | Used asking prices seen          | Snapshot   |
+| --------------- | ------------ | -------------------------------- | ---------- |
+| Hesai Pandar40P | 200 m        | US $299 to US $575, snippet-only | 2026-09-19 |
+
+Meet the range rule but not the budget, watched for price drops: Hesai OT128 and Pandar128E3X,
+Ouster OS2 and OS1 Max, RoboSense Helios-32 and Ruby Plus, Velodyne VLP-32C. Not yet seen in a
+snapshot and added to the search list: Velodyne HDL-32E, RoboSense RS-LiDAR-16 and RS-LiDAR-32,
+Hesai Pandar64 and Pandar20.
 
 ## Entry format
 

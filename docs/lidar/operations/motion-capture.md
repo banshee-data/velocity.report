@@ -19,13 +19,15 @@ Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 
 See [docs/lidar/architecture/foreground-tracking.md](../architecture/foreground-tracking.md) for the implemented tracking architecture.
 
-## Quasi-static capture (backpack)
+## Route capture (cargo bike and backpack)
 
-A person wearing the sensor and standing at a corner is not the moving-sensor case above. It is a
-quasi-static sensor with a noisy pose: the tracked objects stay on a ground plane in a world-fixed
-frame, so the 2D+velocity tracker survives once frames are stabilised, and only ego-pose is needed.
-That case, together with the tilted survey walk that maps a junction's geometry before the stand,
-is specified in [lidar-backpack-capture-plan.md](../../plans/lidar-backpack-capture-plan.md).
+A cargo bike or a backpack pedestrian covering a route, with stops at corners, is the near-term
+moving-sensor case. It borrows this document's ego-motion compensation and leaves 3D object
+orientation aside: the tracked objects stay on a ground plane in a world-fixed frame, so the
+2D+velocity tracker survives once every frame carries a pose. Route segments run through offline
+odometry and a world-anchored foreground engine; stops run through a keyframe stabiliser; the
+outputs are speeds along road segments either side of intersections. That case is specified in
+[lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md).
 
 ## When motion capture is needed
 

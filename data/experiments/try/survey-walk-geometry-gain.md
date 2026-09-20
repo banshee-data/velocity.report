@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** L2 Frames, L7 Scene (submap hand-off), spatial priors tooling
-- **Related plan:** [lidar-backpack-capture-plan.md](../../../docs/plans/lidar-backpack-capture-plan.md)
+- **Related plan:** [lidar-route-capture-plan.md](../../../docs/plans/lidar-route-capture-plan.md)
 
 ## Goal
 
