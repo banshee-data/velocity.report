@@ -1,9 +1,9 @@
 # Background grid and region overlays in recordings and viewers
 
 - **Status:** Draft
-- **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser, web scene)
+- **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window, web scene)
 - **Target:** v0.5.x, after the annotation toolset lands; the overlay is what makes an L3 remedy testable
-- **Companion plans:** [Agent track review](lidar-agent-track-review-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
+- **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
 - **Canonical:** [adaptive-region-parameters.md](../lidar/operations/adaptive-region-parameters.md)
 
 ## Motivation
@@ -102,6 +102,11 @@ point whose ring and azimuth are known and survives a change of world frame:
 `BackgroundSnapshot` also gains a `cell_index` array parallel to `x`, `y`, `z`. That is the join
 the viewers need: a background point can then be coloured by anything in the grid state.
 
+Grid state carries the `source_id` and `calibration_id` of the evidence databases, where a run
+has them. The same capture under the same calibration then has comparable grid state across
+runs, and a region restored from an earlier run names the source it was learned on, not only a
+scene signature.
+
 The snapshot stays as it is for old clients. New fields are additive and ignored by anything that
 does not know them. The VRLOG recorder stores bundles through the proto codec, so recording
 follows from emitting; that assumption is to be confirmed in step 1 rather than relied on.
@@ -141,7 +146,14 @@ settled on the queue light up when the queue leaves and stay lit. Glass, railing
 and rain produce the same signal intermittently, which is why this is a count to look at and not
 a rule to act on.
 
-### 5. Overlay modes
+### 5. A region layer that toggles, and the modes it has
+
+The overlay is a **layer**, switched on and off independently of everything else on screen, and
+a **mode** that says what the layer is coloured by. It is off by default, so a viewer looks as
+it does today until someone asks. The toggle and the chosen mode are remembered per user. It
+has a toolbar button and a single-key shortcut beside the existing point, background, box,
+cluster, trail and velocity toggles, and a legend that appears with it. Turning it off restores
+the plain background exactly; it never replaces the background toggle.
 
 One set of modes, the same names in every viewer, applied by colouring background points through
 `cell_index`:
@@ -160,22 +172,28 @@ unsettled sector is visible as absence rather than as nothing.
 
 ### 6. Where each viewer gets it
 
-- **macOS visualiser.** A mode picker beside the existing background toggle, a legend, and event
-  ticks on the timeline. Selecting a background point shows its cell: ring, azimuth, region,
-  baseline, spread, state, and the region's parameters. The renderer already keeps a background
-  cache with a crossfade; deltas update that cache in place.
+- **macOS visualiser.** The region toggle and its mode picker beside the existing background
+  toggle, a legend, and event ticks on the timeline. Selecting a background point shows its cell:
+  ring, azimuth, region, baseline, spread, state, and the region's parameters. The renderer
+  already keeps a background cache with a crossfade; deltas update that cache in place.
 - **Web scene.** `velocity scene export --grid-state` writes the grid state into the existing
-  chunk scheme as a keyframe per chunk plus deltas, and the player gains the same mode picker and
-  ticks. The web background is voxelised, so the join is made at export: each voxel takes the
-  cell of the point that represents it. This is a presentation of the diagnosis, not the
+  chunk scheme as a keyframe per chunk plus deltas, and the player gains the same toggle, mode
+  picker and ticks. The web background is voxelised, so the join is made at export: each voxel
+  takes the cell of the point that represents it. This is a presentation of the diagnosis, not the
   evidence for it.
 - **Static snapshots.** An exported still carries the active overlay mode and its legend, so an
   image attached to a finding says what its colours mean.
-- **Agents.** `velocity lidar grid-report --vrlog <dir> --at <t>` writes the grid state at a
-  time as JSON plus a top-down PNG per mode. The
-  [agent track review](lidar-agent-track-review-plan.md) uses the region and beyond-baseline
-  renders as context under each track's trail, so a grader can see that a "track" sits on a
-  cell the model has wrong.
+- **Annotation window and review packs.** A review pack carries the grid state as a context
+  layer: the keyframe in force at each sample, and a `cell_index` for every pack point, outside
+  the point digest. The annotation window gets the same toggle and modes over its orthographic
+  views. A person deciding whether a smear of returns along the kerb is a parked car or noise can
+  switch the region layer on, see that those cells settled at a nearer range, and switch it off
+  again to lasso. See the [review workflow](lidar-review-workflow-plan.md).
+- **Proposers and headless use.** `velocity lidar grid-report --vrlog <dir> --at <t>` writes the
+  grid state at a time as JSON plus a top-down PNG per mode. In the review workflow, pass 1 reads
+  the region and the beyond-baseline state of the cells under a track's path as evidence, and
+  pass 2's dossier draws the trail over the region-coloured background. A "track" that never
+  leaves cells the model has wrong is most of a noise proposal on its own.
 
 ### Invariants
 
@@ -208,17 +226,19 @@ unsettled sector is visible as absence rather than as nothing.
 
 **Milestone:** v0.5.x
 
-### Item 2: macOS overlay modes, cell inspector and timeline ticks
+### Item 2: macOS region toggle, modes, cell inspector and timeline ticks
 
-**Summary:** Make the six modes, the legend, the cell inspector and grid events visible in replay.
+**Summary:** A region layer that toggles independently, with six modes, a legend, a cell inspector and grid events in replay.
 
 **Steps:**
 
-1. Carry `cell_index` through the background cache; colour by mode in the point shader.
-2. Apply deltas to the cache in place, with the existing crossfade reserved for keyframes.
-3. Cell inspector on background-point selection.
-4. Event ticks on the playback timeline, with `REGIONS_RESTORED` distinct from `IDENTIFIED`.
-5. "Not recorded" state for recordings without grid state.
+1. Toolbar toggle, shortcut and mode picker; off by default; state remembered per user; turning
+   it off restores the plain background exactly.
+2. Carry `cell_index` through the background cache; colour by mode in the point shader.
+3. Apply deltas to the cache in place, with the existing crossfade reserved for keyframes.
+4. Cell inspector on background-point selection.
+5. Event ticks on the playback timeline, with `REGIONS_RESTORED` distinct from `IDENTIFIED`.
+6. "Not recorded" state for recordings without grid state: the toggle is disabled and says why.
 
 **Milestone:** v0.5.x
 
@@ -231,12 +251,25 @@ unsettled sector is visible as absence rather than as nothing.
 1. `--grid-state` on `velocity scene export`; voxel-to-cell join at export time.
 2. Keyframe per chunk plus deltas, within the existing chunk size budget; measure the size cost
    on columbus-broadway before choosing delta thresholds.
-3. Mode picker, legend and ticks in `scene-player.js`, shared by the tracks page.
+3. Toggle, mode picker, legend and ticks in `scene-player.js`, shared by the tracks page.
 4. Legend baked into exported stills.
 
 **Milestone:** v0.5.x
 
-### Item 4: grid report for agents and evidence
+### Item 4: region layer in review packs and the annotation window
+
+**Summary:** Grid state as a pack context layer, with the same toggle over the orthographic views.
+
+**Steps:**
+
+1. Pack export writes the grid keyframe in force at each sample and a `cell_index` per pack
+   point, outside the point digest, so adding it never invalidates existing annotations.
+2. The annotation window's toggle and modes, sharing the legend and shortcut with the main view.
+3. A pack without the layer disables the toggle and says why.
+
+**Milestone:** v0.5.x
+
+### Item 5: grid report for proposers and evidence
 
 **Summary:** A headless report of the background model at a moment, as JSON and images.
 
@@ -244,7 +277,8 @@ unsettled sector is visible as absence rather than as nothing.
 
 1. `velocity lidar grid-report` reading a VRLOG; JSON schema versioned beside the proto.
 2. Top-down PNG per mode at a fixed metric scale with a scale bar and legend.
-3. Use it to write up the Columbus case as the acceptance evidence below.
+3. Per-track cell context for pass 1 of the review workflow.
+4. Use it to write up the Columbus case as the acceptance evidence below.
 
 **Milestone:** v0.5.x
 
@@ -300,8 +334,9 @@ Hypotheses for a separate L3 experiment, not decisions made here:
 - [ ] Proto messages, `cell_index`, stubs regenerated (`M`)
 - [ ] Keyframe and delta emission with the observation-only digest proof (`L`)
 - [ ] `beyond_baseline_count` (`S`)
-- [ ] macOS modes, legend, cell inspector, ticks (`L`)
-- [ ] Web export flag, player modes, still legends (`L`)
+- [ ] macOS region toggle, modes, legend, cell inspector, ticks (`L`)
+- [ ] Region layer in review packs and the annotation window (`M`)
+- [ ] Web export flag, player toggle and modes, still legends (`L`)
 - [ ] `grid-report` CLI and the Columbus write-up (`M`)
 
 ### Deferred
