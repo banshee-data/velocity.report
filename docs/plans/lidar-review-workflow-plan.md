@@ -1,9 +1,9 @@
 # One review workflow: proposals, grading and reference truth
 
 - **Status:** Draft
-- **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, L10 Clients, offline analysis
+- **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, L10 Clients (macOS visualiser first), offline analysis
 - **Target:** v0.5.x, after the annotation toolset and the run-track finalisation fix
-- **Companion plans:** [Background region overlays](lidar-background-region-overlay-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md)
+- **Companion plans:** [Background region overlays](lidar-background-region-overlay-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [macOS local server](macos-local-server-plan.md)
 - **Canonical:** [track-labelling-ui-implementation.md](../lidar/operations/track-labelling-ui-implementation.md)
 
 ## Motivation
@@ -27,8 +27,14 @@ disconnected system for machine-made labels would make that worse.
 
 This plan replaces the three with one workflow: something **proposes**, a person **grades**, and
 the graded result is the only thing called truth. A proposal can come from code or from a
-language model. The grade is the same act in every tool, and the difference between what was
-proposed and what the person kept is the measure of the proposer.
+language model. The difference between what was proposed and what the person kept is the
+measure of the proposer.
+
+It also has one instrument. **The macOS visualiser is the primary tool for annotating, editing
+and grading, and it is sufficient on its own.** An operator chooses a capture, replays it, sees
+and edits traces, tracks and point clouds, grades, and runs a tuning round without opening a
+browser. The web keeps views for finding and identifying datasets. Nothing a grade, a reference
+label or a HINT round depends on may exist only on the web.
 
 ## Current state
 
@@ -69,22 +75,66 @@ capture replayed with different tracker parameters produces the same observation
 end, coast error and stratified innovations as canonical JSON with a digest. Its header states
 that nothing in it depends on "the random track_id". It reports per run, not per track.
 
+**What the macOS app can and cannot do today.** Its HTTP clients list runs and tracks, create,
+update, delete and export labels, load and stop a VRLOG, return to live, and read playback status.
+Over gRPC it already pauses, plays, seeks, steps and changes rate, so controlling a replay is not
+the gap. Choosing one is: it can stop a PCAP replay and cannot start one. It has no client for
+`pcap/files`, `pcap/start`, `capture/*`, replay cases, scenes, missed regions, sweeps, or any of
+HINT. Every one of those endpoints exists on the server and is used by the web frontend. So an
+operator is sent to the browser for the first step of any session, choosing what to play, and for
+two steps that bear directly on validity: marking what the tracker missed, and starting,
+continuing and stopping a HINT round. The gap is in the app, not in the server.
+
 **What a recording lacks.** A VRLOG cluster carries a centroid and boxes, not its points. Frames
 are usually foreground only, with a background snapshot every 30 s.
 
 ## Findings
 
-| Area                                   | Current state                                       | Severity | Release view                           |
-| -------------------------------------- | --------------------------------------------------- | -------- | -------------------------------------- |
-| Three label stores, no shared identity | Run-track IDs, pack point indices, observation IDs  | High     | The reason truth cannot accumulate     |
-| Proposal model                         | Designed and stored, never written                  | High     | The workflow's spine is already there  |
-| HINT's 90% gate                        | Filled entirely by hand, every round                | High     | Caps how often HINT can be run         |
-| Non-LLM evidence per track             | Computed per run only                               | Medium   | Pass 1 needs it per track              |
-| Track context in a pack                | Absent by design                                    | Medium   | Right for truth, wrong for proposing   |
-| Proposal lineage                       | No link from a reviewed record to what it came from | Medium   | A proposer cannot be scored without it |
-| Web as a grading surface               | Track picking and region marking exist              | Low      | Enough for object-level grading        |
+| Area                                   | Current state                                        | Severity | Release view                           |
+| -------------------------------------- | ---------------------------------------------------- | -------- | -------------------------------------- |
+| Three label stores, no shared identity | Run-track IDs, pack point indices, observation IDs   | High     | The reason truth cannot accumulate     |
+| Proposal model                         | Designed and stored, never written                   | High     | The workflow's spine is already there  |
+| HINT's 90% gate                        | Filled entirely by hand, every round                 | High     | Caps how often HINT can be run         |
+| Non-LLM evidence per track             | Computed per run only                                | Medium   | Pass 1 needs it per track              |
+| Track context in a pack                | Absent by design                                     | Medium   | Right for truth, wrong for proposing   |
+| Proposal lineage                       | No link from a reviewed record to what it came from  | Medium   | A proposer cannot be scored without it |
+| Choosing what to replay                | Web only: captures, PCAP files, replay cases, scenes | High     | No session can begin in the macOS tool |
+| Marking what the tracker missed        | Web only                                             | High     | A validity step outside the instrument |
+| HINT control                           | Web only: start, continue, stop                      | High     | A grading loop outside the instrument  |
+| Web label editing                      | A second writer of run-track labels                  | Medium   | Freeze; never extend                   |
 
 ## Design / approach
+
+### macOS is the instrument
+
+One tool owns the loop, end to end:
+
+1. **Choose.** Browse capture roots, PCAP files, replay cases and scenes, and past runs, from the
+   server's existing endpoints. The server reads the capture, so the app lists what the server
+   can see rather than opening files itself. That keeps the app inside its sandbox, and works
+   the same when the server is a Raspberry Pi across the network.
+2. **Replay.** Start a PCAP or a multi-file case over a chosen window, or load a run's VRLOG.
+   Pause, seek, step and rate are already in the app.
+3. **See.** Points, clusters, tracks, trails and boxes, with the layers below toggled at will.
+4. **Propose.** Cut a review pack from the run and run pass 1, and pass 2 where a model is
+   available, from the app.
+5. **Grade and edit.** Accept, edit, reject or defer a proposal; change class and flags; add and
+   remove returns; mark a subject nothing proposed.
+6. **Score.** See how each proposer fared against what was graded.
+7. **Tune.** Start, continue and stop a HINT round, grading its proposals in place.
+
+Three other things exist, and none of them is a second instrument:
+
+- **The Go server** is the backend the app talks to. "No web" means no browser, not no server.
+  The [macOS local server](macos-local-server-plan.md) plan removes the terminal as well.
+- **The command line** proposes, scores and exports for automation and for machines with no
+  display. It never grades; a grade is always a person's.
+- **The web** identifies datasets: the scene map, capture inventory, run lists, published
+  scenes. Read-only with respect to this workflow.
+
+The rule that keeps it this way: a feature that creates, edits or grades truth is built in the
+macOS tool first and need never be built anywhere else. A web view may show what the macOS tool
+wrote. It may not be the only way to write it.
 
 ### The model: subject, proposal, grade
 
@@ -191,20 +241,22 @@ may also propose that two subjects are one, or one is two.
 Pass 2 runs against a written, versioned rubric. It is run twice during calibration, with pass
 1's class shown and hidden, and the difference is reported as a measure of anchoring.
 
-### Grading, the same act everywhere
+### Grading, in the macOS tool
 
-| Surface                 | Depth             | What the person does                                                                                                                    |
-| ----------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS annotation window | Objects and masks | Sees a proposal ghosted over the points; accepts, rejects, changes class, or edits membership with the existing lasso, add and subtract |
-| macOS main visualiser   | Objects           | Grades a subject from its track in replay, without opening the pack's point view                                                        |
-| Web tracks page         | Objects           | The same object-level grade in the shared scene player                                                                                  |
-| HINT                    | Objects           | `awaiting_labels` presents proposals to grade instead of tracks to label                                                                |
-| Headless                | None              | Propose, score and export only; a grade is always a person's                                                                            |
+| Where             | Depth             | What the person does                                                                                                                    |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Main visualiser   | Objects           | Grades a subject from its track during replay: accept, reject, cannot tell, change class or flags, without leaving the 3D view          |
+| Annotation window | Objects and masks | Sees a proposal ghosted over the points; accepts, rejects, changes class, or edits membership with the existing lasso, add and subtract |
+| Either            | From scratch      | Marks a subject nothing proposed. This replaces the web's missed-region marking and is how recall is measured                           |
+| HINT panel        | Objects           | `awaiting_labels` presents the round's proposals to grade in the main visualiser, then continues the round                              |
 
-Layers are toggled independently in every viewer, each with a legend and a shortcut, off by
-default and remembered per user: pass 1 proposals, pass 2 proposals, reviewed truth, tracker
-context, and the background regions. The region layer is the same data and the same toggle in
-the main visualiser, the annotation window and the web player.
+Moving between the two depths is one action: from a track in the main visualiser, open its
+subject in the annotation window at the same moment in time, and back.
+
+Layers are toggled independently, each with a legend and a shortcut, off by default and
+remembered per user: pass 1 proposals, pass 2 proposals, reviewed truth, tracker context, and
+the background regions. The region layer is the same data and the same toggle in the main
+visualiser and the annotation window.
 
 An edit is the grade. When a person adds or removes returns from a proposed mask, the reviewed
 mask is saved with `derived_from`, and the difference is the proposer's score for that sample.
@@ -231,26 +283,50 @@ acceptance does not drift into rubber-stamping.
   becomes `user_label` with `human_manual` and the grader's identity; `proposed` becomes
   `auto_suggested`. No new label source is needed, and the manual predicate already keeps
   proposals out of ground truth.
-- **HINT.** Pass 1 runs when a reference run completes. The 90% threshold counts graded subjects
-  only. Carry-over between rounds uses observation identity where the round changed only tracker
-  parameters, which is the common case, and falls back to temporal IoU otherwise.
+- **HINT.** Controlled from the macOS tool through the server's existing HINT endpoints. Pass 1
+  runs when a reference run completes. The 90% threshold counts graded subjects only. Carry-over
+  between rounds uses observation identity where the round changed only tracker parameters, which
+  is the common case, and falls back to temporal IoU otherwise.
 - **Evidence databases.** Read-only here. Proposals and grades cite observation IDs; nothing is
   written into an evidence database, which stays immutable.
 - **The evaluator.** Reports against human-graded truth, against each proposer, and against
   human-confirmed proposals, separately.
+- **The web.** Reads runs, scenes and graded results for display. Its existing track-label
+  editing is frozen: it keeps working, gains nothing, and a label written there is imported as a
+  from-scratch object-level grade so that it cannot become a second source of truth. Whether to
+  remove it is a later decision, and nothing here waits on it.
 
 ## What this cannot establish
 
 Pass 1 and pass 2 propose from the tracks and observations that exist. A road user the pipeline
 never detected has no observation and no proposal. **Grading proposals measures precision, class
 and membership. It does not measure recall.** Recall comes from a person marking a subject from
-scratch in the annotation window, with no `derived_from`, on the active segments. The grading
+scratch in the macOS tool, with no `derived_from`, on the active segments. This takes over from
+the web's missed-region marking, which recorded that something was missed without recording what
+or which returns. The grading
 UI keeps a "nothing here was proposed" action one step away, and the score report counts
 from-scratch subjects as misses of every proposer.
 
 ## Scope
 
-### Item 1: review pack and proposal layers
+### Item 1: the macOS tool closes the loop
+
+**Summary:** Choose a source and start replaying it from the app, against endpoints that already exist.
+
+**Steps:**
+
+1. HTTP clients for `capture/roots`, `capture/files`, `capture/sessions`, `pcap/files`, replay
+   cases and scenes; no server change expected, and any that proves necessary is listed here.
+2. A source browser: captures, cases, scenes and runs in one place, with search and the site a
+   capture belongs to.
+3. Start a PCAP or multi-file case over a chosen window, handing over to the playback controls
+   the app already has.
+4. Clear states for the failures seen in practice: a recording outside the server's allowed
+   directories, a run whose VRLOG is missing, a recording with frames absent.
+
+**Milestone:** v0.5.x, first, because every other item is reached through it
+
+### Item 2: review pack and proposal layers
 
 **Summary:** Context layers, proposal layers and `derived_from`, with the sidecar's guarantees kept.
 
@@ -265,7 +341,7 @@ from-scratch subjects as misses of every proposer.
 
 **Milestone:** v0.5.x
 
-### Item 2: pass 1, proposals from code
+### Item 3: pass 1, proposals from code
 
 **Summary:** Deterministic per-track metrics, rules, reason codes and mask proposals.
 
@@ -275,47 +351,51 @@ from-scratch subjects as misses of every proposer.
 2. Rules and reason codes, versioned; `cannot tell` below a confidence floor.
 3. Mask proposals from retained points, else from the box; candidates prepared for pass 2.
 4. Determinism test: two runs, identical bytes.
+5. Run from the app as well as the command line.
 
 **Milestone:** v0.5.x
 
-### Item 3: grading in the macOS tools
+### Item 4: grading and editing in the macOS tool
 
-**Summary:** Ghosted proposals, four grades, edit-as-grade, and independent layer toggles.
+**Summary:** Ghosted proposals, four grades, edit-as-grade, from-scratch subjects, independent layer toggles.
 
 **Steps:**
 
-1. Layer toggles with legends, including regions, in the annotation window and main visualiser.
+1. Layer toggles with legends, including regions, in the main visualiser and annotation window.
 2. Accept, edit, reject, cannot tell; class and flag changes; lasso edits saved with lineage.
 3. Object-level grading from a track in the main visualiser.
-4. "Nothing here was proposed": a from-scratch subject.
+4. One action between a track in replay and its subject in the annotation window, and back.
+5. A from-scratch subject, replacing missed-region marking; existing missed regions imported as
+   subjects with no mask.
 
 **Milestone:** v0.5.x
 
-### Item 4: scoring and the audit sample
+### Item 5: scoring and the audit sample
 
-**Summary:** Measure every proposer against graded truth, per class, with intervals.
+**Summary:** Measure every proposer against graded truth, per class, with intervals, and show it in the app.
 
 **Steps:**
 
-1. `review-score` and its report.
+1. `review-score` and its report; a summary view in the app.
 2. Blind re-grade sampling.
 3. First report on the active segments; decide class by class what pass 1 may be trusted with.
 
 **Milestone:** v0.5.x
 
-### Item 5: HINT and run-track labels
+### Item 6: HINT from the macOS tool
 
-**Summary:** Proposals at `awaiting_labels`, projection onto run tracks, carry-over by observation.
+**Summary:** Start, continue and stop a round in the app; proposals at `awaiting_labels`; carry-over by observation.
 
 **Steps:**
 
-1. Pass 1 on reference-run completion.
-2. Projection of graded and proposed objects onto run-track labels.
-3. Carry-over by observation identity, temporal IoU as the fallback.
+1. HTTP client and a HINT panel over the existing `hint` and sweep endpoints.
+2. Pass 1 on reference-run completion; the round's proposals graded in the main visualiser.
+3. Projection of graded and proposed objects onto run-track labels.
+4. Carry-over by observation identity, temporal IoU as the fallback.
 
 **Milestone:** v0.5.x
 
-### Item 6: pass 2 and the dossier
+### Item 7: pass 2 and the dossier
 
 **Summary:** Fixed-scale dossiers, a versioned rubric, structured output, anchoring measured.
 
@@ -325,17 +405,41 @@ from-scratch subjects as misses of every proposer.
 2. Rubric, reviewed by the person who made the existing labels.
 3. Structured output into a proposal layer; shown-and-hidden anchoring run.
 
-**Milestone:** v0.5.x, after item 4 has reported on pass 1
+**Milestone:** v0.5.x, after item 5 has reported on pass 1
 
-### Item 7: object-level grading on the web
+### Item 8: web views for identifying datasets
 
-**Summary:** The same grade in the shared scene player, with the same layer toggles.
+**Summary:** Read-only views of what exists and what has been graded. Not part of any grading or validity path.
 
-**Milestone:** v0.5.x
+**Steps:**
+
+1. Graded coverage per site and segment on the scene map and run lists.
+2. Freeze web label editing; import anything written there as a from-scratch object-level grade.
+
+**Milestone:** Unscheduled. Nothing above depends on it.
+
+## Acceptance
+
+With no browser open at any point, an operator using only the macOS tool can:
+
+1. find the Columbus and Broadway capture, and start replaying a chosen five minutes of it;
+2. pause on a vehicle, see its track, trail, box and returns, and switch the region layer on and
+   off;
+3. cut a review pack from that run and run pass 1 on it;
+4. accept one proposal, reject one, change the class of one, and add and remove returns from one;
+5. mark a pedestrian that nothing proposed;
+6. see how pass 1 scored against those grades;
+7. start a HINT round, grade its proposals, and continue it to the sweep.
+
+The same walk-through is repeated with the server on another machine.
 
 ## Dependencies
 
 - **The annotation toolset** (PR #579): the pack, the sidecar and the macOS window.
+- **Existing server endpoints** for captures, PCAP replay, playback, scenes, replay cases and
+  HINT. They are already there and already used by the web; item 1 is client work.
+- **[macOS local server](macos-local-server-plan.md)**, so that the app starts its own backend.
+  Not blocking: the loop closes against a server started by hand.
 - **The evidence databases** (PR #559): observation identity, residuals, the scorecard. Pass 1
   degrades to box-derived masks and run-track measurements without them.
 - **The run-track finalisation fix:** pass 1's life and motion metrics, and temporal IoU, are
@@ -353,6 +457,11 @@ from-scratch subjects as misses of every proposer.
   no proposer touched.
 - **Rules fitted to their own grades.** Pass 1's rules and pass 2's rubric are versioned, and
   agreement is always reported against a stated version.
+- **A second instrument growing back.** The web already edits labels, and it is the quicker place
+  to add a button. The rule above, the frozen web editor and the browser-free acceptance test are
+  what hold the line.
+- **One platform.** An operator without a Mac cannot grade. Accepted: the command line still
+  proposes and scores anywhere, and one good instrument is worth more than two partial ones.
 - **Two stores drifting.** Run-track labels are a projection of graded objects, written one way.
   A label edited directly in the old UI is imported as a from-scratch object-level grade rather
   than left as a second source.
@@ -363,22 +472,26 @@ from-scratch subjects as misses of every proposer.
 
 ### Outstanding
 
+- [ ] macOS source browser; start a PCAP or case replay over a window (`M`)
 - [ ] Context layers and proposal layer format (`M`)
 - [ ] `derived_from` and grade in both sidecar stores, fixture updated (`M`)
 - [ ] Per-track scorecard metrics (`M`)
-- [ ] Pass 1 rules, reason codes and mask proposals, deterministic (`L`)
+- [ ] Pass 1 rules, reason codes and mask proposals, deterministic, runnable from the app (`L`)
 - [ ] macOS layer toggles, ghosted proposals, four grades, edit-as-grade (`L`)
-- [ ] `review-score`, audit sampling, first report (`M`)
-- [ ] HINT integration, label projection, carry-over by observation (`L`)
+- [ ] From-scratch subjects in the macOS tool; missed regions imported (`M`)
+- [ ] `review-score`, audit sampling, first report, in-app summary (`M`)
+- [ ] HINT panel in the macOS tool, label projection, carry-over by observation (`L`)
 - [ ] Dossier, rubric, pass 2, anchoring run (`L`)
-- [ ] Web object-level grading (`M`)
+- [ ] Browser-free acceptance walk-through, local and remote server (`S`)
 
 ### Deferred
 
 - [ ] Temporal propagation of a graded mask to later samples, as a third proposer
 - [ ] An HTTP or MCP surface over review packs, until review leaves the recording host
+- [ ] Web views of graded coverage, and the decision whether to remove web label editing
 
 ### Accepted residuals (no action planned)
 
 - [ ] Recall is measured only on from-scratch subjects in the active segments
 - [ ] Rare classes may stay from-scratch and human-only indefinitely
+- [ ] Grading requires a Mac

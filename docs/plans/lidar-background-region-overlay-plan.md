@@ -1,7 +1,7 @@
 # Background grid and region overlays in recordings and viewers
 
 - **Status:** Draft
-- **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window, web scene)
+- **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window first; web as an optional view)
 - **Target:** v0.5.x, after the annotation toolset lands; the overlay is what makes an L3 remedy testable
 - **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
 - **Canonical:** [adaptive-region-parameters.md](../lidar/operations/adaptive-region-parameters.md)
@@ -82,8 +82,13 @@ pack carries points only.
 ### Principle
 
 Record the background model's state in the same stream as the frames it explains, indexed by
-cell, with its changes as events. Every viewer then draws from the recording, and an overlay seen
-in the macOS tool, the web player and an agent's report is the same data.
+cell, with its changes as events. Every viewer then draws from the recording.
+
+The macOS visualiser is where this is diagnosed, as it is where everything else in the
+[review workflow](lidar-review-workflow-plan.md) is done. The overlay is complete there first,
+in the main view and the annotation window, and the acceptance below is met without a browser.
+A web view of the same data may follow for showing a finding to someone else. Nothing depends on
+it.
 
 ### 1. Cell-indexed grid state in the proto
 
@@ -170,19 +175,12 @@ One set of modes, the same names in every viewer, applied by colouring backgroun
 Cells with no background point (never settled) get a wedge outline in a second pass, so an
 unsettled sector is visible as absence rather than as nothing.
 
-### 6. Where each viewer gets it
+### 6. Where it is drawn, macOS first
 
 - **macOS visualiser.** The region toggle and its mode picker beside the existing background
   toggle, a legend, and event ticks on the timeline. Selecting a background point shows its cell:
   ring, azimuth, region, baseline, spread, state, and the region's parameters. The renderer
   already keeps a background cache with a crossfade; deltas update that cache in place.
-- **Web scene.** `velocity scene export --grid-state` writes the grid state into the existing
-  chunk scheme as a keyframe per chunk plus deltas, and the player gains the same toggle, mode
-  picker and ticks. The web background is voxelised, so the join is made at export: each voxel
-  takes the cell of the point that represents it. This is a presentation of the diagnosis, not the
-  evidence for it.
-- **Static snapshots.** An exported still carries the active overlay mode and its legend, so an
-  image attached to a finding says what its colours mean.
 - **Annotation window and review packs.** A review pack carries the grid state as a context
   layer: the keyframe in force at each sample, and a `cell_index` for every pack point, outside
   the point digest. The annotation window gets the same toggle and modes over its orthographic
@@ -194,6 +192,13 @@ unsettled sector is visible as absence rather than as nothing.
   the region and the beyond-baseline state of the cells under a track's path as evidence, and
   pass 2's dossier draws the trail over the region-coloured background. A "track" that never
   leaves cells the model has wrong is most of a noise proposal on its own.
+- **Static snapshots.** An exported still carries the active overlay mode and its legend, so an
+  image attached to a finding says what its colours mean.
+- **Web scene, optional.** `velocity scene export --grid-state` writes the grid state into the
+  existing chunk scheme as a keyframe per chunk plus deltas, and the player gains the same toggle,
+  mode picker and ticks. The web background is voxelised, so the join is made at export: each
+  voxel takes the cell of the point that represents it. This is a presentation of the diagnosis,
+  not the evidence for it, and no step of the diagnosis requires it.
 
 ### Invariants
 
@@ -242,21 +247,7 @@ unsettled sector is visible as absence rather than as nothing.
 
 **Milestone:** v0.5.x
 
-### Item 3: web scene export and player
-
-**Summary:** Export grid state into scene chunks and draw the same modes in the web player.
-
-**Steps:**
-
-1. `--grid-state` on `velocity scene export`; voxel-to-cell join at export time.
-2. Keyframe per chunk plus deltas, within the existing chunk size budget; measure the size cost
-   on columbus-broadway before choosing delta thresholds.
-3. Toggle, mode picker, legend and ticks in `scene-player.js`, shared by the tracks page.
-4. Legend baked into exported stills.
-
-**Milestone:** v0.5.x
-
-### Item 4: region layer in review packs and the annotation window
+### Item 3: region layer in review packs and the annotation window
 
 **Summary:** Grid state as a pack context layer, with the same toggle over the orthographic views.
 
@@ -269,7 +260,7 @@ unsettled sector is visible as absence rather than as nothing.
 
 **Milestone:** v0.5.x
 
-### Item 5: grid report for proposers and evidence
+### Item 4: grid report for proposers and evidence
 
 **Summary:** A headless report of the background model at a moment, as JSON and images.
 
@@ -282,9 +273,24 @@ unsettled sector is visible as absence rather than as nothing.
 
 **Milestone:** v0.5.x
 
+### Item 5: web scene export and player, optional
+
+**Summary:** Export grid state into scene chunks and draw the same modes in the web player, for showing a finding to someone else.
+
+**Steps:**
+
+1. `--grid-state` on `velocity scene export`; voxel-to-cell join at export time.
+2. Keyframe per chunk plus deltas, within the existing chunk size budget; measure the size cost
+   on columbus-broadway before choosing delta thresholds.
+3. Toggle, mode picker, legend and ticks in `scene-player.js`, shared by the tracks page.
+4. Legend baked into exported stills.
+
+**Milestone:** Unscheduled. Nothing above depends on it.
+
 ## Acceptance
 
-On the columbus-broadway capture, from the recording alone, an operator can:
+On the columbus-broadway capture, from the recording alone, in the macOS tool and with no browser
+open, an operator can:
 
 1. see at settling-complete which northbound cells locked at the queue's range, nearer than the
    returns that later come from those cells;
@@ -336,11 +342,11 @@ Hypotheses for a separate L3 experiment, not decisions made here:
 - [ ] `beyond_baseline_count` (`S`)
 - [ ] macOS region toggle, modes, legend, cell inspector, ticks (`L`)
 - [ ] Region layer in review packs and the annotation window (`M`)
-- [ ] Web export flag, player toggle and modes, still legends (`L`)
 - [ ] `grid-report` CLI and the Columbus write-up (`M`)
 
 ### Deferred
 
+- [ ] Web export flag, player toggle and modes, still legends: optional, unscheduled (`L`)
 - [ ] The L3 remedies above: a separate experiment plan once the overlay exists
 - [ ] Wedge polygons on a ground plane for unsettled cells, if outlines prove insufficient
 
