@@ -24,7 +24,17 @@ pytest-cov
 
 # Development tools (formatting/linting)
 black>=26.5.1  # CVE-2026-32274 fix
-ruff
+# Pinned exactly, unlike the floors above, because ruff is a formatter here and
+# not just a checker: `make format-python` runs `ruff check --fix .` over the
+# whole repository, so the resolved version decides the contents of every Python
+# file. Left to float it reached 0.16.6, which removes `# noqa: E402` and
+# `# noqa: S310` directives it considers unused — 30 of them, including a
+# security-review annotation — and rewrote 41 files. Every such rewrite failed
+# pre-commit with "files were modified by this hook", so no Python commit could
+# be made at all. 0.15.17 is the version the committed tree is formatted to:
+# `ruff check --fix --diff .` proposes nothing against it. Raise this pin
+# deliberately, in a commit that carries the resulting churn on its own.
+ruff==0.15.17
 fonttools>=4.65.0  # CVE-2025-66034 fix
 
 # Add any other top-level tools that should be available to all data projects here.
