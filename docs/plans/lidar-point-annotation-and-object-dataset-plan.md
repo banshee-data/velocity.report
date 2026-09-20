@@ -5,9 +5,9 @@ identity through a recording. It separates human evidence from tracker output so
 does not split the reference vehicle as well.
 
 - **Status:** Revision-safe backend and macOS selection client implemented; reviewed dataset and its acceptance open
-- **Canonical:** [Visibility-aware tracking contract](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
+- **Canonical:** This document
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, L10 Clients, offline analysis
-- **Related:** [Three-day demo](lidar-single-site-shape-demo-sprint-plan.md), [Shape descriptors](lidar-shape-descriptors-plan.md), [State estimation](lidar-state-estimation-plan.md), [Test corpus](lidar-test-corpus-plan.md), [Labelling and QC](lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
+- **Related:** [Shape descriptors](lidar-shape-descriptors-plan.md), [Test corpus](lidar-test-corpus-plan.md), [Labelling and QC](lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 
 ## 1. Outcome and boundaries
 
@@ -29,12 +29,9 @@ classification, or claim to recover surfaces the sensor never recorded. A select
 observed return, not a permanent landmark on the vehicle: point identities do not persist across
 scans, but the annotated object identity does.
 
-The [visibility-aware review][visibility-research] defines the estimator contract. Keep membership
-evidence, uncertain seed dimensions, and physical pose reference labels separate. A mask does not
-certify unseen dimensions or cross-frame point correspondence. Future reviewed masks must not enter
-a causal evaluation; report assisted corrections separately from unassisted predictions.
-
-[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
+Keep membership evidence, uncertain seed dimensions, and physical pose reference labels separate.
+A mask does not certify unseen dimensions or cross-frame point correspondence. Future reviewed masks
+must not enter a causal evaluation; report assisted corrections separately from unassisted predictions.
 
 ## 2. Existing work and the missing contract
 
@@ -260,5 +257,6 @@ replaceable and must not define annotation truth.
 - Test-set masks and future poses cannot reach unassisted tracking or model fitting.
 - Sparse/foreground-only sources retain their limitations through every export.
 
-The implementation slice, effort budget, and demo gates are in the
-[three-day sprint](lidar-single-site-shape-demo-sprint-plan.md).
+This plan is the implementation slice and acceptance record for the annotation pilot. Any later
+demo or state-estimation work must retain these evidence boundaries rather than treating a reviewed
+mask as a direct observation of hidden geometry.
