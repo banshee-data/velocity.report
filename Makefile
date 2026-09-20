@@ -1114,6 +1114,7 @@ ensure-python-tools:
 # escape $ to $$ inside the define so the resulting shell script receives
 # single-dollar variables.
 define run_dev_go
+	set -e; \
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
 	logfile=$(CURDIR)/logs/velocity-$${ts}.log; \
