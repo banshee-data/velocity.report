@@ -71,7 +71,7 @@ func TestScorecardIsIdenticalAcrossIndependentlyWrittenEvidence(t *testing.T) {
 	writeEvidence(t, b, "trk_99999999-zzzz")
 
 	encode := func(path string) []byte {
-		doc, err := score(path, 1.0)
+		doc, err := score(path, 1.0, "", 2.0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ func TestScorecardIsIdenticalAcrossIndependentlyWrittenEvidence(t *testing.T) {
 func TestScorecardReadsTheEvidenceItWasGiven(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.db")
 	writeEvidence(t, path, "trk_test")
-	doc, err := score(path, 0)
+	doc, err := score(path, 0, "", 2.0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,5 +120,58 @@ func TestScorecardReadsTheEvidenceItWasGiven(t *testing.T) {
 		if c.Count != want {
 			t.Errorf("termination %s = %d, want %d", c.Class, c.Count, want)
 		}
+	}
+}
+
+// Scoring a run against an independently written copy of the same evidence
+// must report perfect agreement. This is the noise floor for every reference
+// comparison: a difference anywhere else is a real difference, not the
+// metric's own variance.
+func TestReferenceComparisonOfIdenticalEvidenceIsPerfect(t *testing.T) {
+	dir := t.TempDir()
+	candidate := filepath.Join(dir, "candidate.db")
+	reference := filepath.Join(dir, "reference.db")
+	writeEvidence(t, candidate, "trk_aaaa")
+	writeEvidence(t, reference, "trk_zzzz")
+
+	doc, err := score(candidate, 0, reference, 2.0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Sources) != 1 || len(doc.Sources[0].Reference) != 1 {
+		t.Fatalf("got %d sources with %d reference comparisons, want 1 and 1",
+			len(doc.Sources), len(doc.Sources[0].Reference))
+	}
+	ref := doc.Sources[0].Reference[0]
+	m := ref.Metrics
+	if m.MOTA != 1.0 || m.IDSwitches != 0 || m.Fragmentations != 0 || m.FN != 0 || m.FP != 0 {
+		t.Errorf("identical evidence scored %+v; want MOTA 1.0 with no errors", m)
+	}
+	if ref.Kind != "reference_run" || ref.Note == "" {
+		t.Error("the comparison must say what the reference is, so agreement is not read as accuracy")
+	}
+	if ref.ReferenceTracks != ref.CandidateTracks {
+		t.Errorf("track counts differ: %d reference, %d candidate", ref.ReferenceTracks, ref.CandidateTracks)
+	}
+}
+
+// A reference section only appears when one was asked for, so an existing
+// scorecard's bytes do not change.
+func TestReferenceSectionIsAbsentWithoutAReference(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.db")
+	writeEvidence(t, path, "trk_test")
+	doc, err := score(path, 0, "", 2.0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Sources[0].Reference) != 0 {
+		t.Fatal("reference section present without -reference")
+	}
+	payload, err := marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(payload, []byte(`"reference"`)) {
+		t.Error("empty reference section was serialised; omitempty should drop it")
 	}
 }

@@ -31,6 +31,9 @@ import (
 type sourceScorecard struct {
 	SourceID  string                     `json:"source_id"`
 	Scorecard l8analytics.TrackScorecard `json:"scorecard"`
+	// Reference is present only when -reference named another evidence
+	// database. Empty otherwise, so a scorecard without one is unchanged.
+	Reference []ReferenceComparison `json:"reference,omitempty"`
 }
 
 type document struct {
@@ -44,12 +47,15 @@ func main() {
 		dbPath       = flag.String("observations", "", "observations.db written by lidar-state-estimation-baseline (required)")
 		scoringStart = flag.Float64("scoring-start-seconds", 0, "seconds after the first frame at which scoring starts; use the replay's warm-up")
 		jsonOut      = flag.String("json", "", "path for the canonical JSON result (required)")
+		reference    = flag.String("reference", "", "another observations.db to score against per frame (MOTA/MOTP/IDSW/FM/HOTA). "+
+			"It is a reference run, not ground truth: the result measures divergence from it")
+		matchDist = flag.Float64("reference-match-metres", 2.0, "association gate for reference matching, and the distance at which HOTA similarity reaches zero")
 	)
 	flag.Parse()
 	if *dbPath == "" || *jsonOut == "" {
 		fatal(fmt.Errorf("-observations and -json are required"))
 	}
-	doc, err := score(*dbPath, *scoringStart)
+	doc, err := score(*dbPath, *scoringStart, *reference, *matchDist)
 	if err != nil {
 		fatal(err)
 	}
@@ -79,7 +85,7 @@ func marshal(doc document) ([]byte, error) {
 	return append(payload, '\n'), nil
 }
 
-func score(dbPath string, scoringStartSeconds float64) (document, error) {
+func score(dbPath string, scoringStartSeconds float64, referenceDBPath string, matchDistanceMetres float64) (document, error) {
 	doc := document{SchemaVersion: 1, ScoringStartSeconds: scoringStartSeconds, Sources: []sourceScorecard{}}
 	// Read through internal/db and the storage layer, as lidar-e1-analysis
 	// does: only those packages may touch database/sql.
@@ -127,10 +133,22 @@ func score(dbPath string, scoringStartSeconds float64) (document, error) {
 				NIS: float64(r.NIS),
 			})
 		}
-		opts := l8analytics.ScorecardOptions{ScoringStartNanos: firstFrame + int64(scoringStartSeconds*1e9)}
-		doc.Sources = append(doc.Sources, sourceScorecard{
+		scoringStart := firstFrame + int64(scoringStartSeconds*1e9)
+		opts := l8analytics.ScorecardOptions{ScoringStartNanos: scoringStart}
+		entry := sourceScorecard{
 			SourceID: sourceID, Scorecard: l8analytics.ComputeTrackScorecard(estimates, clusters, opts),
-		})
+		}
+		if referenceDBPath != "" {
+			candidate, err := loadSeries(states, sourceID, scoringStart)
+			if err != nil {
+				return doc, err
+			}
+			entry.Reference, err = compareToReference(referenceDBPath, sourceID, candidate, matchDistanceMetres, scoringStart)
+			if err != nil {
+				return doc, err
+			}
+		}
+		doc.Sources = append(doc.Sources, entry)
 	}
 	return doc, nil
 }
