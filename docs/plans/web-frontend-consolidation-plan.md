@@ -1,63 +1,54 @@
-# Frontend consolidation plan
+# Surface consolidation plan
 
-- **Status:** Draft
+- **Status:** Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+  estimates and several factual claims in the previous revision were wrong, and
+  the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
-
 - **Layers:** L9 Endpoints, L10 Clients
+- **Scope note:** the title says _surface_ rather than _frontend_ because the
+  survey found the load-bearing duplication is not between two UIs' screens. It
+  is that the web's data never passes through the canonical frame model, so the
+  scene format is produced twice in two languages. Deleting the legacy HTML is
+  the small half of this document; [One scene lineage](#one-scene-lineage) is the
+  large half.
 
 ## Problem statement
 
 The project has three distinct web surfaces for LiDAR functionality:
 
-1. **Svelte web app** (`/app/*`, port 8080): radar dashboard, reports, sites, settings, plus LiDAR tracks/scenes/runs
-2. **Go-embedded HTML dashboards** (port 8081): LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
-3. **macOS Metal visualiser** (gRPC on port 50051): live 3D point cloud rendering, track labelling, replay
+1. **Svelte web app** (`/app/*`, port 8080): radar dashboard, reports, sites, settings, plus LiDAR tracks/replay-cases/runs/captures/sweeps/scene-map
+2. **Go-embedded HTML dashboards** (port 8081, and on 8080 too, see below): LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
+3. **macOS Metal visualiser** (gRPC on port 50051, plus eleven HTTP calls to `/api/lidar/*` on 8080): live 3D point cloud rendering, track labelling, replay
 
 The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. PR #547 now hides sidebar LiDAR navigation in radar-only deployments, but direct-route disabled states and the split LiDAR tooling surfaces still need follow-through.
 
-### Current state diagram
+## Surface ownership
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Go Binary                            │
-│                                                         │
-│  ┌──────────────────────┐  ┌─────────────────────────┐  │
-│  │  Port 8080 (Radar)   │  │  Port 8081 (LiDAR)      │  │
-│  │                      │  │                         │  │
-│  │  Embedded Svelte SPA │  │  Go-template HTML pages │  │
-│  │  ├─ Dashboard        │  │  ├─ Status/Config       │  │
-│  │  ├─ Sites            │  │  ├─ Debug Dashboard     │  │
-│  │  ├─ Reports          │  │  ├─ Sweep/Auto-Tune     │  │
-│  │  ├─ Settings         │  │  ├─ Background Regions  │  │
-│  │  ├─ LiDAR Tracks   ←─┼──┼──┤  (iframe charts)     │  │
-│  │  ├─ LiDAR Scenes     │  │  └─ ECharts assets      │  │
-│  │  └─ LiDAR Runs       │  │                         │  │
-│  └──────────────────────┘  └─────────────────────────┘  │
-│                                                         │
-│  ┌──────────────────────┐                               │
-│  │  Port 50051 (gRPC)   │                               │
-│  │  Frame streaming     │◄──── macOS Metal Visualiser   │
-│  └──────────────────────┘                               │
-└─────────────────────────────────────────────────────────┘
-```
+[docs/ui/DESIGN.md §2.1](../ui/DESIGN.md) already names four canonical surfaces
+and already marks the legacy dashboards "migration target, not style baseline".
+This plan does not add a surface model; it adds the allocation rule that was
+missing, so a new feature has one obvious home.
 
-### Pain points
+**Fidelity-bound interaction goes to macOS. Workflow and publishing go to the
+Svelte app. Numbers go headless. Public pages stay static.**
 
-| Problem                                       | Impact                                                                    |
-| --------------------------------------------- | ------------------------------------------------------------------------- |
-| LiDAR nav items visible in radar-only deploys | Sidebar gating is implemented; direct route empty states remain follow-up |
-| Sweep dashboard only on 8081                  | Users must know two ports; no unified navigation                          |
-| ECharts in Go embeds, LayerChart in Svelte    | Two charting stacks to maintain                                           |
-| LiDAR status page uses Go templates           | Cannot benefit from Svelte reactivity or component reuse                  |
-| Three surfaces for LiDAR functionality        | Fragmented user experience; unclear where to find what                    |
+| Concern                                                                                 | Home                            | Why                                                                                              |
+| --------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Point-cloud interaction, per-point annotation, pose authoring, frame stepping           | **macOS**                       | Metal, full fidelity, ~70k points per frame with debug overlays                                  |
+| Runs, replay cases, captures, sites, labelling review, sweep control, status, recording | **Svelte, 8080**                | Operator workflow, browser-reachable, no fidelity requirement                                    |
+| Overall scene view (recorded), scene catalogue, publishing                              | **Svelte, 8080**                | Consumes the decimated artefact the public page already uses                                     |
+| Public scene pages                                                                      | **`public_html/`, static**      | Shipped: 26 scenes, gzipped NDJSON and three.js, on GitHub Pages                                 |
+| Aggregate metrics, comparators, evaluation tables                                       | **Headless: JSON + server SVG** | [State-estimation plan §18.3](lidar-state-estimation-plan.md); keeps Swift off the critical path |
+| Legacy 8081 HTML                                                                        | **Deleted**                     | —                                                                                                |
 
-## Design constraints
-
-> Constraint list: see [web-frontend-consolidation.md § Design Constraints](../ui/web-frontend-consolidation.md#design-constraints).
-
-## Proposed end state
-
-> Architecture diagram and key decisions: see [web-frontend-consolidation.md § Proposed End State](../ui/web-frontend-consolidation.md#end-state).
+Two consequences worth stating, because they resolve questions that keep
+recurring. Track labelling exists in full in both the Svelte app and the macOS
+side panel, against the same endpoint; `docs/lidar/operations/track-labelling-ui-implementation.md`
+already chose Swift-native and deferred web parity, so the web labeller should be
+demoted to read-only review rather than kept in step. And evaluation output is
+the one item on the list with _no_ surface at all: `GET/POST /api/lidar/scenes/{id}/evaluations`
+has a backend and zero consumers, and `analysis.CompareReports` has never had a
+UI. Everything else has too many.
 
 ## Options evaluated
 
@@ -178,337 +169,210 @@ LiDAR is off, and direct URL access to `/app/lidar/*` should show a friendly
 disabled state. Full hot-enable/disable truth also still needs backend lifecycle
 callbacks for ready/error transitions.
 
-## Migration plan
-
-### Phase 0: capabilities API & conditional navigation
-
-**Effort: Small (2–4 days)**
-
-Implement `/api/capabilities` as the runtime sensor capability contract used by
-the Svelte sidebar:
-
-**Capabilities response shape:**
-
-| Field                   | Type    | Example       | Purpose                                                                                  |
-| ----------------------- | ------- | ------------- | ---------------------------------------------------------------------------------------- |
-| `radar`                 | object  | `{...}`       | Named radar sensor map keyed by stable sensor name                                       |
-| `radar.default.enabled` | boolean | `true`        | Built-in radar sensor active                                                             |
-| `radar.default.status`  | string  | `"receiving"` | Runtime state (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`)           |
-| `lidar`                 | object  | `{}`          | Named LiDAR sensor map; empty when no LiDAR sensor is configured or active               |
-| `lidar.default.enabled` | boolean | `true`        | Built-in LiDAR sensor active when present                                                |
-| `lidar.default.status`  | string  | `"starting"`  | Current production state when LiDAR is enabled; `ready`/`error` wiring remains follow-up |
-| `lidar.default.sweep`   | boolean | `false`       | Sweep subsystem available                                                                |
-
-Capabilities define runtime states (`disabled`, `starting`, `ready`,
-`receiving`, `stale`, `error`) but current production wiring only reports radar
-as `receiving`, omits LiDAR when disabled, and reports LiDAR as `starting` when
-`--enable-lidar` constructs the LiDAR server. A backend lifecycle manager still
-needs to wire real startup success to `SetLidarReady` and failure to
-`SetLidarError` without interrupting radar logging or streaming.
-
-The root `+layout.svelte` now fetches capabilities on mount and conditionally
-renders LiDAR navigation items. The store starts a retry timer immediately,
-retries startup failures, stops polling after a successful radar-only response,
-and keeps polling when any LiDAR sensor is present. Server-side `/api/lidar/*`
-disabled responses and direct-route empty states remain separate checklist items.
-
-**Files changed:**
-
-- [internal/api/server.go](../../internal/api/server.go): new `CapabilitiesProvider` interface, route registration, setter
-- [internal/api/server_admin.go](../../internal/api/server_admin.go): `showCapabilities()` handler
-- [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go): handler tests for default, lifecycle, empty-map, nil-map, and multi-sensor responses
-- [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go): `capabilitiesProvider` with mutex-protected state transitions
-- [internal/cmd/server/capabilities_test.go](../../internal/cmd/server/capabilities_test.go): provider tests for disabled, ready, starting, error, and interface coverage
-- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): wire capabilities provider into API server startup
-- [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `SensorStatus`, `LidarSensorStatus` types and `getCapabilities()` function
-- [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): test cases for `getCapabilities()`
-- [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts): polling store with derived `lidarEnabled`/`lidarState`
-- [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts): store tests for derived state, polling, startup retry, and idempotent start/stop
-- [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte): conditional LiDAR nav rendering, polling lifecycle
-
-### Phase 1: migrate status page
-
-**Effort: Small (2–3 days)**
-
-The status page (`status.html`, 492 lines) is mostly a configuration panel with forms and API links. It uses Go templates for initial server-side rendering but the interactive parts are vanilla JavaScript.
-
-Rewrite as `/app/lidar/status` Svelte route using svelte-ux form components (TextField, Toggle, SelectField). Replace Go template variables with API calls to `/api/lidar/params` and `/api/config`.
-
-**What moves:**
-
-- System status display (sensor ID, mode, firmware)
-- PCAP replay controls
-- Parameter JSON editor
-- Diagnostic link directory
-
-**Charting impact:** None; status page has no charts.
-
-**Files changed:**
-
-- New: `web/src/routes/lidar/status/+page.svelte`
-- Update: [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) (add nav item)
-- Update: [web/src/lib/api.ts](../../web/src/lib/api.ts) (status API calls)
-
-### Phase 2: migrate background regions dashboard
-
-**Effort: Small (2–3 days)**
-
-The regions dashboard (`regions_dashboard.html`, 54 lines + `regions_dashboard.js`, 298 lines) renders a polar grid using Canvas 2D. This is a self-contained visualisation with no framework dependencies.
-
-Rewrite as `/app/lidar/regions` Svelte route. The Canvas rendering logic can be largely preserved inside a Svelte component wrapping an HTML `<canvas>` element: no charting library rewrite needed since it uses raw Canvas 2D, not ECharts.
-
-**What moves:**
-
-- Polar grid visualisation (40 rings × 1800 azimuth bins)
-- Interactive region hover/selection
-- Legend and tooltip rendering
-
-**Charting impact:** None; uses Canvas 2D directly, not ECharts.
-
-**Files changed:**
-
-- New: `web/src/routes/lidar/regions/+page.svelte`
-- New: `web/src/lib/components/lidar/RegionsCanvas.svelte`
-- Update: [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) (add nav item)
-
-### Phase 3: migrate sweep dashboard
-
-**Effort: Large (2–3 weeks)**
-
-The sweep dashboard is the most complex embedded page (`sweep_dashboard.html`, 338 lines + `sweep_dashboard.js`, 2,390 lines + CSS). It has two operational modes (manual sweep, auto-tune), 8 ECharts chart types, real-time polling, and complex parameter schema handling.
-
-This is the critical migration that requires rewriting all ECharts visualisations using LayerChart/d3-scale (the Svelte app's existing charting stack). Each chart type must be rebuilt:
-
-| ECharts Chart           | LayerChart Equivalent       | Complexity |
-| ----------------------- | --------------------------- | ---------- |
-| Acceptance rate line    | Spline + Area               | Low        |
-| Nonzero cells line      | Spline                      | Low        |
-| Bucket distribution bar | Bar chart                   | Low        |
-| Track count line        | Spline                      | Low        |
-| Alignment score line    | Spline                      | Low        |
-| Parameter heatmap       | Custom (Canvas or SVG grid) | High       |
-| Multi-round comparison  | Group + Spline              | Medium     |
-| Recommendation table    | svelte-ux Table             | Low        |
-
-Rewrite as `/app/lidar/sweep` Svelte route with sub-components for each chart and the parameter configuration panel.
-
-**What moves:**
-
-- Manual sweep configuration and execution
-- Auto-tune with multi-round optimisation
-- All 8 chart types (rewritten from ECharts to LayerChart)
-- CSV/JSON export
-- Scene/PCAP selection
-- Ground truth evaluation UI
-
-**Charting impact: High**; 8 chart types rewritten from ECharts to LayerChart/d3-scale. The heatmap is the hardest; LayerChart doesn't have a native heatmap so it would need a custom Canvas or SVG implementation.
-
-**Files changed:**
-
-- New: `web/src/routes/lidar/sweep/+page.svelte`
-- New: `web/src/routes/lidar/sweep/+page.ts`
-- New: `web/src/lib/components/lidar/SweepCharts.svelte` (or multiple chart components)
-- New: `web/src/lib/components/lidar/ParameterEditor.svelte`
-- Update: [web/src/lib/api.ts](../../web/src/lib/api.ts) (sweep API calls)
-- Update: [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) (sweep types)
-- Update: [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) (add nav item)
-
-### Phase 4: migrate debug dashboard
-
-**Effort: Small (1 day)**
-
-The debug dashboard (`dashboard.html`, 43 lines) is a simple iframe grid linking to chart endpoints. Once the sweep and regions dashboards are migrated, this page becomes a simple link/redirect page in Svelte, or is retired entirely if all debug views are accessible from the LiDAR navigation.
-
-**What moves:**
-
-- Grid of chart iframes → links to individual Svelte pages or retained as iframe embeds during transition
-
-### Phase 5: retire port 8081
-
-**Effort: Medium (3–5 days)**
-
-Once all HTML dashboards are migrated to Svelte, consolidate the LiDAR API endpoints from port 8081 into port 8080. This involves:
-
-1. Moving API route registration from `internal/lidar/monitor/webserver.go` to [internal/api/server.go](../../internal/api/server.go)
-2. Updating the Vite dev proxy to route all `/api/lidar/*` to 8080
-3. Removing the `--lidar-listen` flag and 8081 HTTP server
-4. Updating documentation and deployment configs
-
-**Note:** The gRPC server on port 50051 is unaffected; it serves the macOS visualiser and is independent of the HTTP consolidation.
-
-**Files changed:**
-
-- [internal/api/server.go](../../internal/api/server.go): absorb LiDAR API routes
-- `internal/lidar/monitor/webserver.go`: remove HTML serving, retain API handlers
-- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): remove 8081 HTTP server setup
-- [web/vite.config.ts](../../web/vite.config.ts): remove split proxy
-- `docs/`: update deployment and architecture docs
-
-### Phase 6: clean up Go embeds
-
-**Effort: Small (1 day)**
-
-Remove the embedded HTML templates and ECharts assets from the Go binary:
-
-- Delete `internal/lidar/monitor/html/*.html`
-- Delete `internal/lidar/monitor/assets/` (ECharts, CSS, dashboard JS)
-- Remove `//go:embed` directives for dashboard assets
-- Remove handler functions for retired endpoints
-
-This reduces binary size and eliminates the dual charting stack.
-
-## Effort summary
-
-| Phase     | Scope                              | Effort          | Charting Rewrite                         |
-| --------- | ---------------------------------- | --------------- | ---------------------------------------- |
-| 0         | Capabilities API + conditional nav | Mostly complete | None                                     |
-| 1         | Status page migration              | 2–3 days        | None                                     |
-| 2         | Regions dashboard migration        | 2–3 days        | None (Canvas 2D)                         |
-| 3         | Sweep dashboard migration          | 2–3 weeks       | **8 chart types** (ECharts → LayerChart) |
-| 4         | Debug dashboard retirement         | 1 day           | None                                     |
-| 5         | Port 8081 retirement               | 3–5 days        | None                                     |
-| 6         | Go embed cleanup                   | 1 day           | None                                     |
-| **Total** |                                    | **~5–6 weeks**  |                                          |
-
-Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart rewrite. All other phases are straightforward migrations of forms, tables, and Canvas-based visualisations that don't require charting library translation.
-
-## Detailed checklists and timelines (option b)
-
-### Phase 0: capabilities API & conditional navigation
-
-Expected timeline: 2–4 days.
-
-Checklist:
-
-- [x] Define the capabilities schema and state machine (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`) and document the contract in `docs/`.
-  - Schema: `Capabilities { radar: Record<string, SensorStatus>, lidar: Record<string, LidarSensorStatus> }`; see [internal/api/server.go](../../internal/api/server.go).
-  - Current provider emits the built-in `"default"` radar key and either a `"default"` LiDAR key or an empty LiDAR map; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
-- [x] Implement the backend capability state holder.
-  - `capabilitiesProvider` in [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go) has mutex-protected state transitions.
-  - [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) wires the provider into API startup and marks LiDAR `starting` when the LiDAR server exists.
-- [ ] Wire real LiDAR lifecycle callbacks.
-  - Startup success should call `SetLidarReady(true)` once sweep/routes are usable.
-  - Startup/listener failure should call `SetLidarError`.
-  - Radar hot-plug/disconnect status is not implemented by this phase; `radar.default` remains a static built-in capability.
-- [x] Implement `/api/capabilities` with unit tests for default values and hardware-off scenarios.
-  - Handler: [internal/api/server_admin.go](../../internal/api/server_admin.go); `showCapabilities()`.
-  - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); covers default, ready, error, method-not-allowed, empty-map, nil-map, and multi-sensor responses.
-- [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
-- [x] Add `getCapabilities()` to [web/src/lib/api.ts](../../web/src/lib/api.ts).
-  - Function: `getCapabilities()`; see [web/src/lib/api.ts](../../web/src/lib/api.ts).
-  - Tests in [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts) cover named-map response parsing and error handling.
-- [x] Update [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) to gate LiDAR nav items based on capabilities.
-  - LiDAR nav items are gated by `Object.values($capabilities.lidar).some(s => s.enabled)`.
-- [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
-- [x] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
-  - Store: [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts); retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR sensors are present.
-  - Tests in [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts) cover derived stores, radar-only/no-sensor cases, LiDAR polling, startup retry, and lifecycle idempotency.
-- [ ] Run hardware smoke validation on the release candidate: radar-only should return `lidar: {}` and hide LiDAR nav; `--enable-lidar` should include `lidar.default` and show LiDAR nav.
-- [ ] Add route-level lazy loading for LiDAR routes to minimise radar-only initial load.
-- [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
-- [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.
-
-### Phase 1: status page migration
-
-Expected timeline: 2–3 days.
-
-Checklist:
-
-- [ ] Inventory all `status.html` features and map each to an API endpoint or new endpoint.
-- [ ] Build `/app/lidar/status` with svelte-ux form components and validations.
-- [ ] Implement/extend status APIs for read/write, ensuring param updates are atomic and validated server-side.
-- [ ] Add PCAP replay controls and diagnostic link directory parity with the old page.
-- [ ] Add error states, loading states, and form reset/rollback behaviour.
-- [ ] Confirm feature parity with the Go-template version and remove/redirect old links.
-- [ ] Add API integration tests and basic UI regression checks for status workflows.
-
-### Phase 2: background regions dashboard migration
-
-Expected timeline: 2–3 days.
-
-Checklist:
-
-- [ ] Inventory existing API usage and data assumptions from `regions_dashboard.js`.
-- [ ] Port `regions_dashboard.js` Canvas rendering into `RegionsCanvas.svelte` with resize handling.
-- [ ] Wire data loading, caching, and refresh cadence to existing APIs.
-- [ ] Recreate hover/selection, legend, and tooltip behaviour.
-- [ ] Validate performance on Pi 4 (fps, memory) with realistic data.
-- [ ] Add basic UI tests for interactions and empty/error states.
-
-### Phase 3: sweep dashboard migration
-
-Expected timeline: 2–3 weeks.
-
-Checklist:
-
-- [ ] Document sweep workflows (manual + auto-tune) and required data schemas, including any undocumented API fields.
-- [ ] Create a Svelte store/model for sweep state, polling, and cancellation.
-- [ ] Rebuild chart components (8 total).
-- [ ] Acceptance rate line (Spline + Area)
-- [ ] Nonzero cells line (Spline)
-- [ ] Bucket distribution bar (Bar)
-- [ ] Track count line (Spline)
-- [ ] Alignment score line (Spline)
-- [ ] Parameter heatmap (Canvas or SVG grid)
-- [ ] Multi-round comparison (Grouped + Spline)
-- [ ] Recommendation table (svelte-ux Table)
-- [ ] Implement scene/PCAP selection and ground-truth evaluation UI.
-- [ ] Implement CSV/JSON export and parameter preset management.
-- [ ] Add throttling or sampling for high-frequency polling to protect Pi 4 performance.
-- [ ] Add render throttling/virtualization so all charts do not repaint at once.
-- [ ] Validate parity with existing sweep outputs and run real-data acceptance checks.
-
-### Phase 4: debug dashboard retirement
-
-Expected timeline: 1 day.
-
-Checklist:
-
-- [ ] Decide whether to retire or redirect the iframe grid.
-- [ ] If kept, re-implement as a Svelte route with links to new pages.
-- [ ] Remove old debug nav entries and update documentation.
-
-### Phase 5: retire port 8081
-
-Expected timeline: 3–5 days.
-
-Checklist:
-
-- [ ] Confirm no external consumers depend on port 8081 (per current deployment).
-- [ ] Move LiDAR API route registration to [internal/api/server.go](../../internal/api/server.go) and update handlers.
-- [ ] Update [web/vite.config.ts](../../web/vite.config.ts) proxy rules to consolidate on 8080.
-- [ ] Deprecate `--lidar-listen` and any 8081-specific deployment configs.
-- [ ] Update docs, systemd/unit files, and deployment notes.
-- [ ] Validate that macOS visualiser (gRPC 50051) is unaffected.
-
-### Phase 6: Go embed cleanup
-
-Expected timeline: 1 day.
-
-Checklist:
-
-- [ ] Delete retired HTML/JS/CSS assets in `internal/lidar/monitor/`.
-- [ ] Remove obsolete `//go:embed` directives and handler routes.
-- [ ] Remove ECharts assets and any remaining references.
-- [ ] Run Go and web tests; verify binary size reduction.
-
-## Risks and mitigations
-
-| Risk                                                       | Likelihood | Impact | Mitigation                                                                                                  |
-| ---------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| LayerChart lacks heatmap support for sweep charts          | High       | Medium | Use raw Canvas/SVG within Svelte component; LayerChart isn't required for every chart                       |
-| Sweep dashboard polling logic is complex to port           | Medium     | Medium | Svelte stores + `setInterval` can replicate the polling pattern; consider SSE for future improvement        |
-| Hot-enable/disable LiDAR disrupts radar logging            | Medium     | High   | Introduce a LiDAR lifecycle manager with start/stop isolation and tests that assert radar stream continuity |
-| `/api/lidar/*` endpoints initialise hardware when disabled | Low        | High   | Enforce capability gating server-side; return explicit "LiDAR disabled" and never initialise when disabled  |
-| Sweep UI performance on Pi 4 regresses                     | Medium     | Medium | Data decimation, chart throttling, polling backoff, and lazy render of off-screen charts                    |
-| API parity gaps surface late in migration                  | Medium     | Medium | API/schema inventory before each migration, plus acceptance tests using real data                           |
-| UI capability state drifts from runtime reality            | Medium     | Low    | Capability refresh via polling or SSE; handle transitional states (starting/error)                          |
-| Test coverage insufficient for regressions                 | Medium     | Medium | Add API integration tests and a minimal E2E sweep flow using representative datasets                        |
+## What the 2026-09-19 survey changed
+
+A route-by-route survey of every handler, its consumers across the Svelte app,
+the Swift client, Python tooling and docs, found the previous revision wrong in
+ways that change the sequencing rather than just the wording.
+
+**Retiring port 8081 is nearly a no-op, and Phase 5's first step is already
+done.** `internal/lidar/server/routes.go` `RegisterRoutes(mux)` is already
+mounted on the 8080 mux (`internal/cmd/server/radar.go:1106`). The 8081 listener
+registers the same set plus exactly two extras: the status page at `/`
+(`routes.go:230`) and pprof (`routes.go:236`, also on 8080 via
+`AttachAdminRoutes`). Retirement is deleting `setupRoutes`, the `http.Server` at
+`server.go:379`, the `--lidar-listen` flag (`radar.go:153`) and the `/api/lidar`
+proxy line in `web/vite.config.ts:42`. About a day, not 3–5.
+
+**The port and the HTML are separate problems.** Because every route is already
+on 8080, `/debug/lidar/*` and the legacy pages are reachable there too. "Retiring
+8081" does not remove the legacy surface; deleting the handlers does.
+
+**Two blockers, one of which was not in the plan.** `sweep_dashboard.js` is
+**3,981 lines**, not the 2,390 budgeted, and the hard part is not the eight
+charts the phase headlines: it is `PARAM_SCHEMA` (26 parameters with types,
+bounds and step rules), the dynamic row builder, and three divergent start
+payloads. It is the only place a manual sweep, auto-tune or HINT run can be
+started or configured. Separately, `status.html:318` is the only UI that can
+start a **configured PCAP replay with recording**, which the plan does not list
+as a blocker at all. `tools/s2-archive/publish-scenes.py` does the same over the
+API, so scene publishing is unaffected, but the manual record-a-VRLOG workflow
+dies with the page.
+
+**Line counts were understated by up to 66 %**: `status.html` 570 not 492,
+`regions_dashboard` 61 + 340 not 54 + 298, `dashboard.html` 46 not 43.
+
+**Phase 3's scope predates HINT.** It describes "two operational modes"; there
+are three, and HINT adds round configuration, a `wait_for_change` long poll and
+desktop notifications.
+
+**The macOS visualiser is an HTTP consumer.** The non-goal "the Metal app is
+retained as-is" and Phase 5's "validate that the visualiser (gRPC 50051) is
+unaffected" are both wrong: it makes eleven HTTP calls to `/api/lidar/*` on
+8080, and it calls the **deprecated alias** `/api/lidar/pcap/stop`
+(`RunTrackLabelAPIClient.swift:218`). Pin the Swift client to
+`/api/lidar/replay/stop` before any alias cleanup, or the app breaks silently.
+
+**Every `internal/lidar/monitor/` path in this plan and its hub is wrong.** The
+package is `internal/lidar/server/`; the assets are under
+`internal/lidar/l9endpoints/l10clients/{html,assets}/`. The same stale path
+appears in `docs/lidar/operations/auto-tuning.md`, `hint-sweep-mode.md`,
+`docs/lidar/architecture/lidar-pipeline-reference.md`,
+`docs/plans/hint-metric-observability-plan.md`,
+`docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` and
+`docs/plans/lidar-architecture-dynamic-algorithm-selection-plan.md`.
+
+## Deletion ledger
+
+Verified consumer-free by grep across `web/src`, Swift, Python and docs. About
+2,400 lines of production Go plus tests, and one dependency. This is an
+inventory, not an instruction to delete today.
+
+| Delete                                                                        | Lines       | Evidence                                                                            |
+| ----------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `internal/lidar/server/chart_api.go`, the five `/api/lidar/chart/*` endpoints | 167         | Built as the JSON-first replacement for ECharts; nothing ever consumed them         |
+| `internal/lidar/server/echarts_handlers.go`, 9 handlers, 6 go-echarts pages   | 580         | Only reachable from `dashboard.html`'s iframe grid                                  |
+| `internal/lidar/l9endpoints/chart_data.go` + `chart_transforms.go` + tests    | 443 + 587   | Zero clients on either end                                                          |
+| `internal/lidar/l9endpoints/legacy_assets.go`, assets, `dashboard.html`       | 60 + vendor | Dies with the pages; drops a vendored `echarts.min.js`                              |
+| `internal/lidar/l9endpoints/templates.go`                                     | 195         | No non-test consumer; `status.go:24` uses `template.ParseFS` directly               |
+| `internal/lidar/adapters/track_export.go` + `training_data.go`                | 425         | Zero production call sites; two functions are stubs returning "not yet implemented" |
+| `/api/lidar/export_foreground`, `/settling_eval`, `/traffic`                  | —           | No callers found                                                                    |
+| `adapter.go:279 adaptClusters`                                                | —           | Test-only duplicate of `adaptUnassociatedClusters`                                  |
+| `github.com/go-echarts/go-echarts/v2` from `go.mod`                           | —           | Falls out with the handlers                                                         |
+
+**Four traps in that list.**
+
+1. Move `StatsSnapshot` (`chart_data.go:13`) before deleting its file:
+   `internal/lidar/server/stats.go:12` aliases it and `status.go:99` uses it.
+2. `/debug/lidar/background/regions` (`status.go:676`) returns **JSON** from a
+   `/debug/` path, is used by `regions_dashboard.js`, and is cited in
+   `docs/lidar/operations/adaptive-region-parameters.md`. Rename it to
+   `/api/lidar/background/regions`; do not drop the namespace wholesale.
+3. `gridplotter.go` (673 lines) is not a UI adapter. It writes SVG ring plots
+   during PCAP replay, driven by `datasource_handlers.go:580`. It survives.
+4. `POST /api/lidar/playback/{pause,play,seek,rate}` had no Swift call site in
+   the survey, but the Metal transport UI must be exercised against a running
+   8080 before they are called dead.
+
+## One scene lineage
+
+This is the larger half of the work and the reason the plan is retitled.
+
+`internal/lidar/pipeline/tracking_pipeline.go` writes SQLite observations at
+line 961 and calls `VisualiserAdapter.AdaptFrame` at line 1007: two sibling
+statements, two lineages, no shared intermediate. `FrameBundle`
+(`internal/lidar/l9endpoints/model.go:12`) declares itself canonical and is, for
+the visualiser, VRLOG and scene export — **the web path never touches it.**
+
+The consequence is that the scene chunk format is produced twice, in two
+languages, for the same renderer: Go `internal/scene/export.go:339 projectFrame`
+and TypeScript `web/src/lib/scene/liveSceneSource.ts:40 buildLiveFrames`, both
+feeding `public_html/src/js/scene-player.js`.
+
+**Recommendation: serve `projectFrame` over HTTP against recorded runs.** The
+Svelte scene view then consumes the identical artefact the public page does, and
+`buildLiveFrames` / `toSceneTrack` delete (~130 lines of TypeScript plus tests).
+Decimation already exists on both sides: `PointCloudFrame.ApplyDecimation`
+(`frame_codec.go:94`, uniform and voxel) and `-max-points` in the exporter.
+
+**Decision taken 2026-09-19: the web renders recorded and published artefacts
+only.** No live decimated browser transport. That keeps one decimation path and
+one artefact with two consumers; a live feed would be a second adapter to hold
+in step with the first, which is the cost this plan exists to remove. The seam
+is named so it can be added later without reshaping the artefact.
+
+Two details to carry across: `toSceneTrack` overlays the operator's `user_label`
+over the classifier label (`liveSceneSource.ts:46-52`), so the Go producer needs
+a label-overlay hook; and it substitutes `heading_rad` because the observations
+endpoint carries no per-frame OBB yaw, where the Go producer has the real
+`BBoxHeadingRad` (`model.go:241`) — so the move improves fidelity rather than
+merely matching it.
+
+## Scene naming
+
+Three things are called a scene, and the collision is in the database, not just
+the prose.
+
+| Meaning                   | Surface                                        | Table                                                 |
+| ------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| Published-scene catalogue | `/api/scenes`, `/app/scene`                    | **`lidar_scenes`** (migration 39, created 2026-09-05) |
+| Replay case               | `/api/lidar/scenes`, `/app/lidar/replay-cases` | `lidar_replay_cases`                                  |
+| L7 world model            | none                                           | none; planned for v1.0                                |
+
+Migration 31 renamed the original `lidar_scenes` to `lidar_replay_cases`, and
+migration 39 then re-used the freed name for the publishing catalogue. So
+**`lidar_scenes` today means the catalogue, not the replay case**, while the
+`/api/lidar/scenes` URL still serves replay cases. The rename is owned by
+[lidar-replay-case-terminology-alignment-plan.md](lidar-replay-case-terminology-alignment-plan.md);
+this plan's obligation is not to add to the confusion.
+
+**One orphan to decide.** The `/app/scene` catalogue is shipped but unwired: it
+is not in the sidebar, and `publish-scenes.py` never calls `/api/scenes` even
+though the `asset_path` placeholder shows it was meant to index published
+assets. Either wire the publisher to it or drop it. Nothing in the public HTML
+path breaks either way, and leaving it guarantees drift.
+
+## Revised phases
+
+Phase 0 is unchanged and mostly complete. The rest is re-ordered so that nothing
+is deleted before its replacement exists, and so the cheap, consumer-free
+deletions are not held hostage to the expensive rewrite.
+
+| Phase | Scope                                                                             | Revised effort | Depends on                 |
+| ----- | --------------------------------------------------------------------------------- | -------------- | -------------------------- |
+| 0     | Capabilities API and conditional nav                                              | Mostly done    | —                          |
+| 1     | **Deletion ledger**: the consumer-free handlers above, plus the `go-echarts` drop | 1 day          | The four traps             |
+| 2     | Retire the 8081 listener and `--lidar-listen`                                     | 1 day          | Phase 1                    |
+| 3     | PCAP replay and recording form in Svelte                                          | 3–4 days       | —                          |
+| 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route                      | 2–3 days       | —                          |
+| 5     | Sweep, auto-tune and HINT control in Svelte                                       | 2–3 weeks      | Form model, not the charts |
+| 6     | Delete `status.html` and `sweep_dashboard.*`                                      | 1 day          | Phases 3 and 5             |
+| 7     | One scene lineage: serve `projectFrame`, delete `buildLiveFrames`                 | 1 week         | Independent; highest value |
+
+Phase 5's client layer is half-built already: `web/src/lib/api.ts` has
+`getHINTState` (:1100), `startHINTSweep` (:1110) and `stopHINT` (:1156), tested
+and imported by nothing. A smaller gap worth fixing first: `add_round` and
+`next_sweep_duration_mins` are unreachable from 8080 because
+`sweeps/+page.svelte:162` calls `continueHINT()` with defaults.
+
+## Regression gate
+
+**Scene publishing must be byte-identical across every phase.** It touches
+neither 8081, ECharts nor `/debug/lidar/*` today, and 26 scenes are live on
+GitHub Pages. Run `make scene-assets` for one site before and after any change
+and compare `manifest.json`, the chunk digests and `background.json.gz`. After
+Phase 7, additionally load the same recorded run in the Svelte scene view and in
+the public player: they then share one producer, so any divergence is a bug
+rather than a rounding difference.
+
+Preserve as JSON APIs even as the HTML goes: `pcapRoutes`
+(`POST /api/lidar/pcap/start`, `/pcap/stop`), `playbackRoutes`
+(`GET /api/lidar/playback/status`), and the `lidar_run_records` write path.
+`publish-scenes.py` and the Makefile preflight hard-code port 8080.
+
+One planned item needs respecifying rather than porting: deterministic scene
+capture Milestone 4 (`lidar-deterministic-scene-capture-plan.md:207-223`)
+specifies a "Make web export" checkbox _on the 8081 replay form_. Point it at
+the Svelte form from Phase 3.
+
+## Where the evaluator fits
+
+The per-frame track evaluator (gap-analysis M5/M1/M2, added 2026-09-19 in
+`internal/lidar/l8analytics`) is the worked example of the ownership rule, and
+it adds no surface. Its aggregate output is headless: canonical JSON from
+`cmd/tools/lidar-track-scorecard`, read by the campaign's analysis script. Its
+per-frame disagreement view belongs in the macOS annotation pane, as a follow-on
+feature of the existing
+[labelling and QC suite](lidar-visualiser-labelling-qc-enhancements-overview-plan.md),
+because authoring reference poses is point-cloud work. Nothing lands in Svelte.
+
+It also gives the orphaned `/api/lidar/scenes/{id}/evaluations` endpoint its
+first plausible consumer, or the argument for deleting it.
 
 ## Non-Goals
 
-- **macOS visualiser changes**: the Metal app is retained as-is for 3D point cloud rendering
-- **PDF report generation**: out of scope; remains a Python/LaTeX tool
-- **LiDAR build tag**: runtime `--enable-lidar` flag is sufficient; no need for compile-time exclusion
-- **New charting library adoption**: use existing LayerChart/d3-scale stack; ECharts is retired, not replaced with another heavyweight library
-- **Auth/access control**: out of scope for now; deployments are private LAN only
+- Rebuilding the macOS visualiser. It is a consumer of these APIs and its HTTP
+  calls constrain the work, but its UI is out of scope.
+- Auth and access control.
+- The L7 scene world model.
+- Any change to the public scene format or its decimation parameters.
