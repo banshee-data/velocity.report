@@ -24,7 +24,12 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
     @Published var lastError: String?
 
     @Published var selectedRunID: String?
-    @Published var coverage: AnnotationCoverage = .full
+    /// Nil until the operator states it. There is deliberately no default:
+    /// the exporter refuses to guess coverage because a limitation the export
+    /// drops cannot be recovered later, and a pre-selected "Full scene" is the
+    /// same guess made one layer up. It once labelled a pack "full" whose
+    /// samples held a few hundred foreground points each.
+    @Published var coverage: AnnotationCoverage?
     @Published var coverageNote: String = ""
     /// Empty means "use the server's own default (200)". A blank field reads
     /// more honestly than pre-filling 200, which would look like a value the
@@ -89,6 +94,10 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
             lastError = "Choose a run first"
             return nil
         }
+        guard let coverage else {
+            lastError = "State what the recording could see before generating"
+            return nil
+        }
         let maxSamples: Int
         switch parsedMaxSamples() {
         case .serverDefault: maxSamples = 0
@@ -138,12 +147,15 @@ struct GenerateAnnotationPackSheet: View {
             runPicker
 
             Picker("Coverage", selection: $state.coverage) {
-                ForEach(AnnotationCoverage.allCases) { Text($0.label).tag($0) }
+                Text("Choose…").tag(AnnotationCoverage?.none)
+                ForEach(AnnotationCoverage.allCases) {
+                    Text($0.label).tag(AnnotationCoverage?.some($0))
+                }
             }
             // Coverage is stated, never guessed, on the export side too: see
-            // internal/lidar/annotation.Export. The picker exists so that
-            // choice is made here rather than defaulting silently to "full"
-            // for a foreground-only recording.
+            // internal/lidar/annotation.Export. The picker starts unset so
+            // that choice is made here rather than defaulting silently to
+            // "full" for a foreground-only recording.
             Text(
                 "What the run's recording could see. A foreground-only run cannot support whole-scene segmentation."
             ).font(.caption).foregroundStyle(.secondary)
@@ -174,7 +186,7 @@ struct GenerateAnnotationPackSheet: View {
                         }
                     }
                 }.keyboardShortcut(.defaultAction).disabled(
-                    state.isExporting || state.selectedRunID == nil)
+                    state.isExporting || state.selectedRunID == nil || state.coverage == nil)
                 if state.isExporting { ProgressView().controlSize(.small) }
             }
         }.padding(20).frame(width: 420).task { await state.loadRuns() }

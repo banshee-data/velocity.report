@@ -140,6 +140,48 @@ private let twoRunsOneWithoutVRLog = """
         #expect(state.lastError == nil, "a successful refresh must clear the earlier failure")
     }
 
+    @Test func coverageStartsUnstated() {
+        let state = makeStateUnderTest(runsJSON: twoRunsOneWithoutVRLog)
+        #expect(state.coverage == nil, "a pre-selected coverage is a guess the operator never made")
+    }
+
+    @Test func generateRefusesToGuessCoverageAndMakesNoNetworkCall() async {
+        // The handler would succeed, as in the max-samples test and for the
+        // same reason: only a handler that succeeds, plus a count of whether
+        // it was reached, separates "refused here" from "failed over there".
+        let exportCalls = CallCounter()
+        let state = makeStateUnderTest(
+            runsJSON: twoRunsOneWithoutVRLog,
+            exportHandler: { request in
+                exportCalls.increment()
+                return (okResponse(request), Data(exportSucceededJSON.utf8))
+            })
+        await state.loadRuns()
+
+        let result = await state.generate()
+
+        #expect(result == nil)
+        #expect(state.lastError?.contains("what the recording could see") == true)
+        #expect(exportCalls.value == 0, "an unstated coverage must never reach the server")
+    }
+
+    @Test func theStatedCoverageIsTheOneSent() async {
+        let sent = CallCounter()
+        let state = makeStateUnderTest(
+            runsJSON: twoRunsOneWithoutVRLog,
+            exportHandler: { request in
+                let body = try requestJSONBody(request)
+                if body["coverage"] as? String == "foreground_only" { sent.increment() }
+                return (okResponse(request), Data(exportSucceededJSON.utf8))
+            })
+        await state.loadRuns()
+        state.coverage = .foregroundOnly
+
+        _ = await state.generate()
+
+        #expect(sent.value == 1)
+    }
+
     @Test func generateRejectsANonNumericMaxSamplesWithoutANetworkCall() async {
         // The export handler SUCCEEDS here on purpose. An earlier form of this
         // test left it unset, so the mock threw "unexpected request" — and
@@ -156,6 +198,7 @@ private let twoRunsOneWithoutVRLog = """
                 return (okResponse(request), Data(exportSucceededJSON.utf8))
             })
         await state.loadRuns()
+        state.coverage = .full
 
         for bad in ["2oo", "1.5", "abc"] {
             state.maxSamplesText = bad
@@ -169,6 +212,7 @@ private let twoRunsOneWithoutVRLog = """
     @Test func generateRejectsAZeroOrNegativeMaxSamples() async {
         let state = makeStateUnderTest(runsJSON: twoRunsOneWithoutVRLog)
         await state.loadRuns()
+        state.coverage = .full
 
         for bad in ["0", "-5"] {
             state.maxSamplesText = bad
@@ -192,6 +236,7 @@ private let twoRunsOneWithoutVRLog = """
                 return (response, Data(json.utf8))
             })
         await state.loadRuns()
+        state.coverage = .full
 
         let result = await state.generate()
 
@@ -208,6 +253,7 @@ private let twoRunsOneWithoutVRLog = """
                 return (response, Data("{\"error\": \"coverage is required\"}".utf8))
             })
         await state.loadRuns()
+        state.coverage = .full
 
         let result = await state.generate()
 
@@ -231,6 +277,7 @@ private let twoRunsOneWithoutVRLog = """
                 return (response, Data(json.utf8))
             })
         await state.loadRuns()
+        state.coverage = .full
         state.maxSamplesText = "   "
 
         let result = await state.generate()
