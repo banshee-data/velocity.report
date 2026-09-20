@@ -26,12 +26,19 @@ Determinism, which is a hard requirement here:
     planned order, and the smoke gate compares a digest made serially against
     one made under load.
 
-SQLite is never written on the archive volume. exFAT has no journal and WAL's
-shared-memory file is unreliable over a user-space filesystem driver, so the
-database is written under --stage-dir (APFS), closed, hashed, moved to
---out-root and hashed again. Never point --out-root at the volume the PCAPs are
-read from: the corpus baseline notes record one replay taking five hours that
-way.
+SQLite is never written live on the archive volume. The database is written
+under --stage-dir (APFS), closed, hashed, moved to --out-root and hashed again.
+That was first needed because an archive volume may be exFAT, which has no
+journal and whose WAL shared-memory file is unreliable over a user-space
+filesystem driver. It is also what makes it safe for --out-root to be the
+volume the PCAPs are read from, which is where it now belongs: the LiDAR
+volume, beside the captures. The corpus baseline notes record one replay taking
+five hours with reads and live writes on one disk. Staging removes the live
+writes. What is left is one sequential move of a finished file per replay,
+which with several workers lands while others are still reading. That cost has
+not been measured; if a batch runs slow, compare --workers 1 before blaming
+anything else. Never point --stage-dir at the PCAP volume: that is the
+five-hour case.
 
 Resumable: a (site, config) already in results.csv without an error is skipped.
 A partial earlier attempt is renamed aside, never deleted. Exit 3 with
@@ -47,7 +54,7 @@ Every key is optional; {} is the shipped baseline.
 Usage:
     python3 run_scorecard_sweep.py --baseline-bin <bin> --scorecard-bin <bin> \
         --sites columbus-broadway,lombard-laguna --configs-file configs.json \
-        --out-root /Volumes/Dolphin2/velocity-campaign/pass7 \
+        --out-root /Volumes/lidar/lidar/velocity-campaign/pass7 \
         --stage-dir /tmp/pass7-stage --workers 3
 """
 
@@ -421,7 +428,7 @@ def main():
     ap.add_argument(
         "--out-root",
         required=True,
-        help="archive root; not the PCAP volume, may be exFAT",
+        help="archive root, on the LiDAR volume; finished files only, never live SQLite",
     )
     ap.add_argument(
         "--stage-dir",

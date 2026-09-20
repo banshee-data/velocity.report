@@ -6,7 +6,7 @@ re-deriving any of it:
 
     cd <repo>
     nohup python3 data/experiments/try/option-scorecard/launch_pass7.py \
-        > /Volumes/Dolphin2/velocity-campaign/pass7-launcher.log 2>&1 &
+        > /Volumes/lidar/lidar/velocity-campaign/pass7-launcher.log 2>&1 &
 
 Both Go tools are rebuilt here, from whatever checkout this file is in, and
 every results row records the git SHA and the binary digests they were built
@@ -51,7 +51,13 @@ def run(cmd, **kwargs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out-root", default="/Volumes/Dolphin2/velocity-campaign/pass7")
+    # The LiDAR volume, beside the captures and the manifests. Campaign output
+    # is LiDAR data and lives with the rest of it; other volumes on this
+    # machine are not ours to fill. The sweep's free-space floor refuses to
+    # start rather than run that volume out of room.
+    ap.add_argument(
+        "--out-root", default="/Volumes/lidar/lidar/velocity-campaign/pass7"
+    )
     ap.add_argument("--stage-dir", default="/tmp/velocity-pass7-stage")
     ap.add_argument("--configs-file", default=str(HERE / "pass7-configs.json"))
     ap.add_argument(

@@ -22,7 +22,7 @@ The reading that matters is the pair:
 Idempotent: a comparison already written is skipped, so this can be re-run while
 the batch is still going and again when it finishes.
 
-    python3 score_references.py --out-root /Volumes/Dolphin2/velocity-campaign/pass7-l3
+    python3 score_references.py --out-root /Volumes/lidar/lidar/velocity-campaign/pass7-l3
 """
 
 import argparse
