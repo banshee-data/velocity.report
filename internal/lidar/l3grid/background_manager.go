@@ -100,6 +100,19 @@ func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
 	return nil
 }
 
+// SetDisableRegionOverrides switches the per-region parameter overrides off
+// or on (gap analysis B8). See BackgroundParams.DisableRegionOverrides.
+func (bm *BackgroundManager) SetDisableRegionOverrides(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.DisableRegionOverrides = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetClosenessSensitivityMultiplier safely updates the ClosenessSensitivityMultiplier parameter.
 func (bm *BackgroundManager) SetClosenessSensitivityMultiplier(v float32) error {
 	if bm == nil || bm.Grid == nil {

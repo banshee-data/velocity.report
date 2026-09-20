@@ -54,6 +54,10 @@ type caseSummary struct {
 	BaselineEqual         bool    `json:"baseline_equal"`
 	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
 	MeasurementSourceMode string  `json:"measurement_source_mode"`
+	// Experiments is the sorted list of default-off options this case ran
+	// with. Always present, empty for a shipped-behaviour replay, so a
+	// summary can never be read without knowing which it was.
+	Experiments []string `json:"experiments"`
 	// Ground surface fields are populated only when -surface-ground was
 	// passed and the background settled in time to fit a P11 ground plane
 	// for this case; omitted otherwise.
@@ -89,8 +93,13 @@ func main() {
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
+		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
 	)
 	flag.Parse()
+	experiments, err := replayeval.ParseExperiments(*experimentFlag)
+	if err != nil {
+		fatal(err)
+	}
 	if *sourceManifestOnly && *sourceManifestPath == "" {
 		fatal(fmt.Errorf("-source-manifest-only requires -source-manifest"))
 	}
@@ -101,7 +110,6 @@ func main() {
 		fatal(fmt.Errorf("-out is required"))
 	}
 	var observationDBPath string
-	var err error
 	if !*sourceManifestOnly {
 		observationDBPath, err = resolveObservationDBPath(*observations, *evidenceDir, *outDir)
 		if err != nil {
@@ -183,6 +191,7 @@ func main() {
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
 			SurfaceGroundRegionMetres: *surfaceGroundRegion,
 			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
+			Experiments: experiments,
 		}
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
@@ -237,6 +246,7 @@ func main() {
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
+			Experiments:           experiments,
 		}
 		if fit := firstResult.GroundSurfaceFit; fit != nil {
 			summary.GroundSurfaceSupport = fit.Global.Support

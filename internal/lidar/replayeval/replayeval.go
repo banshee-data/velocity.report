@@ -151,6 +151,11 @@ type Config struct {
 	// SurfaceGroundRegionMetres is the per-region ground-plane cell size; 0
 	// uses l3grid.DefaultRegionSizeMetres. See TrackingPipelineConfig.
 	SurfaceGroundRegionMetres float64
+	// Experiments switches on default-off, Go-level options by name; see
+	// experiments.go. The list is normalised, folded into the parameter hash
+	// and recorded in the run metadata. Empty leaves the replay exactly as
+	// shipped, hash included.
+	Experiments []string
 }
 
 // Result summarises a completed replay.
@@ -452,6 +457,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.TuningFile == "" {
 		cfg.TuningFile = config.DefaultConfigPath
 	}
+	experiments, err := NormaliseExperiments(cfg.Experiments)
+	if err != nil {
+		return nil, err
+	}
 
 	tuningCfg, err := config.LoadTuningConfigOrEmbedded(cfg.TuningFile, radarassets.TuningDefaults)
 	if err != nil {
@@ -491,10 +500,18 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, err
 	}
 	bgMgr.SetSourcePath(strings.Join(pcapFiles, "\n"))
+	if hasExperiment(experiments, ExperimentNoRegionOverrides) {
+		if err := bgMgr.SetDisableRegionOverrides(true); err != nil {
+			return nil, fmt.Errorf("apply %s: %w", ExperimentNoRegionOverrides, err)
+		}
+	}
 
 	// --- L5, L6 ---
 	trackerConfig := l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1)
 	trackerConfig.MeasurementSourceMode = cfg.MeasurementSourceMode
+	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
+	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
+	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	tracker := l5tracks.NewTracker(trackerConfig)
 	classifier := l6objects.NewTrackClassifierWithMinObservations(
 		tuningCfg.GetMinObservationsForClassification())
@@ -519,7 +536,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal tuning config for provenance: %w", err)
 	}
-	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(paramsJSON))
+	// Experiments change the estimator without changing the tuning file, so
+	// they are hashed with it. With none selected the suffix is empty and the
+	// hash is the one every earlier replay of this tuning file produced.
+	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(append(append([]byte{}, paramsJSON...), experimentsHashSuffix(experiments)...)))
 
 	rec.SetDeterministicConfig(
 		"",         // no run-config row exists offline
@@ -600,6 +620,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
+		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
 		MaxSamplePoints:           maxSamplePoints,
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
@@ -713,6 +734,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"frames_processed": frameCount, "frames_recorded": pub.recorded, "warmup_frames": pub.warmupFrames,
 		"warmup_static_verified":  false,
 		"measurement_source_mode": stateObservationModelID,
+		"experiments":             experiments,
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
