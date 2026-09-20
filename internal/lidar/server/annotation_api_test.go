@@ -75,6 +75,13 @@ func postAnnotationExport(ws *Server, runID string, body map[string]any) *httpte
 	return rec
 }
 
+func postAnnotationExportRaw(ws *Server, runID, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/annotation-export", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	ws.handleAnnotationExport(rec, req, runID)
+	return rec
+}
+
 func TestHandleAnnotationExportRequiresConfiguredDirectory(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
@@ -114,6 +121,26 @@ func TestHandleAnnotationExportRequiresCoverage(t *testing.T) {
 	}
 }
 
+func TestHandleAnnotationExportRejectsMalformedJSONAndMissingDatabase(t *testing.T) {
+	t.Run("malformed JSON", func(t *testing.T) {
+		testDB, cleanup := setupTestDBWrapped(t)
+		defer cleanup()
+		ws := &Server{db: testDB, annotationPacksDir: t.TempDir()}
+		rec := postAnnotationExportRaw(ws, "any-run", "{")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("database not configured", func(t *testing.T) {
+		ws := &Server{annotationPacksDir: t.TempDir()}
+		rec := postAnnotationExport(ws, "any-run", map[string]any{"coverage": "full"})
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+		}
+	})
+}
+
 func TestHandleAnnotationExportRunNotFound(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
@@ -122,6 +149,20 @@ func TestHandleAnnotationExportRunNotFound(t *testing.T) {
 	rec := postAnnotationExport(ws, "nonexistent-run", map[string]any{"coverage": "full"})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestHandleAnnotationExportReportsRunLookupFailure(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	if err := testDB.DB.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+
+	ws := &Server{db: testDB, annotationPacksDir: t.TempDir()}
+	rec := postAnnotationExport(ws, "any-run", map[string]any{"coverage": "full"})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }
 
@@ -240,6 +281,36 @@ func TestHandleAnnotationExportCreatesAMissingPacksDirectory(t *testing.T) {
 	}
 }
 
+func TestHandleAnnotationExportRejectsUnusablePackPaths(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+	vrlogDir := writeTestVRLOG(t, 3)
+
+	t.Run("packs root is a file", func(t *testing.T) {
+		packsRoot := filepath.Join(t.TempDir(), "not-a-directory")
+		if err := os.WriteFile(packsRoot, nil, 0o644); err != nil {
+			t.Fatalf("create packs-root file: %v", err)
+		}
+		insertRunWithVRLog(t, store, "packs-root-file", vrlogDir)
+		ws := &Server{db: testDB, annotationPacksDir: packsRoot, vrlogSafeDir: filepath.Dir(vrlogDir)}
+		rec := postAnnotationExport(ws, "packs-root-file", map[string]any{"coverage": "full"})
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+		}
+	})
+
+	t.Run("stored run ID escapes packs root", func(t *testing.T) {
+		const runID = "../escape-packs-root"
+		insertRunWithVRLog(t, store, runID, vrlogDir)
+		ws := &Server{db: testDB, annotationPacksDir: t.TempDir(), vrlogSafeDir: filepath.Dir(vrlogDir)}
+		rec := postAnnotationExport(ws, runID, map[string]any{"coverage": "full"})
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+		}
+	})
+}
+
 func TestHandleAnnotationExportMaxSamplesCapsTheExport(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
@@ -310,6 +381,26 @@ func TestHandleAnnotationExportCleansUpAFailedExport(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Errorf("packs root has %d entries after a failed export, want 0 (partial directory not cleaned up)", len(entries))
+	}
+}
+
+func TestHandleAnnotationExportReportsCorruptVRLOG(t *testing.T) {
+	// An existing but incomplete recording is a storage/read failure, unlike an
+	// empty requested time window. It must remain a server error so the UI does
+	// not suggest an operator can repair it by simply changing the window.
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+	vrlogDir := filepath.Join(t.TempDir(), "corrupt-vrlog")
+	if err := os.Mkdir(vrlogDir, 0o755); err != nil {
+		t.Fatalf("create corrupt VRLOG directory: %v", err)
+	}
+	insertRunWithVRLog(t, store, "corrupt-vrlog-run", vrlogDir)
+
+	ws := &Server{db: testDB, annotationPacksDir: t.TempDir(), vrlogSafeDir: filepath.Dir(vrlogDir)}
+	rec := postAnnotationExport(ws, "corrupt-vrlog-run", map[string]any{"coverage": "full"})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, body = %s, want %d", rec.Code, rec.Body.String(), http.StatusInternalServerError)
 	}
 }
 
