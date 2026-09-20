@@ -1,0 +1,33 @@
+{
+  "_comment": "Tier 2: the questions that keep, once tier 1 has answered whether S3 and B8 are material. Run with the same --out-root, which already holds tier 1's baselines; the sweep skips what is recorded and the analysis scores every config against the same baseline. baseline and baseline_again are repeated here only so this file can also be run standalone against a fresh --out-root.",
+  "baseline": {},
+  "baseline_again": {},
+  "occlusion_inflation_0p1": {
+    "overrides": { "l5.cv_kf_v1.occlusion_cov_inflation": 0.1 }
+  },
+  "occlusion_inflation_1": {
+    "overrides": { "l5.cv_kf_v1.occlusion_cov_inflation": 1.0 }
+  },
+  "likelihood_cost__cascade": { "experiments": ["likelihood_cost", "cascade"] },
+  "density_cap": { "experiments": ["density_cap"] },
+  "flip_rule": { "experiments": ["flip_rule"] },
+  "no_region_overrides__c1p5_n0p04": {
+    "experiments": ["no_region_overrides"],
+    "overrides": {
+      "l3.ema_baseline_v1.closeness_multiplier": 1.5,
+      "l3.ema_baseline_v1.noise_relative": 0.04
+    }
+  },
+  "no_region_overrides__c6_n0p01": {
+    "experiments": ["no_region_overrides"],
+    "overrides": {
+      "l3.ema_baseline_v1.closeness_multiplier": 6,
+      "l3.ema_baseline_v1.noise_relative": 0.01
+    }
+  },
+  "closeness_2p5": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 2.5 }
+  },
+  "surface_ground": { "surface_ground": true },
+  "medoid": { "measurement_mode": "medoid_v0" }
+}
