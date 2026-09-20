@@ -84,15 +84,71 @@ func annotationFramingHalfHeight(
     @Published private(set) var session: AnnotationSession?
     @Published var lastError: String?
 
+    private let folderAccess: PackFolderAccess
+    /// Asks the operator for the folder to grant, given where the pack is.
+    /// Injected so the grant flow can be tested without an open panel.
+    private let askForFolder: (URL) -> URL?
+    /// Held for as long as the session it serves: SidecarStore writes into the
+    /// pack on every save, so access has to outlive the act of opening.
+    private var grant: PackFolderGrant?
+
+    init(folderAccess: PackFolderAccess = PackFolderAccess(), askForFolder: ((URL) -> URL?)? = nil)
+    {
+        self.folderAccess = folderAccess
+        self.askForFolder = askForFolder ?? AnnotationController.runFolderPanel
+    }
+
     /// Name of the open pack's directory, for the window's title bar.
     var packName: String? { session?.pack.directory.lastPathComponent }
 
-    /// Opens a pack directory, replacing any open session.
+    /// Opens a pack directory the operator chose, replacing any open session.
+    ///
+    /// No folder grant is involved: choosing the directory in an open panel is
+    /// itself the grant, for as long as the app runs.
     ///
     /// Errors are surfaced rather than logged and swallowed: a digest
     /// mismatch means the indices an operator is about to record would be
     /// recorded against different bytes, and that has to be visible.
-    func openPack(at directory: URL) {
+    func openPack(at directory: URL) { open(directory, holding: nil) }
+
+    /// Opens a pack the server has just written.
+    ///
+    /// The operator never chose this path — it arrived in an HTTP response —
+    /// so the sandbox refuses it until a folder containing it has been
+    /// granted. A remembered folder is used silently; otherwise the operator
+    /// is asked once, and the answer is kept for later launches.
+    func openGeneratedPack(at directory: URL) {
+        if let remembered = folderAccess.beginAccess(for: directory) {
+            open(directory, holding: remembered)
+            return
+        }
+
+        guard let folder = askForFolder(directory.deletingLastPathComponent()) else {
+            lastError =
+                "The pack was written to \(directory.path), but the app has not been given "
+                + "access to that folder. Generate again to grant it, or open the pack with "
+                + "Open Annotation Pack."
+            return
+        }
+        guard PackFolderAccess.folder(folder, contains: directory) else {
+            lastError =
+                "\(folder.lastPathComponent) does not contain the new pack. It was written to "
+                + "\(directory.path); grant that folder or one above it."
+            return
+        }
+
+        // Failing to remember is not failing to open: the panel has already
+        // granted the folder for this launch. The operator is simply asked
+        // again next time.
+        do { try folderAccess.remember(folder) } catch {
+            annotationLogger.error("Could not remember pack folder \(folder.path): \(error)")
+        }
+        open(directory, holding: folderAccess.beginAccess(for: directory))
+    }
+
+    private func open(_ directory: URL, holding newGrant: PackFolderGrant?) {
+        grant?.end()
+        grant = newGrant
         do {
             let pack = try AnnotationPack.open(directory: directory)
             session = try AnnotationSession(pack: pack)
@@ -100,9 +156,28 @@ func annotationFramingHalfHeight(
             annotationLogger.info("Opened annotation pack \(directory.lastPathComponent)")
         } catch {
             session = nil
+            grant?.end()
+            grant = nil
             lastError = "Could not open \(directory.lastPathComponent): \(error)"
             annotationLogger.error("Failed to open annotation pack: \(error)")
         }
+    }
+
+    /// The production `askForFolder`: a directory panel opened on the folder
+    /// the pack was written to, so granting it is a single click.
+    private static func runFolderPanel(suggested: URL) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = suggested
+        panel.prompt = "Grant Access"
+        panel.message =
+            "The new pack is in this folder. Grant access so it can be opened and its "
+            + "annotations saved. You will not be asked again for packs written here."
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 
     /// Prompts for a pack directory.
@@ -125,6 +200,8 @@ func annotationFramingHalfHeight(
     func close() {
         session = nil
         lastError = nil
+        grant?.end()
+        grant = nil
     }
 }
 
@@ -146,7 +223,7 @@ struct AnnotationWindow: View {
         }.frame(minWidth: 900, minHeight: 600).navigationTitle(
             controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
         ).sheet(isPresented: $showGenerateSheet) {
-            GenerateAnnotationPackSheet { packDir in controller.openPack(at: packDir) }
+            GenerateAnnotationPackSheet { packDir in controller.openGeneratedPack(at: packDir) }
         }
     }
 
