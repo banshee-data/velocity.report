@@ -27,12 +27,12 @@ supposedly perfect map. Legal boundary records, geodetic control, and observable
 geometry answer different questions. A parcel line can be authoritative for a land
 record yet unsuitable for matching a kerb or wall.
 
-| Reference role | Preferred evidence | What it establishes |
-| --- | --- | --- |
-| Geographic control | Recovered survey marks, current published coordinates, independently measured check points | Position/height in a defined reference frame, for the components actually measured. |
-| Surface matching | Suitable public LiDAR, documented photogrammetry, surveyed kerb/building geometry | Correspondences to physical surfaces, subject to age, visibility, and survey error. |
-| Cadastral context | Parcel fabric, recorded surveys, right-of-way maps, plats | Land divisions and documentary ties; physical correspondence must be demonstrated. |
-| Coarse discovery/context | GPS, OSM, general orthoimagery, aggregated building footprints | Search area, feature identity, and candidate placement, not automatic precision. |
+| Reference role           | Preferred evidence                                                                         | What it establishes                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Geographic control       | Recovered survey marks, current published coordinates, independently measured check points | Position/height in a defined reference frame, for the components actually measured. |
+| Surface matching         | Suitable public LiDAR, documented photogrammetry, surveyed kerb/building geometry          | Correspondences to physical surfaces, subject to age, visibility, and survey error. |
+| Cadastral context        | Parcel fabric, recorded surveys, right-of-way maps, plats                                  | Land divisions and documentary ties; physical correspondence must be demonstrated.  |
+| Coarse discovery/context | GPS, OSM, general orthoimagery, aggregated building footprints                             | Search area, feature identity, and candidate placement, not automatic precision.    |
 
 These are default roles, not an unconditional ranking by institution. Evaluate the actual metadata,
 survey method, independently checked error, physical feature, and acquisition date of each source.
@@ -79,18 +79,18 @@ The access column describes the documented acquisition route, not proof that eve
 file has been downloaded successfully. Free viewing, free downloads, and
 permission to redistribute are different.
 
-| Dataset/provider | Access and effort | Best use | Limitations and rights status |
-| --- | --- | --- | --- |
-| [CCSF Geodetic Network](https://sfpublicworks.org/services/ccsf-geodetic-network) | Public coordinate/report downloads, station descriptions, recovery diagrams, and KMZ; modest manual preparation | First source for locating SF control and planning our reference measurements | Check recovery condition, current validity, horizontal/vertical components, local datum, and reuse notices. |
-| [NGS survey marks and datasheets](https://www.ngs.noaa.gov/datasheets/) | Public map, datasheets, state shapefiles, and county/location search | National control discovery; reference evidence outside SF as well | Some marks have useful height but weak horizontal position, or vice versa. Physical recovery and full datasheet review are essential. |
-| [USGS 3DEP LidarExplorer](https://www.usgs.gov/tools/lidarexplorer) | Public geographic search and downloads; moderate data volume | Independent surface/terrain comparison and coarse 3D alignment | Check each survey's age, point density, horizontal/vertical accuracy, and rights. Airborne data may poorly observe street-level walls or kerbs. |
-| [NOAA Digital Coast](https://coast.noaa.gov/digitalcoast/tools/dav.html) | Public area selection and configurable downloads; [bulk LAZ/EPT catalogue](https://coast.noaa.gov/htdata/lidar1_z/index.html) | Coastal/Bay Area LiDAR and elevation alternatives | Contains contributed datasets: check source metadata. May mirror the same survey as USGS, not independent evidence. |
-| [SF building footprints](https://data.sfgov.org/d/ynuv-fyni) | Public DataSF dataset, documented GeoJSON/CSV exports | Candidate building corners and coarse alignment overlay | Derived from older imagery/model data; footprint splitting does not make every vertex a surveyed wall corner. Catalogue lists PDDL. |
-| [SF current subdivision parcels](https://data.sfgov.org/d/45et-ht7c) | Public DataSF parcel layer; easy context acquisition | Parcel IDs, block context, locating relevant records | City's guide explicitly excludes precision use. Confirm dataset-specific reuse terms before packaging. |
-| [SF recorded parcel history](https://data.sfgov.org/d/25dk-perw) | Public DataSF historical/current records | Explain parcel changes and identify historical references | Not a survey-accuracy substitute. Remove owner/person attributes from the public prior package. |
-| [Caltrans right-of-way and survey records](https://dot.ca.gov/programs/right-of-way/rw-maps-surveys-records) | District 4 collection available through Maps on Demand; other districts vary | Road-adjacent surveys, monument ties, and right-of-way evidence | Document extraction and interpretation require more work than GIS download; verify date, coordinate basis, and use terms. |
-| [USGS NAIP Plus imagery service](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer) | Public image service; documented free public-domain orthoimagery download route | Visual reference, source identification, coarse independent placement | Pixel resolution is not positional accuracy. Inspect acquisition-level metadata and roof/ground displacement. |
-| [Overture Maps](https://docs.overturemaps.org/) | Open object-store releases, CLI and geographic queries | Broad building coverage where local sources are absent | Aggregates upstream sources including OSM. Not independent survey control; licences vary by theme/source. |
+| Dataset/provider                                                                                                | Access and effort                                                                                                             | Best use                                                                     | Limitations and rights status                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [CCSF Geodetic Network](https://sfpublicworks.org/services/ccsf-geodetic-network)                               | Public coordinate/report downloads, station descriptions, recovery diagrams, and KMZ; modest manual preparation               | First source for locating SF control and planning our reference measurements | Check recovery condition, current validity, horizontal/vertical components, local datum, and reuse notices.                                     |
+| [NGS survey marks and datasheets](https://www.ngs.noaa.gov/datasheets/)                                         | Public map, datasheets, state shapefiles, and county/location search                                                          | National control discovery; reference evidence outside SF as well            | Some marks have useful height but weak horizontal position, or vice versa. Physical recovery and full datasheet review are essential.           |
+| [USGS 3DEP LidarExplorer](https://www.usgs.gov/tools/lidarexplorer)                                             | Public geographic search and downloads; moderate data volume                                                                  | Independent surface/terrain comparison and coarse 3D alignment               | Check each survey's age, point density, horizontal/vertical accuracy, and rights. Airborne data may poorly observe street-level walls or kerbs. |
+| [NOAA Digital Coast](https://coast.noaa.gov/digitalcoast/tools/dav.html)                                        | Public area selection and configurable downloads; [bulk LAZ/EPT catalogue](https://coast.noaa.gov/htdata/lidar1_z/index.html) | Coastal/Bay Area LiDAR and elevation alternatives                            | Contains contributed datasets: check source metadata. May mirror the same survey as USGS, not independent evidence.                             |
+| [SF building footprints](https://data.sfgov.org/d/ynuv-fyni)                                                    | Public DataSF dataset, documented GeoJSON/CSV exports                                                                         | Candidate building corners and coarse alignment overlay                      | Derived from older imagery/model data; footprint splitting does not make every vertex a surveyed wall corner. Catalogue lists PDDL.             |
+| [SF current subdivision parcels](https://data.sfgov.org/d/45et-ht7c)                                            | Public DataSF parcel layer; easy context acquisition                                                                          | Parcel IDs, block context, locating relevant records                         | City's guide explicitly excludes precision use. Confirm dataset-specific reuse terms before packaging.                                          |
+| [SF recorded parcel history](https://data.sfgov.org/d/25dk-perw)                                                | Public DataSF historical/current records                                                                                      | Explain parcel changes and identify historical references                    | Not a survey-accuracy substitute. Remove owner/person attributes from the public prior package.                                                 |
+| [Caltrans right-of-way and survey records](https://dot.ca.gov/programs/right-of-way/rw-maps-surveys-records)    | District 4 collection available through Maps on Demand; other districts vary                                                  | Road-adjacent surveys, monument ties, and right-of-way evidence              | Document extraction and interpretation require more work than GIS download; verify date, coordinate basis, and use terms.                       |
+| [USGS NAIP Plus imagery service](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer) | Public image service; documented free public-domain orthoimagery download route                                               | Visual reference, source identification, coarse independent placement        | Pixel resolution is not positional accuracy. Inspect acquisition-level metadata and roof/ground displacement.                                   |
+| [Overture Maps](https://docs.overturemaps.org/)                                                                 | Open object-store releases, CLI and geographic queries                                                                        | Broad building coverage where local sources are absent                       | Aggregates upstream sources including OSM. Not independent survey control; licences vary by theme/source.                                       |
 
 Prioritise SF control, public LiDAR, and physical building/road geometry before buying
 parcel records. Use parcel layers immediately for context, while seeking survey-quality
@@ -168,16 +168,16 @@ parent operations and canonical tokens, following the repository convention.
 
 An immutable reference release under `references/{l10}/{release_id}/` contains:
 
-| Component | Contents |
-| --- | --- |
-| Manifest | Canonical L10, footprint/coverage, jurisdictions, release identity, source/asset hashes, schema and previous release. |
+| Component         | Contents                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest          | Canonical L10, footprint/coverage, jurisdictions, release identity, source/asset hashes, schema and previous release.                       |
 | Control inventory | Source ID, physical description, horizontal/vertical coordinates and uncertainty, datum/epoch, validity, recovery state, documentary links. |
-| Geometry layers | Building/road/parcel references kept separate, with source feature IDs and intended use. |
-| Surface assets | Links to clipped COPC, DEM, or imagery assets where rights allow; source acquisition and lineage retained. |
-| Frame operations | Original/normalised CRS, transformation recipe and grid hashes, units, height treatment, and known limits. |
-| Quality report | Coverage gaps, source disagreement, date differences, independent checks, and approved uses. |
-| Rights manifest | Licence/terms snapshot, attribution, redistribution/derivation permission, and restrictions. |
-| Review record | Steward, independent technical review where needed, acquisition expense, decision reasons, and refresh state. |
+| Geometry layers   | Building/road/parcel references kept separate, with source feature IDs and intended use.                                                    |
+| Surface assets    | Links to clipped COPC, DEM, or imagery assets where rights allow; source acquisition and lineage retained.                                  |
+| Frame operations  | Original/normalised CRS, transformation recipe and grid hashes, units, height treatment, and known limits.                                  |
+| Quality report    | Coverage gaps, source disagreement, date differences, independent checks, and approved uses.                                                |
+| Rights manifest   | Licence/terms snapshot, attribution, redistribution/derivation permission, and restrictions.                                                |
+| Review record     | Steward, independent technical review where needed, acquisition expense, decision reasons, and refresh state.                               |
 
 The L10 manifest is small and references detailed assets. Load geometry on demand
 for a deployment's area plus a halo, retaining L13 discovery where useful. Do not
@@ -203,15 +203,15 @@ Create a recurring operational responsibility, not a scheduled automation in thi
 geography and publication rights remain open and non-exclusive. Sponsors fund the work without
 choosing which geometry is declared correct.
 
-| Stage | Steward work | Completion evidence |
-| --- | --- | --- |
-| Inventory | Identify jurisdictions, official GIS, geodetic control, public LiDAR, imagery, and record indexes | Source register, coverage, dates, access route, and gaps. |
-| Acquire free sources | Download or catalogue reusable assets; retain metadata and hashes | Reproducible acquisition and rights review. |
-| Evaluate | Check frames, physical correspondence, age, duplication, and independent errors | Approved roles and reasons for exclusions. |
-| Request missing records | Ask the responsible surveyor/recorder/GIS office for specific records and terms | Request text, reference IDs, response, quoted fees, and expected benefit. |
-| Fund targeted gaps | Sponsor copying fees, digitisation, field recovery, or independent survey | Agreed budget and licence permitting the intended open product. |
-| Publish | Release the package with technical review and a source conflict report | Immutable manifest, QA, attribution, and rollback path. |
-| Maintain | Check source revisions, mark destruction/movement, construction, and broken links | Changed-data report and reviewed replacement releases. |
+| Stage                   | Steward work                                                                                      | Completion evidence                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Inventory               | Identify jurisdictions, official GIS, geodetic control, public LiDAR, imagery, and record indexes | Source register, coverage, dates, access route, and gaps.                 |
+| Acquire free sources    | Download or catalogue reusable assets; retain metadata and hashes                                 | Reproducible acquisition and rights review.                               |
+| Evaluate                | Check frames, physical correspondence, age, duplication, and independent errors                   | Approved roles and reasons for exclusions.                                |
+| Request missing records | Ask the responsible surveyor/recorder/GIS office for specific records and terms                   | Request text, reference IDs, response, quoted fees, and expected benefit. |
+| Fund targeted gaps      | Sponsor copying fees, digitisation, field recovery, or independent survey                         | Agreed budget and licence permitting the intended open product.           |
+| Publish                 | Release the package with technical review and a source conflict report                            | Immutable manifest, QA, attribution, and rollback path.                   |
+| Maintain                | Check source revisions, mark destruction/movement, construction, and broken links                 | Changed-data report and reviewed replacement releases.                    |
 
 An initial refresh policy can check portal metadata quarterly and before new precision releases,
 with immediate review on reported mark movement or major construction. This is a proposed policy,

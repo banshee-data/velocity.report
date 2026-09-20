@@ -28,16 +28,16 @@ records between them. Keep ingestion, registration and release compilation outsi
 The core proposal is credible. The distinction between measured geometry, derived geometry and
 semantic context needs to be stronger before it becomes a service contract.
 
-| Proposal | Review and consequence |
-| --- | --- |
-| USGS 0.25 m aerial baseline | Use the point cloud plus DEM. A bare-earth DEM alone removes buildings and cannot supply roof geometry. |
-| Aerial LiDAR is canonical | Accept as the default geometric anchor, subject to local checks, coverage and acquisition date. |
-| Footprints plus roof reconstruction | Begin with association, heights and simple volumes. Reliable alignment and roof-point selection come before reconstruction. |
-| City and OSM corroborate each other | Track shared lineage. Agreement between copied geometries is not independent survey evidence. |
-| Fixed PCAP accumulation adds detail | Useful after motion correction and registration; repeated frames do not establish permanence. |
-| Vehicle tracks demonstrate free space | Treat as uncertain traversability evidence only. Tracks cannot establish all intervening space as empty; visibility requires ray and occlusion analysis. Keep traffic observations outside public geometry releases. |
-| A stable ID comes from the polygon | Give service features independent IDs, with source IDs and split/merge history. Geometry hashes identify revisions, not enduring buildings. |
-| Ten to twenty centimetres registration | An experiment target, not a demonstrated capability or universal release threshold. Evaluate spatial error over the sensing area. |
+| Proposal                               | Review and consequence                                                                                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| USGS 0.25 m aerial baseline            | Use the point cloud plus DEM. A bare-earth DEM alone removes buildings and cannot supply roof geometry.                                                                                                              |
+| Aerial LiDAR is canonical              | Accept as the default geometric anchor, subject to local checks, coverage and acquisition date.                                                                                                                      |
+| Footprints plus roof reconstruction    | Begin with association, heights and simple volumes. Reliable alignment and roof-point selection come before reconstruction.                                                                                          |
+| City and OSM corroborate each other    | Track shared lineage. Agreement between copied geometries is not independent survey evidence.                                                                                                                        |
+| Fixed PCAP accumulation adds detail    | Useful after motion correction and registration; repeated frames do not establish permanence.                                                                                                                        |
+| Vehicle tracks demonstrate free space  | Treat as uncertain traversability evidence only. Tracks cannot establish all intervening space as empty; visibility requires ray and occlusion analysis. Keep traffic observations outside public geometry releases. |
+| A stable ID comes from the polygon     | Give service features independent IDs, with source IDs and split/merge history. Geometry hashes identify revisions, not enduring buildings.                                                                          |
+| Ten to twenty centimetres registration | An experiment target, not a demonstrated capability or universal release threshold. Evaluate spatial error over the sensing area.                                                                                    |
 
 ### Verified source facts
 
@@ -100,12 +100,12 @@ estimate city-wide processing. Cache immutable inputs and rerun only affected de
 
 ### Reconstruction choices
 
-| Approach | Benefit | Cost or limitation | Position |
-| --- | --- | --- | --- |
-| Footprints and robust heights | Cheap, inspectable baseline; readily highlights disagreements | Extruded walls may be inferred; roof overhangs need separate treatment | First release |
-| Roof planes and detailed reconstruction | Better roof structure and matching surfaces | Requires clean roof points and aligned outlines; more failure cases | Selective second stage |
-| Extract all outlines from LiDAR | Can expose omissions and changed buildings | Vegetation, touching roofs and occlusion make identity/topology harder | Generate review candidates |
-| Fuse ground PCAP detail immediately | Potentially useful façades and kerbs | Adds pose, timing, persistence and visibility uncertainty | Separate evidence layer until validated |
+| Approach                                | Benefit                                                       | Cost or limitation                                                     | Position                                |
+| --------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------- |
+| Footprints and robust heights           | Cheap, inspectable baseline; readily highlights disagreements | Extruded walls may be inferred; roof overhangs need separate treatment | First release                           |
+| Roof planes and detailed reconstruction | Better roof structure and matching surfaces                   | Requires clean roof points and aligned outlines; more failure cases    | Selective second stage                  |
+| Extract all outlines from LiDAR         | Can expose omissions and changed buildings                    | Vegetation, touching roofs and occlusion make identity/topology harder | Generate review candidates              |
+| Fuse ground PCAP detail immediately     | Potentially useful façades and kerbs                          | Adds pose, timing, persistence and visibility uncertainty              | Separate evidence layer until validated |
 
 [Roofer's architecture][roofer] requires classified points and aligned footprints and does not
 provide automatic footprint extraction. It is a later reconstruction candidate, not the alignment
@@ -113,14 +113,14 @@ solution. Evaluate its pinned version, licence and output validation before inte
 
 ## 4. Source precedence and inheritance
 
-| Property | Default authority | Exception |
-| --- | --- | --- |
-| Geographic placement | Accepted aerial baseline in its documented frame | Independent control demonstrates a source error |
-| Ground and observed roof surfaces | Valid aerial returns | Excluded region, poor coverage or reviewed newer measurement |
-| Wall/ground-contact outline | Best supported physical evidence; city/OSM candidates remain labelled | Roof edge alone does not establish wall location |
-| Names, uses and identity associations | Attributed city/OSM fields | Conflicts retained for review; geometry does not decide semantics |
-| Kerbs and façades absent from aerial coverage | Unknown or explicitly inferred initially | Accepted ground survey/capture evidence |
-| Parcel boundaries | Attributed cadastral context | Never automatically snap physical surfaces to lot lines |
+| Property                                      | Default authority                                                     | Exception                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Geographic placement                          | Accepted aerial baseline in its documented frame                      | Independent control demonstrates a source error                   |
+| Ground and observed roof surfaces             | Valid aerial returns                                                  | Excluded region, poor coverage or reviewed newer measurement      |
+| Wall/ground-contact outline                   | Best supported physical evidence; city/OSM candidates remain labelled | Roof edge alone does not establish wall location                  |
+| Names, uses and identity associations         | Attributed city/OSM fields                                            | Conflicts retained for review; geometry does not decide semantics |
+| Kerbs and façades absent from aerial coverage | Unknown or explicitly inferred initially                              | Accepted ground survey/capture evidence                           |
+| Parcel boundaries                             | Attributed cadastral context                                          | Never automatically snap physical surfaces to lot lines           |
 
 Use two separate systems for inheritance:
 
@@ -147,17 +147,17 @@ surfaces or smooth a seam merely to conceal disagreement.
 The primary task is: select a disputed region, understand the cause, measure it, preview a proposed
 resolution, and approve an auditable change. Freehand polygon editing is secondary.
 
-| View or action | Required behaviour |
-| --- | --- |
-| Layer stack | Independently toggle aerial points, ground raster, SF outlines, OSM, derived geometry, measured controls and local captures; show dates and source revisions |
-| Linked plan, 3D and section views | Share selection and clipping slab; separate roof edges from walls/kerbs at street level; support opacity and before/after comparison |
-| Source boundaries | Toggle source tiles, strips when available, L10/L13 and correction footprints independently |
-| Guidelines | Draw point pairs, lines, planes and right-angle/parallel guides; distinguish visual aids, soft constraints and independently measured control |
-| Alignment inspector | Select moving and reference sources explicitly; fit translation or rigid pose as justified, with axes/units shown; preserve raw coordinates |
-| Residual display | Signed east/north/up vectors, normal distances and cross-sections; fixed colour scale and legend; original and proposed residuals |
-| Regional dashboard | Aggregate mismatch magnitude, support and review status by cell or tile; distinguish untested, unobservable and passed regions |
-| Rule inspector | Explain why a feature has its current source/geometry, what it inherits and which override wins |
-| Change review | Show scope, dependencies, held-out checks and geometry differences; draft, accept, reject, supersede and rollback |
+| View or action                    | Required behaviour                                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layer stack                       | Independently toggle aerial points, ground raster, SF outlines, OSM, derived geometry, measured controls and local captures; show dates and source revisions |
+| Linked plan, 3D and section views | Share selection and clipping slab; separate roof edges from walls/kerbs at street level; support opacity and before/after comparison                         |
+| Source boundaries                 | Toggle source tiles, strips when available, L10/L13 and correction footprints independently                                                                  |
+| Guidelines                        | Draw point pairs, lines, planes and right-angle/parallel guides; distinguish visual aids, soft constraints and independently measured control                |
+| Alignment inspector               | Select moving and reference sources explicitly; fit translation or rigid pose as justified, with axes/units shown; preserve raw coordinates                  |
+| Residual display                  | Signed east/north/up vectors, normal distances and cross-sections; fixed colour scale and legend; original and proposed residuals                            |
+| Regional dashboard                | Aggregate mismatch magnitude, support and review status by cell or tile; distinguish untested, unobservable and passed regions                               |
+| Rule inspector                    | Explain why a feature has its current source/geometry, what it inherits and which override wins                                                              |
+| Change review                     | Show scope, dependencies, held-out checks and geometry differences; draft, accept, reject, supersede and rollback                                            |
 
 Every fit records sample count and spatial distribution, correspondence type, median and p95
 residual, RMSE where meaningful, inlier fraction, estimated translation/rotation and uncertainty.
@@ -177,11 +177,11 @@ and interaction time; measure the result against controls withheld from fitting 
 
 ## 6. Web versus velocity visualiser
 
-| Choice | Advantages | Tradeoffs |
-| --- | --- | --- |
-| macOS visualiser first | Existing point-cloud rendering and capture workflow; convenient for local PCAP comparison | Platform restriction; catalogue, GIS editing and review model still need building |
-| Web curator first | Community access, linked maps, attribution and review queues; can run against local bundles | Point-cloud streaming, offline caching and precise 3D picking need a performance prototype |
-| Two full editors | Every workflow in both environments | Duplicated interaction, validation and release logic |
+| Choice                 | Advantages                                                                                  | Tradeoffs                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| macOS visualiser first | Existing point-cloud rendering and capture workflow; convenient for local PCAP comparison   | Platform restriction; catalogue, GIS editing and review model still need building          |
+| Web curator first      | Community access, linked maps, attribution and review queues; can run against local bundles | Point-cloud streaming, offline caching and precise 3D picking need a performance prototype |
+| Two full editors       | Every workflow in both environments                                                         | Duplicated interaction, validation and release logic                                       |
 
 The current [web package](../../web/package.json) includes Svelte and Leaflet. The native
 [renderer][native-renderer]
@@ -199,15 +199,15 @@ and traffic tracks remain local by default.
 
 ## 7. Pilot gates and next decisions
 
-| Gate | Evidence required |
-| --- | --- |
-| Reproducibility | Immutable inputs, pinned processing and repeatable output/manifest hashes |
-| Frame correctness | Original LAZ/EPT comparison after documented conversion; independently checked horizontal and vertical reference |
-| Geometry quality | Report coverage, uncertain roof selection, holes/parts and source disagreement; inferred surfaces visibly labelled |
-| Alignment | Held-out controls across the sensing region; residuals before/after; no regressions across neighbouring boundaries |
-| Editor usefulness | Time and error for automatic suggestion, guided snapping and measured-control workflows; failed cases retained |
-| Fault detection | Deliberately shifted/rotated tile, wrong height reference, changed building and underconstrained flat scene are distinguished |
-| Offline delivery | Open a frozen site bundle without network; missing dependencies fail visibly; prior release remains usable |
+| Gate              | Evidence required                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Reproducibility   | Immutable inputs, pinned processing and repeatable output/manifest hashes                                                     |
+| Frame correctness | Original LAZ/EPT comparison after documented conversion; independently checked horizontal and vertical reference              |
+| Geometry quality  | Report coverage, uncertain roof selection, holes/parts and source disagreement; inferred surfaces visibly labelled            |
+| Alignment         | Held-out controls across the sensing region; residuals before/after; no regressions across neighbouring boundaries            |
+| Editor usefulness | Time and error for automatic suggestion, guided snapping and measured-control workflows; failed cases retained                |
+| Fault detection   | Deliberately shifted/rotated tile, wrong height reference, changed building and underconstrained flat scene are distinguished |
+| Offline delivery  | Open a frozen site bundle without network; missing dependencies fail visibly; prior release remains usable                    |
 
 Before processing, choose an intended-use error budget for horizontal, vertical and edge placement.
 The previously discussed 10–20 cm is a provisional registration experiment target. Measure
