@@ -1,9 +1,9 @@
-# Occupancy column grid on S2 level 24
+# Occupancy column grid: a 0.5 m lattice anchored by S2
 
 - **Status:** Draft
 - **Layers:** L4 Perception, L7 Scene, L8 Analytics, L10 Clients (macOS visualiser), storage
 - **Target:** v0.5.x for the grid definition and the selection column; occupancy production follows; physics is v2.0+
-- **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Background region overlays](lidar-background-region-overlay-plan.md), [S2 geographic indexing](s2-geographic-indexing-plan.md), [Static pose alignment](lidar-static-pose-alignment-plan.md), [L7 scene](lidar-l7-scene-plan.md)
+- **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Background region overlays](lidar-background-region-overlay-plan.md), [S2 geographic indexing](s2-geographic-indexing-plan.md), [Spatial priors service](spatial-priors-service-plan.md), [Reference data](spatial-priors-reference-data-plan.md), [L7 scene](lidar-l7-scene-plan.md)
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
 
 ## Motivation
@@ -22,8 +22,14 @@ Three jobs want the same thing and none of them has it.
 
 The background model's grid cannot serve any of these. It is polar and centred on the sensor:
 its cells are a few centimetres wide near the mast and metres wide at range, and they mean
-nothing to a second sensor or a second visit. This plan defines one world-anchored grid, sized
-to road users, that all three jobs share.
+nothing to a second sensor or a second visit. This plan defines one grid, sized to road users,
+that all three jobs share.
+
+It has to work before we know where we are. At scan time there is no registration to the real
+world: a rough position, good to about a city block, and nothing better until an offline
+alignment has been run. So the grid is local first. An S2 cell says roughly where it is, a fixed
+spacing says how it is laid out, and the two are meshed with reality later, without anything
+already selected or counted changing its meaning.
 
 ## Current state
 
@@ -39,6 +45,14 @@ Verified on 2026-09-20.
 - **Sites are georeferenced by hand.** `tools/s2-archive/site-index.json` gives each site a
   latitude, a longitude, a `north_azimuth_deg` measured by an operator, and a
   `position_confidence`.
+- **A capture is not registered when it is made.** The rough position available at scan time is a
+  latitude and longitude to three decimal places. Registration to reality comes from offline
+  alignment against priors, in the [spatial priors service](spatial-priors-service-plan.md) plan,
+  whose rule is that a source with unresolved georeferencing "may remain a local experiment
+  asset; its guessed position must not create verified public coverage".
+- **Dense S2 storage is already discouraged.** That plan uses "local metric tiles" for dense
+  processing, not S2 areas, and notes that a signed 64-bit column cannot hold every S2 ID. San
+  Francisco's IDs have the top bit set.
 - **Packs are not georeferenced.** A pack's `CoordinateContract` describes a sensor-local frame
   in metres, with an origin note and no position on the Earth.
 - **Selection is polygon and slab.** `PointSelectionEngine.candidates` evaluates a polygon in an
@@ -50,47 +64,73 @@ Verified on 2026-09-20.
   sensor-frame Z. `RegionalGroundSurface`, fitted in 10 m cells, exists on `dd/docs/state-est`
   and not yet on `main`. Marina at Webster measured a 4.35% grade.
 
-## The level, measured
+## The spacing, measured
 
-Cell size and the number of cells a footprint touches, computed with `golang/geo` at Columbus and
-Broadway, 400 random positions and headings per shape, 5th to 95th percentile:
+Two things were measured with `golang/geo` at Columbus and Broadway: what an S2 cell of the right
+size looks like there, and how many cells a road user touches on a grid of that size. Footprint
+counts are from 400 random positions and headings per shape, 5th to 95th percentile.
 
-| Level  | Cell edge          | Pedestrian standing | Pedestrian mid-stride | Cyclist  | Car 4.5 x 1.8 m | Bus 12 x 2.55 m |
-| ------ | ------------------ | ------------------- | --------------------- | -------- | --------------- | --------------- |
-| 23     | 1.04 m             | 1 to 4              | 1 to 4                | 3 to 6   | 14 to 19        | 46 to 54        |
-| **24** | **0.52 m, 1.7 ft** | **2 to 5**          | **4 to 7**            | 9 to 13  | **45 to 52**    | 152 to 167      |
-| 25     | 0.26 m             | 6 to 9              | 11 to 13              | 25 to 31 | 153 to 163      | 542 to 568      |
+**S2 cells of the right size are not square.** A level 24 cell there has edges of 0.517 m and
+0.521 m, which looks square, and an interior corner of 111.3 degrees, which is not. One family of
+edges runs exactly north to south, along meridians; the other bears 68.7 degrees. The cells are
+parallelograms. A square lattice laid over them drifts by 75 cells in 100 m, so the two can
+never be made to coincide, at any offset or rotation.
 
-**Level 24** is the level at which a pedestrian fills two to six cells and a car several dozen.
-At level 23 a pedestrian can vanish into one cell and a car is a dozen and a half. At level 25 a
-pedestrian is already nine.
+**A square lattice of the same size does the job better.**
 
-At this latitude a level 24 cell is 0.517 to 0.521 m on a side and 0.251 m² in area: square to
-within a percent. S2 cells vary in size across a cube face by a factor of about two over the
-whole Earth, and negligibly across one city. The figures above are for San Francisco and are to
-be re-measured, not assumed, for a deployment elsewhere.
+| Grid                | Pedestrian standing | Pedestrian mid-stride | Cyclist  | Car 4.5 x 1.8 m | Bus 12 x 2.55 m |
+| ------------------- | ------------------- | --------------------- | -------- | --------------- | --------------- |
+| S2 level 24, skewed | 2 to 5              | 4 to 7                | 9 to 13  | 45 to 52        | 152 to 167      |
+| Square, 0.4 m       | 3 to 6              | 5 to 8                | 12 to 16 | 65 to 73        | 226 to 239      |
+| **Square, 0.5 m**   | **2 to 4**          | **4 to 6**            | 8 to 13  | **44 to 51**    | 151 to 162      |
+| Square, 0.6 m       | 2 to 4              | 3 to 6                | 7 to 10  | 32 to 38        | 109 to 119      |
+
+At **0.5 m** a pedestrian fills two to six cells and a car about four dozen, which is the target.
+It matches level 24 in area (0.250 m² against 0.251 m²), so nothing about the scale changes, and
+with 0.5 m voxels the boxes are exactly cubic, which skewed cells could not be.
+
+**What a rough fix supports.** A thousandth of a degree there is 111 m north to south and 88 m
+east to west, so a fix rounded to three places is wrong by up to 71 m. Against S2 levels:
+
+| Level  | Cell edge | True position in the same cell as the rounded fix | In that cell or its 8 neighbours |
+| ------ | --------- | ------------------------------------------------- | -------------------------------- |
+| 13     | 1,059 m   | 96.0%                                             | 100%                             |
+| 14     | 530 m     | 91.0%                                             | 100%                             |
+| 15     | 265 m     | 82.4%                                             | 100%                             |
+| **16** | **132 m** | **63.5%**                                         | **100%**                         |
+| 17     | 66 m      | 36.5%                                             | 100%                             |
+| 18     | 33 m      | 10.6%                                             | 78.4%                            |
+
+**Level 16** is the rough anchor: its cell is the size of the fix's own uncertainty, about one
+intersection and its approaches, and the true position is always in it or a neighbour. No level
+makes the rounded fix's own cell certain, not even level 13, so a rough anchor always means
+"this cell and the eight around it".
+
+These figures are for San Francisco. Cell size and skew vary over the Earth, and are re-measured
+for a deployment elsewhere, not assumed.
 
 ## Findings
 
-| Area                            | Current state                                    | Severity | Release view                                              |
-| ------------------------------- | ------------------------------------------------ | -------- | --------------------------------------------------------- |
-| A unit between return and lasso | None                                             | High     | Selection is slower and less repeatable than it should be |
-| World-anchored occupancy        | None; the only grid is polar and sensor-bound    | High     | Nothing is comparable across visits or sensors            |
-| Style guide levels              | Two, fixed; no occupancy level                   | Medium   | A third level is an amendment, made explicitly            |
-| Pack georeference               | Absent                                           | Medium   | Columns cannot be keyed to S2 without it                  |
-| Height above ground             | Sensor-frame Z unless the regional surface is on | Medium   | Three voxels of error at 40 m on a 4% grade               |
-| Site fix accuracy               | Hand-measured position and north                 | Medium   | Bounds absolute, not relative, accuracy                   |
+| Area                            | Current state                                     | Severity | Release view                                              |
+| ------------------------------- | ------------------------------------------------- | -------- | --------------------------------------------------------- |
+| A unit between return and lasso | None                                              | High     | Selection is slower and less repeatable than it should be |
+| World-anchored occupancy        | None; the only grid is polar and sensor-bound     | High     | Nothing is comparable across visits or sensors            |
+| Registration at scan time       | None; a fix good to about 71 m                    | High     | The grid must work before the capture is placed           |
+| S2 cells as columns             | Parallelograms with a 111 degree corner here      | High     | Use S2 to anchor, a square lattice to subdivide           |
+| Style guide levels              | Two, fixed; no rough anchor level                 | Medium   | Level 16 is an amendment, made explicitly                 |
+| Height above ground             | Sensor-frame Z unless the regional surface is on  | Medium   | Three voxels of error at 40 m on a 4% grade               |
+| Rough north                     | Operator-measured where present, absent otherwise | Medium   | Provisional lattice orientation is arbitrary; harmless    |
 
 ## Design / approach
 
 ### The column
 
-A **column** is one S2 level 24 cell extended vertically. It is the unit of selection, of
-decimated occupancy, and of occupancy production.
+A **column** is one cell of a square lattice with a 0.5 m pitch, extended vertically. It is the
+unit of selection, of decimated occupancy, and of occupancy production.
 
-A column is divided into **voxels** 0.5 m tall, measured from the local ground. With a 0.52 m
-cell that makes each voxel cubic to within a few percent, and inside the one to four foot range
-wanted. A column holds eight voxels, from the ground to 4 m:
+A column is divided into **voxels** 0.5 m tall, measured from the local ground. Each is a 0.5 m
+cube, 1.64 ft on a side, inside the one to four foot range wanted. A column holds eight voxels,
+from the ground to 4 m:
 
 | Voxel  | Height above ground | Feet        | Typically holds                           |
 | ------ | ------------------- | ----------- | ----------------------------------------- |
@@ -141,36 +181,71 @@ flat, and the grid records which ground model it used.
 Gravity, mass, suspension and any model of how a body must move are out of scope, and are a
 v2.0+ concern. The grid is built so that they could use it, not so that they are needed.
 
-### Keying, and what the style guide says
+### Two frames: provisional, then registered
 
-The grid adds a third fixed level to the geographic style guide, and the guide is amended to say
-so rather than worked around:
+A grid is a lattice in a frame, and a capture has two frames in its life.
 
-- **Level 24** is the occupancy level. Level 13 remains the fine partition for indexing and
-  joins, and level 10 the coarse one for the filesystem. A level 24 cell's level 13 and level 10
-  ancestors are obtained with `Parent`, never computed separately and never by truncating text.
-- **The WGS84 fix remains authoritative.** Columns are derived from sensor-local coordinates
-  through the site's position and north azimuth. They are recomputable, and are recomputed when a
-  fix is corrected.
-- **A cell is not an identity.** Occupancy is keyed by cell and by the `source_id` and
-  `calibration_id` of the evidence databases. The same cell under two calibrations is two
-  records until a registration says they are the same place.
-- **Dense data stores the 64-bit CellID.** The guide's rule to persist canonical tokens is for
-  indexed records a person may read. A per-frame grid holds tens of thousands of cells, and
-  stores integers, partitioned by the level 13 token the guide already defines. The amendment
-  states this exception and its reason.
+**Provisional, from the moment of the scan.** The frame is the sensor's own: metres, origin at
+the sensor, axes as the sensor has them, or turned to the operator's rough north where one was
+measured. The lattice is laid in that frame at a 0.5 m pitch, with a lattice point at the
+origin. The grid records its **rough anchor**: the S2 level 16 cell of the three-decimal fix.
+That is enough to say which intersection this probably is, to file the capture, and to fetch
+the right priors. It is not enough to say which cell on the Earth a column is, and nothing
+pretends otherwise. A provisional grid is fully usable for selection, for decimated occupancy,
+and for every within-capture question, because within one frame it is exactly repeatable: the
+same return always lands in the same column.
 
-### Accuracy, relative and absolute
+**Registered, after offline alignment.** Registration, described in the
+[spatial priors service](spatial-priors-service-plan.md) plan, produces a rigid transform from
+the sensor's frame to an east, north, up frame at a declared geodetic origin, with its
+uncertainty and the priors it was fitted to. The registered lattice is laid in that frame, still
+at 0.5 m, with its lattice points at whole multiples of the pitch from the origin of the priors
+tile. Every capture registered to the same tile therefore shares one lattice, and their columns
+are the same columns.
 
-Within one calibration the grid is exactly repeatable: the same return always lands in the same
-column. That is what selection, decimation and single-visit occupancy need.
+**Meshing the two is recomputation, never relabelling.** A provisional column and a registered
+column differ by a translation of up to tens of metres and a rotation of whatever the rough
+north was wrong by, so no provisional column maps onto one registered column. Columns and
+occupancy are derived data, and are rebuilt from retained returns and observations under the
+registered transform. Where only the provisional bytes were kept, they are resampled, and the
+result is marked as resampled. What never needs rebuilding is an annotation: a mask is a list of
+point indices, and means the same thing in either frame.
 
-Absolute placement is only as good as the site fix. An error of two metres in position moves
-every column by four cells; an error of two degrees in north moves a return at 50 m by 1.7 m,
-which is three cells. Both are tolerable within a visit and fatal to comparing two visits cell by
-cell. Cross-visit comparison therefore waits on registration, in the
-[static pose alignment](lidar-static-pose-alignment-plan.md) plan, and until then is done at a
-coarser level or not at all. The grid records the `position_confidence` it was built with.
+Columns are keyed by a grid identity and two small signed integers, `(grid, i, j)`. The grid
+identity names the frame, its status (`provisional`, `registered`, `manually_placed`), the pitch,
+and the evidence databases' `source_id` and `calibration_id`. Provisional and registered data
+are never mixed in one comparison, and cross-visit comparison is allowed only between grids
+registered to the same priors tile.
+
+### What this asks of the geographic style guide
+
+Less than the first draft of this plan did. Columns are not S2 cells, so no occupancy level is
+added. One thing is:
+
+- **Level 16 is the rough anchor level**, for a capture that has a rough fix and no
+  registration. It is recorded with its status, and always read as "this cell or one of its
+  eight neighbours". Its level 13 and level 10 ancestors come from `Parent`, as the guide
+  requires, never from truncating text.
+- **The WGS84 fix remains authoritative**, and the rough fix is recorded as the rough fix it is:
+  three decimal places, with its error bound, never padded with zeros to look like a survey.
+- **A cell is not an identity.** A rough anchor says where to look, not which site this is.
+
+Registered grids need nothing new: they are indexed at level 13 like everything else, from the
+registered origin.
+
+### Accuracy: what each stage can promise
+
+| Stage       | Placement on the Earth                        | Good for                                                         |
+| ----------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| Provisional | Within about 71 m, heading unknown or rough   | Selection, decimation, all within-capture occupancy              |
+| Registered  | As good as the alignment and the priors allow | Cross-visit and cross-sensor comparison, on the same priors tile |
+
+Comparing two visits column by column needs them to agree to within half a column: 0.25 m in
+position, and about 0.3 degrees in heading for returns at 50 m. Whether alignment to public
+LiDAR reaches that is not yet known, and is one of the things the registration experiment
+measures. Two captures registered to the same priors release share that release's errors, so
+they may agree with each other better than either agrees with the Earth; that is a hypothesis to
+test and not a result.
 
 ### Selection: a sphere and a column
 
@@ -192,11 +267,11 @@ paints them. With the occupancy layer on, columns are drawn as the grid they are
 selection is a set of cells and voxels, which is repeatable in a way a freehand lasso is not. It
 is the tool for anything standing on the ground, which is nearly everything.
 
-Where a pack has no georeference, the column tool uses a local grid of the same pitch anchored
-at the pack's origin. The selection behaves identically, and the pack records that its columns
-are local and not S2 cells. Masks are still stored as canonical point indices, as they are
-today: a column is how points are chosen, never how membership is recorded, so a mask does not
-change meaning if the grid does.
+The column tool needs no registration. It works on the provisional lattice from the first
+moment a pack exists, which is when annotation actually happens. Masks are still stored as
+canonical point indices, as they are today: a column is how points are chosen, never how
+membership is recorded, so a mask means the same thing after the capture is registered as it did
+before.
 
 Each tool also deselects. The modifier that subtracts with the lasso subtracts with the sphere
 and the column.
@@ -215,15 +290,16 @@ before any classifier is asked.
 
 ### Item 1: the grid, defined and measured
 
-**Summary:** Level 24 columns, eight 0.5 m voxels, the stack, and the style guide amended to match.
+**Summary:** A 0.5 m square lattice, eight 0.5 m voxels, the stack, and a level 16 rough anchor.
 
 **Steps:**
 
-1. Amend the geographic style guide: the third level, its purpose, its parents, and the integer
-   storage exception.
-2. A small Go package: sensor-local point to cell and voxel, given a site fix and a ground model;
-   column mask from a set of returns.
-3. Commit the measurement above as a test, so the level's fitness is checked and not remembered.
+1. Amend the geographic style guide: level 16 as the rough anchor level, its status, its
+   "cell or eight neighbours" reading, and how a rough fix is recorded.
+2. A small Go package: point to column and voxel, given a frame and a ground model; column mask
+   from a set of returns; grid identity with its status.
+3. Commit the measurements above as tests, so the spacing's fitness and the anchor's containment
+   are checked and not remembered.
 4. Re-measure the stack bounds against the labelled tracks before fixing them.
 
 **Milestone:** v0.5.x
@@ -236,22 +312,23 @@ before any classifier is asked.
 
 1. Sphere: centre snapped to a return, radius by drag or scroll, outline in both views.
 2. Column: click and paint in the top view, per-voxel toggles, brush radius.
-3. Local-grid fallback for packs with no georeference, recorded in the pack.
+3. Both work on the provisional lattice, so neither waits on registration.
 4. Deselection through the existing subtract modifier, and both tools in the undo stack.
 5. Tests beside the existing selection tests: a sphere selects by true distance, a column ignores
    disabled voxels, and neither changes how a mask is stored.
 
 **Milestone:** v0.5.x
 
-### Item 3: georeference and ground in the review pack
+### Item 3: frame and ground in the review pack
 
-**Summary:** A pack carries the site fix, north, confidence and ground model it was cut with, as context.
+**Summary:** A pack carries its grid identity, rough anchor, frame status and ground model, as context.
 
 **Steps:**
 
-1. Context entry outside the point digest, so adding it invalidates no annotation.
+1. Context entry outside the point digest, so adding it, or registering the capture later,
+   invalidates no annotation.
 2. Ground model reference: regional surface, single plane, or sensor-frame Z, stated.
-3. The occupancy layer in both macOS views.
+3. The occupancy layer in both macOS views, with the frame's status shown beside it.
 
 **Milestone:** v0.5.x
 
@@ -262,29 +339,46 @@ before any classifier is asked.
 **Steps:**
 
 1. Builder from foreground returns, off the frame path or within its budget.
-2. Storage keyed by source, calibration and cell, partitioned by the level 13 token.
+2. Storage keyed by grid identity and `(i, j)`; the capture indexed at level 13 as usual.
 3. Determinism: two replays, identical bytes.
 4. Size measured on columbus-broadway before any retention decision.
 
 **Milestone:** v0.5.x, after items 1 and 3
 
-### Item 5: occupancy as a product
+### Item 5: meshing with reality
 
-**Summary:** Dwell, presence and flow from the two-dimensional test, per site.
+**Summary:** Rebuild a capture's columns and occupancy on the registered lattice once it has been aligned.
 
-**Milestone:** After item 4 and after cross-visit registration; not scheduled here.
+**Steps:**
+
+1. Consume a registration record from the priors service plan; lay the registered lattice on the
+   priors tile's origin.
+2. Rebuild from retained returns and observations; resample, and say so, where only bytes remain.
+3. A test that annotations are byte-identical before and after.
+
+**Milestone:** After the registration experiment reports; not scheduled here.
+
+### Item 6: occupancy as a product
+
+**Summary:** Dwell, presence and flow from the two-dimensional test, per site, across visits.
+
+**Milestone:** After item 5; not scheduled here.
 
 ## Dependencies
 
 - **The regional ground surface** (PR #559) for any site that is not flat.
-- **The review workflow's context layers**, for the pack's georeference and the occupancy layer.
-- **Site fixes** in the archive index, with their stated confidence.
-- **Static pose alignment**, before any cross-visit comparison.
+- **The review workflow's context layers**, for the pack's grid identity and the occupancy layer.
+- **Registration from priors**, in the [spatial priors service](spatial-priors-service-plan.md)
+  plan, before any cross-visit comparison. Nothing else here waits on it.
 
 ## Risks
 
-- **A grid that looks more exact than it is.** Cell IDs are precise to the bit and the site fix
-  is not. The confidence is recorded and shown, and cross-visit use is gated on registration.
+- **A provisional grid mistaken for a placed one.** It looks the same on screen. The frame's
+  status is part of the grid's identity, shown wherever the grid is, and provisional and
+  registered data are never combined.
+- **Registration that never reaches half a column.** Then cross-visit comparison is done on
+  coarser blocks of columns, and the plan says so rather than comparing cells that do not
+  correspond.
 - **The stack fitted to San Francisco.** Voxels 1 to 4 suit cars and adults on city streets. A
   site with trucks, or one where children matter most, may want other bounds, which is why they
   are a recorded parameter and not a constant.
@@ -298,22 +392,23 @@ before any classifier is asked.
 
 ### Outstanding
 
-- [ ] Style guide amendment: level 24, parents, integer storage (`S`)
-- [ ] Grid package and the level-fitness test (`M`)
+- [ ] Style guide amendment: level 16 rough anchor (`S`)
+- [ ] Grid package, grid identity, and the spacing and containment tests (`M`)
 - [ ] Stack bounds checked against labelled tracks (`S`)
 - [ ] Sphere selection (`M`)
 - [ ] Column selection with per-voxel toggles and paint (`M`)
-- [ ] Pack georeference and ground model context (`M`)
-- [ ] Occupancy layer in both macOS views (`M`)
+- [ ] Pack frame, rough anchor and ground model context (`M`)
+- [ ] Occupancy layer in both macOS views, showing frame status (`M`)
 - [ ] Decimated occupancy builder, storage and size measurement (`L`)
 
 ### Deferred
 
 - [ ] Occupancy products: dwell, presence, flow
-- [ ] Cross-visit comparison, after registration
+- [ ] Meshing with reality, and cross-visit comparison, after the registration experiment
 - [ ] Physics: gravity, mass and motion constraints, v2.0+
 
 ### Accepted residuals (no action planned)
 
-- [ ] Cell sizes are measured for San Francisco and re-measured per deployment
+- [ ] S2 cell size and skew are measured for San Francisco and re-measured per deployment
+- [ ] A provisional grid is never promoted in place; registration builds a new one
 - [ ] Returns above 4 m are counted and not masked
