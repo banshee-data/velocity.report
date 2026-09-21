@@ -63,8 +63,11 @@ marker. This is revision-level recovery, not the future client's unsaved-stroke 
 
 ## Remaining reference-loop work
 
-Canonical-index lasso/slab selection, second-view inspection, dirty-session navigation
-protection and operator provenance are delivered in the macOS client. What remains is operator
+Canonical-index lasso/slab selection, sphere and column brushes, second-view inspection,
+dirty-session navigation protection and operator provenance are delivered in the macOS client.
+So is what an operator needs in order to find the object: views that pan, zoom and hold their
+framing from sample to sample, a 3D view, class filters for background, foreground and ground,
+and frame sync with the main view's replay of the same recording. What remains is operator
 work rather than engineering: reviewed masks across a site's keyframes, and the frozen
 object-disjoint dataset splits derived from them. The
 [annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md) owns
