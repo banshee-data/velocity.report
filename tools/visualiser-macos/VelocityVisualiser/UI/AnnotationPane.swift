@@ -536,6 +536,10 @@ struct AnnotationPane: View {
                     displaySection
                     Divider()
                     objectSection
+                    if session.activeObjectID != nil {
+                        Divider()
+                        propagationSection
+                    }
                     if session.carried != nil {
                         Divider()
                         carriedSection
@@ -852,6 +856,44 @@ struct AnnotationPane: View {
             }
             secondViewConfirmed = false
             applyResult = nil
+        }
+    }
+
+    // MARK: Propagation
+
+    // One press for the frames an operator would only have agreed with, one
+    // at a time, at six seconds each.
+    private var propagationSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Carry through the frames").font(.headline)
+            if let frame = session.propagationProgress {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Frame \(frame + 1) of \(session.samples.count)").font(
+                        .caption.monospacedDigit())
+                    Spacer()
+                    Button("Stop") { session.cancelPropagation() }.controlSize(.small)
+                }
+            } else {
+                HStack(spacing: 4) {
+                    Button("◀◀ Back") { Task { await session.propagate(direction: -1) } }
+                        .keyboardShortcut("[", modifiers: .command)
+                    Button("Forward ▶▶") { Task { await session.propagate(direction: 1) } }
+                        .keyboardShortcut("]", modifiers: .command)
+                }.controlSize(.small).disabled(session.selectionCount == 0)
+            }
+            if let outcome = session.lastPropagation {
+                Text(outcome.summary).font(.caption2).foregroundStyle(
+                    outcome.stop.needsOperator ? Color.orange : Color.secondary
+                ).fixedSize(horizontal: false, vertical: true)
+            }
+            Text(
+                "From this frame's saved points, on through every frame where the fit is one you "
+                    + "would have accepted. It stops and hands over where the object is lost, "
+                    + "doubles, could be in two places, or is further than it could have moved. "
+                    + "What it writes is in question until you review it."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
         }
     }
 

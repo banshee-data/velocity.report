@@ -16,6 +16,8 @@ private let sessionLogger = DevLogger(category: "AnnotationSession")
 /// Why a navigation or source change was refused, so the UI can say which.
 enum AnnotationGuard: Equatable {
     case strokeInProgress
+    /// A propagation is writing frames; nothing else may move the session.
+    case propagating
     case unsavedMembership(sampleID: Int, objectID: String)
 }
 
@@ -217,6 +219,14 @@ enum AnnotationGuard: Equatable {
     /// carry. The next carry starts from there: a car doing ten metres a
     /// second last frame is doing about that this frame.
     private var carryVelocity: [String: simd_float3] = [:]
+
+    // MARK: Propagation
+
+    /// Set while a propagation runs: the frame it has reached.
+    @Published private(set) var propagationProgress: Int?
+    /// What the last propagation did, until the next edit.
+    @Published private(set) var lastPropagation: PropagationOutcome?
+    private var propagationCancelled = false
 
     // MARK: Saved masks
 
@@ -515,6 +525,7 @@ enum AnnotationGuard: Equatable {
     /// What would block leaving this sample, if anything. Exposed so a caller
     /// can ask before offering navigation rather than after refusing it.
     func navigationGuard() -> AnnotationGuard? {
+        if propagationProgress != nil { return .propagating }
         if strokeInProgress { return .strokeInProgress }
         if let sample = currentSample, let objectID = activeObjectID,
             dirtySamples.contains(sample.sampleID)
@@ -1129,6 +1140,194 @@ enum AnnotationGuard: Equatable {
         }
         if navigationGuard() != nil { return "Unsaved changes. Save to move on." }
         return nil
+    }
+
+    // MARK: - Propagation
+
+    func cancelPropagation() { propagationCancelled = true }
+
+    /// Carries the active object's mask through the following frames (or the
+    /// preceding ones, with `direction` -1) for as long as the fit is one a
+    /// person would have accepted, and saves them all at once.
+    ///
+    /// The frames it writes are recorded as made by this propagation and stay
+    /// in question until reviewed. Where it stops for a reason that needs a
+    /// person, it leaves the session on that frame with the failed fit laid
+    /// over it as a proposal to nudge.
+    @discardableResult func propagate(
+        direction: Int = 1, maxFrames: Int? = nil
+    ) async -> PropagationOutcome? {
+        lastError = nil
+        lastPropagation = nil
+        guard direction == 1 || direction == -1 else { return nil }
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter your name under Labelled by before saving: a label has an author.")
+        }
+        guard let object = activeObject, let start = currentSample else {
+            return fail("Choose the object to carry through the frames.")
+        }
+        // Carried from what is saved. Unsaved changes are saved first: the
+        // operator has just made them on the frame they are carrying from.
+        if navigationGuard() != nil, !save() { return nil }
+        guard !savedSelection.isEmpty else {
+            return fail("Label \(displayName(objectID: object.objectID)) in this frame first.")
+        }
+
+        let isFixed = AnnotationPalette.isFixed(object.objectClass)
+        let filter = effectiveVisibility
+        var footprint = SelectionFootprint(
+            points: savedSelection.compactMap { currentPoints.point(at: $0) })
+        var previousCount = savedSelection.count
+        var previousRange = AnnotationSession.meanRange(of: savedSelection, in: currentPoints)
+        // Per frame, in the direction being carried.
+        var velocity = (carryVelocity[object.objectID] ?? .zero) * Float(direction)
+        var pending: [FrameMask] = []
+        var stop = PropagationStop.endOfPack
+        var stopFit: (footprint: SelectionFootprint, offset: simd_float3, from: Int)?
+        var lastSampleID = start.sampleID
+        var index = sampleIndex + direction
+
+        propagationCancelled = false
+        propagationProgress = sampleIndex
+        defer { propagationProgress = nil }
+
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "propagate_mask")
+        change.algorithm = "footprint_carry"
+        change.algorithmVersion = "1"
+
+        while index >= 0, index < orderedSamples.count {
+            if propagationCancelled {
+                stop = .cancelled
+                break
+            }
+            if let maxFrames, pending.count >= maxFrames {
+                stop = .frameLimit
+                break
+            }
+            let sample = orderedSamples[index]
+            if sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID) != nil {
+                stop = .alreadyLabelled
+                break
+            }
+            guard let points = try? pack.points(sampleID: sample.sampleID) else { break }
+            let classes = PointClass.displayClasses(
+                points: points, hasClassification: pack.manifest.hasClassification, band: heightBand
+            )
+            let include: (Int) -> Bool = {
+                PointVisibility.isVisible($0, classes: classes, under: filter)
+            }
+
+            var fit: FootprintFit
+            if isFixed {
+                fit = FootprintFit(offset: .zero)
+                fit.count = footprint.indices(in: points, offset: .zero, where: include).count
+            } else {
+                fit = footprint.fit(in: points, near: velocity, where: include)
+            }
+            let indices = footprint.indices(in: points, offset: fit.offset, where: include)
+            let range = AnnotationSession.meanRange(of: Set(indices), in: points)
+            let expected = PropagationJudge.expected(
+                previousCount: previousCount, previousRange: previousRange, range: range)
+
+            var verdict = PropagationJudge.verdict(
+                fit: fit, prediction: velocity, expected: expected, isFixed: isFixed)
+            if verdict == nil,
+                let rival = objectSharing(indices, inSample: sample.sampleID, not: object.objectID)
+            {
+                verdict = .overlaps(objectName: rival)
+            }
+            if let verdict {
+                stop = verdict
+                stopFit = (footprint, fit.offset, lastSampleID)
+                break
+            }
+
+            var mask = FrameMask(objectID: object.objectID, sampleID: sample.sampleID)
+            mask.pointIndices = indices
+            mask.completeness = maskCompleteness
+            mask.visibility = maskVisibility
+            mask.status = .proposed
+            mask.provenance = change
+            pending.append(mask)
+
+            // The next frame is fitted from where and what the object now is.
+            footprint = SelectionFootprint(points: indices.compactMap { points.point(at: $0) })
+            velocity = isFixed ? .zero : velocity * 0.5 + fit.offset * 0.5
+            previousCount = indices.count
+            previousRange = range
+            lastSampleID = sample.sampleID
+            propagationProgress = index
+            index += direction
+            // Lets the window draw the frame counter and take a Stop.
+            await Task.yield()
+        }
+
+        if !pending.isEmpty {
+            var edited = document
+            edited.sidecar = sidecar
+            edited.sidecar.packDigest = pack.manifest.packDigest
+            edited.sidecar.datasetID = pack.manifest.datasetID
+            for mask in pending { edited.sidecar.upsert(mask: mask) }
+            do {
+                document = try store.save(edited, change: change)
+                sidecar = document.sidecar
+                refreshFrameProgress()
+            } catch let error as SidecarStoreError {
+                conflict = error
+                return fail(AnnotationSession.describe(error))
+            } catch { return fail("\(error)") }
+            carryVelocity[object.objectID] = velocity * Float(direction)
+        }
+
+        // Land where the work is: on the frame that needs a person, with the
+        // fit that was refused laid over it, or else on the last frame written.
+        propagationProgress = nil
+        let landing = stop.needsOperator ? index : index - direction
+        if landing != sampleIndex, landing >= 0, landing < orderedSamples.count {
+            _ = step(to: landing, followingMainView: false)
+        }
+        if stop.needsOperator, let stopFit {
+            carried = CarriedSelection(
+                footprint: stopFit.footprint, offset: stopFit.offset, fromSampleID: stopFit.from,
+                direction: direction)
+            refreshCarriedIndices()
+        }
+        let outcome = PropagationOutcome(
+            objectName: displayName(objectID: object.objectID), framesWritten: pending.count,
+            stop: stop)
+        lastPropagation = outcome
+        sessionLogger.info("\(outcome.summary)")
+        return outcome
+    }
+
+    /// The name of another object that already has a fifth or more of these
+    /// returns in this frame, if there is one.
+    private func objectSharing(
+        _ indices: [Int], inSample sampleID: Int, not objectID: String
+    ) -> String? {
+        guard !indices.isEmpty else { return nil }
+        let mine = Set(indices)
+        for mask in sidecar.masks where mask.sampleID == sampleID && mask.objectID != objectID {
+            let shared = mask.pointIndices.filter(mine.contains).count
+            if Float(shared) >= Float(indices.count) * PropagationJudge.overlapFraction {
+                return displayName(objectID: mask.objectID)
+            }
+        }
+        return nil
+    }
+
+    /// Mean horizontal distance from the sensor.
+    static func meanRange(of indices: Set<Int>, in points: PackPoints) -> Float {
+        var sum: Float = 0
+        var count: Float = 0
+        for index in indices where index >= 0 && index < points.count {
+            sum += (points.x[index] * points.x[index] + points.y[index] * points.y[index])
+                .squareRoot()
+            count += 1
+        }
+        return count > 0 ? sum / count : 0
     }
 
     // MARK: - Names

@@ -73,17 +73,26 @@ struct SelectionFootprint: Equatable {
 
     /// The horizontal offset near `prediction` that puts the most returns
     /// inside the footprint.
+    func bestOffset(
+        in points: PackPoints, near prediction: simd_float3, searchRadius: Float = 2,
+        step: Float = SelectionFootprint.pitch, where include: (Int) -> Bool
+    ) -> simd_float3 {
+        fit(in: points, near: prediction, searchRadius: searchRadius, step: step, where: include)
+            .offset
+    }
+
+    /// Where the footprint fits best near `prediction`, and how well.
     ///
     /// Horizontal only: road users move on the ground, and letting the search
     /// move a footprint vertically is how it would find the road beneath a car
     /// instead of the car. A tie goes to the offset nearest the prediction, so
     /// an empty scene leaves the footprint where it was predicted rather than
     /// at a corner of the search.
-    func bestOffset(
+    func fit(
         in points: PackPoints, near prediction: simd_float3, searchRadius: Float = 2,
         step: Float = SelectionFootprint.pitch, where include: (Int) -> Bool
-    ) -> simd_float3 {
-        guard !isEmpty, step > 0 else { return prediction }
+    ) -> FootprintFit {
+        guard !isEmpty, step > 0 else { return FootprintFit(offset: prediction) }
         // Only returns the footprint could reach at some offset in the search.
         let lo = lower + prediction - searchRadius
         let hi = upper + prediction + searchRadius
@@ -94,28 +103,95 @@ struct SelectionFootprint: Equatable {
                 nearby.append(p)
             }
         }
-        guard !nearby.isEmpty else { return prediction }
+        guard !nearby.isEmpty else { return FootprintFit(offset: prediction) }
 
         let steps = Int((searchRadius / step).rounded(.down))
-        var best = prediction
-        var bestCount = -1
+        var scores: [(delta: simd_float3, count: Int)] = []
+        scores.reserveCapacity((2 * steps + 1) * (2 * steps + 1))
+        var best = FootprintFit(offset: prediction, count: -1)
         var bestDistance = Float.greatestFiniteMagnitude
         for ix in -steps...steps {
             for iy in -steps...steps {
                 let delta = simd_float3(Float(ix) * step, Float(iy) * step, 0)
-                let offset = prediction + delta
                 var count = 0
-                for p in nearby where contains(p, offset: offset) { count += 1 }
+                for p in nearby where contains(p, offset: prediction + delta) { count += 1 }
+                scores.append((delta, count))
                 let distance = simd_length(delta)
-                if count > bestCount || (count == bestCount && distance < bestDistance) {
-                    best = offset
-                    bestCount = count
+                if count > best.count || (count == best.count && distance < bestDistance) {
+                    best = FootprintFit(offset: prediction + delta, count: count)
                     bestDistance = distance
                 }
             }
         }
+        best.runnerUp = SelectionFootprint.rival(
+            to: best.offset - prediction, in: scores, side: 2 * steps + 1, step: step)
         return best
     }
+
+    /// The best score at a different place from `bestDelta`.
+    ///
+    /// "A different place" is a separate peak, not a distance. A six-metre car
+    /// moved a metre along itself still covers most of its own returns, and
+    /// counting that as a rival refused to carry any large object at all. A
+    /// rival is a local maximum with a valley between it and the best fit:
+    /// somewhere on the straight line between them the score drops well below
+    /// the rival's own, which is what two objects look like and one does not.
+    static func rival(
+        to bestDelta: simd_float3, in scores: [(delta: simd_float3, count: Int)], side: Int,
+        step: Float
+    ) -> Int {
+        guard side > 0, scores.count == side * side else { return 0 }
+        func score(_ ix: Int, _ iy: Int) -> Int {
+            guard ix >= 0, iy >= 0, ix < side, iy < side else { return 0 }
+            return scores[ix * side + iy].count
+        }
+        let half = (side - 1) / 2
+        let bx = Int((bestDelta.x / step).rounded()) + half
+        let by = Int((bestDelta.y / step).rounded()) + half
+
+        var runnerUp = 0
+        for ix in 0..<side {
+            for iy in 0..<side {
+                let here = score(ix, iy)
+                guard here > runnerUp, ix != bx || iy != by else { continue }
+                let distance =
+                    Float((ix - bx) * (ix - bx) + (iy - by) * (iy - by)).squareRoot() * step
+                guard distance >= FootprintFit.rivalDistance else { continue }
+                // A peak of its own.
+                var isPeak = true
+                for dx in -1...1 {
+                    for dy in -1...1 where score(ix + dx, iy + dy) > here { isPeak = false }
+                }
+                guard isPeak else { continue }
+                // With a valley between it and the best fit.
+                let samples = max(abs(ix - bx), abs(iy - by))
+                var lowest = here
+                for k in 1..<max(samples, 1) {
+                    let t = Float(k) / Float(samples)
+                    let lx = bx + Int((Float(ix - bx) * t).rounded())
+                    let ly = by + Int((Float(iy - by) * t).rounded())
+                    lowest = min(lowest, score(lx, ly))
+                }
+                if Float(lowest) < Float(here) * FootprintFit.valleyFraction { runnerUp = here }
+            }
+        }
+        return runnerUp
+    }
+}
+
+/// How well a footprint fitted a frame.
+struct FootprintFit: Equatable {
+    /// Nearer than this, two peaks are one fit measured a voxel to one side.
+    static let rivalDistance: Float = 1.0
+    /// How far the score must fall between two peaks, as a share of the lower
+    /// one, for them to be two places.
+    static let valleyFraction: Float = 0.7
+
+    var offset: simd_float3
+    /// Returns inside the footprint at `offset`.
+    var count = 0
+    /// Returns inside it at the best rival position: see `rival(to:in:side:step:)`.
+    var runnerUp = 0
 }
 
 /// A footprint laid over the current sample, waiting to be accepted.
