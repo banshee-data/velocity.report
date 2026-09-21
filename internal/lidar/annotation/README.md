@@ -6,6 +6,25 @@ tracker splits and reruns. The selection client is the macOS visualiser's annota
 (`tools/visualiser-macos/VelocityVisualiser/Annotation`), which reads these packs and writes
 these sidecars through the same revision protocol; it is not supplied by this package.
 
+## What a pack carries
+
+| File                                 | What it is                                                                | In the pack digest |
+| ------------------------------------ | ------------------------------------------------------------------------- | ------------------ |
+| `points.bin`, `samples.json`         | The point domain: every frame's returns, by the index a mask cites        | Yes                |
+| `manifest.json`                      | Identity, coverage, coordinate contract, and the run's L4 height band     | It holds it        |
+| `background.bin`, `backgrounds.json` | The settled-background snapshots in force over the excerpt, when recorded | No                 |
+
+The background is context for whoever is labelling: it shows what the run had already decided
+was static, and when that decision changed. No mask can cite a background point, so it has
+digests of its own in the manifest and stays out of the pack digest. The snapshot in force at a
+frame is the last recorded at or before it, by position in the recording. Neither its timestamp
+nor its sequence number orders it: a replay settled ahead of time opens with a snapshot stamped
+after every frame that follows, and the sequence number only moves on a grid reset.
+
+The exporter refuses `full` coverage when every classed point is foreground. Today's recordings
+keep foreground returns and periodic background snapshots, so their packs are `foreground_only`
+with a background behind them.
+
 ## Revision-safe storage
 
 | Entry point              | Contract                                                                                                                |
