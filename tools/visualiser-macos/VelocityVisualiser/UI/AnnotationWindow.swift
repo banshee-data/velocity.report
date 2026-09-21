@@ -396,9 +396,8 @@ struct AnnotationViewportView: View {
             ZStack(alignment: .topLeading) {
                 Color.black
                 AnnotationPointCanvas(
-                    points: session.currentPoints, basis: basis, viewport: viewport,
-                    visibility: session.effectiveVisibility,
-                    coloursByClass: session.pack.manifest.hasClassification,
+                    points: session.currentPoints, classes: session.currentClasses, basis: basis,
+                    viewport: viewport, visibility: session.effectiveVisibility,
                     identity: AnnotationPointCanvas.Identity(
                         packDigest: session.pack.manifest.packDigest,
                         sampleID: session.currentSample?.sampleID ?? -1)
@@ -459,10 +458,11 @@ struct AnnotationPointCanvas: View, Equatable {
     }
 
     let points: PackPoints
+    /// Display classes: see `PointClass.displayClasses`.
+    let classes: [UInt8]
     let basis: OrthoViewBasis
     let viewport: OrthoViewport
     let visibility: PointVisibility?
-    let coloursByClass: Bool
     let identity: Identity
 
     // Points are immutable under a pack digest and sample, so two canvases
@@ -471,7 +471,7 @@ struct AnnotationPointCanvas: View, Equatable {
     // candidate count, without every publish redrawing the whole cloud.
     static func == (lhs: AnnotationPointCanvas, rhs: AnnotationPointCanvas) -> Bool {
         lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
-            && lhs.visibility == rhs.visibility && lhs.coloursByClass == rhs.coloursByClass
+            && lhs.visibility == rhs.visibility
     }
 
     static let backgroundColour = Color(red: 0.55, green: 0.55, blue: 0.62)
@@ -483,11 +483,14 @@ struct AnnotationPointCanvas: View, Equatable {
             var background = Path()
             var foreground = Path()
             var ground = Path()
+            var unclassified = Path()
             // Generous, so a return on the edge is drawn rather than popping
             // in a frame late while panning.
             let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
             for index in 0..<points.count {
-                guard points.isVisible(index, under: visibility) else { continue }
+                guard PointVisibility.isVisible(index, classes: classes, under: visibility) else {
+                    continue
+                }
                 let p = simd_float3(points.x[index], points.y[index], points.z[index])
                 let screen = viewport.screenPoint(from: basis.project(p))
                 // Zoomed in, most of the sample is off screen, and a path of
@@ -495,22 +498,17 @@ struct AnnotationPointCanvas: View, Equatable {
                 // the cost of a redraw.
                 guard visible.contains(screen) else { continue }
                 let rect = CGRect(x: screen.x - 0.75, y: screen.y - 0.75, width: 1.5, height: 1.5)
-                let classification =
-                    coloursByClass && index < points.classification.count
-                    ? points.classification[index] : PointClass.background
-                switch classification {
+                switch index < classes.count ? classes[index] : PointClass.unclassified {
                 case PointClass.foreground: foreground.addRect(rect)
                 case PointClass.ground: ground.addRect(rect)
-                default: background.addRect(rect)
+                case PointClass.background: background.addRect(rect)
+                default: unclassified.addRect(rect)
                 }
             }
-            if coloursByClass {
-                context.fill(background, with: .color(Self.backgroundColour.opacity(0.6)))
-                context.fill(ground, with: .color(Self.groundColour.opacity(0.7)))
-                context.fill(foreground, with: .color(Self.foregroundColour.opacity(0.9)))
-            } else {
-                context.fill(background, with: .color(.white.opacity(0.65)))
-            }
+            context.fill(background, with: .color(Self.backgroundColour.opacity(0.6)))
+            context.fill(ground, with: .color(Self.groundColour.opacity(0.7)))
+            context.fill(unclassified, with: .color(.white.opacity(0.65)))
+            context.fill(foreground, with: .color(Self.foregroundColour.opacity(0.9)))
         }.allowsHitTesting(false)
     }
 }

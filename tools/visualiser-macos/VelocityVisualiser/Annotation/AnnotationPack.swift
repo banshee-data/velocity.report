@@ -50,6 +50,9 @@ struct SourceProvenance: Codable, Equatable {
     var pcapBasename: String?
     var sensorID: String
     var buildVersion: String?
+    /// The run's L4 height-band filter, when the exporter knew it. Absent
+    /// from packs cut before it was recorded.
+    var heightBand: HeightBand?
 
     enum CodingKeys: String, CodingKey {
         case vrlogPath = "vrlog_path"
@@ -58,7 +61,34 @@ struct SourceProvenance: Codable, Equatable {
         case pcapBasename = "pcap_basename"
         case sensorID = "sensor_id"
         case buildVersion = "build_version"
+        case heightBand = "height_band"
     }
+}
+
+/// The L4 height-band filter a run was made with: the rule Go's
+/// `l4perception.HeightBandFilter` applies before clustering.
+///
+/// A pack holds points as recorded, which is before that filter ran. With the
+/// band, the tool can show exactly which of them the clusterer never saw.
+struct HeightBand: Codable, Equatable {
+    var floorM: Double
+    var ceilingM: Double
+    var removeGround: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case floorM = "floor_m"
+        case ceilingM = "ceiling_m"
+        case removeGround = "remove_ground"
+    }
+
+    /// The pipeline's defaults (`DefaultHeightBandFilter`), for a pack that
+    /// does not record its own. Shown as assumed wherever it is used.
+    static let pipelineDefault = HeightBand(floorM: -2.8, ceilingM: 1.5, removeGround: true)
+
+    /// True when the filter dropped a return at this height. Both comparisons
+    /// are strict and made in double precision, as the filter's are: a return
+    /// exactly on the floor was kept.
+    func removes(z: Float) -> Bool { removeGround && (Double(z) < floorM || Double(z) > ceilingM) }
 }
 
 /// The pack manifest. Only the fields this client uses are decoded; unknown

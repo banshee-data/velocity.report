@@ -254,9 +254,10 @@ struct AnnotationWorkspaceMountTests {
         settle()
         #expect(drawn() == 3)
 
-        // And it steps with the session.
+        // And it steps with the session. Sample 1 has two returns, one of
+        // them above the height band's ceiling, which is ground and hidden.
         session.stepForward()
         settle()
-        #expect(drawn() == 2)
+        #expect(drawn() == 1)
     }
 }

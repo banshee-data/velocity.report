@@ -11,6 +11,8 @@ import Combine
 import Foundation
 import simd
 
+private let sessionLogger = DevLogger(category: "AnnotationSession")
+
 /// Why a navigation or source change was refused, so the UI can say which.
 enum AnnotationGuard: Equatable {
     case strokeInProgress
@@ -45,7 +47,27 @@ enum AnnotationGuard: Equatable {
     /// The decoded points for the current sample, cached so a redraw or a
     /// candidate evaluation does not re-read and re-decode the block.
     @Published private(set) var currentPoints: PackPoints = PackPoints() {
-        didSet { sceneRevision &+= 1 }
+        didSet {
+            currentClasses = PointClass.displayClasses(
+                points: currentPoints, hasClassification: pack.manifest.hasClassification,
+                band: heightBand)
+            sceneRevision &+= 1
+        }
+    }
+
+    /// The class each of the current points is drawn and filtered as: the
+    /// recorder's, with what the run's height band removed counted as ground.
+    private(set) var currentClasses: [UInt8] = []
+
+    /// The height band "ground" is judged by: the pack's own when it records
+    /// one, and otherwise the pipeline's default, flagged as assumed.
+    let heightBand: HeightBand
+    let heightBandIsAssumed: Bool
+
+    /// How many of the current sample's points are in each display class, so
+    /// a toggle can say that it has nothing to hide.
+    var classCounts: [UInt8: Int] {
+        currentClasses.reduce(into: [:]) { counts, value in counts[value, default: 0] += 1 }
     }
 
     // MARK: Selection
@@ -125,6 +147,44 @@ enum AnnotationGuard: Equatable {
     /// steps made to follow the main view.
     @Published private(set) var operatorNavigationRevision = 0
 
+    // MARK: Brush
+
+    /// Where the sphere brush would mark if the button went down now. Shown in
+    /// every view, because the one the cursor is in cannot show its depth.
+    @Published private(set) var hoverSphere: SelectionSphere? {
+        didSet { if hoverSphere != oldValue { sceneRevision &+= 1 } }
+    }
+    /// The returns inside `hoverSphere`.
+    @Published private(set) var hoverIndices: [Int] = []
+    /// Moves the brush along the view's depth axis, away from the return it
+    /// took its depth from. In the top view that is up and down.
+    @Published private(set) var brushDepthOffset: Float = 0
+    /// The depth the brush last found a return at, used where there is none
+    /// under the cursor so that a stroke does not jump between depths.
+    private var lastBrushDepth: Float?
+
+    // MARK: Carried selection
+
+    /// The previous sample's selection laid over this one, as a proposal.
+    @Published private(set) var carried: CarriedSelection? { didSet { sceneRevision &+= 1 } }
+    /// The returns inside the carried footprint where it now lies.
+    @Published private(set) var carriedIndices: [Int] = []
+    /// How far each object's footprint had to be moved on its last accepted
+    /// carry. The next carry starts from there: a car doing ten metres a
+    /// second last frame is doing about that this frame.
+    private var carryVelocity: [String: simd_float3] = [:]
+
+    // MARK: Saved masks
+
+    /// The active object's saved mask in this sample. Drawn in the object's
+    /// class colour; what differs from it is drawn as unsaved.
+    @Published private(set) var savedSelection: Set<Int> = [] { didSet { sceneRevision &+= 1 } }
+    /// Every other object's saved mask in this sample, so an operator can see
+    /// what is already labelled before labelling it again.
+    @Published private(set) var otherMasks: [(objectClass: String, indices: [Int])] = [] {
+        didSet { sceneRevision &+= 1 }
+    }
+
     /// The sphere and the columns of the stroke in progress. Published, not
     /// held by the view that is being dragged in, so that the second view can
     /// draw them too: a sphere's reach along the axis the operator cannot see
@@ -148,21 +208,42 @@ enum AnnotationGuard: Equatable {
     /// Operator identity, collected rather than invented. A save without it
     /// is refused: anonymous legacy data stays readable, but this client does
     /// not add more of it.
-    @Published var operatorName: String = ""
+    @Published var operatorName: String = "" {
+        didSet { defaults?.set(operatorName, forKey: AnnotationSession.operatorKey) }
+    }
+    /// Where the operator's name is remembered. Nil under test, so that one
+    /// test's operator is not another's.
+    private let defaults: UserDefaults?
     let sessionID: String = UUID().uuidString
+
+    private static let operatorKey = "annotation.operatorName"
 
     // MARK: Init
 
-    init(pack: AnnotationPack, store: SidecarStore? = nil) throws {
+    init(
+        pack: AnnotationPack, store: SidecarStore? = nil,
+        defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard
+    ) throws {
         self.pack = pack
+        self.defaults = defaults
         let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
         self.store = resolvedStore
         self.document = try resolvedStore.load(
             packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
         self.sidecar = document.sidecar
         self.orderedSamples = pack.chronologicalSamples
+        self.heightBand = pack.manifest.source.heightBand ?? .pipelineDefault
+        self.heightBandIsAssumed = pack.manifest.source.heightBand == nil
+        // The name last saved under, so that it is typed once per machine and
+        // not once per pack. It is still the operator's own, and still editable.
+        self.operatorName = defaults?.string(forKey: AnnotationSession.operatorKey) ?? ""
         if let first = orderedSamples.first {
-            self.currentPoints = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
+            let points = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
+            // Property observers do not run in an initialiser.
+            self.currentPoints = points
+            self.currentClasses = PointClass.displayClasses(
+                points: points, hasClassification: pack.manifest.hasClassification, band: heightBand
+            )
         }
         resetSlabToSampleExtent()
         // Once, from the first sample, and not again as samples are stepped
@@ -185,8 +266,27 @@ enum AnnotationGuard: Equatable {
                 operation: "create_object"))
         sidecar.objects.append(object)
         activeObjectID = object.objectID
-        loadSelectionForCurrentSample()
+        // The selection on screen stays: it becomes this object's unsaved
+        // membership. Selecting a car and then saying what it is is the
+        // natural order, and reloading here used to wipe the selection the
+        // moment the object it was for was created.
+        savedSelection = []
+        carried = nil
+        carriedIndices = []
+        refreshOtherMasks()
+        markDirty()
         return object
+    }
+
+    /// Makes another object the one under edit, loading its saved mask.
+    /// Refused while the current one has unsaved changes.
+    @discardableResult func activate(objectID: String) -> AnnotationGuard? {
+        if let blocker = navigationGuard() { return blocker }
+        activeObjectID = objectID
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        return nil
     }
 
     var activeObject: AnnotationObject? {
@@ -223,6 +323,11 @@ enum AnnotationGuard: Equatable {
     private func step(to index: Int, followingMainView: Bool) -> AnnotationGuard? {
         if let blocker = navigationGuard() { return blocker }
         guard index >= 0, index < orderedSamples.count else { return nil }
+        // Taken before the points change: the space this sample's membership
+        // occupies, to be laid over the sample being stepped to.
+        let leaving = footprintOfCurrentSelection()
+        let direction = index - sampleIndex
+        let fromSampleID = currentSample?.sampleID
         sampleIndex = index
         // Only a step the operator made here asks the main view to come along.
         // One made to follow the main view must not: during playback the main
@@ -231,8 +336,11 @@ enum AnnotationGuard: Equatable {
         if !followingMainView { operatorNavigationRevision &+= 1 }
         currentPoints = (try? pack.points(sampleID: orderedSamples[index].sampleID)) ?? PackPoints()
         pendingCandidates = nil
+        hoverSphere = nil
+        hoverIndices = []
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
+        carry(leaving, from: fromSampleID, direction: direction)
         return nil
     }
 
@@ -279,14 +387,87 @@ enum AnnotationGuard: Equatable {
     /// Evaluates a sphere without applying it. The view it was made in decides
     /// what the slab means, as it does for the lasso.
     @discardableResult func previewSelection(sphere: SelectionSphere) -> SelectionCandidates {
-        let candidates = visibleOnly(
-            PointSelectionEngine.candidates(
-                points: currentPoints, sphere: sphere, basis: OrthoViewBasis(viewStandard),
-                slab: slab))
+        let candidates = sphereCandidates(sphere)
         pendingSphere = sphere
         pendingCandidates = candidates
         return candidates
     }
+
+    /// Adds one more position of the sphere brush to the stroke in progress:
+    /// the candidates are everything any position of the brush has covered.
+    @discardableResult func paint(sphere: SelectionSphere) -> SelectionCandidates {
+        let here = sphereCandidates(sphere)
+        var total = pendingCandidates ?? SelectionCandidates(indices: [], excludedBySlab: 0)
+        total.indices = Set(total.indices).union(here.indices).sorted()
+        // Not summed: the same return is excluded again at every position the
+        // brush overlaps it from, and a count that grows with the length of
+        // the drag says nothing. The latest position's counts are what the
+        // operator is looking at.
+        total.excludedBySlab = here.excludedBySlab
+        total.excludedByVisibility = here.excludedByVisibility
+        pendingSphere = sphere
+        pendingCandidates = total
+        return total
+    }
+
+    private func sphereCandidates(_ sphere: SelectionSphere) -> SelectionCandidates {
+        visibleOnly(
+            PointSelectionEngine.candidates(
+                points: currentPoints, sphere: sphere, basis: OrthoViewBasis(viewStandard),
+                slab: slab))
+    }
+
+    /// The sphere the brush marks with at a position in the editing view.
+    ///
+    /// A cursor gives two coordinates and a sphere needs three. The third is
+    /// the depth of the nearest drawn return under the cursor, so the brush
+    /// rides the surface being painted; where there is none, the depth it last
+    /// had, so that crossing a gap does not drop it to the ground. The
+    /// operator moves it off that depth with `adjustBrushDepth`.
+    func brushSphere(atViewPoint viewPoint: simd_float2, pickDistance: Float) -> SelectionSphere {
+        let basis = OrthoViewBasis(viewStandard)
+        let reach = max(pickDistance, sphereRadius)
+        if let index = nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: reach),
+            let p = currentPoints.point(at: index)
+        {
+            lastBrushDepth = basis.depth(p)
+        }
+        let depth =
+            (lastBrushDepth ?? slab.map { ($0.minDepth + $0.maxDepth) / 2 } ?? 0) + brushDepthOffset
+        let centre =
+            basis.origin + basis.right * viewPoint.x + basis.up * viewPoint.y + basis.forward
+            * depth
+        return SelectionSphere(centre: centre, radius: sphereRadius)
+    }
+
+    /// Shows where the sphere brush would mark at this position, or clears it.
+    func hover(atViewPoint viewPoint: simd_float2?, pickDistance: Float) {
+        guard tool == .sphere, !strokeInProgress, let viewPoint else {
+            if hoverSphere != nil {
+                hoverSphere = nil
+                hoverIndices = []
+            }
+            return
+        }
+        let sphere = brushSphere(atViewPoint: viewPoint, pickDistance: pickDistance)
+        hoverIndices = sphereCandidates(sphere).indices
+        hoverSphere = sphere
+    }
+
+    /// Moves the brush along the depth axis by whole steps of a tenth of a
+    /// metre. Positive is away from the viewer: downward, in the top view.
+    func adjustBrushDepth(steps: Int) {
+        brushDepthOffset = ((brushDepthOffset + Float(steps) * 0.1) * 10).rounded() / 10
+        if let sphere = hoverSphere {
+            let basis = OrthoViewBasis(viewStandard)
+            let moved = SelectionSphere(
+                centre: sphere.centre + basis.forward * Float(steps) * 0.1, radius: sphere.radius)
+            hoverIndices = sphereCandidates(moved).indices
+            hoverSphere = moved
+        }
+    }
+
+    func resetBrushDepth() { brushDepthOffset = 0 }
 
     /// Evaluates a set of painted columns without applying it.
     @discardableResult func previewSelection(cells: Set<ColumnCell>) -> SelectionCandidates {
@@ -302,26 +483,26 @@ enum AnnotationGuard: Equatable {
     /// The return nearest a position in the editable view, within the slab:
     /// where a sphere is centred. `maxViewDistance` is in metres.
     func nearestPointIndex(toViewPoint viewPoint: simd_float2, maxViewDistance: Float) -> Int? {
-        let filter = effectiveVisibility
-        return PointSelectionEngine.nearestPoint(
+        PointSelectionEngine.nearestPoint(
             points: currentPoints, basis: OrthoViewBasis(viewStandard), viewPoint: viewPoint,
-            slab: slab, maxViewDistance: maxViewDistance,
-            where: { self.currentPoints.isVisible($0, under: filter) })
+            slab: slab, maxViewDistance: maxViewDistance, where: isVisible)
     }
 
-    /// The class filter in force, or nil when nothing is filtered: every class
-    /// is on, or the pack carries no classes to filter by.
-    var effectiveVisibility: PointVisibility? {
-        guard pack.manifest.hasClassification, !visibility.showsEverything else { return nil }
-        return visibility
+    /// The class filter in force, or nil when every class is on.
+    var effectiveVisibility: PointVisibility? { visibility.showsEverything ? nil : visibility }
+
+    /// True when the current sample's point at `index` is drawn, and so can
+    /// be selected.
+    func isVisible(_ index: Int) -> Bool {
+        PointVisibility.isVisible(index, classes: currentClasses, under: effectiveVisibility)
     }
 
     /// Drops candidates the class filter hides, and counts them, so a gesture
     /// that took fewer points than it covered says why.
     private func visibleOnly(_ candidates: SelectionCandidates) -> SelectionCandidates {
-        guard let filter = effectiveVisibility else { return candidates }
+        guard effectiveVisibility != nil else { return candidates }
         var result = candidates
-        result.indices = candidates.indices.filter { currentPoints.isVisible($0, under: filter) }
+        result.indices = candidates.indices.filter(isVisible)
         result.excludedByVisibility = candidates.indices.count - result.indices.count
         return result
     }
@@ -363,7 +544,12 @@ enum AnnotationGuard: Equatable {
         pendingCandidates = nil
         pendingSphere = nil
         pendingCells = []
-        if changed { markDirty() }
+        // A selection made by hand replaces the proposal it was offered.
+        if changed {
+            carried = nil
+            carriedIndices = []
+            markDirty()
+        }
         return changed
     }
 
@@ -467,18 +653,19 @@ enum AnnotationGuard: Equatable {
     /// Frames every view, and the 3D view, on the chosen points. Returns false
     /// and leaves the views alone when there are none to frame.
     @discardableResult func fitViews(to target: AnnotationFitTarget) -> Bool {
-        let filter = effectiveVisibility
         let selection = history.current
         let include: (Int) -> Bool
         let trim: Float
         switch target {
         case .sample:
-            include = { self.currentPoints.isVisible($0, under: filter) }
+            include = isVisible
             trim = AnnotationSession.sampleFitTrim
         case .foreground:
+            // Display classes: what the height band removed is not foreground
+            // for this purpose, or the fit would take in the road.
             include = { index in
-                index < self.currentPoints.classification.count
-                    && self.currentPoints.classification[index] == PointClass.foreground
+                index < self.currentClasses.count
+                    && self.currentClasses[index] == PointClass.foreground
             }
             trim = 0
         case .selection:
@@ -573,6 +760,202 @@ enum AnnotationGuard: Equatable {
         return nearest.index
     }
 
+    // MARK: - Carrying a selection between samples
+
+    /// How far one press of an arrow key moves a carried footprint, in metres.
+    static let nudgeStep: Float = 0.1
+    static let coarseNudgeStep: Float = 0.5
+
+    private func footprintOfCurrentSelection() -> SelectionFootprint? {
+        guard activeObjectID != nil, !history.current.isEmpty else { return nil }
+        let footprint = SelectionFootprint(
+            points: history.current.compactMap { currentPoints.point(at: $0) })
+        return footprint.isEmpty ? nil : footprint
+    }
+
+    /// Lays the sample just left's selection over the one just arrived at.
+    ///
+    /// Only onto a neighbouring sample, and only where the object has no mask
+    /// yet: a footprint ten samples old is somewhere the object no longer is,
+    /// and a sample already labelled has nothing to propose.
+    private func carry(_ footprint: SelectionFootprint?, from sampleID: Int?, direction: Int) {
+        carried = nil
+        carriedIndices = []
+        guard let footprint, let sampleID, let object = activeObject, abs(direction) == 1,
+            savedSelection.isEmpty, history.current.isEmpty
+        else { return }
+
+        // A building is where it was. A car is about as far on as it moved
+        // last time, and the search takes it from there.
+        var offset = simd_float3.zero
+        if !AnnotationPalette.isFixed(object.objectClass) {
+            let prediction = (carryVelocity[object.objectID] ?? .zero) * Float(direction)
+            offset = footprint.bestOffset(in: currentPoints, near: prediction, where: isVisible)
+        }
+        carried = CarriedSelection(
+            footprint: footprint, offset: offset, fromSampleID: sampleID, direction: direction)
+        refreshCarriedIndices()
+    }
+
+    private func refreshCarriedIndices() {
+        guard let carried else {
+            carriedIndices = []
+            return
+        }
+        carriedIndices = carried.footprint.indices(
+            in: currentPoints, offset: carried.offset, where: isVisible)
+    }
+
+    /// Moves the carried footprint by an offset in the editing view's plane:
+    /// `right` and `up` as the operator sees them, in metres.
+    func nudgeCarried(right: Float, up: Float) {
+        guard var moved = carried else { return }
+        let basis = OrthoViewBasis(viewStandard)
+        moved.offset += basis.right * right + basis.up * up
+        carried = moved
+        refreshCarriedIndices()
+    }
+
+    /// Searches again for where the carried footprint fits best, from where
+    /// it now lies: the way to recover after a nudge in the wrong direction.
+    func refitCarried() {
+        guard var moved = carried else { return }
+        moved.offset = moved.footprint.bestOffset(
+            in: currentPoints, near: moved.offset, where: isVisible)
+        carried = moved
+        refreshCarriedIndices()
+    }
+
+    /// Makes the carried proposal this sample's membership. It is unsaved
+    /// until saved, like any other selection.
+    @discardableResult func acceptCarried() -> Bool {
+        guard let accepted = carried, let object = activeObject else { return false }
+        let changed = history.commit(Set(carriedIndices))
+        // Per sample stepped, in the direction of time, so that carrying
+        // backwards later predicts the opposite way.
+        carryVelocity[object.objectID] = accepted.offset * Float(accepted.direction)
+        carried = nil
+        carriedIndices = []
+        if changed { markDirty() }
+        return changed
+    }
+
+    func dismissCarried() {
+        carried = nil
+        carriedIndices = []
+    }
+
+    /// Saves the active object's mask into every sample, from the space its
+    /// selection occupies in this one. For things that do not move.
+    ///
+    /// Each mask is recorded as made by this propagation and not by hand, and
+    /// stays proposed: the operator has looked at one sample of it. Samples
+    /// where the object already has a mask are left alone. Returns how many
+    /// masks were written, or nil when nothing could be saved.
+    @discardableResult func applySelectionToAllSamples() -> Int? {
+        lastError = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter an operator name before saving: provenance is not invented.")
+        }
+        guard let object = activeObject, let here = currentSample else {
+            return fail("Select an object before applying its mask to other samples.")
+        }
+        guard AnnotationPalette.isFixed(object.objectClass) else {
+            return fail("Only an object that does not move can be applied to every sample.")
+        }
+        guard let footprint = footprintOfCurrentSelection() else {
+            return fail("Select the object's points in this sample first.")
+        }
+
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "apply_fixed_mask")
+        change.algorithm = "footprint_carry"
+        change.algorithmVersion = "1"
+
+        var written = 0
+        for sample in orderedSamples {
+            var mask: FrameMask
+            if sample.sampleID == here.sampleID {
+                // This one is the operator's own selection, not a propagation.
+                mask =
+                    sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID)
+                    ?? FrameMask(objectID: object.objectID, sampleID: sample.sampleID)
+                mask.pointIndices = canonicalSelection
+                mask.provenance = Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: SidecarStore.utcTimestamp(), operation: "save_mask")
+            } else {
+                guard sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID) == nil,
+                    let points = try? pack.points(sampleID: sample.sampleID)
+                else { continue }
+                let classes = PointClass.displayClasses(
+                    points: points, hasClassification: pack.manifest.hasClassification,
+                    band: heightBand)
+                let filter = effectiveVisibility
+                let indices = footprint.indices(in: points, offset: .zero) {
+                    PointVisibility.isVisible($0, classes: classes, under: filter)
+                }
+                guard !indices.isEmpty else { continue }
+                mask = FrameMask(objectID: object.objectID, sampleID: sample.sampleID)
+                mask.pointIndices = indices
+                mask.provenance = change
+            }
+            mask.completeness = maskCompleteness
+            mask.visibility = maskVisibility
+            mask.status = mask.status == .reviewed ? .reviewed : .proposed
+            edited.sidecar.upsert(mask: mask)
+            written += 1
+        }
+
+        do {
+            document = try store.save(edited, change: change)
+            sidecar = document.sidecar
+            dirtySamples.remove(here.sampleID)
+            savedSelection = history.current
+            return written
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+    }
+
+    /// Records a failure where the operator can see it and where the log can:
+    /// a save that fails silently is indistinguishable from one that worked.
+    private func fail<T>(_ message: String) -> T? {
+        lastError = message
+        sessionLogger.error("\(message)")
+        return nil
+    }
+
+    /// How many samples the object has a saved mask in.
+    func savedSampleCount(objectID: String) -> Int {
+        sidecar.masks.filter { $0.objectID == objectID && !$0.pointIndices.isEmpty }.count
+    }
+
+    /// What the operator has to do next before a mask can be saved, or nil
+    /// when nothing stands in the way.
+    var nextStep: String? {
+        if operatorName.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Enter your name under Source. A mask is saved under its author."
+        }
+        if activeObjectID == nil {
+            return selectionCount == 0
+                ? "Select an object's points, then choose its class and press New object."
+                : "Choose a class and press New object to say what these points are."
+        }
+        if carried != nil {
+            return "The last sample's selection is laid over this one. Nudge it, then accept."
+        }
+        if selectionCount == 0 { return "Select this object's points in the editing view." }
+        if navigationGuard() != nil { return "Unsaved changes. Save the mask to move on." }
+        return nil
+    }
+
     // MARK: - Persistence
 
     /// Writes the current membership into the snapshot and saves it.
@@ -583,19 +966,16 @@ enum AnnotationGuard: Equatable {
         lastError = nil
         conflict = nil
         guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
-            lastError = "Enter an operator name before saving: provenance is not invented."
-            return false
+            return fail("Enter an operator name before saving: provenance is not invented.")
+                ?? false
         }
         guard let sample = currentSample, let objectID = activeObjectID else {
-            lastError = "Select a reference object and a sample before saving."
-            return false
+            return fail("Create or choose an object before saving: a mask belongs to one.") ?? false
         }
 
         let indices = canonicalSelection
         switch PointSelectionEngine.validate(indices: indices, pointCount: currentPoints.count) {
-        case .failure(let error):
-            lastError = error.message
-            return false
+        case .failure(let error): return fail(error.message) ?? false
         case .success(let validated):
             let change = Provenance(
                 author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
@@ -621,17 +1001,14 @@ enum AnnotationGuard: Equatable {
                 document = try store.save(edited, change: change)
                 sidecar = document.sidecar
                 dirtySamples.remove(sample.sampleID)
+                savedSelection = Set(validated)
                 return true
             } catch let error as SidecarStoreError {
                 // Neither busy nor conflict discards the operator's dirty
                 // membership: it stays in the history for reconciliation.
                 conflict = error
-                lastError = AnnotationSession.describe(error)
-                return false
-            } catch {
-                lastError = "\(error)"
-                return false
-            }
+                return fail(AnnotationSession.describe(error)) ?? false
+            } catch { return fail("\(error)") ?? false }
         }
     }
 
@@ -646,6 +1023,12 @@ enum AnnotationGuard: Equatable {
             dirtySamples.removeAll()
             conflict = nil
             lastError = nil
+            // An object that was never saved went with the reload.
+            if let id = activeObjectID, !sidecar.objects.contains(where: { $0.objectID == id }) {
+                activeObjectID = nil
+            }
+            carried = nil
+            carriedIndices = []
             loadSelectionForCurrentSample()
         } catch { lastError = "\(error)" }
     }
@@ -681,14 +1064,29 @@ enum AnnotationGuard: Equatable {
     /// Loads the saved mask for the active object into the history, clearing
     /// stroke history so undo cannot walk into another sample's selection.
     private func loadSelectionForCurrentSample() {
+        refreshOtherMasks()
         guard let sample = currentSample, let objectID = activeObjectID,
             let mask = sidecar.mask(objectID: objectID, sampleID: sample.sampleID)
         else {
             history.reset(to: [])
+            savedSelection = []
             return
         }
         history.reset(to: Set(mask.pointIndices))
+        savedSelection = Set(mask.pointIndices)
         maskVisibility = mask.visibility
         maskCompleteness = mask.completeness
+    }
+
+    private func refreshOtherMasks() {
+        guard let sample = currentSample else {
+            otherMasks = []
+            return
+        }
+        let classes = Dictionary(
+            sidecar.objects.map { ($0.objectID, $0.objectClass) }, uniquingKeysWith: { a, _ in a })
+        otherMasks = sidecar.masks.filter {
+            $0.sampleID == sample.sampleID && $0.objectID != activeObjectID
+        }.map { (objectClass: classes[$0.objectID] ?? "", indices: $0.pointIndices) }
     }
 }

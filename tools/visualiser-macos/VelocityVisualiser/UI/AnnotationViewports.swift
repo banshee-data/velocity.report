@@ -22,6 +22,14 @@ struct ViewportStroke: Equatable {
     var location: CGPoint
 }
 
+/// The keys an orthographic view acts on when it has the focus.
+enum ViewportKey: Equatable {
+    /// An arrow, as a direction in the view; `coarse` when shift is held.
+    case nudge(right: Int, up: Int, coarse: Bool)
+    case accept
+    case cancel
+}
+
 /// Mouse and trackpad input for an orthographic view.
 ///
 /// An AppKit view rather than SwiftUI gestures, because SwiftUI on macOS has
@@ -38,6 +46,12 @@ struct ViewportInputLayer: NSViewRepresentable {
     var onPan: (CGSize) -> Void
     /// A scale factor (below one zooms in) about a point in the view.
     var onZoom: (Float, CGPoint) -> Void
+    /// The cursor's position in the view, or nil once it has left.
+    var onHover: (CGPoint?) -> Void = { _ in }
+    /// Shift-scroll, in whole steps: moves the brush along the depth axis.
+    var onDepthStep: (Int) -> Void = { _ in }
+    /// A key the view may have a use for. Returns true when it did.
+    var onKey: (ViewportKey) -> Bool = { _ in false }
 
     func makeNSView(context: Context) -> ViewportInputView {
         let view = ViewportInputView()
@@ -97,6 +111,8 @@ final class ViewportInputView: NSView {
     override func otherMouseUp(with event: NSEvent) { drag = nil }
 
     private func dragged(to point: CGPoint) {
+        // The brush preview follows a pan or a stroke too, or it would sit
+        // where the drag began until the button came up.
         switch drag {
         case .stroke(let start):
             layer_?.onStrokeChanged(ViewportStroke(startLocation: start, location: point))
@@ -108,10 +124,68 @@ final class ViewportInputView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        if event.modifierFlags.contains(.shift) {
+            // macOS turns a shifted wheel into a horizontal scroll, so the
+            // movement may be on either axis.
+            let raw =
+                abs(event.scrollingDeltaY) >= abs(event.scrollingDeltaX)
+                ? event.scrollingDeltaY : event.scrollingDeltaX
+            depthScroll += event.hasPreciseScrollingDeltas ? raw / 10 : raw
+            let steps = Int(depthScroll.rounded(.towardZero))
+            if steps != 0 {
+                depthScroll -= CGFloat(steps)
+                // Scrolling up brings the brush towards the viewer.
+                layer_?.onDepthStep(-steps)
+            }
+            return
+        }
         // The main view's scaling: a trackpad reports many small deltas, a
         // wheel a few large ones.
         let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
         layer_?.onZoom(ViewportInputView.zoomFactor(forScroll: delta), location(of: event))
+    }
+
+    /// Scroll not yet amounting to a whole depth step.
+    private var depthScroll: CGFloat = 0
+
+    // MARK: Hover
+
+    private var hoverArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) { layer_?.onHover(location(of: event)) }
+    override func mouseExited(with event: NSEvent) { layer_?.onHover(nil) }
+
+    // MARK: Keys
+
+    override func keyDown(with event: NSEvent) {
+        if let key = ViewportInputView.viewportKey(for: event), layer_?.onKey(key) == true {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    static func viewportKey(for event: NSEvent) -> ViewportKey? {
+        let coarse = event.modifierFlags.contains(.shift)
+        switch event.keyCode {
+        case 123: return .nudge(right: -1, up: 0, coarse: coarse)
+        case 124: return .nudge(right: 1, up: 0, coarse: coarse)
+        case 125: return .nudge(right: 0, up: -1, coarse: coarse)
+        case 126: return .nudge(right: 0, up: 1, coarse: coarse)
+        case 36, 76: return .accept
+        case 53: return .cancel
+        default: return nil
+        }
     }
 
     override func magnify(with event: NSEvent) {
@@ -178,11 +252,18 @@ struct AnnotationSceneView: NSViewRepresentable {
         // for each would make a slider drag stutter.
         if coordinator.sceneRevision != session.sceneRevision {
             coordinator.sceneRevision = session.sceneRevision
+            var marks = AnnotationScene.Marks()
+            marks.others = session.otherMasks
+            marks.activeClass = session.activeObject?.objectClass
+            marks.saved = session.savedSelection
+            marks.selected = session.history.current
+            marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(
+                session.hoverIndices
+            ).union(session.carriedIndices)
             renderer.updateFrame(
                 AnnotationScene.frame(
-                    points: session.currentPoints, visibility: session.effectiveVisibility,
-                    selected: session.history.current,
-                    candidates: Set(session.pendingCandidates?.indices ?? []),
+                    points: session.currentPoints, classes: session.currentClasses,
+                    visibility: session.effectiveVisibility, marks: marks,
                     sample: session.currentSample))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {

@@ -52,13 +52,12 @@ struct PointVisibilityTests {
     }
 
     @Test func noFilterShowsEveryPoint() {
-        let points = PackPoints(
-            x: [0, 1], y: [0, 1], z: [0, 1], intensity: [0, 0], classification: [0, 2])
-        #expect(points.isVisible(0, under: nil))
-        #expect(points.isVisible(1, under: nil))
+        let classes: [UInt8] = [PointClass.background, PointClass.ground]
+        #expect(PointVisibility.isVisible(0, classes: classes, under: nil))
+        #expect(PointVisibility.isVisible(1, classes: classes, under: nil))
         let noGround = PointVisibility(background: true, foreground: true, ground: false)
-        #expect(points.isVisible(0, under: noGround))
-        #expect(!points.isVisible(1, under: noGround))
+        #expect(PointVisibility.isVisible(0, classes: classes, under: noGround))
+        #expect(!PointVisibility.isVisible(1, classes: classes, under: noGround))
     }
 }
 
@@ -485,43 +484,68 @@ struct SessionFrameSyncTests {
 
 struct AnnotationSceneTests {
     private let points = PackPoints(
-        x: [0, 1, 2, 3, .nan], y: [0, 1, 2, 3, 0], z: [0, 1, 2, 3, 0],
-        intensity: [10, 20, 30, 40, 50], classification: [0, 1, 2, 1, 1])
+        x: [0, 1, 2, 3, .nan, 5], y: [0, 1, 2, 3, 0, 5], z: [0, 1, 2, 3, 0, 5],
+        intensity: [10, 20, 30, 40, 50, 60], classification: [0, 1, 2, 1, 1, 1])
+    private let classes: [UInt8] = [0, 1, 2, 1, 1, 1]
 
-    @Test func membershipAndStrokeAreDrawnAsClassesOfTheirOwn() throws {
-        let bundle = AnnotationScene.frame(
-            points: points, visibility: nil, selected: [1], candidates: [1, 3], sample: nil)
-        let cloud = try #require(bundle.pointCloud)
+    private func shade(_ paletteIndex: Int) -> UInt8 { AnnotationPalette.shaderClass(paletteIndex) }
+
+    @Test func eachEditStateIsDrawnInItsOwnColour() throws {
+        var marks = AnnotationScene.Marks()
+        marks.activeClass = "car"
+        marks.saved = [1, 3]
+        marks.selected = [1, 2]  // 1 saved and kept, 2 added, 3 saved and taken out
+        marks.candidates = [2, 5]
+        marks.others = [(objectClass: "pedestrian", indices: [0])]
+
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: nil, marks: marks, sample: nil
+            ).pointCloud)
 
         // The NaN is dropped. A return both selected and a candidate is drawn
-        // as selected: it is already in the mask.
-        #expect(cloud.pointCount == 4)
-        #expect(cloud.x == [0, 1, 2, 3])
+        // as selected: it is already in the membership.
+        #expect(cloud.x == [0, 1, 2, 3, 5])
         #expect(
             cloud.classification == [
-                PointClass.background, AnnotationScene.selectedClass, PointClass.ground,
-                AnnotationScene.candidateClass,
+                shade(AnnotationPalette.paletteIndex(forClass: "pedestrian")),
+                shade(AnnotationPalette.paletteIndex(forClass: "car")),
+                shade(AnnotationPalette.unsavedIndex), shade(AnnotationPalette.removedIndex),
+                shade(AnnotationPalette.candidateIndex),
             ])
-        #expect(cloud.intensity == [10, 20, 30, 40])
-        #expect(bundle.frameType == .full)
+        #expect(cloud.intensity == [10, 20, 30, 40, 60])
     }
 
-    @Test func aHiddenClassIsNotDrawnUnlessItIsInTheMask() throws {
+    @Test func unmarkedReturnsKeepTheirOwnClass() throws {
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: nil, marks: AnnotationScene.Marks(),
+                sample: nil
+            ).pointCloud)
+        #expect(cloud.classification == [0, 1, 2, 1, 1])
+    }
+
+    @Test func aHiddenClassIsNotDrawnUnlessItIsInAMask() throws {
         let noForeground = PointVisibility(background: true, foreground: false, ground: true)
-        let bundle = AnnotationScene.frame(
-            points: points, visibility: noForeground, selected: [3], candidates: [], sample: nil)
-        let cloud = try #require(bundle.pointCloud)
+        var marks = AnnotationScene.Marks()
+        marks.selected = [3]
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: noForeground, marks: marks,
+                sample: nil
+            ).pointCloud)
 
         #expect(cloud.x == [0, 2, 3])
-        #expect(cloud.classification.last == AnnotationScene.selectedClass)
+        #expect(cloud.classification.last == shade(AnnotationPalette.unsavedIndex))
     }
 
     @Test func theFrameCarriesTheSampleItWasCutFrom() {
         let sample = AnnotationSample(
             sampleID: 4, sourceOrdinal: 9, sourceFrameID: 321, timestampNs: 77, sensorID: "s",
-            pointCount: 5, byteOffset: 0)
+            pointCount: 6, byteOffset: 0)
         let bundle = AnnotationScene.frame(
-            points: points, visibility: nil, selected: [], candidates: [], sample: sample)
+            points: points, classes: classes, visibility: nil, marks: AnnotationScene.Marks(),
+            sample: sample)
         #expect(bundle.frameID == 321)
         #expect(bundle.timestampNanos == 77)
     }

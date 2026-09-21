@@ -189,18 +189,18 @@ struct SphereSelectionTests {
         #expect(index == nil)
     }
 
-    @Test func aDragSetsTheRadiusAndAClickRepeatsTheLastOne() {
-        #expect(BrushStroke.sphereRadius(dragMetres: 0.8, remembered: 0.5) == 0.8)
-        #expect(BrushStroke.sphereRadius(dragMetres: 0.0, remembered: 0.35) == 0.35)
-        #expect(BrushStroke.sphereRadius(dragMetres: 0.01, remembered: 0.35) == 0.35)
+    @Test func aFastDragIsFilledInNoCoarserThanHalfTheRadius() {
+        let path = BrushStroke.path(from: simd_float2(0, 0), to: simd_float2(2, 0), radius: 0.5)
+        // Two metres at a quarter of a metre apart, ending where the cursor is
+        // and not repeating where it was.
+        #expect(path.count == 8)
+        #expect(path.last == simd_float2(2, 0))
+        #expect(path.first == simd_float2(0.25, 0))
     }
 
-    @Test func aRadiusIsNeverSmallEnoughToSelectOnlyItsOwnCentre() {
-        #expect(
-            BrushStroke.sphereRadius(dragMetres: 0.031, remembered: 0.5)
-                == SelectionSphere.minimumRadius)
-        #expect(
-            BrushStroke.sphereRadius(dragMetres: 0, remembered: 0) == SelectionSphere.minimumRadius)
+    @Test func aClickIsOnePositionOfTheBrush() {
+        let here = simd_float2(3, 4)
+        #expect(BrushStroke.path(from: here, to: here, radius: 0.5) == [here])
     }
 }
 

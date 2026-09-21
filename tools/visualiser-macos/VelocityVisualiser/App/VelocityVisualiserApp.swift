@@ -74,6 +74,9 @@ struct AppCommands: Commands {
     /// they are given its meaning: its samples, its brush.
     @FocusedValue(\.annotationSession) private var annotationSession
 
+    /// True while a text field is being edited: the keys then belong to it.
+    static var textHasFocus: Bool { NSApp.keyWindow?.firstResponder is NSTextView }
+
     var body: some Commands {
         // About panel
         CommandGroup(replacing: .appInfo) {
@@ -87,6 +90,27 @@ struct AppCommands: Commands {
                 "k", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .sidebar) {}
+
+        // Undo and redo. With the annotation window in front they are its
+        // selection history; anywhere else they go to whatever has the focus,
+        // as the standard items they replace would, so a text field still
+        // undoes its typing.
+        CommandGroup(replacing: .undoRedo) {
+            Button("Undo") {
+                guard let annotationSession, !AppCommands.textHasFocus else {
+                    NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+                    return
+                }
+                annotationSession.undo()
+            }.keyboardShortcut("z", modifiers: .command)
+            Button("Redo") {
+                guard let annotationSession, !AppCommands.textHasFocus else {
+                    NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
+                    return
+                }
+                annotationSession.redo()
+            }.keyboardShortcut("z", modifiers: [.command, .shift])
+        }
 
         // Connection commands
         CommandGroup(replacing: .newItem) {

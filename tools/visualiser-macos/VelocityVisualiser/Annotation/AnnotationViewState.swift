@@ -14,11 +14,33 @@ import simd
 
 // MARK: - Point classes
 
-/// The per-point classes a pack carries, as the recorder wrote them.
+/// The per-point classes the tool draws and filters by.
+///
+/// The first three are the recorder's. `ground` also takes in every return the
+/// run's height band removed, whatever the recorder classed it: the recorder
+/// classes a return before L4 runs, so a foreground return under the floor is
+/// recorded as foreground and then never reaches the clusterer. For judging a
+/// track against the points it could have used, that return is ground.
 enum PointClass {
     static let background: UInt8 = 0
     static let foreground: UInt8 = 1
     static let ground: UInt8 = 2
+    /// A pack recorded without classes. Always drawn: there is nothing to
+    /// filter it by, and its zero class bytes are padding, not "background".
+    static let unclassified: UInt8 = 255
+
+    /// The class each point is drawn and filtered as.
+    static func displayClasses(
+        points: PackPoints, hasClassification: Bool, band: HeightBand?
+    ) -> [UInt8] {
+        (0..<points.count).map { index in
+            if let band, band.removes(z: points.z[index]) { return ground }
+            guard hasClassification, index < points.classification.count else {
+                return unclassified
+            }
+            return points.classification[index]
+        }
+    }
 }
 
 /// Which point classes are drawn, and therefore which can be selected.
@@ -44,14 +66,14 @@ struct PointVisibility: Equatable {
     }
 }
 
-extension PackPoints {
-    /// True when the point at `index` is drawn under `visibility`. A nil
-    /// visibility is "no filter", which is also what a pack recorded without
-    /// classification gets: its class bytes are zeros written by the exporter,
-    /// not a claim that every return is background.
-    func isVisible(_ index: Int, under visibility: PointVisibility?) -> Bool {
-        guard let visibility, index >= 0, index < classification.count else { return true }
-        return visibility.shows(classification[index])
+extension PointVisibility {
+    /// True when the point at `index` is drawn. `classes` are display classes
+    /// (see `PointClass.displayClasses`), and a nil visibility is "no filter".
+    static func isVisible(
+        _ index: Int, classes: [UInt8], under visibility: PointVisibility?
+    ) -> Bool {
+        guard let visibility, index >= 0, index < classes.count else { return true }
+        return visibility.shows(classes[index])
     }
 }
 

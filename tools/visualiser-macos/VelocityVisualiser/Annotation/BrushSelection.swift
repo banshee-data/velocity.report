@@ -46,7 +46,7 @@ enum SelectionTool: String, CaseIterable, Identifiable, Equatable {
     var hint: String {
         switch self {
         case .lasso: return "Drag to lasso · ⌘ rectangle · ⇧ add · ⌥ subtract"
-        case .sphere: return "Click a return, drag for radius · [ ] size · ⌥ subtracts"
+        case .sphere: return "Click or drag to paint · [ ] size · ⇧scroll depth · ⌥ subtracts"
         case .column: return "Click or paint columns in Top · [ ] size · ⌥ subtracts"
         }
     }
@@ -190,17 +190,14 @@ struct SelectionSphere: Equatable {
 /// Turns a brush gesture into a shape. Pure, so the rules are tested without
 /// mounting a view.
 enum BrushStroke {
-    /// A drag shorter than this, in metres on the view plane, is a click.
-    static let clickThreshold: Float = 0.03
-
-    /// The radius a sphere stroke means. A drag sets it; a click repeats the
-    /// last one, so dabbing several heads in a row does not mean dragging out
-    /// the same radius several times.
-    static func sphereRadius(dragMetres: Float, remembered: Float) -> Float {
-        guard dragMetres >= clickThreshold else {
-            return max(remembered, SelectionSphere.minimumRadius)
-        }
-        return max(dragMetres, SelectionSphere.minimumRadius)
+    /// The brush positions between two cursor positions, `to` included and
+    /// `from` not, no further apart than half the brush's radius. A fast drag
+    /// reports the cursor every few dozen pixels, and marking only where it
+    /// was reported would leave a dotted line through the object.
+    static func path(from: simd_float2, to: simd_float2, radius: Float) -> [simd_float2] {
+        let spacing = max(radius / 2, 0.02)
+        let steps = max(1, Int((simd_distance(from, to) / spacing).rounded(.up)))
+        return (1...steps).map { from + (to - from) * (Float($0) / Float(steps)) }
     }
 
     /// Largest column brush radius, and what one bracket press changes it by.

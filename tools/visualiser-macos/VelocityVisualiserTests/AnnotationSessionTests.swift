@@ -175,7 +175,7 @@ struct AnnotationSessionTests {
         _ = session.select(polygon: clusterLasso)
 
         #expect(!session.save())
-        #expect(session.lastError?.contains("reference object") == true)
+        #expect(session.lastError?.contains("Create or choose an object") == true)
     }
 
     @Test func savedMaskIsProposedNotReviewed() throws {

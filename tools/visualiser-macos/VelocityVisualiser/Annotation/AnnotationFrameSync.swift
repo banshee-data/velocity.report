@@ -95,20 +95,49 @@ enum AnnotationFrameSync {
 ///
 /// The 3D view is the main view's renderer pointed at a pack sample, so that
 /// moving through it is the same as moving through the main view. The renderer
-/// colours by class, which is how the membership is shown: a selected return
-/// is given a class of its own. This is display only. The arrays built here
-/// are filtered and re-ordered for drawing, and nothing reads an index back
-/// out of them.
+/// colours by class, which is how the annotation state is shown: each state is
+/// given a class of its own from `AnnotationPalette`. This is display only.
+/// The arrays built here are filtered and re-ordered for drawing, and nothing
+/// reads an index back out of them.
 enum AnnotationScene {
-    /// Drawn in the selection colour. Not a class any recorder writes.
-    static let selectedClass: UInt8 = 3
-    /// Drawn in the preview colour: what the gesture in progress would take.
-    static let candidateClass: UInt8 = 4
+    /// What is drawn over the recorder's classes, strongest claim last.
+    struct Marks {
+        /// Other objects' saved masks in this sample, with their classes.
+        var others: [(objectClass: String, indices: [Int])] = []
+        /// The active object's class, saved mask and membership under edit.
+        var activeClass: String?
+        var saved: Set<Int> = []
+        var selected: Set<Int> = []
+        /// What a stroke, the brush under the cursor or a carried footprint
+        /// would take.
+        var candidates: Set<Int> = []
+    }
 
     static func frame(
-        points: PackPoints, visibility: PointVisibility?, selected: Set<Int>, candidates: Set<Int>,
+        points: PackPoints, classes: [UInt8], visibility: PointVisibility?, marks: Marks,
         sample: AnnotationSample?
     ) -> FrameBundle {
+        // Resolved per point up front, so the loop below is one lookup.
+        var marked: [Int: UInt8] = [:]
+        for other in marks.others {
+            let shade = AnnotationPalette.shaderClass(
+                AnnotationPalette.paletteIndex(forClass: other.objectClass))
+            for index in other.indices { marked[index] = shade }
+        }
+        let activeShade = AnnotationPalette.shaderClass(
+            AnnotationPalette.paletteIndex(forClass: marks.activeClass ?? ""))
+        for index in marks.saved.subtracting(marks.selected) {
+            marked[index] = AnnotationPalette.shaderClass(AnnotationPalette.removedIndex)
+        }
+        for index in marks.selected {
+            marked[index] =
+                marks.saved.contains(index)
+                ? activeShade : AnnotationPalette.shaderClass(AnnotationPalette.unsavedIndex)
+        }
+        for index in marks.candidates where !marks.selected.contains(index) {
+            marked[index] = AnnotationPalette.shaderClass(AnnotationPalette.candidateIndex)
+        }
+
         var cloud = PointCloudFrame()
         cloud.frameID = sample?.sourceFrameID ?? 0
         cloud.timestampNanos = sample?.timestampNs ?? 0
@@ -120,25 +149,23 @@ enum AnnotationScene {
         cloud.classification.reserveCapacity(points.count)
 
         for index in 0..<points.count {
-            let isSelected = selected.contains(index)
-            // A selected return is drawn even when its class is hidden: it is
-            // in the mask, and hiding it would hide what the mask claims.
-            guard isSelected || points.isVisible(index, under: visibility) else { continue }
+            let mark = marked[index]
+            // A marked return is drawn even when its class is hidden: it is in
+            // a mask, and hiding it would hide what the mask claims.
+            guard
+                mark != nil || PointVisibility.isVisible(index, classes: classes, under: visibility)
+            else { continue }
             guard points.x[index].isFinite, points.y[index].isFinite, points.z[index].isFinite
             else { continue }
             cloud.x.append(points.x[index])
             cloud.y.append(points.y[index])
             cloud.z.append(points.z[index])
             cloud.intensity.append(index < points.intensity.count ? points.intensity[index] : 0)
-            if isSelected {
-                cloud.classification.append(selectedClass)
-            } else if candidates.contains(index) {
-                cloud.classification.append(candidateClass)
-            } else {
-                cloud.classification.append(
-                    index < points.classification.count
-                        ? points.classification[index] : PointClass.background)
-            }
+            let own = index < classes.count ? classes[index] : PointClass.unclassified
+            // The renderer has no colour for "unclassified"; its foreground
+            // green is the closest to "a return, not yet said to be anything".
+            cloud.classification.append(
+                mark ?? (own == PointClass.unclassified ? PointClass.foreground : own))
         }
         cloud.pointCount = cloud.x.count
 

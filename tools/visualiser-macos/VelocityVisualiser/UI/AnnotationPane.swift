@@ -71,9 +71,7 @@ struct LassoOverlay: View {
 
     @State private var strokePoints: [CGPoint] = []
     @State private var rectangleMode = false
-    /// The return a sphere stroke is centred on, fixed when the stroke begins.
-    @State private var sphereCentre: simd_float3?
-    /// Where the column brush was at the last drag event, in world metres.
+    /// Where a brush was at the last drag event, in world metres.
     @State private var lastBrushPosition: simd_float2?
     @State private var paintedCells: Set<ColumnCell> = []
     @State private var strokeNote: String?
@@ -101,14 +99,25 @@ struct LassoOverlay: View {
                         session.zoom(
                             basisStandard, size: viewport.size, by: factor, aboutScreenPoint: anchor
                         )
-                    })
+                    },
+                    onHover: { location in
+                        guard editable else { return }
+                        session.hover(
+                            atViewPoint: location.map { viewport.worldPoint(from: $0) },
+                            pickDistance: metresPerPoint * 12)
+                    }, onDepthStep: { if editable { session.adjustBrushDepth(steps: $0) } },
+                    onKey: handleKey)
 
                 if showsGrid { gridLayer }
-                selectedPointsLayer
+                maskLayer
                 if strokePoints.count > 1 { strokeOutline }
-                if session.pendingSphere != nil { sphereOutline }
+                if session.pendingSphere != nil || session.hoverSphere != nil { sphereOutline }
                 if let candidates = session.pendingCandidates, editable {
                     candidateBadge(candidates)
+                } else if session.carried != nil, editable {
+                    carriedBadge
+                } else if let sphere = session.hoverSphere, editable {
+                    hoverBadge(sphere)
                 } else if let strokeNote, editable {
                     noteBadge(strokeNote)
                 }
@@ -116,21 +125,67 @@ struct LassoOverlay: View {
         }
     }
 
-    // Selected points drawn over the render so the operator can see the mask
-    // rather than inferring it from a count.
+    // The masks, drawn over the points so the operator sees them rather than
+    // inferring them from a count.
     //
-    // One Path, filled once. A membership can run to thousands of points and a
-    // fill per point makes the preview stutter during the very drag it is
-    // meant to give feedback on.
-    private var selectedPointsLayer: some View {
-        Canvas { context, _ in
-            var path = Path()
-            for index in session.history.current {
-                guard let p = session.currentPoints.point(at: index) else { continue }
-                let screen = viewport.screenPoint(from: basis.project(p))
-                path.addEllipse(in: CGRect(x: screen.x - 2, y: screen.y - 2, width: 4, height: 4))
+    // A handful of states, each one Path filled once: a membership can run to
+    // thousands of points, and a fill per point makes the preview stutter
+    // during the very drag it is meant to give feedback on.
+    private var maskLayer: some View {
+        // Read here, on the main actor, and not inside the renderer closure.
+        let points = session.currentPoints
+        let others = session.otherMasks
+        let saved = session.savedSelection
+        let current = session.history.current
+        let activeClass = session.activeObject?.objectClass
+        let carried = session.carriedIndices
+        let hovered = session.hoverIndices
+        let viewport = viewport
+        let basis = basis
+
+        return Canvas { context, _ in
+            func dots(_ indices: some Sequence<Int>, size: CGFloat) -> Path {
+                var path = Path()
+                for index in indices {
+                    guard let p = points.point(at: index) else { continue }
+                    let screen = viewport.screenPoint(from: basis.project(p))
+                    path.addEllipse(
+                        in: CGRect(
+                            x: screen.x - size / 2, y: screen.y - size / 2, width: size,
+                            height: size))
+                }
+                return path
             }
-            context.fill(path, with: .color(.orange))
+
+            // What is already labelled, in each object's own colour.
+            for other in others {
+                context.fill(
+                    dots(other.indices, size: 3),
+                    with: .color(AnnotationPalette.colour(forClass: other.objectClass).opacity(0.8))
+                )
+            }
+
+            // Saved and still in: the object's colour. In but not saved:
+            // orange. Saved but taken out since: a red ring round the return.
+            if let activeClass {
+                context.fill(
+                    dots(current.intersection(saved), size: 4),
+                    with: .color(AnnotationPalette.colour(forClass: activeClass)))
+            }
+            context.fill(
+                dots(current.subtracting(saved), size: 4),
+                with: .color(AnnotationPalette.colour(AnnotationPalette.unsavedIndex)))
+            context.stroke(
+                dots(saved.subtracting(current), size: 6),
+                with: .color(AnnotationPalette.colour(AnnotationPalette.removedIndex)), lineWidth: 1
+            )
+
+            // Proposals: what the carried footprint covers, and what the brush
+            // under the cursor would take.
+            context.stroke(dots(carried, size: 5), with: .color(.cyan), lineWidth: 1)
+            context.fill(
+                dots(hovered, size: 3),
+                with: .color(AnnotationPalette.colour(AnnotationPalette.candidateIndex)))
         }.allowsHitTesting(false)
     }
 
@@ -149,7 +204,8 @@ struct LassoOverlay: View {
     // the operator dragging in the first cannot see.
     private var sphereOutline: some View {
         Canvas { context, _ in
-            guard let sphere = session.pendingSphere, metresPerPoint > 0 else { return }
+            guard let sphere = session.pendingSphere ?? session.hoverSphere, metresPerPoint > 0
+            else { return }
             let centre = viewport.screenPoint(from: basis.project(sphere.centre))
             let r = CGFloat(sphere.radius / metresPerPoint)
             let circle = Path(
@@ -277,6 +333,46 @@ struct LassoOverlay: View {
         ).allowsHitTesting(false)
     }
 
+    // Where the brush is, in the terms the view it is in cannot show.
+    private func hoverBadge(_ sphere: SelectionSphere) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(session.hoverIndices.count) under the brush").font(.caption.bold())
+            Text(String(format: "centre z %.2f m · radius %.2f m", sphere.centre.z, sphere.radius))
+                .font(.caption2).foregroundStyle(.secondary)
+            if session.brushDepthOffset != 0 {
+                Text(String(format: "moved %+.1f m in depth", session.brushDepthOffset)).font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            }
+        }.padding(6).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)).padding(
+            8
+        ).allowsHitTesting(false)
+    }
+
+    private var carriedBadge: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(session.carriedIndices.count) points carried over").font(.caption.bold())
+            Text("Arrows nudge (⇧ for 0.5 m) · Return accepts · Esc dismisses").font(.caption2)
+                .foregroundStyle(.secondary)
+        }.padding(6).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)).padding(
+            8
+        ).allowsHitTesting(false)
+    }
+
+    // Keys the editing view takes while it has the focus. Only the carried
+    // proposal uses them, and with none on screen they go on up the chain.
+    private func handleKey(_ key: ViewportKey) -> Bool {
+        guard editable, session.carried != nil else { return false }
+        switch key {
+        case .nudge(let right, let up, let coarse):
+            let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep
+            session.nudgeCarried(right: Float(right) * step, up: Float(up) * step)
+        case .accept: session.acceptCarried()
+        case .cancel: session.dismissCarried()
+        }
+        return true
+    }
+
     private func noteBadge(_ note: String) -> some View {
         Text(note).font(.caption2).foregroundStyle(.secondary).padding(6).background(
             .black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)
@@ -301,10 +397,7 @@ struct LassoOverlay: View {
             optionHeld: NSEvent.modifierFlags.contains(.option))
         switch session.tool {
         case .lasso: previewCurrentStroke()
-        case .sphere:
-            sphereChanged(value)
-            if let sphere = session.pendingSphere { session.sphereRadius = sphere.radius }
-        case .column: break
+        case .sphere, .column: break
         }
         // A gesture that named nothing (a click with the lasso, a sphere
         // with no return under it, a column brush outside the top view)
@@ -318,7 +411,6 @@ struct LassoOverlay: View {
 
     private func resetStroke() {
         strokePoints = []
-        sphereCentre = nil
         lastBrushPosition = nil
         paintedCells = []
     }
@@ -338,29 +430,21 @@ struct LassoOverlay: View {
         previewCurrentStroke()
     }
 
+    // The sphere is a brush: it marks wherever it is dragged, at the radius
+    // the slider and the bracket keys set.
     private func sphereChanged(_ value: ViewportStroke) {
-        if sphereCentre == nil {
-            // Twelve points of slop: near enough to mean "that return", far
-            // enough to hit one without zooming in.
-            guard
-                let index = session.nearestPointIndex(
-                    toViewPoint: viewport.worldPoint(from: value.startLocation),
-                    maxViewDistance: metresPerPoint * 12),
-                let centre = session.currentPoints.point(at: index)
-            else {
-                strokeNote = "No return under the cursor to centre a sphere on"
-                return
-            }
+        let position = viewport.worldPoint(from: value.location)
+        if lastBrushPosition == nil {
             session.beginStroke()
-            sphereCentre = centre
             strokeNote = nil
         }
-        guard let centre = sphereCentre else { return }
-        let dragged = simd_distance(
-            viewport.worldPoint(from: value.startLocation),
-            viewport.worldPoint(from: value.location))
-        let radius = BrushStroke.sphereRadius(dragMetres: dragged, remembered: session.sphereRadius)
-        session.previewSelection(sphere: SelectionSphere(centre: centre, radius: radius))
+        for step in BrushStroke.path(
+            from: lastBrushPosition ?? position, to: position, radius: session.sphereRadius)
+        {
+            session.paint(
+                sphere: session.brushSphere(atViewPoint: step, pickDistance: metresPerPoint * 12))
+        }
+        lastBrushPosition = position
     }
 
     private func columnChanged(_ value: ViewportStroke) {
@@ -409,28 +493,56 @@ struct AnnotationPane: View {
     @State private var secondViewConfirmed = false
     @State private var showDiscardPrompt = false
 
-    /// The seven selectable production labels. Research subtypes stay in
-    /// their own field: a dataset export must not enable a reserved
-    /// production enum value through the class picker.
-    private let classes = ["car", "van", "truck", "bus", "motorcycle", "pedestrian", "cyclist"]
+    @State private var applyResult: String?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                sourceSection
-                Divider()
-                displaySection
-                Divider()
-                objectSection
-                Divider()
-                selectionSection
-                Divider()
-                slabSection
-                Divider()
-                reviewSection
-                if let error = session.lastError { errorBanner(error) }
-            }.padding(12)
+        VStack(spacing: 0) {
+            // Above the scroll view, not at the foot of it. A refused save
+            // used to report itself below the last section, off screen, and a
+            // save that fails where nobody can see it looks like a save.
+            statusStrip
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    sourceSection
+                    Divider()
+                    displaySection
+                    Divider()
+                    objectSection
+                    if session.carried != nil {
+                        Divider()
+                        carriedSection
+                    }
+                    Divider()
+                    selectionSection
+                    Divider()
+                    slabSection
+                    Divider()
+                    reviewSection
+                }.padding(12)
+            }
         }.frame(width: 300)
+    }
+
+    // MARK: Status
+
+    // What went wrong, or failing that what to do next. One line that is
+    // always on screen.
+    private var statusStrip: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if let error = session.lastError {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                Text(error).foregroundStyle(.red)
+            } else if let next = session.nextStep {
+                Image(systemName: "arrow.right.circle").foregroundStyle(.secondary)
+                Text(next).foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "checkmark.circle").foregroundStyle(.green)
+                Text("Saved.").foregroundStyle(.secondary)
+            }
+        }.font(.caption).fixedSize(horizontal: false, vertical: true).frame(
+            maxWidth: .infinity, alignment: .leading
+        ).padding(.horizontal, 12).padding(.vertical, 8)
     }
 
     // MARK: Source
@@ -468,14 +580,28 @@ struct AnnotationPane: View {
             // The recorder's own classes, in the main view's colours. What is
             // hidden cannot be selected, so switching the background off is
             // also how a lasso is kept from taking the wall behind a van.
+            let counts = session.classCounts
             HStack(spacing: 4) {
-                Toggle("Background", isOn: $session.visibility.background)
-                Toggle("Foreground", isOn: $session.visibility.foreground)
-                Toggle("Ground", isOn: $session.visibility.ground)
-            }.toggleStyle(.button).controlSize(.small).disabled(
-                !session.pack.manifest.hasClassification)
-            if !session.pack.manifest.hasClassification {
-                Text("This pack was recorded without point classes, so there is nothing to filter.")
+                Toggle(
+                    "Background \(counts[PointClass.background, default: 0])",
+                    isOn: $session.visibility.background)
+                Toggle(
+                    "Foreground \(counts[PointClass.foreground, default: 0])",
+                    isOn: $session.visibility.foreground)
+                Toggle(
+                    "Ground \(counts[PointClass.ground, default: 0])",
+                    isOn: $session.visibility.ground)
+            }.toggleStyle(.button).controlSize(.small).font(.caption2)
+
+            // Ground is what the run's height band took out before clustering,
+            // so that what is left on screen is what the tracker had to work
+            // with.
+            Text(groundCaption).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+            if counts[PointClass.background, default: 0] == 0,
+                session.pack.manifest.hasClassification
+            {
+                Text("No background in this sample: the recording kept foreground returns only.")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(
                         horizontal: false, vertical: true)
             }
@@ -497,19 +623,61 @@ struct AnnotationPane: View {
         }
     }
 
+    private var groundCaption: String {
+        let band = session.heightBand
+        guard band.removeGround else {
+            return "Ground: this run removed nothing by height, so only recorded ground counts."
+        }
+        let rule = String(
+            format: "Ground: below %.2f m or above %.2f m, what the run's height band removed",
+            band.floorM, band.ceilingM)
+        return session.heightBandIsAssumed
+            ? rule + ". Assumed: this pack does not record its run's band. Generate it again to get"
+                + " the run's own." : rule + "."
+    }
+
     // MARK: Object
 
     private var objectSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Reference object").font(.headline)
-            // Created independently of predicted tracks: a split track must
-            // not split the reference vehicle.
-            Picker("Class", selection: $newObjectClass) {
-                ForEach(classes, id: \.self) { Text($0).tag($0) }
-            }.font(.caption)
+            Text("Objects").font(.headline)
+            // Said once, here, because nothing else on screen says it.
+            Text(
+                "An object is one real thing, followed through the pack: this car, that building. "
+                    + "Its mask in each sample is the points that are it. Objects are yours, and "
+                    + "separate from the tracker's tracks, so a split track cannot split one."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2).fill(
+                    AnnotationPalette.colour(forClass: newObjectClass)
+                ).frame(width: 10, height: 10)
+                Picker("Class", selection: $newObjectClass) {
+                    // Research subtypes stay in their own field: a dataset
+                    // export must not enable a reserved production enum value
+                    // through the class picker.
+                    Section("Road users") {
+                        ForEach(AnnotationPalette.classes.filter { $0.kind == .moving }) {
+                            Text($0.name).tag($0.name)
+                        }
+                    }
+                    Section("Street, does not move") {
+                        ForEach(AnnotationPalette.classes.filter { $0.kind == .fixed }) {
+                            Text($0.name).tag($0.name)
+                        }
+                    }
+                }.labelsHidden().font(.caption)
+            }
             TextField("Subtype (optional)", text: $newObjectSubtype).textFieldStyle(.roundedBorder)
                 .font(.caption)
-            Button("New object") {
+            Button(session.selectionCount > 0 ? "New object from selection" : "New object") {
+                // Refused with unsaved changes on another object: creating
+                // one makes it the object under edit.
+                guard session.activeObjectID == nil || session.navigationGuard() == nil else {
+                    showDiscardPrompt = true
+                    return
+                }
                 _ = session.createObject(
                     objectClass: newObjectClass,
                     subtype: newObjectSubtype.isEmpty ? nil : newObjectSubtype)
@@ -521,6 +689,18 @@ struct AnnotationPane: View {
             } else {
                 ForEach(session.sidecar.objects) { object in objectRow(object) }
             }
+
+            if let active = session.activeObject, AnnotationPalette.isFixed(active.objectClass) {
+                Button("Apply to every sample") {
+                    applyResult = session.applySelectionToAllSamples().map {
+                        "Saved \(active.objectClass) into \($0) samples."
+                    }
+                }.disabled(session.selectionCount == 0).help(
+                    "A \(active.objectClass) does not move. Saves a mask into every sample from "
+                        + "the space this selection occupies, leaving samples already masked alone."
+                )
+                if let applyResult { Text(applyResult).font(.caption2).foregroundStyle(.secondary) }
+            }
         }
     }
 
@@ -529,20 +709,57 @@ struct AnnotationPane: View {
             Image(
                 systemName: session.activeObjectID == object.objectID
                     ? "largecircle.fill.circle" : "circle")
+            RoundedRectangle(cornerRadius: 2).fill(
+                AnnotationPalette.colour(forClass: object.objectClass)
+            ).frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 0) {
                 Text(object.objectClass + (object.subtype.map { " · \($0)" } ?? "")).font(.caption)
-                Text(object.objectID).font(.caption2).foregroundStyle(.secondary)
+                // How far through the pack the object has been followed.
+                Text(
+                    "\(object.objectID) · \(session.savedSampleCount(objectID: object.objectID))"
+                        + " of \(session.samples.count) samples"
+                ).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             Text(object.status.rawValue).font(.caption2).foregroundStyle(
                 object.status == .reviewed ? .green : .secondary)
         }.contentShape(Rectangle()).onTapGesture {
-            guard session.navigationGuard() == nil else {
+            if session.activate(objectID: object.objectID) != nil {
                 showDiscardPrompt = true
                 return
             }
-            session.activeObjectID = object.objectID
             secondViewConfirmed = false
+            applyResult = nil
+        }
+    }
+
+    // MARK: Carried selection
+
+    // The keys do the same from the editing view. These are here so that the
+    // proposal can be dealt with without knowing the keys.
+    private var carriedSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Carried from the last sample").font(.headline)
+            Text(
+                "\(session.carriedIndices.count) points, outlined in cyan. Move the outline over "
+                    + "the object, then accept."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+            HStack(spacing: 4) {
+                let step = AnnotationSession.nudgeStep
+                Button("◀") { session.nudgeCarried(right: -step, up: 0) }
+                Button("▲") { session.nudgeCarried(right: 0, up: step) }
+                Button("▼") { session.nudgeCarried(right: 0, up: -step) }
+                Button("▶") { session.nudgeCarried(right: step, up: 0) }
+                Button("Refit") { session.refitCarried() }.help(
+                    "Search again for where the outline covers the most points, from here")
+            }.controlSize(.small)
+            HStack(spacing: 4) {
+                Button("Accept and save") { if session.acceptCarried() { _ = session.save() } }
+                    .keyboardShortcut(.return, modifiers: .command)
+                Button("Accept") { session.acceptCarried() }
+                Button("Dismiss") { session.dismissCarried() }
+            }.controlSize(.small)
         }
     }
 
@@ -571,6 +788,7 @@ struct AnnotationPane: View {
 
             Text("\(session.selectionCount) points selected").font(.caption)
             Text(session.tool.hint).font(.caption2).foregroundStyle(.secondary)
+            legend
 
             switch session.tool {
             case .lasso: EmptyView()
@@ -586,6 +804,25 @@ struct AnnotationPane: View {
         }
     }
 
+    private var legend: some View {
+        HStack(spacing: 8) {
+            legendEntry(
+                "saved",
+                session.activeObject.map { AnnotationPalette.colour(forClass: $0.objectClass) }
+                    ?? .gray)
+            legendEntry("unsaved", AnnotationPalette.colour(AnnotationPalette.unsavedIndex))
+            legendEntry("removed", AnnotationPalette.colour(AnnotationPalette.removedIndex))
+            legendEntry("proposed", .cyan)
+        }
+    }
+
+    private func legendEntry(_ label: String, _ colour: Color) -> some View {
+        HStack(spacing: 3) {
+            Circle().fill(colour).frame(width: 7, height: 7)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
     private var sphereControls: some View {
         HStack {
             Text("Radius").font(.caption)
@@ -594,7 +831,7 @@ struct AnnotationPane: View {
                 in: SelectionSphere.minimumRadius...SelectionSphere.maximumRadius)
             Text(String(format: "%.2f m", session.sphereRadius)).font(.caption.monospacedDigit())
                 .frame(width: 52, alignment: .trailing)
-        }.help("A click uses this radius. A drag sets it. [ and ] step it.")
+        }.help("The brush's radius. [ and ] step it. Shift-scroll moves the brush in depth.")
     }
 
     private var columnControls: some View {
@@ -703,7 +940,13 @@ struct AnnotationPane: View {
                 .font(.caption)
 
             HStack {
-                Button("Save mask") { _ = session.save() }
+                Button("Save mask") { _ = session.save() }.keyboardShortcut(
+                    "s", modifiers: .command)
+                Button("Save and next") {
+                    if session.save() { handleStep { session.stepForward() } }
+                }.disabled(session.sampleIndex >= session.samples.count - 1)
+            }
+            HStack {
                 Button("Mark reviewed") {
                     _ = session.markObjectReviewed(secondViewConfirmed: secondViewConfirmed)
                 }.disabled(!secondViewConfirmed)
@@ -718,11 +961,6 @@ struct AnnotationPane: View {
         } message: {
             Text("This sample has unsaved changes. Save it, or discard them, before moving on.")
         }
-    }
-
-    private func errorBanner(_ message: String) -> some View {
-        Text(message).font(.caption).foregroundStyle(.red).fixedSize(
-            horizontal: false, vertical: true)
     }
 
     private func handleStep(_ step: () -> AnnotationGuard?) {
