@@ -75,9 +75,19 @@ The status line across the top of the views always says what went wrong or what 
 | Step a frame                 | `,` and `.`, or the frame strip                           |
 | Follow the main view         | **Follow the main view**, on by default                   |
 
+The two bars across the top say how far through you are: this frame, and every frame in the
+pack, as labelled, agreed and in question. The ring in the left sidebar says where in the frame
+what is left is.
+
 The views hold their framing from frame to frame. Only a fit or your own pan and zoom moves
 them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
 moving the main view steps here; the main view has to be replaying the same run.
+
+**Loop this pack's frames**, on by default, keeps a playing main view inside the pack: when it
+runs past the pack's last frame, or off the end of the recording, it is sent back to the first.
+Space plays and pauses the main view. A paused main view is left wherever you put it. While the
+main view plays, this window follows as many frames as leave the 3D view responsive, and skips
+the rest; paused, it follows every frame.
 
 With the Annotation window in front, the Playback menu's bare keys mean this window: `,` and
 `.` step its frames, and `[` and `]` size its brush. In the main window they are unchanged.
