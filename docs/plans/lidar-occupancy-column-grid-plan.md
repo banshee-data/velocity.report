@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** L4 Perception, L7 Scene, L8 Analytics, L10 Clients (macOS visualiser), storage
-- **Target:** v0.5.x for the grid definition and the selection column; occupancy production follows; physics is v2.0+
+- **Target:** v0.5.x. The brushes and the local grid are delivered on the annotation branch (PR #579), where the rest of the annotation tool is; occupancy production follows; physics is v2.0+
 - **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Background region overlays](lidar-background-region-overlay-plan.md), [S2 geographic indexing](s2-geographic-indexing-plan.md), [Spatial priors service](spatial-priors-service-plan.md), [Reference data](spatial-priors-reference-data-plan.md), [L7 scene](lidar-l7-scene-plan.md)
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
 
@@ -306,6 +306,11 @@ before any classifier is asked.
 
 ### Item 2: sphere and column selection in the macOS tool
 
+**Status:** Delivered on the annotation branch in `305bc1bd3`, with the local lattice, per-voxel
+toggles, a planar ground estimated when a pack opens, and the bracket keys for brush size. One
+departure from the design above: a brush adds by default and subtracts with option, where the
+lasso still replaces. A dab that erased the dab before it is not painting.
+
 **Summary:** Two candidate evaluators beside the polygon, sharing apply, modifiers, undo and the count.
 
 **Steps:**
@@ -390,13 +395,18 @@ before any classifier is asked.
 
 ## Checklist
 
+### Complete
+
+- [x] Sphere selection, centred on a snapped return, drawn in both views
+- [x] Column selection with per-voxel toggles, paint, and gap-free fast strokes
+- [x] Local 0.5 m lattice in the annotation window, with ground and voxel bands in the side views
+- [x] Bracket keys for brush size
+
 ### Outstanding
 
 - [ ] Style guide amendment: level 16 rough anchor (`S`)
 - [ ] Grid package, grid identity, and the spacing and containment tests (`M`)
 - [ ] Stack bounds checked against labelled tracks (`S`)
-- [ ] Sphere selection (`M`)
-- [ ] Column selection with per-voxel toggles and paint (`M`)
 - [ ] Pack frame, rough anchor and ground model context (`M`)
 - [ ] Occupancy layer in both macOS views, showing frame status (`M`)
 - [ ] Decimated occupancy builder, storage and size measurement (`L`)

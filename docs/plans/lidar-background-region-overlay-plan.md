@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window first; web as an optional view)
-- **Target:** v0.5.x, after the annotation toolset lands; the overlay is what makes an L3 remedy testable
+- **Target:** v0.5.x, built on the annotation branch (PR #579) as part of the same annotation tool, not as a separate change; the overlay is what makes an L3 remedy testable
 - **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Occupancy column grid](lidar-occupancy-column-grid-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
 - **Canonical:** [adaptive-region-parameters.md](../lidar/operations/adaptive-region-parameters.md)
 
@@ -113,8 +113,15 @@ runs, and a region restored from an earlier run names the source it was learned 
 scene signature.
 
 The snapshot stays as it is for old clients. New fields are additive and ignored by anything that
-does not know them. The VRLOG recorder stores bundles through the proto codec, so recording
-follows from emitting; that assumption is to be confirmed in step 1 rather than relied on.
+does not know them.
+
+**Recording does not follow from emitting.** An earlier draft assumed the VRLOG recorder stored
+bundles as they came. It does not. `recorder/proto_codec.go` maps the internal `FrameBundle`
+model to protobuf field by field in `frameBundleToStorageProto`, and back in
+`protoToFrameBundle`; the gRPC path has a third mapping of its own, which also applies the
+stream's filters. A field missing from any of the three is silently dropped on that path: live
+but not recorded, or recorded but not replayed. Grid state is therefore added to the model and to
+all three mappings, and a round-trip test per path is what proves it arrived.
 
 ### 2. Keyframes and deltas
 
@@ -218,10 +225,11 @@ unsettled sector is visible as absence rather than as nothing.
 
 **Steps:**
 
-1. Confirm the VRLOG recorder persists unknown-to-it bundle fields unchanged, with a round-trip
-   test; if it does not, that is the first fix.
-2. Add `BackgroundGridState`, `BackgroundGridDelta`, `GridEvent`, and `cell_index` on the
+1. Add `BackgroundGridState`, `BackgroundGridDelta`, `GridEvent`, and `cell_index` on the
    snapshot; regenerate Go and Swift stubs with `make proto-gen`.
+2. Carry them in the internal `FrameBundle` model and in all three mappings: storage encode,
+   storage decode, and the gRPC encode. One round-trip test per path, each failing if its mapping
+   omits a field.
 3. Build keyframes from the grid under its existing lock discipline; build deltas from a
    per-cell dirty set fed by the update path.
 4. Add `beyond_baseline_count` to the cell, observation only.
@@ -302,7 +310,8 @@ open, an operator can:
 
 ## Dependencies
 
-- The annotation toolset (PR #579) lands first; this branch is stacked on it.
+- Built on the annotation branch (PR #579). The region layer, the brushes and the local column
+  grid are one tool and are delivered together.
 - `make proto-gen` toolchain for Go and Swift.
 - The run-track finalisation fix, so that "fewer noise tracks" downstream is measured on real
   track lifetimes rather than first-sighting rows.
@@ -336,8 +345,9 @@ Hypotheses for a separate L3 experiment, not decisions made here:
 
 ### Outstanding
 
-- [ ] Recorder round-trip test for unknown bundle fields (`S`)
 - [ ] Proto messages, `cell_index`, stubs regenerated (`M`)
+- [ ] Grid state in the model and in storage encode, storage decode and gRPC encode, with a
+      round-trip test per path (`M`)
 - [ ] Keyframe and delta emission with the observation-only digest proof (`L`)
 - [ ] `beyond_baseline_count` (`S`)
 - [ ] macOS region toggle, modes, legend, cell inspector, ticks (`L`)

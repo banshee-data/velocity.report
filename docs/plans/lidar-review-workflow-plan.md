@@ -474,6 +474,10 @@ The same walk-through is repeated with the server on another machine.
 
 ## Checklist
 
+### Complete
+
+- [x] Sphere and column selection, on the annotation branch in `305bc1bd3`
+
 ### Outstanding
 
 - [ ] macOS source browser; start a PCAP or case replay over a window (`M`)
@@ -483,7 +487,6 @@ The same walk-through is repeated with the server on another machine.
 - [ ] Pass 1 rules, reason codes and mask proposals, deterministic, runnable from the app (`L`)
 - [ ] macOS layer toggles, ghosted proposals, four grades, edit-as-grade (`L`)
 - [ ] From-scratch subjects in the macOS tool; existing missed regions read into packs (`M`)
-- [ ] Sphere and column selection, per the occupancy column grid plan (`M`)
 - [ ] `review-score`, audit sampling, first report, in-app summary (`M`)
 - [ ] HINT panel in the macOS tool, label projection, carry-over by observation (`L`)
 - [ ] Dossier, rubric, pass 2, anchoring run (`L`)
