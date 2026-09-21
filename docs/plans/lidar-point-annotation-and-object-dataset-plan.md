@@ -4,8 +4,8 @@ This plan lets a person mark the returns belonging to one physical object and fo
 identity through a recording. It separates human evidence from tracker output so a split track
 does not split the reference vehicle as well.
 
-- **Status:** Revision-safe backend and macOS selection client implemented; reviewed dataset and its acceptance open
-- **Canonical:** This document
+- **Status:** Revision-safe backend and macOS annotation client implemented, with proposal, propagation and review; reviewed dataset and its acceptance open
+- **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, L10 Clients, offline analysis
 - **Related:** [Shape descriptors](lidar-shape-descriptors-plan.md), [Test corpus](lidar-test-corpus-plan.md), [Labelling and QC](lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 
@@ -79,17 +79,19 @@ annotation revisions are separate sidecars. A pack can be recreated only as a ne
 point domain changes. The three-day sprint loads this local pack into the existing renderer; it
 does not require a new live annotation service.
 
-| Field                                           | Meaning                                                                                          |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `dataset_id`, `source_digest`, `schema_version` | Immutable pack identity and content verification                                                 |
-| Source provenance                               | VRLOG digest, source PCAP digest when available, run/config/build identities, and export version |
-| `sample_id`                                     | Dense pack-local identifier, unrelated to tracker frame numbering                                |
-| Source frame reference                          | Original record ordinal, frame ID, capture timestamp, sensor ID, and frame type                  |
-| Coordinate contract                             | Metres, axis directions, handedness, origin convention, and versioned sensor-to-site transform   |
-| Point domain                                    | Point count, array digest, attribute availability, and original array ordering                   |
-| Point reference                                 | `sample_id + point_index`, valid only under this pack digest                                     |
-| Capture coverage                                | Full, foreground-only, or decimated; recording and export filters recorded separately            |
-| Export completeness                             | Requested/actual time bounds, missing frames, timestamp gaps, and dropped-point counts           |
+| Field                                           | Meaning                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `dataset_id`, `source_digest`, `schema_version` | Immutable pack identity and content verification                                                  |
+| Source provenance                               | VRLOG digest, source PCAP digest when available, run/config/build identities, and export version  |
+| `sample_id`                                     | Dense pack-local identifier, unrelated to tracker frame numbering                                 |
+| Source frame reference                          | Original record ordinal, frame ID, capture timestamp, sensor ID, and frame type                   |
+| Coordinate contract                             | Metres, axis directions, handedness, origin convention, and versioned sensor-to-site transform    |
+| Point domain                                    | Point count, array digest, attribute availability, and original array ordering                    |
+| Point reference                                 | `sample_id + point_index`, valid only under this pack digest                                      |
+| Capture coverage                                | Full, foreground-only, or decimated; recording and export filters recorded separately             |
+| Export completeness                             | Requested/actual time bounds, missing frames, timestamp gaps, and dropped-point counts            |
+| Height band                                     | The run's L4 floor, ceiling and switch, so a client can show which points the clusterer never saw |
+| Settled background                              | The snapshots in force over the excerpt, as context with digests of their own                     |
 
 Use canonical little-endian float32 arrays for coordinates and documented encodings for
 attributes. Hash the stored bytes and their schema. Never reconstruct point identity by
@@ -102,12 +104,29 @@ lengths, and retains original ordinals before constructing a chronological sampl
 lookup. Duplicate timestamps are legal if unambiguous sample references exist. Record
 ordering is not assumed to be capture order.
 
+Background snapshots are carried in `background.bin` and `backgrounds.json`. They are context
+for the operator and no mask can cite them, so their digests sit in the manifest beside the
+pack digest rather than inside it, and a re-export that adds them keeps the pack's identity.
+The snapshot in force at a sample is the last recorded at or before it, by record ordinal. Not
+by timestamp: a replay settled ahead of time opens with a snapshot stamped after every frame
+that follows it, which also used to end any export given an end time at frame 0. Nor by
+sequence number, which only moves on a grid reset.
+
+The exporter refuses `full` coverage when every classed point is foreground. Coverage is stated
+because a sparse full scene cannot be told from a foreground-only one by counting points, but a
+full scene always has background in it, and the recorder's own class bytes say when it has none.
+
 ### 3.2 What old recordings can support
 
 An existing point-bearing VRLOG can be annotated without reconstructing its DBSCAN membership.
 Human selection is authoritative; the current box is only a suggestion. A foreground-only recording
 supports masks over recorded foreground, not complete raw-scene segmentation. A decimated recording
 supports labels on its retained sample, not on discarded returns.
+
+Recordings made today keep per-frame foreground returns and a settled-background snapshot about
+every fifteen seconds. Checked on one 300 s run: 3,000 foreground frames of about 5,400 returns
+and 20 snapshots of about 67,000. Their packs are therefore `foreground_only` with a background
+behind them, and the labelable domain is the foreground.
 
 For full-scene datasets, regenerate an annotation capture from PCAP with an explicitly recorded
 point-retention policy. Keep background, ground, and neighbouring-object context where available.
@@ -179,6 +198,13 @@ Propagation uses a selected seed mask/pose to suggest membership in subsequent s
 per-frame point references, not copied indices. Suggested masks have a different colour and cannot
 enter reference truth without confirmation. Crossing objects, loss of overlap, or ambiguous yaw
 stop propagation and request review. An operator may accept, modify, reject, or start a new object.
+
+What is built differs from the paragraph above in three ways. The brush is a sphere that paints
+and a column brush on a local 0.5 m lattice; there is no normal-consistent region growth.
+Propagation carries a voxelised footprint of the mask, refitted to each frame, rather than a
+pose; it stops on too few returns (scaled for range), too many, a rival fit that is a separate
+peak, a fit further than the object could have moved, or another object's returns, and there is
+no yaw test. And proposals do not start from a predicted box at all: see §10.
 
 Support temporal object-link corrections without mutating the original tracker. A merge of human
 identities preserves both histories and invalidates affected exports. Geometry accumulation must be
@@ -256,6 +282,36 @@ replaceable and must not define annotation truth.
 - Reference identities survive a predicted split, merge, and fresh pipeline run.
 - Test-set masks and future poses cannot reach unassisted tracking or model fitting.
 - Sparse/foreground-only sources retain their limitations through every export.
+
+## 10. Delivery record
+
+Delivered in the macOS client and the Go exporter. The operator's guide is
+[point-annotation-tool.md](../lidar/operations/point-annotation-tool.md).
+
+| Area                | Delivered                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Pack                | Export from a run over HTTP and CLI; height band and settled background carried; false `full` refused       |
+| Views               | Two orthographic views that pan, zoom and hold their framing; a 3D view; frame sync with the main view      |
+| Display             | Class toggles with counts; ground as what the height band removed; background updates signalled and shown   |
+| Selection           | Lasso, rectangle, depth slab, sphere paint brush with hover preview, column brush with voxel toggles, undo  |
+| Objects             | Named by class and number; class and edit-state colours in every view; other objects shown while labelling  |
+| Temporal assistance | Carry to the next frame with nudge; unattended propagation with stop rules; apply to every frame for fixed  |
+| Proposals           | Fixed clutter by persistence; moving objects as clusters chained by footprint; accept, split, merge, reject |
+| Review              | Per frame and per object; reaches the masks; a changed frame returns to proposed; provenance kept           |
+| Progress            | Sixteen-sector ring for the frame; a bar a frame for the pack                                               |
+
+Measured on one real pack of 200 frames, against the operator's own labels. A hand-labelled car
+was matched by one proposal in all 19 of its frames at a median overlap of 1.00 (least 0.97), and
+that proposal ran on to 165 frames. Propagation carried the same car from 19 frames to 167. The
+422 moving and 23 fixed proposals covered 83% of the labelable foreground. Labelling one object
+in one frame by hand took a median of six seconds, which for the 1,954 larger object-frames in
+that pack is three to six hours: the reason the unit of work became the object.
+
+Not delivered: region growth, depth-aware picking, reattachment of labels to regenerated points,
+dataset splits (§7), and pruning of retained revisions, which grow by a full snapshot a save.
+The proposer clusters the pack's points itself instead of reading the run's clusters, because a
+recording keeps cluster boxes and not their membership, and the tracker's identities would bring
+its fragmentation with them.
 
 This plan is the implementation slice and acceptance record for the annotation pilot. Any later
 demo or state-estimation work must retain these evidence boundaries rather than treating a reviewed

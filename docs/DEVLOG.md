@@ -6,6 +6,51 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 21, 2026 - Annotation: the unit of work becomes the object
+
+- {dd/lidar/annotation} Measured the job on a real 200-frame pack before building more of the tool: about 43 moving clusters a frame, 8,600 object-frames in twenty seconds, and a median of six seconds to label one by hand. The 1,954 larger object-frames alone are three to six hours, so labelling frame by frame cannot reach minutes of ground truth (#579).
+- {dd/lidar/annotation} Found that fifty minutes of labelling had produced nothing that counted. Reference truth is a reviewed mask of a reviewed object, "Mark reviewed" marked only the object, and no control could review a mask. Review now reaches the masks, per frame and per object, and a reviewed frame whose points change returns to proposed (#579).
+- {dd/lidar/annotation} Fixed creating an object wiping the selection it was for: it reloaded the new object's empty saved mask over whatever was selected. Errors moved from the foot of a scrolling pane, off screen, to a status line that also says what to do next (#579).
+- {dd/lidar/annotation} Added unattended propagation in `MaskPropagation.swift`: a voxelised footprint of the mask refitted frame by frame, saved once, stopping where the object is lost (scaled for range), doubles, has a rival fit, jumps, or meets another object's points. On a copy of the real pack a car labelled in 19 frames was carried to 167, its point count rising from 5 to 6,656 and falling to 54 (#579).
+- {dd/lidar/annotation} The first attempt carried that car nowhere: a rival fit was any position a metre away scoring 80% as well, and a six-metre car moved a metre along itself still covers most of its own returns. A rival is now a separate peak with a valley before it (#579).
+- {dd/lidar/annotation} Added `ObjectProposer.swift`. Foreground in the same half-metre voxel in four frames of five is fixed clutter, one proposal a patch; the rest is clustered on the column lattice and chained by the same footprint fit. Against the operator's own labels the car was one proposal in all 19 frames at a median overlap of 1.00, and 445 proposals covered 83% of the labelable foreground. Scoring every search offset at once took it from 137 s to 24 s in a debug build with identical output (#579).
+- {dd/lidar/annotation} Chose to cluster the pack's points rather than read the run's clusters: a recording keeps cluster boxes and not their membership, and that run starts 218 tracks in the twenty seconds, which a reference should not inherit (#579).
+- {dd/lidar/annotation} Packs now carry the settled background. The recording had 20 snapshots of about 67,000 returns, one every fifteen seconds, and the exporter skipped them as frames without points. They are ordered by record position: the first is stamped after every frame that follows it, which also ended any windowed export at frame 0, and the sequence number never moved (#579).
+- {dd/lidar/annotation} Packs record the run's L4 height band, read from the composed config under the engine that ran, so "ground" in the tool is exactly what the clusterer never saw. The exporter refuses `full` coverage when every classed point is foreground: the newest pack claimed it with 1,076,843 points, all foreground (#579).
+- {dd/lidar/annotation} Set the background-change threshold by measurement on a real pair of snapshots: a quarter of a metre flagged 6,507 of 67,015 returns, mostly range jitter; half a metre, 2,295; a metre, 271 (#579).
+- {dd/lidar/annotation} Added a sixteen-sector completeness ring, a frame strip, object names over their points, and the main view's words (Run, Frame, Labelled by) after "Operator name" was read as the name of a track and saved as the author of 61 masks (#579).
+- {dd/lidar/annotation} Wrote the operator's guide, [point-annotation-tool.md](lidar/operations/point-annotation-tool.md), and the delivery record in the annotation plan (#579).
+
+## September 20, 2026 - Annotation: views an operator can work in
+
+- {dd/lidar/annotation} Found why a region could not be selected: both orthographic views re-fitted to every sample and could not be panned or zoomed, so a car was a few pixels across in the same white as the wall behind it. The views now hold their framing, zoom about the cursor, and pan, through an AppKit input layer because SwiftUI has no scroll-wheel or second-button gesture (#579).
+- {dd/lidar/annotation} Added a third, 3D view that reuses `MetalRenderer` on the pack sample, class toggles in the main view's colours, and frame sync with the main view by capture timestamp. A step made to follow the main view does not ask it to seek, or the two windows drag each other backwards during playback (#579).
+- {dd/lidar/annotation} Added sphere and column brushes on a local 0.5 m lattice with eight half-metre voxels a column. The Playback menu's bare keys mean the Annotation window when it is in front; a bracket that arrives by both routes is applied once, by event timestamp (#579).
+- {dd/lidar/annotation} Tested the viewport by mounting it in a window and delivering mouse and scroll events through its hit test, since a viewport that looks right and ignores the mouse passes every unit test (#579).
+- {dd/lidar/annotation} Covered the annotation export's failure boundaries for Codecov (#579).
+
+## September 19, 2026 - Annotation: review fixes, paths and the sandbox
+
+- {dd/lidar/annotation} Split the annotation toolset out of the state-estimation branch into its own PR and addressed its review: `ResolvePathWithinDirectory` with a pinned canonical-path contract, the pack directory resolved through `resolveLidarDir`, and the packs directory created before anything is resolved inside it, which had made the first export on any machine a 500 (#579).
+- {dd/lidar/annotation} Set the capture, recording, plots and annotation paths independently (`--lidar-vrlog-dir`, `--lidar-plots-dir`, `--lidar-annotation-dir`). Deriving the recording directory from the capture directory was why VRLOG replays returned 400 once captures moved to an external volume (#579).
+- {dd/lidar/annotation} Let the sandboxed app open and save packs the server had just written: a remembered security-scoped bookmark for the packs folder, asked for once. Stopped the sheet pre-selecting "Full scene" coverage (#579).
+
+## September 17, 2026 - Annotation: reachable from the app
+
+- {dd/lidar/annotation} Wired the annotation toolset into the app: a window, a pack picker, `POST /api/lidar/runs/{run_id}/annotation-export`, and a sheet that generates a pack from a run without leaving the app. Leaving a pack is guarded against unsaved membership (#579).
+
+## September 16, 2026 - Annotation: point-cloud editing toolset
+
+- {dd/lidar/annotation} Added the point-cloud editing toolset for the physical reference pilot: pack reader, canonical-index lasso and slab selection, membership history, and the session rules for navigation and provenance. Made track and run IDs selectable and copyable (#579).
+
+## September 8, 2026 - Annotation: immutable point packs
+
+- {dd/lidar/annotation} Added immutable point packs in `internal/lidar/annotation`: canonical little-endian arrays, digests over the stored bytes, a pack digest that binds them, and a check for revision space exhaustion in the sidecar store (#579).
+
+## September 7, 2026 - Annotation: revision-safe sidecars
+
+- {dd/lidar/annotation} Added sidecar annotations for LiDAR packs with revision-safe storage: a non-blocking lock, atomic replace, retained revisions and conflict detection, so that a human reference object is stored apart from predicted track identities (#579).
+
 ## September 3, 2026 - Perf gate rebuilt: a baseline that states what it measured
 
 - Established that the nightly perf gate had been comparing against a recording of a pipeline that detected nothing. Built `lidar-bench` at the baseline's own commit (`72b5e11925ad`, 23 June) and ran it against `kirk0.pcapng` beside current `main` on one machine: **0 foreground points of 57,376,456, and 0 clusters**, against 1,626,782 and 14,137 today. The committed `cluster_time_ms`, `tracking_time_ms` and `classify_time_ms` of zero were literal, not rounding (#566).
