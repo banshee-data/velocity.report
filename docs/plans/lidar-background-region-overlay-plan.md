@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window first; web as an optional view)
 - **Target:** v0.5.x, after the annotation toolset lands; the overlay is what makes an L3 remedy testable
-- **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
+- **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Occupancy column grid](lidar-occupancy-column-grid-plan.md), [Web scene export](lidar-web-scene-export-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)
 - **Canonical:** [adaptive-region-parameters.md](../lidar/operations/adaptive-region-parameters.md)
 
 ## Motivation

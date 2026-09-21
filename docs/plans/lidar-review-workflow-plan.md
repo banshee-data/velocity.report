@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, L10 Clients (macOS visualiser first), offline analysis
 - **Target:** v0.5.x, after the annotation toolset and the run-track finalisation fix
-- **Companion plans:** [Background region overlays](lidar-background-region-overlay-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [macOS local server](macos-local-server-plan.md)
+- **Companion plans:** [Background region overlays](lidar-background-region-overlay-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [macOS local server](macos-local-server-plan.md), [Occupancy column grid](lidar-occupancy-column-grid-plan.md)
 - **Canonical:** [track-labelling-ui-implementation.md](../lidar/operations/track-labelling-ui-implementation.md)
 
 ## Motivation
@@ -33,8 +33,9 @@ measure of the proposer.
 It also has one instrument. **The macOS visualiser is the primary tool for annotating, editing
 and grading, and it is sufficient on its own.** An operator chooses a capture, replays it, sees
 and edits traces, tracks and point clouds, grades, and runs a tuning round without opening a
-browser. The web keeps views for finding and identifying datasets. Nothing a grade, a reference
-label or a HINT round depends on may exist only on the web.
+browser. The web keeps what it has today, including its track label editing, and may gain views
+for finding and identifying datasets. Nothing a grade, a reference label or a HINT round depends
+on may exist only on the web.
 
 ## Current state
 
@@ -101,7 +102,7 @@ are usually foreground only, with a background snapshot every 30 s.
 | Choosing what to replay                | Web only: captures, PCAP files, replay cases, scenes | High     | No session can begin in the macOS tool |
 | Marking what the tracker missed        | Web only                                             | High     | A validity step outside the instrument |
 | HINT control                           | Web only: start, continue, stop                      | High     | A grading loop outside the instrument  |
-| Web label editing                      | A second writer of run-track labels                  | Medium   | Freeze; never extend                   |
+| Web label editing                      | Creates, reads, updates and deletes run-track labels | Low      | Left exactly as it is                  |
 
 ## Design / approach
 
@@ -130,7 +131,8 @@ Three other things exist, and none of them is a second instrument:
 - **The command line** proposes, scores and exports for automation and for machines with no
   display. It never grades; a grade is always a person's.
 - **The web** identifies datasets: the scene map, capture inventory, run lists, published
-  scenes. Read-only with respect to this workflow.
+  scenes. Its existing track label create, read, update and delete stays exactly as it is:
+  nothing is added to it and nothing is taken away. This workflow builds nothing else there.
 
 The rule that keeps it this way: a feature that creates, edits or grades truth is built in the
 macOS tool first and need never be built anywhere else. A web view may show what the macOS tool
@@ -243,12 +245,12 @@ Pass 2 runs against a written, versioned rubric. It is run twice during calibrat
 
 ### Grading, in the macOS tool
 
-| Where             | Depth             | What the person does                                                                                                                    |
-| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Main visualiser   | Objects           | Grades a subject from its track during replay: accept, reject, cannot tell, change class or flags, without leaving the 3D view          |
-| Annotation window | Objects and masks | Sees a proposal ghosted over the points; accepts, rejects, changes class, or edits membership with the existing lasso, add and subtract |
-| Either            | From scratch      | Marks a subject nothing proposed. This replaces the web's missed-region marking and is how recall is measured                           |
-| HINT panel        | Objects           | `awaiting_labels` presents the round's proposals to grade in the main visualiser, then continues the round                              |
+| Where             | Depth             | What the person does                                                                                                                                                         |
+| ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Main visualiser   | Objects           | Grades a subject from its track during replay: accept, reject, cannot tell, change class or flags, without leaving the 3D view                                               |
+| Annotation window | Objects and masks | Sees a proposal ghosted over the points; accepts, rejects, changes class, or edits membership with the lasso, rectangle, sphere and column tools, each adding or subtracting |
+| Either            | From scratch      | Marks a subject nothing proposed. This is how recall is measured, and it records what was missed and which returns, where a missed region records only where                 |
+| HINT panel        | Objects           | `awaiting_labels` presents the round's proposals to grade in the main visualiser, then continues the round                                                                   |
 
 Moving between the two depths is one action: from a track in the main visualiser, open its
 subject in the annotation window at the same moment in time, and back.
@@ -291,21 +293,20 @@ acceptance does not drift into rubber-stamping.
   written into an evidence database, which stays immutable.
 - **The evaluator.** Reports against human-graded truth, against each proposer, and against
   human-confirmed proposals, separately.
-- **The web.** Reads runs, scenes and graded results for display. Its existing track-label
-  editing is frozen: it keeps working, gains nothing, and a label written there is imported as a
-  from-scratch object-level grade so that it cannot become a second source of truth. Whether to
-  remove it is a later decision, and nothing here waits on it.
+- **The web.** Unchanged. Its track label editing keeps writing `human_manual` run-track labels
+  as it does today. Those are ordinary labels: when a review pack is cut from a run, any label
+  already on a track arrives as an object-level grade with its labeller's identity, whichever
+  tool wrote it. No web code changes for that, and no web feature is added or removed.
 
 ## What this cannot establish
 
 Pass 1 and pass 2 propose from the tracks and observations that exist. A road user the pipeline
 never detected has no observation and no proposal. **Grading proposals measures precision, class
 and membership. It does not measure recall.** Recall comes from a person marking a subject from
-scratch in the macOS tool, with no `derived_from`, on the active segments. This takes over from
-the web's missed-region marking, which recorded that something was missed without recording what
-or which returns. The grading
-UI keeps a "nothing here was proposed" action one step away, and the score report counts
-from-scratch subjects as misses of every proposer.
+scratch in the macOS tool, with no `derived_from`, on the active segments. A from-scratch subject
+says what was missed and which returns were its, where the web's missed-region marking, which
+stays as it is, says only where. The grading UI keeps a "nothing here was proposed" action one
+step away, and the score report counts from-scratch subjects as misses of every proposer.
 
 ## Scope
 
@@ -362,11 +363,13 @@ from-scratch subjects as misses of every proposer.
 **Steps:**
 
 1. Layer toggles with legends, including regions, in the main visualiser and annotation window.
-2. Accept, edit, reject, cannot tell; class and flag changes; lasso edits saved with lineage.
-3. Object-level grading from a track in the main visualiser.
-4. One action between a track in replay and its subject in the annotation window, and back.
-5. A from-scratch subject, replacing missed-region marking; existing missed regions imported as
-   subjects with no mask.
+2. Accept, edit, reject, cannot tell; class and flag changes; membership edits saved with lineage.
+3. Sphere and column selection beside the lasso and rectangle, for selecting and deselecting,
+   as specified in the [occupancy column grid](lidar-occupancy-column-grid-plan.md) plan.
+4. Object-level grading from a track in the main visualiser.
+5. One action between a track in replay and its subject in the annotation window, and back.
+6. A from-scratch subject. The web's missed-region marking stays as it is; missed regions already
+   recorded for a run are read into its pack as subjects with no mask.
 
 **Milestone:** v0.5.x
 
@@ -409,12 +412,11 @@ from-scratch subjects as misses of every proposer.
 
 ### Item 8: web views for identifying datasets
 
-**Summary:** Read-only views of what exists and what has been graded. Not part of any grading or validity path.
+**Summary:** Optional read-only views of what exists and what has been graded. Not part of any grading or validity path. Existing web functionality, track label editing included, is neither extended nor removed.
 
 **Steps:**
 
 1. Graded coverage per site and segment on the scene map and run lists.
-2. Freeze web label editing; import anything written there as a from-scratch object-level grade.
 
 **Milestone:** Unscheduled. Nothing above depends on it.
 
@@ -458,13 +460,15 @@ The same walk-through is repeated with the server on another machine.
 - **Rules fitted to their own grades.** Pass 1's rules and pass 2's rubric are versioned, and
   agreement is always reported against a stated version.
 - **A second instrument growing back.** The web already edits labels, and it is the quicker place
-  to add a button. The rule above, the frozen web editor and the browser-free acceptance test are
-  what hold the line.
+  to add a button. It keeps what it has and gains nothing; the rule above and the browser-free
+  acceptance test are what hold the line.
 - **One platform.** An operator without a Mac cannot grade. Accepted: the command line still
   proposes and scores anywhere, and one good instrument is worth more than two partial ones.
-- **Two stores drifting.** Run-track labels are a projection of graded objects, written one way.
-  A label edited directly in the old UI is imported as a from-scratch object-level grade rather
-  than left as a second source.
+- **Two stores drifting.** Run-track labels can be written by the web as well as projected from
+  graded objects. They are reconciled in one direction at one moment: a pack takes the labels a
+  run has when it is cut, and a graded object projects back onto its tracks. A label changed on
+  the web after a pack was cut is seen the next time one is cut, and the score report lists
+  tracks whose label and grade disagree rather than choosing between them.
 - **Pack size.** Context layers and several proposal layers enlarge a pack. They sit outside the
   point digest and can be dropped and regenerated.
 
@@ -478,7 +482,8 @@ The same walk-through is repeated with the server on another machine.
 - [ ] Per-track scorecard metrics (`M`)
 - [ ] Pass 1 rules, reason codes and mask proposals, deterministic, runnable from the app (`L`)
 - [ ] macOS layer toggles, ghosted proposals, four grades, edit-as-grade (`L`)
-- [ ] From-scratch subjects in the macOS tool; missed regions imported (`M`)
+- [ ] From-scratch subjects in the macOS tool; existing missed regions read into packs (`M`)
+- [ ] Sphere and column selection, per the occupancy column grid plan (`M`)
 - [ ] `review-score`, audit sampling, first report, in-app summary (`M`)
 - [ ] HINT panel in the macOS tool, label projection, carry-over by observation (`L`)
 - [ ] Dossier, rubric, pass 2, anchoring run (`L`)
@@ -488,7 +493,7 @@ The same walk-through is repeated with the server on another machine.
 
 - [ ] Temporal propagation of a graded mask to later samples, as a third proposer
 - [ ] An HTTP or MCP surface over review packs, until review leaves the recording host
-- [ ] Web views of graded coverage, and the decision whether to remove web label editing
+- [ ] Web views of graded coverage, optional
 
 ### Accepted residuals (no action planned)
 
