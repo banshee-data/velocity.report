@@ -47,6 +47,10 @@ struct MainViewPlayback: Equatable {
     var logStartNs: Int64
     var logEndNs: Int64
     var seekable: Bool
+    /// True while the replay is running rather than paused on a frame.
+    var playing = false
+    /// True once the replay has run off the end of its recording.
+    var finished = false
 }
 
 enum AnnotationFrameSync {
@@ -87,6 +91,41 @@ enum AnnotationFrameSync {
         return first.timestampNs <= logEndNs + toleranceNs
             && last.timestampNs >= logStartNs - toleranceNs
     }
+}
+
+/// Paces how often this window follows a main view that is playing.
+///
+/// Following a frame is a step of this window: new points, three views, the
+/// 3D scene, the panes. Measured on a real pack that is about 50 ms of main
+/// thread in a release build and more in a debug one, and the main view plays
+/// at ten frames a second or more, on the same thread that the 3D view takes
+/// its mouse events and draws on. Followed frame for frame, the 3D view locked
+/// up. So while the main view plays, following is held to a share of the main
+/// thread, by what the last follow was measured to cost, and frames in between
+/// are skipped. A paused main view is always followed at once: the operator
+/// has stopped on that frame and means it.
+struct FollowThrottle: Equatable {
+    /// The share of the main thread following may take during playback.
+    static let dutyCycle: TimeInterval = 1.0 / 3
+    /// However costly a follow was, the window does not fall further behind
+    /// a playing main view than this.
+    static let longestWait: TimeInterval = 0.5
+
+    private(set) var lastCost: TimeInterval = 0
+    private(set) var lastFollowedAt: TimeInterval = -.infinity
+
+    /// How long to wait before following again. Zero means now.
+    func wait(now: TimeInterval, playing: Bool) -> TimeInterval {
+        guard playing else { return 0 }
+        let interval = min(lastCost / FollowThrottle.dutyCycle, FollowThrottle.longestWait)
+        return max(lastFollowedAt + interval - now, 0)
+    }
+
+    mutating func followed(at time: TimeInterval) { lastFollowedAt = time }
+
+    /// Records what a follow cost, from when it began until the window had
+    /// drawn the result.
+    mutating func measured(cost: TimeInterval) { lastCost = max(cost, 0) }
 }
 
 // MARK: - 3D scene

@@ -35,7 +35,41 @@ enum AnnotationGuard: Equatable {
     @Published private(set) var sidecar: Sidecar {
         // A review changes no selection and no point, only what a mask is
         // worth, and the tallies have to notice that too.
-        didSet { labelRevision &+= 1 }
+        didSet {
+            labelRevision &+= 1
+            summaries = nil
+        }
+    }
+
+    /// What the object list shows of each object, worked out once per change
+    /// to the sidecar. The list is redrawn on every publish, and counting an
+    /// object's frames means reading every mask: with a thousand masks and a
+    /// dozen objects that was tens of thousands of comparisons a redraw.
+    struct ObjectSummary: Equatable {
+        var name: String
+        var savedFrames: Int
+        var reviewedFrames: Int
+    }
+    private var summaries: [String: ObjectSummary]?
+
+    func summary(objectID: String) -> ObjectSummary {
+        if summaries == nil {
+            var built: [String: ObjectSummary] = [:]
+            var ordinals: [String: Int] = [:]
+            for object in sidecar.objects {
+                ordinals[object.objectClass, default: 0] += 1
+                built[object.objectID] = ObjectSummary(
+                    name: "\(object.objectClass) \(ordinals[object.objectClass] ?? 1)",
+                    savedFrames: 0, reviewedFrames: 0)
+            }
+            for mask in sidecar.masks where !mask.pointIndices.isEmpty {
+                built[mask.objectID]?.savedFrames += 1
+                if mask.status == .reviewed { built[mask.objectID]?.reviewedFrames += 1 }
+            }
+            summaries = built
+        }
+        return summaries?[objectID]
+            ?? ObjectSummary(name: objectID, savedFrames: 0, reviewedFrames: 0)
     }
 
     // MARK: Position in the pack
@@ -57,6 +91,7 @@ enum AnnotationGuard: Equatable {
             currentClasses = PointClass.displayClasses(
                 points: currentPoints, hasClassification: pack.manifest.hasClassification,
                 band: heightBand)
+            cachedClassCounts = nil
             sceneRevision &+= 1
             labelRevision &+= 1
         }
@@ -74,14 +109,17 @@ enum AnnotationGuard: Equatable {
     /// How many of the current sample's points are in each display class, so
     /// a toggle can say that it has nothing to hide.
     var classCounts: [UInt8: Int] {
+        if let cachedClassCounts { return cachedClassCounts }
         var counts: [UInt8: Int] = currentClasses.reduce(into: [:]) { counts, value in
             counts[value, default: 0] += 1
         }
         // The settled background behind the frame is background too, and it is
         // what the Background toggle shows and hides.
         counts[PointClass.background, default: 0] += backgroundPoints.count
+        cachedClassCounts = counts
         return counts
     }
+    private var cachedClassCounts: [UInt8: Int]?
 
     // MARK: Selection
 
@@ -171,6 +209,11 @@ enum AnnotationGuard: Equatable {
     /// steps here.
     @Published var syncWithMainView = true { didSet { if !syncWithMainView { syncStatus = .off } } }
     @Published private(set) var syncStatus: FrameSyncStatus = .off
+    /// While the main view plays, keep it inside this pack's frames: when it
+    /// runs past the last one, send it back to the first. A pack is a few
+    /// seconds of a recording that may be minutes long, and a replay that
+    /// plays on past it leaves this window showing its last frame.
+    @Published var loopPackFrames = true
     /// Counts the steps the operator made in this window, as distinct from
     /// steps made to follow the main view.
     @Published private(set) var operatorNavigationRevision = 0
@@ -507,9 +550,7 @@ enum AnnotationGuard: Equatable {
     }
 
     /// How many of the object's saved frames are reviewed.
-    func reviewedSampleCount(objectID: String) -> Int {
-        sidecar.masks.filter { $0.objectID == objectID && $0.status == .reviewed }.count
-    }
+    func reviewedSampleCount(objectID: String) -> Int { summary(objectID: objectID).reviewedFrames }
 
     // MARK: - Navigation
 
@@ -946,6 +987,25 @@ enum AnnotationGuard: Equatable {
         return sample.timestampNs
     }
 
+    /// Where a playing main view should be sent to stay inside this pack: the
+    /// first frame, once it has run past the last or off the end of its
+    /// recording, or is still short of the first. Nil when it is inside the
+    /// pack, paused, or not replaying this recording. A paused main view is
+    /// left wherever the operator put it.
+    func loopTarget(for main: MainViewPlayback) -> Int64? {
+        guard syncWithMainView, loopPackFrames, main.seekable, main.playing || main.finished,
+            let first = orderedSamples.first, let last = orderedSamples.last,
+            last.timestampNs > first.timestampNs,
+            AnnotationFrameSync.replayCovers(
+                orderedSamples, logStartNs: main.logStartNs, logEndNs: main.logEndNs)
+        else { return nil }
+        let tolerance = AnnotationFrameSync.toleranceNs
+        let outside =
+            main.timestampNs > last.timestampNs + tolerance
+            || main.timestampNs < first.timestampNs - tolerance
+        return outside || main.finished ? first.timestampNs : nil
+    }
+
     /// The sample the main view's frame corresponds to, recording why not when
     /// there is none.
     private func syncTarget(for main: MainViewPlayback) -> Int? {
@@ -1146,9 +1206,7 @@ enum AnnotationGuard: Equatable {
     }
 
     /// How many samples the object has a saved mask in.
-    func savedSampleCount(objectID: String) -> Int {
-        sidecar.masks.filter { $0.objectID == objectID && !$0.pointIndices.isEmpty }.count
-    }
+    func savedSampleCount(objectID: String) -> Int { summary(objectID: objectID).savedFrames }
 
     /// What the operator has to do next before a mask can be saved, or nil
     /// when nothing stands in the way.
@@ -1692,16 +1750,7 @@ enum AnnotationGuard: Equatable {
     /// What an object is called on screen: its class and its number among
     /// objects of that class, in the order they were made. "car 2" says which
     /// of two cars is meant; "obj_5f3a9c1e" does not.
-    func displayName(objectID: String) -> String {
-        guard let object = sidecar.objects.first(where: { $0.objectID == objectID }) else {
-            return objectID
-        }
-        let ordinal =
-            sidecar.objects.prefix { $0.objectID != objectID }.filter {
-                $0.objectClass == object.objectClass
-            }.count + 1
-        return "\(object.objectClass) \(ordinal)"
-    }
+    func displayName(objectID: String) -> String { summary(objectID: objectID).name }
 
     var activeObjectName: String? { activeObjectID.map(displayName(objectID:)) }
 
@@ -1735,14 +1784,33 @@ enum AnnotationGuard: Equatable {
         backgroundUpdatedHere = previous.map { $0.backgroundID < inForce.backgroundID } ?? false
 
         guard inForce != currentBackground else { return }
-        let points = pack.backgroundPoints(inForce)
-        backgroundPoints = points
-        backgroundChanged = []
-        if inForce.backgroundID > 0 {
-            let before = pack.backgroundPoints(pack.backgrounds[inForce.backgroundID - 1])
-            backgroundChanged = AnnotationSession.changedIndices(in: points, against: before)
-        }
+        // Once per snapshot, not once per visit. With the main view looping
+        // over the pack this frame comes round every twenty seconds, and
+        // telling two snapshots of 67,000 returns apart took about a second
+        // each time, on the main thread.
+        let loaded = loadedBackground(inForce)
+        backgroundPoints = loaded.points
+        backgroundChanged = loaded.changed
+        cachedClassCounts = nil
         currentBackground = inForce
+    }
+
+    private var loadedBackgrounds: [Int: (points: BackgroundPoints, changed: [Int])] = [:]
+
+    private func loadedBackground(
+        _ background: AnnotationBackground
+    ) -> (points: BackgroundPoints, changed: [Int]) {
+        if let loaded = loadedBackgrounds[background.backgroundID] { return loaded }
+        let points = pack.backgroundPoints(background)
+        var changed: [Int] = []
+        if background.backgroundID > 0 {
+            let before =
+                loadedBackgrounds[background.backgroundID - 1]?.points
+                ?? pack.backgroundPoints(pack.backgrounds[background.backgroundID - 1])
+            changed = AnnotationSession.changedIndices(in: points, against: before)
+        }
+        loadedBackgrounds[background.backgroundID] = (points, changed)
+        return (points, changed)
     }
 
     /// Indices of the returns in `points` that lie where `before` had nothing
@@ -1758,18 +1826,24 @@ enum AnnotationGuard: Equatable {
                 Int32((x / pitch).rounded(.down)), Int32((y / pitch).rounded(.down)),
                 Int32((z / pitch).rounded(.down)))
         }
+        // The voxels `before` occupies, and then each new return looks round
+        // itself for one. Growing every old return into its 27 neighbours
+        // first is the same test and 1.8 million insertions for a snapshot;
+        // nearly every new return finds its own voxel occupied on the first
+        // look.
         var occupied = Set<SIMD3<Int32>>()
-        occupied.reserveCapacity(before.count * 4)
-        for i in 0..<before.count {
-            let v = voxel(before.x[i], before.y[i], before.z[i])
+        occupied.reserveCapacity(before.count)
+        for i in 0..<before.count { occupied.insert(voxel(before.x[i], before.y[i], before.z[i])) }
+        return (0..<points.count).filter { index in
+            let v = voxel(points.x[index], points.y[index], points.z[index])
+            if occupied.contains(v) { return false }
             for dx: Int32 in -1...1 {
                 for dy: Int32 in -1...1 {
-                    for dz: Int32 in -1...1 { occupied.insert(SIMD3(v.x + dx, v.y + dy, v.z + dz)) }
+                    for dz: Int32 in -1...1
+                    where occupied.contains(SIMD3(v.x + dx, v.y + dy, v.z + dz)) { return false }
                 }
             }
-        }
-        return (0..<points.count).filter {
-            !occupied.contains(voxel(points.x[$0], points.y[$0], points.z[$0]))
+            return true
         }
     }
 
@@ -1845,6 +1919,17 @@ enum AnnotationGuard: Equatable {
                 labelable: index < labelableCounts.count ? labelableCounts[index] : 0,
                 agreed: settled.count, inQuestion: questioned.count,
                 backgroundUpdated: index > 0 && background != lastBackground)
+        }
+    }
+
+    /// The whole pack's labelling: every frame's tally added up. Counted as
+    /// the frame strip counts, so it can overstate by the few returns a mask
+    /// holds that the height band removed.
+    var packTally: LabelTally {
+        frameProgress.reduce(into: LabelTally()) { total, frame in
+            total.total += frame.labelable
+            total.agreed += min(frame.agreed, frame.labelable)
+            total.inQuestion += min(frame.inQuestion, max(frame.labelable - frame.agreed, 0))
         }
     }
 

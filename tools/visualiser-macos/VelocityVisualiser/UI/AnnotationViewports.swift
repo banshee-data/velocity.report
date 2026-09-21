@@ -258,7 +258,14 @@ struct AnnotationSceneView: NSViewRepresentable {
         // Every publish of the session arrives here, and most change nothing
         // this view draws. Rebuilding a frame of tens of thousands of points
         // for each would make a slider drag stutter.
+        // Every publish of the session arrives here and most change nothing
+        // this view draws. It used to ask for a redraw regardless: seventy
+        // thousand points drawn again, on the main thread, for a slider moving
+        // in a sidebar, and in a release build the largest single cost of a
+        // step.
+        var changed = false
         if coordinator.sceneRevision != session.sceneRevision {
+            changed = true
             coordinator.sceneRevision = session.sceneRevision
             var marks = AnnotationScene.Marks()
             marks.others = session.otherMasks.map { ($0.objectClass, $0.indices) }
@@ -286,10 +293,11 @@ struct AnnotationSceneView: NSViewRepresentable {
                     sample: session.currentSample, backdrop: backdrop))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {
+            changed = true
             coordinator.focusRevision = focus.revision
             renderer.camera.lookAt(focus)
         }
-        view.needsDisplay = true
+        if changed { view.needsDisplay = true }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -315,11 +323,17 @@ struct MainViewLink: View {
     @ObservedObject var appState: AppState
     let scene: AnnotationSceneModel
 
+    @State private var throttle = FollowThrottle()
+    @State private var followScheduled = false
+    @State private var lastLoopSeekAt: TimeInterval = -.infinity
+
     private var playback: MainViewPlayback {
-        MainViewPlayback(
+        let seekable = appState.displayPlaybackMode == .replaySeekable
+        return MainViewPlayback(
             timestampNs: appState.currentTimestamp, logStartNs: appState.logStartTimestamp,
-            logEndNs: appState.logEndTimestamp,
-            seekable: appState.displayPlaybackMode == .replaySeekable)
+            logEndNs: appState.logEndTimestamp, seekable: seekable,
+            playing: seekable && !appState.isPaused && !appState.replayFinished,
+            finished: seekable && appState.replayFinished)
     }
 
     var body: some View {
@@ -329,6 +343,10 @@ struct MainViewLink: View {
                     + "steps here. The main view has to be replaying the recording this pack "
                     + "was cut from.")
             if session.syncWithMainView {
+                Toggle("Loop this pack's frames", isOn: $session.loopPackFrames).font(.caption)
+                    .help(
+                        "While the main view plays, send it back to this pack's first frame when "
+                            + "it runs past the last. Space plays and pauses the main view.")
                 Text(session.syncStatus.label).font(.caption2).foregroundStyle(
                     session.syncStatus == .inSync ? Color.green : Color.secondary
                 ).fixedSize(horizontal: false, vertical: true)
@@ -340,8 +358,10 @@ struct MainViewLink: View {
             .vertical, 8
         ).onAppear { align() }.onChange(of: session.syncWithMainView) { _, on in if on { align() } }
             .onChange(of: appState.currentTimestamp) { _, _ in followMainView() }.onChange(
-                of: session.operatorNavigationRevision
-            ) { _, _ in leadMainView() }
+                of: appState.replayFinished
+            ) { _, _ in followMainView() }.onChange(of: session.operatorNavigationRevision) {
+                _, _ in leadMainView()
+            }
     }
 
     /// Main view to this window.
@@ -349,7 +369,42 @@ struct MainViewLink: View {
         // A seek in flight still delivers frames from before it. Following
         // those would step this window back to where it has just left.
         guard !appState.isSeekingInProgress else { return }
-        session.follow(playback)
+        let main = playback
+        let now = ProcessInfo.processInfo.systemUptime
+
+        // Keep a playing main view inside the pack. Not more than once a
+        // second: the seek takes a moment, and the frames that arrive before
+        // it lands are still past the end.
+        if let first = session.loopTarget(for: main) {
+            if now - lastLoopSeekAt > 1 {
+                lastLoopSeekAt = now
+                appState.seekToTimestamp(first)
+            }
+            return
+        }
+
+        let wait = throttle.wait(now: now, playing: main.playing)
+        guard wait <= 0 else {
+            // Skipped, not forgotten: the frame the main view is on when the
+            // wait is over is followed then, so a main view that pauses in
+            // the meantime is still caught up with.
+            guard !followScheduled else { return }
+            followScheduled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                followScheduled = false
+                followMainView()
+            }
+            return
+        }
+        throttle.followed(at: now)
+        guard session.follow(main) else { return }
+        // Two turns of the main queue on: past the redraw this step caused,
+        // which is most of what it costs.
+        DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                throttle.measured(cost: ProcessInfo.processInfo.systemUptime - now)
+            }
+        }
     }
 
     /// This window to the main view.

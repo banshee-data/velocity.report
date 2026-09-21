@@ -316,6 +316,7 @@ struct AnnotationWorkspace: View {
 
             VStack(spacing: 0) {
                 AnnotationStatusStrip(session: session)
+                AnnotationProgressHeader(session: session)
                 Divider()
                 VSplitView {
                     // The 3D view: the main view's renderer on this sample,

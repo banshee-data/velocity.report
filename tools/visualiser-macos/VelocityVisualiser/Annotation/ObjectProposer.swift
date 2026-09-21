@@ -83,19 +83,20 @@ enum ProposalSort: String, CaseIterable, Identifiable {
     /// Ties fall back to the proposal's id, so a list never reshuffles between
     /// two redraws of the same proposals.
     func sorted(_ proposals: [ObjectProposal]) -> [ObjectProposal] {
-        proposals.sorted { a, b in
+        // Each proposal's key is worked out once. Steadiness walks every frame
+        // of a chain, and as a comparison it was walked again for every pair
+        // the sort looked at, on every redraw of the list.
+        let keyed: [(key: Float, proposal: ObjectProposal)] = proposals.map { proposal in
             switch self {
-            case .mostFrames:
-                if a.frames.count != b.frames.count { return a.frames.count > b.frames.count }
-            case .mostPoints:
-                if a.totalPoints != b.totalPoints { return a.totalPoints > b.totalPoints }
-            case .furthestMoved: if a.travelled != b.travelled { return a.travelled > b.travelled }
-            case .steadiest:
-                if a.unsteadiness != b.unsteadiness { return a.unsteadiness < b.unsteadiness }
-            case .earliest: if a.firstFrame != b.firstFrame { return a.firstFrame < b.firstFrame }
+            case .mostFrames: return (-Float(proposal.frames.count), proposal)
+            case .mostPoints: return (-Float(proposal.totalPoints), proposal)
+            case .furthestMoved: return (-proposal.travelled, proposal)
+            case .steadiest: return (proposal.unsteadiness, proposal)
+            case .earliest: return (Float(proposal.firstFrame), proposal)
             }
-            return a.id < b.id
         }
+        return keyed.sorted { a, b in a.key != b.key ? a.key < b.key : a.proposal.id < b.proposal.id
+        }.map(\.proposal)
     }
 }
 
