@@ -86,7 +86,11 @@ Canonical-index lasso/slab selection, sphere and column brushes, second-view ins
 dirty-session navigation protection and operator provenance are delivered in the macOS client.
 So is what an operator needs in order to find the object: views that pan, zoom and hold their
 framing from sample to sample, a 3D view, class filters for background, foreground and ground,
-and frame sync with the main view's replay of the same recording. What remains is operator
+and frame sync with the main view's replay of the same recording. So is what keeps the work to an object at a time rather than an object in each frame: the
+client proposes objects from a pack (fixed clutter by persistence, the rest as clusters followed
+through the frames), carries an accepted mask forwards and back until the fit is one a person
+would not have accepted, and lets a review reach the masks. Masks made that way record the
+algorithm that made them and stay proposed until a person reviews them. What remains is operator
 work rather than engineering: reviewed masks across a site's keyframes, and the frozen
 object-disjoint dataset splits derived from them. The
 [annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md) owns
