@@ -228,6 +228,16 @@ enum AnnotationGuard: Equatable {
     @Published private(set) var lastPropagation: PropagationOutcome?
     private var propagationCancelled = false
 
+    // MARK: Proposals
+
+    /// Objects the proposer found and nobody has graded yet, largest first.
+    @Published private(set) var proposals: [ObjectProposal] = [] { didSet { sceneRevision &+= 1 } }
+    /// Set while the proposer runs: the frame it has reached.
+    @Published private(set) var proposalProgress: Int?
+    /// The proposal being looked at. Its returns are drawn in every frame it
+    /// covers, so stepping through the frames is how it is judged.
+    @Published private(set) var selectedProposalID: Int? { didSet { sceneRevision &+= 1 } }
+
     // MARK: Saved masks
 
     /// The active object's saved mask in this sample. Drawn in the object's
@@ -525,7 +535,7 @@ enum AnnotationGuard: Equatable {
     /// What would block leaving this sample, if anything. Exposed so a caller
     /// can ask before offering navigation rather than after refusing it.
     func navigationGuard() -> AnnotationGuard? {
-        if propagationProgress != nil { return .propagating }
+        if propagationProgress != nil || proposalProgress != nil { return .propagating }
         if strokeInProgress { return .strokeInProgress }
         if let sample = currentSample, let objectID = activeObjectID,
             dirtySamples.contains(sample.sampleID)
@@ -1178,9 +1188,10 @@ enum AnnotationGuard: Equatable {
         var footprint = SelectionFootprint(
             points: savedSelection.compactMap { currentPoints.point(at: $0) })
         var previousCount = savedSelection.count
-        var previousRange = AnnotationSession.meanRange(of: savedSelection, in: currentPoints)
+        var previousRange = currentPoints.meanRange(of: savedSelection)
         // Per frame, in the direction being carried.
         var velocity = (carryVelocity[object.objectID] ?? .zero) * Float(direction)
+        var speedKnown = carryVelocity[object.objectID] != nil
         var pending: [FrameMask] = []
         var stop = PropagationStop.endOfPack
         var stopFit: (footprint: SelectionFootprint, offset: simd_float3, from: Int)?
@@ -1227,12 +1238,13 @@ enum AnnotationGuard: Equatable {
                 fit = footprint.fit(in: points, near: velocity, where: include)
             }
             let indices = footprint.indices(in: points, offset: fit.offset, where: include)
-            let range = AnnotationSession.meanRange(of: Set(indices), in: points)
+            let range = points.meanRange(of: Set(indices))
             let expected = PropagationJudge.expected(
                 previousCount: previousCount, previousRange: previousRange, range: range)
 
             var verdict = PropagationJudge.verdict(
-                fit: fit, prediction: velocity, expected: expected, isFixed: isFixed)
+                fit: fit, prediction: velocity, expected: expected, isFixed: isFixed,
+                speedKnown: speedKnown)
             if verdict == nil,
                 let rival = objectSharing(indices, inSample: sample.sampleID, not: object.objectID)
             {
@@ -1254,7 +1266,10 @@ enum AnnotationGuard: Equatable {
 
             // The next frame is fitted from where and what the object now is.
             footprint = SelectionFootprint(points: indices.compactMap { points.point(at: $0) })
-            velocity = isFixed ? .zero : velocity * 0.5 + fit.offset * 0.5
+            // The first fit is the first measurement of speed, so it is
+            // taken whole; after that, new fits are averaged in.
+            velocity = isFixed ? .zero : speedKnown ? velocity * 0.5 + fit.offset * 0.5 : fit.offset
+            speedKnown = true
             previousCount = indices.count
             previousRange = range
             lastSampleID = sample.sampleID
@@ -1318,16 +1333,182 @@ enum AnnotationGuard: Equatable {
         return nil
     }
 
-    /// Mean horizontal distance from the sensor.
-    static func meanRange(of indices: Set<Int>, in points: PackPoints) -> Float {
-        var sum: Float = 0
-        var count: Float = 0
-        for index in indices where index >= 0 && index < points.count {
-            sum += (points.x[index] * points.x[index] + points.y[index] * points.y[index])
-                .squareRoot()
-            count += 1
+    // MARK: - Proposals
+
+    var selectedProposal: ObjectProposal? {
+        selectedProposalID.flatMap { id in proposals.first { $0.id == id } }
+    }
+
+    /// The selected proposal's returns in the current frame.
+    var proposalIndices: [Int] { selectedProposal?.frames[sampleIndex] ?? [] }
+
+    /// Every proposal's returns in the current frame, for an overview of what
+    /// is waiting to be graded here.
+    var proposedIndices: [Int] { proposals.flatMap { $0.frames[sampleIndex] ?? [] } }
+
+    /// Walks the pack once and proposes the objects in it that nobody has
+    /// labelled: fixed clutter as one proposal a patch, and what moves as one
+    /// proposal an object. Replaces any proposals already listed.
+    func proposeObjects() async {
+        lastError = nil
+        guard navigationGuard() == nil else {
+            lastError = "Save or discard this frame's changes before proposing objects."
+            return
         }
-        return count > 0 ? sum / count : 0
+        proposals = []
+        selectedProposalID = nil
+        proposalProgress = 0
+        defer { proposalProgress = nil }
+
+        let labelled = Dictionary(grouping: sidecar.masks, by: \.sampleID).mapValues { masks in
+            Set(masks.flatMap(\.pointIndices))
+        }
+        func frame(_ index: Int) -> ProposerFrame? {
+            let sample = orderedSamples[index]
+            guard let points = try? pack.points(sampleID: sample.sampleID) else { return nil }
+            return ProposerFrame(
+                points: points,
+                classes: PointClass.displayClasses(
+                    points: points, hasClassification: pack.manifest.hasClassification,
+                    band: heightBand), labelled: labelled[sample.sampleID] ?? [])
+        }
+
+        // Once through to find what stays put, once more to follow what does
+        // not. Each frame is read twice and never more than one is held.
+        var persistence = ObjectProposer.Persistence()
+        for index in orderedSamples.indices {
+            if let frame = frame(index) { persistence.add(frame) }
+            if index % 8 == 0 {
+                proposalProgress = index / 2
+                await Task.yield()
+            }
+        }
+        let persistent = persistence.persistent
+        var proposer = ObjectProposer(persistent: persistent)
+        var patches = ObjectProposer.FixedPatches(persistent: persistent)
+        for index in orderedSamples.indices {
+            if let frame = frame(index) {
+                proposer.add(frame, at: index)
+                patches.add(frame, at: index)
+            }
+            if index % 8 == 0 {
+                proposalProgress = (orderedSamples.count + index) / 2
+                await Task.yield()
+            }
+        }
+        let moving = proposer.finish()
+        proposals =
+            moving + patches.finish(firstID: moving.count, bandFloor: Float(heightBand.floorM))
+        sessionLogger.info(
+            "Proposed \(moving.count) moving and \(self.proposals.count - moving.count) fixed objects"
+        )
+    }
+
+    /// Looks at a proposal: goes to a frame it covers and frames the views on
+    /// it. Nil stops looking.
+    func selectProposal(_ id: Int?) {
+        selectedProposalID = id
+        guard let proposal = selectedProposal else { return }
+        if proposal.frames[sampleIndex] == nil {
+            guard step(to: proposal.firstFrame) == nil else { return }
+        }
+        if let indices = proposal.frames[sampleIndex] { fitViews(toIndices: Set(indices)) }
+    }
+
+    func dismissProposal(_ id: Int) {
+        proposals.removeAll { $0.id == id }
+        if selectedProposalID == id { selectedProposalID = nil }
+    }
+
+    /// Saves a proposal as an object: a new one of `objectClass`, or, with
+    /// `into`, more frames of an object that exists, which is how the pieces
+    /// of a chain that broke behind a bus are put back together.
+    ///
+    /// `frames` limits it to part of the proposal, which is how a chain that
+    /// ran from one car onto another is split: the rest stays proposed. Frames
+    /// the object already has are left alone. Every frame written is recorded
+    /// as proposed by the algorithm and is in question until reviewed. Returns
+    /// how many frames were written.
+    @discardableResult func acceptProposal(
+        _ id: Int, objectClass: String, frames range: ClosedRange<Int>? = nil,
+        into existing: String? = nil
+    ) -> Int? {
+        lastError = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter your name under Labelled by before saving: a label has an author.")
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before accepting a proposal.")
+        }
+        guard let proposal = proposals.first(where: { $0.id == id }) else { return nil }
+        let accepted = proposal.frames.filter { range?.contains($0.key) ?? true }
+        guard !accepted.isEmpty else { return fail("The proposal covers none of those frames.") }
+
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "accept_proposal")
+
+        let objectID: String
+        if let existing {
+            guard sidecar.objects.contains(where: { $0.objectID == existing }) else { return nil }
+            objectID = existing
+        } else {
+            let object = AnnotationObject(
+                objectID: "obj_" + UUID().uuidString.prefix(8).lowercased(),
+                objectClass: objectClass, subtype: nil, confidence: 1.0, status: .proposed,
+                provenance: change)
+            edited.sidecar.objects.append(object)
+            objectID = object.objectID
+        }
+
+        change.algorithm = proposal.kind == .fixed ? "persistent_voxels" : "cluster_chain"
+        change.algorithmVersion = "1"
+        var written = 0
+        for (frameIndex, indices) in accepted where frameIndex < orderedSamples.count {
+            let sampleID = orderedSamples[frameIndex].sampleID
+            guard edited.sidecar.mask(objectID: objectID, sampleID: sampleID) == nil else {
+                continue
+            }
+            var mask = FrameMask(objectID: objectID, sampleID: sampleID)
+            mask.pointIndices = indices.sorted()
+            mask.completeness = .partial
+            mask.visibility = .present
+            mask.status = .proposed
+            mask.provenance = change
+            edited.sidecar.upsert(mask: mask)
+            written += 1
+        }
+
+        do {
+            document = try store.save(edited, change: change)
+            sidecar = document.sidecar
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+
+        // What was not accepted stays proposed, if there is enough of it left
+        // to be worth grading.
+        let rest = proposal.frames.filter { !(range?.contains($0.key) ?? true) }
+        proposals.removeAll { $0.id == id }
+        if rest.count >= ObjectProposer.minimumFrames {
+            var remainder = proposal
+            remainder.frames = rest
+            proposals.append(remainder)
+            proposals.sort { $0.totalPoints > $1.totalPoints }
+        } else if selectedProposalID == id {
+            selectedProposalID = nil
+        }
+        activeObjectID = objectID
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return written
     }
 
     // MARK: - Names

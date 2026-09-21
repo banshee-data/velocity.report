@@ -220,6 +220,17 @@ struct PackPoints: Equatable {
         self.classification = classification
     }
 
+    /// Mean horizontal distance from the sensor of the returns at `indices`.
+    func meanRange(of indices: Set<Int>) -> Float {
+        var sum: Float = 0
+        var found: Float = 0
+        for index in indices where index >= 0 && index < count {
+            sum += (x[index] * x[index] + y[index] * y[index]).squareRoot()
+            found += 1
+        }
+        return found > 0 ? sum / found : 0
+    }
+
     /// The point at a canonical index, or nil when the index is out of range.
     /// Callers validating operator input should prefer this to subscripting.
     func point(at index: Int) -> simd_float3? {

@@ -17,6 +17,8 @@ struct SelectionFootprint: Equatable {
 
     /// Occupied voxels, already dilated.
     private(set) var voxels: Set<SIMD3<Int32>> = []
+    /// The same voxels by height layer, for the fitting search: see `fit`.
+    private var layers: [Int32: [SIMD2<Int32>]] = [:]
     /// Bounds of the occupied space, in metres.
     private(set) var lower = simd_float3(repeating: .greatestFiniteMagnitude)
     private(set) var upper = simd_float3(repeating: -.greatestFiniteMagnitude)
@@ -27,8 +29,18 @@ struct SelectionFootprint: Equatable {
     /// voxel of growth is what lets the next scan's returns, which never land
     /// where this scan's did, still fall inside.
     init(points: [simd_float3], dilation: Int32 = 1) {
+        // The voxels the points are in first, and then their neighbours. A
+        // car at four metres is five thousand returns in a few hundred
+        // voxels, and growing each return rather than each voxel was most of
+        // the cost of following it.
+        var occupied = Set<SIMD3<Int32>>()
         for p in points where p.x.isFinite && p.y.isFinite && p.z.isFinite {
-            let v = SelectionFootprint.voxel(of: p)
+            occupied.insert(SelectionFootprint.voxel(of: p))
+            let reach = Float(dilation + 1) * SelectionFootprint.pitch
+            lower = simd_min(lower, p - reach)
+            upper = simd_max(upper, p + reach)
+        }
+        for v in occupied {
             for dx in -dilation...dilation {
                 for dy in -dilation...dilation {
                     for dz in -dilation...dilation {
@@ -36,10 +48,12 @@ struct SelectionFootprint: Equatable {
                     }
                 }
             }
-            let reach = Float(dilation + 1) * SelectionFootprint.pitch
-            lower = simd_min(lower, p - reach)
-            upper = simd_max(upper, p + reach)
         }
+        for v in voxels { layers[v.z, default: []].append(SIMD2(v.x, v.y)) }
+    }
+
+    static func == (lhs: SelectionFootprint, rhs: SelectionFootprint) -> Bool {
+        lhs.voxels == rhs.voxels
     }
 
     static func voxel(of p: simd_float3) -> SIMD3<Int32> {
@@ -55,20 +69,26 @@ struct SelectionFootprint: Equatable {
     }
 
     /// Canonical indices of the returns inside the moved footprint, ascending.
-    func indices(in points: PackPoints, offset: simd_float3, where include: (Int) -> Bool) -> [Int]
-    {
+    ///
+    /// `among` limits the search to returns already known to be nearby, for a
+    /// caller that keeps a spatial index: following forty objects through a
+    /// frame should not read the whole frame forty times.
+    func indices(
+        in points: PackPoints, offset: simd_float3, among candidates: [Int]? = nil,
+        where include: (Int) -> Bool
+    ) -> [Int] {
         guard !isEmpty else { return [] }
         let lo = lower + offset
         let hi = upper + offset
         var result: [Int] = []
-        for index in 0..<points.count {
+        for index in candidates ?? Array(0..<points.count) {
             let p = simd_float3(points.x[index], points.y[index], points.z[index])
             guard p.x >= lo.x, p.x <= hi.x, p.y >= lo.y, p.y <= hi.y, p.z >= lo.z, p.z <= hi.z,
                 include(index), contains(p, offset: offset)
             else { continue }
             result.append(index)
         }
-        return result
+        return candidates == nil ? result : result.sorted()
     }
 
     /// The horizontal offset near `prediction` that puts the most returns
@@ -90,31 +110,70 @@ struct SelectionFootprint: Equatable {
     /// at a corner of the search.
     func fit(
         in points: PackPoints, near prediction: simd_float3, searchRadius: Float = 2,
-        step: Float = SelectionFootprint.pitch, where include: (Int) -> Bool
+        step: Float = SelectionFootprint.pitch, among candidates: [Int]? = nil,
+        where include: (Int) -> Bool
     ) -> FootprintFit {
         guard !isEmpty, step > 0 else { return FootprintFit(offset: prediction) }
         // Only returns the footprint could reach at some offset in the search.
+        // The box test comes first: it is a few comparisons, and `include`
+        // may be a class filter and two set lookups for every return in a
+        // frame of thousands.
         let lo = lower + prediction - searchRadius
         let hi = upper + prediction + searchRadius
         var nearby: [simd_float3] = []
-        for index in 0..<points.count where include(index) {
+        for index in candidates ?? Array(0..<points.count) {
             let p = simd_float3(points.x[index], points.y[index], points.z[index])
-            if p.x >= lo.x, p.x <= hi.x, p.y >= lo.y, p.y <= hi.y, p.z >= lo.z, p.z <= hi.z {
+            if p.x >= lo.x, p.x <= hi.x, p.y >= lo.y, p.y <= hi.y, p.z >= lo.z, p.z <= hi.z,
+                include(index)
+            {
                 nearby.append(p)
             }
         }
         guard !nearby.isEmpty else { return FootprintFit(offset: prediction) }
 
+        // Every offset is scored at once. Asking "is this return inside the
+        // footprint moved by this offset" for each of 289 offsets is 289 hash
+        // lookups a return. Asked the other way round, a return in voxel v is
+        // inside the footprint at exactly the offsets v - f, for each
+        // footprint voxel f on v's own height layer, so each of those is a
+        // single increment. On a real 200-frame pack that took proposing
+        // objects from over two minutes to seconds.
         let steps = Int((searchRadius / step).rounded(.down))
+        let side = 2 * steps + 1
+        var counts = [Int](repeating: 0, count: side * side)
+        let scale = Int32((step / SelectionFootprint.pitch).rounded())
+        if scale >= 1, abs(Float(scale) * SelectionFootprint.pitch - step) < 1e-4 {
+            for p in nearby {
+                let v = SelectionFootprint.voxel(of: p - prediction)
+                for f in layers[v.z] ?? [] {
+                    let dx = v.x - f.x
+                    let dy = v.y - f.y
+                    guard dx % scale == 0, dy % scale == 0 else { continue }
+                    let ix = Int(dx / scale) + steps
+                    let iy = Int(dy / scale) + steps
+                    if ix >= 0, iy >= 0, ix < side, iy < side { counts[ix * side + iy] += 1 }
+                }
+            }
+        } else {
+            // A step that is not a whole number of voxels: the plain way.
+            for ix in 0..<side {
+                for iy in 0..<side {
+                    let offset =
+                        prediction
+                        + simd_float3(Float(ix - steps) * step, Float(iy - steps) * step, 0)
+                    counts[ix * side + iy] = nearby.filter { contains($0, offset: offset) }.count
+                }
+            }
+        }
+
         var scores: [(delta: simd_float3, count: Int)] = []
-        scores.reserveCapacity((2 * steps + 1) * (2 * steps + 1))
+        scores.reserveCapacity(side * side)
         var best = FootprintFit(offset: prediction, count: -1)
         var bestDistance = Float.greatestFiniteMagnitude
-        for ix in -steps...steps {
-            for iy in -steps...steps {
-                let delta = simd_float3(Float(ix) * step, Float(iy) * step, 0)
-                var count = 0
-                for p in nearby where contains(p, offset: prediction + delta) { count += 1 }
+        for ix in 0..<side {
+            for iy in 0..<side {
+                let delta = simd_float3(Float(ix - steps) * step, Float(iy - steps) * step, 0)
+                let count = counts[ix * side + iy]
                 scores.append((delta, count))
                 let distance = simd_length(delta)
                 if count > best.count || (count == best.count && distance < bestDistance) {

@@ -141,6 +141,8 @@ struct LassoOverlay: View {
         let activeName = session.activeObjectName
         let carried = session.carriedIndices
         let hovered = session.hoverIndices
+        let proposed = session.proposedIndices
+        let proposal = session.proposalIndices
         let viewport = viewport
         let basis = basis
 
@@ -206,6 +208,10 @@ struct LassoOverlay: View {
 
             // Proposals: what the carried footprint covers, and what the brush
             // under the cursor would take.
+            // Everything waiting to be graded in this frame, faintly, and the
+            // proposal being looked at, boldly.
+            context.fill(dots(proposed, size: 2.5), with: .color(.cyan.opacity(0.45)))
+            context.stroke(dots(proposal, size: 5), with: .color(.cyan), lineWidth: 1.2)
             context.stroke(dots(carried, size: 5), with: .color(.cyan), lineWidth: 1)
             context.fill(
                 dots(hovered, size: 3),
@@ -519,6 +525,8 @@ struct AnnotationPane: View {
 
     @State private var applyResult: String?
     @State private var showReviewAllPrompt = false
+    @State private var proposalClass = "car"
+    @State private var showSmallProposals = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -532,6 +540,8 @@ struct AnnotationPane: View {
                     sourceSection
                     Divider()
                     progressSection
+                    Divider()
+                    proposalSection
                     Divider()
                     displaySection
                     Divider()
@@ -679,6 +689,118 @@ struct AnnotationPane: View {
         HStack(spacing: 4) {
             Circle().fill(colour).frame(width: 7, height: 7)
             Text("\(count) \(label)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: Proposals
+
+    /// The proposals worth an operator's attention first: fixed clutter, and
+    /// what moved some distance or lasted a couple of seconds. The rest is
+    /// mostly the speckle of every frame, and is there when asked for.
+    private var listedProposals: [ObjectProposal] {
+        session.proposals.filter {
+            showSmallProposals || $0.kind == .fixed || $0.travelled >= 2 || $0.frames.count >= 20
+        }
+    }
+
+    private var proposalSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Proposed objects").font(.headline)
+            if let frame = session.proposalProgress {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Reading the pack · \(frame + 1) of \(session.samples.count)").font(
+                        .caption.monospacedDigit())
+                }
+            } else {
+                Button(session.proposals.isEmpty ? "Propose objects" : "Propose again") {
+                    Task { await session.proposeObjects() }
+                }.controlSize(.small).help(
+                    "Finds what nobody has labelled yet: clutter that stays put, as one proposal "
+                        + "a patch, and everything else as one proposal an object, followed "
+                        + "through the frames. You grade each once.")
+            }
+
+            if !session.proposals.isEmpty {
+                let listed = listedProposals
+                Text(
+                    "\(listed.count) listed of \(session.proposals.count). Click one, step through "
+                        + "its frames, then accept, split, merge or reject it."
+                ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
+                Toggle("List the small and short ones too", isOn: $showSmallProposals).font(
+                    .caption2)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(listed) { proposal in proposalRow(proposal) }
+                    }
+                }.frame(maxHeight: 170)
+                if let selected = session.selectedProposal { proposalActions(selected) }
+            }
+        }
+    }
+
+    private func proposalRow(_ proposal: ObjectProposal) -> some View {
+        let isSelected = session.selectedProposalID == proposal.id
+        return HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2).fill(
+                AnnotationPalette.colour(forClass: proposal.classGuess)
+            ).frame(width: 8, height: 8)
+            Text(
+                "\(proposal.kind == .fixed ? "fixed" : "≈ " + proposal.classGuess) · frames "
+                    + "\(proposal.firstFrame + 1)–\(proposal.lastFrame + 1) · ~\(proposal.meanPoints) pts"
+                    + (proposal.kind == .moving
+                        ? String(format: " · %.0f m", proposal.travelled) : "")
+            ).font(.caption2.monospacedDigit()).lineLimit(1)
+            Spacer(minLength: 0)
+        }.padding(.vertical, 2).padding(.horizontal, 4).background(
+            isSelected ? Color.accentColor.opacity(0.25) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 3)
+        ).contentShape(Rectangle()).onTapGesture {
+            proposalClass = proposal.classGuess
+            session.selectProposal(isSelected ? nil : proposal.id)
+        }
+    }
+
+    // Grading one proposal. Split is by the frame on screen, because where a
+    // chain ran from one car onto the next is something the operator sees
+    // while stepping through it, not a number they know.
+    private func proposalActions(_ proposal: ObjectProposal) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Picker("Class", selection: $proposalClass) {
+                    ForEach(AnnotationPalette.classes) { Text($0.name).tag($0.name) }
+                }.labelsHidden().font(.caption).frame(maxWidth: 110)
+                Button("Accept") {
+                    _ = session.acceptProposal(proposal.id, objectClass: proposalClass)
+                }
+                Button("Noise") { _ = session.acceptProposal(proposal.id, objectClass: "noise") }
+                    .help("It is not an object: label its points as noise")
+            }.controlSize(.small)
+            HStack(spacing: 4) {
+                Button("Accept up to here") {
+                    _ = session.acceptProposal(
+                        proposal.id, objectClass: proposalClass,
+                        frames: proposal.firstFrame...session.sampleIndex)
+                }.disabled(session.sampleIndex < proposal.firstFrame)
+                Button("From here") {
+                    _ = session.acceptProposal(
+                        proposal.id, objectClass: proposalClass,
+                        frames: session.sampleIndex...max(session.sampleIndex, proposal.lastFrame))
+                }.disabled(session.sampleIndex > proposal.lastFrame)
+            }.controlSize(.small).help(
+                "Split: accept part of it, by the frame on screen. The rest stays proposed.")
+            HStack(spacing: 4) {
+                if let active = session.activeObjectID {
+                    Button("Add to \(session.displayName(objectID: active))") {
+                        _ = session.acceptProposal(
+                            proposal.id, objectClass: proposalClass, into: active)
+                    }.help(
+                        "Merge: these are more frames of the object being edited. Frames it "
+                            + "already has are left alone.")
+                }
+                Button("Dismiss") { session.dismissProposal(proposal.id) }
+            }.controlSize(.small)
         }
     }
 

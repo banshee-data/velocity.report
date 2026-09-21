@@ -98,8 +98,15 @@ enum PropagationJudge {
     }
 
     /// Nil when the fit should be accepted.
+    ///
+    /// `speedKnown` is false on the first step from a frame nobody has carried
+    /// from: the prediction is then "it has not moved", which is not a
+    /// prediction, and holding a car doing ten metres a second to it would
+    /// refuse every vehicle at its first frame. The search radius is the only
+    /// limit until a first fit says how fast the object is going.
     static func verdict(
-        fit: FootprintFit, prediction: simd_float3, expected: Int, isFixed: Bool
+        fit: FootprintFit, prediction: simd_float3, expected: Int, isFixed: Bool,
+        speedKnown: Bool = true
     ) -> PropagationStop? {
         if fit.count < max(minimumPoints, Int(Float(expected) * lostFraction)) {
             return .lost(found: max(fit.count, 0), expected: expected)
@@ -112,7 +119,7 @@ enum PropagationJudge {
         guard !isFixed else { return nil }
         if Float(fit.runnerUp) >= Float(fit.count) * rivalFraction { return .ambiguous }
         let deviation = simd_distance(fit.offset, prediction)
-        if deviation > allowedDeviation(predicted: simd_length(prediction)) {
+        if speedKnown, deviation > allowedDeviation(predicted: simd_length(prediction)) {
             return .jumped(metres: deviation)
         }
         return nil

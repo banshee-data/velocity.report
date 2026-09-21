@@ -259,7 +259,7 @@ struct AnnotationSceneView: NSViewRepresentable {
             marks.selected = session.history.current
             marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(
                 session.hoverIndices
-            ).union(session.carriedIndices)
+            ).union(session.carriedIndices).union(session.proposalIndices)
             // The renderer keeps a background until it is given another, so
             // it is sent once per snapshot and switched on and off after that.
             let backdrop = session.currentBackground.map { snapshot in
