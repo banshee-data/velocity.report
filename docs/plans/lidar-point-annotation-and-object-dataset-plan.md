@@ -299,6 +299,7 @@ Delivered in the macOS client and the Go exporter. The operator's guide is
 | Proposals           | Fixed clutter by persistence; moving objects as clusters chained by footprint; accept, split, merge, reject |
 | Review              | Per frame and per object; reaches the masks; a changed frame returns to proposed; provenance kept           |
 | Progress            | Sixteen-sector ring for the frame; a bar a frame for the pack                                               |
+| Correction          | Split an object that is two, carried through its frames; merge a proposal into an object                    |
 
 Measured on one real pack of 200 frames, against the operator's own labels. A hand-labelled car
 was matched by one proposal in all 19 of its frames at a median overlap of 1.00 (least 0.97), and
@@ -312,6 +313,48 @@ dataset splits (§7), and pruning of retained revisions, which grow by a full sn
 The proposer clusters the pack's points itself instead of reading the run's clusters, because a
 recording keeps cluster boxes and not their membership, and the tracker's identities would bring
 its fragmentation with them.
+
+## 11. Carrying labels across runs of the same capture
+
+Labels are bound to a pack digest, and a pack is cut from one run. Every new run of the same
+PCAP, which is what tuning produces, would have to be labelled again. §3.2 leaves reattachment
+as "a separate reviewed transfer operation". This section records what makes that transfer
+exact rather than approximate, and proposes it.
+
+**Measured.** Recordings of the same PCAP were compared frame by frame, matching returns by the
+bit patterns of their coordinates within frames of equal timestamp.
+
+| Pair                                          | Frames sharing a timestamp | Returns bit-identical in both |
+| --------------------------------------------- | -------------------------- | ----------------------------- |
+| Same parameters, different builds (`s2_sf_3`) | 600 of 600                 | 100% of 2,318,167             |
+| Different parameters (`kirk0`, three pairs)   | 291 to 600 of 521 to 600   | 83% to 99% of either side     |
+
+No frame in any recording held two returns with the same coordinates, so within a frame a
+return's coordinates identify it. A return is computed from range, azimuth and elevation before
+L3 sees it, so the same packet gives the same three floats in every run. What differs between
+runs is which returns L3 kept as foreground, not what any of them is.
+
+**So a label's durable form** is (capture identity, frame timestamp, coordinate bits), not
+(pack digest, sample, index). The second is derived from the first for any one pack.
+
+**Proposed transfer**, as a Go command and an action in the tool, from a labelled pack to
+another pack of the same PCAP:
+
+1. Refuse unless both manifests name the same PCAP and sensor. A capture digest belongs in the
+   manifest for this; the basename is what is there today.
+2. For each frame timestamp in both, map each labelled return to the index of the bit-identical
+   return in the new pack. These are exact: the same return, labelled by the same person.
+3. Returns in the new frame that the old run did not keep cannot be matched. Those inside the
+   object's footprint for that frame are added as proposed, recorded as geometric.
+4. Write the result as proposed masks with `algorithm: return_identity_transfer`, the source
+   pack digest, and per mask the counts matched exactly, added by footprint, and lost. A reviewed
+   source mask becomes a proposed one: the operator reviewed different membership.
+
+**Open before building.** Two `kirk0` pairs shared only half their frame timestamps, which
+means frame boundaries moved between those builds; matching should then look in the neighbouring
+frames, and how often that arises on current builds is not yet measured. Classification and
+height band differ between runs by design and are not transferred. The proposer could use
+transferred labels as seeds, so that a new run starts from the last run's objects.
 
 This plan is the implementation slice and acceptance record for the annotation pilot. Any later
 demo or state-estimation work must retain these evidence boundaries rather than treating a reviewed

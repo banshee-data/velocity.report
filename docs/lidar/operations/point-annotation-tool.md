@@ -51,15 +51,18 @@ it unchanged.
 
 ## The window
 
-| Area                      | What it is                                                                                            |
-| ------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Editing view (left)       | Orthographic. The only view that takes a selection. Its header says which object a stroke belongs to  |
-| 3D view (top right)       | The main view's renderer on this frame. For looking, not selecting                                    |
-| Check view (bottom right) | A second orthographic view on another axis. Review is gated on it                                     |
-| Frame strip (bottom)      | One bar a frame: green agreed, amber in question. A yellow marker is a background update. Click to go |
-| Pane (right)              | Status line, run and frame, progress, proposals, display, objects, tools, save and review             |
+| Area                        | What it is                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| Left sidebar                | What is being labelled: run and frame, this frame's progress, proposals, objects          |
+| 3D view (top, large)        | The main view's renderer on this frame. For looking, not selecting                        |
+| Top, Front and Side (below) | All three orthographic views. The one outlined takes strokes; click another to edit there |
+| Frame strip (bottom)        | One bar a frame: green agreed, amber in question. A yellow marker is a background update  |
+| Right sidebar               | How: display, tools, depth slab, carrying, saving and review                              |
 
-The status line at the top of the pane always says what went wrong or what to do next.
+Only the editing view takes strokes, so there is always another view to check a selection in.
+Changing the editing view drops a depth slab that was set along the old view's depth axis.
+
+The status line across the top of the views always says what went wrong or what to do next.
 
 ### Moving about
 
@@ -114,8 +117,10 @@ metre or more are drawn in white.
    - **Dismiss** to drop it from the list.
 4. Fix what is wrong by hand (below), then **Review all frames…** for the object.
 
-Proposals are listed largest first. The small and short ones, which are mostly the speckle of
-every frame, are behind a toggle.
+Proposals can be listed by most frames, most points, furthest moved, steadiest return count
+or earliest, and filtered by proposed type. Steadiest is the least lurching count from frame to
+frame, which is the chain least likely to have hopped between things. The small and short ones,
+mostly the speckle of every frame, are behind a toggle.
 
 ## Labelling by hand
 
@@ -144,6 +149,18 @@ Stepping to the next frame lays the last frame's selection over it in cyan. Arro
 every frame** saves its mask into all of them.
 
 ⌘Z and ⇧⌘Z undo and redo selection edits.
+
+### One object that is two
+
+1. Make the object the one being edited, on a frame where the two can be told apart.
+2. Take the second one's points out of it (option-drag with a brush). They are ringed in red.
+3. Choose its class and press **Split off as new object**.
+
+That frame is divided as you divided it. The division is then carried both ways through the
+frames the object is labelled in: the pair is followed together and each return goes to
+whichever of the two it is nearer. It stops where the second object cannot be found as itself,
+which is where the label only ever covered the first. Every frame it changes goes back to
+proposed, so step through them before reviewing.
 
 ## What counts
 
