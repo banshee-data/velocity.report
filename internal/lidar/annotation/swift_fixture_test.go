@@ -206,3 +206,50 @@ func TestSwiftWrittenSidecarIsReadable(t *testing.T) {
 		t.Fatalf("a proposed mask under a proposed object is not reviewed truth, got %d", len(got))
 	}
 }
+
+// The background context is laid out by hand on both sides too: all X, then
+// all Y, then all Z as little-endian float32, indexed by a JSON file whose
+// digest is taken before the trailing newline. The same bytes and digests are
+// embedded in the Swift reader's tests
+// (tools/visualiser-macos/VelocityVisualiserTests/AnnotationBackgroundTests.swift).
+const (
+	swiftFixtureBackgroundBase64    = "AADAPwAAAMAAAEBAAACIQAAAAL8AAMBA"
+	swiftFixtureBackgroundPointsSHA = "sha256:9e890764a8e9cc124c1296e1c8fdff379ee970f840df9c6d3d2e886d0eb86239"
+	swiftFixtureBackgroundsSHA      = "sha256:691fdcc25726fbf8872126b9252ae21c20d8fffb466cf1c23508a78298355529"
+)
+
+func TestSwiftFixtureBackgroundIsByteStable(t *testing.T) {
+	block, err := encodeBackground([]float32{1.5, -2}, []float32{3, 4.25}, []float32{-0.5, 6})
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	if got := base64.StdEncoding.EncodeToString(block); got != swiftFixtureBackgroundBase64 {
+		t.Errorf("background bytes changed: %s\nUpdate the Swift fixture to match.", got)
+	}
+
+	dir := filepath.Join(t.TempDir(), "pack")
+	samples := []Sample{{SourceOrdinal: 1, TimestampNs: 1000, SensorID: "s", PointCount: 1}}
+	points := swiftFixtureBlock([]float32{1}, []float32{1}, []float32{1}, []uint8{1}, []uint8{1})
+	backgrounds := []Background{{
+		SourceOrdinal: 0, TimestampNs: 999, SettlingComplete: true, PointCount: 2,
+	}}
+	if err := WritePackWithBackground(
+		dir, Manifest{Coverage: CoverageForegroundOnly}, samples, [][]byte{points},
+		backgrounds, [][]byte{block},
+	); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	pack, err := OpenPack(dir)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if got := pack.Manifest.BackgroundPointsSHA256; got != swiftFixtureBackgroundPointsSHA {
+		t.Errorf("background points digest = %s\nUpdate the Swift fixture to match.", got)
+	}
+	if got := pack.Manifest.BackgroundsSHA256; got != swiftFixtureBackgroundsSHA {
+		t.Errorf("backgrounds index digest = %s\nUpdate the Swift fixture to match.", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, backgroundsFile)); err != nil {
+		t.Errorf("backgrounds index not written: %v", err)
+	}
+}

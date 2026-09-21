@@ -271,3 +271,168 @@ func TestExportRecordsTheRunsHeightBand(t *testing.T) {
 		t.Error("a manifest with no known band still wrote a height_band key")
 	}
 }
+
+// recordScript writes a recording from a script of frames: 'b' a background
+// snapshot with no points, 'p' a frame of points, 'B' both at once. Point
+// frames are stamped 1000, 2000, ... in order; a background is stamped bgTs,
+// which a replay settled ahead of time sets later than everything after it.
+func recordScript(t *testing.T, script string, bgTs int64) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "vrlog")
+	rec, err := recorder.NewRecorder(dir, "synthetic")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	pointTs := int64(0)
+	for i, kind := range script {
+		bundle := &l9endpoints.FrameBundle{}
+		if kind == 'b' || kind == 'B' {
+			// The snapshot's first X says which snapshot it is.
+			bundle.TimestampNanos = bgTs
+			bundle.Background = &l9endpoints.BackgroundSnapshot{
+				TimestampNanos: bgTs, X: []float32{float32(i), 1}, Y: []float32{2, 3}, Z: []float32{4, 5},
+				GridMetadata: l9endpoints.GridMetadata{SettlingComplete: true},
+			}
+		}
+		if kind == 'p' || kind == 'B' {
+			pointTs += 1000
+			bundle.TimestampNanos = pointTs
+			bundle.PointCloud = &l9endpoints.PointCloudFrame{
+				FrameID: uint64(i), TimestampNanos: pointTs, SensorID: "synthetic",
+				X: []float32{1}, Y: []float32{1}, Z: []float32{1},
+				Intensity: []uint8{1}, Classification: []uint8{0}, PointCount: 1,
+			}
+		}
+		if err := rec.Record(bundle); err != nil {
+			t.Fatalf("record frame %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close recorder: %v", err)
+	}
+	return dir
+}
+
+func TestExportCarriesTheBackgroundInForce(t *testing.T) {
+	// Ordinals:            0123456
+	src := recordScript(t, "bppbppb", 999_999)
+
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	// The trailing snapshot is in force for no sample, so it is not carried.
+	if got := len(pack.Backgrounds); got != 2 {
+		t.Fatalf("pack carries %d backgrounds, want 2", got)
+	}
+	if pack.Backgrounds[0].SourceOrdinal != 0 || pack.Backgrounds[1].SourceOrdinal != 3 {
+		t.Errorf("background ordinals = %d, %d, want 0, 3",
+			pack.Backgrounds[0].SourceOrdinal, pack.Backgrounds[1].SourceOrdinal)
+	}
+	if !pack.Backgrounds[0].SettlingComplete || pack.Backgrounds[0].PointCount != 2 {
+		t.Errorf("background 0 = %+v", pack.Backgrounds[0])
+	}
+	// Samples 0 and 1 sit under the first snapshot, 2 and 3 under the second.
+	for sampleID, want := range []int{0, 0, 1, 1} {
+		got, ok := pack.BackgroundInForce(sampleID)
+		if !ok || got.BackgroundID != want {
+			t.Errorf("sample %d: background in force = %d (ok %v), want %d", sampleID, got.BackgroundID, ok, want)
+		}
+	}
+	// Frames that carried a background are not missing points.
+	if n := pack.Manifest.Completeness.FramesWithoutPoints; n != 0 {
+		t.Errorf("frames without points = %d, want 0: background frames are not a gap", n)
+	}
+}
+
+// The recording this was found on opens with a snapshot stamped five minutes
+// after the frames that follow it. With an end time set, the exporter broke
+// out of its loop on that first frame and reported no point-bearing frames.
+func TestExportWindowIsNotEndedByALateStampedBackground(t *testing.T) {
+	src := recordScript(t, "bpppp", 999_999)
+
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: out, Coverage: CoverageFull, StartNs: 2000, EndNs: 3000,
+	}); err != nil {
+		t.Fatalf("windowed export: %v", err)
+	}
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if len(pack.Samples) != 2 {
+		t.Errorf("samples = %d, want the 2 inside the window", len(pack.Samples))
+	}
+	// Recorded before the window, and still what was in force inside it.
+	if got, ok := pack.BackgroundInForce(0); !ok || got.SourceOrdinal != 0 {
+		t.Errorf("background in force at the first sample = %+v (ok %v), want ordinal 0", got, ok)
+	}
+}
+
+func TestExportKeepsAFramesBackgroundAndItsPointsTogether(t *testing.T) {
+	src := recordScript(t, "Bp", 999_999)
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if len(pack.Samples) != 2 || len(pack.Backgrounds) != 1 {
+		t.Fatalf("samples %d, backgrounds %d, want 2 and 1", len(pack.Samples), len(pack.Backgrounds))
+	}
+	if got, ok := pack.BackgroundInForce(0); !ok || got.BackgroundID != 0 {
+		t.Errorf("the frame's own background is not in force for its own points: %+v (ok %v)", got, ok)
+	}
+}
+
+func TestAPackWithoutBackgroundIsWrittenAsItAlwaysWas(t *testing.T) {
+	src := writeVRLOG(t, true, 1000, 2000)
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	for _, name := range []string{backgroundsFile, backgroundPointsFile} {
+		if _, err := os.Stat(filepath.Join(out, name)); err == nil {
+			t.Errorf("%s written for a recording with no background", name)
+		}
+	}
+	raw, _ := os.ReadFile(filepath.Join(out, manifestFile))
+	if strings.Contains(string(raw), "background") {
+		t.Error("manifest mentions a background the pack does not carry")
+	}
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if _, ok := pack.BackgroundInForce(0); ok {
+		t.Error("a pack with no backgrounds reported one in force")
+	}
+}
+
+func TestOpenPackRefusesATamperedBackground(t *testing.T) {
+	src := recordScript(t, "bp", 999_999)
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	path := filepath.Join(out, backgroundPointsFile)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	raw[0] ^= 0xFF
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := OpenPack(out); err == nil || !strings.Contains(err.Error(), "background points digest") {
+		t.Errorf("opened a pack whose background was altered: %v", err)
+	}
+}

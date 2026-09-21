@@ -41,6 +41,9 @@ const (
 	manifestFile = "manifest.json"
 	samplesFile  = "samples.json"
 	pointsFile   = "points.bin"
+	// Optional: the settled background in force over the excerpt.
+	backgroundsFile      = "backgrounds.json"
+	backgroundPointsFile = "background.bin"
 )
 
 // CaptureCoverage records what the source recording could see, so a limitation
@@ -140,7 +143,52 @@ type Manifest struct {
 	HasIntensity      bool `json:"has_intensity"`
 	HasClassification bool `json:"has_classification"`
 
+	// The settled background, when the recording carried it. It is context
+	// for an operator, not part of the point domain: no mask can cite a
+	// background point, so these digests sit beside the pack digest rather
+	// than inside it.
+	BackgroundCount        int    `json:"background_count,omitempty"`
+	BackgroundsSHA256      string `json:"backgrounds_sha256,omitempty"`
+	BackgroundPointsSHA256 string `json:"background_points_sha256,omitempty"`
+
 	Completeness Completeness `json:"completeness"`
+}
+
+// Background is one settled-background snapshot carried with a pack.
+//
+// Snapshots are ordered by SourceOrdinal, their position in the recording, and
+// the one in force at a sample is the last whose ordinal does not exceed the
+// sample's. Not by timestamp, and not by sequence number: a replay that was
+// settled ahead of time records its first snapshot stamped later than every
+// frame that follows it, and the sequence number only moves on a grid reset.
+type Background struct {
+	BackgroundID     int    `json:"background_id"`
+	SourceOrdinal    int    `json:"source_ordinal"`
+	TimestampNs      int64  `json:"timestamp_ns"`
+	SequenceNumber   uint64 `json:"sequence_number"`
+	SettlingComplete bool   `json:"settling_complete"`
+	PointCount       int    `json:"point_count"`
+	ByteOffset       int64  `json:"byte_offset"`
+}
+
+// backgroundBytes is the encoded size of one snapshot: X, Y and Z as float32.
+func backgroundBytes(n int) int64 { return int64(n) * 4 * 3 }
+
+// encodeBackground lays a snapshot out as all X, then all Y, then all Z.
+func encodeBackground(x, y, z []float32) ([]byte, error) {
+	n := len(x)
+	if len(y) != n || len(z) != n {
+		return nil, fmt.Errorf("background coordinate arrays differ in length: %d, %d, %d", n, len(y), len(z))
+	}
+	buf := make([]byte, backgroundBytes(n))
+	off := 0
+	for _, axis := range [][]float32{x, y, z} {
+		for _, v := range axis {
+			binary.LittleEndian.PutUint32(buf[off:], math.Float32bits(v))
+			off += 4
+		}
+	}
+	return buf, nil
 }
 
 // Sample is one frame's point domain within the pack.
@@ -175,11 +223,13 @@ func sampleBytes(n int) int64 { return int64(n)*(4*3) + int64(n)*2 }
 
 // Pack is an opened annotation pack.
 type Pack struct {
-	Dir      string
-	Manifest Manifest
-	Samples  []Sample
+	Dir         string
+	Manifest    Manifest
+	Samples     []Sample
+	Backgrounds []Background
 
-	raw []byte // points.bin contents, verified against the manifest digest
+	raw           []byte // points.bin contents, verified against the manifest digest
+	rawBackground []byte // background.bin contents, likewise, when present
 }
 
 // sha256Hex is the digest form used throughout: "sha256:" plus lower hex, so a
@@ -265,6 +315,19 @@ func decodePoints(b []byte, n int) (Points, error) {
 // destination and moved into place, so an interrupted export cannot leave a
 // half-written domain that annotations would then cite.
 func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte) error {
+	return WritePackWithBackground(dir, m, samples, blocks, nil, nil)
+}
+
+// WritePackWithBackground is WritePack plus the settled-background snapshots
+// in force over the excerpt. With none it writes exactly what WritePack
+// always has: no extra files, and no extra manifest keys.
+func WritePackWithBackground(
+	dir string, m Manifest, samples []Sample, blocks [][]byte,
+	backgrounds []Background, backgroundBlocks [][]byte,
+) error {
+	if len(backgrounds) != len(backgroundBlocks) {
+		return fmt.Errorf("%d backgrounds but %d background blocks", len(backgrounds), len(backgroundBlocks))
+	}
 	if len(samples) != len(blocks) {
 		return fmt.Errorf("%d samples but %d point blocks", len(samples), len(blocks))
 	}
@@ -300,10 +363,36 @@ func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte) error 
 		m.DatasetID = "ds_" + m.PackDigest[7:23]
 	}
 
+	files := map[string][]byte{
+		pointsFile:  points,
+		samplesFile: append(samplesJSON, '\n'),
+	}
+	if len(backgrounds) > 0 {
+		var backgroundPoints []byte
+		for i := range backgrounds {
+			backgrounds[i].BackgroundID = i
+			backgrounds[i].ByteOffset = int64(len(backgroundPoints))
+			if got, want := int64(len(backgroundBlocks[i])), backgroundBytes(backgrounds[i].PointCount); got != want {
+				return fmt.Errorf("background %d: block is %d bytes, want %d", i, got, want)
+			}
+			backgroundPoints = append(backgroundPoints, backgroundBlocks[i]...)
+		}
+		backgroundsJSON, err := json.MarshalIndent(backgrounds, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal backgrounds: %w", err)
+		}
+		m.BackgroundCount = len(backgrounds)
+		m.BackgroundsSHA256 = sha256Hex(backgroundsJSON)
+		m.BackgroundPointsSHA256 = sha256Hex(backgroundPoints)
+		files[backgroundsFile] = append(backgroundsJSON, '\n')
+		files[backgroundPointsFile] = backgroundPoints
+	}
+
 	manifestJSON, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}
+	files[manifestFile] = append(manifestJSON, '\n')
 
 	staging := dir + ".partial"
 	if err := os.RemoveAll(staging); err != nil {
@@ -312,11 +401,7 @@ func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte) error 
 	if err := os.MkdirAll(staging, 0o755); err != nil {
 		return fmt.Errorf("create staging directory: %w", err)
 	}
-	for name, content := range map[string][]byte{
-		pointsFile:   points,
-		samplesFile:  append(samplesJSON, '\n'),
-		manifestFile: append(manifestJSON, '\n'),
-	} {
+	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(staging, name), content, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", name, err)
 		}
@@ -385,7 +470,78 @@ func OpenPack(dir string) (*Pack, error) {
 		}
 	}
 
-	return &Pack{Dir: dir, Manifest: m, Samples: samples, raw: raw}, nil
+	pack := &Pack{Dir: dir, Manifest: m, Samples: samples, raw: raw}
+	if m.BackgroundCount > 0 {
+		if err := pack.openBackground(); err != nil {
+			return nil, err
+		}
+	}
+	return pack, nil
+}
+
+// openBackground reads and verifies the background context. A pack that
+// declares one and cannot produce it is refused like any other mismatch: an
+// operator shown the wrong background would label against a scene that was
+// not there.
+func (p *Pack) openBackground() error {
+	m := p.Manifest
+	index, err := os.ReadFile(filepath.Join(p.Dir, backgroundsFile))
+	if err != nil {
+		return fmt.Errorf("read backgrounds: %w", err)
+	}
+	if got := sha256Hex(trimTrailingNewline(index)); got != m.BackgroundsSHA256 {
+		return fmt.Errorf("backgrounds digest mismatch: file is %s, manifest says %s", got, m.BackgroundsSHA256)
+	}
+	var backgrounds []Background
+	if err := json.Unmarshal(index, &backgrounds); err != nil {
+		return fmt.Errorf("parse backgrounds: %w", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(p.Dir, backgroundPointsFile))
+	if err != nil {
+		return fmt.Errorf("read background points: %w", err)
+	}
+	if got := sha256Hex(raw); got != m.BackgroundPointsSHA256 {
+		return fmt.Errorf("background points digest mismatch: file is %s, manifest says %s", got, m.BackgroundPointsSHA256)
+	}
+	if len(backgrounds) != m.BackgroundCount {
+		return fmt.Errorf("manifest declares %d backgrounds, file holds %d", m.BackgroundCount, len(backgrounds))
+	}
+	for i, b := range backgrounds {
+		if b.BackgroundID != i {
+			return fmt.Errorf("background %d carries id %d: ids must be dense and ordered", i, b.BackgroundID)
+		}
+		if b.PointCount < 0 || b.PointCount > MaxPointsPerSample {
+			return fmt.Errorf("background %d declares %d points", i, b.PointCount)
+		}
+		if i > 0 && b.SourceOrdinal < backgrounds[i-1].SourceOrdinal {
+			return fmt.Errorf("background %d is out of recording order", i)
+		}
+		end := b.ByteOffset + backgroundBytes(b.PointCount)
+		if b.ByteOffset < 0 || end > int64(len(raw)) {
+			return fmt.Errorf("background %d spans bytes [%d,%d) of a %d-byte file", i, b.ByteOffset, end, len(raw))
+		}
+	}
+	p.Backgrounds = backgrounds
+	p.rawBackground = raw
+	return nil
+}
+
+// BackgroundInForce returns the snapshot an operator should see behind a
+// sample: the last one recorded at or before it. ok is false when the pack
+// carries none, or none that early.
+func (p *Pack) BackgroundInForce(sampleID int) (Background, bool) {
+	if sampleID < 0 || sampleID >= len(p.Samples) {
+		return Background{}, false
+	}
+	var found Background
+	ok := false
+	for _, b := range p.Backgrounds {
+		if b.SourceOrdinal > p.Samples[sampleID].SourceOrdinal {
+			break
+		}
+		found, ok = b, true
+	}
+	return found, ok
 }
 
 func trimTrailingNewline(b []byte) []byte {

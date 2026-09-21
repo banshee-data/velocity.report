@@ -83,7 +83,23 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		// Classed points that are not foreground. A recording that kept the
 		// whole scene has them in every frame.
 		nonForeground int64
+
+		backgrounds      []Background
+		backgroundBlocks [][]byte
+		// The latest snapshot seen that has not been written yet. Held rather
+		// than written at once, because the one in force at the first sample
+		// was usually recorded before the excerpt begins.
+		pending      *Background
+		pendingBlock []byte
 	)
+	keepPending := func() {
+		if pending == nil {
+			return
+		}
+		backgrounds = append(backgrounds, *pending)
+		backgroundBlocks = append(backgroundBlocks, pendingBlock)
+		pending, pendingBlock = nil, nil
+	}
 
 	for {
 		frame, err := replayer.ReadFrame()
@@ -96,17 +112,43 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		ordinal++
 
 		ts := frame.TimestampNanos
+		inWindow := (cfg.StartNs == 0 || ts >= cfg.StartNs) && (cfg.EndNs == 0 || ts <= cfg.EndNs)
+
+		// Before the window test: the background in force when the excerpt
+		// begins is whichever was recorded last before it.
+		if bg := frame.Background; bg != nil && len(bg.X) > 0 {
+			block, err := encodeBackground(bg.X, bg.Y, bg.Z)
+			if err != nil {
+				return nil, fmt.Errorf("frame %d (ordinal): %w", ordinal-1, err)
+			}
+			pending = &Background{
+				SourceOrdinal: ordinal - 1, TimestampNs: bg.TimestampNanos,
+				SequenceNumber: bg.SequenceNumber, SettlingComplete: bg.GridMetadata.SettlingComplete,
+				PointCount: len(bg.X),
+			}
+			pendingBlock = block
+			// Once the excerpt has begun, every snapshot belongs to it.
+			if len(samples) > 0 {
+				keepPending()
+			}
+		}
+
+		pc := frame.PointCloud
+		if pc == nil || len(pc.X) == 0 {
+			// A frame with no points does not bound the excerpt. A background
+			// frame's timestamp is when the snapshot was taken, and a replay
+			// settled ahead of time opens with one stamped after every frame
+			// that follows: breaking on it ended a windowed export at frame 0.
+			if inWindow && frame.Background == nil {
+				comp.FramesWithoutPoints++
+			}
+			continue
+		}
 		if cfg.StartNs != 0 && ts < cfg.StartNs {
 			continue
 		}
 		if cfg.EndNs != 0 && ts > cfg.EndNs {
 			break
-		}
-
-		pc := frame.PointCloud
-		if pc == nil || len(pc.X) == 0 {
-			comp.FramesWithoutPoints++
-			continue
 		}
 
 		block, err := encodePoints(Points{
@@ -147,6 +189,9 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		}
 		comp.ActualEndNs = ts
 
+		if len(samples) == 0 {
+			keepPending()
+		}
 		samples = append(samples, Sample{
 			SourceOrdinal: ordinal - 1,
 			SourceFrameID: frameID(frame),
@@ -208,7 +253,14 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		Completeness:      comp,
 	}
 
-	if err := WritePack(cfg.OutDir, m, samples, blocks); err != nil {
+	// A snapshot recorded after the last sample is in force for none of them.
+	lastOrdinal := samples[len(samples)-1].SourceOrdinal
+	for len(backgrounds) > 0 && backgrounds[len(backgrounds)-1].SourceOrdinal > lastOrdinal {
+		backgrounds = backgrounds[:len(backgrounds)-1]
+		backgroundBlocks = backgroundBlocks[:len(backgroundBlocks)-1]
+	}
+
+	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, backgrounds, backgroundBlocks); err != nil {
 		return nil, err
 	}
 	return OpenPack(cfg.OutDir)
