@@ -27,6 +27,10 @@ type ExportConfig struct {
 	// looks exactly like a sparse full-scene one.
 	Coverage     CaptureCoverage
 	CoverageNote string
+	// HeightBand is the run's L4 height-band filter, recorded in the manifest
+	// when known. A VRLOG does not carry its run's parameters, so the caller
+	// supplies them; nil leaves the manifest without one.
+	HeightBand *HeightBand
 }
 
 // Export cuts a frozen pack from a VRLOG.
@@ -76,6 +80,9 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		seenTs   = make(map[int64]int)
 		hasInten bool
 		hasClass bool
+		// Classed points that are not foreground. A recording that kept the
+		// whole scene has them in every frame.
+		nonForeground int64
 	)
 
 	for {
@@ -114,6 +121,11 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		}
 		if len(pc.Classification) > 0 {
 			hasClass = true
+		}
+		for _, class := range pc.Classification {
+			if class != classForeground {
+				nonForeground++
+			}
 		}
 
 		// Duplicate timestamps are legal. They are recorded rather than
@@ -155,6 +167,18 @@ func Export(cfg ExportConfig) (*Pack, error) {
 				"(record the source with --include-points)", comp.FramesWithoutPoints)
 	}
 
+	// The exporter cannot tell a sparse full scene from a foreground-only one
+	// by counting points, which is why coverage is stated rather than
+	// inferred. It can tell when the statement contradicts the recorder: a
+	// full scene always has background in it, and the recorder classed every
+	// one of these points as foreground.
+	if cfg.Coverage == CoverageFull && hasClass && nonForeground == 0 {
+		return nil, fmt.Errorf(
+			"coverage %q contradicts the recording: every point in the %d exported frames is "+
+				"classed foreground, so it kept foreground only (export it as %q)",
+			CoverageFull, len(samples), CoverageForegroundOnly)
+	}
+
 	m := Manifest{
 		CreatedNs: time.Now().UnixNano(),
 		Source: SourceProvenance{
@@ -168,6 +192,7 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			ParamsHash:     header.ParamsHash,
 			BuildVersion:   header.BuildVersion,
 			BuildGitSHA:    header.BuildGitSHA,
+			HeightBand:     cfg.HeightBand,
 		},
 		Coordinate: CoordinateContract{
 			Units:          "metres",
@@ -188,6 +213,10 @@ func Export(cfg ExportConfig) (*Pack, error) {
 	}
 	return OpenPack(cfg.OutDir)
 }
+
+// classForeground is the recorder's per-point class for a foreground return
+// (visualiser.proto: background=0, foreground=1, ground=2).
+const classForeground = 1
 
 func frameID(f *l9endpoints.FrameBundle) uint64 {
 	if f.PointCloud != nil {

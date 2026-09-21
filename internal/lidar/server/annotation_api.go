@@ -142,6 +142,7 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		MaxSamples:   maxSamples,
 		Coverage:     annotation.CaptureCoverage(body.Coverage),
 		CoverageNote: body.CoverageNote,
+		HeightBand:   heightBandFromRunConfig(run.ExecutionConfig),
 	})
 	if err != nil {
 		// Export can fail after creating outDir (e.g. no point-bearing frames
@@ -151,8 +152,10 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		// "no point-bearing frames" is the one failure mode caused by the
 		// caller's own start/end window; everything else here is a read
 		// failure against a VRLOG this server itself recorded.
+		// So is a coverage the recording contradicts: the caller stated it.
 		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "no point-bearing frames") {
+		if strings.Contains(err.Error(), "no point-bearing frames") ||
+			strings.Contains(err.Error(), "contradicts the recording") {
 			status = http.StatusBadRequest
 		}
 		ws.writeJSONError(w, status, fmt.Sprintf("annotation export failed: %v", err))
@@ -170,4 +173,42 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		HasIntensity:      pack.Manifest.HasIntensity,
 		HasClassification: pack.Manifest.HasClassification,
 	})
+}
+
+// heightBandFromRunConfig reads the L4 height band out of a run's composed
+// config, so the pack can say which of its points the clusterer never saw.
+//
+// Returns nil unless all three values are present under the active L4 engine.
+// A band assembled from two stored values and one assumed default would be
+// presented to an operator as the rule the run applied, and it would not be.
+func heightBandFromRunConfig(composed json.RawMessage) *annotation.HeightBand {
+	if len(composed) == 0 {
+		return nil
+	}
+	var doc struct {
+		Params struct {
+			L4 map[string]json.RawMessage `json:"l4"`
+		} `json:"params"`
+	}
+	if err := json.Unmarshal(composed, &doc); err != nil {
+		return nil
+	}
+	var engine string
+	if err := json.Unmarshal(doc.Params.L4["engine"], &engine); err != nil || engine == "" {
+		return nil
+	}
+	var block struct {
+		Floor        *float64 `json:"height_band_floor"`
+		Ceiling      *float64 `json:"height_band_ceiling"`
+		RemoveGround *bool    `json:"remove_ground"`
+	}
+	if err := json.Unmarshal(doc.Params.L4[engine], &block); err != nil {
+		return nil
+	}
+	if block.Floor == nil || block.Ceiling == nil || block.RemoveGround == nil {
+		return nil
+	}
+	return &annotation.HeightBand{
+		FloorM: *block.Floor, CeilingM: *block.Ceiling, RemoveGround: *block.RemoveGround,
+	}
 }

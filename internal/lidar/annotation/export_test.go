@@ -1,6 +1,7 @@
 package annotation
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -161,5 +162,112 @@ func TestExportRecordsDuplicateTimestamps(t *testing.T) {
 	}
 	if pack.Samples[0].SampleID == pack.Samples[1].SampleID {
 		t.Fatal("two samples share an id; references would be ambiguous")
+	}
+}
+
+// writeClassedVRLOG records two frames whose points all carry `class`, except
+// that `strays` of them in the second frame are background.
+func writeClassedVRLOG(t *testing.T, class uint8, strays int) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "vrlog")
+	rec, err := recorder.NewRecorder(dir, "synthetic")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		n := 4
+		pc := &l9endpoints.PointCloudFrame{
+			FrameID: uint64(i), TimestampNanos: int64(i+1) * 1000, SensorID: "synthetic",
+			X: make([]float32, n), Y: make([]float32, n), Z: make([]float32, n),
+			Intensity: make([]uint8, n), Classification: make([]uint8, n),
+			PointCount: n,
+		}
+		for j := range pc.Classification {
+			pc.Classification[j] = class
+		}
+		if i == 1 {
+			for j := 0; j < strays; j++ {
+				pc.Classification[j] = 0
+			}
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
+			t.Fatalf("record frame %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close recorder: %v", err)
+	}
+	return dir
+}
+
+// A recording that kept foreground only was being exported as "full" because
+// the operator's sheet offered it. The recorder's own class bytes say
+// otherwise, and a pack that claims the whole scene while holding none of the
+// background is the mislabelling coverage exists to prevent.
+func TestExportRefusesFullCoverageOfAForegroundOnlyRecording(t *testing.T) {
+	src := writeClassedVRLOG(t, 1, 0)
+
+	_, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "pack"), Coverage: CoverageFull,
+	})
+	if err == nil {
+		t.Fatal("exported an all-foreground recording as full coverage")
+	}
+	if !strings.Contains(err.Error(), "contradicts the recording") ||
+		!strings.Contains(err.Error(), string(CoverageForegroundOnly)) {
+		t.Errorf("error %q does not say what is wrong or what to state instead", err)
+	}
+
+	// The same recording, honestly described, exports.
+	if _, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "pack"), Coverage: CoverageForegroundOnly,
+	}); err != nil {
+		t.Errorf("foreground_only export of the same recording: %v", err)
+	}
+}
+
+func TestExportAcceptsFullCoverageWhenAnyBackgroundWasRecorded(t *testing.T) {
+	// One background return is enough: the check is for a contradiction, not
+	// a judgement of how much background a full scene ought to have.
+	src := writeClassedVRLOG(t, 1, 1)
+	if _, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "pack"), Coverage: CoverageFull,
+	}); err != nil {
+		t.Errorf("full export with background present: %v", err)
+	}
+}
+
+func TestExportRecordsTheRunsHeightBand(t *testing.T) {
+	src := writeVRLOG(t, true, 1000, 2000)
+	band := &HeightBand{FloorM: -2.8, CeilingM: 1.5, RemoveGround: true}
+
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: out, Coverage: CoverageFull, HeightBand: band,
+	}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	// Re-opened from disk: what a client reads, not what Export held in memory.
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	got := pack.Manifest.Source.HeightBand
+	if got == nil || *got != *band {
+		t.Errorf("manifest height band = %+v, want %+v", got, band)
+	}
+
+	// Unknown stays absent rather than becoming a zero band, which would
+	// read as "everything above the sensor was removed".
+	bare := filepath.Join(t.TempDir(), "bare")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: bare, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export without a band: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(bare, "manifest.json"))
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if strings.Contains(string(raw), "height_band") {
+		t.Error("a manifest with no known band still wrote a height_band key")
 	}
 }

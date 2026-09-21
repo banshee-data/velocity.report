@@ -427,3 +427,83 @@ func TestHandleAnnotationExportRoutesThroughTheDispatcher(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestHeightBandFromRunConfig(t *testing.T) {
+	const full = `{"schema_version":"run_config/v1","params":{"l4":{"engine":"dbscan_xy_v1",
+		"dbscan_xy_v1":{"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true}}}}`
+	got := heightBandFromRunConfig(json.RawMessage(full))
+	if got == nil || got.FloorM != -2.8 || got.CeilingM != 1.5 || !got.RemoveGround {
+		t.Fatalf("band = %+v, want floor -2.8, ceiling 1.5, remove_ground true", got)
+	}
+
+	// The band is read from the engine that ran, not from whichever block
+	// happens to be present.
+	const otherEngine = `{"params":{"l4":{"engine":"none",
+		"dbscan_xy_v1":{"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true}}}}`
+
+	for name, composed := range map[string]string{
+		"empty":             ``,
+		"not JSON":          `{`,
+		"no l4":             `{"params":{}}`,
+		"no engine":         `{"params":{"l4":{"dbscan_xy_v1":{"height_band_floor":-2.8}}}}`,
+		"inactive engine":   otherEngine,
+		"missing ceiling":   `{"params":{"l4":{"engine":"e","e":{"height_band_floor":-2.8,"remove_ground":true}}}}`,
+		"missing switch":    `{"params":{"l4":{"engine":"e","e":{"height_band_floor":-2.8,"height_band_ceiling":1.5}}}}`,
+		"legacy flat shape": `{"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true}`,
+	} {
+		if band := heightBandFromRunConfig(json.RawMessage(composed)); band != nil {
+			t.Errorf("%s: band = %+v, want nil: a partly assumed band is not the run's band", name, band)
+		}
+	}
+
+	// remove_ground false is a known band, not an unknown one: the client
+	// must be able to tell "nothing was removed" from "not recorded".
+	const off = `{"params":{"l4":{"engine":"e","e":{"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":false}}}}`
+	if band := heightBandFromRunConfig(json.RawMessage(off)); band == nil || band.RemoveGround {
+		t.Errorf("band = %+v, want a band with remove_ground false", band)
+	}
+}
+
+// The operator's sheet offered "full" for a recording that kept foreground
+// only. That is the caller's statement being wrong, so it is a 400 that says
+// what to state instead, and it leaves no half-made pack behind.
+func TestHandleAnnotationExportRefusesFullCoverageOfForegroundOnly(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+	packsDir := t.TempDir()
+	ws := &Server{db: testDB, annotationPacksDir: packsDir, vrlogSafeDir: t.TempDir()}
+	dir := filepath.Join(ws.vrlogSafeDir, "fg-only")
+	rec, err := recorder.NewRecorder(dir, "annotation-export-test")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	pc := &l9endpoints.PointCloudFrame{
+		TimestampNanos: 1_000_000_000, SensorID: "annotation-export-test",
+		X: []float32{1, 2}, Y: []float32{1, 2}, Z: []float32{1, 2},
+		Intensity: []uint8{1, 2}, Classification: []uint8{1, 1}, PointCount: 2,
+	}
+	if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close recorder: %v", err)
+	}
+	insertRunWithVRLog(t, store, "fg-only-run", dir)
+
+	rec400 := postAnnotationExport(ws, "fg-only-run", map[string]any{"coverage": "full"})
+	if rec400.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body %s", rec400.Code, rec400.Body.String())
+	}
+	if !bytes.Contains(rec400.Body.Bytes(), []byte("foreground_only")) {
+		t.Errorf("error body %q does not name the coverage to state instead", rec400.Body.String())
+	}
+	if entries, _ := os.ReadDir(packsDir); len(entries) != 0 {
+		t.Errorf("a refused export left %d entries in the packs directory", len(entries))
+	}
+
+	ok := postAnnotationExport(ws, "fg-only-run", map[string]any{"coverage": "foreground_only"})
+	if ok.Code != http.StatusOK {
+		t.Errorf("foreground_only export: status %d, body %s", ok.Code, ok.Body.String())
+	}
+}

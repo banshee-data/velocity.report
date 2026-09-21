@@ -82,6 +82,22 @@ type SourceProvenance struct {
 	ParamsHash     string `json:"params_hash,omitempty"`
 	BuildVersion   string `json:"build_version,omitempty"`
 	BuildGitSHA    string `json:"build_git_sha,omitempty"`
+	// HeightBand is the run's L4 vertical filter, when the exporter was told
+	// it. The pack holds the points as recorded, which is before that filter
+	// ran; with the band, a client can show exactly which of them the
+	// clusterer never saw.
+	HeightBand *HeightBand `json:"height_band,omitempty"`
+}
+
+// HeightBand is the L4 height-band filter a run was made with: the rule
+// l4perception.HeightBandFilter applies, in the frame the points are in.
+//
+// A point is removed when RemoveGround is set and its Z is below FloorM or
+// above CeilingM. Both comparisons are strict, as the filter's are.
+type HeightBand struct {
+	FloorM       float64 `json:"floor_m"`
+	CeilingM     float64 `json:"ceiling_m"`
+	RemoveGround bool    `json:"remove_ground"`
 }
 
 // Completeness records what the export asked for against what it got, so a
