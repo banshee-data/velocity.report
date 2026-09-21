@@ -21,6 +21,11 @@ struct AnnotationClass: Equatable, Identifiable {
     let kind: Kind
     /// Index into `AnnotationPalette.colours`.
     let paletteIndex: Int
+    /// The main view's track label that covers this class, or nil where it
+    /// has none. The two lists differ on purpose: a dataset wants a van told
+    /// from a car, and a track label does not. Shown so that an operator who
+    /// knows one list can find their way in the other.
+    let mainViewLabel: String?
 
     var id: String { name }
 }
@@ -36,6 +41,8 @@ enum AnnotationPalette {
     static let removedIndex = 2
     /// A class this client does not know.
     static let unknownClassIndex = 13
+    /// Settled background that the latest snapshot added or moved.
+    static let backgroundChangedIndex = 16
 
     /// Linear RGB. The order is the shader's order: see PointCloud.metal.
     static let colours: [simd_float3] = [
@@ -53,22 +60,32 @@ enum AnnotationPalette {
         simd_float3(0.90, 0.90, 0.95),  // 11 sign: silver
         simd_float3(0.55, 0.60, 0.15),  // 12 vegetation: olive
         simd_float3(0.60, 0.65, 0.80),  // 13 unknown class: slate
+        simd_float3(0.65, 0.40, 0.30),  // 14 ground: umber
+        simd_float3(0.50, 0.50, 0.60),  // 15 noise: grey
+        simd_float3(1.00, 1.00, 1.00),  // 16 background changed: white
     ]
 
     /// The first seven are the production labels. The fixed classes are for
     /// reference annotation only: they describe the street, not a road user,
     /// and no production enum value is enabled by choosing one.
     static let classes: [AnnotationClass] = [
-        AnnotationClass(name: "car", kind: .moving, paletteIndex: 3),
-        AnnotationClass(name: "van", kind: .moving, paletteIndex: 4),
-        AnnotationClass(name: "truck", kind: .moving, paletteIndex: 5),
-        AnnotationClass(name: "bus", kind: .moving, paletteIndex: 6),
-        AnnotationClass(name: "motorcycle", kind: .moving, paletteIndex: 7),
-        AnnotationClass(name: "pedestrian", kind: .moving, paletteIndex: 8),
-        AnnotationClass(name: "cyclist", kind: .moving, paletteIndex: 9),
-        AnnotationClass(name: "building", kind: .fixed, paletteIndex: 10),
-        AnnotationClass(name: "sign", kind: .fixed, paletteIndex: 11),
-        AnnotationClass(name: "vegetation", kind: .fixed, paletteIndex: 12),
+        AnnotationClass(name: "car", kind: .moving, paletteIndex: 3, mainViewLabel: "car"),
+        AnnotationClass(name: "van", kind: .moving, paletteIndex: 4, mainViewLabel: "car"),
+        AnnotationClass(name: "truck", kind: .moving, paletteIndex: 5, mainViewLabel: "car"),
+        AnnotationClass(name: "bus", kind: .moving, paletteIndex: 6, mainViewLabel: "bus"),
+        AnnotationClass(
+            name: "motorcycle", kind: .moving, paletteIndex: 7, mainViewLabel: "cyclist"),
+        AnnotationClass(
+            name: "pedestrian", kind: .moving, paletteIndex: 8, mainViewLabel: "pedestrian"),
+        AnnotationClass(name: "cyclist", kind: .moving, paletteIndex: 9, mainViewLabel: "cyclist"),
+        // Foreground that is not a road user at all: returns the background
+        // model failed to settle on. Labelling them is how a misclassified
+        // road or wall is told from a vehicle that was missed.
+        AnnotationClass(name: "ground", kind: .fixed, paletteIndex: 14, mainViewLabel: "noise"),
+        AnnotationClass(name: "building", kind: .fixed, paletteIndex: 10, mainViewLabel: "noise"),
+        AnnotationClass(name: "sign", kind: .fixed, paletteIndex: 11, mainViewLabel: "noise"),
+        AnnotationClass(name: "vegetation", kind: .fixed, paletteIndex: 12, mainViewLabel: "noise"),
+        AnnotationClass(name: "noise", kind: .moving, paletteIndex: 15, mainViewLabel: "noise"),
     ]
 
     static func annotationClass(named name: String) -> AnnotationClass? {

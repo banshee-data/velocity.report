@@ -66,7 +66,7 @@ vertex PointVertexOut pointVertex(
 
 // The annotation window's colours, in AnnotationPalette.swift's order. A test
 // holds this table to that one.
-#define ANNOTATION_PALETTE_COUNT 14
+#define ANNOTATION_PALETTE_COUNT 17
 constant float3 annotationPalette[ANNOTATION_PALETTE_COUNT] = {
     float3(1.00, 0.55, 0.10), // 0 unsaved
     float3(1.00, 0.90, 0.20), // 1 candidate
@@ -82,6 +82,9 @@ constant float3 annotationPalette[ANNOTATION_PALETTE_COUNT] = {
     float3(0.90, 0.90, 0.95), // 11 sign
     float3(0.55, 0.60, 0.15), // 12 vegetation
     float3(0.60, 0.65, 0.80), // 13 unknown class
+    float3(0.65, 0.40, 0.30), // 14 ground
+    float3(0.50, 0.50, 0.60), // 15 noise
+    float3(1.00, 1.00, 1.00), // 16 background changed
 };
 
 fragment float4 pointFragment(

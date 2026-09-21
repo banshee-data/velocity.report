@@ -138,6 +138,7 @@ struct LassoOverlay: View {
         let saved = session.savedSelection
         let current = session.history.current
         let activeClass = session.activeObject?.objectClass
+        let activeName = session.activeObjectName
         let carried = session.carriedIndices
         let hovered = session.hoverIndices
         let viewport = viewport
@@ -157,12 +158,30 @@ struct LassoOverlay: View {
                 return path
             }
 
+            // An object's name, above its points, as the main view names a
+            // track above its box. Without it two cars are two blue patches.
+            func name(_ text: String, over indices: some Sequence<Int>, colour: Color, bold: Bool) {
+                var top = CGFloat.greatestFiniteMagnitude
+                var sumX: CGFloat = 0
+                var count: CGFloat = 0
+                for index in indices {
+                    guard let p = points.point(at: index) else { continue }
+                    let screen = viewport.screenPoint(from: basis.project(p))
+                    top = min(top, screen.y)
+                    sumX += screen.x
+                    count += 1
+                }
+                guard count > 0 else { return }
+                let label = Text(text).font(.system(size: 10, weight: bold ? .bold : .regular))
+                    .foregroundColor(colour)
+                context.draw(label, at: CGPoint(x: sumX / count, y: top - 8))
+            }
+
             // What is already labelled, in each object's own colour.
             for other in others {
-                context.fill(
-                    dots(other.indices, size: 3),
-                    with: .color(AnnotationPalette.colour(forClass: other.objectClass).opacity(0.8))
-                )
+                let colour = AnnotationPalette.colour(forClass: other.objectClass)
+                context.fill(dots(other.indices, size: 3), with: .color(colour.opacity(0.8)))
+                name(other.name, over: other.indices, colour: colour, bold: false)
             }
 
             // Saved and still in: the object's colour. In but not saved:
@@ -179,6 +198,11 @@ struct LassoOverlay: View {
                 dots(saved.subtracting(current), size: 6),
                 with: .color(AnnotationPalette.colour(AnnotationPalette.removedIndex)), lineWidth: 1
             )
+            if let activeName, let activeClass {
+                name(
+                    activeName, over: current.union(saved),
+                    colour: AnnotationPalette.colour(forClass: activeClass), bold: true)
+            }
 
             // Proposals: what the carried footprint covers, and what the brush
             // under the cursor would take.
@@ -506,6 +530,8 @@ struct AnnotationPane: View {
                 VStack(alignment: .leading, spacing: 14) {
                     sourceSection
                     Divider()
+                    progressSection
+                    Divider()
                     displaySection
                     Divider()
                     objectSection
@@ -547,28 +573,107 @@ struct AnnotationPane: View {
 
     // MARK: Source
 
+    // The main view's words, for the things that are the same thing: a run,
+    // a frame, a label and who made it. "Source", "sample" and "operator" were
+    // this window's own, and an operator who knew the main view had to work
+    // out that a sample is a frame and that the operator field wanted their
+    // name and not the name of a track.
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Source").font(.headline)
-            Text(session.pack.manifest.datasetID).font(.caption.monospaced()).textSelection(
-                .enabled)
+            Text("Run").font(.headline)
+            Text(session.pack.manifest.source.vrlogPath).font(.caption.monospaced()).textSelection(
+                .enabled
+            ).lineLimit(1).truncationMode(.middle).help(
+                "The run this pack was cut from. Pack \(session.pack.manifest.datasetID).")
+            if let pcap = session.pack.manifest.source.pcapBasename {
+                Text(pcap).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(
+                    .middle)
+            }
             // Coverage is shown before any labelling: a foreground-only pack
             // cannot support whole-scene segmentation, and a mask saved in
             // ignorance of that reads as a stronger claim than it is.
-            Text(session.pack.coverageCaveat).font(.caption).foregroundStyle(.secondary)
+            Text(session.pack.coverageCaveat).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+
             if let sample = session.currentSample {
+                // The run's own frame number first: it is the one the main
+                // view's timeline shows.
                 Text(
-                    "Sample \(sample.sampleID) of \(session.samples.count) · \(session.currentPoints.count) points"
+                    "Frame \(sample.sourceOrdinal) · \(session.sampleIndex + 1) of "
+                        + "\(session.samples.count) in this pack · \(session.currentPoints.count) points"
                 ).font(.caption)
             }
+            backgroundLine
             HStack {
-                Button("Previous") { handleStep { session.stepBackward() } }.disabled(
+                Button("Previous frame") { handleStep { session.stepBackward() } }.disabled(
                     session.sampleIndex == 0)
-                Button("Next") { handleStep { session.stepForward() } }.disabled(
+                Button("Next frame") { handleStep { session.stepForward() } }.disabled(
                     session.sampleIndex >= session.samples.count - 1)
+            }.controlSize(.small)
+
+            Text("Labelled by").font(.caption).padding(.top, 4)
+            TextField("Your name", text: $session.operatorName).textFieldStyle(.roundedBorder).font(
+                .caption
+            ).help(
+                "Who is labelling. Saved with every label you make, as the main view's track "
+                    + "labels are. Not the name of an object or a track.")
+        }
+    }
+
+    // Which settled background is behind this frame, and how long it has been.
+    private var backgroundLine: some View {
+        Group {
+            if let background = session.currentBackground, let sample = session.currentSample {
+                let age = sample.sourceOrdinal - background.sourceOrdinal
+                HStack(spacing: 4) {
+                    Image(systemName: "square.stack.3d.down.forward")
+                    Text(
+                        "Settled background \(background.backgroundID + 1) of "
+                            + "\(session.pack.backgrounds.count) · \(background.pointCount) points · "
+                            + (age == 0 ? "this frame" : "\(age) frames old"))
+                }.font(.caption2).foregroundStyle(
+                    session.backgroundUpdatedHere ? Color.yellow : Color.secondary)
+            } else {
+                Text("No settled background in this pack. Generate it again to carry one.").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
             }
-            TextField("Operator name", text: $session.operatorName).textFieldStyle(.roundedBorder)
-                .font(.caption)
+        }
+    }
+
+    // MARK: Progress
+
+    private var progressSection: some View {
+        let completeness = session.completeness
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("This frame").font(.headline)
+            HStack(alignment: .center, spacing: 10) {
+                SectorRing(completeness: completeness) { session.fitViews(toSector: $0) }.frame(
+                    width: 118, height: 118)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(format: "%.0f%% agreed", completeness.whole.fractionAgreed * 100))
+                        .font(.caption.bold())
+                    tallyLine(
+                        "agreed", completeness.whole.agreed, AnnotationFrameStrip.agreedColour)
+                    tallyLine(
+                        "in question", completeness.whole.inQuestion,
+                        AnnotationFrameStrip.inQuestionColour)
+                    tallyLine("not labelled", completeness.whole.unlabelled, .gray)
+                }
+            }
+            Text(
+                "Foreground the tracker could use, in 22.5° sectors round the sensor, laid out as "
+                    + "the top view is. Agreed is labelled by a person; in question is proposed or "
+                    + "unsaved. Click a sector to go to what is left in it."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+        }
+    }
+
+    private func tallyLine(_ label: String, _ count: Int, _ colour: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(colour).frame(width: 7, height: 7)
+            Text("\(count) \(label)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
 
@@ -643,9 +748,10 @@ struct AnnotationPane: View {
             Text("Objects").font(.headline)
             // Said once, here, because nothing else on screen says it.
             Text(
-                "An object is one real thing, followed through the pack: this car, that building. "
-                    + "Its mask in each sample is the points that are it. Objects are yours, and "
-                    + "separate from the tracker's tracks, so a split track cannot split one."
+                "An object is one real thing followed through the frames: this car, that wall. You "
+                    + "label its points in each frame. It is your answer, where a track in the "
+                    + "main view is the tracker's, and the two are kept apart so that a split "
+                    + "track cannot split one. Click an object to edit it."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
 
@@ -657,17 +763,21 @@ struct AnnotationPane: View {
                     // Research subtypes stay in their own field: a dataset
                     // export must not enable a reserved production enum value
                     // through the class picker.
-                    Section("Road users") {
+                    Section("Moves") {
                         ForEach(AnnotationPalette.classes.filter { $0.kind == .moving }) {
                             Text($0.name).tag($0.name)
                         }
                     }
-                    Section("Street, does not move") {
+                    Section("Does not move: misread as foreground") {
                         ForEach(AnnotationPalette.classes.filter { $0.kind == .fixed }) {
                             Text($0.name).tag($0.name)
                         }
                     }
                 }.labelsHidden().font(.caption)
+            }
+            if let label = AnnotationPalette.annotationClass(named: newObjectClass)?.mainViewLabel {
+                Text("The main view labels a track of this \"\(label)\".").font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             TextField("Subtype (optional)", text: $newObjectSubtype).textFieldStyle(.roundedBorder)
                 .font(.caption)
@@ -691,13 +801,13 @@ struct AnnotationPane: View {
             }
 
             if let active = session.activeObject, AnnotationPalette.isFixed(active.objectClass) {
-                Button("Apply to every sample") {
+                Button("Apply to every frame") {
                     applyResult = session.applySelectionToAllSamples().map {
-                        "Saved \(active.objectClass) into \($0) samples."
+                        "Saved \(session.displayName(objectID: active.objectID)) into \($0) frames."
                     }
                 }.disabled(session.selectionCount == 0).help(
-                    "A \(active.objectClass) does not move. Saves a mask into every sample from "
-                        + "the space this selection occupies, leaving samples already masked alone."
+                    "A \(active.objectClass) does not move. Saves its points into every frame from "
+                        + "the space this selection occupies, leaving frames already labelled alone."
                 )
                 if let applyResult { Text(applyResult).font(.caption2).foregroundStyle(.secondary) }
             }
@@ -713,12 +823,15 @@ struct AnnotationPane: View {
                 AnnotationPalette.colour(forClass: object.objectClass)
             ).frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 0) {
-                Text(object.objectClass + (object.subtype.map { " · \($0)" } ?? "")).font(.caption)
+                Text(
+                    session.displayName(objectID: object.objectID)
+                        + (object.subtype.map { " · \($0)" } ?? "")
+                ).font(.caption).bold(session.activeObjectID == object.objectID)
                 // How far through the pack the object has been followed.
                 Text(
-                    "\(object.objectID) · \(session.savedSampleCount(objectID: object.objectID))"
-                        + " of \(session.samples.count) samples"
-                ).font(.caption2).foregroundStyle(.secondary)
+                    "labelled in \(session.savedSampleCount(objectID: object.objectID)) of "
+                        + "\(session.samples.count) frames"
+                ).font(.caption2).foregroundStyle(.secondary).help(object.objectID)
             }
             Spacer()
             Text(object.status.rawValue).font(.caption2).foregroundStyle(
@@ -739,7 +852,7 @@ struct AnnotationPane: View {
     // proposal can be dealt with without knowing the keys.
     private var carriedSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Carried from the last sample").font(.headline)
+            Text("Carried from the last frame").font(.headline)
             Text(
                 "\(session.carriedIndices.count) points, outlined in cyan. Move the outline over "
                     + "the object, then accept."
@@ -926,7 +1039,7 @@ struct AnnotationPane: View {
 
     private var reviewSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Review").font(.headline)
+            Text("Save").font(.headline)
             Picker("Visibility", selection: $session.maskVisibility) {
                 ForEach(Visibility.allCases, id: \.self) { Text($0.label).tag($0) }
             }.font(.caption)
@@ -940,7 +1053,7 @@ struct AnnotationPane: View {
                 .font(.caption)
 
             HStack {
-                Button("Save mask") { _ = session.save() }.keyboardShortcut(
+                Button("Save points") { _ = session.save() }.keyboardShortcut(
                     "s", modifiers: .command)
                 Button("Save and next") {
                     if session.save() { handleStep { session.stepForward() } }
@@ -959,7 +1072,7 @@ struct AnnotationPane: View {
             Button("Keep editing", role: .cancel) {}
             Button("Discard and reload", role: .destructive) { session.reload() }
         } message: {
-            Text("This sample has unsaved changes. Save it, or discard them, before moving on.")
+            Text("This frame has unsaved changes. Save it, or discard them, before moving on.")
         }
     }
 

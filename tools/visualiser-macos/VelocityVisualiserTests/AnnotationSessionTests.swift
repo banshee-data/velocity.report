@@ -166,7 +166,7 @@ struct AnnotationSessionTests {
 
         // The store never invents a human author.
         #expect(!session.save())
-        #expect(session.lastError?.contains("operator name") == true)
+        #expect(session.lastError?.contains("Labelled by") == true)
     }
 
     @Test func saveRefusedWithoutAnActiveObject() throws {

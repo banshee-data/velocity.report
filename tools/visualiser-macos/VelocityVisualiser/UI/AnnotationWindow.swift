@@ -322,7 +322,13 @@ struct AnnotationWorkspace: View {
                         session: session, standard: session.secondViewStandard, editable: false
                     ).frame(minHeight: 160)
                 }.frame(minWidth: 280)
-            }.frame(maxWidth: .infinity)
+            }.frame(maxWidth: .infinity).safeAreaInset(edge: .bottom, spacing: 0) {
+                AnnotationFrameStrip(session: session) { index in
+                    if session.step(to: index) != nil {
+                        pendingAction = { session.step(to: index) }
+                    }
+                }
+            }
 
             Divider()
 
@@ -395,6 +401,15 @@ struct AnnotationViewportView: View {
             let viewport = session.viewport(for: standard, size: geometry.size)
             ZStack(alignment: .topLeading) {
                 Color.black
+                if let background = session.currentBackground, session.visibility.background {
+                    AnnotationBackgroundCanvas(
+                        points: session.backgroundPoints, changed: session.backgroundChanged,
+                        basis: basis, viewport: viewport,
+                        identity: AnnotationBackgroundCanvas.Identity(
+                            packDigest: session.pack.manifest.packDigest,
+                            backgroundID: background.backgroundID)
+                    ).equatable()
+                }
                 AnnotationPointCanvas(
                     points: session.currentPoints, classes: session.currentClasses, basis: basis,
                     viewport: viewport, visibility: session.effectiveVisibility,
@@ -407,6 +422,11 @@ struct AnnotationViewportView: View {
                     editable: editable)
                 Text(standard.label + (editable ? "" : " · check")).font(.caption2).padding(4)
                     .foregroundStyle(.secondary).allowsHitTesting(false)
+                if editable {
+                    AnnotationViewportHeader(session: session).frame(
+                        maxWidth: .infinity, alignment: .top
+                    ).allowsHitTesting(false)
+                }
                 scaleBar(viewport).frame(
                     maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading
                 ).allowsHitTesting(false)
@@ -442,6 +462,161 @@ enum AnnotationScaleBar {
 
     static func label(_ metres: Float) -> String {
         metres >= 1 ? String(format: "%.0f m", metres) : String(format: "%.0f cm", metres * 100)
+    }
+}
+
+/// Says, over the editing view, which object the next stroke belongs to, and
+/// when the settled background behind the frame has just changed.
+///
+/// Both are things an operator otherwise learns from the far side of the
+/// window, after the stroke.
+struct AnnotationViewportHeader: View {
+    @ObservedObject var session: AnnotationSession
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                if let object = session.activeObject {
+                    Circle().fill(AnnotationPalette.colour(forClass: object.objectClass)).frame(
+                        width: 9, height: 9)
+                    Text("Editing \(session.displayName(objectID: object.objectID))").bold()
+                    Text("· \(session.selectionCount) points")
+                    if session.navigationGuard() != nil {
+                        Text("· unsaved").foregroundStyle(
+                            AnnotationPalette.colour(AnnotationPalette.unsavedIndex))
+                    }
+                } else {
+                    Circle().stroke(Color.secondary).frame(width: 9, height: 9)
+                    Text("No object chosen").bold()
+                    Text(
+                        session.selectionCount > 0
+                            ? "· \(session.selectionCount) points belong to nothing yet"
+                            : "· a selection will belong to nothing until one is")
+                }
+            }.font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(
+                .black.opacity(0.7), in: Capsule())
+
+            if session.backgroundUpdatedHere, let background = session.currentBackground {
+                Label(
+                    "Settled background updated at this frame · \(session.backgroundChanged.count)"
+                        + " of \(background.pointCount) points changed, shown in white",
+                    systemImage: "square.stack.3d.down.forward"
+                ).font(.caption.bold()).foregroundStyle(.black).padding(.horizontal, 8).padding(
+                    .vertical, 4
+                ).background(.yellow, in: Capsule())
+            }
+        }.padding(.top, 6)
+    }
+}
+
+/// Draws the settled background behind the frame's own points.
+///
+/// A snapshot is about seventy thousand returns and changes every fifteen
+/// seconds or so, so it is its own canvas: stepping through the frames between
+/// two snapshots redraws the few thousand foreground returns and leaves this
+/// alone.
+struct AnnotationBackgroundCanvas: View, Equatable {
+    struct Identity: Equatable {
+        var packDigest: String
+        var backgroundID: Int
+    }
+
+    let points: BackgroundPoints
+    /// Indices the snapshot added or moved, drawn in white over the rest.
+    let changed: [Int]
+    let basis: OrthoViewBasis
+    let viewport: OrthoViewport
+    let identity: Identity
+
+    static func == (lhs: AnnotationBackgroundCanvas, rhs: AnnotationBackgroundCanvas) -> Bool {
+        lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
+            func path(_ indices: some Sequence<Int>, side: CGFloat) -> Path {
+                var path = Path()
+                for index in indices {
+                    let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                    let screen = viewport.screenPoint(from: basis.project(p))
+                    guard visible.contains(screen) else { continue }
+                    path.addRect(
+                        CGRect(
+                            x: screen.x - side / 2, y: screen.y - side / 2, width: side,
+                            height: side))
+                }
+                return path
+            }
+            context.fill(
+                path(0..<points.count, side: 1.2),
+                with: .color(AnnotationPointCanvas.backgroundColour.opacity(0.45)))
+            context.fill(
+                path(changed.lazy.filter { $0 < points.count }, side: 2),
+                with: .color(AnnotationPalette.colour(AnnotationPalette.backgroundChangedIndex)))
+        }.allowsHitTesting(false)
+    }
+}
+
+/// One tick per frame of the pack: how much of each is labelled, where the
+/// settled background changes, and where the operator is. Click to go there.
+struct AnnotationFrameStrip: View {
+    @ObservedObject var session: AnnotationSession
+    /// Asked to step. Returns false when the step was refused.
+    let go: (Int) -> Void
+
+    static let agreedColour = Color(red: 0.25, green: 0.8, blue: 0.35)
+    static let inQuestionColour = Color(red: 1.0, green: 0.7, blue: 0.15)
+
+    var body: some View {
+        let progress = session.frameProgress
+        let current = session.sampleIndex
+        return GeometryReader { geometry in
+            Canvas { context, size in
+                guard !progress.isEmpty else { return }
+                let width = size.width / CGFloat(progress.count)
+                let barTop: CGFloat = 7
+                let barHeight = size.height - barTop
+                for (index, frame) in progress.enumerated() {
+                    let x = CGFloat(index) * width
+                    let slot = CGRect(
+                        x: x, y: barTop, width: max(width - 0.5, 0.5), height: barHeight)
+                    context.fill(Path(slot), with: .color(.white.opacity(0.08)))
+                    let agreed = barHeight * CGFloat(frame.fractionAgreed)
+                    let questioned = barHeight * CGFloat(frame.fractionInQuestion)
+                    context.fill(
+                        Path(
+                            CGRect(x: x, y: size.height - agreed, width: slot.width, height: agreed)
+                        ), with: .color(Self.agreedColour))
+                    context.fill(
+                        Path(
+                            CGRect(
+                                x: x, y: size.height - agreed - questioned, width: slot.width,
+                                height: questioned)), with: .color(Self.inQuestionColour))
+                    if frame.backgroundUpdated {
+                        var marker = Path()
+                        marker.move(to: CGPoint(x: x - 3, y: 0))
+                        marker.addLine(to: CGPoint(x: x + 3, y: 0))
+                        marker.addLine(to: CGPoint(x: x, y: 6))
+                        marker.closeSubpath()
+                        context.fill(marker, with: .color(.yellow))
+                    }
+                }
+                let here = CGRect(
+                    x: CGFloat(current) * width - 0.5, y: barTop - 1, width: max(width, 2) + 1,
+                    height: barHeight + 1)
+                context.stroke(Path(here), with: .color(.white), lineWidth: 1.5)
+            }.contentShape(Rectangle()).gesture(
+                DragGesture(minimumDistance: 0).onEnded { value in
+                    guard !progress.isEmpty, geometry.size.width > 0 else { return }
+                    let index = Int(
+                        value.location.x / geometry.size.width * CGFloat(progress.count))
+                    go(min(max(index, 0), progress.count - 1))
+                })
+        }.frame(height: 26).padding(.horizontal, 8).padding(.vertical, 4).background(Color.black)
+            .help(
+                "One bar per frame. Green is agreed, amber is in question. A yellow marker is a "
+                    + "settled-background update. Click to go to a frame.")
     }
 }
 

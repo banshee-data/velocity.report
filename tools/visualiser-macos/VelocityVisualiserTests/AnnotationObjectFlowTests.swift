@@ -24,7 +24,14 @@ import simd
 enum SyntheticPack {
     typealias Point = (x: Float, y: Float, z: Float, classification: UInt8)
 
-    static func write(_ samples: [[Point]], heightBand: String? = nil) throws -> URL {
+    /// A settled-background snapshot: the recording position it was taken at
+    /// (sample `n` is at position `2n + 1`, so a snapshot can fall between any
+    /// two), and its points.
+    typealias Backdrop = (ordinal: Int, points: [simd_float3])
+
+    static func write(
+        _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = []
+    ) throws -> URL {
         var bytes = Data()
         var entries: [String] = []
         for (id, points) in samples.enumerated() {
@@ -41,7 +48,7 @@ enum SyntheticPack {
             bytes.append(contentsOf: points.map(\.classification))
             entries.append(
                 """
-                {"sample_id": \(id), "source_ordinal": \(id), "source_frame_id": \(100 + id), \
+                {"sample_id": \(id), "source_ordinal": \(2 * id + 1), "source_frame_id": \(100 + id), \
                 "timestamp_ns": \(1_000_000_000 + id * 100_000_000), "sensor_id": "synthetic", \
                 "point_count": \(points.count), "byte_offset": \(offset)}
                 """)
@@ -51,6 +58,34 @@ enum SyntheticPack {
         let samplesSHA = AnnotationPack.digest(Data(samplesJSON.utf8))
         let packDigest = AnnotationPack.digest(Data((pointsSHA + "\n" + samplesSHA).utf8))
         let band = heightBand.map { ", \"height_band\": \($0)" } ?? ""
+
+        var backgroundBytes = Data()
+        var backgroundEntries: [String] = []
+        for (id, backdrop) in backdrops.enumerated() {
+            let offset = backgroundBytes.count
+            for axis in [backdrop.points.map(\.x), backdrop.points.map(\.y), backdrop.points.map(\.z)] {
+                for value in axis {
+                    withUnsafeBytes(of: value.bitPattern.littleEndian) {
+                        backgroundBytes.append(contentsOf: $0)
+                    }
+                }
+            }
+            backgroundEntries.append(
+                """
+                {"background_id": \(id), "source_ordinal": \(backdrop.ordinal), "timestamp_ns": 999, \
+                "sequence_number": 0, "settling_complete": true, \
+                "point_count": \(backdrop.points.count), "byte_offset": \(offset)}
+                """)
+        }
+        let backgroundsJSON = "[" + backgroundEntries.joined(separator: ",") + "]"
+        let backgroundKeys =
+            backdrops.isEmpty
+            ? ""
+            : """
+            , "background_count": \(backdrops.count),
+             "backgrounds_sha256": "\(AnnotationPack.digest(Data(backgroundsJSON.utf8)))",
+             "background_points_sha256": "\(AnnotationPack.digest(backgroundBytes))"
+            """
         let manifest = """
             {"schema_version": 1, "dataset_id": "ds_synthetic", "created_ns": 0,
              "source": {"vrlog_path": "synthetic.vrlog", "vrlog_header_sha256": "sha256:aa",
@@ -61,7 +96,7 @@ enum SyntheticPack {
              "coverage": "foreground_only", "sample_count": \(samples.count),
              "point_count": \(samples.map(\.count).reduce(0, +)),
              "points_sha256": "\(pointsSHA)", "samples_sha256": "\(samplesSHA)",
-             "pack_digest": "\(packDigest)", "has_intensity": true, "has_classification": true}
+             "pack_digest": "\(packDigest)", "has_intensity": true, "has_classification": true\(backgroundKeys)}
             """
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
             "synthetic-\(UUID().uuidString)")
@@ -69,6 +104,11 @@ enum SyntheticPack {
         try Data(manifest.utf8).write(to: dir.appendingPathComponent("manifest.json"))
         try Data((samplesJSON + "\n").utf8).write(to: dir.appendingPathComponent("samples.json"))
         try bytes.write(to: dir.appendingPathComponent("points.bin"))
+        if !backdrops.isEmpty {
+            try Data((backgroundsJSON + "\n").utf8).write(
+                to: dir.appendingPathComponent("backgrounds.json"))
+            try backgroundBytes.write(to: dir.appendingPathComponent("background.bin"))
+        }
         return dir
     }
 
@@ -255,7 +295,7 @@ struct ObjectOrderTests {
         #expect(session.select(polygon: everything, mode: .replace))
 
         #expect(!session.save())
-        #expect(session.lastError?.contains("operator name") == true)
+        #expect(session.lastError?.contains("Labelled by") == true)
     }
 
     @Test func theOperatorsNameIsRememberedBetweenPacks() throws {

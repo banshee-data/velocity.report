@@ -113,9 +113,21 @@ enum AnnotationScene {
         var candidates: Set<Int> = []
     }
 
+    /// The settled background to draw behind the frame.
+    struct Backdrop {
+        var snapshot: AnnotationBackground
+        var points: BackgroundPoints
+        /// Which of the points this snapshot added or moved.
+        var changed: [Int]
+        /// False when the renderer already holds this snapshot: uploading
+        /// seventy thousand points again for every brush movement would be
+        /// most of the cost of a redraw.
+        var upload: Bool
+    }
+
     static func frame(
         points: PackPoints, classes: [UInt8], visibility: PointVisibility?, marks: Marks,
-        sample: AnnotationSample?
+        sample: AnnotationSample?, backdrop: Backdrop? = nil
     ) -> FrameBundle {
         // Resolved per point up front, so the loop below is one lookup.
         var marked: [Int: UInt8] = [:]
@@ -167,6 +179,19 @@ enum AnnotationScene {
             cloud.classification.append(
                 mark ?? (own == PointClass.unclassified ? PointClass.foreground : own))
         }
+        // What the latest snapshot changed is drawn over the background in a
+        // colour of its own. It goes in with the frame's points because the
+        // renderer draws every background return in one grey.
+        if let backdrop, visibility?.background ?? true {
+            let shade = AnnotationPalette.shaderClass(AnnotationPalette.backgroundChangedIndex)
+            for index in backdrop.changed where index < backdrop.points.count {
+                cloud.x.append(backdrop.points.x[index])
+                cloud.y.append(backdrop.points.y[index])
+                cloud.z.append(backdrop.points.z[index])
+                cloud.intensity.append(255)
+                cloud.classification.append(shade)
+            }
+        }
         cloud.pointCount = cloud.x.count
 
         var bundle = FrameBundle()
@@ -175,6 +200,21 @@ enum AnnotationScene {
         bundle.sensorID = cloud.sensorID
         bundle.frameType = .full
         bundle.pointCloud = cloud
+        if let backdrop, backdrop.upload {
+            var snapshot = BackgroundSnapshot()
+            // The recorder's own sequence number only moves on a grid reset,
+            // so the pack's id is what tells one snapshot from the next.
+            snapshot.sequenceNumber = UInt64(backdrop.snapshot.backgroundID)
+            snapshot.timestampNanos = backdrop.snapshot.timestampNs
+            snapshot.x = backdrop.points.x
+            snapshot.y = backdrop.points.y
+            snapshot.z = backdrop.points.z
+            // The renderer shades by how often a cell was seen. A settled
+            // snapshot is all seen often.
+            snapshot.confidence = [UInt32](repeating: 10, count: backdrop.points.count)
+            bundle.background = snapshot
+            bundle.backgroundSeq = snapshot.sequenceNumber
+        }
         return bundle
     }
 }

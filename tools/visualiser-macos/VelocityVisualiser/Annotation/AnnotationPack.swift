@@ -109,6 +109,11 @@ struct AnnotationManifest: Codable, Equatable {
     var packDigest: String
     var hasIntensity: Bool
     var hasClassification: Bool
+    /// The settled background carried with the pack, when the recording had
+    /// one. Context for the operator, outside the point domain and its digest.
+    var backgroundCount: Int?
+    var backgroundsSHA256: String?
+    var backgroundPointsSHA256: String?
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -125,7 +130,47 @@ struct AnnotationManifest: Codable, Equatable {
         case packDigest = "pack_digest"
         case hasIntensity = "has_intensity"
         case hasClassification = "has_classification"
+        case backgroundCount = "background_count"
+        case backgroundsSHA256 = "backgrounds_sha256"
+        case backgroundPointsSHA256 = "background_points_sha256"
     }
+}
+
+/// One settled-background snapshot carried with a pack.
+///
+/// The snapshot in force at a frame is the last one recorded at or before it,
+/// by position in the recording. Not by timestamp or sequence number: a replay
+/// settled ahead of time records its first snapshot stamped after every frame
+/// that follows it, and the sequence number only moves when the grid resets.
+struct AnnotationBackground: Codable, Equatable {
+    var backgroundID: Int
+    var sourceOrdinal: Int
+    var timestampNs: Int64
+    var sequenceNumber: UInt64
+    var settlingComplete: Bool
+    var pointCount: Int
+    var byteOffset: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case backgroundID = "background_id"
+        case sourceOrdinal = "source_ordinal"
+        case timestampNs = "timestamp_ns"
+        case sequenceNumber = "sequence_number"
+        case settlingComplete = "settling_complete"
+        case pointCount = "point_count"
+        case byteOffset = "byte_offset"
+    }
+}
+
+/// A background snapshot's decoded coordinates. Not `PackPoints`: these have
+/// no canonical index a mask could cite, and keeping the types apart is what
+/// stops one being selected from.
+struct BackgroundPoints: Equatable {
+    var x: [Float] = []
+    var y: [Float] = []
+    var z: [Float] = []
+
+    var count: Int { x.count }
 }
 
 /// One frame's point domain inside the pack.
@@ -204,16 +249,23 @@ final class AnnotationPack {
     let directory: URL
     let manifest: AnnotationManifest
     let samples: [AnnotationSample]
+    /// In recording order. Empty for a pack cut before backgrounds were
+    /// carried, or from a recording that had none.
+    let backgrounds: [AnnotationBackground]
 
     private let raw: Data
+    private let rawBackground: Data
 
     private init(
-        directory: URL, manifest: AnnotationManifest, samples: [AnnotationSample], raw: Data
+        directory: URL, manifest: AnnotationManifest, samples: [AnnotationSample], raw: Data,
+        backgrounds: [AnnotationBackground], rawBackground: Data
     ) {
         self.directory = directory
         self.manifest = manifest
         self.samples = samples
         self.raw = raw
+        self.backgrounds = backgrounds
+        self.rawBackground = rawBackground
     }
 
     /// Opens a pack directory, verifying both digests before returning. A
@@ -264,8 +316,81 @@ final class AnnotationPack {
             )
         }
 
+        let (backgrounds, backgroundData) = try openBackground(
+            directory: directory, manifest: manifest, decoder: decoder)
         return AnnotationPack(
-            directory: directory, manifest: manifest, samples: samples, raw: pointsData)
+            directory: directory, manifest: manifest, samples: samples, raw: pointsData,
+            backgrounds: backgrounds, rawBackground: backgroundData)
+    }
+
+    /// Reads and verifies the background context. A pack that declares one and
+    /// cannot produce it is refused like any other mismatch: an operator shown
+    /// the wrong background would label against a scene that was not there.
+    private static func openBackground(
+        directory: URL, manifest: AnnotationManifest, decoder: JSONDecoder
+    ) throws -> ([AnnotationBackground], Data) {
+        guard let declared = manifest.backgroundCount, declared > 0 else { return ([], Data()) }
+        let indexData = try read(directory.appendingPathComponent("backgrounds.json"))
+        let pointsData = try read(directory.appendingPathComponent("background.bin"))
+
+        let indexDigest = digest(trimTrailingNewline(indexData))
+        guard indexDigest == manifest.backgroundsSHA256 else {
+            throw AnnotationPackError.digestMismatch(
+                field: "backgrounds.json", expected: manifest.backgroundsSHA256 ?? "",
+                actual: indexDigest)
+        }
+        let pointsDigest = digest(pointsData)
+        guard pointsDigest == manifest.backgroundPointsSHA256 else {
+            throw AnnotationPackError.digestMismatch(
+                field: "background.bin", expected: manifest.backgroundPointsSHA256 ?? "",
+                actual: pointsDigest)
+        }
+
+        let backgrounds: [AnnotationBackground]
+        do { backgrounds = try decoder.decode([AnnotationBackground].self, from: indexData) } catch
+        { throw AnnotationPackError.malformed("backgrounds.json: \(error)") }
+        guard backgrounds.count == declared else {
+            throw AnnotationPackError.malformed(
+                "manifest declares \(declared) backgrounds, backgrounds.json has \(backgrounds.count)"
+            )
+        }
+        for background in backgrounds {
+            let end = background.byteOffset + Int64(background.pointCount) * 12
+            guard background.byteOffset >= 0, background.pointCount >= 0,
+                end <= Int64(pointsData.count)
+            else {
+                throw AnnotationPackError.malformed(
+                    "background \(background.backgroundID) lies outside background.bin")
+            }
+        }
+        return (backgrounds, pointsData)
+    }
+
+    /// The snapshot in force at a sample: the last recorded at or before it.
+    func backgroundInForce(at sample: AnnotationSample) -> AnnotationBackground? {
+        backgrounds.last { $0.sourceOrdinal <= sample.sourceOrdinal }
+    }
+
+    /// Decodes one snapshot's coordinates.
+    func backgroundPoints(_ background: AnnotationBackground) -> BackgroundPoints {
+        let n = background.pointCount
+        var points = BackgroundPoints(
+            x: [Float](repeating: 0, count: n), y: [Float](repeating: 0, count: n),
+            z: [Float](repeating: 0, count: n))
+        rawBackground.withUnsafeBytes { buffer in
+            var offset = Int(background.byteOffset)
+            func readFloats(into array: inout [Float]) {
+                for i in 0..<n {
+                    let bits = buffer.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
+                    array[i] = Float(bitPattern: UInt32(littleEndian: bits))
+                    offset += 4
+                }
+            }
+            readFloats(into: &points.x)
+            readFloats(into: &points.y)
+            readFloats(into: &points.z)
+        }
+        return points
     }
 
     /// The canonical "sha256:" + lower hex form used throughout the pack, so a

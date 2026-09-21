@@ -52,6 +52,7 @@ enum AnnotationGuard: Equatable {
                 points: currentPoints, hasClassification: pack.manifest.hasClassification,
                 band: heightBand)
             sceneRevision &+= 1
+            labelRevision &+= 1
         }
     }
 
@@ -67,12 +68,23 @@ enum AnnotationGuard: Equatable {
     /// How many of the current sample's points are in each display class, so
     /// a toggle can say that it has nothing to hide.
     var classCounts: [UInt8: Int] {
-        currentClasses.reduce(into: [:]) { counts, value in counts[value, default: 0] += 1 }
+        var counts: [UInt8: Int] = currentClasses.reduce(into: [:]) { counts, value in
+            counts[value, default: 0] += 1
+        }
+        // The settled background behind the frame is background too, and it is
+        // what the Background toggle shows and hides.
+        counts[PointClass.background, default: 0] += backgroundPoints.count
+        return counts
     }
 
     // MARK: Selection
 
-    @Published private(set) var history = MembershipHistory() { didSet { sceneRevision &+= 1 } }
+    @Published private(set) var history = MembershipHistory() {
+        didSet {
+            sceneRevision &+= 1
+            labelRevision &+= 1
+        }
+    }
     /// The candidate set of the gesture being previewed, so the operator sees
     /// the count before committing.
     @Published private(set) var pendingCandidates: SelectionCandidates? {
@@ -147,6 +159,34 @@ enum AnnotationGuard: Equatable {
     /// steps made to follow the main view.
     @Published private(set) var operatorNavigationRevision = 0
 
+    // MARK: Settled background
+
+    /// The background snapshot in force at this frame, or nil when the pack
+    /// carries none.
+    @Published private(set) var currentBackground: AnnotationBackground? {
+        didSet { if currentBackground != oldValue { sceneRevision &+= 1 } }
+    }
+    /// Its points. Context only: they have no index a mask could cite, and no
+    /// tool selects from them.
+    private(set) var backgroundPoints = BackgroundPoints()
+    /// Which of them the snapshot added or moved, against the one before it.
+    private(set) var backgroundChanged: [Int] = []
+    /// True on the first frame a new snapshot is in force: the signal that the
+    /// settled scene behind the foreground has just changed.
+    @Published private(set) var backgroundUpdatedHere = false
+
+    // MARK: Progress
+
+    /// Bumped when what is labelled in this frame changes, so the tally below
+    /// is made once per change and not once per redraw.
+    private var labelRevision = 0
+    private var talliedRevision = -1
+    private var tallied = FrameCompleteness()
+    /// Labelable returns per frame, counted once when the pack is opened.
+    private var labelableCounts: [Int] = []
+    /// Every frame's progress, for the frame strip.
+    @Published private(set) var frameProgress: [FrameProgress] = []
+
     // MARK: Brush
 
     /// Where the sphere brush would mark if the button went down now. Shown in
@@ -178,11 +218,21 @@ enum AnnotationGuard: Equatable {
 
     /// The active object's saved mask in this sample. Drawn in the object's
     /// class colour; what differs from it is drawn as unsaved.
-    @Published private(set) var savedSelection: Set<Int> = [] { didSet { sceneRevision &+= 1 } }
+    @Published private(set) var savedSelection: Set<Int> = [] {
+        didSet {
+            sceneRevision &+= 1
+            labelRevision &+= 1
+        }
+    }
     /// Every other object's saved mask in this sample, so an operator can see
     /// what is already labelled before labelling it again.
-    @Published private(set) var otherMasks: [(objectClass: String, indices: [Int])] = [] {
-        didSet { sceneRevision &+= 1 }
+    @Published private(set) var otherMasks: [(name: String, objectClass: String, indices: [Int])] =
+        []
+    {
+        didSet {
+            sceneRevision &+= 1
+            labelRevision &+= 1
+        }
     }
 
     /// The sphere and the columns of the stroke in progress. Published, not
@@ -250,6 +300,15 @@ enum AnnotationGuard: Equatable {
         // through: see columnGrid.
         estimateGround()
         fitViews(to: .sample)
+        refreshBackground(previousSampleIndex: nil)
+        labelableCounts = orderedSamples.map { sample in
+            guard let points = try? pack.points(sampleID: sample.sampleID) else { return 0 }
+            let classes = PointClass.displayClasses(
+                points: points, hasClassification: pack.manifest.hasClassification, band: heightBand
+            )
+            return (0..<points.count).filter { FrameCompleteness.isLabelable(classes, $0) }.count
+        }
+        refreshFrameProgress()
     }
 
     // MARK: - Objects
@@ -328,6 +387,7 @@ enum AnnotationGuard: Equatable {
         let leaving = footprintOfCurrentSelection()
         let direction = index - sampleIndex
         let fromSampleID = currentSample?.sampleID
+        let previousIndex = sampleIndex
         sampleIndex = index
         // Only a step the operator made here asks the main view to come along.
         // One made to follow the main view must not: during playback the main
@@ -341,6 +401,7 @@ enum AnnotationGuard: Equatable {
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         carry(leaving, from: fromSampleID, direction: direction)
+        refreshBackground(previousSampleIndex: previousIndex)
         return nil
     }
 
@@ -652,6 +713,10 @@ enum AnnotationGuard: Equatable {
 
     /// Frames every view, and the 3D view, on the chosen points. Returns false
     /// and leaves the views alone when there are none to frame.
+    @discardableResult func fitViews(toIndices indices: Set<Int>) -> Bool {
+        fitViews(trim: 0) { indices.contains($0) }
+    }
+
     @discardableResult func fitViews(to target: AnnotationFitTarget) -> Bool {
         let selection = history.current
         let include: (Int) -> Bool
@@ -672,7 +737,10 @@ enum AnnotationGuard: Equatable {
             include = { selection.contains($0) }
             trim = 0
         }
+        return fitViews(trim: trim, where: include)
+    }
 
+    private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
         for standard in OrthoViewBasis.Standard.allCases {
             guard
@@ -855,7 +923,7 @@ enum AnnotationGuard: Equatable {
     @discardableResult func applySelectionToAllSamples() -> Int? {
         lastError = nil
         guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return fail("Enter an operator name before saving: provenance is not invented.")
+            return fail("Enter your name under Labelled by before saving: a label has an author.")
         }
         guard let object = activeObject, let here = currentSample else {
             return fail("Select an object before applying its mask to other samples.")
@@ -917,6 +985,7 @@ enum AnnotationGuard: Equatable {
             sidecar = document.sidecar
             dirtySamples.remove(here.sampleID)
             savedSelection = history.current
+            refreshFrameProgress()
             return written
         } catch let error as SidecarStoreError {
             conflict = error
@@ -941,7 +1010,7 @@ enum AnnotationGuard: Equatable {
     /// when nothing stands in the way.
     var nextStep: String? {
         if operatorName.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "Enter your name under Source. A mask is saved under its author."
+            return "Enter your name under Labelled by. Every label is saved with its author."
         }
         if activeObjectID == nil {
             return selectionCount == 0
@@ -951,9 +1020,188 @@ enum AnnotationGuard: Equatable {
         if carried != nil {
             return "The last sample's selection is laid over this one. Nudge it, then accept."
         }
-        if selectionCount == 0 { return "Select this object's points in the editing view." }
-        if navigationGuard() != nil { return "Unsaved changes. Save the mask to move on." }
+        if selectionCount == 0 {
+            return "Select the points of \(activeObjectName ?? "this object") in the editing view."
+        }
+        if navigationGuard() != nil { return "Unsaved changes. Save to move on." }
         return nil
+    }
+
+    // MARK: - Names
+
+    /// What an object is called on screen: its class and its number among
+    /// objects of that class, in the order they were made. "car 2" says which
+    /// of two cars is meant; "obj_5f3a9c1e" does not.
+    func displayName(objectID: String) -> String {
+        guard let object = sidecar.objects.first(where: { $0.objectID == objectID }) else {
+            return objectID
+        }
+        let ordinal =
+            sidecar.objects.prefix { $0.objectID != objectID }.filter {
+                $0.objectClass == object.objectClass
+            }.count + 1
+        return "\(object.objectClass) \(ordinal)"
+    }
+
+    var activeObjectName: String? { activeObjectID.map(displayName(objectID:)) }
+
+    // MARK: - Settled background
+
+    /// Voxel edge used to tell a moved background return from a repeated one.
+    ///
+    /// Half a metre, the column lattice's pitch. Measured on a real pair of
+    /// snapshots fifteen seconds apart (67,015 returns): a quarter of a metre
+    /// flags 6,507 of them, most of it range jitter on foliage and far walls;
+    /// half a metre flags 2,295; a metre flags 271 and starts to miss a car
+    /// that stopped. The thing to show is a surface that moved by about a
+    /// vehicle, which is what the background settling on stopped traffic is.
+    static let backgroundChangePitch: Float = 0.5
+
+    private func refreshBackground(previousSampleIndex: Int?) {
+        guard let sample = currentSample, let inForce = pack.backgroundInForce(at: sample) else {
+            currentBackground = nil
+            backgroundPoints = BackgroundPoints()
+            backgroundChanged = []
+            backgroundUpdatedHere = false
+            return
+        }
+        // Whatever snapshot was in force at the frame just left. Stepping
+        // forward across an update is the moment to say so; stepping back
+        // across one is not news.
+        let previous = previousSampleIndex.flatMap { index -> AnnotationBackground? in
+            guard index >= 0, index < orderedSamples.count else { return nil }
+            return pack.backgroundInForce(at: orderedSamples[index])
+        }
+        backgroundUpdatedHere = previous.map { $0.backgroundID < inForce.backgroundID } ?? false
+
+        guard inForce != currentBackground else { return }
+        let points = pack.backgroundPoints(inForce)
+        backgroundPoints = points
+        backgroundChanged = []
+        if inForce.backgroundID > 0 {
+            let before = pack.backgroundPoints(pack.backgrounds[inForce.backgroundID - 1])
+            backgroundChanged = AnnotationSession.changedIndices(in: points, against: before)
+        }
+        currentBackground = inForce
+    }
+
+    /// Indices of the returns in `points` that lie where `before` had nothing
+    /// within a voxel. The settled range of a cell wanders by centimetres from
+    /// one snapshot to the next, and that is not a change; a return half a
+    /// metre from anything the last snapshot held is.
+    static func changedIndices(
+        in points: BackgroundPoints, against before: BackgroundPoints,
+        pitch: Float = AnnotationSession.backgroundChangePitch
+    ) -> [Int] {
+        func voxel(_ x: Float, _ y: Float, _ z: Float) -> SIMD3<Int32> {
+            SIMD3(
+                Int32((x / pitch).rounded(.down)), Int32((y / pitch).rounded(.down)),
+                Int32((z / pitch).rounded(.down)))
+        }
+        var occupied = Set<SIMD3<Int32>>()
+        occupied.reserveCapacity(before.count * 4)
+        for i in 0..<before.count {
+            let v = voxel(before.x[i], before.y[i], before.z[i])
+            for dx: Int32 in -1...1 {
+                for dy: Int32 in -1...1 {
+                    for dz: Int32 in -1...1 { occupied.insert(SIMD3(v.x + dx, v.y + dy, v.z + dz)) }
+                }
+            }
+        }
+        return (0..<points.count).filter {
+            !occupied.contains(voxel(points.x[$0], points.y[$0], points.z[$0]))
+        }
+    }
+
+    // MARK: - Progress
+
+    /// The current frame's labelling, by sector.
+    var completeness: FrameCompleteness {
+        if talliedRevision != labelRevision {
+            let (agreed, inQuestion) = labelStates()
+            tallied = FrameCompleteness.tally(
+                points: currentPoints, classes: currentClasses, agreed: agreed,
+                inQuestion: inQuestion)
+            talliedRevision = labelRevision
+        }
+        return tallied
+    }
+
+    /// Which of the current frame's returns are agreed and which in question.
+    private func labelStates() -> (agreed: Set<Int>, inQuestion: Set<Int>) {
+        guard let sample = currentSample else { return ([], []) }
+        var agreed = Set<Int>()
+        var inQuestion = Set<Int>()
+        for mask in sidecar.masks where mask.sampleID == sample.sampleID {
+            if mask.objectID == activeObjectID { continue }
+            if mask.isAgreed {
+                agreed.formUnion(mask.pointIndices)
+            } else {
+                inQuestion.formUnion(mask.pointIndices)
+            }
+            inQuestion.formUnion(mask.uncertainIndices ?? [])
+        }
+        // The object under edit is judged as it stands on screen. What matches
+        // its saved mask is as agreed as that mask is; what has been added or
+        // taken out since is in question until saved.
+        let current = history.current
+        let activeMask = activeObjectID.flatMap {
+            sidecar.mask(objectID: $0, sampleID: sample.sampleID)
+        }
+        let kept = current.intersection(savedSelection)
+        if activeMask?.isAgreed ?? true {
+            agreed.formUnion(kept)
+        } else {
+            inQuestion.formUnion(kept)
+        }
+        inQuestion.formUnion(current.symmetricDifference(savedSelection))
+        inQuestion.formUnion(activeMask?.uncertainIndices ?? [])
+        return (agreed, inQuestion)
+    }
+
+    /// Rebuilds the frame strip from what is saved. Counts labelled returns
+    /// against labelable ones without re-reading every frame's classes, so a
+    /// mask that takes in a few returns the height band removed can overstate
+    /// a frame by those few: the strip says where the work is, and the sector
+    /// ring, which is exact, says whether a frame is done.
+    private func refreshFrameProgress() {
+        var agreed = [Int: Set<Int>]()
+        var inQuestion = [Int: Set<Int>]()
+        for mask in sidecar.masks {
+            if mask.isAgreed {
+                agreed[mask.sampleID, default: []].formUnion(mask.pointIndices)
+            } else {
+                inQuestion[mask.sampleID, default: []].formUnion(mask.pointIndices)
+            }
+            inQuestion[mask.sampleID, default: []].formUnion(mask.uncertainIndices ?? [])
+        }
+        var lastBackground: Int?
+        frameProgress = orderedSamples.enumerated().map { index, sample in
+            let questioned = inQuestion[sample.sampleID] ?? []
+            let settled = (agreed[sample.sampleID] ?? []).subtracting(questioned)
+            let background = pack.backgroundInForce(at: sample)?.backgroundID
+            defer { lastBackground = background }
+            return FrameProgress(
+                labelable: index < labelableCounts.count ? labelableCounts[index] : 0,
+                agreed: settled.count, inQuestion: questioned.count,
+                backgroundUpdated: index > 0 && background != lastBackground)
+        }
+    }
+
+    /// Frames the returns nobody has labelled in one sector, or the whole
+    /// sector when there are none left: where to look next.
+    @discardableResult func fitViews(toSector sector: Int) -> Bool {
+        let (agreed, inQuestion) = labelStates()
+        let inSector: (Int) -> Bool = { index in
+            FrameCompleteness.isLabelable(self.currentClasses, index)
+                && FrameCompleteness.sector(
+                    x: self.currentPoints.x[index], y: self.currentPoints.y[index]) == sector
+        }
+        let unlabelled = (0..<currentPoints.count).filter {
+            inSector($0) && !agreed.contains($0) && !inQuestion.contains($0)
+        }
+        let target = unlabelled.isEmpty ? (0..<currentPoints.count).filter(inSector) : unlabelled
+        return fitViews(toIndices: Set(target))
     }
 
     // MARK: - Persistence
@@ -966,7 +1214,7 @@ enum AnnotationGuard: Equatable {
         lastError = nil
         conflict = nil
         guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return fail("Enter an operator name before saving: provenance is not invented.")
+            return fail("Enter your name under Labelled by before saving: a label has an author.")
                 ?? false
         }
         guard let sample = currentSample, let objectID = activeObjectID else {
@@ -1002,6 +1250,7 @@ enum AnnotationGuard: Equatable {
                 sidecar = document.sidecar
                 dirtySamples.remove(sample.sampleID)
                 savedSelection = Set(validated)
+                refreshFrameProgress()
                 return true
             } catch let error as SidecarStoreError {
                 // Neither busy nor conflict discards the operator's dirty
@@ -1030,6 +1279,7 @@ enum AnnotationGuard: Equatable {
             carried = nil
             carriedIndices = []
             loadSelectionForCurrentSample()
+            refreshFrameProgress()
         } catch { lastError = "\(error)" }
     }
 
@@ -1087,6 +1337,11 @@ enum AnnotationGuard: Equatable {
             sidecar.objects.map { ($0.objectID, $0.objectClass) }, uniquingKeysWith: { a, _ in a })
         otherMasks = sidecar.masks.filter {
             $0.sampleID == sample.sampleID && $0.objectID != activeObjectID
-        }.map { (objectClass: classes[$0.objectID] ?? "", indices: $0.pointIndices) }
+        }.map {
+            (
+                name: displayName(objectID: $0.objectID), objectClass: classes[$0.objectID] ?? "",
+                indices: $0.pointIndices
+            )
+        }
     }
 }

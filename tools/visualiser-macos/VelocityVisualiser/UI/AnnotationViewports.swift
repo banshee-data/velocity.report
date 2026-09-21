@@ -253,18 +253,29 @@ struct AnnotationSceneView: NSViewRepresentable {
         if coordinator.sceneRevision != session.sceneRevision {
             coordinator.sceneRevision = session.sceneRevision
             var marks = AnnotationScene.Marks()
-            marks.others = session.otherMasks
+            marks.others = session.otherMasks.map { ($0.objectClass, $0.indices) }
             marks.activeClass = session.activeObject?.objectClass
             marks.saved = session.savedSelection
             marks.selected = session.history.current
             marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(
                 session.hoverIndices
             ).union(session.carriedIndices)
+            // The renderer keeps a background until it is given another, so
+            // it is sent once per snapshot and switched on and off after that.
+            let backdrop = session.currentBackground.map { snapshot in
+                AnnotationScene.Backdrop(
+                    snapshot: snapshot, points: session.backgroundPoints,
+                    changed: session.backgroundChanged,
+                    upload: coordinator.backgroundID != snapshot.backgroundID)
+            }
+            coordinator.backgroundID = session.currentBackground?.backgroundID
+            renderer.showBackground =
+                session.currentBackground != nil && session.visibility.background
             renderer.updateFrame(
                 AnnotationScene.frame(
                     points: session.currentPoints, classes: session.currentClasses,
                     visibility: session.effectiveVisibility, marks: marks,
-                    sample: session.currentSample))
+                    sample: session.currentSample, backdrop: backdrop))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {
             coordinator.focusRevision = focus.revision
@@ -279,6 +290,7 @@ struct AnnotationSceneView: NSViewRepresentable {
         var renderer: MetalRenderer?
         var sceneRevision: Int?
         var focusRevision: Int?
+        var backgroundID: Int?
     }
 }
 
@@ -360,5 +372,92 @@ extension FocusedValues {
     var annotationSession: AnnotationSession? {
         get { self[AnnotationSessionFocusKey.self] }
         set { self[AnnotationSessionFocusKey.self] = newValue }
+    }
+}
+
+// MARK: - Sector ring
+
+/// How much of the frame is labelled, in sixteen sectors round the sensor.
+///
+/// Drawn the way the top view is, +X to the right and sectors anticlockwise
+/// from it, so that a sector with work left in it points at where that work is
+/// on screen. Each wedge fills from the centre: agreed first, then in
+/// question, and what is left of it is what nobody has labelled.
+struct SectorRing: View {
+    let completeness: FrameCompleteness
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            Canvas { context, size in
+                let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+                let outer = min(size.width, size.height) / 2 - 1
+                let inner = outer * 0.22
+                for (index, tally) in completeness.sectors.enumerated() {
+                    let bearings = FrameCompleteness.bearings(ofSector: index)
+                    func wedge(from r0: CGFloat, to r1: CGFloat) -> Path {
+                        var path = Path()
+                        // Canvas angles run clockwise with y down; bearings
+                        // run anticlockwise with y up. Negating turns one
+                        // into the other.
+                        let start = Angle(radians: -Double(bearings.lowerBound))
+                        let end = Angle(radians: -Double(bearings.upperBound))
+                        path.addArc(
+                            center: centre, radius: r1, startAngle: start, endAngle: end,
+                            clockwise: true)
+                        path.addArc(
+                            center: centre, radius: r0, startAngle: end, endAngle: start,
+                            clockwise: false)
+                        path.closeSubpath()
+                        return path
+                    }
+                    let span = outer - inner
+                    let agreedEdge = inner + span * CGFloat(tally.fractionAgreed)
+                    let questionEdge = agreedEdge + span * CGFloat(tally.fractionInQuestion)
+                    // Empty sectors are drawn faint rather than not at all, so
+                    // that the ring stays a ring and the gaps mean "nothing
+                    // here" and not "not drawn".
+                    context.fill(
+                        wedge(from: inner, to: outer),
+                        with: .color(.white.opacity(tally.total > 0 ? 0.16 : 0.04)))
+                    if tally.agreed > 0 {
+                        context.fill(
+                            wedge(from: inner, to: agreedEdge),
+                            with: .color(AnnotationFrameStrip.agreedColour))
+                    }
+                    if tally.inQuestion > 0 {
+                        context.fill(
+                            wedge(from: agreedEdge, to: questionEdge),
+                            with: .color(AnnotationFrameStrip.inQuestionColour))
+                    }
+                    context.stroke(
+                        wedge(from: inner, to: outer), with: .color(.black.opacity(0.6)),
+                        lineWidth: 0.5)
+                }
+                // The sensor, and which way is +X.
+                context.fill(
+                    Path(ellipseIn: CGRect(x: centre.x - 2, y: centre.y - 2, width: 4, height: 4)),
+                    with: .color(.white))
+                context.draw(
+                    Text("+X").font(.system(size: 8)).foregroundColor(.secondary),
+                    at: CGPoint(x: size.width - 8, y: centre.y - 7))
+            }.contentShape(Rectangle()).gesture(
+                DragGesture(minimumDistance: 0).onEnded { value in
+                    if let sector = SectorRing.sector(at: value.location, in: size) {
+                        onSelect(sector)
+                    }
+                })
+        }
+    }
+
+    /// The sector under a point in the ring's own coordinates, or nil at the
+    /// very centre, where every sector meets.
+    static func sector(at location: CGPoint, in size: CGSize) -> Int? {
+        let dx = Float(location.x - size.width / 2)
+        // Screen y grows downward; the ring is drawn with +Y up.
+        let dy = Float(size.height / 2 - location.y)
+        guard dx * dx + dy * dy > 4 else { return nil }
+        return FrameCompleteness.sector(x: dx, y: dy)
     }
 }
