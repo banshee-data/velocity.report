@@ -99,7 +99,7 @@ struct LassoOverlay: View {
                         session.zoom(
                             basisStandard, size: viewport.size, by: factor, aboutScreenPoint: anchor
                         )
-                    },
+                    }, onClick: { _ in if !editable { session.makeEditingView(basisStandard) } },
                     onHover: { location in
                         guard editable else { return }
                         session.hover(
@@ -516,36 +516,49 @@ struct LassoOverlay: View {
 
 /// The annotation controls: object identity, view, slab, review and save.
 struct AnnotationPane: View {
+    /// The controls are two columns either side of the views, not one.
+    enum Column {
+        /// What is being labelled: the run and frame, progress, proposals and
+        /// objects.
+        case objects
+        /// How: display, tools, slab, carrying, saving and review.
+        case editing
+    }
+
+    static let columnWidth: CGFloat = 280
+
     @ObservedObject var session: AnnotationSession
+    var column: Column = .objects
 
     @State private var newObjectClass = "car"
     @State private var newObjectSubtype = ""
-    @State private var secondViewConfirmed = false
     @State private var showDiscardPrompt = false
 
     @State private var applyResult: String?
     @State private var showReviewAllPrompt = false
     @State private var proposalClass = "car"
-    @State private var showSmallProposals = false
+    @State private var proposalSort = ProposalSort.mostFrames
+    @State private var proposalFilter = ProposalFilter()
+    @State private var splitClass = "pedestrian"
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Above the scroll view, not at the foot of it. A refused save
-            // used to report itself below the last section, off screen, and a
-            // save that fails where nobody can see it looks like a save.
-            statusStrip
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                switch column {
+                case .objects:
                     sourceSection
                     Divider()
                     progressSection
                     Divider()
                     proposalSection
                     Divider()
+                    objectSection
+                case .editing:
                     displaySection
                     Divider()
-                    objectSection
+                    selectionSection
+                    Divider()
+                    slabSection
                     if session.activeObjectID != nil {
                         Divider()
                         propagationSection
@@ -555,35 +568,17 @@ struct AnnotationPane: View {
                         carriedSection
                     }
                     Divider()
-                    selectionSection
-                    Divider()
-                    slabSection
-                    Divider()
                     reviewSection
-                }.padding(12)
-            }
-        }.frame(width: 300)
-    }
-
-    // MARK: Status
-
-    // What went wrong, or failing that what to do next. One line that is
-    // always on screen.
-    private var statusStrip: some View {
-        HStack(alignment: .top, spacing: 6) {
-            if let error = session.lastError {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-                Text(error).foregroundStyle(.red)
-            } else if let next = session.nextStep {
-                Image(systemName: "arrow.right.circle").foregroundStyle(.secondary)
-                Text(next).foregroundStyle(.secondary)
-            } else {
-                Image(systemName: "checkmark.circle").foregroundStyle(.green)
-                Text("Saved.").foregroundStyle(.secondary)
-            }
-        }.font(.caption).fixedSize(horizontal: false, vertical: true).frame(
-            maxWidth: .infinity, alignment: .leading
-        ).padding(.horizontal, 12).padding(.vertical, 8)
+                }
+            }.padding(12)
+        }.frame(width: AnnotationPane.columnWidth).alert(
+            "Unsaved membership", isPresented: $showDiscardPrompt
+        ) {
+            Button("Keep editing", role: .cancel) {}
+            Button("Discard and reload", role: .destructive) { session.reload() }
+        } message: {
+            Text("This frame has unsaved changes. Save it, or discard them, before moving on.")
+        }
     }
 
     // MARK: Source
@@ -698,9 +693,7 @@ struct AnnotationPane: View {
     /// what moved some distance or lasted a couple of seconds. The rest is
     /// mostly the speckle of every frame, and is there when asked for.
     private var listedProposals: [ObjectProposal] {
-        session.proposals.filter {
-            showSmallProposals || $0.kind == .fixed || $0.travelled >= 2 || $0.frames.count >= 20
-        }
+        proposalSort.sorted(session.proposals.filter(proposalFilter.admits))
     }
 
     private var proposalSection: some View {
@@ -728,8 +721,19 @@ struct AnnotationPane: View {
                         + "its frames, then accept, split, merge or reject it."
                 ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
-                Toggle("List the small and short ones too", isOn: $showSmallProposals).font(
-                    .caption2)
+                HStack(spacing: 4) {
+                    Picker("Sort", selection: $proposalSort) {
+                        ForEach(ProposalSort.allCases) { Text($0.label).tag($0) }
+                    }.labelsHidden()
+                    Picker("Type", selection: $proposalFilter.type) {
+                        Text("All types").tag(String?.none)
+                        ForEach(ProposalFilter.types(in: session.proposals), id: \.name) { type in
+                            Text("\(type.name) (\(type.count))").tag(String?.some(type.name))
+                        }
+                    }.labelsHidden()
+                }.controlSize(.small).font(.caption2)
+                Toggle("List the small and short ones too", isOn: $proposalFilter.includeSmall)
+                    .font(.caption2)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(listed) { proposal in proposalRow(proposal) }
@@ -751,6 +755,8 @@ struct AnnotationPane: View {
                     + "\(proposal.firstFrame + 1)–\(proposal.lastFrame + 1) · ~\(proposal.meanPoints) pts"
                     + (proposal.kind == .moving
                         ? String(format: " · %.0f m", proposal.travelled) : "")
+                    + (proposalSort == .steadiest
+                        ? String(format: " · ±%.0f%%", proposal.unsteadiness * 100) : "")
             ).font(.caption2.monospacedDigit()).lineLimit(1)
             Spacer(minLength: 0)
         }.padding(.vertical, 2).padding(.horizontal, 4).background(
@@ -918,13 +924,19 @@ struct AnnotationPane: View {
                 _ = session.createObject(
                     objectClass: newObjectClass,
                     subtype: newObjectSubtype.isEmpty ? nil : newObjectSubtype)
-                secondViewConfirmed = false
+                session.secondViewChecked = false
             }
 
             if session.sidecar.objects.isEmpty {
                 Text("No objects yet").font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(session.sidecar.objects) { object in objectRow(object) }
+            }
+
+            if let active = session.activeObject, !session.removedFromSaved.isEmpty,
+                session.selectionCount > 0
+            {
+                splitControls(active)
             }
 
             if let active = session.activeObject, AnnotationPalette.isFixed(active.objectClass) {
@@ -976,7 +988,7 @@ struct AnnotationPane: View {
                 showDiscardPrompt = true
                 return
             }
-            secondViewConfirmed = false
+            session.secondViewChecked = false
             applyResult = nil
         }
     }
@@ -1019,6 +1031,36 @@ struct AnnotationPane: View {
         }
     }
 
+    // What was labelled as one object is two. The operator takes the second
+    // one's points out of the first, which shows them ringed in red, and this
+    // makes those a new object and divides the other frames the same way.
+    private func splitControls(_ active: AnnotationObject) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(
+                "\(session.removedFromSaved.count) points taken out of "
+                    + "\(session.displayName(objectID: active.objectID)). If they are a second "
+                    + "object, split them off."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+            HStack(spacing: 4) {
+                Picker("Class", selection: $splitClass) {
+                    ForEach(AnnotationPalette.classes) { Text($0.name).tag($0.name) }
+                }.labelsHidden().frame(maxWidth: 110)
+                Button("Split off as new object") {
+                    if let result = session.splitRemovedIntoNewObject(objectClass: splitClass) {
+                        applyResult =
+                            "Split \(session.displayName(objectID: result.objectID)) off through "
+                            + "\(result.frames) frames."
+                    }
+                }
+            }.controlSize(.small).help(
+                "Divides this frame as you have, then carries the division through the other "
+                    + "frames this object is labelled in, as far as the second object can be "
+                    + "found. Every frame it changes goes back to proposed.")
+            if let applyResult { Text(applyResult).font(.caption2).foregroundStyle(.secondary) }
+        }.onAppear { splitClass = active.objectClass }
+    }
+
     // MARK: Carried selection
 
     // The keys do the same from the editing view. These are here so that the
@@ -1056,13 +1098,7 @@ struct AnnotationPane: View {
             Text("Selection").font(.headline)
             Picker("View", selection: $session.viewStandard) {
                 ForEach(OrthoViewBasis.Standard.allCases, id: \.self) { Text($0.label).tag($0) }
-            }.font(.caption).onChange(of: session.viewStandard) { _, newValue in
-                // Keep the confirming view on a genuinely different axis.
-                session.secondViewStandard = OrthoViewBasis.secondView(for: newValue)
-                // The depth axis has changed, so a slab set along the old one
-                // means nothing along the new.
-                session.unpinSlab()
-            }
+            }.font(.caption)
 
             Picker("Tool", selection: $session.tool) {
                 ForEach(SelectionTool.allCases) { Text($0.label).tag($0) }
@@ -1222,8 +1258,7 @@ struct AnnotationPane: View {
 
             // A membership seen from one angle has not been inspected for
             // contamination, so review is gated on the second view.
-            Toggle("Checked in \(session.secondViewStandard.label)", isOn: $secondViewConfirmed)
-                .font(.caption)
+            Toggle("Checked from another view", isOn: $session.secondViewChecked).font(.caption)
 
             HStack {
                 Button("Save points") { _ = session.save() }.keyboardShortcut(
@@ -1234,10 +1269,10 @@ struct AnnotationPane: View {
             }
             HStack {
                 Button("Review this frame") {
-                    _ = session.markFrameReviewed(secondViewConfirmed: secondViewConfirmed)
-                }.disabled(!secondViewConfirmed)
+                    _ = session.markFrameReviewed(secondViewConfirmed: session.secondViewChecked)
+                }.disabled(!session.secondViewChecked)
                 Button("Review all frames…") { showReviewAllPrompt = true }.disabled(
-                    !secondViewConfirmed || session.activeObjectID == nil)
+                    !session.secondViewChecked || session.activeObjectID == nil)
             }
             if let id = session.activeObjectID {
                 // Only a reviewed mask of a reviewed object is reference truth,
@@ -1257,7 +1292,7 @@ struct AnnotationPane: View {
         ) {
             Button("Cancel", role: .cancel) {}
             Button("Mark all reviewed") {
-                _ = session.markAllFramesReviewed(secondViewConfirmed: secondViewConfirmed)
+                _ = session.markAllFramesReviewed(secondViewConfirmed: session.secondViewChecked)
             }
         } message: {
             Text(
@@ -1265,15 +1300,37 @@ struct AnnotationPane: View {
                     + "are right, including frames that were filled in for you. They count as "
                     + "reference truth from then on. Changing a frame's points afterwards puts "
                     + "that frame back to unreviewed.")
-        }.alert("Unsaved membership", isPresented: $showDiscardPrompt) {
-            Button("Keep editing", role: .cancel) {}
-            Button("Discard and reload", role: .destructive) { session.reload() }
-        } message: {
-            Text("This frame has unsaved changes. Save it, or discard them, before moving on.")
         }
     }
 
     private func handleStep(_ step: () -> AnnotationGuard?) {
         if step() != nil { showDiscardPrompt = true }
+    }
+}
+
+// MARK: - Status
+
+/// What went wrong, or failing that what to do next. One line, always on
+/// screen, across the top of the views: a refused save used to report itself
+/// at the foot of a scrolling column, where a save that failed looked like one
+/// that had worked.
+struct AnnotationStatusStrip: View {
+    @ObservedObject var session: AnnotationSession
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if let error = session.lastError {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                Text(error).foregroundStyle(.red)
+            } else if let next = session.nextStep {
+                Image(systemName: "arrow.right.circle").foregroundStyle(.secondary)
+                Text(next).foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "checkmark.circle").foregroundStyle(.green)
+                Text("Saved.").foregroundStyle(.secondary)
+            }
+        }.font(.caption).fixedSize(horizontal: false, vertical: true).frame(
+            maxWidth: .infinity, alignment: .leading
+        ).padding(.horizontal, 12).padding(.vertical, 6)
     }
 }

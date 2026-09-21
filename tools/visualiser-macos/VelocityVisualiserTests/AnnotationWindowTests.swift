@@ -255,12 +255,17 @@ struct AnnotationWiringTests {
         #expect(window.contains("canChooseFiles = false"))
     }
 
-    @Test func theSecondViewIsNotEditable() throws {
-        // Review is gated on a second-view confirmation. If that view took
-        // gestures it would be another editing surface, not a check.
+    @Test func onlyTheEditingViewTakesStrokes() throws {
+        // Review is gated on a check from another view. All three orthographic
+        // views are on screen, and if each took strokes there would be three
+        // editing surfaces and no view left to check in.
         let window = try source("UI/AnnotationWindow.swift")
-        #expect(window.contains("session.secondViewStandard"), "the confirming view is not shown")
-        #expect(window.contains("editable: false"), "the confirming view accepts edits")
+        #expect(
+            window.contains("ForEach(OrthoViewBasis.Standard.allCases"),
+            "the three orthographic views are not all mounted")
+        #expect(
+            window.contains("editable: standard == session.viewStandard"),
+            "a view other than the editing view accepts strokes")
     }
 
     // "Generate from Run…", "Open Pack…" and "Close" in AnnotationWorkspace

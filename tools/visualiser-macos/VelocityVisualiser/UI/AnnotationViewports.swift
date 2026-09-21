@@ -46,6 +46,8 @@ struct ViewportInputLayer: NSViewRepresentable {
     var onPan: (CGSize) -> Void
     /// A scale factor (below one zooms in) about a point in the view.
     var onZoom: (Float, CGPoint) -> Void
+    /// A click that was not a drag, in a view that takes no strokes.
+    var onClick: (CGPoint) -> Void = { _ in }
     /// The cursor's position in the view, or nil once it has left.
     var onHover: (CGPoint?) -> Void = { _ in }
     /// Shift-scroll, in whole steps: moves the brush along the depth axis.
@@ -70,6 +72,8 @@ final class ViewportInputView: NSView {
         case pan(last: CGPoint)
     }
     private var drag: Drag?
+    /// Where the left button went down, to tell a click from a pan.
+    private var pressedAt: CGPoint?
 
     /// Top-left origin, to match the SwiftUI layers drawn over this view.
     override var isFlipped: Bool { true }
@@ -85,6 +89,7 @@ final class ViewportInputView: NSView {
         window?.makeFirstResponder(self)
         let point = location(of: event)
         let strokes = layer_?.strokesEnabled ?? false
+        pressedAt = strokes ? nil : point
         if !strokes || event.modifierFlags.contains(.control) {
             drag = .pan(last: point)
             return
@@ -96,10 +101,13 @@ final class ViewportInputView: NSView {
     override func mouseDragged(with event: NSEvent) { dragged(to: location(of: event)) }
 
     override func mouseUp(with event: NSEvent) {
+        let point = location(of: event)
         if case .stroke(let start) = drag {
-            layer_?.onStrokeEnded(
-                ViewportStroke(startLocation: start, location: location(of: event)))
+            layer_?.onStrokeEnded(ViewportStroke(startLocation: start, location: point))
+        } else if let pressedAt, hypot(point.x - pressedAt.x, point.y - pressedAt.y) < 4 {
+            layer_?.onClick(point)
         }
+        pressedAt = nil
         drag = nil
     }
 

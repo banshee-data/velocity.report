@@ -43,6 +43,85 @@ struct ObjectProposal: Identifiable, Equatable {
     var lastFrame: Int { frames.keys.max() ?? 0 }
     var totalPoints: Int { frames.values.reduce(0) { $0 + $1.count } }
     var meanPoints: Int { frames.isEmpty ? 0 : totalPoints / frames.count }
+
+    /// How much the return count jumps about from one frame to the next: the
+    /// median relative change, so 0 is perfectly steady. A real object's count
+    /// drifts with range; a chain that hopped between things, or is speckle,
+    /// lurches. Lower is more likely to be worth accepting as it stands.
+    var unsteadiness: Float {
+        let counts = frames.keys.sorted().compactMap { frames[$0]?.count }
+        guard counts.count > 1 else { return 0 }
+        let changes = zip(counts, counts.dropFirst()).map { a, b in
+            abs(Float(b - a)) / Float(max(a, b, 1))
+        }.sorted()
+        return changes[changes.count / 2]
+    }
+}
+
+/// The orders an operator can list proposals in.
+enum ProposalSort: String, CaseIterable, Identifiable {
+    /// Seen in the most frames: the objects with the most to gain from one click.
+    case mostFrames
+    case mostPoints
+    case furthestMoved
+    /// The least lurching return count: see `ObjectProposal.unsteadiness`.
+    case steadiest
+    case earliest
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .mostFrames: return "Most frames"
+        case .mostPoints: return "Most points"
+        case .furthestMoved: return "Furthest moved"
+        case .steadiest: return "Steadiest"
+        case .earliest: return "Earliest"
+        }
+    }
+
+    /// Ties fall back to the proposal's id, so a list never reshuffles between
+    /// two redraws of the same proposals.
+    func sorted(_ proposals: [ObjectProposal]) -> [ObjectProposal] {
+        proposals.sorted { a, b in
+            switch self {
+            case .mostFrames:
+                if a.frames.count != b.frames.count { return a.frames.count > b.frames.count }
+            case .mostPoints:
+                if a.totalPoints != b.totalPoints { return a.totalPoints > b.totalPoints }
+            case .furthestMoved: if a.travelled != b.travelled { return a.travelled > b.travelled }
+            case .steadiest:
+                if a.unsteadiness != b.unsteadiness { return a.unsteadiness < b.unsteadiness }
+            case .earliest: if a.firstFrame != b.firstFrame { return a.firstFrame < b.firstFrame }
+            }
+            return a.id < b.id
+        }
+    }
+}
+
+/// Which proposals are listed.
+struct ProposalFilter: Equatable {
+    /// Nil lists every type. Otherwise the proposed class, or "fixed".
+    var type: String?
+    /// The small and the short: mostly the speckle of every frame.
+    var includeSmall = false
+
+    static func typeName(of proposal: ObjectProposal) -> String {
+        proposal.kind == .fixed ? "fixed" : proposal.classGuess
+    }
+
+    func admits(_ proposal: ObjectProposal) -> Bool {
+        if let type, ProposalFilter.typeName(of: proposal) != type { return false }
+        return includeSmall || proposal.kind == .fixed || proposal.travelled >= 2
+            || proposal.frames.count >= 20
+    }
+
+    /// The types present, most common first, for the filter's menu.
+    static func types(in proposals: [ObjectProposal]) -> [(name: String, count: Int)] {
+        Dictionary(grouping: proposals, by: typeName(of:)).map { ($0.key, $0.value.count) }.sorted {
+            $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name
+        }
+    }
 }
 
 /// What the proposer is shown of one frame.

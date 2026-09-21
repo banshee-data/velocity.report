@@ -188,6 +188,39 @@ struct AnnotationViewportInputTests {
         #expect(mounted.session.viewport(for: .top, size: mounted.input.bounds.size) != before)
     }
 
+    @Test func aClickInAnotherViewMakesItTheEditingView() throws {
+        // The top view is the editing view; this mounts the front view.
+        let dir = try PackFixture.write()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
+            backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        window.contentView = NSHostingView(
+            rootView: AnnotationViewportView(session: session, standard: .front, editable: false))
+        window.orderFront(nil)
+        var input: ViewportInputView?
+        for _ in 0..<20 where input == nil {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            input = window.contentView.flatMap(Self.inputView(in:))
+        }
+        let view = try #require(input)
+        let mounted = Mounted(session: session, window: window, input: view, packDirectory: dir)
+        session.setSlab(DepthSlab(minDepth: -1, maxDepth: 0))
+
+        let point = view.convert(CGPoint(x: 200, y: 150), to: nil)
+        try send(.leftMouseDown, at: point, to: mounted)
+        try send(.leftMouseUp, at: point, to: mounted)
+
+        #expect(session.viewStandard == .front)
+        #expect(session.secondViewStandard != .front)
+        // The slab was along the top view's depth axis, which is not this one's.
+        #expect(!session.slabIsPinned)
+        #expect(session.selectionCount == 0)
+    }
+
     @Test func scrollingZoomsTheView() throws {
         let mounted = try mount()
         defer { mounted.cleanUp() }

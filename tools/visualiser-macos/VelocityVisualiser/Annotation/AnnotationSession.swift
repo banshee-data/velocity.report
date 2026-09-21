@@ -99,7 +99,17 @@ enum AnnotationGuard: Equatable {
     /// True between the first drag point and commit or cancel.
     @Published private(set) var strokeInProgress = false
 
-    @Published var viewStandard: OrthoViewBasis.Standard = .top
+    @Published var viewStandard: OrthoViewBasis.Standard = .top {
+        didSet {
+            guard viewStandard != oldValue else { return }
+            // Keep the confirming view on a genuinely different axis. And the
+            // depth axis has changed, so a slab set along the old one means
+            // nothing along the new.
+            secondViewStandard = OrthoViewBasis.secondView(for: viewStandard)
+            cancelStroke()
+            unpinSlab()
+        }
+    }
     /// The confirming view: selection must be inspected from a second angle
     /// before a mask is marked reviewed.
     @Published var secondViewStandard: OrthoViewBasis.Standard = .front
@@ -238,6 +248,13 @@ enum AnnotationGuard: Equatable {
     /// covers, so stepping through the frames is how it is judged.
     @Published private(set) var selectedProposalID: Int? { didSet { sceneRevision &+= 1 } }
 
+    // MARK: Review gate
+
+    /// The operator's statement that they have looked at this frame's points
+    /// from a second angle. Cleared when the frame or the object changes: it
+    /// was a statement about those points.
+    @Published var secondViewChecked = false
+
     // MARK: Saved masks
 
     /// The active object's saved mask in this sample. Drawn in the object's
@@ -366,6 +383,7 @@ enum AnnotationGuard: Equatable {
     @discardableResult func activate(objectID: String) -> AnnotationGuard? {
         if let blocker = navigationGuard() { return blocker }
         activeObjectID = objectID
+        secondViewChecked = false
         carried = nil
         carriedIndices = []
         loadSelectionForCurrentSample()
@@ -523,6 +541,7 @@ enum AnnotationGuard: Equatable {
         hoverIndices = []
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
+        secondViewChecked = false
         carry(leaving, from: fromSampleID, direction: direction)
         refreshBackground(previousSampleIndex: previousIndex)
         return nil
@@ -1509,6 +1528,163 @@ enum AnnotationGuard: Equatable {
         loadSelectionForCurrentSample()
         refreshFrameProgress()
         return written
+    }
+
+    /// Makes one of the three orthographic views the one that takes strokes.
+    func makeEditingView(_ standard: OrthoViewBasis.Standard) { viewStandard = standard }
+
+    // MARK: - Splitting an object
+
+    /// The saved returns the operator has taken out of the active object and
+    /// not yet saved: what a split would make into the new object.
+    var removedFromSaved: Set<Int> { savedSelection.subtracting(history.current) }
+
+    /// Makes the returns taken out of the active object a new object: what was
+    /// labelled as one pedestrian is two.
+    ///
+    /// In this frame the division is the operator's. It is then carried both
+    /// ways through the frames the object is labelled in, dividing each mask
+    /// between the two by refitting each half's footprint inside that mask,
+    /// with a return both halves claim (or neither) going to the nearer. It
+    /// stops where the second object can no longer be found. Every frame it
+    /// changes goes back to proposed, in one save. Returns the new object's id
+    /// and how many frames were divided.
+    @discardableResult func splitRemovedIntoNewObject(
+        objectClass: String
+    ) -> (objectID: String, frames: Int)? {
+        lastError = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter your name under Labelled by before saving: a label has an author.")
+        }
+        guard let original = activeObject, let here = currentSample else {
+            return fail("Choose the object to split.")
+        }
+        let moved = removedFromSaved
+        let kept = history.current
+        guard !moved.isEmpty, !kept.isEmpty else {
+            return fail(
+                "Take the second object's points out of \(displayName(objectID: original.objectID)) "
+                    + "first: what is removed becomes the new object.")
+        }
+
+        let byHand = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "split_object")
+        var carriedOver = byHand
+        carriedOver.algorithm = "footprint_split"
+        carriedOver.algorithmVersion = "1"
+
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        let created = AnnotationObject(
+            objectID: "obj_" + UUID().uuidString.prefix(8).lowercased(), objectClass: objectClass,
+            subtype: nil, confidence: 1.0, status: .proposed, provenance: byHand)
+        edited.sidecar.objects.append(created)
+
+        func write(_ indices: Set<Int>, to objectID: String, sampleID: Int, _ how: Provenance) {
+            var mask =
+                edited.sidecar.mask(objectID: objectID, sampleID: sampleID)
+                ?? FrameMask(objectID: objectID, sampleID: sampleID)
+            mask.pointIndices = indices.sorted()
+            mask.status = .proposed
+            mask.provenance = how
+            if mask.completeness == .unreviewed { mask.completeness = .partial }
+            if mask.visibility == .unknown { mask.visibility = .present }
+            edited.sidecar.upsert(mask: mask)
+        }
+        write(kept, to: original.objectID, sampleID: here.sampleID, byHand)
+        write(moved, to: created.objectID, sampleID: here.sampleID, byHand)
+
+        var divided = 1
+        for direction in [1, -1] {
+            var keptPoints = kept.compactMap { currentPoints.point(at: $0) }
+            var movedPoints = moved.compactMap { currentPoints.point(at: $0) }
+            var index = sampleIndex + direction
+            while index >= 0, index < orderedSamples.count {
+                let sample = orderedSamples[index]
+                guard
+                    let mask = sidecar.mask(objectID: original.objectID, sampleID: sample.sampleID),
+                    let points = try? pack.points(sampleID: sample.sampleID)
+                else { break }
+                let inMask = Set(mask.pointIndices)
+                let candidates = mask.pointIndices
+                // The two are followed together and then told apart. Fitting
+                // each half on its own inside a label that covers both does
+                // not work: the most returns are always towards the other
+                // half, so on a real pair of pedestrians both fits slid to the
+                // middle and met. The pair's footprint gives the movement they
+                // share; each return then goes to whichever of the two it is
+                // nearer, from where each was in the last frame.
+                let together = SelectionFootprint(points: keptPoints + movedPoints).fit(
+                    in: points, near: .zero, among: candidates, where: inMask.contains)
+                let wasKept = AnnotationSession.centroid(keptPoints)
+                let wasMoved = AnnotationSession.centroid(movedPoints)
+                var keptCentre = wasKept + together.offset
+                var movedCentre = wasMoved + together.offset
+                var toKept = Set<Int>()
+                var toMoved = Set<Int>()
+                // A few rounds, so each can have moved a little on its own.
+                for _ in 0..<3 {
+                    toKept.removeAll(keepingCapacity: true)
+                    toMoved.removeAll(keepingCapacity: true)
+                    for i in candidates {
+                        guard let p = points.point(at: i) else { continue }
+                        if simd_distance(p, movedCentre) < simd_distance(p, keptCentre) {
+                            toMoved.insert(i)
+                        } else {
+                            toKept.insert(i)
+                        }
+                    }
+                    guard !toKept.isEmpty, !toMoved.isEmpty else { break }
+                    keptCentre = AnnotationSession.centroid(
+                        toKept.compactMap { points.point(at: $0) })
+                    movedCentre = AnnotationSession.centroid(
+                        toMoved.compactMap { points.point(at: $0) })
+                }
+                // Both have to be there as themselves, by propagation's rule
+                // for "lost": where the label only ever covered the first
+                // object, nearest-centre would still hand the second a corner
+                // of it. And they have to be where they could have got to, and
+                // as far apart as they were, or it is one object cut in half.
+                let allowed = PropagationJudge.allowedDeviation(predicted: 0)
+                guard
+                    toMoved.count
+                        >= max(
+                            PropagationJudge.minimumPoints,
+                            Int(Float(movedPoints.count) * PropagationJudge.lostFraction)),
+                    Float(toKept.count) >= Float(keptPoints.count) * PropagationJudge.lostFraction,
+                    simd_distance(movedCentre, wasMoved + together.offset) <= allowed,
+                    simd_distance(keptCentre, wasKept + together.offset) <= allowed,
+                    abs(simd_distance(keptCentre, movedCentre) - simd_distance(wasKept, wasMoved))
+                        <= allowed
+                else { break }
+                write(toKept, to: original.objectID, sampleID: sample.sampleID, carriedOver)
+                write(toMoved, to: created.objectID, sampleID: sample.sampleID, carriedOver)
+                keptPoints = toKept.compactMap { points.point(at: $0) }
+                movedPoints = toMoved.compactMap { points.point(at: $0) }
+                divided += 1
+                index += direction
+            }
+        }
+
+        do {
+            document = try store.save(edited, change: byHand)
+            sidecar = document.sidecar
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+        dirtySamples.remove(here.sampleID)
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return (created.objectID, divided)
+    }
+
+    static func centroid(_ points: [simd_float3]) -> simd_float3 {
+        guard !points.isEmpty else { return .zero }
+        return points.reduce(simd_float3.zero, +) / Float(points.count)
     }
 
     // MARK: - Names

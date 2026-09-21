@@ -226,7 +226,7 @@ struct AnnotationWindow: View {
             } else {
                 emptyState
             }
-        }.frame(minWidth: 1040, minHeight: 640).navigationTitle(
+        }.frame(minWidth: 1180, minHeight: 700).navigationTitle(
             controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
         ).sheet(isPresented: $showGenerateSheet) {
             GenerateAnnotationPackSheet { packDir in controller.openGeneratedPack(at: packDir) }
@@ -295,14 +295,28 @@ struct AnnotationWorkspace: View {
         }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
     }
 
+    // A large 3D view over three small orthographic ones, between two
+    // sidebars: what is being labelled on the left, how on the right.
+    //
+    // It was one editing view beside a 3D view and a check view, with every
+    // control in a single column four screens long. The 3D view is where an
+    // operator works out what they are looking at, so it gets the room; all
+    // three orthographic views are on screen at once, so checking a selection
+    // from another angle is a glance and not a change of view; and a column
+    // about objects and a column about editing are each short enough to read.
     var body: some View {
         HStack(spacing: 0) {
-            HSplitView {
-                // The editing view, and the only one that takes a stroke.
-                AnnotationViewportView(
-                    session: session, standard: session.viewStandard, editable: true
-                ).frame(minWidth: 360, minHeight: 300)
+            VStack(spacing: 0) {
+                MainViewLink(session: session, appState: appState, scene: scene)
+                Divider()
+                AnnotationPane(session: session, column: .objects)
+            }.frame(width: AnnotationPane.columnWidth)
 
+            Divider()
+
+            VStack(spacing: 0) {
+                AnnotationStatusStrip(session: session)
+                Divider()
                 VSplitView {
                     // The 3D view: the main view's renderer on this sample,
                     // moved the way the main view is moved. It is for looking,
@@ -313,29 +327,32 @@ struct AnnotationWorkspace: View {
                         Text("3D · drag to orbit, shift-drag to pan, scroll to zoom").font(
                             .caption2
                         ).padding(4).foregroundStyle(.secondary).allowsHitTesting(false)
-                    }.frame(minHeight: 200)
+                    }.frame(minHeight: 240).layoutPriority(2)
 
-                    // The confirming view. Review is gated on it, so it is
-                    // always on screen rather than behind a toggle: a check an
-                    // operator has to go and find is a check that gets skipped.
-                    AnnotationViewportView(
-                        session: session, standard: session.secondViewStandard, editable: false
-                    ).frame(minHeight: 160)
-                }.frame(minWidth: 280)
-            }.frame(maxWidth: .infinity).safeAreaInset(edge: .bottom, spacing: 0) {
+                    // Top, front and side, always all three. The one being
+                    // edited in takes strokes; a click in another makes it the
+                    // editing view. Review is gated on a second view, and with
+                    // every view on screen there is always one to check in.
+                    HSplitView {
+                        ForEach(OrthoViewBasis.Standard.allCases, id: \.self) { standard in
+                            AnnotationViewportView(
+                                session: session, standard: standard,
+                                editable: standard == session.viewStandard
+                            ).frame(minWidth: 180, minHeight: 180)
+                        }
+                    }.frame(minHeight: 200)
+                }
                 AnnotationFrameStrip(session: session) { index in
                     if session.step(to: index) != nil {
                         pendingAction = { session.step(to: index) }
                     }
                 }
-            }
+            }.frame(maxWidth: .infinity)
 
             Divider()
 
             VStack(spacing: 0) {
-                MainViewLink(session: session, appState: appState, scene: scene).frame(width: 300)
-                Divider()
-                AnnotationPane(session: session)
+                AnnotationPane(session: session, column: .editing)
                 Divider()
                 HStack {
                     Menu("Open Another…") {
@@ -354,7 +371,7 @@ struct AnnotationWorkspace: View {
                     Spacer()
                     Button("Close") { guardedNavigate { controller.close() } }
                 }.padding(8)
-            }
+            }.frame(width: AnnotationPane.columnWidth)
         }.background { brushSizeKeys }.focusedSceneValue(\.annotationSession, session).alert(
             "Unsaved membership", isPresented: showDiscardPrompt
         ) {
@@ -420,8 +437,10 @@ struct AnnotationViewportView: View {
                 LassoOverlay(
                     session: session, basisStandard: standard, viewport: viewport,
                     editable: editable)
-                Text(standard.label + (editable ? "" : " · check")).font(.caption2).padding(4)
-                    .foregroundStyle(.secondary).allowsHitTesting(false)
+                Text(standard.label + (editable ? " · editing" : " · click to edit here")).font(
+                    .caption2
+                ).padding(4).foregroundStyle(editable ? Color.accentColor : Color.secondary)
+                    .allowsHitTesting(false)
                 if editable {
                     AnnotationViewportHeader(session: session).frame(
                         maxWidth: .infinity, alignment: .top
@@ -430,7 +449,10 @@ struct AnnotationViewportView: View {
                 scaleBar(viewport).frame(
                     maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading
                 ).allowsHitTesting(false)
-            }.clipped()
+            }.clipped().overlay {
+                // Which of the three takes the next stroke.
+                if editable { Rectangle().stroke(Color.accentColor.opacity(0.8), lineWidth: 1.5) }
+            }
         }
     }
 

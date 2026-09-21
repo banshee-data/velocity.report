@@ -41,7 +41,7 @@ private let appLogger = DevLogger(category: "App")
         // the two windows can be kept on the same frame; it draws nothing
         // from the stream.
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
-            .defaultSize(width: 1440, height: 880)
+            .defaultSize(width: 1560, height: 940)
     }
 
     init() {
