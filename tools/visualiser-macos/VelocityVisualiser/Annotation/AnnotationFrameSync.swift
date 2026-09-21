@@ -1,0 +1,170 @@
+// AnnotationFrameSync.swift
+// Keeps the annotation window and the main view on the same frame, and builds
+// the frame the annotation window's 3D view draws.
+//
+// A pack is cut from a recording, and the main view can replay that recording
+// with everything a pack leaves out: tracks, boxes, trails, the settled
+// background. Putting both on one frame is what lets an operator look at the
+// tracker's account of a moment while editing the points of that same moment.
+//
+// The two are matched by capture timestamp. A pack does not name the run it
+// was cut from, and does not need to: a replay whose time range does not take
+// in the pack's samples is a different recording, and one that does is the
+// same scene at the same instant whichever run produced it.
+
+import Foundation
+import simd
+
+/// Where frame sync stands, in terms an operator can act on.
+enum FrameSyncStatus: Equatable {
+    case off
+    /// The main view is live, or replaying something it cannot seek in.
+    case mainNotSeekable
+    /// The main view's replay does not cover this pack's samples.
+    case differentRecording
+    /// The main view is on a frame this pack does not hold: before its first
+    /// sample, after its last, or in a gap the export skipped.
+    case outsidePack
+    /// Following would discard unsaved membership, so the window stays put.
+    case heldByUnsavedChanges
+    case inSync
+
+    var label: String {
+        switch self {
+        case .off: return "Not following the main view"
+        case .mainNotSeekable: return "The main view is not in a seekable replay"
+        case .differentRecording: return "The main view is replaying a different recording"
+        case .outsidePack: return "The main view is on a frame outside this pack"
+        case .heldByUnsavedChanges: return "Holding this sample: it has unsaved changes"
+        case .inSync: return "On the same frame as the main view"
+        }
+    }
+}
+
+/// What the annotation window needs to know about the main view's replay.
+struct MainViewPlayback: Equatable {
+    var timestampNs: Int64
+    var logStartNs: Int64
+    var logEndNs: Int64
+    var seekable: Bool
+}
+
+enum AnnotationFrameSync {
+    /// How far apart two timestamps may be and still be the same frame: a
+    /// little over half the period of a 10 Hz sensor, so a frame always
+    /// resolves to the sample it is, and never to a neighbour.
+    static let toleranceNs: Int64 = 60_000_000
+
+    /// The sample nearest a timestamp. `samples` must be in chronological
+    /// order, as `AnnotationPack.chronologicalSamples` returns them.
+    static func nearestSample(
+        to timestampNs: Int64, in samples: [AnnotationSample]
+    ) -> (index: Int, deltaNs: Int64)? {
+        guard !samples.isEmpty else { return nil }
+        // First sample at or after the timestamp; the nearest is that one or
+        // the one before it.
+        var lo = 0
+        var hi = samples.count
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if samples[mid].timestampNs < timestampNs { lo = mid + 1 } else { hi = mid }
+        }
+        var best: (index: Int, deltaNs: Int64)?
+        for index in [lo - 1, lo] where index >= 0 && index < samples.count {
+            let delta = abs(samples[index].timestampNs - timestampNs)
+            if best == nil || delta < best!.deltaNs { best = (index, delta) }
+        }
+        return best
+    }
+
+    /// True when the replay's time range takes in any of the pack's samples.
+    static func replayCovers(
+        _ samples: [AnnotationSample], logStartNs: Int64, logEndNs: Int64
+    ) -> Bool {
+        guard let first = samples.first, let last = samples.last, logEndNs > logStartNs else {
+            return false
+        }
+        return first.timestampNs <= logEndNs + toleranceNs
+            && last.timestampNs >= logStartNs - toleranceNs
+    }
+}
+
+// MARK: - 3D scene
+
+/// Builds the frame the annotation window's 3D view draws.
+///
+/// The 3D view is the main view's renderer pointed at a pack sample, so that
+/// moving through it is the same as moving through the main view. The renderer
+/// colours by class, which is how the membership is shown: a selected return
+/// is given a class of its own. This is display only. The arrays built here
+/// are filtered and re-ordered for drawing, and nothing reads an index back
+/// out of them.
+enum AnnotationScene {
+    /// Drawn in the selection colour. Not a class any recorder writes.
+    static let selectedClass: UInt8 = 3
+    /// Drawn in the preview colour: what the gesture in progress would take.
+    static let candidateClass: UInt8 = 4
+
+    static func frame(
+        points: PackPoints, visibility: PointVisibility?, selected: Set<Int>, candidates: Set<Int>,
+        sample: AnnotationSample?
+    ) -> FrameBundle {
+        var cloud = PointCloudFrame()
+        cloud.frameID = sample?.sourceFrameID ?? 0
+        cloud.timestampNanos = sample?.timestampNs ?? 0
+        cloud.sensorID = sample?.sensorID ?? ""
+        cloud.x.reserveCapacity(points.count)
+        cloud.y.reserveCapacity(points.count)
+        cloud.z.reserveCapacity(points.count)
+        cloud.intensity.reserveCapacity(points.count)
+        cloud.classification.reserveCapacity(points.count)
+
+        for index in 0..<points.count {
+            let isSelected = selected.contains(index)
+            // A selected return is drawn even when its class is hidden: it is
+            // in the mask, and hiding it would hide what the mask claims.
+            guard isSelected || points.isVisible(index, under: visibility) else { continue }
+            guard points.x[index].isFinite, points.y[index].isFinite, points.z[index].isFinite
+            else { continue }
+            cloud.x.append(points.x[index])
+            cloud.y.append(points.y[index])
+            cloud.z.append(points.z[index])
+            cloud.intensity.append(index < points.intensity.count ? points.intensity[index] : 0)
+            if isSelected {
+                cloud.classification.append(selectedClass)
+            } else if candidates.contains(index) {
+                cloud.classification.append(candidateClass)
+            } else {
+                cloud.classification.append(
+                    index < points.classification.count
+                        ? points.classification[index] : PointClass.background)
+            }
+        }
+        cloud.pointCount = cloud.x.count
+
+        var bundle = FrameBundle()
+        bundle.frameID = cloud.frameID
+        bundle.timestampNanos = cloud.timestampNanos
+        bundle.sensorID = cloud.sensorID
+        bundle.frameType = .full
+        bundle.pointCloud = cloud
+        return bundle
+    }
+}
+
+extension Camera {
+    /// Points the camera at a region from the main view's default bearing, far
+    /// enough back to take all of it in.
+    mutating func lookAt(_ focus: AnnotationSceneFocus) {
+        let radius = max(focus.radius, 1)
+        let halfFov = fov * .pi / 360
+        // Clamped to what the zoom control itself allows, so the first scroll
+        // after a fit does not jump.
+        let distance = min(max(radius / tan(halfFov) * 1.2, 2), 500)
+        let bearing = simd_normalize(simd_float3(0, -1, 0.7))
+        target = focus.centre
+        position = focus.centre + bearing * distance
+        up = simd_float3(0, 0, 1)
+        projection = .perspective
+    }
+}

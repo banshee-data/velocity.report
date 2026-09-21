@@ -1,0 +1,146 @@
+// AnnotationViewState.swift
+// What the annotation views show, and from where: which point classes are
+// drawn, and the framing each orthographic view holds.
+//
+// The framing is state, not something derived from the sample on screen. A
+// view that re-fits itself to every sample changes scale and centre each time
+// the operator steps, so a car that was under the cursor is somewhere else at
+// a different size one frame later. Holding the framing still is what lets an
+// operator follow one object through consecutive samples.
+
+import CoreGraphics
+import Foundation
+import simd
+
+// MARK: - Point classes
+
+/// The per-point classes a pack carries, as the recorder wrote them.
+enum PointClass {
+    static let background: UInt8 = 0
+    static let foreground: UInt8 = 1
+    static let ground: UInt8 = 2
+}
+
+/// Which point classes are drawn, and therefore which can be selected.
+///
+/// The two are the same set on purpose. A gesture that took in returns the
+/// operator had hidden would put points in a mask that nobody looked at.
+struct PointVisibility: Equatable {
+    var background = true
+    var foreground = true
+    var ground = true
+
+    var showsEverything: Bool { background && foreground && ground }
+
+    /// A class this client does not know is shown rather than hidden: a newer
+    /// recorder adding a class must not make returns vanish from an older app.
+    func shows(_ classification: UInt8) -> Bool {
+        switch classification {
+        case PointClass.background: return background
+        case PointClass.foreground: return foreground
+        case PointClass.ground: return ground
+        default: return true
+        }
+    }
+}
+
+extension PackPoints {
+    /// True when the point at `index` is drawn under `visibility`. A nil
+    /// visibility is "no filter", which is also what a pack recorded without
+    /// classification gets: its class bytes are zeros written by the exporter,
+    /// not a claim that every return is background.
+    func isVisible(_ index: Int, under visibility: PointVisibility?) -> Bool {
+        guard let visibility, index >= 0, index < classification.count else { return true }
+        return visibility.shows(classification[index])
+    }
+}
+
+// MARK: - View framing
+
+/// The framing of one orthographic view: where it looks and at what scale.
+struct OrthoViewState: Equatable {
+    /// View-plane coordinates at the centre of the view, in metres.
+    var centre: simd_float2
+    /// Half-height of the visible world volume, in metres.
+    var halfHeight: Float
+
+    /// Two returns half a metre apart still separate at this scale.
+    static let minimumHalfHeight: Float = 0.25
+    /// Beyond the sensor's range in every direction.
+    static let maximumHalfHeight: Float = 500
+
+    /// Moves the view so the content follows a drag of `delta` screen points.
+    mutating func pan(byPoints delta: CGSize, metresPerPoint: Float) {
+        guard metresPerPoint.isFinite, metresPerPoint > 0 else { return }
+        centre.x -= Float(delta.width) * metresPerPoint
+        // Screen y grows downward; the view plane's up axis grows upward.
+        centre.y += Float(delta.height) * metresPerPoint
+    }
+
+    /// Scales the view by `factor` (below one zooms in), keeping the world
+    /// point `anchor` where it is on screen: zooming on a car brings the car
+    /// closer rather than sliding it out of view.
+    mutating func zoom(by factor: Float, about anchor: simd_float2) {
+        guard factor.isFinite, factor > 0, halfHeight > 0 else { return }
+        let next = min(
+            max(halfHeight * factor, OrthoViewState.minimumHalfHeight),
+            OrthoViewState.maximumHalfHeight)
+        // The applied factor, not the requested one: at a limit the scale
+        // stops changing, so the centre must stop moving too.
+        let applied = next / halfHeight
+        centre = anchor + (centre - anchor) * applied
+        halfHeight = next
+    }
+}
+
+/// What the views are asked to frame.
+enum AnnotationFitTarget: Equatable {
+    /// Every drawn return of the current sample.
+    case sample
+    /// The current sample's foreground returns: where the road users are.
+    case foreground
+    /// The points in the membership under edit.
+    case selection
+}
+
+/// A region of the scene, for pointing the 3D view at what the orthographic
+/// views have just been asked to frame.
+struct AnnotationSceneFocus: Equatable {
+    var centre: simd_float3
+    var radius: Float
+    /// Distinguishes a repeated request for the same region, so asking to fit
+    /// twice moves the camera back twice.
+    var revision: Int
+}
+
+/// The view-plane extent of the chosen points, with the outermost `trim`
+/// fraction on each side of each axis left out.
+///
+/// A revolution of a 200 m sensor always has a few returns at the edge of its
+/// range. Framing on the true minimum and maximum gives those few returns most
+/// of the view and leaves the street a few dozen pixels across.
+func annotationExtent(
+    of points: PackPoints, basis: OrthoViewBasis, trim: Float, where include: (Int) -> Bool
+) -> AnnotationExtent? {
+    var xs: [Float] = []
+    var ys: [Float] = []
+    xs.reserveCapacity(points.count)
+    ys.reserveCapacity(points.count)
+    for index in 0..<points.count where include(index) {
+        guard let p = points.point(at: index), p.x.isFinite, p.y.isFinite, p.z.isFinite else {
+            continue
+        }
+        let v = basis.project(p)
+        xs.append(v.x)
+        ys.append(v.y)
+    }
+    guard !xs.isEmpty else { return nil }
+    xs.sort()
+    ys.sort()
+    let clamped = min(max(trim, 0), 0.49)
+    let lo = Int((Float(xs.count - 1) * clamped).rounded(.down))
+    let hi = xs.count - 1 - lo
+    return AnnotationExtent(
+        centre: simd_float2((xs[lo] + xs[hi]) / 2, (ys[lo] + ys[hi]) / 2),
+        halfHeight: max((ys[hi] - ys[lo]) / 2, 0), halfWidth: max((xs[hi] - xs[lo]) / 2, 0))
+}

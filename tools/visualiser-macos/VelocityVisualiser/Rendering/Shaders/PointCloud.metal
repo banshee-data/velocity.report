@@ -51,6 +51,11 @@ vertex PointVertexOut pointVertex(
     float dist = length(viewPos.xyz);
     out.pointSize = uniforms.pointSize * 10.0 / max(dist, 1.0);
     out.pointSize = clamp(out.pointSize, 1.0, 20.0);
+    // Selected and candidate returns (see the fragment shader) are drawn
+    // larger, so a mask of a few dozen points shows against a full revolution.
+    if (classification > 2.5) {
+        out.pointSize = min(out.pointSize * 1.6, 24.0);
+    }
 
     out.intensity = intensity;
     out.classification = classification;
@@ -76,8 +81,17 @@ fragment float4 pointFragment(
     // Colour based on classification (primary) and intensity (secondary)
     // Classification values are integers passed as floats: 0=background, 1=foreground, 2=ground
     // Use epsilon-based comparison for exact integer matching
+    // 3 and 4 are not classes a recorder writes: the annotation window's 3D
+    // view uses them for the membership under edit and the stroke in progress.
     float3 colour;
-    if (abs(in.classification - 1.0) < 0.01) {
+    if (abs(in.classification - 3.0) < 0.01) {
+        // Selected: orange, at full strength whatever the intensity, so the
+        // mask reads as one object.
+        colour = float3(1.0, 0.55, 0.1);
+    } else if (abs(in.classification - 4.0) < 0.01) {
+        // Candidate: yellow.
+        colour = float3(1.0, 0.9, 0.2);
+    } else if (abs(in.classification - 1.0) < 0.01) {
         // Foreground: green with intensity modulation
         float3 lowColour = float3(0.1, 0.6, 0.2);   // dark green
         float3 highColour = float3(0.4, 1.0, 0.4); // bright green

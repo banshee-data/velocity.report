@@ -1,7 +1,7 @@
 // AnnotationPane.swift
 // The operator-facing point-cloud editing toolset.
 //
-// Three pieces: a lasso overlay that turns a drag into view-plane metres, the
+// Three pieces: an overlay that turns a drag into view-plane metres, the
 // controls that decide what the gesture means, and a second view that has to
 // agree before a mask can be marked reviewed.
 //
@@ -54,11 +54,13 @@ struct OrthoViewport: Equatable {
 
 // MARK: - Lasso overlay
 
-/// Captures a lasso or rectangle drag and previews the candidates.
+/// Captures a selection stroke and previews the candidates, and pans and
+/// zooms the view it lies over.
 ///
-/// A drag is sampled into a polygon; holding shift adds, option subtracts, as
-/// the session's mode resolution decides. The candidate count appears before
-/// the gesture is committed, which is what the workflow requires.
+/// A lasso drag is sampled into a polygon; holding shift adds, option
+/// subtracts, as the session's mode resolution decides. The candidate count
+/// appears while the stroke is being made, which is what the workflow
+/// requires.
 struct LassoOverlay: View {
     @ObservedObject var session: AnnotationSession
     /// Which view this overlay belongs to. The second view is read-only: it
@@ -89,7 +91,17 @@ struct LassoOverlay: View {
     var body: some View {
         GeometryReader { _ in
             ZStack(alignment: .topLeading) {
-                Color.clear.contentShape(Rectangle())
+                // Underneath everything and the only layer that takes input:
+                // the layers above are drawings of the session's state.
+                ViewportInputLayer(
+                    strokesEnabled: editable, onStrokeChanged: strokeChanged,
+                    onStrokeEnded: strokeEnded,
+                    onPan: { session.pan(basisStandard, size: viewport.size, byPoints: $0) },
+                    onZoom: { factor, anchor in
+                        session.zoom(
+                            basisStandard, size: viewport.size, by: factor, aboutScreenPoint: anchor
+                        )
+                    })
 
                 if showsGrid { gridLayer }
                 selectedPointsLayer
@@ -100,7 +112,7 @@ struct LassoOverlay: View {
                 } else if let strokeNote, editable {
                     noteBadge(strokeNote)
                 }
-            }.gesture(editable ? dragGesture : nil)
+            }
         }
     }
 
@@ -248,51 +260,60 @@ struct LassoOverlay: View {
                 Text("\(candidates.excludedByVoxels) in voxels that are off").font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            if candidates.excludedByVisibility > 0 {
+                Text("\(candidates.excludedByVisibility) in classes that are hidden").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            }
             if let sphere = session.pendingSphere {
                 Text(String(format: "radius %.2f m", sphere.radius)).font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            Text("Return to accept, Esc to cancel").font(.caption2).foregroundStyle(.secondary)
+            // The stroke is applied when the button comes up. Undo takes it
+            // back; there is no separate accept step to describe.
+            Text("Release to apply").font(.caption2).foregroundStyle(.secondary)
         }.padding(6).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)).padding(
-            8)
+            8
+        ).allowsHitTesting(false)
     }
 
     private func noteBadge(_ note: String) -> some View {
         Text(note).font(.caption2).foregroundStyle(.secondary).padding(6).background(
             .black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)
-        ).padding(8)
+        ).padding(8).allowsHitTesting(false)
     }
 
-    // A brush responds to a click, so its gesture starts at zero distance. The
-    // lasso keeps its small threshold: a click with the lasso is not a stroke.
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: session.tool == .lasso ? 2 : 0).onChanged { value in
-            switch session.tool {
-            case .lasso: lassoChanged(value)
-            case .sphere: sphereChanged(value)
-            case .column: columnChanged(value)
-            }
-        }.onEnded { value in
-            defer { resetStroke() }
-            session.selectionMode = SelectionMode.from(
-                tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),
-                optionHeld: NSEvent.modifierFlags.contains(.option))
-            switch session.tool {
-            case .lasso: previewCurrentStroke()
-            case .sphere:
-                sphereChanged(value)
-                if let sphere = session.pendingSphere { session.sphereRadius = sphere.radius }
-            case .column: break
-            }
-            // A gesture that named nothing (a click with the lasso, a sphere
-            // with no return under it, a column brush outside the top view)
-            // must not leave a stroke open: navigation is guarded on it.
-            guard session.pendingCandidates != nil else {
-                session.cancelStroke()
-                return
-            }
-            _ = session.commitSelection()
+    // Called from the button going down, so a brush responds to a click. A
+    // click with the lasso samples one vertex, which encloses nothing, and
+    // ends as a stroke that named nothing.
+    private func strokeChanged(_ value: ViewportStroke) {
+        switch session.tool {
+        case .lasso: lassoChanged(value)
+        case .sphere: sphereChanged(value)
+        case .column: columnChanged(value)
         }
+    }
+
+    private func strokeEnded(_ value: ViewportStroke) {
+        defer { resetStroke() }
+        session.selectionMode = SelectionMode.from(
+            tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),
+            optionHeld: NSEvent.modifierFlags.contains(.option))
+        switch session.tool {
+        case .lasso: previewCurrentStroke()
+        case .sphere:
+            sphereChanged(value)
+            if let sphere = session.pendingSphere { session.sphereRadius = sphere.radius }
+        case .column: break
+        }
+        // A gesture that named nothing (a click with the lasso, a sphere
+        // with no return under it, a column brush outside the top view)
+        // must not leave a stroke open: navigation is guarded on it.
+        guard session.pendingCandidates != nil else {
+            session.cancelStroke()
+            return
+        }
+        _ = session.commitSelection()
     }
 
     private func resetStroke() {
@@ -302,7 +323,7 @@ struct LassoOverlay: View {
         paintedCells = []
     }
 
-    private func lassoChanged(_ value: DragGesture.Value) {
+    private func lassoChanged(_ value: ViewportStroke) {
         if strokePoints.isEmpty {
             session.beginStroke()
             rectangleMode = NSEvent.modifierFlags.contains(.command)
@@ -317,7 +338,7 @@ struct LassoOverlay: View {
         previewCurrentStroke()
     }
 
-    private func sphereChanged(_ value: DragGesture.Value) {
+    private func sphereChanged(_ value: ViewportStroke) {
         if sphereCentre == nil {
             // Twelve points of slop: near enough to mean "that return", far
             // enough to hit one without zooming in.
@@ -342,7 +363,7 @@ struct LassoOverlay: View {
         session.previewSelection(sphere: SelectionSphere(centre: centre, radius: radius))
     }
 
-    private func columnChanged(_ value: DragGesture.Value) {
+    private func columnChanged(_ value: ViewportStroke) {
         // A column is vertical, so it is chosen from above. In the other views
         // a click names a strip of columns one behind another, which is a
         // lasso's job.
@@ -398,6 +419,8 @@ struct AnnotationPane: View {
             VStack(alignment: .leading, spacing: 14) {
                 sourceSection
                 Divider()
+                displaySection
+                Divider()
                 objectSection
                 Divider()
                 selectionSection
@@ -434,6 +457,43 @@ struct AnnotationPane: View {
             }
             TextField("Operator name", text: $session.operatorName).textFieldStyle(.roundedBorder)
                 .font(.caption)
+        }
+    }
+
+    // MARK: Display
+
+    private var displaySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Display").font(.headline)
+            // The recorder's own classes, in the main view's colours. What is
+            // hidden cannot be selected, so switching the background off is
+            // also how a lasso is kept from taking the wall behind a van.
+            HStack(spacing: 4) {
+                Toggle("Background", isOn: $session.visibility.background)
+                Toggle("Foreground", isOn: $session.visibility.foreground)
+                Toggle("Ground", isOn: $session.visibility.ground)
+            }.toggleStyle(.button).controlSize(.small).disabled(
+                !session.pack.manifest.hasClassification)
+            if !session.pack.manifest.hasClassification {
+                Text("This pack was recorded without point classes, so there is nothing to filter.")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+            }
+
+            // The views hold their framing from one sample to the next. These
+            // are the only things that move them, other than the operator.
+            HStack(spacing: 4) {
+                Text("Fit").font(.caption)
+                Button("Sample") { session.fitViews(to: .sample) }
+                Button("Foreground") { session.fitViews(to: .foreground) }.disabled(
+                    !session.pack.manifest.hasClassification)
+                Button("Selection") { session.fitViews(to: .selection) }.disabled(
+                    session.selectionCount == 0)
+            }.controlSize(.small)
+            Text(
+                "Scroll or pinch to zoom. Drag with the right button, or with control held, to pan."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
         }
     }
 
@@ -496,7 +556,9 @@ struct AnnotationPane: View {
             }.font(.caption).onChange(of: session.viewStandard) { _, newValue in
                 // Keep the confirming view on a genuinely different axis.
                 session.secondViewStandard = OrthoViewBasis.secondView(for: newValue)
-                session.resetSlabToSampleExtent()
+                // The depth axis has changed, so a slab set along the old one
+                // means nothing along the new.
+                session.unpinSlab()
             }
 
             Picker("Tool", selection: $session.tool) {
@@ -604,16 +666,19 @@ struct AnnotationPane: View {
                     value: Binding(
                         get: { Double(slab.minDepth) },
                         set: {
-                            session.slab = DepthSlab(minDepth: Float($0), maxDepth: slab.maxDepth)
+                            session.setSlab(DepthSlab(minDepth: Float($0), maxDepth: slab.maxDepth))
                         }), in: Double(slab.minDepth - 20)...Double(slab.maxDepth))
                 Slider(
                     value: Binding(
                         get: { Double(slab.maxDepth) },
                         set: {
-                            session.slab = DepthSlab(minDepth: slab.minDepth, maxDepth: Float($0))
+                            session.setSlab(DepthSlab(minDepth: slab.minDepth, maxDepth: Float($0)))
                         }), in: Double(slab.minDepth)...Double(slab.maxDepth + 20))
-                Button("Reset to sample extent") { session.resetSlabToSampleExtent() }.font(
-                    .caption)
+                Button("Reset to sample extent") { session.unpinSlab() }.font(.caption)
+                if session.slabIsPinned {
+                    Text("Kept from sample to sample until reset").font(.caption2).foregroundStyle(
+                        .secondary)
+                }
             } else {
                 Text("No points in this sample").font(.caption).foregroundStyle(.secondary)
             }

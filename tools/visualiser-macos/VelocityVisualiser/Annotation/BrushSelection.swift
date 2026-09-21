@@ -268,11 +268,11 @@ extension PointSelectionEngine {
     /// nil when nothing lies within `maxViewDistance` metres of the click.
     static func nearestPoint(
         points: PackPoints, basis: OrthoViewBasis, viewPoint: simd_float2, slab: DepthSlab?,
-        maxViewDistance: Float
+        maxViewDistance: Float, where include: (Int) -> Bool = { _ in true }
     ) -> Int? {
         var best: Int?
         var bestDistance = maxViewDistance
-        for index in 0..<points.count {
+        for index in 0..<points.count where include(index) {
             guard let p = points.point(at: index), p.x.isFinite, p.y.isFinite, p.z.isFinite else {
                 continue
             }

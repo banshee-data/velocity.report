@@ -221,6 +221,10 @@ struct SelectionCandidates: Equatable {
     /// Indices inside a painted column but in a voxel that is switched off, or
     /// outside the column's height. Zero for every tool but the column brush.
     var excludedByVoxels: Int = 0
+    /// Indices the gesture covered whose class is hidden. A hidden return is
+    /// not selectable, and the count says so rather than leaving a short
+    /// selection unexplained.
+    var excludedByVisibility: Int = 0
 
     var count: Int { indices.count }
 }

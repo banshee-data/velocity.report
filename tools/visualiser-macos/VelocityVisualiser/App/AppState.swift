@@ -289,6 +289,10 @@ private let logger = DevLogger(category: "AppState")
     /// Weak reference to the Metal renderer for direct frame delivery
     private weak var renderer: MetalRenderer?
 
+    /// The main view's camera, for a second view that wants to look at the
+    /// scene from the same place.
+    var mainCamera: Camera? { renderer?.camera }
+
     /// Register the renderer to receive frame updates directly
     func registerRenderer(_ renderer: MetalRenderer) {
         self.renderer = renderer

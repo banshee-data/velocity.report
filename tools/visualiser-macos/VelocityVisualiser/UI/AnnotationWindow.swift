@@ -14,6 +14,10 @@
 // disagreement between them would show as points being selected that the
 // operator did not draw around — silently, and only for some camera states.
 // One projection, used for both, cannot drift from itself.
+//
+// The 3D view beside them does go through the Metal renderer, and that is
+// consistent with the above: it takes no selection gesture. It is there to be
+// moved around in, and nothing reads a point index back out of it.
 
 import AppKit
 import Combine
@@ -79,7 +83,9 @@ func annotationFramingHalfHeight(
 ///
 /// Separate from AppState: annotation reads packs off disk and never touches
 /// the frame stream, so coupling it to the live view's state would only give
-/// each a way to break the other.
+/// each a way to break the other. The one link between the two is
+/// `MainViewLink`, which keeps them on the same frame and knows nothing of
+/// either's points.
 @MainActor final class AnnotationController: ObservableObject {
     @Published private(set) var session: AnnotationSession?
     @Published var lastError: String?
@@ -220,7 +226,7 @@ struct AnnotationWindow: View {
             } else {
                 emptyState
             }
-        }.frame(minWidth: 900, minHeight: 600).navigationTitle(
+        }.frame(minWidth: 1040, minHeight: 640).navigationTitle(
             controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
         ).sheet(isPresented: $showGenerateSheet) {
             GenerateAnnotationPackSheet { packDir in controller.openGeneratedPack(at: packDir) }
@@ -263,6 +269,9 @@ struct AnnotationWorkspace: View {
     /// has actually chosen to lose the unsaved membership.
     @State private var pendingAction: (() -> Void)?
 
+    @EnvironmentObject private var appState: AppState
+    @StateObject private var scene = AnnotationSceneModel()
+
     private var showDiscardPrompt: Binding<Bool> {
         Binding(get: { pendingAction != nil }, set: { if !$0 { pendingAction = nil } })
     }
@@ -277,32 +286,49 @@ struct AnnotationWorkspace: View {
     // bracket.
     private var brushSizeKeys: some View {
         Group {
-            Button("Smaller brush") { session.adjustBrushSize(steps: -1) }.keyboardShortcut(
-                "[", modifiers: [])
-            Button("Larger brush") { session.adjustBrushSize(steps: 1) }.keyboardShortcut(
-                "]", modifiers: [])
+            Button("Smaller brush") {
+                session.adjustBrushSize(steps: -1, eventTimestamp: NSApp.currentEvent?.timestamp)
+            }.keyboardShortcut("[", modifiers: [])
+            Button("Larger brush") {
+                session.adjustBrushSize(steps: 1, eventTimestamp: NSApp.currentEvent?.timestamp)
+            }.keyboardShortcut("]", modifiers: [])
         }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            VSplitView {
-                // The editing view, and the only one that takes a gesture.
+            HSplitView {
+                // The editing view, and the only one that takes a stroke.
                 AnnotationViewportView(
                     session: session, standard: session.viewStandard, editable: true
-                ).frame(minHeight: 260)
+                ).frame(minWidth: 360, minHeight: 300)
 
-                // The confirming view. Review is gated on it, so it is always
-                // on screen rather than behind a toggle: a check an operator
-                // has to go and find is a check that gets skipped.
-                AnnotationViewportView(
-                    session: session, standard: session.secondViewStandard, editable: false
-                ).frame(minHeight: 160)
+                VSplitView {
+                    // The 3D view: the main view's renderer on this sample,
+                    // moved the way the main view is moved. It is for looking,
+                    // not for selecting.
+                    AnnotationSceneView(session: session, model: scene).overlay(
+                        alignment: .topLeading
+                    ) {
+                        Text("3D · drag to orbit, shift-drag to pan, scroll to zoom").font(
+                            .caption2
+                        ).padding(4).foregroundStyle(.secondary).allowsHitTesting(false)
+                    }.frame(minHeight: 200)
+
+                    // The confirming view. Review is gated on it, so it is
+                    // always on screen rather than behind a toggle: a check an
+                    // operator has to go and find is a check that gets skipped.
+                    AnnotationViewportView(
+                        session: session, standard: session.secondViewStandard, editable: false
+                    ).frame(minHeight: 160)
+                }.frame(minWidth: 280)
             }.frame(maxWidth: .infinity)
 
             Divider()
 
             VStack(spacing: 0) {
+                MainViewLink(session: session, appState: appState, scene: scene).frame(width: 300)
+                Divider()
                 AnnotationPane(session: session)
                 Divider()
                 HStack {
@@ -323,7 +349,9 @@ struct AnnotationWorkspace: View {
                     Button("Close") { guardedNavigate { controller.close() } }
                 }.padding(8)
             }
-        }.background { brushSizeKeys }.alert("Unsaved membership", isPresented: showDiscardPrompt) {
+        }.background { brushSizeKeys }.focusedSceneValue(\.annotationSession, session).alert(
+            "Unsaved membership", isPresented: showDiscardPrompt
+        ) {
             Button("Keep Editing", role: .cancel) { pendingAction = nil }
             Button("Discard and Continue", role: .destructive) {
                 let action = pendingAction
@@ -353,7 +381,7 @@ struct AnnotationWorkspace: View {
     }
 }
 
-/// One orthographic view of the current sample, with the lasso over it.
+/// One orthographic view of the current sample, with the selection overlay.
 struct AnnotationViewportView: View {
     @ObservedObject var session: AnnotationSession
     let standard: OrthoViewBasis.Standard
@@ -362,50 +390,127 @@ struct AnnotationViewportView: View {
     var body: some View {
         GeometryReader { geometry in
             let basis = OrthoViewBasis(standard)
-            let viewport = viewport(for: basis, size: geometry.size)
+            // The session's framing, not one measured from this sample: see
+            // AnnotationViewState.swift.
+            let viewport = session.viewport(for: standard, size: geometry.size)
             ZStack(alignment: .topLeading) {
                 Color.black
                 AnnotationPointCanvas(
-                    points: session.currentPoints, basis: basis, viewport: viewport)
+                    points: session.currentPoints, basis: basis, viewport: viewport,
+                    visibility: session.effectiveVisibility,
+                    coloursByClass: session.pack.manifest.hasClassification,
+                    identity: AnnotationPointCanvas.Identity(
+                        packDigest: session.pack.manifest.packDigest,
+                        sampleID: session.currentSample?.sampleID ?? -1)
+                ).equatable()
                 LassoOverlay(
                     session: session, basisStandard: standard, viewport: viewport,
                     editable: editable)
                 Text(standard.label + (editable ? "" : " · check")).font(.caption2).padding(4)
-                    .foregroundStyle(.secondary)
-            }
+                    .foregroundStyle(.secondary).allowsHitTesting(false)
+                scaleBar(viewport).frame(
+                    maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading
+                ).allowsHitTesting(false)
+            }.clipped()
         }
     }
 
-    private func viewport(for basis: OrthoViewBasis, size: CGSize) -> OrthoViewport {
-        guard let extent = annotationExtent(of: session.currentPoints, basis: basis) else {
-            return OrthoViewport(halfHeight: 10, size: size, centre: .zero)
-        }
-        return OrthoViewport(
-            halfHeight: annotationFramingHalfHeight(extent: extent, size: size), size: size,
-            centre: extent.centre)
+    // A length the operator can hold a car against. With the framing held
+    // still it stays the same from sample to sample, and says what the zoom is.
+    private func scaleBar(_ viewport: OrthoViewport) -> some View {
+        let metres = AnnotationScaleBar.length(forHalfHeight: viewport.halfHeight)
+        let points =
+            viewport.size.height > 0
+            ? CGFloat(metres / (viewport.halfHeight * 2)) * viewport.size.height : 0
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(AnnotationScaleBar.label(metres)).font(.caption2.monospacedDigit())
+            Rectangle().frame(width: max(points, 1), height: 2)
+        }.foregroundStyle(.secondary).padding(6)
     }
 }
 
-/// Draws the sample's points.
+/// Picks the scale bar's length: the largest of 1, 2 or 5 times a power of ten
+/// that is no more than a quarter of the view's height.
+enum AnnotationScaleBar {
+    static func length(forHalfHeight halfHeight: Float) -> Float {
+        let limit = max(halfHeight, 0.01) / 2
+        let decade = pow(10, floor(log10(limit)))
+        for multiple in [Float(5), 2, 1] where multiple * decade <= limit {
+            return multiple * decade
+        }
+        return decade
+    }
+
+    static func label(_ metres: Float) -> String {
+        metres >= 1 ? String(format: "%.0f m", metres) : String(format: "%.0f cm", metres * 100)
+    }
+}
+
+/// Draws the sample's points, coloured by class as the main view colours them.
 ///
-/// Every point goes into one Path and is filled once. A full-coverage sample
+/// Each class goes into one Path and is filled once. A full-coverage sample
 /// is a whole revolution — tens of thousands of points — and a fill per point
 /// makes stepping through samples visibly slow.
-struct AnnotationPointCanvas: View {
+struct AnnotationPointCanvas: View, Equatable {
+    /// Which points these are, without comparing them.
+    struct Identity: Equatable {
+        var packDigest: String
+        var sampleID: Int
+    }
+
     let points: PackPoints
     let basis: OrthoViewBasis
     let viewport: OrthoViewport
+    let visibility: PointVisibility?
+    let coloursByClass: Bool
+    let identity: Identity
+
+    // Points are immutable under a pack digest and sample, so two canvases
+    // with the same identity draw the same points. Comparing that instead of
+    // the arrays is what lets the session publish during a drag, for the
+    // candidate count, without every publish redrawing the whole cloud.
+    static func == (lhs: AnnotationPointCanvas, rhs: AnnotationPointCanvas) -> Bool {
+        lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
+            && lhs.visibility == rhs.visibility && lhs.coloursByClass == rhs.coloursByClass
+    }
+
+    static let backgroundColour = Color(red: 0.55, green: 0.55, blue: 0.62)
+    static let foregroundColour = Color(red: 0.35, green: 0.95, blue: 0.4)
+    static let groundColour = Color(red: 0.68, green: 0.57, blue: 0.38)
 
     var body: some View {
-        Canvas { context, _ in
-            var path = Path()
+        Canvas { context, size in
+            var background = Path()
+            var foreground = Path()
+            var ground = Path()
+            // Generous, so a return on the edge is drawn rather than popping
+            // in a frame late while panning.
+            let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
             for index in 0..<points.count {
-                guard let p = points.point(at: index) else { continue }
+                guard points.isVisible(index, under: visibility) else { continue }
+                let p = simd_float3(points.x[index], points.y[index], points.z[index])
                 let screen = viewport.screenPoint(from: basis.project(p))
-                path.addRect(
-                    CGRect(x: screen.x - 0.75, y: screen.y - 0.75, width: 1.5, height: 1.5))
+                // Zoomed in, most of the sample is off screen, and a path of
+                // tens of thousands of rectangles nobody can see is most of
+                // the cost of a redraw.
+                guard visible.contains(screen) else { continue }
+                let rect = CGRect(x: screen.x - 0.75, y: screen.y - 0.75, width: 1.5, height: 1.5)
+                let classification =
+                    coloursByClass && index < points.classification.count
+                    ? points.classification[index] : PointClass.background
+                switch classification {
+                case PointClass.foreground: foreground.addRect(rect)
+                case PointClass.ground: ground.addRect(rect)
+                default: background.addRect(rect)
+                }
             }
-            context.fill(path, with: .color(.white.opacity(0.65)))
+            if coloursByClass {
+                context.fill(background, with: .color(Self.backgroundColour.opacity(0.6)))
+                context.fill(ground, with: .color(Self.groundColour.opacity(0.7)))
+                context.fill(foreground, with: .color(Self.foregroundColour.opacity(0.9)))
+            } else {
+                context.fill(background, with: .color(.white.opacity(0.65)))
+            }
         }.allowsHitTesting(false)
     }
 }
