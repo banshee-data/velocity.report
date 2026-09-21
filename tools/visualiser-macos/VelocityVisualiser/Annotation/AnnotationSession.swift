@@ -62,6 +62,30 @@ enum AnnotationGuard: Equatable {
     @Published var slab: DepthSlab?
     @Published var selectionMode: SelectionMode = .replace
 
+    /// Which selection tool a gesture in the editable view uses.
+    @Published var tool: SelectionTool = .lasso
+    /// The local column lattice. Its ground is estimated once when a pack is
+    /// opened and then left alone as samples are stepped through: road users
+    /// move on one plane, and a ground that moved between samples would make
+    /// the same column mean a different slice of the same object.
+    @Published var columnGrid = ColumnGrid()
+    /// Voxels the column brush selects from, bit `k` for voxel `k`.
+    @Published var enabledVoxels: UInt8 = ColumnGrid.stackMask
+    /// The sphere brush's last radius, repeated by a plain click.
+    @Published var sphereRadius: Float = SelectionSphere.defaultRadius
+    /// Column brush radius in metres. Zero paints one column at a time.
+    @Published var columnBrushRadius: Float = 0
+    /// Draw the lattice in the top view even when the column brush is not the
+    /// active tool.
+    @Published var showColumnGrid = false
+
+    /// The sphere and the columns of the stroke in progress. Published, not
+    /// held by the view that is being dragged in, so that the second view can
+    /// draw them too: a sphere's reach along the axis the operator cannot see
+    /// is the thing the second view is for.
+    @Published private(set) var pendingSphere: SelectionSphere?
+    @Published private(set) var pendingCells: Set<ColumnCell> = []
+
     // MARK: Object under edit
 
     @Published var activeObjectID: String?
@@ -95,6 +119,9 @@ enum AnnotationGuard: Equatable {
             self.currentPoints = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
         }
         resetSlabToSampleExtent()
+        // Once, from the first sample, and not again as samples are stepped
+        // through: see columnGrid.
+        estimateGround()
     }
 
     // MARK: - Objects
@@ -173,6 +200,8 @@ enum AnnotationGuard: Equatable {
     func cancelStroke() {
         strokeInProgress = false
         pendingCandidates = nil
+        pendingSphere = nil
+        pendingCells = []
     }
 
     // MARK: - Selection
@@ -190,6 +219,50 @@ enum AnnotationGuard: Equatable {
         return candidates
     }
 
+    /// Evaluates a sphere without applying it. The view it was made in decides
+    /// what the slab means, as it does for the lasso.
+    @discardableResult func previewSelection(sphere: SelectionSphere) -> SelectionCandidates {
+        let candidates = PointSelectionEngine.candidates(
+            points: currentPoints, sphere: sphere, basis: OrthoViewBasis(viewStandard), slab: slab)
+        pendingSphere = sphere
+        pendingCandidates = candidates
+        return candidates
+    }
+
+    /// Evaluates a set of painted columns without applying it.
+    @discardableResult func previewSelection(cells: Set<ColumnCell>) -> SelectionCandidates {
+        let candidates = PointSelectionEngine.candidates(
+            points: currentPoints, cells: cells, grid: columnGrid, enabledVoxels: enabledVoxels,
+            basis: OrthoViewBasis(viewStandard), slab: slab)
+        pendingCells = cells
+        pendingCandidates = candidates
+        return candidates
+    }
+
+    /// The return nearest a position in the editable view, within the slab:
+    /// where a sphere is centred. `maxViewDistance` is in metres.
+    func nearestPointIndex(toViewPoint viewPoint: simd_float2, maxViewDistance: Float) -> Int? {
+        PointSelectionEngine.nearestPoint(
+            points: currentPoints, basis: OrthoViewBasis(viewStandard), viewPoint: viewPoint,
+            slab: slab, maxViewDistance: maxViewDistance)
+    }
+
+    /// Makes the active brush larger or smaller by whole steps: the bracket
+    /// keys. The lasso has no size, so it ignores them.
+    func adjustBrushSize(steps: Int) {
+        switch tool {
+        case .lasso: return
+        case .sphere: sphereRadius = BrushStroke.steppedSphereRadius(sphereRadius, steps: steps)
+        case .column:
+            columnBrushRadius = BrushStroke.steppedColumnRadius(columnBrushRadius, steps: steps)
+        }
+    }
+
+    /// Sets the grid's ground from the current sample.
+    func estimateGround() {
+        if let z = ColumnGrid.estimateGroundZ(points: currentPoints) { columnGrid.groundZ = z }
+    }
+
     /// Applies the previewed gesture to the membership under the current mode.
     @discardableResult func commitSelection() -> Bool {
         guard let candidates = pendingCandidates else { return false }
@@ -198,6 +271,8 @@ enum AnnotationGuard: Equatable {
         let changed = history.commit(next)
         strokeInProgress = false
         pendingCandidates = nil
+        pendingSphere = nil
+        pendingCells = []
         if changed { markDirty() }
         return changed
     }

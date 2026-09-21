@@ -69,16 +69,36 @@ struct LassoOverlay: View {
 
     @State private var strokePoints: [CGPoint] = []
     @State private var rectangleMode = false
+    /// The return a sphere stroke is centred on, fixed when the stroke begins.
+    @State private var sphereCentre: simd_float3?
+    /// Where the column brush was at the last drag event, in world metres.
+    @State private var lastBrushPosition: simd_float2?
+    @State private var paintedCells: Set<ColumnCell> = []
+    @State private var strokeNote: String?
+
+    private var basis: OrthoViewBasis { OrthoViewBasis(basisStandard) }
+
+    /// Metres on the view plane per point on screen.
+    private var metresPerPoint: Float {
+        guard viewport.size.height > 0 else { return 0 }
+        return viewport.halfHeight * 2 / Float(viewport.size.height)
+    }
+
+    private var showsGrid: Bool { session.tool == .column || session.showColumnGrid }
 
     var body: some View {
         GeometryReader { _ in
             ZStack(alignment: .topLeading) {
                 Color.clear.contentShape(Rectangle())
 
+                if showsGrid { gridLayer }
                 selectedPointsLayer
                 if strokePoints.count > 1 { strokeOutline }
+                if session.pendingSphere != nil { sphereOutline }
                 if let candidates = session.pendingCandidates, editable {
                     candidateBadge(candidates)
+                } else if let strokeNote, editable {
+                    noteBadge(strokeNote)
                 }
             }.gesture(editable ? dragGesture : nil)
         }
@@ -92,7 +112,6 @@ struct LassoOverlay: View {
     // meant to give feedback on.
     private var selectedPointsLayer: some View {
         Canvas { context, _ in
-            let basis = OrthoViewBasis(basisStandard)
             var path = Path()
             for index in session.history.current {
                 guard let p = session.currentPoints.point(at: index) else { continue }
@@ -112,6 +131,109 @@ struct LassoOverlay: View {
             false)
     }
 
+    // The sphere of the stroke in progress, in this view. An orthographic
+    // projection of a sphere is a circle of the same radius, so both views
+    // draw it true to scale; the second view shows its reach along the axis
+    // the operator dragging in the first cannot see.
+    private var sphereOutline: some View {
+        Canvas { context, _ in
+            guard let sphere = session.pendingSphere, metresPerPoint > 0 else { return }
+            let centre = viewport.screenPoint(from: basis.project(sphere.centre))
+            let r = CGFloat(sphere.radius / metresPerPoint)
+            let circle = Path(
+                ellipseIn: CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2))
+            context.stroke(
+                circle, with: .color(.yellow), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            let mark = Path(
+                ellipseIn: CGRect(x: centre.x - 2.5, y: centre.y - 2.5, width: 5, height: 5))
+            context.fill(mark, with: .color(.yellow))
+        }.allowsHitTesting(false)
+    }
+
+    // The local column lattice.
+    //
+    // In the top view it is the lattice itself, with the painted columns
+    // filled. In the front and side views a column is a vertical strip, so
+    // what is drawn instead is the ground and the voxel boundaries above it,
+    // the enabled voxels shaded: the operator can see that "not the ground"
+    // means what they intend before they paint.
+    private var gridLayer: some View {
+        Canvas { context, size in
+            guard metresPerPoint > 0 else { return }
+            let grid = session.columnGrid
+            if basisStandard == .top {
+                drawLattice(grid, in: &context, size: size)
+            } else {
+                drawVoxelBands(grid, in: &context, size: size)
+            }
+        }.allowsHitTesting(false)
+    }
+
+    private func drawLattice(_ grid: ColumnGrid, in context: inout GraphicsContext, size: CGSize) {
+        var fill = Path()
+        let cells = session.pendingCells.union(paintedCells)
+        for cell in cells {
+            let lo = viewport.screenPoint(
+                from: simd_float2(Float(cell.i) * grid.pitch, Float(cell.j) * grid.pitch))
+            let hi = viewport.screenPoint(
+                from: simd_float2(Float(cell.i + 1) * grid.pitch, Float(cell.j + 1) * grid.pitch))
+            fill.addRect(
+                CGRect(
+                    x: min(lo.x, hi.x), y: min(lo.y, hi.y), width: abs(hi.x - lo.x),
+                    height: abs(hi.y - lo.y)))
+        }
+        context.fill(fill, with: .color(.yellow.opacity(0.22)))
+
+        // Below a few points per column the lines would be a grey wash that
+        // hides the returns. The painted columns above are still drawn.
+        guard CGFloat(grid.pitch / metresPerPoint) >= 5 else { return }
+        let topLeft = viewport.worldPoint(from: .zero)
+        let bottomRight = viewport.worldPoint(from: CGPoint(x: size.width, y: size.height))
+        var lines = Path()
+        let firstI = Int((min(topLeft.x, bottomRight.x) / grid.pitch).rounded(.down))
+        let lastI = Int((max(topLeft.x, bottomRight.x) / grid.pitch).rounded(.up))
+        for i in firstI...lastI {
+            let x = viewport.screenPoint(from: simd_float2(Float(i) * grid.pitch, 0)).x
+            lines.move(to: CGPoint(x: x, y: 0))
+            lines.addLine(to: CGPoint(x: x, y: size.height))
+        }
+        let firstJ = Int((min(topLeft.y, bottomRight.y) / grid.pitch).rounded(.down))
+        let lastJ = Int((max(topLeft.y, bottomRight.y) / grid.pitch).rounded(.up))
+        for j in firstJ...lastJ {
+            let y = viewport.screenPoint(from: simd_float2(0, Float(j) * grid.pitch)).y
+            lines.move(to: CGPoint(x: 0, y: y))
+            lines.addLine(to: CGPoint(x: size.width, y: y))
+        }
+        context.stroke(lines, with: .color(.white.opacity(0.13)), lineWidth: 0.5)
+    }
+
+    private func drawVoxelBands(_ grid: ColumnGrid, in context: inout GraphicsContext, size: CGSize)
+    {
+        // Front and side views both have world Z as their vertical axis.
+        func screenY(height: Float) -> CGFloat {
+            viewport.screenPoint(from: simd_float2(viewport.centre.x, grid.groundZ + height)).y
+        }
+        for k in 0..<ColumnGrid.voxelCount where session.enabledVoxels & (1 << UInt8(k)) != 0 {
+            let range = grid.heightRange(ofVoxel: k)
+            let top = screenY(height: range.upperBound)
+            let bottom = screenY(height: range.lowerBound)
+            context.fill(
+                Path(CGRect(x: 0, y: top, width: size.width, height: bottom - top)),
+                with: .color(.yellow.opacity(0.07)))
+        }
+        var boundaries = Path()
+        for k in 1...ColumnGrid.voxelCount {
+            let y = screenY(height: Float(k) * grid.pitch)
+            boundaries.move(to: CGPoint(x: 0, y: y))
+            boundaries.addLine(to: CGPoint(x: size.width, y: y))
+        }
+        context.stroke(boundaries, with: .color(.white.opacity(0.13)), lineWidth: 0.5)
+        var ground = Path()
+        ground.move(to: CGPoint(x: 0, y: screenY(height: 0)))
+        ground.addLine(to: CGPoint(x: size.width, y: screenY(height: 0)))
+        context.stroke(ground, with: .color(.green.opacity(0.7)), lineWidth: 1)
+    }
+
     private func candidateBadge(_ candidates: SelectionCandidates) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(candidates.count) point\(candidates.count == 1 ? "" : "s")").font(
@@ -122,33 +244,123 @@ struct LassoOverlay: View {
                 Text("\(candidates.excludedBySlab) outside the slab").font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            if candidates.excludedByVoxels > 0 {
+                Text("\(candidates.excludedByVoxels) in voxels that are off").font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if let sphere = session.pendingSphere {
+                Text(String(format: "radius %.2f m", sphere.radius)).font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             Text("Return to accept, Esc to cancel").font(.caption2).foregroundStyle(.secondary)
         }.padding(6).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)).padding(
             8)
     }
 
+    private func noteBadge(_ note: String) -> some View {
+        Text(note).font(.caption2).foregroundStyle(.secondary).padding(6).background(
+            .black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)
+        ).padding(8)
+    }
+
+    // A brush responds to a click, so its gesture starts at zero distance. The
+    // lasso keeps its small threshold: a click with the lasso is not a stroke.
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 2).onChanged { value in
-            if strokePoints.isEmpty {
-                session.beginStroke()
-                rectangleMode = NSEvent.modifierFlags.contains(.command)
+        DragGesture(minimumDistance: session.tool == .lasso ? 2 : 0).onChanged { value in
+            switch session.tool {
+            case .lasso: lassoChanged(value)
+            case .sphere: sphereChanged(value)
+            case .column: columnChanged(value)
             }
-            if rectangleMode {
-                // Command-drag is the quick axis-aligned rectangle.
-                strokePoints = rectangleCorners(from: value.startLocation, to: value.location)
-            } else {
-                strokePoints.append(value.location)
-            }
-            previewCurrentStroke()
-        }.onEnded { _ in
-            guard !strokePoints.isEmpty else { return }
+        }.onEnded { value in
+            defer { resetStroke() }
             session.selectionMode = SelectionMode.from(
-                shiftHeld: NSEvent.modifierFlags.contains(.shift),
+                tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),
                 optionHeld: NSEvent.modifierFlags.contains(.option))
-            previewCurrentStroke()
+            switch session.tool {
+            case .lasso: previewCurrentStroke()
+            case .sphere:
+                sphereChanged(value)
+                if let sphere = session.pendingSphere { session.sphereRadius = sphere.radius }
+            case .column: break
+            }
+            // A gesture that named nothing (a click with the lasso, a sphere
+            // with no return under it, a column brush outside the top view)
+            // must not leave a stroke open: navigation is guarded on it.
+            guard session.pendingCandidates != nil else {
+                session.cancelStroke()
+                return
+            }
             _ = session.commitSelection()
-            strokePoints = []
         }
+    }
+
+    private func resetStroke() {
+        strokePoints = []
+        sphereCentre = nil
+        lastBrushPosition = nil
+        paintedCells = []
+    }
+
+    private func lassoChanged(_ value: DragGesture.Value) {
+        if strokePoints.isEmpty {
+            session.beginStroke()
+            rectangleMode = NSEvent.modifierFlags.contains(.command)
+            strokeNote = nil
+        }
+        if rectangleMode {
+            // Command-drag is the quick axis-aligned rectangle.
+            strokePoints = rectangleCorners(from: value.startLocation, to: value.location)
+        } else {
+            strokePoints.append(value.location)
+        }
+        previewCurrentStroke()
+    }
+
+    private func sphereChanged(_ value: DragGesture.Value) {
+        if sphereCentre == nil {
+            // Twelve points of slop: near enough to mean "that return", far
+            // enough to hit one without zooming in.
+            guard
+                let index = session.nearestPointIndex(
+                    toViewPoint: viewport.worldPoint(from: value.startLocation),
+                    maxViewDistance: metresPerPoint * 12),
+                let centre = session.currentPoints.point(at: index)
+            else {
+                strokeNote = "No return under the cursor to centre a sphere on"
+                return
+            }
+            session.beginStroke()
+            sphereCentre = centre
+            strokeNote = nil
+        }
+        guard let centre = sphereCentre else { return }
+        let dragged = simd_distance(
+            viewport.worldPoint(from: value.startLocation),
+            viewport.worldPoint(from: value.location))
+        let radius = BrushStroke.sphereRadius(dragMetres: dragged, remembered: session.sphereRadius)
+        session.previewSelection(sphere: SelectionSphere(centre: centre, radius: radius))
+    }
+
+    private func columnChanged(_ value: DragGesture.Value) {
+        // A column is vertical, so it is chosen from above. In the other views
+        // a click names a strip of columns one behind another, which is a
+        // lasso's job.
+        guard basisStandard == .top else {
+            strokeNote = "The column brush paints in the Top view"
+            return
+        }
+        if lastBrushPosition == nil {
+            session.beginStroke()
+            strokeNote = nil
+        }
+        let position = viewport.worldPoint(from: value.location)
+        paintedCells.formUnion(
+            BrushStroke.cells(
+                from: lastBrushPosition ?? position, to: position, grid: session.columnGrid,
+                radius: session.columnBrushRadius))
+        lastBrushPosition = position
+        session.previewSelection(cells: paintedCells)
     }
 
     private func rectangleCorners(from a: CGPoint, to b: CGPoint) -> [CGPoint] {
@@ -287,15 +499,92 @@ struct AnnotationPane: View {
                 session.resetSlabToSampleExtent()
             }
 
+            Picker("Tool", selection: $session.tool) {
+                ForEach(SelectionTool.allCases) { Text($0.label).tag($0) }
+            }.pickerStyle(.segmented).labelsHidden().onChange(of: session.tool) { _, _ in
+                // Changing tool mid-stroke would apply one tool's gesture
+                // under another's rule.
+                session.cancelStroke()
+            }
+
             Text("\(session.selectionCount) points selected").font(.caption)
-            Text("Drag to lasso · ⌘ rectangle · ⇧ add · ⌥ subtract").font(.caption2)
-                .foregroundStyle(.secondary)
+            Text(session.tool.hint).font(.caption2).foregroundStyle(.secondary)
+
+            switch session.tool {
+            case .lasso: EmptyView()
+            case .sphere: sphereControls
+            case .column: columnControls
+            }
 
             HStack {
                 Button("Undo") { session.undo() }.disabled(!session.history.canUndo)
                 Button("Redo") { session.redo() }.disabled(!session.history.canRedo)
                 Button("Clear") { session.clearSelection() }.disabled(session.selectionCount == 0)
             }
+        }
+    }
+
+    private var sphereControls: some View {
+        HStack {
+            Text("Radius").font(.caption)
+            Slider(
+                value: $session.sphereRadius,
+                in: SelectionSphere.minimumRadius...SelectionSphere.maximumRadius)
+            Text(String(format: "%.2f m", session.sphereRadius)).font(.caption.monospacedDigit())
+                .frame(width: 52, alignment: .trailing)
+        }.help("A click uses this radius. A drag sets it. [ and ] step it.")
+    }
+
+    private var columnControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Brush").font(.caption)
+                Slider(
+                    value: $session.columnBrushRadius, in: 0...BrushStroke.maximumColumnRadius,
+                    step: BrushStroke.columnRadiusStep)
+                Text(
+                    session.columnBrushRadius == 0
+                        ? "1 column" : String(format: "%.2f m", session.columnBrushRadius)
+                ).font(.caption.monospacedDigit()).frame(width: 60, alignment: .trailing)
+            }
+
+            // One toggle per voxel, ground at the left. The heights are the
+            // point: "not the ground" is one click on the first of them.
+            Text("Voxels, 0.5 m each from the ground").font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                ForEach(0..<ColumnGrid.voxelCount, id: \.self) { k in
+                    let bit = UInt8(1) << UInt8(k)
+                    Toggle(
+                        isOn: Binding(
+                            get: { session.enabledVoxels & bit != 0 },
+                            set: { on in
+                                session.enabledVoxels =
+                                    on ? session.enabledVoxels | bit : session.enabledVoxels & ~bit
+                            })
+                    ) { Text("\(k)").font(.caption2.monospacedDigit()).frame(width: 14) }
+                    .toggleStyle(.button).controlSize(.small).help(
+                        String(
+                            format: "%.1f to %.1f m above the ground",
+                            session.columnGrid.heightRange(ofVoxel: k).lowerBound,
+                            session.columnGrid.heightRange(ofVoxel: k).upperBound))
+                }
+            }
+            HStack {
+                Button("Stack") { session.enabledVoxels = ColumnGrid.stackMask }.help(
+                    "Voxels 1 to 4, 0.5 to 2.5 m: where road users are")
+                Button("All") { session.enabledVoxels = ColumnGrid.allVoxelsMask }
+            }.controlSize(.small)
+
+            HStack {
+                Text("Ground Z").font(.caption)
+                Stepper(value: $session.columnGrid.groundZ, in: -20...20, step: 0.05) {
+                    Text(String(format: "%.2f m", session.columnGrid.groundZ)).font(
+                        .caption.monospacedDigit())
+                }
+                Button("Estimate") { session.estimateGround() }.controlSize(.small).help(
+                    "The height below which a twentieth of this sample's returns lie")
+            }
+            Toggle("Show grid with other tools", isOn: $session.showColumnGrid).font(.caption)
         }
     }
 

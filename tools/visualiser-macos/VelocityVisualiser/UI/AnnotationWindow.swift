@@ -267,6 +267,23 @@ struct AnnotationWorkspace: View {
         Binding(get: { pendingAction != nil }, set: { if !$0 { pendingAction = nil } })
     }
 
+    // The bracket keys size the active brush, as they do in every paint
+    // program an operator has used.
+    //
+    // Hidden buttons rather than a key handler on the viewport: a shortcut
+    // with no modifier is delivered to the window wherever the focus is, so
+    // it works without first clicking into the point view, and it gives way
+    // to a text field, so typing a bracket into the operator's name types a
+    // bracket.
+    private var brushSizeKeys: some View {
+        Group {
+            Button("Smaller brush") { session.adjustBrushSize(steps: -1) }.keyboardShortcut(
+                "[", modifiers: [])
+            Button("Larger brush") { session.adjustBrushSize(steps: 1) }.keyboardShortcut(
+                "]", modifiers: [])
+        }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VSplitView {
@@ -306,7 +323,7 @@ struct AnnotationWorkspace: View {
                     Button("Close") { guardedNavigate { controller.close() } }
                 }.padding(8)
             }
-        }.alert("Unsaved membership", isPresented: showDiscardPrompt) {
+        }.background { brushSizeKeys }.alert("Unsaved membership", isPresented: showDiscardPrompt) {
             Button("Keep Editing", role: .cancel) { pendingAction = nil }
             Button("Discard and Continue", role: .destructive) {
                 let action = pendingAction

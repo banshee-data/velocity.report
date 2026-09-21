@@ -218,6 +218,9 @@ struct SelectionCandidates: Equatable {
     /// operator who expected more points can see the slab is what excluded
     /// them, rather than assuming the lasso missed.
     var excludedBySlab: Int
+    /// Indices inside a painted column but in a voxel that is switched off, or
+    /// outside the column's height. Zero for every tool but the column brush.
+    var excludedByVoxels: Int = 0
 
     var count: Int { indices.count }
 }
