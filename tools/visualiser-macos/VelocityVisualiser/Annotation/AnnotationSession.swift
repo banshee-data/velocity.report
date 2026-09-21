@@ -30,7 +30,11 @@ enum AnnotationGuard: Equatable {
     /// The current saved snapshot plus its concurrency token.
     private var document: SidecarDocument
 
-    @Published private(set) var sidecar: Sidecar
+    @Published private(set) var sidecar: Sidecar {
+        // A review changes no selection and no point, only what a mask is
+        // worth, and the tallies have to notice that too.
+        didSet { labelRevision &+= 1 }
+    }
 
     // MARK: Position in the pack
 
@@ -368,6 +372,105 @@ enum AnnotationGuard: Equatable {
             author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
             operation: "review_object")
         return true
+    }
+
+    // MARK: - Review
+
+    /// What a mask's status is once saved over `previous`. A reviewed mask
+    /// stays reviewed only while its points are the ones that were reviewed:
+    /// the review was of those points, and changing them and keeping the
+    /// status would pass unreviewed membership off as checked.
+    static func statusAfterSaving(_ mask: FrameMask, over previous: FrameMask?) -> ReviewStatus {
+        guard let previous, previous.status == .reviewed,
+            Set(previous.pointIndices) == Set(mask.pointIndices)
+        else { return .proposed }
+        return .reviewed
+    }
+
+    /// Marks this frame's saved mask reviewed, and the object with it.
+    ///
+    /// Marking only the object is what this used to do, and it made nothing
+    /// count: a mask is reference truth when the mask and its object are both
+    /// reviewed, and no control in this client ever reviewed a mask.
+    @discardableResult func markFrameReviewed(secondViewConfirmed: Bool) -> Bool {
+        lastError = nil
+        guard secondViewConfirmed else {
+            return fail("Check the points in the second view before marking them reviewed.")
+                ?? false
+        }
+        guard let sample = currentSample, let objectID = activeObjectID,
+            sidecar.mask(objectID: objectID, sampleID: sample.sampleID) != nil
+        else { return fail("Save this frame's points before reviewing them.") ?? false }
+        guard navigationGuard() == nil else {
+            return fail("Save the changes first: a review is of what is saved.") ?? false
+        }
+        return review(objectID: objectID, sampleIDs: [sample.sampleID], operation: "review_mask")
+            != nil
+    }
+
+    /// Marks every saved mask of the active object reviewed: the operator's
+    /// statement that they have been through all of its frames. Returns how
+    /// many masks that was.
+    @discardableResult func markAllFramesReviewed(secondViewConfirmed: Bool) -> Int? {
+        lastError = nil
+        guard secondViewConfirmed else {
+            return fail("Check the points in the second view before marking them reviewed.")
+        }
+        guard let objectID = activeObjectID else {
+            return fail("Choose the object whose frames you have been through.")
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save the changes first: a review is of what is saved.")
+        }
+        let sampleIDs = sidecar.masks.filter { $0.objectID == objectID }.map(\.sampleID)
+        guard !sampleIDs.isEmpty else { return fail("This object has no saved frames to review.") }
+        return review(
+            objectID: objectID, sampleIDs: Set(sampleIDs), operation: "review_object_masks")
+    }
+
+    private func review(objectID: String, sampleIDs: Set<Int>, operation: String) -> Int? {
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail(
+                "Enter your name under Labelled by before reviewing: a review has an author.")
+        }
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: operation)
+        var edited = document
+        edited.sidecar = sidecar
+        var reviewed = 0
+        for index in edited.sidecar.masks.indices
+        where edited.sidecar.masks[index].objectID == objectID
+            && sampleIDs.contains(edited.sidecar.masks[index].sampleID)
+        {
+            // How the points got there is kept: a mask an algorithm filled in
+            // and a person then checked is still a mask an algorithm filled in.
+            change.algorithm = edited.sidecar.masks[index].provenance.algorithm
+            change.algorithmVersion = edited.sidecar.masks[index].provenance.algorithmVersion
+            edited.sidecar.masks[index].status = .reviewed
+            edited.sidecar.masks[index].provenance = change
+            reviewed += 1
+        }
+        change.algorithm = nil
+        change.algorithmVersion = nil
+        if let index = edited.sidecar.objects.firstIndex(where: { $0.objectID == objectID }) {
+            edited.sidecar.objects[index].status = .reviewed
+            edited.sidecar.objects[index].provenance = change
+        }
+        do {
+            document = try store.save(edited, change: change)
+            sidecar = document.sidecar
+            refreshFrameProgress()
+            return reviewed
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+    }
+
+    /// How many of the object's saved frames are reviewed.
+    func reviewedSampleCount(objectID: String) -> Int {
+        sidecar.masks.filter { $0.objectID == objectID && $0.status == .reviewed }.count
     }
 
     // MARK: - Navigation
@@ -975,7 +1078,8 @@ enum AnnotationGuard: Equatable {
             }
             mask.completeness = maskCompleteness
             mask.visibility = maskVisibility
-            mask.status = mask.status == .reviewed ? .reviewed : .proposed
+            mask.status = AnnotationSession.statusAfterSaving(
+                mask, over: sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID))
             edited.sidecar.upsert(mask: mask)
             written += 1
         }
@@ -1236,7 +1340,8 @@ enum AnnotationGuard: Equatable {
             mask.visibility = maskVisibility
             // Saving membership does not review it. A mask becomes reviewed
             // through an explicit second-view confirmation.
-            mask.status = mask.status == .reviewed ? .reviewed : .proposed
+            mask.status = AnnotationSession.statusAfterSaving(
+                mask, over: sidecar.mask(objectID: objectID, sampleID: sample.sampleID))
             mask.provenance = change
 
             var edited = document

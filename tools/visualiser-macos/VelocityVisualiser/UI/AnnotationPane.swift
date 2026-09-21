@@ -518,6 +518,7 @@ struct AnnotationPane: View {
     @State private var showDiscardPrompt = false
 
     @State private var applyResult: String?
+    @State private var showReviewAllPrompt = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -830,12 +831,20 @@ struct AnnotationPane: View {
                 // How far through the pack the object has been followed.
                 Text(
                     "labelled in \(session.savedSampleCount(objectID: object.objectID)) of "
-                        + "\(session.samples.count) frames"
+                        + "\(session.samples.count) frames · "
+                        + "\(session.reviewedSampleCount(objectID: object.objectID)) reviewed"
                 ).font(.caption2).foregroundStyle(.secondary).help(object.objectID)
             }
             Spacer()
-            Text(object.status.rawValue).font(.caption2).foregroundStyle(
-                object.status == .reviewed ? .green : .secondary)
+            // Of its frames, not of the object record: an object marked
+            // reviewed whose frames are not has nothing that counts.
+            let saved = session.savedSampleCount(objectID: object.objectID)
+            let reviewed = session.reviewedSampleCount(objectID: object.objectID)
+            Text(
+                saved > 0 && reviewed == saved
+                    ? "reviewed" : reviewed > 0 ? "part reviewed" : "proposed"
+            ).font(.caption2).foregroundStyle(
+                saved > 0 && reviewed == saved ? Color.green : Color.secondary)
         }.contentShape(Rectangle()).onTapGesture {
             if session.activate(objectID: object.objectID) != nil {
                 showDiscardPrompt = true
@@ -1060,14 +1069,38 @@ struct AnnotationPane: View {
                 }.disabled(session.sampleIndex >= session.samples.count - 1)
             }
             HStack {
-                Button("Mark reviewed") {
-                    _ = session.markObjectReviewed(secondViewConfirmed: secondViewConfirmed)
+                Button("Review this frame") {
+                    _ = session.markFrameReviewed(secondViewConfirmed: secondViewConfirmed)
                 }.disabled(!secondViewConfirmed)
+                Button("Review all frames…") { showReviewAllPrompt = true }.disabled(
+                    !secondViewConfirmed || session.activeObjectID == nil)
+            }
+            if let id = session.activeObjectID {
+                // Only a reviewed mask of a reviewed object is reference truth,
+                // so this is the count that says how much of it there is.
+                Text(
+                    "\(session.reviewedSampleCount(objectID: id)) of "
+                        + "\(session.savedSampleCount(objectID: id)) saved frames reviewed"
+                ).font(.caption2).foregroundStyle(.secondary)
             }
             if session.navigationGuard() != nil {
                 Text("Unsaved changes").font(.caption2).foregroundStyle(.orange)
             }
             Text("Revision \(session.sidecar.revision)").font(.caption2).foregroundStyle(.secondary)
+        }.alert(
+            "Review every frame of \(session.activeObjectName ?? "this object")?",
+            isPresented: $showReviewAllPrompt
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Mark all reviewed") {
+                _ = session.markAllFramesReviewed(secondViewConfirmed: secondViewConfirmed)
+            }
+        } message: {
+            Text(
+                "This says you have been through every saved frame of this object and its points "
+                    + "are right, including frames that were filled in for you. They count as "
+                    + "reference truth from then on. Changing a frame's points afterwards puts "
+                    + "that frame back to unreviewed.")
         }.alert("Unsaved membership", isPresented: $showDiscardPrompt) {
             Button("Keep editing", role: .cancel) {}
             Button("Discard and reload", role: .destructive) { session.reload() }
