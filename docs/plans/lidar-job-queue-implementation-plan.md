@@ -251,10 +251,10 @@ macOS server, when `vrlog_record` jobs produce what the run browser lists.
 ### Complete
 
 - [x] Pool plan brought onto this branch (`f4ac0feed`, from state-est `bc3baae17`)
+- [x] Item 1: contract package, `internal/lidar/jobs` (`c8c542a7c`)
 
 ### Outstanding
 
-- [ ] Item 1: contract package (`M`)
 - [ ] Item 2: hub store and API (`L`)
 - [ ] Item 3: worker (`L`)
 - [ ] Item 4: dashboard (`M`)
