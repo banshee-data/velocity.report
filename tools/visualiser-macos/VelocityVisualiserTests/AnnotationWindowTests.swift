@@ -65,6 +65,24 @@ struct AnnotationFramingTests {
         #expect(abs(half - 30) < 1e-4)
     }
 
+    /// An elevation is a street: a hundred metres wide and four high. Fitting
+    /// its width would set the vertical scale from the horizontal span and
+    /// leave a car too small to see, so it frames its height and is panned.
+    @Test func anElevationFramesItsHeightAndNotItsWidth() {
+        let street = AnnotationExtent(centre: .zero, halfHeight: 2, halfWidth: 100)
+        let size = CGSize(width: 400, height: 100)
+
+        let plan = annotationFramingHalfHeight(
+            extent: street, size: size, margin: 1, floor: 0.001, fitsWidth: true)
+        let elevation = annotationFramingHalfHeight(
+            extent: street, size: size, margin: 1, floor: 0.001, fitsWidth: false)
+
+        // Aspect is 4, so fitting the width needs 25 m of half-height and
+        // leaves a two-metre car a twelfth of the view tall.
+        #expect(abs(plan - 25) < 1e-4)
+        #expect(abs(elevation - 2) < 1e-4)
+    }
+
     @Test func framingLeavesAMargin() {
         let extent = AnnotationExtent(centre: .zero, halfHeight: 10, halfWidth: 1)
         let half = annotationFramingHalfHeight(

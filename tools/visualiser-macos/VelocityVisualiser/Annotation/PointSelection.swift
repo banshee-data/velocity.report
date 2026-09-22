@@ -71,6 +71,14 @@ struct OrthoViewBasis: Equatable {
     var forward: simd_float3
     /// World point mapping to view-plane origin.
     var origin: simd_float3
+    /// True when the view shows only what is in front of it.
+    ///
+    /// Without this an elevation draws the whole scene, so the half behind the
+    /// sensor lands on top of the half in front and the two views along one
+    /// axis are the same picture mirrored. With it the four elevations are
+    /// four half-spaces, each a 180 degree sector of azimuth, and between them
+    /// they partition the scene instead of drawing it twice.
+    var facingOnly = false
 
     init(right: simd_float3, up: simd_float3, forward: simd_float3, origin: simd_float3 = .zero) {
         self.right = simd_normalize(right)
@@ -80,6 +88,10 @@ struct OrthoViewBasis: Equatable {
     }
 
     init(_ standard: Standard, origin: simd_float3 = .zero) {
+        self.init(standard: standard, origin: origin)
+    }
+
+    private init(standard: Standard, origin: simd_float3) {
         switch standard {
         case .top:
             // Looking down: screen right is world +X, screen up is world +Y,
@@ -110,7 +122,15 @@ struct OrthoViewBasis: Equatable {
                 right: simd_float3(0, -1, 0), up: simd_float3(0, 0, 1),
                 forward: simd_float3(1, 0, 0), origin: origin)
         }
+        // The top view looks down on everything; the elevations each take
+        // their own half.
+        facingOnly = standard != .top
     }
+
+    /// Whether this view shows a point at all, before any class filter or
+    /// depth slab. A point exactly on the plane belongs to the view looking at
+    /// it, so that the boundary is claimed once rather than by neither.
+    func shows(_ p: simd_float3) -> Bool { !facingOnly || depth(p) >= 0 }
 
     /// Projects a world point onto the view plane, in metres.
     func project(_ p: simd_float3) -> simd_float2 {
@@ -281,6 +301,7 @@ struct PointSelectionEngine {
             }
             guard polygon.contains(v) else { continue }
 
+            guard basis.shows(p) else { continue }
             if let slab, !slab.contains(basis.depth(p)) {
                 excludedBySlab += 1
                 continue

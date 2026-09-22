@@ -91,6 +91,38 @@ struct OrthoViewBasisTests {
         #expect(abs(simd_dot(forwards[0], forwards[2])) < 1e-6)
     }
 
+    /// The four elevations partition the scene: every point is in front of
+    /// exactly two of them, one from each opposed pair, so nothing is drawn
+    /// twice in the same picture and nothing is invisible everywhere.
+    @Test func eachElevationShowsOnlyTheHalfInFrontOfIt() {
+        let bases = OrthoViewBasis.Standard.elevations.map { OrthoViewBasis($0) }
+        for p in [
+            simd_float3(7, 3, 0), simd_float3(-7, 3, 0), simd_float3(7, -3, 0),
+            simd_float3(-7, -3, 1.5), simd_float3(0.1, 12, -2),
+        ] {
+            let showing = bases.filter { $0.shows(p) }.count
+            #expect(showing == 2, "\(p) is shown by \(showing) elevations, want 2")
+        }
+    }
+
+    /// The plan view is the one that sees everything, which is why it decides
+    /// whether a fit had anything to frame.
+    @Test func theTopViewShowsEverything() {
+        let top = OrthoViewBasis(.top)
+        for p in [simd_float3(5, 5, 5), simd_float3(-5, -5, -5), .zero] {
+            #expect(top.shows(p))
+        }
+    }
+
+    /// A point exactly on a dividing plane belongs to the view looking at it,
+    /// so the boundary is claimed rather than dropped by both.
+    @Test func aPointOnThePlaneIsStillShown() {
+        #expect(OrthoViewBasis(.front).shows(simd_float3(3, 0, 1)))
+        #expect(OrthoViewBasis(.back).shows(simd_float3(3, 0, 1)))
+        #expect(OrthoViewBasis(.side).shows(simd_float3(0, 3, 1)))
+        #expect(OrthoViewBasis(.farSide).shows(simd_float3(0, 3, 1)))
+    }
+
     @Test func secondViewIsAlwaysADifferentAxis() {
         // The confirming view has to actually show a different angle, or the
         // second-view check verifies nothing.

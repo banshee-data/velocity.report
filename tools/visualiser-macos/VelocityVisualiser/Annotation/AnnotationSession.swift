@@ -886,7 +886,8 @@ enum AnnotationGuard: Equatable {
             return OrthoViewport(halfHeight: 10, size: size, centre: .zero)
         }
         return OrthoViewport(
-            halfHeight: annotationFramingHalfHeight(extent: extent, size: size), size: size,
+            halfHeight: annotationFramingHalfHeight(
+                extent: extent, size: size, fitsWidth: standard == .top), size: size,
             centre: extent.centre)
     }
 
@@ -946,12 +947,14 @@ enum AnnotationGuard: Equatable {
     private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
         for standard in OrthoViewBasis.Standard.allCases {
-            guard
-                let extent = annotationExtent(
-                    of: currentPoints, basis: OrthoViewBasis(standard), trim: trim, where: include)
-            else { return false }
-            extents[standard] = extent
+            extents[standard] = annotationExtent(
+                of: currentPoints, basis: OrthoViewBasis(standard), trim: trim, where: include)
         }
+        // An elevation shows one half of the scene, so a selection entirely
+        // behind it frames nothing and simply has no extent. Only the plan
+        // view sees everything, so it is the one that decides whether there
+        // was anything to frame at all.
+        guard extents[.top] != nil else { return false }
         referenceExtents = extents
         viewStates = [:]
 

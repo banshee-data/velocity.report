@@ -149,9 +149,9 @@ func annotationExtent(
     xs.reserveCapacity(points.count)
     ys.reserveCapacity(points.count)
     for index in 0..<points.count where include(index) {
-        guard let p = points.point(at: index), p.x.isFinite, p.y.isFinite, p.z.isFinite else {
-            continue
-        }
+        guard let p = points.point(at: index), p.x.isFinite, p.y.isFinite, p.z.isFinite,
+            basis.shows(p)
+        else { continue }
         let v = basis.project(p)
         xs.append(v.x)
         ys.append(v.y)

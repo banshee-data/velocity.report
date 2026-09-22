@@ -122,6 +122,7 @@ struct LassoOverlay: View {
                 var path = Path()
                 for index in indices {
                     guard let p = points.point(at: index) else { continue }
+                    guard basis.shows(p) else { continue }
                     let screen = viewport.screenPoint(from: basis.project(p))
                     path.addEllipse(
                         in: CGRect(
@@ -139,6 +140,7 @@ struct LassoOverlay: View {
                 var count: CGFloat = 0
                 for index in indices {
                     guard let p = points.point(at: index) else { continue }
+                    guard basis.shows(p) else { continue }
                     let screen = viewport.screenPoint(from: basis.project(p))
                     top = min(top, screen.y)
                     sumX += screen.x

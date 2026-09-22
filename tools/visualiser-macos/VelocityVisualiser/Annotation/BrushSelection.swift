@@ -277,6 +277,7 @@ extension PointSelectionEngine {
             guard let p = points.point(at: index), p.x.isFinite, p.y.isFinite, p.z.isFinite else {
                 continue
             }
+            guard basis.shows(p) else { continue }
             if let slab, !slab.contains(basis.depth(p)) { continue }
             let d = simd_distance(basis.project(p), viewPoint)
             if d <= bestDistance {

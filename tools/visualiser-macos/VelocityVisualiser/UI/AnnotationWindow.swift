@@ -49,7 +49,7 @@ func annotationExtent(of points: PackPoints, basis: OrthoViewBasis) -> Annotatio
     var maxY = -Float.greatestFiniteMagnitude
     var seen = false
     for index in 0..<points.count {
-        guard let p = points.point(at: index) else { continue }
+        guard let p = points.point(at: index), basis.shows(p) else { continue }
         let v = basis.project(p)
         minX = min(minX, v.x)
         maxX = max(maxX, v.x)
@@ -69,12 +69,22 @@ func annotationExtent(of points: PackPoints, basis: OrthoViewBasis) -> Annotatio
 /// flat sample — which is what a top-down view of a street is — at the sides.
 /// The floor stops a single-point or perfectly flat sample from collapsing the
 /// view to zero scale, which would divide by zero in the screen mapping.
+/// How far a view has to see, in metres either side of its centre.
+///
+/// `fitsWidth` is what makes the plan view and an elevation frame differently,
+/// and they must. A plan is about as wide as it is deep, so fitting both puts
+/// the whole scene on screen. An elevation is a street: a hundred metres wide
+/// and four high. Fitting its width would set the vertical scale from the
+/// horizontal span and leave a car two pixels tall, so an elevation frames its
+/// height and is panned to see along the street.
 func annotationFramingHalfHeight(
-    extent: AnnotationExtent, size: CGSize, margin: Float = 1.15, floor: Float = 1.0
+    extent: AnnotationExtent, size: CGSize, margin: Float = 1.15, floor: Float = 1.0,
+    fitsWidth: Bool = true
 ) -> Float {
     let aspect = size.height > 0 ? Float(size.width / size.height) : 1
     let neededForWidth = aspect > 0 ? extent.halfWidth / aspect : extent.halfWidth
-    return max(max(extent.halfHeight, neededForWidth) * margin, floor)
+    let needed = fitsWidth ? max(extent.halfHeight, neededForWidth) : extent.halfHeight
+    return max(needed * margin, floor)
 }
 
 // MARK: - Controller
@@ -573,6 +583,7 @@ struct AnnotationBackgroundCanvas: View, Equatable {
                 var path = Path()
                 for index in indices {
                     let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                    guard basis.shows(p) else { continue }
                     let screen = viewport.screenPoint(from: basis.project(p))
                     guard visible.contains(screen) else { continue }
                     path.addRect(
@@ -701,6 +712,7 @@ struct AnnotationPointCanvas: View, Equatable {
                     continue
                 }
                 let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                guard basis.shows(p) else { continue }
                 let screen = viewport.screenPoint(from: basis.project(p))
                 // Zoomed in, most of the sample is off screen, and a path of
                 // tens of thousands of rectangles nobody can see is most of
