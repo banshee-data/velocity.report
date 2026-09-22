@@ -41,6 +41,8 @@ func BenchMain(args []string) int {
 	fs.BoolVar(&cfg.Quiet, "quiet", false, "Suppress non-essential output to keep measurements clean")
 	fs.BoolVar(&cfg.Quiet, "q", false, "Suppress non-essential output (alias for -quiet)")
 	fs.Float64Var(&cfg.ProgressSecs, "progress", 10, "Seconds between progress updates during the PCAP read (0 = off)")
+	fs.StringVar(&cfg.ClustersOutput, "clusters-output", "",
+		"Write one JSONL line per cluster per frame (frame, timestamp, centroid, bounding box, point count) for offline scoring")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: lidar-bench -pcap FILE [options]\n\n")
@@ -51,6 +53,7 @@ func BenchMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -benchmark-output base.json\n")
 		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -compare-baseline base.json -quiet\n")
 		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -profile l3-only -repeat 5 -benchmark-output base.json\n")
+		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -clusters-output run.jsonl -repeat 1\n")
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -85,6 +88,12 @@ func BenchMain(args []string) int {
 	}
 	if cfg.Repeats < 1 {
 		fmt.Fprintln(os.Stderr, "-repeat must be at least 1")
+		return 2
+	}
+	// Each repeat would rewrite the dump, leaving the file describing one
+	// arbitrary run while the JSON reports the median of all of them.
+	if cfg.Repeats > 1 && cfg.ClustersOutput != "" {
+		fmt.Fprintln(os.Stderr, "-clusters-output cannot be combined with -repeat > 1")
 		return 2
 	}
 	if cfg.SensorID == "" {

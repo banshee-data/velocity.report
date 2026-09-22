@@ -79,3 +79,16 @@ func TestBenchMainRunsBenchmarkOverFixture(t *testing.T) {
 		t.Errorf("expected a benchmark JSON at %s: %v", out, err)
 	}
 }
+
+func TestBenchMainRejectsClusterDumpWithRepeats(t *testing.T) {
+	// Each repeat would rewrite the dump, so the file would describe one
+	// arbitrary run while the JSON reported the median of all of them.
+	code := BenchMain([]string{
+		"-pcap", benchFixture, "-output", t.TempDir(),
+		"-clusters-output", filepath.Join(t.TempDir(), "clusters.jsonl"),
+		"-repeat", "3", "-quiet",
+	})
+	if code != 2 {
+		t.Errorf("BenchMain with -clusters-output and -repeat 3 = %d, want 2", code)
+	}
+}
