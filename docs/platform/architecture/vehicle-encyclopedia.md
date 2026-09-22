@@ -1,6 +1,6 @@
 # Vehicle encyclopedia: concept and privacy contract
 
-- **Status:** Proposed. Open for investigation; nothing here is built or committed to
+- **Status:** Proposed. Open for investigation; nothing here is built or committed to delivery.
 - **Layers:** Separate open project; velocity.report consumes an embedded subset
 - **Decided 2026-09-22:** Canadian market, separate project, year-marked annual editions, read-only web here, direct vision as a sourced domain
 - **Plans:** [vehicle encyclopedia](../../plans/vehicle-encyclopedia-plan.md), [scene vehicle identification](../../plans/scene-vehicle-identification-plan.md)
@@ -106,8 +106,8 @@ contract below is what falls out.
    seen".
 
 Resolve, aggregate, discard remains the internal default: the pipeline may
-resolve as far as the evidence allows on the device, increments an aggregate
-counter, and persists no per-observation entry identity unless an operator
+resolve as far as the evidence allows on the device, increment an aggregate
+counter, and persist no per-observation entry identity unless an operator
 explicitly retains it locally for review.
 
 Where a scene publishes classes rather than entries, the reader loses the
@@ -178,8 +178,8 @@ rather than against itself.
 ## Review model
 
 The encyclopedia uses the three states the annotation sidecar already defines:
-`proposed`, `approved` and `rejected`. One review vocabulary across the project,
-not two. Only an approved record gains a mesh and enters the identification set.
+`proposed`, `reviewed` and `rejected`. One review vocabulary across the project,
+not two. Only a reviewed record gains a mesh and enters the identification set.
 An algorithm's proposal never silently becomes a human's judgement, and neither
 does a stranger's edit.
 

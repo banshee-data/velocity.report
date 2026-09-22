@@ -251,7 +251,7 @@ an analysis.
 | $N$       | Passes per period, per site                      | Already measured                                         |
 | $p_c$     | Class share of local traffic                     | From the site's own observations, not a national average |
 | $b$       | Branching factor of the class tree               | Falls out of the taxonomy once built                     |
-| $\|A_c\|$ | Class-$c$ vehicles plausibly using the street    | Hardest of the six; bounded by local registrations       |
+| $|A_c|$   | Class-$c$ vehicles plausibly using the street    | Hardest of the six; bounded by local registrations       |
 | $q$       | Per-day appearance probability of a regular user | Estimable from repeat structure in the site's own data   |
 | $k$       | Chosen anonymity floor                           | A decision, informed by the above                        |
 
