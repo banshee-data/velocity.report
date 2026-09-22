@@ -105,6 +105,25 @@ corner finds nearly everything and invents 24 spurious clusters a frame. The
 useful configs are between the two corners, and nothing before now could have
 told us where.
 
+### One artefact is most of the noise
+
+`obj_3c67a8a9` is labelled noise, reviewed, and present in 778 of the 832
+frames: 44% of every non-road object-frame in the pack. It appears at **frame
+54, the frame warm-up ends**, sits at 10 m, holds about 24 returns, and its
+centroid wanders 22.8 m over its life without ever going anywhere. It is
+something the background model did not learn while it was warming up and never
+learned afterwards.
+
+It accounts for 5.5% of the clusters the shipped defaults produce — 0.19 of the
+0.21 clusters a frame that land on labelled noise. Nearly all of the measured
+noise is this one thing, and `post_settle_update_fraction`, which is 0 by
+default, is the parameter that would let the model absorb it.
+
+The other 0.74 clusters a frame land on nothing labelled at all. Some of those
+are real: 5.5% of the pack's foreground carries no label yet. Precision as
+measured is therefore a lower bound, and the gap will close as more of the pack
+is labelled.
+
 ### The single most effective change found
 
 Lowering `l3.ema_baseline_v1.background_update_fraction` from 0.02 to 0.005, on
