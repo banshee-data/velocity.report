@@ -4,7 +4,7 @@
 - **Canonical:** This document
 - **Layers:** offline analysis, L3–L8 LiDAR, platform, macOS visualiser, annotation
 - **Supersedes:** the remote-topology portions of [Distributed sweep workers](lidar-distributed-sweep-workers-plan.md)
-- **Related:** [State-estimation plan](lidar-state-estimation-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), and [Point annotation and temporal object datasets](lidar-point-annotation-and-object-dataset-plan.md)
+- **Related:** [State-estimation plan](lidar-state-estimation-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), and [Point annotation and temporal object datasets](lidar-point-annotation-and-object-dataset-plan.md) <!-- link-ignore -->
 
 ## 1. Decision
 
