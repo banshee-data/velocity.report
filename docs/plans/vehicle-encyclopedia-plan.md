@@ -424,17 +424,17 @@ rollover propensity. Real, and a different plan.
 
 ## Wiki editing and the approval queue
 
-Public editing with a review gate. The states are `proposed`, `approved` and
+Public editing with a review gate. The states are `proposed`, `reviewed` and
 `rejected`, and they are deliberately the same three the annotation sidecar
 already uses: one review vocabulary across the project, not two.
 
 | State      | Who sets it               | Visible where                                |
 | ---------- | ------------------------- | -------------------------------------------- |
 | `proposed` | Any contributor           | Proposal queue, and on the record as pending |
-| `approved` | A reviewer                | Public record, scene identification, exports |
+| `reviewed` | A reviewer                | Public record, scene identification, exports |
 | `rejected` | A reviewer, with a reason | Proposal history, never on the public record |
 
-Only an `approved` record gets a generated 3D model and enters the
+Only a `reviewed` record gets a generated 3D model and enters the
 identification set. A proposal can carry an uploaded or generated mesh, which
 sits in the queue with it.
 
