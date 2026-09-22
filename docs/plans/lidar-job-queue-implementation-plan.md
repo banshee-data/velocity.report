@@ -68,13 +68,14 @@ Two facts that shape the map:
 
 ## Design / approach
 
-### One binary, three modes
+### The runner first, the hub after
 
-`velocity serve` is the hub when started with `--jobs-db` (and, on the NAS, it is also the
-ordinary server the macOS app will one day talk to). `velocity worker` is the worker: a loop
-that leases one job from a hub, runs it, and uploads the bundle. `velocity jobs` is a small CLI
-for the same API (submit, list, show, cancel), so the dashboard is never the only client and a
-job can be submitted from a script.
+The operator's direction was to keep the runner simple: given a capture, a config and a
+campaign, run, log, and serve the results. So the worker comes first and stands on its own.
+`velocity worker` has its own queue and API; `velocity jobs` drives it from a script or by hand.
+The hub, when it comes, submits to workers through that same API and collects their bundles; it
+does not replace them. `velocity serve --jobs-db` will be the hub, and on the NAS also the
+ordinary server the macOS app will one day talk to.
 
 ### The contract, as code
 
@@ -105,33 +106,30 @@ built from the job's commit in the worker's staged source tree. Kinds for the fi
 `sweep` (partitioned combos, the older plan's job model) comes after these: it is a set of
 `benchmark` or `state_estimation_baseline` jobs with a shared parent, not a kind of its own.
 
+### Worker
+
+`velocity worker --pcap-root … --work-dir … --token … [--source-repo …]` serves an API on a
+LAN port (8084 on `swan`) and drains its own queue, one attempt at a time. For each: verify the
+captures' bytes against the manifest, failing closed; stage the kind's tool from the job's commit
+with `git worktree` and `go build`; run it in that tree with arguments the worker composed from
+the typed parameters; write the bundle and its manifest; verify the bundle against the job's
+identity; mark it accepted. It plays both actors of the contract's state machine for now. A
+stopped process leaves what was running marked lost with its partial bundle kept.
+
+State is a directory tree under the work directory, not a database: an operator can read it
+over SSH when nothing else answers, and it is what a hub will one day be sent. Capture digests
+are cached against size, mtime and inode and re-hashed when any of those move. The API takes a
+bearer token on everything but `/health` and serves nothing without one configured. The
+operator's guide is [analysis-worker.md](../lidar/operations/analysis-worker.md).
+
 ### Hub
 
 Routes under `/api/analysis/` as the pool plan lists them (§6.1), served by the existing
-`internal/lidar/server` mux, stored in `jobs.db` through `internal/lidar/jobs/hub`. The queue is
-a state machine with the states in pool plan §5; every transition is a row in an attempt log,
-so "why is this lost" is a query rather than a guess. Leases are short and renewed by heartbeat;
-a lease that expires marks the attempt `lost` and a retry is a new attempt.
-
-Bundle upload is idempotent by bundle digest: the same bytes twice produce one accepted result.
-Bundles land in `--lidar-results-dir/<run_identity>/<attempt_id>/` and are never overwritten.
-
-Workers authenticate with a per-worker bearer token the hub issues when the worker is
-registered. LAN only; mutual TLS is a later item. The worker's own status page on `swan:8084`
-is read-only and shows what the hub knows about it plus its local log tail.
-
-### Worker
-
-`velocity worker --hub URL --token … --pcap-root … --work-dir … --source-dir …` loops: register
-and report capabilities (verified capture-manifest digests from its local cache, free space,
-version); poll for a compatible job; lease it; verify the captures' bytes against the manifest,
-failing closed; stage the tool from the job's commit; run it with an explicit working directory
-and the job's parameters; write the attempt record and bundle locally first; upload, resuming
-on failure; report. One job at a time. A cancelled lease or a stopped process leaves the local
-bundle where it is, marked partial, for a later upload.
-
-Capture verification hashes multi-gigabyte files on purpose. The worker caches (path, size,
-mtime, device, digest) and re-hashes when any of those move or when asked to.
+`internal/lidar/server` mux, stored in `jobs.db` through `internal/lidar/jobs/hub`. The hub
+registers workers by URL and token, submits to them through the worker API, watches their
+attempts, fetches accepted bundles into `--lidar-results-dir/<run_identity>/<attempt_id>/`,
+and indexes them by run identity. Bundle ingest is idempotent by bundle digest. A worker that is
+off is one the hub cannot reach, and its attempts stay where they are until it is back.
 
 ### Dashboard
 
@@ -165,48 +163,37 @@ parameter validation, and state-machine transitions, all tested.
 
 **Milestone:** first commit on `dd/lidar/job-queue`
 
-### Item 2: hub store and API
+### Item 2: worker and client
 
-**Summary:** `jobs.db`, the queue and attempt log, the routes, and bundle ingest.
+**Summary:** `velocity worker` and `velocity jobs`: the runner, its API, campaigns, and the
+in-process `benchmark` and staged-tool kinds.
 
-**Steps:**
+**Milestone:** a benchmark job over `kirk0` submitted by the client on the Mac, verified,
+run, accepted and fetched as a tar. Done.
 
-1. `internal/lidar/jobs/hub`: SQLite store with its own migrations (capture manifests, jobs,
-   attempts, transitions, workers, results), leases with expiry, and an idempotent bundle
-   ingest that verifies digests and identity before accepting.
-2. Routes in `internal/lidar/server`: the pool plan's §6.1 table, plus the worker's private
-   surface (`register`, `lease`, `heartbeat`, `bundle`) behind the bearer token.
-3. `velocity serve --jobs-db --lidar-results-dir`; without them the routes answer 501, as the
-   annotation export does without its directory.
-4. `velocity jobs submit|list|show|cancel`.
+### Item 3: the state-estimation smoke attempt on swan
 
-**Milestone:** a job submitted by CLI to a hub on the Mac reaches `queued`, and a fake worker
-in the tests takes it through to `accepted`
-
-### Item 3: worker
-
-**Summary:** `velocity worker`, with the local attempt record and the `swan:8084` status page.
+**Summary:** the worker on `swan`, and the three-capture smoke attempt that failed (pool plan
+§8) run again as a new attempt from a job, with the failed one kept.
 
 **Steps:**
 
-1. `internal/lidar/jobs/worker`: the loop, capture verification with the digest cache, tool
-   staging by commit, invocation by kind, local bundle, resumable upload.
-2. `benchmark` end to end first: it is in-process and on `main`, so it proves the loop with no
-   dependency on state-est.
-3. `state_estimation_baseline` and `track_scorecard` by staged tool, proved against the `swan`
-   smoke attempt that failed (pool plan §8): the repaired attempt is a new attempt id and the
-   failed one stays.
-4. The read-only status page on 8084.
+1. Install the agent's SSH key, the worker binary, a clone for `--source-repo`, and a token
+   on `swan`; run the worker under the existing Docker runner with the read-only PCAP mount
+   as `--pcap-root` and the persistent state share as `--work-dir`.
+2. Write the capture manifest for `morg0`, `kirk0` and `claren0` from their bytes on `swan`.
+3. Submit `state_estimation_baseline` from the state-est commit; watch it stage, build and run.
+4. Compare its `phase0-summary.json` with the Mac's for the same identity.
 
-**Milestone:** the three-capture state-estimation smoke attempt runs on `swan` from a job the hub
-issued, and its bundle is accepted
+**Milestone:** the smoke attempt's bundle is accepted on `swan` and fetched to the Mac
 
-### Item 4: dashboard
+### Item 4: hub and dashboard
 
-**Summary:** the jobs page and submit form.
+**Summary:** `jobs.db` and the `/api/analysis/` routes in `velocity serve`, registering workers
+and collecting their bundles by run identity; the jobs page and submit form in the web app.
 
-**Milestone:** an operator submits a job, watches it run on `swan`, and opens its result without
-SSH
+**Milestone:** an operator submits a job from the dashboard, watches it run on `swan`, and opens
+its result without SSH
 
 ### Item 5: NAS worker and scheduling
 
@@ -228,8 +215,9 @@ macOS server, when `vrlog_record` jobs produce what the run browser lists.
 
 ## Dependencies
 
-- `swan` reachable for Item 3. Its root SSH key is held by the 1Password agent and needs an
-  interactive approval per connection; an agent session cannot open one on its own.
+- `swan` reachable for Item 3: the agent's own key, `~/.ssh/velocity_agent_swan_ed25519.pub`,
+  installed in root's `authorized_keys` there. The operator's key is held by the 1Password agent
+  and needs an interactive approval per connection, which an agent session cannot give.
 - The NAS: hostname, OS, container runtime, and whether it mounts the PCAP volume, for Item 5.
   Not needed before then.
 - For `state_estimation_baseline` on a worker, a Go toolchain and libpcap in the worker's
@@ -252,12 +240,13 @@ macOS server, when `vrlog_record` jobs produce what the run browser lists.
 
 - [x] Pool plan brought onto this branch (`f4ac0feed`, from state-est `bc3baae17`)
 - [x] Item 1: contract package, `internal/lidar/jobs` (`c8c542a7c`)
+- [x] Item 2: worker and client, `internal/lidar/jobs/runner`, `velocity worker`, `velocity jobs`
+      (`928f61897`, `edf68ef4a`); benchmark over `kirk0` run end to end on the Mac
 
 ### Outstanding
 
-- [ ] Item 2: hub store and API (`L`)
-- [ ] Item 3: worker (`L`)
-- [ ] Item 4: dashboard (`M`)
+- [ ] Item 3: the smoke attempt on `swan` (`M`)
+- [ ] Item 4: hub and dashboard (`L`)
 - [ ] Item 5: NAS worker and scheduling (`M`)
 - [ ] Item 6: sweeps (`M`)
 - [ ] Item 7: macOS origin setting (`S`)
