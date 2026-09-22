@@ -246,6 +246,15 @@ cannot see.
   where it could gate CI the way the perf benchmark does. It is not there yet
   because the point of tonight was to find out whether the annotations could
   answer the question at all. They can.
+- **Two of the swept axes are not uniform across the scene.** After L3 settles,
+  `effectiveCellParams` replaces the global `noise_relative`,
+  `neighbour_confirmation_count` and update fraction with per-region values for
+  any cell that has an override, scaled by variance tercile and frozen at
+  identification. A sweep that sets them in the config before the run, as this
+  one does, reaches them — they are the defaults the overrides are derived
+  against, and the measured effects are large — but the effect is region-shaped,
+  so how it carries to another scene is not something one capture can say.
+  `closeness_multiplier` has no override and is uniform.
 - **Fragmentation is not in the score, only beside it.** F1 here treats every
   cluster on a real object as right, however many of them there are. Until a
   run is scored on whether it produced _one_ cluster per object, the ranking
