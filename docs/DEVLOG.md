@@ -42,6 +42,7 @@ older entries stay put, however tempting hindsight may be.
 ## September 16, 2026 - Annotation: point-cloud editing toolset
 
 - {dd/lidar/annotation} Added the point-cloud editing toolset for the physical reference pilot: pack reader, canonical-index lasso and slab selection, membership history, and the session rules for navigation and provenance. Made track and run IDs selectable and copyable (#579).
+
 ## September 16, 2026 - Near-edge measurement, experiment E1 & the annotation client
 
 - {dd/docs/state-est} Delivered the point-cloud annotation client in the macOS visualiser: orthographic lasso and rectangle selection over a depth slab against canonical pack indices, add/subtract, stroke undo/redo, a second view for the contamination check, operator provenance, and dirty-navigation protection. 94 Swift tests, with the pack reader tested against bytes the Go writer actually produced and pinned on both sides. Selection is through-slab rather than hidden-surface picking; a radius brush and reviewed propagation remain future work.
