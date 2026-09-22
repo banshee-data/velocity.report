@@ -1,6 +1,8 @@
 # Distributed sweep workers
 
-Active plan: [lidar-distributed-sweep-workers-plan.md](../../plans/lidar-distributed-sweep-workers-plan.md)
+Active plan: [LiDAR worker pool and results hub](../../plans/lidar-worker-pool-and-results-hub-plan.md).
+The earlier shared-filesystem design below is historical background, not the
+current implementation topology.
 
 **Status:** Proposed
 
