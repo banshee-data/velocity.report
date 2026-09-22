@@ -10,7 +10,7 @@ pillow>=12.3.0  # CVE-2026-25990 fix
 
 # HTTP + utilities used by various scripts
 requests>=2.34.2  # CVE-2026-25645 fix
-urllib3>=2.7.0    # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixes
+urllib3>=2.8.0    # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixes
 
 # SVG engineering drawing (used by tools/rack-drawing/)
 drawsvg
