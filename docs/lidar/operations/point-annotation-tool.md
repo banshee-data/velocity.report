@@ -51,13 +51,19 @@ it unchanged.
 
 ## The window
 
-| Area                        | What it is                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Left sidebar                | What is being labelled: run and frame, this frame's progress, proposals, objects          |
-| 3D view (top, large)        | The main view's renderer on this frame. For looking, not selecting                        |
-| Top, Front and Side (below) | All three orthographic views. The one outlined takes strokes; click another to edit there |
-| Frame strip (bottom)        | One bar a frame: green agreed, amber in question. A yellow marker is a background update  |
-| Right sidebar               | How: display, tools, depth slab, carrying, saving and review                              |
+| Area                  | What it is                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
+| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting                       |
+| Top view (below left) | Large, because this is where a selection is usually made                                 |
+| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
+| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
+| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                             |
+
+Each elevation is the sensor looking outward, and they are two opposed pairs, so every side of
+an object is on screen without orbiting anything. Back and Far side are turned around rather
+than mirrored: a car driving right in Front drives left in Back. The axes are the sensor's own
+— a pack records no site transform — so they are not compass directions.
 
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
@@ -72,7 +78,7 @@ The status line across the top of the views always says what went wrong or what 
 | Pan a selection view         | Right-drag, middle-drag, or control-drag                  |
 | Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                  |
 | Frame the views              | **Fit**: Sample, Foreground, Selection; or click a sector |
-| Step a frame                 | `,` and `.`, or the frame strip                           |
+| Step a frame                 | `←` and `→`, `,` and `.`, or the frame strip              |
 | Follow the main view         | **Follow the main view**, on by default                   |
 
 The two bars across the top say how far through you are: this frame, and every frame in the
@@ -149,13 +155,20 @@ mostly the speckle of every frame, are behind a toggle.
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts                                                                                             |
 | Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view |
-| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts                                                                                     |
+| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                              |
 
 The **depth slab** limits every tool along the view's depth axis. Set by hand, it is kept from
 frame to frame until reset.
 
+Voxel 0 is the ground, so excluding the road while keeping the bottom of a car standing on it is
+one press of `0`. Where that leaves kerb or tarmac in, or the wheels out, the ground plane is in
+the wrong place rather than the filter being too blunt: `↑` and `↓` move it a twentieth of a
+metre, or a quarter with shift. **Estimate** puts it back where a twentieth of this frame's
+returns lie below it.
+
 Stepping to the next frame lays the last frame's selection over it in cyan. Arrows nudge it
-(shift for 0.5 m), Return accepts, Esc dismisses. For something that does not move, **Apply to
+(shift for 0.5 m), Return accepts, Esc dismisses. While it is on screen it claims all four
+arrows, so the frame cannot step out from under it. For something that does not move, **Apply to
 every frame** saves its mask into all of them.
 
 ⌘Z and ⇧⌘Z undo and redo selection edits.
