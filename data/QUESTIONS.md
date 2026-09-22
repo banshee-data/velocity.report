@@ -416,6 +416,168 @@ per-layer timing on Pi 4 hardware.
 
 ---
 
+## 11. Vehicle identification and the encyclopedia
+
+Turning a tracked cluster into a named vehicle, and a named vehicle into a
+statement about harm. The privacy boundary is set in
+[vehicle-encyclopedia.md](../docs/platform/architecture/vehicle-encyclopedia.md);
+these are the measurements that boundary needs before anything is published.
+Decisions rather than research questions are tracked in the two plans'
+open-questions sections.
+
+### Q27. what registration count makes an identification safe to show?
+
+The privacy contract degrades an identification from model to family to body
+class once the matched model is rare enough locally to identify a household.
+The threshold `k` cannot be chosen from taste. Measure, on real registration
+data, how many models fall below each candidate threshold and what share of
+observations would degrade to a coarser rung as a result.
+
+- **Evidence needed:** Distribution of model-level registration counts for at
+  least one province and one city within it, the degraded-share curve against
+  `k`, and a re-identification argument for the chosen value.
+- **Decision:** None recorded. Blocks every identification surface.
+
+### Q28. at what return count and range does model identification stop being honest?
+
+A vehicle at 60 m returns a handful of points. Somewhere between that and a
+vehicle at 12 m, a model-level claim stops being supportable and should fall to
+a coarser rung. The threshold is probably a function of range rather than a
+constant, because sparsity and geometry degrade together.
+
+- **Evidence needed:** Match accuracy against reviewed masks, binned by range
+  and by return count, with the rung at which accuracy crosses a stated bar.
+- **Decision:** None recorded.
+
+### Q29. does a synthetic scan of a mesh land where a real scan of the same vehicle lands?
+
+The identification design assumes an approved catalogue mesh, ray-cast from a
+real sensor pose with the real beam geometry, produces a descriptor vector close
+to the one the L4 path computes for a real observation of that model. If the two
+populations separate, the bridge does not work and matching needs real exemplars
+rather than generated ones.
+
+- **Evidence needed:** Descriptor distance between synthetic and real scans of
+  the same model at matched ranges, against the distance between different
+  models at the same range. Requires shape descriptors and reviewed masks
+  carrying a named model.
+- **Decision:** None recorded. Gated on
+  [shape descriptors](../docs/plans/lidar-shape-descriptors-plan.md).
+
+### Q30. is kinetic energy the right composite for pedestrian harm?
+
+Half m v squared is intuitive, and it is the right instinct for
+vehicle-to-vehicle severity and for what street furniture absorbs. The
+pedestrian-injury literature is largely about impact speed and front-end
+geometry, not mass. Publishing energy alone would repeat a common error with
+better graphics.
+
+- **Evidence needed:** A defensible risk function over impact speed, bonnet
+  leading-edge height, and mass, with the sources cited and the residual
+  disagreement between them stated rather than averaged away.
+- **Decision:** None recorded. Governs what the scene surface displays.
+
+### Q31. what share of a real kerb's traffic can be identified at all?
+
+The population argument depends on identified share. If a junction resolves ten
+per cent of passes to model level, the fleet claim has to be made differently
+from one that resolves sixty per cent. Unknowns still carry measured geometry
+and a class-level mass estimate, so the question is how much precision the
+unknown share costs, not whether the claim survives.
+
+- **Evidence needed:** Identified share by rung, per site, with the mass and
+  energy distributions computed both over identified vehicles only and over all
+  vehicles using class-level estimates for the rest. If the two disagree, the
+  identified subset is biased and the bias needs naming.
+- **Decision:** None recorded.
+
+### Q32. how many vehicle types are resolvable at each range?
+
+The rung ladder should be derived, not asserted. Two catalogue shells that
+differ by less than the sensor's measurement error at a given range are not
+distinguishable, and presenting them as separate answers misrepresents the
+instrument. Clustering the catalogue's own descriptor prototypes at each range
+bin yields the number of answers the sensor can actually support there, and
+those clusters are the ladder. The answer also sizes the matcher: it is the
+count a nearest-neighbour search is really choosing between.
+
+- **Evidence needed:** Bucket counts per range bin from clustering prototypes at
+  measured sensor tolerance, plus a check on real data that within-bucket pairs
+  are genuinely confusable and between-bucket pairs are not. Requires shape
+  descriptors and a catalogue with shells.
+- **Decision:** None recorded. Replaces any hand-written rung ladder.
+
+### Q33. does descriptor measurement error degrade uniformly with range?
+
+The class tree assumes that cutting one hierarchy at increasing heights yields
+the classes for increasing ranges. That holds when every descriptor dimension's
+uncertainty grows by the same factor with range, because then a range change is
+a uniform rescaling of the space. If dimensions degrade at different rates the
+geometry changes shape, not just scale, and partitions at different ranges are
+not guaranteed to nest: the tree then has to be built top-down, subdividing only
+within a parent, which guarantees nesting at the cost of occasionally splitting
+a group that belonged together.
+
+- **Evidence needed:** Per-dimension measurement spread against range from
+  repeated observations in reviewed masks, tested for a common scaling factor.
+  Then a direct containment check: cluster per range bin and verify each bin's
+  classes are unions of the next-finer bin's.
+- **Decision:** None recorded. Determines which construction is used, so it is
+  worth answering before the tree is built rather than after.
+
+### Q34. where is the resolution floor?
+
+Identification does not keep improving as a vehicle approaches. Sensor
+measurement error shrinks with range, but two other terms do not: how much a
+dimension varies across real examples of one catalogue entry, and how wrong the
+prototype shell is. Their quadrature sum is a floor, so the tree has a maximum
+useful depth even at zero range, and that depth is a property of the catalogue
+rather than of the sensor. The prediction is counter-intuitive, checkable, and
+decides whether effort belongs in better sensing or better shells.
+
+- **Evidence needed:** Within-entry spread per descriptor dimension across real
+  examples, and prototype-to-observation residual on dense close-range
+  observations. Then the depth at which the tree stops subdividing as range goes
+  to zero.
+- **Decision:** None recorded. See
+  [taxonomy maths](maths/proposals/20260922-vehicle-taxonomy-resolution-maths.md).
+
+### Q35. how regular is the traffic past a given site?
+
+Publishable depth turns on repetition: an anonymity set collapses geometrically
+with the number of linked observations of the same vehicle, and only
+logarithmically with how coarse the class is. The parameter that governs it is
+the probability that a regular user appears on any given day, together with the
+number of vehicles of a class that plausibly use the street. Neither has been
+measured here, and both can be estimated without identifying anybody: the repeat
+structure of anonymous observations says how regular the traffic is, which is
+precisely the input needed to decide how much regularity a publication would
+expose.
+
+- **Evidence needed:** Per-site distribution of passes by time of day and day of
+  week; an estimate of repeat structure from track geometry alone; local class
+  shares from the site's own observations rather than a national average.
+- **Decision:** None recorded. Feeds every threshold in the
+  [identifiability analysis](../docs/platform/architecture/identifiability-analysis.md).
+
+### Q36. does a scene export need absolute times?
+
+On a quiet street the timestamp identifies before the class does: fewer than two
+vehicles pass in the ten minutes around any given moment, so a published pass at
+a stated minute tells a neighbour what they already suspected. Playback needs
+relative timing, not wall-clock time. If absolute times can be dropped or
+coarsened without hurting a scene, the sharpest constraint on quiet-street
+publishing dissolves and surveys can publish deeper than the analysis currently
+allows.
+
+- **Evidence needed:** An audit of what actually consumes absolute time in a
+  scene export and its player, and a test of whether coarsening to an hour or
+  dropping to relative-only changes what a viewer learns.
+- **Decision:** None recorded. Cheapest available privacy improvement if the
+  answer is no.
+
+---
+
 ## Cross-cutting: experimental infrastructure
 
 Several questions above depend on infrastructure that does
@@ -458,3 +620,6 @@ See [performance-harness plan](../docs/plans/lidar-performance-measurement-harne
 | L7 Scene      | Q9, Q10, Q11, Q20, Q21, Q22        |
 | L8 Analytics  | Q23, Q24, Q25                      |
 | Cross-cutting | Q15, Q16, Q17, Q26, I1–I4          |
+| Encyclopedia  | Q27, Q28, Q29, Q30, Q31            |
+| Taxonomy      | Q32, Q33, Q34                      |
+| Privacy       | Q27, Q35, Q36                      |

@@ -96,6 +96,12 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
+- [Resolution-Limited Vehicle Taxonomy and Explainable Retrieval](proposals/20260922-vehicle-taxonomy-resolution-maths.md):
+  Uncertainty model combining sensor, within-model and prototype error; diagonal Mahalanobis
+  retrieval over generated prototypes; exact per-dimension attribution and margin decomposition;
+  chi-squared rejection threshold; and the monotone-merging argument that makes a
+  range-indexed class hierarchy a tree.
+
 - [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md): **Partially Implemented**.
   Root cause analysis of spinning bounding boxes:
   PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches.
