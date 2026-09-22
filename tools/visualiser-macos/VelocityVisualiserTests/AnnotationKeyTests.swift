@@ -148,3 +148,61 @@ struct ColumnAdjustmentTests {
         #expect(session.enabledVoxels == ColumnGrid.stackMask)
     }
 }
+
+/// The grid angle is the scene's `grid_azimuth_deg`. The value belongs to
+/// map-marks.json; what the tool keeps is a working copy and a way to hand the
+/// measured one over.
+@MainActor
+struct GridAzimuthTests {
+    @Test func aHandTypedAngleMeansWhatThePersonMeant() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // The same wrapping the scene's own angle editor applies, so an angle
+        // read off one and typed into the other survives the trip.
+        session.gridAzimuthDeg = 450
+        #expect(session.gridAzimuthDeg == 90)
+        session.gridAzimuthDeg = -90
+        #expect(session.gridAzimuthDeg == 270)
+        session.gridAzimuthDeg = 360
+        #expect(session.gridAzimuthDeg == 0)
+        session.gridAzimuthDeg = .nan
+        #expect(session.gridAzimuthDeg == 0)
+    }
+
+    /// The angle is only useful if it reaches the lattice the brush paints.
+    @Test func settingTheAngleTurnsTheColumnGrid() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        session.gridAzimuthDeg = 30
+        #expect(session.columnGrid.azimuthDeg == 30)
+        #expect(
+            session.columnGrid.cell(x: 4.2, y: 1.1)
+                != ColumnGrid(pitch: session.columnGrid.pitch, groundZ: 0, azimuthDeg: 0)
+                .cell(x: 4.2, y: 1.1))
+    }
+
+    /// The line has to be pasteable into map-marks.json as it stands.
+    @Test func theCopiedLineIsTheOneMapMarksWants() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        session.gridAzimuthDeg = 3
+        let line = session.mapMarksLine(siteID: "columbus-broadway")
+        #expect(line == #"{"id": "columbus-broadway", "grid_azimuth_deg": 3}"#)
+
+        let parsed = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+        #expect(parsed?["id"] as? String == "columbus-broadway")
+        #expect(parsed?["grid_azimuth_deg"] as? Double == 3)
+    }
+
+    /// A pack does not know its junction, so the id is the operator's to give.
+    /// An empty one leaves an obvious blank rather than a plausible wrong id.
+    @Test func anUnknownSiteLeavesAPlaceholderRatherThanAGuess() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        #expect(session.mapMarksLine(siteID: "   ").contains("SITE-ID"))
+    }
+}

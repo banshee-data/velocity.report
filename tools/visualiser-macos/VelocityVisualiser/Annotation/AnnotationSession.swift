@@ -348,6 +348,61 @@ enum AnnotationGuard: Equatable {
     let sessionID: String = UUID().uuidString
 
     private static let operatorKey = "annotation.operatorName"
+    private static let gridAzimuthKeyPrefix = "annotation.gridAzimuth."
+
+    /// How far the column lattice is turned from the sensor's axes, so the
+    /// squares follow the kerbs rather than the mounting.
+    ///
+    /// This is the scene's `grid_azimuth_deg`, and **this is not where it
+    /// lives**. The measured value belongs to map-marks.json, keyed by site,
+    /// because it is a property of the street shared by every site on the same
+    /// grid: a second copy would drift and nothing could say which was meant.
+    /// What is kept here is a local working value, remembered per pack the way
+    /// the scene viewer's dev panel remembers one per browser, and the way out
+    /// is `mapMarksLine`, which hands over the one line to paste. A pack that
+    /// carried the angle from its site would seed this instead; none does yet.
+    /// Stored apart from its accessor because normalising in a `didSet` would
+    /// assign to the property from inside its own setter, and a `@Published`
+    /// property re-enters the wrapper when you do that rather than skipping
+    /// the observer the way a plain stored property does. It recurses until
+    /// the stack runs out.
+    @Published private var storedGridAzimuthDeg: Float = 0
+
+    var gridAzimuthDeg: Float {
+        get { storedGridAzimuthDeg }
+        set {
+            let turned = AnnotationSession.normalisedAzimuth(newValue)
+            guard turned != storedGridAzimuthDeg else { return }
+            storedGridAzimuthDeg = turned
+            columnGrid.azimuthDeg = turned
+            defaults?.set(Double(turned), forKey: gridAzimuthKey)
+        }
+    }
+
+    private var gridAzimuthKey: String {
+        AnnotationSession.gridAzimuthKeyPrefix + pack.manifest.packDigest
+    }
+
+    /// Wraps into [0, 360), so a hand-typed -90 or 450 means what the person
+    /// meant. The same rule the scene's own angle editor applies.
+    static func normalisedAzimuth(_ degrees: Float) -> Float {
+        guard degrees.isFinite else { return 0 }
+        return (degrees.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(
+            dividingBy: 360)
+    }
+
+    /// The one line to paste into map-marks.json, where the value belongs.
+    ///
+    /// The site id is the operator's to supply: a pack records the sensor, the
+    /// capture and the run, and nothing that says which junction it stood at.
+    /// Until one does, this cannot be looked up and must be told.
+    func mapMarksLine(siteID: String) -> String {
+        let id = siteID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rounded = (gridAzimuthDeg * 10).rounded() / 10
+        let degrees =
+            rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+        return "{\"id\": \"\(id.isEmpty ? "SITE-ID" : id)\", \"grid_azimuth_deg\": \(degrees)}"
+    }
 
     // MARK: Init
 
@@ -372,6 +427,13 @@ enum AnnotationGuard: Equatable {
         // hover has to move that revision itself now that it is not one of
         // this object's own published properties.
         hover.didChange = { [weak self] in self?.sceneRevision &+= 1 }
+        // A working value the operator set last time they had this pack open.
+        // Property observers do not run in an initialiser, so the grid is set
+        // alongside it rather than by the observer.
+        if let stored = defaults?.object(forKey: gridAzimuthKey) as? Double {
+            self.storedGridAzimuthDeg = AnnotationSession.normalisedAzimuth(Float(stored))
+            self.columnGrid.azimuthDeg = self.storedGridAzimuthDeg
+        }
         if let first = orderedSamples.first {
             let points = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
             // Property observers do not run in an initialiser.

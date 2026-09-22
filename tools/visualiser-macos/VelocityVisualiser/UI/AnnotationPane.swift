@@ -6,6 +6,7 @@
 // asks the session; the overlay in LassoOverlay.swift turns the drag into
 // metres.
 
+import AppKit
 import SwiftUI
 import simd
 
@@ -24,6 +25,11 @@ struct AnnotationPane: View {
 
     @ObservedObject var session: AnnotationSession
     var column: Column = .objects
+
+    /// Only used to write the map-marks.json line, which is why it is the
+    /// view's and not the session's: the session holds what it can measure,
+    /// not what the operator knows about where the tripod stood.
+    @State private var mapMarksSiteID = ""
 
     @State private var newObjectClass = "car"
     @State private var newObjectSubtype = ""
@@ -700,6 +706,24 @@ struct AnnotationPane: View {
                 Button("Estimate") { session.estimateGround() }.controlSize(.small).help(
                     "The height below which a twentieth of this sample's returns lie")
             }
+            HStack {
+                Text("Grid angle").font(.caption)
+                Stepper(value: $session.gridAzimuthDeg, in: 0...359, step: 1) {
+                    Text(String(format: "%.0f°", session.gridAzimuthDeg)).font(
+                        .caption.monospacedDigit())
+                }.help("Turns the columns to follow the kerbs instead of the sensor's mounting")
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        session.mapMarksLine(siteID: mapMarksSiteID), forType: .string)
+                }.controlSize(.small).help(
+                    "Copies the map-marks.json line. That file owns this angle; this is a "
+                        + "working value until it is recorded there.")
+            }
+            TextField("Site id for the copied line", text: $mapMarksSiteID).font(.caption2)
+                .textFieldStyle(.roundedBorder).help(
+                    "A pack records the sensor and the run, not which junction it stood at")
+
             Toggle("Show grid with other tools", isOn: $session.showColumnGrid).font(.caption)
         }
     }
