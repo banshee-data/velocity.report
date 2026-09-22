@@ -6,6 +6,7 @@
 // decides membership itself. That keeps the selection rule in one tested place
 // instead of split between a gesture handler and an engine.
 
+import AppKit
 import SwiftUI
 import simd
 
@@ -359,16 +360,25 @@ struct LassoOverlay: View {
         ).allowsHitTesting(false)
     }
 
-    // Keys the editing view takes while it has the focus. Only the carried
-    // proposal uses them, and with none on screen they go on up the chain.
+    // Keys the editing view takes while it has the focus. What each one does
+    // is ViewportKey.meaning, so that the order — a carried proposal claims
+    // all four arrows, and without one they step frames and move the ground —
+    // is one readable function rather than a switch inside a view.
     private func handleKey(_ key: ViewportKey) -> Bool {
-        guard editable, session.carried != nil else { return false }
-        switch key {
-        case .nudge(let right, let up, let coarse):
+        guard editable else { return false }
+        switch key.meaning(carrying: session.carried != nil) {
+        case .nudgeCarried(let right, let up, let coarse):
             let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep
             session.nudgeCarried(right: Float(right) * step, up: Float(up) * step)
-        case .accept: session.acceptCarried()
-        case .cancel: session.dismissCarried()
+        case .acceptCarried: session.acceptCarried()
+        case .dismissCarried: session.dismissCarried()
+        case .stepFrame(let forward):
+            // Refused when the sample has unsaved changes; the status line
+            // says so, and a beep is what says the key was heard at all.
+            if (forward ? session.stepForward() : session.stepBackward()) != nil { NSSound.beep() }
+        case .moveGround(let steps, let coarse): session.adjustGroundZ(steps: steps, coarse: coarse)
+        case .toggleVoxel(let k): session.toggleVoxel(k)
+        case .pass: return false
         }
         return true
     }

@@ -775,6 +775,29 @@ enum AnnotationGuard: Equatable {
         if let z = ColumnGrid.estimateGroundZ(points: currentPoints) { columnGrid.groundZ = z }
     }
 
+    /// How far one press moves the ground plane, and how far with shift held.
+    /// A twentieth of a metre is finer than the road is flat; a quarter is
+    /// about the height of a kerb.
+    static let groundStep: Float = 0.05
+    static let coarseGroundStep: Float = 0.25
+
+    /// Raises or lowers the ground plane by whole steps.
+    ///
+    /// The plane is what "voxel 0" means, so moving it is how the operator
+    /// separates the road from the bottom of a car standing on it: a column
+    /// selection that takes the wheels but not the tarmac is a ground plane in
+    /// the right place, not a cleverer filter.
+    func adjustGroundZ(steps: Int, coarse: Bool = false) {
+        let step = coarse ? AnnotationSession.coarseGroundStep : AnnotationSession.groundStep
+        columnGrid.groundZ = ((columnGrid.groundZ + Float(steps) * step) * 100).rounded() / 100
+    }
+
+    /// Turns one voxel of the column stack on or off.
+    func toggleVoxel(_ k: Int) {
+        guard k >= 0, k < ColumnGrid.voxelCount else { return }
+        enabledVoxels ^= UInt8(1) << UInt8(k)
+    }
+
     /// Applies the previewed gesture to the membership under the current mode.
     @discardableResult func commitSelection() -> Bool {
         guard let candidates = pendingCandidates else { return false }
