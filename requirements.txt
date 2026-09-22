@@ -45,7 +45,7 @@ packaging==25.0
     #   black
     #   matplotlib
     #   pytest
-pandas==3.0.5
+pandas==3.0.6
     # via -r requirements.in
 pathspec==1.0.4
     # via black
@@ -79,11 +79,11 @@ pyyaml==6.0.3
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.16.7
+ruff==0.16.8
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   -r requirements.in
     #   requests
