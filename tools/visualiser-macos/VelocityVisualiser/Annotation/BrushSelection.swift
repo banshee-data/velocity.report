@@ -105,10 +105,15 @@ struct ColumnGrid: Equatable {
     var pitch: Float = ColumnGrid.defaultPitch
     /// World Z of the ground plane, in the pack's frame.
     var groundZ: Float = 0
+    /// How far the columns are turned from the sensor's axes, so they line up
+    /// with the kerbs rather than with the mounting. The scene's
+    /// `grid_azimuth_deg`; see AnnotationSession's grid azimuth for where the
+    /// value comes from and who owns it.
+    var azimuthDeg: Float = 0
 
     /// In plan this is an ordinary lattice, and it has to round the same way
     /// as the ones the footprint and the proposer use.
-    private var lattice: Lattice { Lattice(pitch: pitch) }
+    private var lattice: Lattice { Lattice(pitch: pitch, azimuthDeg: azimuthDeg) }
 
     /// The column containing a world position.
     func cell(x: Float, y: Float) -> ColumnCell {
