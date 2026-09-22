@@ -11,8 +11,8 @@ VERSION := 0.5.1-pre33
 # belong on different devices.
 #
 # Captures are read-only and large: tens of gigabytes per site, usually on an
-# external volume. Recordings, evidence and plots are written, often while
-# those captures are being read. Deriving the write paths from the capture path
+# external volume. Recordings, annotation packs and plots are written, often
+# while those captures are being read. Deriving the write paths from the capture
 # — which is what the code used to do — puts both on one device, and a replay
 # then contends with itself for its bandwidth. So the three write paths default
 # to the internal disk and the capture path is the only one an operator points
@@ -33,7 +33,6 @@ VERSION := 0.5.1-pre33
 LIDAR_DATA_DIR ?= ../sensor_data/lidar
 LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
 LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
-LIDAR_EVIDENCE_DIR ?= $(LIDAR_DATA_DIR)/evidence
 LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
 LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
 
