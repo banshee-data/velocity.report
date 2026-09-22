@@ -1,0 +1,209 @@
+// GenerateAnnotationPackSheet.swift
+// Generates an annotation pack from a recorded run, without leaving the app.
+//
+// Before this, producing a pack meant finding the run's VRLOG directory on
+// disk and running `velocity lidar annotation-export` from a terminal before
+// the annotation window could open anything. The export itself was always
+// a thin wrapper around one Go function; the missing piece was reaching it
+// from here, which is what this sheet and its API client are for.
+
+import Combine
+import SwiftUI
+
+private let generatePackLogger = DevLogger(category: "AnnotationExport")
+
+/// State for the run picker + export request.
+///
+/// Separate from AnnotationController: this talks to the HTTP API and never
+/// touches a pack on disk directly, so it has nothing in common with the
+/// controller beyond handing it a directory to open when the export succeeds.
+@MainActor final class GenerateAnnotationPackState: ObservableObject {
+    @Published private(set) var runs: [AnalysisRun] = []
+    @Published private(set) var isLoadingRuns = false
+    @Published private(set) var isExporting = false
+    @Published var lastError: String?
+
+    @Published var selectedRunID: String?
+    /// Nil until the operator states it. There is deliberately no default:
+    /// the exporter refuses to guess coverage because a limitation the export
+    /// drops cannot be recovered later, and a pre-selected "Full scene" is the
+    /// same guess made one layer up. It once labelled a pack "full" whose
+    /// samples held a few hundred foreground points each.
+    @Published var coverage: AnnotationCoverage?
+    @Published var coverageNote: String = ""
+    /// Empty means "use the server's own default (200)". A blank field reads
+    /// more honestly than pre-filling 200, which would look like a value the
+    /// operator chose rather than the cap that applies regardless.
+    @Published var maxSamplesText: String = ""
+
+    private let runsClient: RunTrackLabelAPIClient
+    private let exportClient: AnnotationExportAPIClient
+
+    init(
+        runsClient: RunTrackLabelAPIClient = RunTrackLabelAPIClient(),
+        exportClient: AnnotationExportAPIClient = AnnotationExportAPIClient()
+    ) {
+        self.runsClient = runsClient
+        self.exportClient = exportClient
+    }
+
+    /// Runs with no VRLOG cannot be exported from, so they are filtered out
+    /// here rather than merely disabled in the list: a picker full of mostly
+    /// unusable rows is worse than a shorter, all-usable one.
+    var exportableRuns: [AnalysisRun] { runs.filter { $0.hasVRLog } }
+
+    func loadRuns() async {
+        isLoadingRuns = true
+        // Cleared on entry, as generate() does: a refresh that succeeds must
+        // not leave the previous attempt's failure on screen beside the runs
+        // it has just loaded.
+        lastError = nil
+        defer { isLoadingRuns = false }
+        do {
+            runs = try await runsClient.listRuns()
+            if selectedRunID == nil { selectedRunID = exportableRuns.first?.id }
+        } catch {
+            lastError = "Could not load runs: \(error.localizedDescription)"
+            generatePackLogger.error("Failed to load runs: \(error)")
+        }
+    }
+
+    /// What the max-samples field holds. Blank and unparseable are different
+    /// answers and have to stay different: blank asks for the server default,
+    /// while "2oo" is a typo. An optional Int cannot tell them apart — both
+    /// are nil — which is how "2oo" once reached the server as a request for
+    /// its default 200 and read as success.
+    private enum MaxSamplesInput: Equatable {
+        case serverDefault
+        case value(Int)
+        case invalid
+    }
+
+    private func parsedMaxSamples() -> MaxSamplesInput {
+        let trimmed = maxSamplesText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return .serverDefault }
+        guard let parsed = Int(trimmed), parsed > 0 else { return .invalid }
+        return .value(parsed)
+    }
+
+    /// Runs the export, returning the pack directory on success. `nil`
+    /// return with `lastError` set is a validation failure the caller need
+    /// not log again.
+    func generate() async -> URL? {
+        guard let runID = selectedRunID else {
+            lastError = "Choose a run first"
+            return nil
+        }
+        guard let coverage else {
+            lastError = "State what the recording could see before generating"
+            return nil
+        }
+        let maxSamples: Int
+        switch parsedMaxSamples() {
+        case .serverDefault: maxSamples = 0
+        case .value(let parsed): maxSamples = parsed
+        case .invalid:
+            lastError = "Max samples must be a positive number, or blank for the default"
+            return nil
+        }
+
+        isExporting = true
+        lastError = nil
+        defer { isExporting = false }
+        do {
+            let result = try await exportClient.exportPack(
+                runID: runID, coverage: coverage, coverageNote: coverageNote, maxSamples: maxSamples
+            )
+            generatePackLogger.info(
+                "Exported pack \(result.datasetID) from run \(runID): \(result.sampleCount) samples"
+            )
+            return URL(fileURLWithPath: result.packDir)
+        } catch {
+            lastError = error.localizedDescription
+            generatePackLogger.error("Export failed for run \(runID): \(error)")
+            return nil
+        }
+    }
+}
+
+/// Sheet: pick a run, state its coverage, generate. On success it calls
+/// `onGenerated` with the pack directory and dismisses itself; the caller
+/// opens it, so this view never touches AnnotationController directly.
+struct GenerateAnnotationPackSheet: View {
+    @StateObject private var state = GenerateAnnotationPackState()
+    @Environment(\.dismiss) private var dismiss
+    let onGenerated: (URL) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Generate Annotation Pack").font(.headline)
+                Spacer()
+                Button(action: { Task { await state.loadRuns() } }) {
+                    Image(systemName: "arrow.clockwise")
+                }.buttonStyle(.borderless).disabled(state.isLoadingRuns)
+            }
+
+            runPicker
+
+            Picker("Coverage", selection: $state.coverage) {
+                Text("Choose…").tag(AnnotationCoverage?.none)
+                ForEach(AnnotationCoverage.allCases) {
+                    Text($0.label).tag(AnnotationCoverage?.some($0))
+                }
+            }
+            // Coverage is stated, never guessed, on the export side too: see
+            // internal/lidar/annotation.Export. The picker starts unset so
+            // that choice is made here rather than defaulting silently to
+            // "full" for a foreground-only recording.
+            Text(
+                "What the run's recording could see. A foreground-only run cannot support whole-scene segmentation."
+            ).font(.caption).foregroundStyle(.secondary)
+
+            TextField("Coverage note (optional)", text: $state.coverageNote).textFieldStyle(
+                .roundedBorder)
+
+            HStack {
+                Text("Max samples")
+                TextField("200", text: $state.maxSamplesText).textFieldStyle(.roundedBorder).frame(
+                    width: 80)
+                Text("blank = server default").font(.caption).foregroundStyle(.secondary)
+            }
+
+            if let error = state.lastError {
+                Text(error).font(.caption).foregroundStyle(.red).fixedSize(
+                    horizontal: false, vertical: true)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Generate") {
+                    Task {
+                        if let packDir = await state.generate() {
+                            onGenerated(packDir)
+                            dismiss()
+                        }
+                    }
+                }.keyboardShortcut(.defaultAction).disabled(
+                    state.isExporting || state.selectedRunID == nil || state.coverage == nil)
+                if state.isExporting { ProgressView().controlSize(.small) }
+            }
+        }.padding(20).frame(width: 420).task { await state.loadRuns() }
+    }
+
+    @ViewBuilder private var runPicker: some View {
+        if state.isLoadingRuns && state.runs.isEmpty {
+            ProgressView("Loading runs…")
+        } else if state.exportableRuns.isEmpty {
+            Text("No runs with a VRLOG recording are available yet.").font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Picker("Run", selection: $state.selectedRunID) {
+                ForEach(state.exportableRuns) { run in
+                    Text("\(run.shortIdPrefix) · \(run.formattedDate)").tag(Optional(run.id))
+                }
+            }
+        }
+    }
+}

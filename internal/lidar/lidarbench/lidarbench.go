@@ -12,6 +12,7 @@
 package lidarbench
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -106,6 +107,14 @@ type Config struct {
 
 	Quiet        bool
 	ProgressSecs float64
+
+	// ClustersOutput, when set, is a JSONL file receiving one line per
+	// cluster: frame index, capture timestamp, centroid, bounding box and
+	// point count. It exists so a parameter sweep can be scored against
+	// reference annotations, which name objects by where they were and when.
+	// The work counters alone say how many clusters a config produced, never
+	// whether they were the real ones.
+	ClustersOutput string
 }
 
 // result holds the pipeline counts gathered during a benchmark run.
@@ -352,6 +361,9 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	res := &result{PCAPFile: cfg.PCAPFile}
 	stats := &analysisStats{}
 	fb := newAnalysisFrameBuilder(cfg, res)
+	if err := fb.openClusterDump(); err != nil {
+		return nil, nil, err
+	}
 
 	reader := wrapProgress(cfg, stats, "benchmark")
 	if err := network.ReadPCAPFile(
@@ -522,6 +534,9 @@ type analysisFrameBuilder struct {
 	res        *result
 	profile    config.Profile
 
+	clusterFile *os.File
+	clusterOut  *bufio.Writer
+
 	frameTimes     []float64
 	clusterTimeNs  int64
 	trackTimeNs    int64
@@ -586,6 +601,47 @@ func (fb *analysisFrameBuilder) SetMotorSpeed(uint16) {}
 
 func msSince(t time.Time) float64 { return float64(time.Since(t).Nanoseconds()) / 1e6 }
 
+// clusterRecord is one line of the cluster dump. Field names are short
+// because a sweep writes one line per cluster per frame, and a long capture
+// across hundreds of configs is the one place where that matters.
+type clusterRecord struct {
+	Frame  int     `json:"f"`
+	TSNs   int64   `json:"t"`
+	X      float32 `json:"x"`
+	Y      float32 `json:"y"`
+	Z      float32 `json:"z"`
+	Length float32 `json:"l"`
+	Width  float32 `json:"w"`
+	Height float32 `json:"h"`
+	Points int     `json:"n"`
+}
+
+// writeClusters appends this frame's clusters to the dump, when one was
+// asked for. A write failure disables the dump and is reported once: a
+// benchmark that has already replayed the capture should report what it
+// measured rather than fail over an output file.
+func (fb *analysisFrameBuilder) writeClusters(clusters []l4perception.WorldCluster) {
+	if fb.clusterOut == nil {
+		return
+	}
+	for _, c := range clusters {
+		line, err := json.Marshal(clusterRecord{
+			Frame: fb.frameCount, TSNs: fb.frameStartTime.UnixNano(),
+			X: c.CentroidX, Y: c.CentroidY, Z: c.CentroidZ,
+			Length: c.BoundingBoxLength, Width: c.BoundingBoxWidth, Height: c.BoundingBoxHeight,
+			Points: c.PointsCount,
+		})
+		if err != nil {
+			continue
+		}
+		if _, err := fb.clusterOut.Write(append(line, '\n')); err != nil {
+			log.Printf("cluster dump stopped: %v", err)
+			fb.clusterOut = nil
+			return
+		}
+	}
+}
+
 // processCurrentFrame runs the accumulated points through foreground extraction,
 // clustering, tracking, and classification, accumulating per-stage timing. The
 // caller must hold fb.mu.
@@ -638,6 +694,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	clusters := l4perception.DBSCAN(worldPoints, dbscanParams)
 	atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
 	fb.res.TotalClusters += len(clusters)
+	fb.writeClusters(clusters)
 	if len(clusters) == 0 {
 		fb.frameTimes = append(fb.frameTimes, msSince(frameStart))
 		return
@@ -683,6 +740,42 @@ func (fb *analysisFrameBuilder) finalise() {
 	defer fb.mu.Unlock()
 	if len(fb.points) > 0 {
 		fb.processCurrentFrame()
+	}
+	fb.closeClusterDump()
+}
+
+// openClusterDump creates the cluster dump before the replay starts, so a path
+// that cannot be written fails the run rather than being discovered an hour in.
+func (fb *analysisFrameBuilder) openClusterDump() error {
+	if fb.cfg.ClustersOutput == "" {
+		return nil
+	}
+	if dir := filepath.Dir(fb.cfg.ClustersOutput); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("cluster dump directory: %w", err)
+		}
+	}
+	f, err := os.Create(fb.cfg.ClustersOutput)
+	if err != nil {
+		return fmt.Errorf("cluster dump: %w", err)
+	}
+	fb.clusterFile = f
+	fb.clusterOut = bufio.NewWriterSize(f, 1<<16)
+	return nil
+}
+
+func (fb *analysisFrameBuilder) closeClusterDump() {
+	if fb.clusterOut != nil {
+		if err := fb.clusterOut.Flush(); err != nil {
+			log.Printf("cluster dump flush: %v", err)
+		}
+		fb.clusterOut = nil
+	}
+	if fb.clusterFile != nil {
+		if err := fb.clusterFile.Close(); err != nil {
+			log.Printf("cluster dump close: %v", err)
+		}
+		fb.clusterFile = nil
 	}
 }
 

@@ -5,6 +5,43 @@
 VERSION := 0.5.1-pre33
 
 # =============================================================================
+# LIDAR DATA DIRECTORIES
+# =============================================================================
+# Four independent paths, because they have different access patterns and
+# belong on different devices.
+#
+# Captures are read-only and large: tens of gigabytes per site, usually on an
+# external volume. Recordings, annotation packs and plots are written, often
+# while those captures are being read. Deriving the write paths from the capture
+# — which is what the code used to do — puts both on one device, and a replay
+# then contends with itself for its bandwidth. So the three write paths default
+# to the internal disk and the capture path is the only one an operator points
+# at external storage.
+#
+# Defaults are repo-relative so they work on any machine. Machine-specific
+# paths belong in local.mk (untracked, included below), not in this file:
+#
+#     # local.mk
+#     LIDAR_PCAP_DIR = /Volumes/lidar/lidar
+#
+# or per invocation: make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+# Untracked local overrides, included before the defaults so that either `=`
+# or `?=` in local.mk takes effect: the `?=` below then leaves anything it
+# already set alone. Optional, so a fresh clone needs no such file.
+-include local.mk
+
+LIDAR_DATA_DIR ?= ../sensor_data/lidar
+LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
+LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
+LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
+LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
+
+# Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
+# the defaults and passes them as explicit CLI flags so the binary gets the
+# same resolved paths regardless of its working directory.
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR))
+
+# =============================================================================
 # HELP TARGET (default)
 # =============================================================================
 
@@ -1076,6 +1113,7 @@ ensure-python-tools:
 # escape $ to $$ inside the define so the resulting shell script receives
 # single-dollar variables.
 define run_dev_go
+	set -e; \
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
 	logfile=$(CURDIR)/logs/velocity-$${ts}.log; \
@@ -1127,17 +1165,22 @@ dev-go:
 	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go,)
 
+# LIDAR_PCAP_DIR was hardcoded to /Volumes/lidar/lidar here, which both tied
+# the target to one machine's disk and — because recordings were derived from
+# it — put vrlog writes on the same external volume the replay was reading.
+# Set the capture path in local.mk if your captures are not under
+# LIDAR_DATA_DIR; the write paths stay on the internal disk regardless.
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag --lidar-pcap-dir=/Volumes/lidar/lidar/)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-both:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

@@ -6,7 +6,6 @@ from pathlib import Path
 import sys
 from urllib.error import HTTPError
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "spider-docs-404s.py"
 

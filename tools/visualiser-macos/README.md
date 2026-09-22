@@ -96,6 +96,15 @@ Actions repository secrets. Do not commit credential material to this repo.
 Detailed setup and CI secret names are in the
 [build guide](BUILDING.md#signing-notarisation-and-distribution).
 
+### Annotating points
+
+1. Annotation → Open Annotation Window (⇧⌘A)
+2. Generate a pack from a run, or open one already on disk
+3. Propose objects, grade them, fix by hand, and review
+
+The full workflow is in
+[point-annotation-tool.md](../../docs/lidar/operations/point-annotation-tool.md).
+
 ## Keyboard shortcuts
 
 | Action             | Shortcut |
@@ -115,6 +124,19 @@ Detailed setup and CI secret names are in the
 | Reset Camera       | R        |
 | Label Track        | L        |
 | Export Labels      | ⌘E       |
+| Annotation window  | ⇧⌘A      |
+
+With the Annotation window in front, some keys mean that window instead:
+
+| Action                       | Shortcut         |
+| ---------------------------- | ---------------- |
+| Previous / next frame        | , and .          |
+| Smaller / larger brush       | [ and ]          |
+| Carry back / forward         | ⌘[ and ⌘]        |
+| Save points                  | ⌘S               |
+| Undo / redo a selection edit | ⌘Z and ⇧⌘Z       |
+| Nudge a carried selection    | Arrows (⇧ 0.5 m) |
+| Accept / dismiss it          | Return / Esc     |
 
 ## Architecture
 

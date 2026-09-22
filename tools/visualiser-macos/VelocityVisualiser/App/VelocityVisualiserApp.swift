@@ -33,6 +33,15 @@ private let appLogger = DevLogger(category: "App")
         Window("About VelocityVisualiser.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
         ).defaultPosition(.center)
+
+        // Annotation gets its own window rather than a pane in ContentView.
+        // It edits an immutable pack of points read off disk, where the main
+        // view draws a stream, and it wants the room for an editing view, a
+        // confirming view and a 3D view at once. It is given AppState so that
+        // the two windows can be kept on the same frame; it draws nothing
+        // from the stream.
+        Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
+            .defaultSize(width: 1560, height: 940)
     }
 
     init() {
@@ -60,6 +69,13 @@ private let appLogger = DevLogger(category: "App")
 struct AppCommands: Commands {
     let appState: AppState
     @Environment(\.openWindow) private var openWindow
+    /// Set while the annotation window is the one in front. The keys below
+    /// have no modifier and are bound app-wide, so with that window in front
+    /// they are given its meaning: its samples, its brush.
+    @FocusedValue(\.annotationSession) private var annotationSession
+
+    /// True while a text field is being edited: the keys then belong to it.
+    static var textHasFocus: Bool { NSApp.keyWindow?.firstResponder is NSTextView }
 
     var body: some Commands {
         // About panel
@@ -75,6 +91,27 @@ struct AppCommands: Commands {
         }
         CommandGroup(replacing: .sidebar) {}
 
+        // Undo and redo. With the annotation window in front they are its
+        // selection history; anywhere else they go to whatever has the focus,
+        // as the standard items they replace would, so a text field still
+        // undoes its typing.
+        CommandGroup(replacing: .undoRedo) {
+            Button("Undo") {
+                guard let annotationSession, !AppCommands.textHasFocus else {
+                    NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+                    return
+                }
+                annotationSession.undo()
+            }.keyboardShortcut("z", modifiers: .command)
+            Button("Redo") {
+                guard let annotationSession, !AppCommands.textHasFocus else {
+                    NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
+                    return
+                }
+                annotationSession.redo()
+            }.keyboardShortcut("z", modifiers: [.command, .shift])
+        }
+
         // Connection commands
         CommandGroup(replacing: .newItem) {
             Button("Connect/Disconnect") { appState.toggleConnection() }.keyboardShortcut(
@@ -85,15 +122,31 @@ struct AppCommands: Commands {
         CommandMenu("Playback") {
             Button("Play/Pause") { appState.togglePlayPause() }.keyboardShortcut(" ", modifiers: [])
 
-            Button("Step Forward") { appState.stepForward() }.keyboardShortcut(".", modifiers: [])
+            Button("Step Forward") {
+                guard let annotationSession else { return appState.stepForward() }
+                // Refused when the sample has unsaved changes. The window says
+                // so; from a key press, a beep is what says the key was heard.
+                if annotationSession.stepForward() != nil { NSSound.beep() }
+            }.keyboardShortcut(".", modifiers: [])
 
-            Button("Step Backward") { appState.stepBackward() }.keyboardShortcut(",", modifiers: [])
+            Button("Step Backward") {
+                guard let annotationSession else { return appState.stepBackward() }
+                if annotationSession.stepBackward() != nil { NSSound.beep() }
+            }.keyboardShortcut(",", modifiers: [])
 
             Divider()
 
-            Button("Increase Rate") { appState.increaseRate() }.keyboardShortcut("]", modifiers: [])
+            Button("Increase Rate") {
+                guard let annotationSession else { return appState.increaseRate() }
+                annotationSession.adjustBrushSize(
+                    steps: 1, eventTimestamp: NSApp.currentEvent?.timestamp)
+            }.keyboardShortcut("]", modifiers: [])
 
-            Button("Decrease Rate") { appState.decreaseRate() }.keyboardShortcut("[", modifiers: [])
+            Button("Decrease Rate") {
+                guard let annotationSession else { return appState.decreaseRate() }
+                annotationSession.adjustBrushSize(
+                    steps: -1, eventTimestamp: NSApp.currentEvent?.timestamp)
+            }.keyboardShortcut("[", modifiers: [])
 
             Divider()
 
@@ -135,6 +188,14 @@ struct AppCommands: Commands {
                 isOn: Binding(
                     get: { appState.showTrackLabels }, set: { appState.showTrackLabels = $0 })
             ).keyboardShortcut("l", modifiers: [])
+        }
+
+        // Annotation. A menu item rather than a toolbar button because the
+        // window it opens is not a mode of the main view: opening it must not
+        // disturb whatever the main window is showing.
+        CommandMenu("Annotation") {
+            Button("Open Annotation Window") { openWindow(id: "annotation") }.keyboardShortcut(
+                "a", modifiers: [.command, .shift])
         }
 
         // Label commands — classification shortcuts at root level

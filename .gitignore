@@ -216,6 +216,7 @@ data/**/results/*
 data/maths/papers/*.pdf
 data/maths/papers/download-status.md
 data/structures/SCHEMA.dot
+data/experiments/try/campaign/bin/*
 .scratch-analysis
 
 # =============================================================================
@@ -238,6 +239,15 @@ bin/typst.exe
 # the pattern stops the next one. Committed baselines live under
 # internal/lidar/perf/baseline/ and are not matched by this.
 *_benchmark.json
+
+# =============================================================================
+# Local make overrides
+# =============================================================================
+# Machine-specific paths — chiefly LIDAR_PCAP_DIR, when captures sit on an
+# external volume rather than under LIDAR_DATA_DIR. Untracked on purpose: one
+# developer's mount point is not a project default, and hardcoding one in the
+# Makefile is the thing local.mk replaces.
+local.mk
 
 # Basemap tiles for the scene map: a build artefact, fetched once by
 # `make cache-basemap` and cached on disk. 21 MB of PNGs that OpenStreetMap

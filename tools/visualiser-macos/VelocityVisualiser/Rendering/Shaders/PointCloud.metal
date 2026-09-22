@@ -51,6 +51,11 @@ vertex PointVertexOut pointVertex(
     float dist = length(viewPos.xyz);
     out.pointSize = uniforms.pointSize * 10.0 / max(dist, 1.0);
     out.pointSize = clamp(out.pointSize, 1.0, 20.0);
+    // Annotation palette entries (see the fragment shader) are drawn larger,
+    // so a mask of a few dozen points shows against a full revolution.
+    if (classification > 15.5) {
+        out.pointSize = min(out.pointSize * 1.6, 24.0);
+    }
 
     out.intensity = intensity;
     out.classification = classification;
@@ -58,6 +63,29 @@ vertex PointVertexOut pointVertex(
 
     return out;
 }
+
+// The annotation window's colours, in AnnotationPalette.swift's order. A test
+// holds this table to that one.
+#define ANNOTATION_PALETTE_COUNT 17
+constant float3 annotationPalette[ANNOTATION_PALETTE_COUNT] = {
+    float3(1.00, 0.55, 0.10), // 0 unsaved
+    float3(1.00, 0.90, 0.20), // 1 candidate
+    float3(1.00, 0.20, 0.20), // 2 removed
+    float3(0.25, 0.60, 1.00), // 3 car
+    float3(0.20, 0.80, 0.80), // 4 van
+    float3(0.45, 0.45, 1.00), // 5 truck
+    float3(0.70, 0.45, 1.00), // 6 bus
+    float3(0.40, 0.90, 1.00), // 7 motorcycle
+    float3(1.00, 0.35, 0.75), // 8 pedestrian
+    float3(0.75, 0.95, 0.20), // 9 cyclist
+    float3(0.85, 0.45, 0.25), // 10 building
+    float3(0.90, 0.90, 0.95), // 11 sign
+    float3(0.55, 0.60, 0.15), // 12 vegetation
+    float3(0.60, 0.65, 0.80), // 13 unknown class
+    float3(0.65, 0.40, 0.30), // 14 ground
+    float3(0.50, 0.50, 0.60), // 15 noise
+    float3(1.00, 1.00, 1.00), // 16 background changed
+};
 
 fragment float4 pointFragment(
     PointVertexOut in [[stage_in]],
@@ -76,8 +104,15 @@ fragment float4 pointFragment(
     // Colour based on classification (primary) and intensity (secondary)
     // Classification values are integers passed as floats: 0=background, 1=foreground, 2=ground
     // Use epsilon-based comparison for exact integer matching
+    // 16 and up are not classes a recorder writes: the annotation window's 3D
+    // view uses them for palette entries. See annotationPalette above.
     float3 colour;
-    if (abs(in.classification - 1.0) < 0.01) {
+    if (in.classification > 15.5) {
+        // At full strength whatever the intensity, so a mask reads as one
+        // object.
+        int entry = clamp(int(in.classification + 0.5) - 16, 0, ANNOTATION_PALETTE_COUNT - 1);
+        colour = annotationPalette[entry];
+    } else if (abs(in.classification - 1.0) < 0.01) {
         // Foreground: green with intensity modulation
         float3 lowColour = float3(0.1, 0.6, 0.2);   // dark green
         float3 highColour = float3(0.4, 1.0, 0.4); // bright green
