@@ -5,7 +5,7 @@
 - **Target:** investigation spikes in v0.6.3; delivery from v1.0, matching work from v2.0
 - **Companion plans:** [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [web scene export](lidar-web-scene-export-plan.md)
 - **Canonical:** [Vehicle encyclopedia](../platform/architecture/vehicle-encyclopedia.md) (single source of truth)
-- **Related:** [shape descriptors](lidar-shape-descriptors-plan.md), [track labelling](lidar-track-labelling-auto-aware-tuning-plan.md), [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md) on branch `dd/lidar/annotation` <!-- link-ignore -->
+- **Related:** [shape descriptors](lidar-shape-descriptors-plan.md), [track labelling](lidar-track-labelling-auto-aware-tuning-plan.md), [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md)
 
 ## Motivation
 
@@ -23,18 +23,18 @@ annotations drawn over them can be browsed in one place.
 
 ## Current state
 
-| Fact                            | Value                                                                     | Source                                                     |
-| ------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Published scene carries         | id, position, velocity, speed, heading, L/W/H, box yaw, class, confidence | `internal/scene/types.go`                                  |
-| Scene export format             | gzipped NDJSON chunks, 2 dp, timestamp-driven playback                    | [web scene export plan](lidar-web-scene-export-plan.md)    |
-| Published scenes                | 27 site directories under `public_html/src/scenes/`                       | repository                                                 |
-| Browser stack                   | plain ES modules, three.js, no bundler, no protobuf runtime               | `public_html/src/js/`                                      |
-| Annotation truth                | immutable pack of point indices plus a revisioned sidecar                 | `internal/lidar/annotation` (branch `dd/lidar/annotation`) |
-| Annotation states               | `proposed`, `reviewed`, `rejected`, with the proposing algorithm recorded | same                                                       |
-| Annotation client               | macOS visualiser annotation pane                                          | `tools/visualiser-macos/.../Annotation`                    |
-| Shape descriptors               | planned, not built: no eigenvalue or profile features exist today         | [shape descriptors plan](lidar-shape-descriptors-plan.md)  |
-| Road-user classifier            | rule-based in L6, with a transparent improvement ladder planned           | [classifier plan](lidar-ml-classifier-training-plan.md)    |
-| Catalogue shells and prototypes | specified, not built; Canadian market, year-marked editions               | [encyclopedia plan](vehicle-encyclopedia-plan.md)          |
+| Fact                            | Value                                                                     | Source                                                    |
+| ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Published scene carries         | id, position, velocity, speed, heading, L/W/H, box yaw, class, confidence | `internal/scene/types.go`                                 |
+| Scene export format             | gzipped NDJSON chunks, 2 dp, timestamp-driven playback                    | [web scene export plan](lidar-web-scene-export-plan.md)   |
+| Published scenes                | 27 site directories under `public_html/src/scenes/`                       | repository                                                |
+| Browser stack                   | plain ES modules, three.js, no bundler, no protobuf runtime               | `public_html/src/js/`                                     |
+| Annotation truth                | immutable pack of point indices plus a revisioned sidecar                 | `internal/lidar/annotation`                               |
+| Annotation states               | `proposed`, `reviewed`, `rejected`, with the proposing algorithm recorded | same                                                      |
+| Annotation client               | macOS visualiser annotation pane                                          | `tools/visualiser-macos/.../Annotation`                   |
+| Shape descriptors               | planned, not built: no eigenvalue or profile features exist today         | [shape descriptors plan](lidar-shape-descriptors-plan.md) |
+| Road-user classifier            | rule-based in L6, with a transparent improvement ladder planned           | [classifier plan](lidar-ml-classifier-training-plan.md)   |
+| Catalogue shells and prototypes | specified, not built; Canadian market, year-marked editions               | [encyclopedia plan](vehicle-encyclopedia-plan.md)         |
 
 Two things follow from that table. Identification has no feature vector to work
 with until the shape-descriptor work lands, so this plan is sequenced behind it.
