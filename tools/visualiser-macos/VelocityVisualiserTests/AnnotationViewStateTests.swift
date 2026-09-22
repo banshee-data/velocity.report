@@ -593,11 +593,14 @@ struct AnnotationViewportWiringTests {
     }
 
     @Test func theOverlayTakesItsInputFromTheLayerThatCanZoom() throws {
-        let pane = try source("UI/AnnotationPane.swift")
-        #expect(pane.contains("ViewportInputLayer("))
+        let overlay = try source("UI/LassoOverlay.swift")
+        #expect(overlay.contains("ViewportInputLayer("))
         // SwiftUI's drag gesture has no scroll wheel and no right button; if
-        // it came back the views would stop zooming and panning.
-        #expect(!pane.contains("DragGesture("))
+        // it came back the views would stop zooming and panning. The pane is
+        // checked too, because the overlay used to live inside it and that is
+        // where a reintroduced gesture would most plausibly land.
+        #expect(!overlay.contains("DragGesture("))
+        #expect(!(try source("UI/AnnotationPane.swift")).contains("DragGesture("))
     }
 
     @Test func theAppGivesTheWindowTheMainViewAndRoutesItsKeys() throws {
