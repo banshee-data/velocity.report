@@ -63,6 +63,34 @@ struct OrthoViewBasisTests {
         }
     }
 
+    /// Every basis must be right-handed the same way, or one view mirrors the
+    /// scene and a selection checked in it is checked against a reflection.
+    @Test func everyViewIsHandedTheSameWay() {
+        for standard in OrthoViewBasis.Standard.allCases {
+            let basis = OrthoViewBasis(standard)
+            let cross = simd_cross(basis.right, basis.up)
+            #expect(
+                simd_length(cross + basis.forward) < 1e-6,
+                "\(standard) is mirrored: right x up is not -forward")
+        }
+    }
+
+    /// The four elevations are two opposed pairs, each looking along one
+    /// horizontal axis, so between them every side of an object is seen.
+    @Test func theElevationsLookFourDifferentWaysAlongTheGround() {
+        let forwards = OrthoViewBasis.Standard.elevations.map { OrthoViewBasis($0).forward }
+        #expect(forwards.count == 4)
+        for f in forwards {
+            // Horizontal: an elevation that tilted would not show height truly.
+            #expect(abs(f.z) < 1e-6)
+            #expect(OrthoViewBasis.Standard.elevations.allSatisfy { OrthoViewBasis($0).up == simd_float3(0, 0, 1) })
+        }
+        // Opposed in pairs, and no two the same.
+        #expect(simd_length(forwards[0] + forwards[1]) < 1e-6)
+        #expect(simd_length(forwards[2] + forwards[3]) < 1e-6)
+        #expect(abs(simd_dot(forwards[0], forwards[2])) < 1e-6)
+    }
+
     @Test func secondViewIsAlwaysADifferentAxis() {
         // The confirming view has to actually show a different angle, or the
         // second-view check verifies nothing.

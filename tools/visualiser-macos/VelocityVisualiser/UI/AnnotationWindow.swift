@@ -330,18 +330,29 @@ struct AnnotationWorkspace: View {
                         ).padding(4).foregroundStyle(.secondary).allowsHitTesting(false)
                     }.frame(minHeight: 240).layoutPriority(2)
 
-                    // Top, front and side, always all three. The one being
-                    // edited in takes strokes; a click in another makes it the
-                    // editing view. Review is gated on a second view, and with
-                    // every view on screen there is always one to check in.
+                    // The top view large, because that is where a selection is
+                    // made, and the four elevations stacked beside it, each the
+                    // sensor looking outward. Between them they show every side
+                    // of an object without orbiting anything.
+                    //
+                    // The one being edited in takes strokes; a click in another
+                    // makes it the editing view. Review is gated on a second
+                    // view, and with all five on screen there is always one to
+                    // check in.
                     HSplitView {
-                        ForEach(OrthoViewBasis.Standard.allCases, id: \.self) { standard in
-                            AnnotationViewportView(
-                                session: session, standard: standard,
-                                editable: standard == session.viewStandard
-                            ).frame(minWidth: 180, minHeight: 180)
-                        }
-                    }.frame(minHeight: 200)
+                        AnnotationViewportView(
+                            session: session, standard: .top, editable: session.viewStandard == .top
+                        ).frame(minWidth: 320, minHeight: 240).layoutPriority(2)
+
+                        VStack(spacing: 1) {
+                            ForEach(OrthoViewBasis.Standard.elevations, id: \.self) { standard in
+                                AnnotationViewportView(
+                                    session: session, standard: standard,
+                                    editable: standard == session.viewStandard
+                                ).frame(minHeight: 84)
+                            }
+                        }.frame(minWidth: 200)
+                    }.frame(minHeight: 280)
                 }
                 AnnotationFrameStrip(session: session) { index in
                     if session.step(to: index) != nil {

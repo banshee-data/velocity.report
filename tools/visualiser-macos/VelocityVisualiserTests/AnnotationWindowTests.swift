@@ -256,16 +256,29 @@ struct AnnotationWiringTests {
     }
 
     @Test func onlyTheEditingViewTakesStrokes() throws {
-        // Review is gated on a check from another view. All three orthographic
-        // views are on screen, and if each took strokes there would be three
-        // editing surfaces and no view left to check in.
+        // Review is gated on a check from another view. The top view and all
+        // four elevations are on screen, and if each took strokes there would
+        // be five editing surfaces and no view left to check in.
         let window = try source("UI/AnnotationWindow.swift")
         #expect(
-            window.contains("ForEach(OrthoViewBasis.Standard.allCases"),
-            "the three orthographic views are not all mounted")
+            window.contains("ForEach(OrthoViewBasis.Standard.elevations"),
+            "the four elevations are not all mounted")
+        #expect(
+            window.contains("standard: .top"), "the top view is not mounted on its own")
         #expect(
             window.contains("editable: standard == session.viewStandard"),
-            "a view other than the editing view accepts strokes")
+            "an elevation other than the editing view accepts strokes")
+        #expect(
+            window.contains("editable: session.viewStandard == .top"),
+            "the top view accepts strokes when it is not the editing view")
+    }
+
+    /// Every standard has to be reachable, or a view exists that nothing can
+    /// mount and no selection can ever be checked in.
+    @Test func theTopViewAndTheElevationsCoverEveryStandard() {
+        let mounted = Set([OrthoViewBasis.Standard.top] + OrthoViewBasis.Standard.elevations)
+        #expect(mounted == Set(OrthoViewBasis.Standard.allCases))
+        #expect(OrthoViewBasis.Standard.elevations.count == 4)
     }
 
     // "Generate from Run…", "Open Pack…" and "Close" in AnnotationWorkspace

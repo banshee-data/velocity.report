@@ -33,13 +33,23 @@ struct OrthoViewBasis: Equatable {
     enum Standard: String, CaseIterable, Equatable {
         case top
         case front
+        case back
         case side
+        case farSide
+
+        /// The four horizontal looks, in the order they are stacked: the two
+        /// along Y, then the two along X. Each is the sensor looking outward,
+        /// so between them they show every side of an object without the
+        /// operator orbiting anything.
+        static let elevations: [Standard] = [.front, .back, .side, .farSide]
 
         var label: String {
             switch self {
             case .top: return "Top (X-Y)"
             case .front: return "Front (X-Z)"
+            case .back: return "Back (X-Z)"
             case .side: return "Side (Y-Z)"
+            case .farSide: return "Far side (Y-Z)"
             }
         }
 
@@ -47,8 +57,8 @@ struct OrthoViewBasis: Equatable {
         var depthAxisLabel: String {
             switch self {
             case .top: return "Height (Z)"
-            case .front: return "Depth (Y)"
-            case .side: return "Depth (X)"
+            case .front, .back: return "Depth (Y)"
+            case .side, .farSide: return "Depth (X)"
             }
         }
     }
@@ -82,11 +92,23 @@ struct OrthoViewBasis: Equatable {
             self.init(
                 right: simd_float3(1, 0, 0), up: simd_float3(0, 0, 1),
                 forward: simd_float3(0, 1, 0), origin: origin)
+        case .back:
+            // Looking along -Y, from the other side of the scene. Screen right
+            // is world -X, so the view is the front one turned around rather
+            // than mirrored: a car driving right in Front drives left here.
+            self.init(
+                right: simd_float3(-1, 0, 0), up: simd_float3(0, 0, 1),
+                forward: simd_float3(0, -1, 0), origin: origin)
         case .side:
             // Looking along -X: screen right is world +Y, screen up is world +Z.
             self.init(
                 right: simd_float3(0, 1, 0), up: simd_float3(0, 0, 1),
                 forward: simd_float3(-1, 0, 0), origin: origin)
+        case .farSide:
+            // Looking along +X: screen right is world -Y.
+            self.init(
+                right: simd_float3(0, -1, 0), up: simd_float3(0, 0, 1),
+                forward: simd_float3(1, 0, 0), origin: origin)
         }
     }
 
@@ -108,6 +130,9 @@ struct OrthoViewBasis: Equatable {
         case .top: return .front
         case .front: return .side
         case .side: return .top
+        // The elevations added later confirm against the top view, which is
+        // the one an operator reads a position in.
+        case .back, .farSide: return .top
         }
     }
 }
