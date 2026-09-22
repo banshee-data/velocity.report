@@ -1,0 +1,23 @@
+# Configuration only: there is deliberately no [project] table, because the
+# repository is not a Python package. These sections exist so that `black` and
+# `ruff` — run over the whole tree by `make format-python` and the pre-commit
+# hook — agree on what is ours to format.
+
+[tool.black]
+# Vendored code is not ours to reformat, and libpcap's test programs are
+# Python 2, which black cannot parse at all: without this it fails the whole
+# run rather than skipping the file.
+extend-exclude = '''
+/(
+    third_party
+  | web/node_modules
+  | docs_html/node_modules
+)/
+'''
+
+[tool.ruff]
+extend-exclude = [
+    "third_party",
+    "web/node_modules",
+    "docs_html/node_modules",
+]
