@@ -106,15 +106,19 @@ struct ColumnGrid: Equatable {
     /// World Z of the ground plane, in the pack's frame.
     var groundZ: Float = 0
 
-    /// The column containing a world position. Floors, so the cell to the
-    /// west of the origin is -1 and not a second copy of 0.
+    /// In plan this is an ordinary lattice, and it has to round the same way
+    /// as the ones the footprint and the proposer use.
+    private var lattice: Lattice { Lattice(pitch: pitch) }
+
+    /// The column containing a world position.
     func cell(x: Float, y: Float) -> ColumnCell {
-        ColumnCell(i: Int32((x / pitch).rounded(.down)), j: Int32((y / pitch).rounded(.down)))
+        let c = lattice.cell(x: x, y: y)
+        return ColumnCell(i: c.x, j: c.y)
     }
 
     /// World position of a column's centre.
     func centre(of cell: ColumnCell) -> simd_float2 {
-        simd_float2((Float(cell.i) + 0.5) * pitch, (Float(cell.j) + 0.5) * pitch)
+        lattice.centre(ofCell: SIMD2(cell.i, cell.j))
     }
 
     /// The voxel a height falls in, or nil above the column or too far below
