@@ -18,11 +18,26 @@ import simd
 /// requires.
 struct LassoOverlay: View {
     @ObservedObject var session: AnnotationSession
+    /// Observed separately from the session, which does not republish when the
+    /// brush moves: see BrushHover.swift. Taken from the session rather than
+    /// passed in, so that call sites are unchanged.
+    @ObservedObject private var hover: BrushHover
     /// Which view this overlay belongs to. The second view is read-only: it
     /// exists to check a selection, not to make one.
     let basisStandard: OrthoViewBasis.Standard
     let viewport: OrthoViewport
     var editable: Bool = true
+
+    init(
+        session: AnnotationSession, basisStandard: OrthoViewBasis.Standard, viewport: OrthoViewport,
+        editable: Bool = true
+    ) {
+        self.session = session
+        self._hover = ObservedObject(wrappedValue: session.hover)
+        self.basisStandard = basisStandard
+        self.viewport = viewport
+        self.editable = editable
+    }
 
     @State private var strokePoints: [CGPoint] = []
     @State private var rectangleMode = false
@@ -66,12 +81,12 @@ struct LassoOverlay: View {
                 if showsGrid { gridLayer }
                 maskLayer
                 if strokePoints.count > 1 { strokeOutline }
-                if session.pendingSphere != nil || session.hoverSphere != nil { sphereOutline }
+                if session.pendingSphere != nil || hover.sphere != nil { sphereOutline }
                 if let candidates = session.pendingCandidates, editable {
                     candidateBadge(candidates)
                 } else if session.carried != nil, editable {
                     carriedBadge
-                } else if let sphere = session.hoverSphere, editable {
+                } else if let sphere = hover.sphere, editable {
                     hoverBadge(sphere)
                 } else if let strokeNote, editable {
                     noteBadge(strokeNote)
@@ -95,7 +110,7 @@ struct LassoOverlay: View {
         let activeClass = session.activeObject?.objectClass
         let activeName = session.activeObjectName
         let carried = session.carriedIndices
-        let hovered = session.hoverIndices
+        let hovered = hover.indices
         let proposed = session.proposedIndices
         let proposal = session.proposalIndices
         let viewport = viewport
@@ -189,8 +204,9 @@ struct LassoOverlay: View {
     // the operator dragging in the first cannot see.
     private var sphereOutline: some View {
         Canvas { context, _ in
-            guard let sphere = session.pendingSphere ?? session.hoverSphere, metresPerPoint > 0
-            else { return }
+            guard let sphere = session.pendingSphere ?? hover.sphere, metresPerPoint > 0 else {
+                return
+            }
             let centre = viewport.screenPoint(from: basis.project(sphere.centre))
             let r = CGFloat(sphere.radius / metresPerPoint)
             let circle = Path(
@@ -321,13 +337,12 @@ struct LassoOverlay: View {
     // Where the brush is, in the terms the view it is in cannot show.
     private func hoverBadge(_ sphere: SelectionSphere) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(session.hoverIndices.count) under the brush").font(.caption.bold())
+            Text("\(hover.indices.count) under the brush").font(.caption.bold())
             Text(String(format: "centre z %.2f m · radius %.2f m", sphere.centre.z, sphere.radius))
                 .font(.caption2).foregroundStyle(.secondary)
-            if session.brushDepthOffset != 0 {
-                Text(String(format: "moved %+.1f m in depth", session.brushDepthOffset)).font(
-                    .caption2
-                ).foregroundStyle(.secondary)
+            if hover.depthOffset != 0 {
+                Text(String(format: "moved %+.1f m in depth", hover.depthOffset)).font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }.padding(6).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4)).padding(
             8

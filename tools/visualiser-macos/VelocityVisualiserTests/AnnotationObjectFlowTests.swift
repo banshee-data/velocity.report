@@ -368,17 +368,17 @@ struct SpherePaintTests {
         session.tool = .sphere
         session.sphereRadius = 0.3
         session.hover(atViewPoint: simd_float2(1, 0), pickDistance: 0.2)
-        let before = try #require(session.hoverSphere)
+        let before = try #require(session.hover.sphere)
 
         // The top view looks down, so away from the viewer is down.
         session.adjustBrushDepth(steps: 5)
-        let after = try #require(session.hoverSphere)
+        let after = try #require(session.hover.sphere)
         #expect(abs(after.centre.z - (before.centre.z - 0.5)) < 1e-5)
-        #expect(abs(session.brushDepthOffset - 0.5) < 1e-6)
-        #expect(session.hoverIndices.isEmpty)
+        #expect(abs(session.hover.depthOffset - 0.5) < 1e-6)
+        #expect(session.hover.indices.isEmpty)
 
         session.resetBrushDepth()
-        #expect(session.brushDepthOffset == 0)
+        #expect(session.hover.depthOffset == 0)
     }
 
     @Test func hoveringShowsWhatAClickWouldTakeAndOnlyForTheSphere() throws {
@@ -388,17 +388,17 @@ struct SpherePaintTests {
 
         session.tool = .lasso
         session.hover(atViewPoint: simd_float2(1, 0), pickDistance: 0.2)
-        #expect(session.hoverSphere == nil)
+        #expect(session.hover.sphere == nil)
 
         session.tool = .sphere
         session.hover(atViewPoint: simd_float2(1, 0), pickDistance: 0.2)
-        #expect(session.hoverIndices == [1])
+        #expect(session.hover.indices == [1])
 
         // Nothing is selected by looking.
         #expect(session.selectionCount == 0)
         session.hover(atViewPoint: nil, pickDistance: 0.2)
-        #expect(session.hoverSphere == nil)
-        #expect(session.hoverIndices.isEmpty)
+        #expect(session.hover.sphere == nil)
+        #expect(session.hover.indices.isEmpty)
     }
 }
 

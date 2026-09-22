@@ -229,7 +229,16 @@ final class ViewportInputView: NSView {
 /// The 3D view: the main view's renderer, showing the current sample.
 struct AnnotationSceneView: NSViewRepresentable {
     @ObservedObject var session: AnnotationSession
+    /// The marks under the brush change on every mouse move, and the session
+    /// no longer republishes for them: see BrushHover.swift.
+    @ObservedObject private var hover: BrushHover
     let model: AnnotationSceneModel
+
+    init(session: AnnotationSession, model: AnnotationSceneModel) {
+        self.session = session
+        self._hover = ObservedObject(wrappedValue: session.hover)
+        self.model = model
+    }
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -272,9 +281,8 @@ struct AnnotationSceneView: NSViewRepresentable {
             marks.activeClass = session.activeObject?.objectClass
             marks.saved = session.savedSelection
             marks.selected = session.history.current
-            marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(
-                session.hoverIndices
-            ).union(session.carriedIndices).union(session.proposalIndices)
+            marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(hover.indices)
+                .union(session.carriedIndices).union(session.proposalIndices)
             // The renderer keeps a background until it is given another, so
             // it is sent once per snapshot and switched on and off after that.
             let backdrop = session.currentBackground.map { snapshot in

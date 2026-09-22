@@ -603,6 +603,29 @@ struct AnnotationViewportWiringTests {
         #expect(!(try source("UI/AnnotationPane.swift")).contains("DragGesture("))
     }
 
+    /// The brush hover is not one of the session's published properties, so a
+    /// view that reads it through the session alone compiles, passes every
+    /// test, and silently stops redrawing as the cursor moves. Only these two
+    /// read it, and both have to observe it themselves.
+    @Test func thePairOfViewsThatDrawTheBrushObserveItThemselves() throws {
+        for relative in ["UI/LassoOverlay.swift", "UI/AnnotationViewports.swift"] {
+            let view = try source(relative)
+            #expect(
+                view.contains("@ObservedObject private var hover: BrushHover"),
+                "\(relative) reads the hover without observing it")
+            #expect(
+                view.contains("ObservedObject(wrappedValue: session.hover)"),
+                "\(relative) never takes the hover from the session")
+        }
+        // And nothing reaches for them on the session, which would not publish.
+        for relative in ["UI/LassoOverlay.swift", "UI/AnnotationViewports.swift", "UI/AnnotationPane.swift"] {
+            let view = try source(relative)
+            #expect(!view.contains("session.hover.sphere"))
+            #expect(!view.contains("session.hover.indices"))
+            #expect(!view.contains("session.hover.depthOffset"))
+        }
+    }
+
     @Test func theAppGivesTheWindowTheMainViewAndRoutesItsKeys() throws {
         let app = try source("App/VelocityVisualiserApp.swift")
         #expect(app.contains("AnnotationWindow().environmentObject(appState)"))

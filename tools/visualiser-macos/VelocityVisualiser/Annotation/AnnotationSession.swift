@@ -248,16 +248,13 @@ enum AnnotationGuard: Equatable {
 
     // MARK: Brush
 
-    /// Where the sphere brush would mark if the button went down now. Shown in
-    /// every view, because the one the cursor is in cannot show its depth.
-    @Published private(set) var hoverSphere: SelectionSphere? {
-        didSet { if hoverSphere != oldValue { sceneRevision &+= 1 } }
-    }
-    /// The returns inside `hoverSphere`.
-    @Published private(set) var hoverIndices: [Int] = []
-    /// Moves the brush along the view's depth axis, away from the return it
-    /// took its depth from. In the top view that is up and down.
-    @Published private(set) var brushDepthOffset: Float = 0
+    /// Where the sphere brush would mark, and what is under it.
+    ///
+    /// Its own object, not properties here: it changes on every mouse move,
+    /// and only the overlay and the 3D view read it. A `let` rather than a
+    /// `@Published`, so that moving the cursor does not republish the session
+    /// to the eight views that do not care. See BrushHover.swift.
+    let hover = BrushHover()
     /// The depth the brush last found a return at, used where there is none
     /// under the cursor so that a stroke does not jump between depths.
     private var lastBrushDepth: Float?
@@ -371,6 +368,10 @@ enum AnnotationGuard: Equatable {
         // The name last saved under, so that it is typed once per machine and
         // not once per pack. It is still the operator's own, and still editable.
         self.operatorName = defaults?.string(forKey: AnnotationSession.operatorKey) ?? ""
+        // The 3D view redraws on a revision rather than by observing, so the
+        // hover has to move that revision itself now that it is not one of
+        // this object's own published properties.
+        hover.didChange = { [weak self] in self?.sceneRevision &+= 1 }
         if let first = orderedSamples.first {
             let points = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
             // Property observers do not run in an initialiser.
@@ -578,8 +579,7 @@ enum AnnotationGuard: Equatable {
         if !followingMainView { operatorNavigationRevision &+= 1 }
         currentPoints = (try? pack.points(sampleID: orderedSamples[index].sampleID)) ?? PackPoints()
         pendingCandidates = nil
-        hoverSphere = nil
-        hoverIndices = []
+        hover.clear()
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         secondViewChecked = false
@@ -678,7 +678,8 @@ enum AnnotationGuard: Equatable {
             lastBrushDepth = basis.depth(p)
         }
         let depth =
-            (lastBrushDepth ?? slab.map { ($0.minDepth + $0.maxDepth) / 2 } ?? 0) + brushDepthOffset
+            (lastBrushDepth ?? slab.map { ($0.minDepth + $0.maxDepth) / 2 } ?? 0)
+            + hover.depthOffset
         let centre =
             basis.origin + basis.right * viewPoint.x + basis.up * viewPoint.y + basis.forward
             * depth
@@ -688,31 +689,26 @@ enum AnnotationGuard: Equatable {
     /// Shows where the sphere brush would mark at this position, or clears it.
     func hover(atViewPoint viewPoint: simd_float2?, pickDistance: Float) {
         guard tool == .sphere, !strokeInProgress, let viewPoint else {
-            if hoverSphere != nil {
-                hoverSphere = nil
-                hoverIndices = []
-            }
+            hover.clear()
             return
         }
         let sphere = brushSphere(atViewPoint: viewPoint, pickDistance: pickDistance)
-        hoverIndices = sphereCandidates(sphere).indices
-        hoverSphere = sphere
+        hover.show(sphere, indices: sphereCandidates(sphere).indices)
     }
 
     /// Moves the brush along the depth axis by whole steps of a tenth of a
     /// metre. Positive is away from the viewer: downward, in the top view.
     func adjustBrushDepth(steps: Int) {
-        brushDepthOffset = ((brushDepthOffset + Float(steps) * 0.1) * 10).rounded() / 10
-        if let sphere = hoverSphere {
+        hover.setDepthOffset(((hover.depthOffset + Float(steps) * 0.1) * 10).rounded() / 10)
+        if let sphere = hover.sphere {
             let basis = OrthoViewBasis(viewStandard)
             let moved = SelectionSphere(
                 centre: sphere.centre + basis.forward * Float(steps) * 0.1, radius: sphere.radius)
-            hoverIndices = sphereCandidates(moved).indices
-            hoverSphere = moved
+            hover.show(moved, indices: sphereCandidates(moved).indices)
         }
     }
 
-    func resetBrushDepth() { brushDepthOffset = 0 }
+    func resetBrushDepth() { hover.setDepthOffset(0) }
 
     /// Evaluates a set of painted columns without applying it.
     @discardableResult func previewSelection(cells: Set<ColumnCell>) -> SelectionCandidates {
