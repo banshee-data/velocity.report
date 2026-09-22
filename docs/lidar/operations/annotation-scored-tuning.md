@@ -3,10 +3,10 @@
 What the first whole-capture annotation pack says about the pipeline's tuning,
 and the kirk0 sweep run from it.
 
-- **Status:** Measured; sweep run 2026-09-21, results to be read
+- **Status:** Measured; sweep of 11,861 configs completed 2026-09-22
 - **Layers:** L3 Grid, L4 Perception, offline analysis
 - **Related:** [Point annotation tool](point-annotation-tool.md), [Performance regression testing](performance-regression-testing.md), [Tuning guide](tuning-guide.md)
-- **Scripts:** `/Users/david/code/sensor_data/lidar/kirk0-tuning/bin/`, and on branch `dd/lidar/bench-cluster-dump` under `data/explore/annotation-scored-tuning/`
+- **Scripts:** [data/explore/annotation-scored-tuning/](../../../data/explore/annotation-scored-tuning/)
 
 ## Why this is different from every sweep before it
 
@@ -141,8 +141,10 @@ which is the opposite of what the parameter's name suggests you would try.
 
 ## The sweep
 
-Running from 2026-09-21 22:43 PDT, 8.4-hour deadline, six runs at a time on the
-internal SSD, kirk0 only.
+Ran 2026-09-21 22:43 PDT to 2026-09-22 05:52, six runs at a time on the internal
+SSD, kirk0 only: **11,861 configs, no failures**. The grid finished with time
+left, and the hill-climb that followed it ran until it had no untried
+neighbour of its best 25 left.
 
 | Axis                               | Values                         |
 | ---------------------------------- | ------------------------------ |
@@ -171,10 +173,47 @@ reference, not the shipped 8,000, so that a loosened foreground is never
 silently truncated. Comparisons within the sweep are therefore sound; the
 reference row is not quite the shipped binary.
 
+### What it found
+
+The search converged. Ranked on F1 alone the winner is
+`closeness 3.0 / background_update 0.005 / post_settle 0.0025 / eps 0.25 /
+min_points 3` at F1 0.819 — but so are the next nineteen, and **every one of
+them fragments each object into about 3.6 clusters**. Precision counts every
+piece of a shattered object as right, so a tiny clustering radius scores well
+by breaking one car into four. That is the metric flattering itself, not a
+better pipeline, and a tracker handed 3.6 clusters per vehicle would be worse
+off than it is today.
+
+Capping fragmentation at the shipped level gives the answer worth acting on.
+It changes three parameters and leaves the other five alone:
+
+|                                    | Shipped | Recommended |                   |
+| ---------------------------------- | ------- | ----------- | ----------------- |
+| `l3.closeness_multiplier`          | 3.0     | **2.5**     |                   |
+| `l3.background_update_fraction`    | 0.02    | **0.01**    |                   |
+| `l4.foreground_min_cluster_points` | 5       | **8**       |                   |
+| Recall                             | 0.560   | **0.761**   | +20 points        |
+| Pedestrian recall                  | 0.205   | **0.435**   | more than doubled |
+| Reviewed-only recall               | 0.416   | **0.900**   |                   |
+| Precision                          | 0.806   | 0.786       | −2 points         |
+| Clusters per object                | 1.46    | **1.29**    | better            |
+| Spurious clusters/frame            | 0.74    | **0.58**    | better            |
+
+It is better on recall, on pedestrians, on fragmentation and on spurious
+clusters at once, and pays two points of precision for it. Raising
+`min_cluster_points` from 5 to 8 while loosening L3 is what keeps the speckle
+out: the extra foreground buys real objects, and the higher floor discards what
+it also lets through.
+
+Two axes turned out not to matter. `safety_margin_metres` is flat across its
+whole range — the top six configs differ only in it, by a thousandth of an F1
+point. `noise_relative` wants to stay at its default 0.02; both 0.01 and 0.04
+are worse, in opposite directions.
+
 ### Reading the results
 
 ```bash
-python3 /Users/david/code/sensor_data/lidar/kirk0-tuning/bin/analyse.py \
+python3 data/explore/annotation-scored-tuning/analyse.py \
   /Users/david/code/sensor_data/lidar/kirk0-tuning/results.jsonl
 ```
 
@@ -192,20 +231,22 @@ cannot see.
   has to be re-measured one run at a time before it goes near a Pi.
 - **One capture, one scene.** kirk0 is 83 seconds of one junction. A config
   tuned to it is tuned to it.
-- **The pack was made by a different build.** Its run is build `744f995f` at
-  0.25× playback and produced 1,833,561 foreground points; today's `main` on
-  the same capture produces 985,224. Both settle around frame 54, so it is not
-  a warm-up difference. Whether that is a deliberate change or a regression is
-  unresolved, and it is the first thing to check: it bounds how much of the
-  missing recall tuning can recover.
+- **The pack's run was tuned, not built, differently.** It produced 1,833,561
+  foreground points where today's `main` produces 985,224 on the same capture,
+  which looked like a regression. It is not. Building `lidar-bench` at the
+  pack's own commit `744f995f` and running it against the defaults gives
+  985,224 — the same number, to the point — and the two default configs differ
+  on no shared key, only on four L4/L5 keys since removed. `internal/lidar/l3grid`
+  is unchanged between the two. So the pack was recorded by a run whose L3 was
+  loosened from the defaults; the sweep reaches its point count with
+  `closeness 2.5 / noise_relative 0.01`, 0.4% off. The operator labelled a
+  richer foreground than the defaults produce, which is the right way round for
+  reference truth and part of why the defaults score so poorly against it.
 - **Scoring lives in Python.** It belongs in Go behind a `velocity` subcommand,
   where it could gate CI the way the perf benchmark does. It is not there yet
   because the point of tonight was to find out whether the annotations could
   answer the question at all. They can.
-- **The scripts are not committed here yet.** Adding any `.py` under `data/`
-  wakes the `format-python` hook, which runs `black .` over the whole tree:
-  it reformats eleven files in `scripts/` that are already committed, and it
-  fails outright on `third_party/libpcap/testprogs/visopts.py`, which is
-  Python 2 and cannot be parsed. `make lint` does not run black or ruff, so
-  the drift never shows up in CI. Excluding `third_party/` from black and
-  reconciling `scripts/` is a small job that unblocks this.
+- **Fragmentation is not in the score, only beside it.** F1 here treats every
+  cluster on a real object as right, however many of them there are. Until a
+  run is scored on whether it produced _one_ cluster per object, the ranking
+  has to be read with the fragmentation column next to it.

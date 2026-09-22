@@ -61,6 +61,15 @@ print("\n--- best by F1 ---")
 for r in sorted(rows, key=lambda r: -r["f1"])[:10]:
     print(line(r))
 
+# Precision counts every piece of a shattered object as right, so a tiny
+# clustering radius scores well by breaking one car into four. Capping
+# fragmentation is what stops the ranking rewarding that.
+print("\n--- best by F1, with fragmentation capped ---")
+for cap in (1.5, 2.0, 2.5):
+    ok = [r for r in rows if r["frag"] <= cap]
+    if ok:
+        print(line(max(ok, key=lambda r: r["f1"]), f"frag<={cap}"))
+
 print("\n--- best recall at a precision floor ---")
 for floor in (0.8, 0.7, 0.6, 0.5, 0.4):
     ok = [r for r in rows if r["precision"] >= floor]
