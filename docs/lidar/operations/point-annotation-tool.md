@@ -60,10 +60,17 @@ it unchanged.
 | Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
 | Right sidebar         | How: display, tools, depth slab, carrying, saving and review                             |
 
-Each elevation is the sensor looking outward, and they are two opposed pairs, so every side of
+Each elevation is the sensor looking outward and **shows only the half of the scene in front of
+it**: 180° of azimuth each, the pairs opposed. Without that the half behind the sensor lands on
+top of the half in front and two views along one axis are the same picture mirrored. Every
+return is in front of exactly two elevations, one from each pair, so between them every side of
 an object is on screen without orbiting anything. Back and Far side are turned around rather
 than mirrored: a car driving right in Front drives left in Back. The axes are the sensor's own
 — a pack records no site transform — so they are not compass directions.
+
+The top view frames the whole sample. An elevation frames its **height** and is panned along,
+because a street is a hundred metres wide and four high and fitting its width would leave a car
+too small to see.
 
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
@@ -166,6 +173,14 @@ the wrong place rather than the filter being too blunt: `↑` and `↓` move it 
 metre, or a quarter with shift. **Estimate** puts it back where a twentieth of this frame's
 returns lie below it.
 
+**Grid angle** turns the columns so they follow the kerbs instead of the sensor's mounting. It
+is the scene's `grid_azimuth_deg`, and **this window is not where that value lives**: it belongs
+to `tools/s2-archive/map-marks.json`, one per site, because it is a property of the street and
+is shared by every site on the same grid. What the window keeps is a working value, remembered
+for this pack on this machine. When you have it right, type the site id and press **Copy**: that
+gives you the one line to paste into map-marks.json, the same way the scene viewer's own angle
+panel does. Nothing reads the angle back from the scene yet — see Limits.
+
 Stepping to the next frame lays the last frame's selection over it in cyan. Arrows nudge it
 (shift for 0.5 m), Return accepts, Esc dismisses. While it is on screen it claims all four
 arrows, so the frame cannot step out from under it. For something that does not move, **Apply to
@@ -210,4 +225,10 @@ view is: agreed, in question, and not labelled. Click a sector to go to what is 
 - Class guesses come from size and distance travelled only. The class you choose is what is
   saved.
 - Every save writes a full snapshot to `annotation-revisions/`, and nothing prunes them.
+- **The grid angle is not yet synced from the scene.** A pack records the sensor, the capture
+  and the run, and nothing that says which junction it stood at, so the angle cannot be looked
+  up; and no server reads `map-marks.json`. The channel that should carry it already exists —
+  `CoordinateFrameInfo.rotation_deg` in the visualiser proto, "rotation of X-axis from East",
+  which reaches the macOS client and is never populated. Filling that in, and recording the site
+  in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
