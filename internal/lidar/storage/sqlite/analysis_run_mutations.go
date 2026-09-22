@@ -233,11 +233,14 @@ func (s *AnalysisRunStore) UpdateRunTrackMeasurements(runID string, measurements
 
 	for trackID, measurement := range measurements {
 		args := append(trackMeasurementUpdateArgs(&measurement), runID, trackID)
-		if _, err := stmt.Exec(args...); err != nil {
+		if err := retryOnBusy(func() error {
+			_, err := stmt.Exec(args...)
+			return err
+		}); err != nil {
 			return fmt.Errorf("update measurements of run track %s: %w", trackID, err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := retryOnBusy(func() error { return tx.Commit() }); err != nil {
 		return fmt.Errorf("commit run track measurement update: %w", err)
 	}
 	return nil
