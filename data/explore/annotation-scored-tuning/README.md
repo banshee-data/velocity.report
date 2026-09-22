@@ -22,8 +22,7 @@ python3 sweep.py ./lidar-bench <work-dir> <repo> <hours> <parallel-runs>
 python3 analyse.py <work-dir>/results.jsonl
 ```
 
-`lidar-bench` must be built from a tree that has `-clusters-output`
-(`go build -tags pcap ./cmd/tools/lidar-bench`).
+Build the benchmark first: `go build -tags pcap ./cmd/tools/lidar-bench`.
 
 These are analysis scripts, not product code. Scoring a run against a pack is
 worth having as a `velocity` subcommand in Go; see the write-up for why it is
