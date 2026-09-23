@@ -293,6 +293,7 @@ levels are machine values; grouped display labels are presentation only. The
 | COPC internal access                     | COPC octree; do not rebuild it as S2 point storage.                                               |
 | City coverage and sponsorship            | Named polygons and sets of cells, potentially mixed-level coverings; cities are not single cells. |
 | Coverage detail                          | Observed surface/area masks inside a cell; a single scan does not cover the whole cell.           |
+| Rough anchor of an unregistered capture  | The L16 cell of its three-decimal fix, read with its eight neighbours; never verified coverage.   |
 
 Store canonical token text and level with B-tree indexes, plus explicit L13-to-L10 associations.
 Postgres signed `bigint` cannot directly represent every unsigned S2 ID; avoid accidental overflow
@@ -357,6 +358,69 @@ Start with rigid six-degree-of-freedom transforms. Consumer scale error must be 
 explicitly; a similarity fit may be an experiment diagnostic but cannot silently redefine
 metric scale. Non-rigid SLAM correction is deferred because it can conceal bad
 measurements and complicates covariance.
+
+### From a rough fix to a registered capture
+
+A stationary roadside capture is not registered when it is made. It arrives with a position
+rounded to three decimal places — good to about 71 m at San Francisco's latitude; the figure
+moves with latitude and must be re-measured per deployment, the same caveat the
+[occupancy column grid](lidar-occupancy-column-grid-plan.md) plan makes for S2 cell size and skew
+— and sometimes an operator's rough north. Everything it produces at that point is in a
+**provisional** frame: the sensor's own, in metres. This is the path from there to a
+**registered** frame, offline, from public priors. It applies the registration baseline above; it
+does not replace it.
+
+The sources keep the roles the [reference data plan](spatial-priors-reference-data-plan.md) gives
+them. OSM and footprints are coarse discovery: search area, feature identity, candidate
+placement. Public aerial LiDAR from USGS 3DEP is surface matching. Neither is control. Only
+measured control and independent check points establish accuracy.
+
+| Stage             | Input                                                        | What it does                                                                                                                                                                                                                  | Output                                                              |
+| ----------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 0. Rough anchor   | Three-decimal fix                                            | S2 level 16 cell of the fix, read as that cell and its eight neighbours, which always contain the true position; level 13 and 10 by `Parent`                                                                                  | Where to look; which priors tile to fetch                           |
+| 1. Candidates     | OSM ways and nodes in the anchor cells                       | Lists the intersections the capture could be at, usually a handful, each with the bearings of its approaches                                                                                                                  | Placement hypotheses, none preferred                                |
+| 2. Coarse pose    | The capture's own persistent geometry and traffic            | Street bearings from the heading distribution of tracks; straight facade and kerb lines from the settled background. Matched to each candidate's way bearings and footprint edges for a heading and a position good to metres | One coarse pose per hypothesis, with its symmetries listed          |
+| 3. Surface match  | 3DEP points cropped around each coarse pose, with a halo     | Robust point-to-plane ICP of the settled background against ground and building surfaces, transients excluded, from every surviving hypothesis. Height comes from the ground match, in the prior's stated vertical datum      | A six-degree-of-freedom transform and its covariance per hypothesis |
+| 4. Accept or fail | Held-out surfaces, constraint rank, control where any exists | The acceptance rules above. Hypotheses that remain indistinguishable are reported as unresolved                                                                                                                               | `registered`, or `failed` with the reason                           |
+| 5. Record         | The accepted transform                                       | Published with its covariance, residuals, method, the priors release digest, and a new calibration identity                                                                                                                   | A registration record consumers can cite                            |
+
+What the capture contributes in stage 2 is the point of using a traffic sensor. Tracks run along
+carriageways, so their headings give the street bearings directly, and a four-way grid
+intersection gives them at right angles. That fixes heading up to the intersection's own
+symmetry: a square grid is ambiguous by quarter turns, and only the buildings, which are not
+symmetric, resolve it. A hypothesis whose symmetry cannot be broken fails. It is not guessed.
+
+The background used in stages 2 and 3 is the settled one, with returns the model has marked
+transient left out. A background that settled on queued vehicles will mislead the fit in exactly
+the cells where it is wrong, so the settle-quality evidence from the
+[background region overlay](lidar-background-region-overlay-plan.md) plan is an input to which
+cells take part.
+
+**Statuses.** `provisional` until stage 4 passes. `registered` after it, which implies stage 5
+has run too: recording is part of what "registered" means, not an optional step after it.
+`manually_placed` when
+an operator sets the pose by eye or by tie points, which is allowed, labelled as such, and never
+counts as verified coverage, even where it agrees with another manually placed capture.
+`failed` when no hypothesis is accepted. Nothing is promoted in place: a registered capture gets
+a new calibration identity, and products built on the provisional frame are rebuilt, not
+relabelled. The [occupancy column grid](lidar-occupancy-column-grid-plan.md) plan is the first
+consumer of this.
+
+**Where it is reviewed.** An operator checks and, where needed, sets a placement in the macOS
+visualiser, with the prior drawn over the capture in the sensor's frame: candidates, the accepted
+pose, residuals, and tie points for the manual path. That is part of working with a capture and
+follows the [review workflow](lidar-review-workflow-plan.md), in which the macOS tool is the one
+instrument. Curating the reference data itself is a different job, and stays as decided in the
+[bootstrap plan](sf-priors-bootstrap-plan.md).
+
+**What is needed, and what is not yet known.** Comparing two visits column by column needs them
+placed to within half a 0.5 m column: 0.25 m in position, and about 0.3 degrees in heading for
+returns at 50 m. Whether matching to public aerial LiDAR reaches that from a roadside viewpoint
+is unmeasured: an aerial survey sees roofs and ground well and walls poorly, and a roadside
+sensor sees the reverse. The overlap is mostly ground, kerbs and the lower edges of facades.
+Stage 4's held-out residuals on the first site are what settle it. Two captures registered to
+the same priors release share its errors, and may agree with each other better than either
+agrees with the Earth. That is a hypothesis for the experiment in section 16, not a result.
 
 ### Explainable persistent-world evidence
 

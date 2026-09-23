@@ -197,6 +197,11 @@ sensor coordinates and export alignment evidence. Preserve existing sensor-local
 until its world-frame integration is validated. Public upload is explicit; private PCAPs
 and traffic tracks remain local by default.
 
+This section decides where the **reference data** is curated. Placing one **capture** on that
+data is a different job, done by whoever is working with the capture, and is reviewed in the
+macOS visualiser: see
+[from a rough fix to a registered capture](spatial-priors-service-plan.md#from-a-rough-fix-to-a-registered-capture).
+
 ## 7. Pilot gates and next decisions
 
 | Gate              | Evidence required                                                                                                             |
