@@ -1,5 +1,8 @@
 # Experiment: route-regime speed accuracy against a fixed radar
 
+Compare moving-rig speed measurements with a fixed radar, retaining timing and pose uncertainty
+alongside the result. The comparison determines which observations are suitable for publication.
+
 - **Status:** Proposed
 - **Layers:** L5 Tracks, L7 Scene, L8 Analytics, radar
 - **Related plan:** [lidar-route-capture-plan.md](../../../docs/plans/lidar-route-capture-plan.md)
@@ -36,6 +39,9 @@ the trajectory's reported ego uncertainty rather than with vehicle speed.
 
 - Radar: the production OPS243 path and a site record with cosine correction.
 - LiDAR: the rig's PCAP bundle per pass, with IMU and GNSS streams where fitted.
+- Timing: qualify the [acquisition clock and delay model](../../../docs/lidar/architecture/portable-capture-timing.md)
+  independently, retain timing rejection counts, and validate the radar-to-LiDAR epoch used for
+  matching. Agreement after a freely fitted time shift is not proof of accurate acquisition time.
 - Config: `config/tuning.defaults.json` plus the route-regime parameters, recorded with each run.
 - Tooling: `velocity lidar pcap-split` for regime labelling; the odometry recipe from the priors
   experiment; analysis-mode replay with the file-backed pose provider.
@@ -64,6 +70,7 @@ the trajectory's reported ego uncertainty rather than with vehicle speed.
 
 - Matched-vehicle table per pass with both speeds, ego uncertainty, and distance.
 - Bias and scatter summary per rig, with plots against ego uncertainty and ego speed.
+- Timing uncertainty/state and accepted coverage per pass, including range and angular-motion bins.
 - Recommended ego-uncertainty gate and minimum sample size for band aggregates.
 
 ## Result

@@ -1,10 +1,15 @@
 # Route capture: cargo bike and backpack rigs, road-segment speeds (v0.6.x)
 
+This plan takes cargo-bike and backpack recordings through offline motion correction to
+road-segment speed measurements. Timing, pose, and measurement quality must pass explicit gates
+before publication.
+
 - **Status:** Draft
 - **Layers:** LiDAR pipeline (L1 sidecars, L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L7 Scene, L8 Analytics), `pcapsplit`, capture index, report, platform hardware
 - **Target:** v0.6.x; capture protocol, segment classification, and the road model belong with the scene capture workflow
 - **Companion plans:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is the tripod case the stop regime generalises; [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the motion classifier sweep; [spatial-priors-service-review](spatial-priors-service-review.md) owns route reconstruction and rig hardware findings; [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) is the 7DOF design this borrows ego-motion compensation from and leaves 3D orientation to; [lidar-l7-scene-plan](lidar-l7-scene-plan.md) owns road polygons and the scene graph; [speed-percentile-aggregation-alignment-plan](speed-percentile-aggregation-alignment-plan.md) owns the aggregate rules the segment outputs follow
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
+- **Timing design:** [portable-capture-timing.md](../lidar/architecture/portable-capture-timing.md) owns clock choices, acquisition semantics, component costs, and qualification
 
 ## Motivation
 
@@ -39,7 +44,7 @@ adds a live requirement to the Raspberry Pi.
 
 - **Background model.** `BackgroundGrid` in [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go) is a polar range image of 40 rings by 1800 azimuth bins with per-cell EMA, spread, freeze, and locked baseline. The [grid standards comparison](../lidar/architecture/lidar-background-grid-standards.md) chose it because it has no pose dependence, which is exactly the property a moving sensor breaks.
 - **Motion classifier.** `EvaluateSensorMotion` in [internal/lidar/l3grid/background_drift.go](../../internal/lidar/l3grid/background_drift.go) reads motion from a foreground fraction of 0.20 or a background drift ratio of 0.35. A motion-to-static transition needs 60 s of stability and a site needs ten static minutes. See [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md).
-- **Timing.** Every point carries an acquisition timestamp with firetime correction (`Point.Timestamp` in [internal/lidar/l2frames/types.go](../../internal/lidar/l2frames/types.go)), so intra-frame motion correction is possible without new hardware.
+- **Timing.** `Point.Timestamp` exists, but is not yet a validated acquisition time. The parser defaults to processing time; PCAP replay overrides all timestamp modes with arrival time; point-time calculation adds channel firetime but omits block offsets. Native packet time, epoch validity, block/return timing, and IMU clock mapping must be preserved and tested before deskew. The [timing audit](../lidar/architecture/portable-capture-timing.md#what-the-repository-does-today) records the code paths and implementation prerequisites.
 - **Pose.** The runtime has no pose representation. The `pose_id` columns in the [static pose alignment](../lidar/operations/static-pose-alignment.md) design are deferred, and the [reflective sign anchor proposal](../../data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md) defines a `FrameStabilitySignal` that nothing produces yet.
 - **Navigation sensors.** No IMU or GNSS position ingest exists. [gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md) proposes NMEA over UDP captured into the same PCAP, which is the pattern this plan reuses for the IMU.
 - **Aggregation.** Speeds aggregate by site over per-transit maximum speeds, with aggregate-only percentiles, per [percentile-aggregation-semantics.md](../radar/architecture/percentile-aggregation-semantics.md). There is no road segment, intersection, or distance-along-road dimension anywhere in the schema, the API, or the report.
@@ -92,8 +97,9 @@ sub-kinds, so the archive's existing motion segments become route segments witho
 ### Route regime pipeline
 
 ```text
-PCAP bundle: LiDAR, IMU, GNSS streams on one interface
-  -> L1 parses each stream; L2 frames keep per-point time
+PCAP bundle: raw LiDAR, IMU, GNSS, and clock evidence with session metadata
+  -> L1 separates arrival from acquisition time and validates clock mappings
+  -> L2 frames keep reconstructed per-point acquisition time and uncertainty
   -> offline odometry (priors tooling; LiDAR-only baseline, LiDAR-inertial when an IMU is present)
        produces one trajectory file per capture: pose, velocity, and quality per frame, plus deskew
   -> PoseProvider replays the trajectory into the sensing pipeline
@@ -111,8 +117,13 @@ Rules that hold throughout:
   uncertainty, and an observation whose ego uncertainty exceeds the gate never enters a speed
   aggregate. A tenet three rule, not a tuning choice.
 - **Deskew is mandatory in the route regime.** A 100 ms sweep at 5 m/s moves half a metre, which
-  smears every cluster in the frame. The odometry stage deskews with per-point timestamps, and an
-  IMU makes the correction exact through bumps and quick yaw.
+  smears every cluster in the frame. The odometry stage needs validated per-point acquisition time
+  and a trajectory evaluated at those times. A synchronised IMU can improve correction through
+  bumps and quick yaw; clock error, filtering, bias, extrinsics, and pose uncertainty remain.
+  Moving objects also have their own within-scan motion. Deskew is an estimate, not an exact fix.
+- **Timing has its own gate.** Use the [timing error budget](../lidar/architecture/portable-capture-timing.md#derive-the-timing-gate-from-motion)
+  to bound position and speed error from range, translation, and angular motion. Invalid epoch,
+  clock discontinuity, or excessive timing uncertainty excludes the affected observations.
 - **Odometry stays outside the sensing binary.** The priors review already chose that boundary:
   the workstation runs an established LiDAR or LiDAR-inertial odometry tool and the binary reads a
   trajectory file. It never gains a SLAM dependency.
@@ -128,14 +139,16 @@ Rules that hold throughout:
 One trajectory file per capture, produced offline and consumed by the `PoseProvider` interface the
 motion capture architecture plan already defines:
 
-| Field                     | Meaning                                                            |
-| ------------------------- | ------------------------------------------------------------------ |
-| Frame index and timestamp | Matches the L2 frame it applies to                                 |
-| Pose                      | Position and unit quaternion in the capture's local frame          |
-| Velocity                  | Linear and angular, for de-biasing and for the ego speed threshold |
-| Quality                   | Registration residual, inlier fraction, and a velocity uncertainty |
-| Placement                 | Optional transform from the local frame to WGS84, with its source  |
-| Provenance                | Odometry tool and version, parameters, IMU present or not          |
+| Field                     | Meaning                                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Frame index and timestamp | Matches the L2 frame it applies to                                                                                                       |
+| Pose                      | Position and unit quaternion in the capture's local frame                                                                                |
+| Velocity                  | Linear and angular, for de-biasing and for the ego speed threshold                                                                       |
+| Quality                   | Registration residual, inlier fraction, and a velocity uncertainty                                                                       |
+| Placement                 | Optional transform from the local frame to WGS84, with its source                                                                        |
+| Provenance                | Odometry tool and version, parameters, IMU present or not                                                                                |
+| Timing                    | Acquisition-time convention, clock/boot segment, time scale, mapping and delay-calibration version, uncertainty, and lock/holdover state |
+| Calibration               | IMU-to-LiDAR rotation and lever arm, uncertainty, and calibration identity, separate from timing and rotor phase                         |
 
 The local frame is the sensor's pose at the first frame. Placement comes from phone-grade GNSS
 snapped to the road graph, refined by registration against the priors where they exist. Without
@@ -177,6 +190,8 @@ Two ways to feed corrected points to the background model:
 - A frame whose residual, inlier fraction, or ego uncertainty fails the gate updates nothing: no
   background learning, no track observation, and tracks coast.
 - A speed observation is never emitted from an ungated frame.
+- Invalid acquisition-time mapping or timing error beyond the range/motion budget also fails the
+  gate. Keep rejection reasons and coverage by clock state.
 - Gate thresholds are tuning parameters and are swept in the motion-static tuning plan's harness.
 
 ### Road model
@@ -240,9 +255,11 @@ other way round.
 
 Both rigs:
 
-1. Start capture and hold still for ten seconds so the rig has a quiet start.
-2. Rotate the rig slowly through about 30° of yaw and back over ten seconds. This is the wiggle
-   the IMU time offset and mounting rotation are estimated from.
+1. Start capture, record device/clock status, and hold still for at least ten seconds to observe
+   IMU bias. Quiet time does not establish clock lock; wait for validated timing or mark fallback.
+2. In a safe area, make varied, gentle rotations and return to stillness. Repeat near the end.
+   These are alignment checks against the bench calibration. A slow yaw wiggle cannot determine
+   all mounting axes, lever arm, filter delay, and clock drift. Never perform this while riding.
 3. Cover the route. Stops need no announcement; the data detects them.
 4. Stop capture, note the route and the clock, and mark positions as the archive does today.
 
@@ -265,36 +282,49 @@ Bike additions:
 
 ### The PCAP bundle
 
-One capture is one set of PCAP files, as today, with the five-minute rotation kept. Extra sensors
-join the same capture as UDP streams on the LiDAR interface:
+One capture is a PCAP bundle with five-minute rotation and a versioned session manifest. Extra
+sensors join as typed UDP sidecars. Verify the capture interface sees locally generated packets;
+loopback delivery must not leave an apparently complete bundle missing its IMU stream.
 
-| Stream | Packet source                                                                    | Port           | Parsed where                              |
-| ------ | -------------------------------------------------------------------------------- | -------------- | ----------------------------------------- |
-| LiDAR  | Pandar40P                                                                        | 2368           | L1, as today                              |
-| IMU    | Daemon on the Pi reading the unit over I2C or serial, stamping with the Pi clock | one fixed port | L1 sidecar, like the proposed NMEA stream |
-| GNSS   | Phone or USB receiver, NMEA over UDP                                             | 10110          | The GPS-over-Ethernet proposal            |
+| Stream | Packet source                                                                     | Port                        | Parsed where                                                    |
+| ------ | --------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------- |
+| LiDAR  | Pandar40P                                                                         | 2368                        | L1, as today                                                    |
+| IMU    | MCU records data-ready edges, raw SPI samples/FIFO times, and sequence; Pi relays | reserved typed sidecar port | Proposed L1 sidecar                                             |
+| GNSS   | PPS receiver with raw time/validity messages; phone positioning remains optional  | 10110 or typed sidecar      | GPS proposal, distinguishing plain NMEA from Hesai GPS payloads |
+| Timing | MCU clock pairs, reset/loss events, configuration, and quality evidence           | typed sidecar               | Proposed offline clock reconstruction                           |
 
-The Pi clock stamps the PCAP arrival of LiDAR packets, the IMU samples, and the NMEA sentences, so
-all three share one time base without PPS wiring. The sensor's internal per-point timestamps are
-used for deskew within a frame. Millisecond jitter on the shared clock is a fraction of a bin at
-the rotation rates either rig produces.
+Arrival on one Pi does not mean simultaneous acquisition. Keep arrival times for transport
+diagnostics and retain each source clock. The preferred design shares GNSS PPS and associated
+serial seconds between the Pandar40P and an MCU that timestamps IMU data-ready edges. USB, FIFO,
+serial, and network delivery times cannot substitute for those events. Native LiDAR timestamps
+also need block/return reconstruction and epoch validation before deskew.
+
+The [timing design][portable-timing] compares GNSS PPS, a conditional
+GNSS-free local clock, Ethernet PTP, and measured arrival/offline alignment. A 1 ms mismatch at
+50 m during a 180°/s backpack turn can contribute about 16 cm of geometric error. Its proposed
+100 µs prototype target is not measured performance and does not pass every cargo-bike regime.
 
 ### Hardware
 
 The sensor selection rule: at least 100 m range at 10% reflectivity, 360° horizontal coverage from
 a multi-ring spinning unit, Ethernet UDP output, and a built-in IMU as a plus. The budget rule:
 LiDAR plus IMU under US $500 in total, which means a used LiDAR at or under about US $450 and an
-IMU under US $50. The Livox Mid-360 class is excluded by range. The
+IMU under US $50. This is an aspiration for those two parts, not a complete rig budget. The
+timing/IMU prototype adds about US $120–145 including GNSS, antenna, MCU, IMU, level conversion,
+cabling, protection, and power conversion, separately from the owned LiDAR, Pi, and battery.
+A $450 LiDAR plus that kit exceeds a hard $500 complete-kit limit. No purchase is authorised.
+See the [dated BOM and estimates][timing-costs].
+The Livox Mid-360 class is excluded by range. The
 [LiDAR market watch](../platform/hardware/lidar-market-watch.md) tracks both rules weekly.
 
-| Part          | Choice                                                                                       | Why                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| LiDAR         | Used Hesai Pandar40P                                                                         | The only unit in the first snapshot meeting both rules; it is also what the pipeline already parses |
-| IMU           | Six-axis MEMS breakout, chosen by noise density and bias stability, logged at 200 Hz or more | The priors review's guidance; magnetometers are useless next to the sensor and passing cars         |
-| GNSS          | The operator's phone, or a USB receiver, as NMEA over UDP                                    | Needed to place a route trajectory on the road graph; phone grade is enough                         |
-| Power         | 12 V pack sized for the sensor's roughly 18 W plus the Pi                                    | The sensor dominates; the computer choice barely moves the budget                                   |
-| Field compute | Raspberry Pi 4 as a recorder                                                                 | Record-then-process; a live stability meter needs the Pi baseline first                             |
-| Desk compute  | Any laptop; a Mac mini is a desk option                                                      | Odometry and analysis run here; no accelerator has a role                                           |
+| Part          | Choice                                                                                                     | Why                                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| LiDAR         | Used Hesai Pandar40P                                                                                       | The only unit in the first snapshot meeting both rules; it is also what the pipeline already parses                           |
+| IMU           | Candidate Adafruit LSM6DSOX #4438, raw SPI and data-ready captured by Pico; start at 416 Hz                | Under $50 board cost; bias, vibration, filtering, and timing need qualification                                               |
+| GNSS          | Candidate SparkFun MAX-M10S GPS-18037 with antenna, PPS, and serial time; phone remains a placement source | Positioning and clock synchronisation are separate capabilities; USB/NMEA alone is not the timing baseline                    |
+| Power         | Owned pack, voltage verified at full charge; separate regulated add-on branch                              | Sensor is roughly 18 W before accessories; measure Pi, storage, box, converter losses, and add-on; reserve 1 W for timing kit |
+| Field compute | Raspberry Pi 4 as a recorder                                                                               | Record-then-process; a live stability meter needs the Pi baseline first                                                       |
+| Desk compute  | Any laptop; a Mac mini is a desk option                                                                    | Odometry and analysis run here; no accelerator has a role                                                                     |
 
 Units that fail the range rule on the vendors' own figures, so nobody re-checks them: Hesai XT32
 and XT16, the standard Ouster OS1, RoboSense Airy, and the Velodyne VLP-16, which states no 10%
@@ -323,7 +353,8 @@ are usable by it.
 
 1. Add the protocol above to the getting-started guide and a one-page field checklist per rig.
 2. Extend the archive's map marks and site index with `capture_mode`, route files, and `tilt_deg`.
-3. Reserve the IMU UDP port and document the tcpdump filter that captures all three streams.
+3. Reserve typed sidecar ports, document capture filters/interfaces, and verify all streams and
+   clock/configuration records survive five-minute rotation and independent replay.
 4. Record the mount, plate, and detent geometry for each rig, with measured reference marks.
 
 **Milestone:** v0.6.x
@@ -369,8 +400,9 @@ and the `PoseProvider` that replays a trajectory into the pipeline.
 
 1. Fix the trajectory schema above and its provenance fields.
 2. Script the odometry recipe: LiDAR-only baseline for existing captures, LiDAR-inertial once IMU
-   streams exist; deskew with per-point timestamps.
-3. Implement the file-backed `PoseProvider` with interpolation at frame time.
+   streams and validated timing exist; reconstruct native packet/block/channel acquisition times.
+3. Implement the file-backed `PoseProvider` with interpolation at point times for deskew and at
+   frame time for frame-level consumers; reject invalid clock segments.
 4. Ego speed threshold and regime labelling in `pcap-split` from the trajectory.
 
 **Milestone:** v0.6.x
@@ -420,19 +452,26 @@ projection of observations; band aggregates; the speed-by-distance report chart.
 
 **Milestone:** v0.6.x
 
-### Item 8: IMU and GNSS capture with automatic calibration
+### Item 8: IMU capture, shared timing, and separate calibration
 
-**Summary:** A Pi daemon that broadcasts IMU samples as UDP, NMEA relay from a phone or receiver,
-L1 sidecar parsers, and calibration from the start wiggle. Required for the bike; for backpack
-stops, gated on Item 2 showing that LiDAR-only stabilisation loses frames it should keep.
+**Summary:** Implement and qualify the [portable timing design](../lidar/architecture/portable-capture-timing.md):
+MCU acquisition logging, shared PPS/epoch, typed sidecars, offline clock reconstruction, and
+separate delay/extrinsic calibration. Required for the proposed bike inertial path; for backpack
+stops, Item 2 decides whether inertial processing earns its cost. Neither rig gains trustworthy
+deskew merely by attaching an IMU.
 
 **Steps:**
 
-1. Choose a six-axis unit by noise and bias figures, per the priors review, not by rate alone.
-2. Daemon, packet formats, and replay parsers; the PCAP remains the single artefact.
-3. Mounting rotation from gravity against the LiDAR ground normal; time offset from yaw-rate
-   cross-correlation over the wiggle.
-4. Use the IMU in odometry and deskew; measure the gain against the LiDAR-only baseline.
+1. Verify actual Pandar40P model/firmware, connection box, levels, GNSS/IMU revisions, and battery
+   power path. Build the costed PPS/MCU prototype; measure noise, bias, filter delay, and power.
+2. Add raw IMU, clock, and configuration sidecars plus session manifest. Retain arrival and native
+   acquisition evidence independently; fix replay precedence and block/return timing for this path.
+3. Map MCU/IMU clocks, label UTC versus session epoch, and segment on reset/loss/reacquisition.
+   Validate GNSS-free and arrival-based fallbacks separately; no silent source substitution.
+4. Calibrate rigid rotation and lever arm with multi-axis excitation; gravity constrains tilt,
+   not yaw or translation. Assess residual timing on held-out motion, not the calibration wiggle.
+5. Run the backpack experiment's timing phase, including known edges, loss, injected errors, and
+   power measurements. Gate by measured uncertainty and compare against LiDAR-only processing.
 
 **Milestone:** v0.6.x
 
@@ -490,19 +529,21 @@ segment aggregate is published.
 
 ## Risks
 
-| Risk                                                                      | Likelihood | Impact | Mitigation                                                                                     |
-| ------------------------------------------------------------------------- | ---------- | ------ | ---------------------------------------------------------------------------------------------- |
-| Ego velocity bias from odometry shifts every speed on a segment           | Medium     | High   | Item 11 measures it against the radar before anything is published; gate on ego uncertainty    |
-| Bike vibration breaks registration between frames                         | Medium     | High   | IMU required for the bike; rigid plate; the car drives show the ceiling before the bike exists |
-| Map matching picks the wrong segment at complex junctions                 | Medium     | Medium | Presence minutes and lateral offset flag ambiguous placements; hand corrections in GeoJSON     |
-| OSM lacks crosswalks where the rule needs them                            | High       | Medium | Stop-line fallback; corrections published through the priors service                           |
-| Few vehicles per segment from a moving rig                                | High       | Medium | Minimum sample rule; counts always shown; backpack stops where the junction matters            |
-| Sway pitch exceeds what re-rendering tolerates and option A aliases badly | Medium     | Medium | Item 2 measures it first; option B exists anyway for the route regime                          |
-| Too few planar anchors at some corners, so LiDAR-only registration drifts | Medium     | Medium | Gate and report; IMU prior; treat as a site-suitability finding                                |
-| The wearer or frame occludes the approach that matters                    | Medium     | Low    | Mast above head height; the mask reports its sector so the operator can turn                   |
-| Used Pandar40P supply dries up or prices rise past the budget             | Medium     | Medium | Market watch tracks the older 100 m units; the parser is pluggable per the sensor catalog plan |
-| Survey walk output never reaches a priors product                         | Medium     | Medium | Item 7 exports a format the priors experiment already plans to ingest                          |
-| Market watch drifts into unverified prices                                | Medium     | Low    | Entries carry URLs and dates; "not stated" is a valid value                                    |
+| Risk                                                                      | Likelihood | Impact | Mitigation                                                                                                         |
+| ------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| Ego velocity bias from odometry shifts every speed on a segment           | Medium     | High   | Item 11 measures it against the radar before anything is published; gate on ego uncertainty                        |
+| Arrival time, wrong second association, or IMU filtering corrupts deskew  | High       | High   | Item 8 validates effective acquisition times, block timing, and epoch; timing uncertainty gates speed observations |
+| GNSS loss, clock reset, or reacquisition produces a plausible time jump   | Medium     | High   | Preserve raw clocks and quality transitions; bound holdover and begin new clock segments                           |
+| Bike vibration breaks registration between frames                         | Medium     | High   | IMU required for the bike; rigid plate; the car drives show the ceiling before the bike exists                     |
+| Map matching picks the wrong segment at complex junctions                 | Medium     | Medium | Presence minutes and lateral offset flag ambiguous placements; hand corrections in GeoJSON                         |
+| OSM lacks crosswalks where the rule needs them                            | High       | Medium | Stop-line fallback; corrections published through the priors service                                               |
+| Few vehicles per segment from a moving rig                                | High       | Medium | Minimum sample rule; counts always shown; backpack stops where the junction matters                                |
+| Sway pitch exceeds what re-rendering tolerates and option A aliases badly | Medium     | Medium | Item 2 measures it first; option B exists anyway for the route regime                                              |
+| Too few planar anchors at some corners, so LiDAR-only registration drifts | Medium     | Medium | Gate and report; IMU prior; treat as a site-suitability finding                                                    |
+| The wearer or frame occludes the approach that matters                    | Medium     | Low    | Mast above head height; the mask reports its sector so the operator can turn                                       |
+| Used Pandar40P supply dries up or prices rise past the budget             | Medium     | Medium | Market watch tracks the older 100 m units; the parser is pluggable per the sensor catalog plan                     |
+| Survey walk output never reaches a priors product                         | Medium     | Medium | Item 7 exports a format the priors experiment already plans to ingest                                              |
+| Market watch drifts into unverified prices                                | Medium     | Low    | Entries carry URLs and dates; "not stated" is a valid value                                                        |
 
 ## Checklist
 
@@ -520,7 +561,7 @@ segment aggregate is published.
 - [ ] Item 5: world-anchored foreground engine and world-frame tracking (`L`)
 - [ ] Item 6: road model, projection, band aggregates, report chart (`L`)
 - [ ] Item 7: survey segment detection, export, submap registration (`M`)
-- [ ] Item 8: IMU and GNSS daemons, sidecar parsers, automatic calibration (`M`)
+- [ ] Item 8: shared timing prototype, native point-time/replay prerequisites, sidecars, clock-quality gate, delay/extrinsic calibration, and bench/field qualification (`L`)
 - [ ] Item 9: market watch upkeep (`S`)
 - [ ] Item 10: Raspberry Pi perf baseline (`S`)
 - [ ] Item 11: validation against the fixed radar (`M`)
@@ -535,3 +576,6 @@ segment aggregate is published.
 
 - [ ] RTK positioning: placement comes from phone-grade GNSS snapped to the road graph and refined against the priors.
 - [ ] Odometry inside the sensing binary: the trajectory file is the boundary, per the priors plan.
+
+[portable-timing]: ../lidar/architecture/portable-capture-timing.md
+[timing-costs]: ../lidar/architecture/portable-capture-timing.md#cost-power-and-work
