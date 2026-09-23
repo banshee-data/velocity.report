@@ -484,16 +484,35 @@ enum AnnotationGuard: Equatable {
         return object
     }
 
-    /// Makes another object the one under edit, loading its saved mask.
-    /// Refused while the current one has unsaved changes.
+    /// Makes another object the one under edit, loading its saved mask, and
+    /// goes to the first frame it is labelled in.
+    ///
+    /// Refused while the current one has unsaved changes. The seek is the same
+    /// one picking a proposal does, and for the same reason: choosing an
+    /// object out of the list is asking to be shown it, and working through it
+    /// means starting where it appears rather than wherever the last one left
+    /// the frame.
     @discardableResult func activate(objectID: String) -> AnnotationGuard? {
         if let blocker = navigationGuard() { return blocker }
         activeObjectID = objectID
         secondViewChecked = false
         carried = nil
         carriedIndices = []
-        loadSelectionForCurrentSample()
+        if let first = firstLabelledFrame(objectID: objectID), first != sampleIndex {
+            // The guard above has already passed, so this cannot be refused
+            // for unsaved changes; it loads the frame's mask on the way.
+            _ = step(to: first)
+        } else {
+            loadSelectionForCurrentSample()
+        }
         return nil
+    }
+
+    /// Where in the pack's frame order this object is first labelled.
+    func firstLabelledFrame(objectID: String) -> Int? {
+        let sampleIDs = Set(sidecar.masks.filter { $0.objectID == objectID }.map(\.sampleID))
+        guard !sampleIDs.isEmpty else { return nil }
+        return orderedSamples.indices.first { sampleIDs.contains(orderedSamples[$0].sampleID) }
     }
 
     var activeObject: AnnotationObject? {
@@ -1713,6 +1732,76 @@ enum AnnotationGuard: Equatable {
         loadSelectionForCurrentSample()
         refreshFrameProgress()
         return written
+    }
+
+    /// Merges one object into another: every frame `otherID` is labelled in
+    /// becomes a frame of `targetID`, and `otherID` is gone.
+    ///
+    /// This is the undo for a split that should not have happened, and the
+    /// repair for a chain that came back as two objects because it went behind
+    /// a bus. Where both objects have the same frame the returns are unioned,
+    /// because two masks over one thing are two accounts of the same returns
+    /// and the union is what the thing actually covered.
+    ///
+    /// A merged frame goes back to proposed even where both sides were
+    /// reviewed: what was checked was two objects, and nobody has yet looked
+    /// at the one. Returns how many frames the target ended up with.
+    @discardableResult func mergeObject(_ otherID: String, into targetID: String) -> Int? {
+        lastError = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter your name under Labelled by before merging: a label has an author.")
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before merging.")
+        }
+        guard otherID != targetID else { return fail("An object cannot be merged into itself.") }
+        guard sidecar.objects.contains(where: { $0.objectID == targetID }),
+            sidecar.objects.contains(where: { $0.objectID == otherID })
+        else { return nil }
+
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "merge_object")
+
+        let moving = sidecar.masks.filter { $0.objectID == otherID }
+        guard !moving.isEmpty else { return fail("That object has no frames to merge.") }
+        for mask in moving {
+            var merged = FrameMask(objectID: targetID, sampleID: mask.sampleID)
+            if let existing = edited.sidecar.mask(objectID: targetID, sampleID: mask.sampleID) {
+                merged = existing
+                merged.pointIndices = Array(Set(existing.pointIndices).union(mask.pointIndices))
+                    .sorted()
+            } else {
+                merged.pointIndices = mask.pointIndices
+                merged.visibility = mask.visibility
+                merged.completeness = mask.completeness
+            }
+            merged.status = .proposed
+            merged.provenance = change
+            edited.sidecar.upsert(mask: merged)
+        }
+        edited.sidecar.masks.removeAll { $0.objectID == otherID }
+        edited.sidecar.objects.removeAll { $0.objectID == otherID }
+
+        do {
+            document = try store.save(edited, change: change)
+            sidecar = document.sidecar
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+
+        if activeObjectID == otherID { activeObjectID = targetID }
+        secondViewChecked = false
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return sidecar.masks.filter { $0.objectID == targetID }.count
     }
 
     /// Makes one of the three orthographic views the one that takes strokes.

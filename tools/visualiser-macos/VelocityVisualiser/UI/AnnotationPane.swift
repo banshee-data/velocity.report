@@ -505,6 +505,27 @@ struct AnnotationPane: View {
             }
             session.secondViewChecked = false
             applyResult = nil
+        }.contextMenu {
+            // Merging is the repair for a chain that came back as two objects
+            // because it went behind a bus, and the undo for a split that
+            // should not have happened. On the row rather than in the toolbar
+            // because it needs two objects named, and this row is one of them.
+            if let active = session.activeObjectID, active != object.objectID,
+                let target = session.activeObject
+            {
+                Button(
+                    "Merge \(session.displayName(objectID: object.objectID)) into "
+                        + session.displayName(objectID: target.objectID)
+                ) {
+                    if let frames = session.mergeObject(object.objectID, into: target.objectID) {
+                        applyResult =
+                            "Merged into \(session.displayName(objectID: target.objectID)): "
+                            + "\(frames) frames, back in question until reviewed."
+                    }
+                }
+            } else {
+                Text("Pick another object to merge this one into")
+            }
         }
     }
 

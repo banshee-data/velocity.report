@@ -290,6 +290,97 @@ struct ProposalGradingTests {
         #expect(session.sampleIndex == car.firstFrame)
     }
 
+    /// Same reason as a proposal: choosing an object out of the list is asking
+    /// to be shown it, and working through it means starting where it appears.
+    @Test func activatingAnObjectGoesToItsFirstLabelledFrame() async throws {
+        let (session, dir) = try street(12)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        // Only part of it, so the object starts somewhere other than frame 0.
+        #expect(session.acceptProposal(car.id, objectClass: "car", frames: 4...9) == 6)
+        let object = try #require(session.sidecar.objects.first)
+        let first = try #require(session.firstLabelledFrame(objectID: object.objectID))
+        #expect(first == 4)
+
+        #expect(session.step(to: 11) == nil)
+        #expect(session.activate(objectID: object.objectID) == nil)
+
+        #expect(session.sampleIndex == first)
+        // And its mask for that frame is loaded, not the frame it came from.
+        #expect(!session.savedSelection.isEmpty)
+    }
+
+    /// The repair for a chain that came back as two objects because it went
+    /// behind a bus, and the undo for a split that should not have happened.
+    @Test func mergingAnObjectTakesItsFramesAndRemovesIt() async throws {
+        let (session, dir) = try street(12)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+
+        // One chain accepted as two objects, the way a broken chain arrives.
+        #expect(session.acceptProposal(car.id, objectClass: "car", frames: 0...5) == 6)
+        let first = try #require(session.activeObjectID)
+        let rest = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(rest.id, objectClass: "car") != nil)
+        let second = try #require(session.activeObjectID)
+        #expect(first != second)
+        let framesOfEach =
+            session.savedSampleCount(objectID: first) + session.savedSampleCount(objectID: second)
+
+        #expect(session.mergeObject(second, into: first) == framesOfEach)
+
+        #expect(session.sidecar.objects.map(\.objectID) == [first])
+        #expect(session.sidecar.masks.allSatisfy { $0.objectID == first })
+        #expect(session.savedSampleCount(objectID: first) == framesOfEach)
+        // The object under edit followed the merge rather than vanishing.
+        #expect(session.activeObjectID == first)
+    }
+
+    /// Two masks over one thing are two accounts of the same returns, so the
+    /// union is what the thing actually covered.
+    @Test func mergingUnionsAFrameBothObjectsHave() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
+        let target = try #require(session.activeObjectID)
+        let patch = try #require(session.proposals.first { $0.kind == .fixed })
+        #expect(session.acceptProposal(patch.id, objectClass: "ground") == 8)
+        let other = try #require(session.activeObjectID)
+
+        let sampleID = session.samples[0].sampleID
+        let before = Set(
+            (session.sidecar.mask(objectID: target, sampleID: sampleID)?.pointIndices ?? [])
+                + (session.sidecar.mask(objectID: other, sampleID: sampleID)?.pointIndices ?? []))
+        #expect(before.count > 0)
+
+        #expect(session.mergeObject(other, into: target) != nil)
+
+        let merged = try #require(session.sidecar.mask(objectID: target, sampleID: sampleID))
+        #expect(Set(merged.pointIndices) == before)
+        #expect(merged.pointIndices == merged.pointIndices.sorted(), "indices left unsorted")
+        // What was checked was two objects; nobody has looked at the one.
+        #expect(merged.status == .proposed)
+    }
+
+    @Test func mergingRefusesTheCasesThatWouldLoseWork() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
+        let object = try #require(session.activeObjectID)
+
+        #expect(session.mergeObject(object, into: object) == nil)
+        #expect(session.mergeObject("obj_nosuch", into: object) == nil)
+        #expect(session.mergeObject(object, into: "obj_nosuch") == nil)
+        // Nothing was written by any of them.
+        #expect(session.savedSampleCount(objectID: object) == 8)
+    }
+
     @Test func fixedClutterIsOneProposalCoveringEveryFrame() async throws {
         let (session, dir) = try street()
         defer { try? FileManager.default.removeItem(at: dir) }
