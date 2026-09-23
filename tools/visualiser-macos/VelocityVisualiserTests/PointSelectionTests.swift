@@ -123,6 +123,63 @@ struct OrthoViewBasisTests {
         #expect(OrthoViewBasis(.farSide).shows(simd_float3(0, 3, 1)))
     }
 
+    /// The whole point of turning the views: a lattice turned to follow the
+    /// kerbs has to land square on screen, or the grid is drawn skewed over a
+    /// scene that is not.
+    @Test func aTurnedTopViewPutsATurnedLatticeSquareOnScreen() {
+        let azimuth: Float = 37
+        let basis = OrthoViewBasis(.top, azimuthDeg: azimuth)
+        let lattice = Lattice(pitch: 0.5, azimuthDeg: azimuth)
+
+        for cell in [SIMD2<Int32>(0, 0), SIMD2(3, -7), SIMD2(-2, 5)] {
+            let centre = lattice.centre(ofCell: cell)
+            let world = simd_float3(centre.x, centre.y, 0)
+            let view = basis.project(world)
+            // In the turned view the cell's centre sits at its own lattice
+            // coordinates: the view plane and the lattice are the same frame.
+            #expect(abs(view.x - (Float(cell.x) + 0.5) * 0.5) < 1e-4, "cell \(cell)")
+            #expect(abs(view.y - (Float(cell.y) + 0.5) * 0.5) < 1e-4, "cell \(cell)")
+        }
+    }
+
+    /// Turning must not stretch anything: the basis stays orthonormal and the
+    /// same handedness, or a selection made in it is made against a distortion.
+    @Test func aTurnedBasisIsStillOrthonormalAndRightHanded() {
+        for azimuth in [Float(0), 17, 90, 181, 359] {
+            for standard in OrthoViewBasis.Standard.allCases {
+                let basis = OrthoViewBasis(standard, azimuthDeg: azimuth)
+                #expect(abs(simd_length(basis.right) - 1) < 1e-5)
+                #expect(abs(simd_length(basis.up) - 1) < 1e-5)
+                #expect(abs(simd_dot(basis.right, basis.up)) < 1e-5)
+                #expect(
+                    simd_length(simd_cross(basis.right, basis.up) + basis.forward) < 1e-5,
+                    "\(standard) at \(azimuth) is mirrored")
+            }
+        }
+    }
+
+    /// The elevations' cuts turn with the street, so the four sectors follow
+    /// the kerbs rather than however the tripod faced.
+    @Test func turningTheViewsTurnsWhereTheElevationsCut() {
+        let plain = OrthoViewBasis(.front)
+        let turned = OrthoViewBasis(.front, azimuthDeg: 90)
+        // A point straight ahead of the untouched front view is, after a
+        // quarter turn, exactly on that view's dividing plane.
+        let ahead = simd_float3(0, 10, 0)
+        #expect(plain.depth(ahead) > 0)
+        #expect(abs(turned.depth(ahead)) < 1e-4)
+        // The turn takes the look direction from +Y round to -X, so what was
+        // on the plane to its left is now what it faces.
+        #expect(turned.depth(simd_float3(-10, 0, 0)) > 0)
+        #expect(turned.depth(simd_float3(10, 0, 0)) < 0)
+    }
+
+    @Test func anUnturnedBasisIsUnchanged() {
+        for standard in OrthoViewBasis.Standard.allCases {
+            #expect(OrthoViewBasis(standard) == OrthoViewBasis(standard, azimuthDeg: 0))
+        }
+    }
+
     @Test func secondViewIsAlwaysADifferentAxis() {
         // The confirming view has to actually show a different angle, or the
         // second-view check verifies nothing.

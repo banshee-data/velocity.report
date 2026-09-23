@@ -87,8 +87,25 @@ struct OrthoViewBasis: Equatable {
         self.origin = origin
     }
 
-    init(_ standard: Standard, origin: simd_float3 = .zero) {
+    /// A standard view, optionally turned about the vertical.
+    ///
+    /// `azimuthDeg` is the scene's grid angle, and turning the views by the
+    /// same angle as the column lattice is what makes the lattice appear
+    /// square on screen: the top view's axes become the lattice's axes, and
+    /// the four elevations cut along the street rather than along whichever
+    /// way the tripod faced.
+    init(_ standard: Standard, origin: simd_float3 = .zero, azimuthDeg: Float = 0) {
         self.init(standard: standard, origin: origin)
+        guard azimuthDeg != 0 else { return }
+        let radians = azimuthDeg * .pi / 180
+        let cosA = cos(radians)
+        let sinA = sin(radians)
+        func turn(_ v: simd_float3) -> simd_float3 {
+            simd_float3(v.x * cosA - v.y * sinA, v.x * sinA + v.y * cosA, v.z)
+        }
+        right = turn(right)
+        up = turn(up)
+        forward = turn(forward)
     }
 
     private init(standard: Standard, origin: simd_float3) {

@@ -434,7 +434,7 @@ struct AnnotationViewportView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let basis = OrthoViewBasis(standard)
+            let basis = session.basis(standard)
             // The session's framing, not one measured from this sample: see
             // AnnotationViewState.swift.
             let viewport = session.viewport(for: standard, size: geometry.size)

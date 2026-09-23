@@ -376,6 +376,11 @@ enum AnnotationGuard: Equatable {
             storedGridAzimuthDeg = turned
             columnGrid.azimuthDeg = turned
             defaults?.set(Double(turned), forKey: gridAzimuthKey)
+            // Every view is in a different frame now, so the framing kept from
+            // before means nothing: a centre held in the old view plane would
+            // put the operator somewhere arbitrary. Re-frame instead.
+            sceneRevision &+= 1
+            fitViews(to: .sample)
         }
     }
 
@@ -507,6 +512,17 @@ enum AnnotationGuard: Equatable {
         }
         return nil
     }
+
+    /// A view's basis, turned by the scene's grid angle so that the views and
+    /// the column lattice agree about which way the street runs. Every caller
+    /// goes through here; constructing a bare OrthoViewBasis would give a view
+    /// that disagreed with the brush painting into it.
+    func basis(_ standard: OrthoViewBasis.Standard) -> OrthoViewBasis {
+        OrthoViewBasis(standard, azimuthDeg: gridAzimuthDeg)
+    }
+
+    /// The basis of the view that takes strokes.
+    var editingBasis: OrthoViewBasis { basis(viewStandard) }
 
     /// Where in the pack's frame order this object is first labelled.
     func firstLabelledFrame(objectID: String) -> Int? {
@@ -702,7 +718,7 @@ enum AnnotationGuard: Equatable {
     /// Evaluates a gesture without applying it, so the candidate count can be
     /// shown before acceptance.
     @discardableResult func previewSelection(polygon: SelectionPolygon) -> SelectionCandidates {
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         let candidates = visibleOnly(
             PointSelectionEngine.candidates(
                 points: currentPoints, basis: basis, polygon: polygon, slab: slab))
@@ -739,8 +755,7 @@ enum AnnotationGuard: Equatable {
     private func sphereCandidates(_ sphere: SelectionSphere) -> SelectionCandidates {
         visibleOnly(
             PointSelectionEngine.candidates(
-                points: currentPoints, sphere: sphere, basis: OrthoViewBasis(viewStandard),
-                slab: slab))
+                points: currentPoints, sphere: sphere, basis: editingBasis, slab: slab))
     }
 
     /// The sphere the brush marks with at a position in the editing view.
@@ -751,7 +766,7 @@ enum AnnotationGuard: Equatable {
     /// had, so that crossing a gap does not drop it to the ground. The
     /// operator moves it off that depth with `adjustBrushDepth`.
     func brushSphere(atViewPoint viewPoint: simd_float2, pickDistance: Float) -> SelectionSphere {
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         let reach = max(pickDistance, sphereRadius)
         if let index = nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: reach),
             let p = currentPoints.point(at: index)
@@ -782,7 +797,7 @@ enum AnnotationGuard: Equatable {
     func adjustBrushDepth(steps: Int) {
         hover.setDepthOffset(((hover.depthOffset + Float(steps) * 0.1) * 10).rounded() / 10)
         if let sphere = hover.sphere {
-            let basis = OrthoViewBasis(viewStandard)
+            let basis = editingBasis
             let moved = SelectionSphere(
                 centre: sphere.centre + basis.forward * Float(steps) * 0.1, radius: sphere.radius)
             hover.show(moved, indices: sphereCandidates(moved).indices)
@@ -796,7 +811,7 @@ enum AnnotationGuard: Equatable {
         let candidates = visibleOnly(
             PointSelectionEngine.candidates(
                 points: currentPoints, cells: cells, grid: columnGrid, enabledVoxels: enabledVoxels,
-                basis: OrthoViewBasis(viewStandard), slab: slab))
+                basis: editingBasis, slab: slab))
         pendingCells = cells
         pendingCandidates = candidates
         return candidates
@@ -806,8 +821,8 @@ enum AnnotationGuard: Equatable {
     /// where a sphere is centred. `maxViewDistance` is in metres.
     func nearestPointIndex(toViewPoint viewPoint: simd_float2, maxViewDistance: Float) -> Int? {
         PointSelectionEngine.nearestPoint(
-            points: currentPoints, basis: OrthoViewBasis(viewStandard), viewPoint: viewPoint,
-            slab: slab, maxViewDistance: maxViewDistance, where: isVisible)
+            points: currentPoints, basis: editingBasis, viewPoint: viewPoint, slab: slab,
+            maxViewDistance: maxViewDistance, where: isVisible)
     }
 
     /// The class filter in force, or nil when every class is on.
@@ -945,7 +960,7 @@ enum AnnotationGuard: Equatable {
             slab = nil
             return
         }
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         var lo = Float.greatestFiniteMagnitude
         var hi = -Float.greatestFiniteMagnitude
         for i in 0..<currentPoints.count {
@@ -1035,7 +1050,7 @@ enum AnnotationGuard: Equatable {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
         for standard in OrthoViewBasis.Standard.allCases {
             extents[standard] = annotationExtent(
-                of: currentPoints, basis: OrthoViewBasis(standard), trim: trim, where: include)
+                of: currentPoints, basis: basis(standard), trim: trim, where: include)
         }
         // An elevation shows one half of the scene, so a selection entirely
         // behind it frames nothing and simply has no extent. Only the plan
@@ -1190,7 +1205,7 @@ enum AnnotationGuard: Equatable {
     /// `right` and `up` as the operator sees them, in metres.
     func nudgeCarried(right: Float, up: Float) {
         guard var moved = carried else { return }
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         moved.offset += basis.right * right + basis.up * up
         carried = moved
         refreshCarriedIndices()

@@ -47,7 +47,7 @@ struct LassoOverlay: View {
     @State private var paintedCells: Set<ColumnCell> = []
     @State private var strokeNote: String?
 
-    private var basis: OrthoViewBasis { OrthoViewBasis(basisStandard) }
+    private var basis: OrthoViewBasis { session.basis(basisStandard) }
 
     /// Metres on the view plane per point on screen.
     private var metresPerPoint: Float {
