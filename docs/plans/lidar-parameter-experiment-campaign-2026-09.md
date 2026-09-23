@@ -75,8 +75,8 @@ avoid needing an operator to launch each subsequent batch by hand,
 a small supervisor that reuses the exact scripts above rather than a new
 framework:
 
-- **`manifest.json`** — the ordered stage graph (wait → analyze → narrowed
-  sweep → replicate sweep → analyze consistency → L5 GT sweep → interaction
+- **`manifest.json`** — the ordered stage graph (wait → analyse → narrowed
+  sweep → replicate sweep → analyse consistency → L5 GT sweep → interaction
   grid → finalize), each with a `status`, `depends_on`, and `params`. This is
   the "future-work manifest": `supervisor.py` rereads it fresh at the start
   of every pass, so any still-`pending` stage's params can be edited between
@@ -181,7 +181,7 @@ Pass 2 ran to completion (7/7 stages `done`). Reviewing its evidence found:
   together, and `noise_relative` alone is inert at most sites. But two sites
   scored "additive" only because a single key already saturated the 1200-frame
   replay window, and the grid used `noise_relative=0.05` when the narrowed
-  `0.065` rows (13/24 flagged, vs 6/24 at 0.05) — which no stage had analyzed —
+  `0.065` rows (13/24 flagged, vs 6/24 at 0.05) — which no stage had analysed —
   show it is not the worst value. `analyze_interaction_grid.py` now has a
   `censored` bucket, and `analyze_sensitivity.py` reports `inert` and
   `n_improved` per key.
