@@ -362,10 +362,13 @@ measurements and complicates covariance.
 ### From a rough fix to a registered capture
 
 A stationary roadside capture is not registered when it is made. It arrives with a position
-rounded to three decimal places, good to about 71 m in San Francisco, and sometimes an operator's
-rough north. Everything it produces at that point is in a **provisional** frame: the sensor's
-own, in metres. This is the path from there to a **registered** frame, offline, from public
-priors. It applies the registration baseline above; it does not replace it.
+rounded to three decimal places — good to about 71 m at San Francisco's latitude; the figure
+moves with latitude and must be re-measured per deployment, the same caveat the
+[occupancy column grid](lidar-occupancy-column-grid-plan.md) plan makes for S2 cell size and skew
+— and sometimes an operator's rough north. Everything it produces at that point is in a
+**provisional** frame: the sensor's own, in metres. This is the path from there to a
+**registered** frame, offline, from public priors. It applies the registration baseline above; it
+does not replace it.
 
 The sources keep the roles the [reference data plan](spatial-priors-reference-data-plan.md) gives
 them. OSM and footprints are coarse discovery: search area, feature identity, candidate
@@ -393,7 +396,9 @@ the cells where it is wrong, so the settle-quality evidence from the
 [background region overlay](lidar-background-region-overlay-plan.md) plan is an input to which
 cells take part.
 
-**Statuses.** `provisional` until stage 4 passes. `registered` after it. `manually_placed` when
+**Statuses.** `provisional` until stage 4 passes. `registered` after it, which implies stage 5
+has run too: recording is part of what "registered" means, not an optional step after it.
+`manually_placed` when
 an operator sets the pose by eye or by tie points, which is allowed, labelled as such, and never
 counts as verified coverage, even where it agrees with another manually placed capture.
 `failed` when no hypothesis is accepted. Nothing is promoted in place: a registered capture gets
