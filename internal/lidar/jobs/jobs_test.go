@@ -23,6 +23,26 @@ func goodManifest() CaptureManifest {
 	}
 }
 
+// A bare sha256sum digest, with no "sha256:" prefix, is the realistic
+// mistake: it is exactly what `sha256sum file | cut -d' ' -f1` prints, and
+// the manifest rejects it either way. The message has to say why, or an
+// operator is left guessing between a wrong hash and a wrong format.
+func TestBareHexDigestErrorNamesTheMissingPrefix(t *testing.T) {
+	bareHex := "2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a"
+	m := goodManifest()
+	m.Captures[0].SHA256 = Digest(bareHex)
+	err := m.Validate()
+	if err == nil {
+		t.Fatal("a bare hex digest with no prefix was accepted")
+	}
+	if !strings.Contains(err.Error(), digestPrefix) {
+		t.Errorf("error = %q, want it to name the required %q prefix", err.Error(), digestPrefix)
+	}
+	if !strings.Contains(err.Error(), bareHex) {
+		t.Errorf("error = %q, want it to echo back what was actually given", err.Error())
+	}
+}
+
 func goodRequest() JobRequest {
 	return JobRequest{
 		Kind:            KindStateEstimationBaseline,

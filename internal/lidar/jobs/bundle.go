@@ -108,7 +108,7 @@ func (b BundleManifest) Validate() error {
 			return fmt.Errorf("bundle file %s declares %d bytes", f.Path, f.Bytes)
 		}
 		if !f.SHA256.Valid() {
-			return fmt.Errorf("bundle file %s has no valid sha256", f.Path)
+			return fmt.Errorf("bundle file %s: sha256 %q is not %s<64 hex chars>; a plain sha256sum needs that prefix added", f.Path, string(f.SHA256), digestPrefix)
 		}
 	}
 	return nil
