@@ -258,8 +258,7 @@ Mbit/s. Those imply 8.478 and 16.956 GB/h before allowing for capture-format det
 roughly **9 GB/h single return or 18 GB/h dual return** for PCAP; verify the actual sensor mode and
 capture container before sizing a field deployment.
 
-[pandar40p]:
-  https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf
+[pandar40p]: https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf
 
 ### Explicit encoding assumptions
 
@@ -362,8 +361,9 @@ objects, and solver memory. As an explicit allowance, 50 tracks × 20 states × 
 MB for one estimator history, or 4–16 MB for four fully copied candidates. Shared histories can
 reduce this. Graph factors, matrix fill-in, and point geometry can increase it.
 
-The current `WorldPoint` has three float64s, a `time.Time`, and a string: approximately 72 bytes
-per element on a conventional 64-bit Go layout, before backing strings and additional arrays.
+The current `WorldPoint` has three float64s, an `Intensity uint8`, a `time.Time`, and a string:
+approximately 72 bytes per element on a conventional 64-bit Go layout, before backing strings and
+additional arrays.
 Twenty frames of 8,000 such points alone use about 11.5 MB. Packed wire size is not heap usage.
 Allocate separate hard budgets for solver state, serialised handoff, and OS page cache. A 64–256
 MiB solver allowance is a starting experiment, not an established minimum machine specification.
