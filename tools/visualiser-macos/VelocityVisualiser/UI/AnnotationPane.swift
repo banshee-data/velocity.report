@@ -30,6 +30,8 @@ struct AnnotationPane: View {
     /// view's and not the session's: the session holds what it can measure,
     /// not what the operator knows about where the tripod stood.
     @State private var mapMarksSiteID = ""
+    /// Objects ticked to be merged into the one under edit.
+    @State private var mergeSelection: Set<String> = []
 
     @State private var newObjectClass = "car"
     @State private var newObjectSubtype = ""
@@ -446,6 +448,7 @@ struct AnnotationPane: View {
                 Text("No objects yet").font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(session.sidecar.objects) { object in objectRow(object) }
+                mergeBar
             }
 
             if let active = session.activeObject, !session.removedFromSaved.isEmpty,
@@ -498,6 +501,7 @@ struct AnnotationPane: View {
                     ? "reviewed" : reviewed > 0 ? "part reviewed" : "proposed"
             ).font(.caption2).foregroundStyle(
                 saved > 0 && reviewed == saved ? Color.green : Color.secondary)
+            mergeTick(object)
         }.contentShape(Rectangle()).onTapGesture {
             if session.activate(objectID: object.objectID) != nil {
                 showDiscardPrompt = true
@@ -505,26 +509,55 @@ struct AnnotationPane: View {
             }
             session.secondViewChecked = false
             applyResult = nil
-        }.contextMenu {
-            // Merging is the repair for a chain that came back as two objects
-            // because it went behind a bus, and the undo for a split that
-            // should not have happened. On the row rather than in the toolbar
-            // because it needs two objects named, and this row is one of them.
-            if let active = session.activeObjectID, active != object.objectID,
-                let target = session.activeObject
-            {
-                Button(
-                    "Merge \(session.displayName(objectID: object.objectID)) into "
-                        + session.displayName(objectID: target.objectID)
-                ) {
-                    if let frames = session.mergeObject(object.objectID, into: target.objectID) {
-                        applyResult =
-                            "Merged into \(session.displayName(objectID: target.objectID)): "
-                            + "\(frames) frames, back in question until reviewed."
+        }
+    }
+
+    /// A tick to fold this object into the one under edit.
+    ///
+    /// On the row, and visible rather than behind a right-click, because a
+    /// merge needs two objects named and this row is one of them. Several can
+    /// be ticked: a chain that broke twice comes back as three.
+    @ViewBuilder private func mergeTick(_ object: AnnotationObject) -> some View {
+        if let active = session.activeObjectID, active != object.objectID {
+            Toggle(
+                isOn: Binding(
+                    get: { mergeSelection.contains(object.objectID) },
+                    set: { on in
+                        if on {
+                            mergeSelection.insert(object.objectID)
+                        } else {
+                            mergeSelection.remove(object.objectID)
+                        }
+                    })
+            ) { Image(systemName: "arrow.triangle.merge") }.toggleStyle(.button).controlSize(.small)
+                .help(
+                    "Fold \(session.displayName(objectID: object.objectID)) into "
+                        + session.displayName(objectID: active))
+        }
+    }
+
+    /// The merge itself, shown only once something is ticked.
+    @ViewBuilder private var mergeBar: some View {
+        if let active = session.activeObjectID, !mergeSelection.isEmpty {
+            let ticked = mergeSelection.subtracting([active])
+            if !ticked.isEmpty {
+                HStack(spacing: 6) {
+                    Button("Merge \(ticked.count) into \(session.displayName(objectID: active))") {
+                        if let frames = session.mergeObjects(Array(ticked), into: active) {
+                            applyResult =
+                                "Merged into \(session.displayName(objectID: active)): "
+                                + "\(frames) frames, back in question until reviewed."
+                        }
+                        mergeSelection = []
                     }
-                }
-            } else {
-                Text("Pick another object to merge this one into")
+                    Button("Clear") { mergeSelection = [] }
+                }.controlSize(.small).font(.caption2)
+                Text(
+                    "Every frame of them becomes a frame of "
+                        + "\(session.displayName(objectID: active)), and they are gone. Merged "
+                        + "frames go back in question."
+                ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
             }
         }
     }

@@ -1762,6 +1762,14 @@ enum AnnotationGuard: Equatable {
     /// reviewed: what was checked was two objects, and nobody has yet looked
     /// at the one. Returns how many frames the target ended up with.
     @discardableResult func mergeObject(_ otherID: String, into targetID: String) -> Int? {
+        mergeObjects([otherID], into: targetID)
+    }
+
+    /// Merges several objects into one, in a single save.
+    ///
+    /// One save rather than one each: a merge of four objects is one decision
+    /// and should be one revision to undo, not four to unpick in order.
+    @discardableResult func mergeObjects(_ otherIDs: [String], into targetID: String) -> Int? {
         lastError = nil
         guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
             return fail("Enter your name under Labelled by before merging: a label has an author.")
@@ -1769,9 +1777,10 @@ enum AnnotationGuard: Equatable {
         guard navigationGuard() == nil else {
             return fail("Save or discard this frame's changes before merging.")
         }
-        guard otherID != targetID else { return fail("An object cannot be merged into itself.") }
+        let others = Set(otherIDs).subtracting([targetID])
+        guard !others.isEmpty else { return fail("An object cannot be merged into itself.") }
         guard sidecar.objects.contains(where: { $0.objectID == targetID }),
-            sidecar.objects.contains(where: { $0.objectID == otherID })
+            others.allSatisfy({ id in sidecar.objects.contains { $0.objectID == id } })
         else { return nil }
 
         var edited = document
@@ -1782,8 +1791,13 @@ enum AnnotationGuard: Equatable {
             author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
             operation: "merge_object")
 
-        let moving = sidecar.masks.filter { $0.objectID == otherID }
-        guard !moving.isEmpty else { return fail("That object has no frames to merge.") }
+        let moving = sidecar.masks.filter { others.contains($0.objectID) }
+        guard !moving.isEmpty else {
+            return fail(
+                others.count == 1
+                    ? "That object has no frames to merge."
+                    : "Those objects have no frames to merge.")
+        }
         for mask in moving {
             var merged = FrameMask(objectID: targetID, sampleID: mask.sampleID)
             if let existing = edited.sidecar.mask(objectID: targetID, sampleID: mask.sampleID) {
@@ -1799,8 +1813,8 @@ enum AnnotationGuard: Equatable {
             merged.provenance = change
             edited.sidecar.upsert(mask: merged)
         }
-        edited.sidecar.masks.removeAll { $0.objectID == otherID }
-        edited.sidecar.objects.removeAll { $0.objectID == otherID }
+        edited.sidecar.masks.removeAll { others.contains($0.objectID) }
+        edited.sidecar.objects.removeAll { others.contains($0.objectID) }
 
         do {
             document = try store.save(edited, change: change)
@@ -1810,7 +1824,7 @@ enum AnnotationGuard: Equatable {
             return fail(AnnotationSession.describe(error))
         } catch { return fail("\(error)") }
 
-        if activeObjectID == otherID { activeObjectID = targetID }
+        if let active = activeObjectID, others.contains(active) { activeObjectID = targetID }
         secondViewChecked = false
         carried = nil
         carriedIndices = []

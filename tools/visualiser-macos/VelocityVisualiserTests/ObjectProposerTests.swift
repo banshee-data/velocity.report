@@ -366,6 +366,41 @@ struct ProposalGradingTests {
         #expect(merged.status == .proposed)
     }
 
+    /// A chain that broke twice comes back as three objects, so merging has
+    /// to take several at once — and as one revision, because that is one
+    /// decision and should be one thing to undo.
+    @Test func severalObjectsMergeInOneSave() async throws {
+        // Long enough that each remainder is still worth listing: a chain
+        // shorter than ObjectProposer.minimumFrames is dropped, not re-offered.
+        let (session, dir) = try street(20)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+
+        // One chain accepted as three objects, the way a twice-broken one is.
+        #expect(session.acceptProposal(car.id, objectClass: "car", frames: 0...5) == 6)
+        let first = try #require(session.activeObjectID)
+        let second = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(second.id, objectClass: "car", frames: 6...11) == 6)
+        let b = try #require(session.activeObjectID)
+        let third = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(third.id, objectClass: "car") != nil)
+        let c = try #require(session.activeObjectID)
+        #expect(Set([first, b, c]).count == 3)
+
+        let revision = session.sidecar.revision
+        let total =
+            session.savedSampleCount(objectID: first) + session.savedSampleCount(objectID: b)
+            + session.savedSampleCount(objectID: c)
+
+        #expect(session.mergeObjects([b, c], into: first) == total)
+
+        #expect(session.sidecar.objects.map(\.objectID) == [first])
+        #expect(session.savedSampleCount(objectID: first) == total)
+        // One decision, one revision.
+        #expect(session.sidecar.revision == revision + 1)
+    }
+
     @Test func mergingRefusesTheCasesThatWouldLoseWork() async throws {
         let (session, dir) = try street()
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -375,6 +410,8 @@ struct ProposalGradingTests {
         let object = try #require(session.activeObjectID)
 
         #expect(session.mergeObject(object, into: object) == nil)
+        #expect(session.mergeObjects([object], into: object) == nil)
+        #expect(session.mergeObjects([], into: object) == nil)
         #expect(session.mergeObject("obj_nosuch", into: object) == nil)
         #expect(session.mergeObject(object, into: "obj_nosuch") == nil)
         // Nothing was written by any of them.
