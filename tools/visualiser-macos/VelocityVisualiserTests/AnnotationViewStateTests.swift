@@ -753,6 +753,18 @@ struct AnnotationViewportWiringTests {
         }
     }
 
+    /// createObject already carries a live selection onto the new object
+    /// rather than discarding it, so the button that calls it must not gate
+    /// on an unsaved-changes guard: the only way past that guard used to be
+    /// "Discard and reload", which would throw the very selection away that
+    /// the button exists to split off.
+    @Test func newObjectFromSelectionIsNeverGatedOnUnsavedChanges() throws {
+        let pane = try source("UI/AnnotationPane.swift")
+        #expect(
+            !pane.contains("guard session.activeObjectID == nil"),
+            "New object from selection still refuses to run with unsaved changes on screen")
+    }
+
     @Test func theAppGivesTheWindowTheMainViewAndRoutesItsKeys() throws {
         let app = try source("App/VelocityVisualiserApp.swift")
         #expect(app.contains("AnnotationWindow().environmentObject(appState)"))
