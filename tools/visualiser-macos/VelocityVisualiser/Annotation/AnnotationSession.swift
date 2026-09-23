@@ -1077,7 +1077,9 @@ enum AnnotationGuard: Equatable {
     /// touched a view. Foreground first, sample as the fallback for a frame
     /// that happens to have none — the pack itself is never all background,
     /// but any one sample legitimately can be.
-    @discardableResult func fitViewsToDefault() -> Bool { fitViews(to: .sample) }
+    @discardableResult func fitViewsToDefault() -> Bool {
+        fitViews(to: .foreground) || fitViews(to: .sample)
+    }
 
     private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
