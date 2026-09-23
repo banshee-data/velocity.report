@@ -37,6 +37,44 @@ struct AnnotationSessionTests {
         #expect(session.selectionCount == 0)
     }
 
+    /// Most of a session is painting objects with the brush; the lasso needs
+    /// a drag before it does anything, where the sphere follows the cursor
+    /// from the moment the views are on screen.
+    @Test func startsWithTheSphereBrushSelected() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(session.tool == .sphere)
+    }
+
+    /// A stationary LiDAR sees tens of metres of kerbs and building faces as
+    /// background; framing on the whole sample by default would put the road
+    /// users a pack is actually about a few pixels across. The default frames
+    /// on the foreground alone.
+    @Test func opensFramedOnTheForegroundNotTheWholeSample() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Fixture sample 0: three foreground returns clustered near
+        // (1.5, 1.25), and one ground return far away at (40, -30). A sample
+        // fit would have to cover both; a foreground fit covers only the
+        // cluster.
+        let extent = try #require(
+            annotationExtent(
+                of: session.currentPoints, basis: OrthoViewBasis(.top), trim: 0,
+                where: { index in
+                    index < session.currentClasses.count
+                        && session.currentClasses[index] == PointClass.foreground
+                }))
+        #expect(abs(extent.centre.x - 1.5) < 1e-4)
+        #expect(abs(extent.centre.y - 1.25) < 1e-4)
+
+        let viewport = session.viewport(for: .top, size: CGSize(width: 600, height: 400))
+        // The far outlier would double-digit-metre the half-height if the
+        // sample were in scope; the foreground-only cluster fits well inside
+        // the 1 m floor.
+        #expect(viewport.halfHeight <= 1.5, "framing looks like it included the ground outlier")
+    }
+
     @Test func newObjectStartsProposedNotReviewed() throws {
         let (session, dir) = try makeSession()
         defer { try? FileManager.default.removeItem(at: dir) }
