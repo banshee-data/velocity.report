@@ -343,8 +343,8 @@ struct AnnotationSceneView: NSViewRepresentable {
             renderer.updateFrame(
                 AnnotationScene.frame(
                     points: session.currentPoints, classes: session.currentClasses,
-                    visibility: session.effectiveVisibility, marks: marks,
-                    sample: session.currentSample, backdrop: backdrop))
+                    visibility: session.effectiveVisibility, labels: session.effectiveLabelSets,
+                    marks: marks, sample: session.currentSample, backdrop: backdrop))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {
             changed = true

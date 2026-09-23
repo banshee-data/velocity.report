@@ -452,6 +452,7 @@ struct AnnotationViewportView: View {
                 AnnotationPointCanvas(
                     points: session.currentPoints, classes: session.currentClasses, basis: basis,
                     viewport: viewport, visibility: session.effectiveVisibility,
+                    labels: session.effectiveLabelSets,
                     identity: AnnotationPointCanvas.Identity(
                         packDigest: session.pack.manifest.packDigest,
                         sampleID: session.currentSample?.sampleID ?? -1)
@@ -683,6 +684,9 @@ struct AnnotationPointCanvas: View, Equatable {
     let basis: OrthoViewBasis
     let viewport: OrthoViewport
     let visibility: PointVisibility?
+    /// Which returns are agreed and which in question, when the filter needs
+    /// them. Compared by revision, not by contents.
+    let labels: PointLabelSets?
     let identity: Identity
 
     // Points are immutable under a pack digest and sample, so two canvases
@@ -691,7 +695,7 @@ struct AnnotationPointCanvas: View, Equatable {
     // candidate count, without every publish redrawing the whole cloud.
     static func == (lhs: AnnotationPointCanvas, rhs: AnnotationPointCanvas) -> Bool {
         lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
-            && lhs.visibility == rhs.visibility
+            && lhs.visibility == rhs.visibility && lhs.labels == rhs.labels
     }
 
     static let backgroundColour = Color(red: 0.55, green: 0.55, blue: 0.62)
@@ -708,9 +712,10 @@ struct AnnotationPointCanvas: View, Equatable {
             // in a frame late while panning.
             let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
             for index in 0..<points.count {
-                guard PointVisibility.isVisible(index, classes: classes, under: visibility) else {
-                    continue
-                }
+                guard
+                    PointVisibility.isVisible(
+                        index, classes: classes, under: visibility, labels: labels)
+                else { continue }
                 let p = simd_float3(points.x[index], points.y[index], points.z[index])
                 guard basis.shows(p) else { continue }
                 let screen = viewport.screenPoint(from: basis.project(p))
