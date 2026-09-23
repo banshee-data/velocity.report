@@ -9,6 +9,49 @@ import (
 	"time"
 )
 
+// A compiled binary run as a background service, from any directory, is
+// exactly what MustLoadDefaultConfig's relative-path search cannot see: it
+// only ever resolves from inside the repository tree, which is where every
+// other test in this package runs from. This is the one real bug the VM
+// smoke test of #586 actually found: a worker daemon started from outside
+// the tree panicked on its first job, mid-run, taking the whole process
+// down with it.
+func TestMustLoadDefaultConfigWorksOutsideTheRepository(t *testing.T) {
+	fromTree := MustLoadDefaultConfig()
+	embedded, err := json.Marshal(fromTree)
+	if err != nil {
+		t.Fatalf("marshal the known-good config: %v", err)
+	}
+
+	SetEmbeddedDefaults(embedded)
+	t.Cleanup(func() { SetEmbeddedDefaults(nil) })
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := t.TempDir()
+	if err := os.Chdir(elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	// No candidate relative path can resolve from here: prove it, so a
+	// passing test means the embedded fallback did the work, not a lucky
+	// relative path.
+	for _, name := range []string{"config", "..", "../.."} {
+		if _, err := os.Stat(filepath.Join(elsewhere, name, DefaultConfigPath)); err == nil {
+			t.Fatalf("test setup is broken: %s resolves from %s, so this proves nothing", name, elsewhere)
+		}
+	}
+
+	got := MustLoadDefaultConfig()
+	if got.Fingerprint() != fromTree.Fingerprint() {
+		t.Errorf("config loaded outside the tree has fingerprint %s, want %s (the same defaults, from the embedded fallback)",
+			got.Fingerprint(), fromTree.Fingerprint())
+	}
+}
+
 func TestLoadDefaultsFile(t *testing.T) {
 	cfg := MustLoadDefaultConfig()
 
