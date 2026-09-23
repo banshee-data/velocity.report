@@ -1,8 +1,12 @@
 # Experiment: backpack motion spectrum and quasi-static stabiliser
 
+Measure which wearer motion can be stabilised, then compare LiDAR-only and inertial processing
+with acquisition timing qualified independently. The timing experiment includes cargo-bike loads.
+
 - **Status:** Proposed
 - **Layers:** L2 Frames, L3 Grid, L5 Tracks
 - **Related plan:** [lidar-route-capture-plan.md](../../../docs/plans/lidar-route-capture-plan.md)
+- **Timing design:** [portable-capture-timing.md](../../../docs/lidar/architecture/portable-capture-timing.md)
 
 ## Goal
 
@@ -21,6 +25,28 @@ capture retains at least 80% of frames and produces track counts and speed perce
 the run-to-run variation of tripod captures at the same site.
 
 ## Method
+
+### Timing qualification before an IMU comparison
+
+Run the [six-step bench/field procedure][timing-procedure] before attributing a gain to inertial
+deskew. This phase does not block the LiDAR-only motion survey.
+
+| Test                                    | Saved evidence                                                                                                    | Proposed acceptance                                                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Known PPS/test edges and serial seconds | Reference analyser traces at MCU and LiDAR inputs, exact connector/firmware, UTC validity and PPS/message pairing | Correct second association, including midnight; measured edge-capture error within its allocation            |
+| Clock mapping and point reconstruction  | Raw counters, held-out residuals, sample identities, decoder comparison for blocks and return modes               | Pacing/arrival changes do not change native point time; missed samples and wraps are detected                |
+| Motion and sensor delay                 | Encoder-referenced multi-axis motion, ODR/filter settings, temperature, separate extrinsics                       | Acquisition-delay model validates on held-out motion; no unexplained phase residual assigned to clock offset |
+| Loss/reacquisition and resets           | Independent 1/10/60 s GNSS, PPS, and serial outages; resets and injected timestamp jumps                          | Quality state/uncertainty changes, automatic rejection beyond budget, no fit across resets                   |
+| Power and field load                    | Battery-side W/Wh, peaks, packet/FIFO loss, twenty-minute stand, walking and rough/smooth bike runs               | Add-on tested against 1 W reserve; enough measured pack runtime and no unreported loss                       |
+
+Use the design's motion/range-dependent timing gate: the 100 µs combined residual is a prototype
+target, not measured performance or a pass for every regime. Report median, p95, p99.9, maximum,
+reference uncertainty, and rejected coverage. Inject ±0.1/0.5/1/5 ms offsets and 20 ppm drift into
+the same recordings to show that the quality gate detects harmful timing errors. Compare shared
+PPS, measured arrival alignment, and LiDAR-only variants without changing their source capture.
+Test GNSS-free synthetic epoch acceptance separately before calling that mode viable.
+
+### Motion spectrum and stabiliser comparison
 
 1. Rigid-transform report: run the per-frame estimator on the five Van Ness files
    (`s2_sf_4_202609021427*` to `*144716`) to characterise tripod nudges as the control.
@@ -46,12 +72,15 @@ the run-to-run variation of tripod captures at the same site.
 ## Success criteria
 
 - [ ] Part one: at least 80% of stand frames have pitch and roll within half a dense-band ring
-      spacing of the reference; yaw steps are corrected exactly by azimuth shift.
+      spacing of the reference; report residual yaw error after quantised azimuth shifting.
 - [ ] Part two: frames retained at or above 80%.
 - [ ] Part two: confirmed tracks per minute within 20% of the tripod run at the same site.
 - [ ] Part two: p85 of vehicle maximum speed within the tripod run's bootstrap confidence interval.
 - [ ] No regression: the tripod control capture classifies as one static site with the stabiliser on.
 - [ ] Stabiliser cost per frame recorded on the workstation and, once the Pi baseline lands, on the Pi.
+- [ ] Before IMU claims: timing qualification passes for the stated range/motion/temperature envelope;
+      uncertainty includes internal sensor delay as well as clock mapping.
+- [ ] Timing failures reduce published coverage and are counted; they never become zero uncertainty.
 
 ## Risks and controls
 
@@ -68,6 +97,9 @@ the run-to-run variation of tripod captures at the same site.
 - Segment timeline JSON for the stabilised and unstabilised runs.
 - Scorecard comparing the three replay variants against the tripod run.
 - Decision note: option A or B for the grid, and whether the IMU item proceeds.
+- Timing report: raw edge traces, firmware/configuration hashes, epoch/clock mappings, residuals,
+  delay and extrinsic calibration, loss/reacquisition behaviour, and battery-side power.
+- Separate backpack and bike acceptance envelopes, with timing rejection counts and retained coverage.
 
 ## Result
 
@@ -77,3 +109,5 @@ Fill after running.
 
 Promote to `data/explore/` with the scorecard, iterate on gate thresholds, or close if the
 spectrum shows the wearer cannot be stabilised without inertial data.
+
+[timing-procedure]: ../../../docs/lidar/architecture/portable-capture-timing.md#reproducible-qualification

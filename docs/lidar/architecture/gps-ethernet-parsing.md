@@ -17,7 +17,16 @@ GPS data **may** be ingested over ethernet to enable optional geographic feature
 
 The velocity.report system currently stores a legacy site-level WGS84 origin in the database ([internal/db/site.go](../../../internal/db/site.go)) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic S2 indexing or geo-referencing capability.
 
-The L1 packet parsing layer ([internal/lidar/l1packets/parse/](../../../internal/lidar/l1packets/parse)) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
+The L1 packet parser has timestamp modes named `TimestampModePTP` and `TimestampModeGPS`, but those
+names do not establish synchronisation. Their current boot-offset calculation and PCAP arrival-time
+override require changes before portable acquisition-time reconstruction. Position ingest is also
+unimplemented. See the [portable timing audit][portable-timing-audit].
+
+[portable-timing-audit]: portable-capture-timing.md#what-the-repository-does-today
+
+Position fixes, time transfer, and IMU acquisition timing are separate contracts. A phone's NMEA
+stream can help place a route without providing a hardware timing reference. A mixed PCAP preserves
+delivery evidence; it does not by itself synchronise the sensors that produced it.
 
 ### What GPS enables (when available)
 
@@ -72,7 +81,7 @@ Most GPS receivers with ethernet capability support NMEA-0183 sentences broadcas
 - Mixed capture in PCAP alongside LiDAR packets
 - Simple parsing libraries available
 
-### Hesai built-in GPS
+### Hesai external GPS inputs
 
 Some Hesai LiDAR sensors include GPS receiver inputs:
 
@@ -84,12 +93,13 @@ Some Hesai LiDAR sensors include GPS receiver inputs:
 
 **Current Support:**
 
-- PTP/GPS timestamp modes already parsed in `resolvePacketTime()`
-- Position data not extracted (only time sync information)
+- Native date/microsecond fields are parsed, with the timestamp limitations described above
+- Position data and validated clock-quality handling are not implemented
 
 **Limitations:**
 
-- Requires physical GPS antenna connected to LiDAR sensor
+- Pandar40P requires an external receiver supplying PPS and compatible serial time; an antenna
+  alone does not provide those signals. Confirm the actual model, firmware, and connection box.
 - HTTP polling adds latency vs. UDP broadcast
 - Packet embedding format varies by firmware version
 
@@ -100,13 +110,20 @@ IEEE 1588 Precision Time Protocol (PTP) synchronised to GPS-disciplined grandmas
 **Architecture:**
 
 - Grandmaster clock receives GPS time (PPS + NMEA)
-- PTP distributes nanosecond-precision time to LiDAR sensor
+- PTP transfers time to the LiDAR with accuracy depending on the master, NIC timestamping,
+  network path, firmware, and configuration; a timestamp's resolution is not its accuracy
 - GPS position obtained separately from grandmaster (not in PTP packets)
 
 **Current Support:**
 
-- `TimestampModePTP` already supported for time sync
+- A parser enum exists; native acquisition-time preservation and clock-quality handling are
+  prerequisites for a validated portable PTP path, not completed functionality
 - Position data requires separate GPS receiver or manual config
+
+For portable rigs, the [clock design](portable-capture-timing.md) compares shared GNSS PPS,
+GNSS-free local timing, Pi/NIC PTP constraints, and measured offline alignment. It distinguishes
+Hesai GPS UDP payloads from plain NMEA on port 10110; dispatch must inspect type/source, not port
+alone. Its acquisition-time quality gate applies independently of geographic-fix quality.
 
 **Advantages:**
 
@@ -260,7 +277,8 @@ NMEA time must correlate with LiDAR timestamps:
 **Correlation Strategy:**
 
 1. Construct absolute UTC timestamp from NMEA date+time
-2. Match to LiDAR packet timestamps via `resolvePacketTime()`
+2. Match only after establishing a valid acquisition-time mapping; current `resolvePacketTime()`
+   alone is insufficient for a portable rig
 3. Interpolate the precise WGS84 position between fixes for high-frequency LiDAR frames, then derive the canonical S2 L13 cell for each result
 4. Detect GPS time jumps (reconnection, leap seconds)
 
