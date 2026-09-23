@@ -2,6 +2,8 @@
 
 - **Status:** Active
 - **Cadence:** Weekly, by a scheduled Claude routine; entries by hand are welcome too
+- **Last surveyed:** 2026-09-19 — the Selection rule and Shortlist below are current as of that
+  entry in the Log; open its Coverage gaps before treating a figure as settled
 - **Related plan:** [lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md)
 
 A running log of spinning LiDAR units that could replace or supplement the Hesai Pandar40P for
@@ -25,12 +27,15 @@ Sensor facts for the unit in service live in the
 
 ## Shortlist
 
-Units that met both the range rule and the budget rule in the latest snapshot, with the used
-asking prices seen. A model appears here only with a listing URL in the log.
+Units that met both the range rule and the budget rule as of the survey dated above, with the
+used asking prices seen. A model appears here only with a listing URL in the log. The Snapshot
+column is per model, not a claim that the whole table was checked on one date: an entry added by
+hand between routine runs carries its own date.
 
-| Model           | Range at 10% | Used asking prices seen                | Snapshot   |
-| --------------- | ------------ | -------------------------------------- | ---------- |
+| Model           | Range at 10% | Used asking prices seen                  | Snapshot   |
+| --------------- | ------------ | ---------------------------------------- | ---------- |
 | Hesai Pandar40P | 200 m        | US $149.50 each to US $575, snippet-only | 2026-09-19 |
+
 Meet the range rule but not the budget, watched for price drops: Hesai OT128 and Pandar128E3X,
 Ouster OS2 and OS1 Max, RoboSense Helios-32 and Ruby Plus, Velodyne VLP-32C. Not yet seen in a
 snapshot and added to the search list: Velodyne HDL-32E, RoboSense RS-LiDAR-16 and RS-LiDAR-32,
@@ -49,6 +54,16 @@ Each weekly check adds one dated section at the top of the log, newest first, wi
 
 The weekly routine pushes its entry to the `claude/lidar-market-watch` branch and summarises it in
 its session. Merge the branch whenever the log is worth keeping; nothing else reads it.
+
+**One file, not one per snapshot.** A dated filename (`lidar-market-watch-2026-09-19.md`) would
+mark each survey clearly too, but at a cost this doc doesn't need to pay: every link to it, here
+and in the hardware knowledge module, would point at a fixed date instead of the current state, or
+at an index that has to be kept in step with which file is newest. Git already keeps every past
+version — `git log -p` on this one file is the full history — so a second, file-per-week copy of
+that history would only duplicate what version control does for free, while losing the single URL
+a reader or another doc can rely on. Keeping one file with the date in the header and in each Log
+heading gives both: how current the Selection rule and Shortlist are, in the line where a reader
+looks for it, and the full evolution below for anyone who scrolls.
 
 ## Log
 
