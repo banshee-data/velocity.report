@@ -122,6 +122,12 @@ above its ceiling, by the filter's own strict comparisons. Hiding it leaves what
 to work with. A pack that does not record its band uses the pipeline default and says
 "assumed". A hidden class cannot be selected.
 
+Display also switches the three states the progress bars count: **agreed**, **in question** and
+**unlabelled**. Turning the settled ones off leaves the work still to do on its own — and since
+a hidden return cannot be selected, a lasso thrown over what is left cannot take back what is
+already agreed. Agreed is reviewed or labelled by hand; in question is saved but still the
+algorithm's word for it.
+
 The **settled background** in force is drawn behind each frame. It is context: no tool selects
 from it. Stepping forward onto a new snapshot shows a banner, and returns that moved by half a
 metre or more are drawn in white.
@@ -130,7 +136,9 @@ metre or more are drawn in white.
 
 1. Enter your name under **Labelled by**. It is remembered.
 2. **Propose objects.** Fixed clutter comes back as one proposal a patch; everything else as one
-   proposal an object, followed through the frames.
+   proposal an object, followed through the frames. Clicking one goes to its first frame.
+   **Propose more** adds to the list: it finds only what nothing yet covers, never clears what is
+   already there, and does not hand back anything you dismissed.
 3. Click a proposal and step through its frames. Then:
    - **Accept** as a class, or **Noise** if it is not an object.
    - **Accept up to here** or **From here** to split a chain that ran from one car onto another.
