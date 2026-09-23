@@ -184,7 +184,10 @@ the wrong place rather than the filter being too blunt: `↑` and `↓` move it 
 metre, or a quarter with shift. **Estimate** puts it back where a twentieth of this frame's
 returns lie below it.
 
-**Grid angle** turns the columns so they follow the kerbs instead of the sensor's mounting. It
+**Grid angle** turns the views and the columns together so they follow the kerbs instead of the
+sensor's mounting: the top view's axes become the lattice's axes, so the grid sits square on
+screen, and the four elevations cut along the street. Changing it re-frames the views, because a
+framing kept from before is a position in the old view plane. It
 is the scene's `grid_azimuth_deg`, and **this window is not where that value lives**: it belongs
 to `tools/s2-archive/map-marks.json`, one per site, because it is a property of the street and
 is shared by every site on the same grid. What the window keeps is a working value, remembered
@@ -201,9 +204,10 @@ every frame** saves its mask into all of them.
 
 ### Two objects that are one
 
-Click the object to keep, then right-click the other and **Merge into…**. Every frame of it
-becomes a frame of the first, and it is gone. Where both have the same frame the returns are
-unioned: two masks over one thing are two accounts of the same returns.
+Click the object to keep, then tick the merge arrow on each of the others and press
+**Merge N into …**. Every frame of them becomes a frame of the first, and they are gone. Where
+both have the same frame the returns are unioned: two masks over one thing are two accounts of
+the same returns. Several at a time, because a chain that broke twice comes back as three.
 
 This is the repair for a chain that came back as two objects because it went behind a bus, and
 the undo for a split that should not have happened. Merged frames go back to proposed even where
