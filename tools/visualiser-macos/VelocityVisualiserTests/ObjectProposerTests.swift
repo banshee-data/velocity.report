@@ -193,6 +193,103 @@ struct ProposalGradingTests {
         #expect(session.savedSelection == Set(0..<18))
     }
 
+    /// Asking again part-way through grading must not throw the list away.
+    /// The operator may have looked at a dozen of them and be keeping their
+    /// place by id.
+    @Test func proposingAgainKeepsTheListAndItsIds() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        // Grade one, so that a run which threw the list away would renumber
+        // what is left. Without this a wipe and a rebuild are indistinguishable
+        // from keeping the list: the proposer is deterministic.
+        #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
+        let remaining = session.proposals
+        #expect(!remaining.isEmpty)
+        session.selectProposal(remaining[0].id)
+
+        await session.proposeObjects()
+
+        // Every ungraded proposal is still listed, with its id and its frames.
+        for proposal in remaining {
+            let still = try #require(
+                session.proposals.first { $0.id == proposal.id },
+                "proposal \(proposal.id) was dropped or renumbered by proposing again")
+            #expect(still.frames == proposal.frames)
+        }
+        // And the operator's place in the list is where they left it.
+        #expect(session.selectedProposalID == remaining[0].id)
+    }
+
+    /// Everything is already covered the second time round, so there is
+    /// nothing left to find and no duplicate of what is listed.
+    @Test func proposingAgainFindsNothingTwice() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        await session.proposeObjects()
+        let count = session.proposals.count
+        await session.proposeObjects()
+
+        #expect(session.proposals.count == count)
+        #expect(Set(session.proposals.map(\.id)).count == session.proposals.count, "ids collided")
+    }
+
+    /// A dismissal is a judgement about a suggestion. Handing it straight back
+    /// on the next run would make dismissing pointless.
+    @Test func aDismissedProposalDoesNotComeBack() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        let frames = car.frames
+        session.dismissProposal(car.id)
+        #expect(!session.proposals.contains { $0.id == car.id })
+
+        await session.proposeObjects()
+
+        #expect(!session.proposals.contains { $0.id == car.id })
+        // Nor as a new proposal over the same returns.
+        #expect(
+            !session.proposals.contains { $0.frames == frames },
+            "the dismissed proposal came back under a new id")
+    }
+
+    /// Accepting one and asking again must not re-propose what is now saved.
+    @Test func whatHasBeenAcceptedIsNotProposedAgain() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        let frames = car.frames
+        #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
+
+        await session.proposeObjects()
+
+        #expect(!session.proposals.contains { $0.frames == frames })
+    }
+
+    /// Picking a proposal out of the list is asking to be shown it, and
+    /// grading one means walking it from where it appears.
+    @Test func selectingAProposalGoesToItsFirstFrame() async throws {
+        let (session, dir) = try street(12)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+
+        // Somewhere in the middle of it, which is where stepping leaves you.
+        #expect(session.step(to: 6) == nil)
+        #expect(session.sampleIndex == 6)
+
+        session.selectProposal(car.id)
+
+        #expect(session.sampleIndex == car.firstFrame)
+    }
+
     @Test func fixedClutterIsOneProposalCoveringEveryFrame() async throws {
         let (session, dir) = try street()
         defer { try? FileManager.default.removeItem(at: dir) }

@@ -794,10 +794,16 @@ enum AnnotationGuard: Equatable {
     /// The class filter in force, or nil when every class is on.
     var effectiveVisibility: PointVisibility? { visibility.showsEverything ? nil : visibility }
 
+    /// The label sets the filter needs, or nil when it does not need them.
+    /// Working them out costs a pass over every mask, so it is skipped
+    /// entirely while all three label states are shown.
+    var effectiveLabelSets: PointLabelSets? { visibility.showsEveryLabelState ? nil : labelSets }
+
     /// True when the current sample's point at `index` is drawn, and so can
     /// be selected.
     func isVisible(_ index: Int) -> Bool {
-        PointVisibility.isVisible(index, classes: currentClasses, under: effectiveVisibility)
+        PointVisibility.isVisible(
+            index, classes: currentClasses, under: effectiveVisibility, labels: effectiveLabelSets)
     }
 
     /// Drops candidates the class filter hides, and counts them, so a gesture
@@ -1507,22 +1513,36 @@ enum AnnotationGuard: Equatable {
     /// is waiting to be graded here.
     var proposedIndices: [Int] { proposals.flatMap { $0.frames[sampleIndex] ?? [] } }
 
-    /// Walks the pack once and proposes the objects in it that nobody has
-    /// labelled: fixed clutter as one proposal a patch, and what moves as one
-    /// proposal an object. Replaces any proposals already listed.
+    /// Walks the pack and proposes the objects in it that nothing yet covers:
+    /// fixed clutter as one proposal a patch, and what moves as one proposal
+    /// an object.
+    ///
+    /// Appends. Proposals already listed are kept, with their ids, so that
+    /// asking again part-way through grading does not throw away the list
+    /// being worked through or move the operator's place in it. What is
+    /// already labelled, already proposed, or was dismissed is excluded from
+    /// the search, so the run finds only what is genuinely uncovered and
+    /// nothing comes back twice.
     func proposeObjects() async {
         lastError = nil
         guard navigationGuard() == nil else {
             lastError = "Save or discard this frame's changes before proposing objects."
             return
         }
-        proposals = []
-        selectedProposalID = nil
         proposalProgress = 0
         defer { proposalProgress = nil }
 
         let labelled = Dictionary(grouping: sidecar.masks, by: \.sampleID).mapValues { masks in
             Set(masks.flatMap(\.pointIndices))
+        }
+        // Returns an existing or dismissed proposal already speaks for, by
+        // position in the pack's frame order rather than by sample id, which
+        // is how a proposal records its frames.
+        var claimed: [Int: Set<Int>] = dismissedProposalIndices
+        for proposal in proposals {
+            for (frame, indices) in proposal.frames {
+                claimed[frame, default: []].formUnion(indices)
+            }
         }
         func frame(_ index: Int) -> ProposerFrame? {
             let sample = orderedSamples[index]
@@ -1531,7 +1551,8 @@ enum AnnotationGuard: Equatable {
                 points: points,
                 classes: PointClass.displayClasses(
                     points: points, hasClassification: pack.manifest.hasClassification,
-                    band: heightBand), labelled: labelled[sample.sampleID] ?? [])
+                    band: heightBand),
+                labelled: (labelled[sample.sampleID] ?? []).union(claimed[index] ?? []))
         }
 
         // Once through to find what stays put, once more to follow what does
@@ -1557,29 +1578,51 @@ enum AnnotationGuard: Equatable {
                 await Task.yield()
             }
         }
-        let moving = proposer.finish()
-        proposals =
-            moving + patches.finish(firstID: moving.count, bandFloor: Float(heightBand.floorM))
+        // Ids carry on from the ones already listed, so a proposal an operator
+        // has been calling "14" stays 14 for as long as the window is open.
+        let firstID = (proposals.map(\.id).max() ?? -1) + 1
+        let moving = proposer.finish(firstID: firstID)
+        let fixed = patches.finish(
+            firstID: firstID + moving.count, bandFloor: Float(heightBand.floorM))
+        proposals += moving + fixed
         sessionLogger.info(
-            "Proposed \(moving.count) moving and \(self.proposals.count - moving.count) fixed objects"
-        )
+            "Proposed \(moving.count) moving and \(fixed.count) fixed objects, "
+                + "\(self.proposals.count) listed")
     }
 
-    /// Looks at a proposal: goes to a frame it covers and frames the views on
-    /// it. Nil stops looking.
+    /// Looks at a proposal: goes to the first frame it covers and frames the
+    /// views on it. Nil stops looking.
+    ///
+    /// Always the first frame, not merely one it covers. Picking a proposal
+    /// out of the list is asking to be shown it, and grading one means walking
+    /// it from where it appears: landing in the middle because the current
+    /// frame happened to be covered left the operator to work out where the
+    /// start was.
     func selectProposal(_ id: Int?) {
         selectedProposalID = id
         guard let proposal = selectedProposal else { return }
-        if proposal.frames[sampleIndex] == nil {
+        if sampleIndex != proposal.firstFrame {
             guard step(to: proposal.firstFrame) == nil else { return }
         }
         if let indices = proposal.frames[sampleIndex] { fitViews(toIndices: Set(indices)) }
     }
 
+    /// Drops a proposal from the list, and remembers what it covered so that
+    /// proposing again does not hand it straight back. Dismissals last as long
+    /// as the window is open: they are the operator's judgement about a
+    /// suggestion, not a label, and nothing in the pack records them.
     func dismissProposal(_ id: Int) {
+        if let proposal = proposals.first(where: { $0.id == id }) {
+            for (frame, indices) in proposal.frames {
+                dismissedProposalIndices[frame, default: []].formUnion(indices)
+            }
+        }
         proposals.removeAll { $0.id == id }
         if selectedProposalID == id { selectedProposalID = nil }
     }
+
+    /// Returns a dismissed proposal covered, by position in the frame order.
+    private var dismissedProposalIndices: [Int: Set<Int>] = [:]
 
     /// Saves a proposal as an object: a new one of `objectClass`, or, with
     /// `into`, more frames of an object that exists, which is how the pieces
@@ -1936,14 +1979,31 @@ enum AnnotationGuard: Equatable {
     /// The current frame's labelling, by sector.
     var completeness: FrameCompleteness {
         if talliedRevision != labelRevision {
-            let (agreed, inQuestion) = labelStates()
+            let sets = labelSets
             tallied = FrameCompleteness.tally(
-                points: currentPoints, classes: currentClasses, agreed: agreed,
-                inQuestion: inQuestion)
+                points: currentPoints, classes: currentClasses, agreed: sets.agreed,
+                inQuestion: sets.inQuestion)
             talliedRevision = labelRevision
         }
         return tallied
     }
+
+    /// Which of this frame's returns are agreed and which in question, cached
+    /// against the same revision the tally uses. Rebuilt on every save, so it
+    /// is worked out once and read by the display filter, the canvases and the
+    /// selection engine alike.
+    var labelSets: PointLabelSets {
+        if cachedLabelSetsRevision != labelRevision {
+            let (agreed, inQuestion) = labelStates()
+            cachedLabelSets = PointLabelSets(
+                agreed: agreed, inQuestion: inQuestion, revision: labelRevision)
+            cachedLabelSetsRevision = labelRevision
+        }
+        return cachedLabelSets
+    }
+
+    private var cachedLabelSets = PointLabelSets()
+    private var cachedLabelSetsRevision = -1
 
     /// Which of the current frame's returns are agreed and which in question.
     private func labelStates() -> (agreed: Set<Int>, inQuestion: Set<Int>) {

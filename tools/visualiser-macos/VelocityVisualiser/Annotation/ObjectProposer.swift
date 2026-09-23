@@ -355,7 +355,11 @@ struct ObjectProposer {
     }
 
     /// The chains that lasted, largest first.
-    mutating func finish() -> [ObjectProposal] {
+    ///
+    /// `firstID` is where the numbering starts, so that a second run can be
+    /// appended to a list already on screen without renumbering it under the
+    /// operator.
+    mutating func finish(firstID: Int = 0) -> [ObjectProposal] {
         finished += chains
         chains = []
         let kept = finished.filter { $0.frames.count >= ObjectProposer.minimumFrames }.sorted {
@@ -369,7 +373,7 @@ struct ObjectProposer {
             let length = ObjectProposer.median(chain.lengths)
             let height = ObjectProposer.median(chain.heights)
             return ObjectProposal(
-                id: id, kind: .moving,
+                id: firstID + id, kind: .moving,
                 classGuess: ObjectProposer.guess(
                     travelled: travelled, length: length, height: height), frames: chain.frames,
                 travelled: travelled, length: length, height: height)

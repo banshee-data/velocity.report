@@ -207,12 +207,13 @@ struct AnnotationPane: View {
                         .caption.monospacedDigit())
                 }
             } else {
-                Button(session.proposals.isEmpty ? "Propose objects" : "Propose again") {
+                Button(session.proposals.isEmpty ? "Propose objects" : "Propose more") {
                     Task { await session.proposeObjects() }
                 }.controlSize(.small).help(
-                    "Finds what nobody has labelled yet: clutter that stays put, as one proposal "
+                    "Finds what nothing yet covers: clutter that stays put, as one proposal "
                         + "a patch, and everything else as one proposal an object, followed "
-                        + "through the frames. You grade each once.")
+                        + "through the frames. You grade each once. Asking again adds to the "
+                        + "list; it never clears what is already there.")
             }
 
             if !session.proposals.isEmpty {
@@ -331,6 +332,19 @@ struct AnnotationPane: View {
                     "Ground \(counts[PointClass.ground, default: 0])",
                     isOn: $session.visibility.ground)
             }.toggleStyle(.button).controlSize(.small).font(.caption2)
+
+            // The three states the progress bars count. Switching the settled
+            // ones off leaves the work still to do on its own, and because a
+            // hidden return cannot be selected, a lasso over what is left
+            // cannot take back what is already agreed.
+            let tally = session.completeness.whole
+            HStack(spacing: 4) {
+                Toggle("Agreed \(tally.agreed)", isOn: $session.visibility.agreed)
+                Toggle("In question \(tally.inQuestion)", isOn: $session.visibility.inQuestion)
+                Toggle("Unlabelled \(tally.unlabelled)", isOn: $session.visibility.unlabelled)
+            }.toggleStyle(.button).controlSize(.small).font(.caption2).help(
+                "Agreed is reviewed or labelled by hand; in question is saved but still the "
+                    + "algorithm's word for it")
 
             // Ground is what the run's height band took out before clustering,
             // so that what is left on screen is what the tracker had to work
