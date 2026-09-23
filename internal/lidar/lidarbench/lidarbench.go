@@ -364,6 +364,7 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	if err := fb.openClusterDump(); err != nil {
 		return nil, nil, err
 	}
+	defer fb.closeClusterDump()
 
 	reader := wrapProgress(cfg, stats, "benchmark")
 	if err := network.ReadPCAPFile(
