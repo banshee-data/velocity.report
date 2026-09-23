@@ -26,6 +26,20 @@ type AnalysisRunManager struct {
 	totalClusters int
 	tracksSeen    map[string]bool // Track IDs seen during this run
 
+	// pendingTracks holds, for each track offered again since its row was
+	// last written, the newest measurements offered. The pipeline offers every
+	// confirmed track on every frame; the row is inserted from the first
+	// offer, when the track is a few observations old, so without this it
+	// would describe that moment for ever. Values, not pointers: a
+	// TrackMeasurement holds no references, so a copy cannot be changed
+	// underneath by the tracker. Emptied by each flush, which bounds it by the
+	// tracks alive in one flush interval rather than by the length of the run.
+	pendingTracks map[string]TrackMeasurement
+	lastFlush     time.Time
+	// now is the clock the flush interval is measured on. A field so tests
+	// can move time rather than wait for it.
+	now func() time.Time
+
 	// Frame timestamps for data duration (vs wall-clock processing time)
 	firstFrameNs int64 // timestamp of first frame (nanoseconds)
 	lastFrameNs  int64 // timestamp of last frame (nanoseconds)
@@ -36,6 +50,19 @@ var (
 	armMu       sync.RWMutex
 	armRegistry = make(map[string]*AnalysisRunManager)
 )
+
+// runTrackFlushInterval is how often pending track measurements are written
+// during a run, on the wall clock.
+//
+// Writing at the end of the run would be enough for a replay that finishes.
+// It is not enough for a live run, which can last days and end with the power:
+// every row would be left describing a first sighting, which is the defect
+// this exists to remove. Ten seconds keeps the write to one small transaction
+// every hundred or so frames, and means a reader mid-run (the track labelling
+// views) sees measurements at most that stale. Wall clock rather than data
+// time because the cost being bounded is database writes, and a replay runs
+// through data time many times faster than real time.
+const runTrackFlushInterval = 10 * time.Second
 
 // AnalysisRunStartOptions captures immutable run-config provenance for an
 // analysis replay.
@@ -54,9 +81,11 @@ type AnalysisRunStartOptions struct {
 // NewAnalysisRunManager creates a new manager for tracking analysis runs.
 func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
 	return &AnalysisRunManager{
-		store:      NewAnalysisRunStore(db),
-		sensorID:   sensorID,
-		tracksSeen: make(map[string]bool),
+		store:         NewAnalysisRunStore(db),
+		sensorID:      sensorID,
+		tracksSeen:    make(map[string]bool),
+		pendingTracks: make(map[string]TrackMeasurement),
+		now:           time.Now,
 	}
 }
 
@@ -65,9 +94,11 @@ func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
 // explicitly via pipeline.SensorRuntime.
 func NewAnalysisRunManagerDI(db DBClient, sensorID string) *AnalysisRunManager {
 	return &AnalysisRunManager{
-		store:      NewAnalysisRunStore(db),
-		sensorID:   sensorID,
-		tracksSeen: make(map[string]bool),
+		store:         NewAnalysisRunStore(db),
+		sensorID:      sensorID,
+		tracksSeen:    make(map[string]bool),
+		pendingTracks: make(map[string]TrackMeasurement),
+		now:           time.Now,
 	}
 }
 
@@ -184,6 +215,8 @@ func (m *AnalysisRunManager) startPreparedRun(run *AnalysisRun) (string, error) 
 	m.totalFrames = 0
 	m.totalClusters = 0
 	m.tracksSeen = make(map[string]bool)
+	m.pendingTracks = make(map[string]TrackMeasurement)
+	m.lastFlush = m.now()
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
 
@@ -203,6 +236,10 @@ func (m *AnalysisRunManager) RecordFrame(timestampNs int64) {
 		}
 		m.lastFrameNs = timestampNs
 	}
+	// Checked here as well as in RecordTrack: when the last tracks in view
+	// die, nothing offers a track again, and their final measurements would
+	// otherwise wait for the end of the run.
+	m.flushPendingTracksIfDueLocked()
 }
 
 // RecordClusters increments the cluster count for the current run.
@@ -212,8 +249,11 @@ func (m *AnalysisRunManager) RecordClusters(count int) {
 	m.totalClusters += count
 }
 
-// RecordTrack records a track for the current analysis run.
-// This inserts a RunTrack record and returns true if this is a new track.
+// RecordTrack records a track for the current analysis run. It is called for
+// every confirmed track on every frame. The first call for a track inserts its
+// RunTrack row and returns true; later calls return false and keep the track's
+// newest measurements for the next flush, so the row ends up describing the
+// finished track rather than its first sighting.
 func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -222,8 +262,11 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 		return false
 	}
 
-	// Check if we've already recorded this track
+	// Already recorded: remember how it looks now. Its row was written from
+	// the first sighting and is brought up to date by the next flush.
 	if m.tracksSeen[track.TrackID] {
+		m.pendingTracks[track.TrackID] = track.TrackMeasurement
+		m.flushPendingTracksIfDueLocked()
 		return false
 	}
 	m.tracksSeen[track.TrackID] = true
@@ -282,6 +325,12 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		FrameEndNs:       m.lastFrameNs,
 	}
 
+	// Before the run is marked complete, so that a completed run never has
+	// rows still describing first sightings. A failure here does not stop the
+	// run completing, which would strand it as "running"; it is reported once
+	// the run's own state is settled.
+	flushErr := m.flushPendingTracksLocked()
+
 	if err := m.store.CompleteRun(m.currentRun.RunID, stats); err != nil {
 		return err
 	}
@@ -289,7 +338,11 @@ func (m *AnalysisRunManager) CompleteRun() error {
 	diagf("[AnalysisRunManager] Completed run %s: %d frames, %d clusters, %d tracks in %.2fs",
 		m.currentRun.RunID, stats.TotalFrames, stats.TotalClusters, stats.TotalTracks, durationSecs)
 
+	runID := m.currentRun.RunID
 	m.currentRun = nil
+	if flushErr != nil {
+		return fmt.Errorf("run %s completed, but its tracks' final measurements were not written: %w", runID, flushErr)
+	}
 	return nil
 }
 
@@ -302,6 +355,12 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 		return nil
 	}
 
+	// A run that fails late has still measured its tracks. Best effort: the
+	// failure being reported is the one that matters.
+	if err := m.flushPendingTracksLocked(); err != nil {
+		opsf("[AnalysisRunManager] Failed run %s: final track measurements not written: %v", m.currentRun.RunID, err)
+	}
+
 	runID := m.currentRun.RunID
 	m.currentRun = nil
 
@@ -310,6 +369,34 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 	}
 
 	opsf("[AnalysisRunManager] Failed run %s: %s", runID, errMsg)
+	return nil
+}
+
+// flushPendingTracksIfDueLocked writes pending measurements once the flush
+// interval has passed. The caller holds m.mu.
+func (m *AnalysisRunManager) flushPendingTracksIfDueLocked() {
+	if m.currentRun == nil || m.now().Sub(m.lastFlush) < runTrackFlushInterval {
+		return
+	}
+	if err := m.flushPendingTracksLocked(); err != nil {
+		opsf("[AnalysisRunManager] Run %s: track measurements not written, will retry: %v", m.currentRun.RunID, err)
+	}
+}
+
+// flushPendingTracksLocked writes every pending measurement to its row. The
+// caller holds m.mu. On failure the measurements stay pending, so the next
+// flush retries them with whatever has been offered since; lastFlush advances
+// either way, so a database that keeps failing is retried once per interval
+// rather than on every frame.
+func (m *AnalysisRunManager) flushPendingTracksLocked() error {
+	m.lastFlush = m.now()
+	if m.currentRun == nil || len(m.pendingTracks) == 0 {
+		return nil
+	}
+	if err := m.store.UpdateRunTrackMeasurements(m.currentRun.RunID, m.pendingTracks); err != nil {
+		return err
+	}
+	m.pendingTracks = make(map[string]TrackMeasurement)
 	return nil
 }
 

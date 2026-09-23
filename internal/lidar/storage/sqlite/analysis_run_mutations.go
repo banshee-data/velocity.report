@@ -198,6 +198,54 @@ func nullableTimeUnixNano(value *time.Time) interface{} {
 	return value.UnixNano()
 }
 
+// UpdateRunTrackMeasurements brings the measurement columns of tracks already
+// recorded for a run up to date, in one transaction.
+//
+// A run track is inserted the first time it is seen, when it is a few
+// observations old: short, slow and not yet classified. Without this the row
+// keeps describing that moment for ever.
+//
+// Only measurements are written. The statement is built from
+// trackMeasurementUpdateSet, which names no label column, so a label applied
+// to a row while its run is still going cannot be overwritten from here:
+// user_label, label_confidence, labeler_id, labeled_at, quality_label,
+// label_source, linked_track_ids and the split/merge flags are a person's
+// work, and this is not. A track ID with no row is left alone rather than
+// inserted; inserting is InsertRunTrack's job, with the label defaults it owns.
+func (s *AnalysisRunStore) UpdateRunTrackMeasurements(runID string, measurements map[string]TrackMeasurement) error {
+	if len(measurements) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin run track measurement update: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	stmt, err := tx.Prepare(`
+		UPDATE lidar_run_tracks SET` + trackMeasurementUpdateSet + `
+		WHERE run_id = ? AND track_id = ?`)
+	if err != nil {
+		return fmt.Errorf("prepare run track measurement update: %w", err)
+	}
+	defer stmt.Close()
+
+	for trackID, measurement := range measurements {
+		args := append(trackMeasurementUpdateArgs(&measurement), runID, trackID)
+		if err := retryOnBusy(func() error {
+			_, err := stmt.Exec(args...)
+			return err
+		}); err != nil {
+			return fmt.Errorf("update measurements of run track %s: %w", trackID, err)
+		}
+	}
+	if err := retryOnBusy(func() error { return tx.Commit() }); err != nil {
+		return fmt.Errorf("commit run track measurement update: %w", err)
+	}
+	return nil
+}
+
 // InsertRunTrack inserts a track for an analysis run.
 // Uses retry logic to handle SQLITE_BUSY errors from concurrent writes.
 func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
