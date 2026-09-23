@@ -404,9 +404,31 @@ enum AnnotationGuard: Equatable {
     func mapMarksLine(siteID: String) -> String {
         let id = siteID.trimmingCharacters(in: .whitespacesAndNewlines)
         let rounded = (gridAzimuthDeg * 10).rounded() / 10
+        // A fixed locale, because the line is read by a machine: a decimal
+        // comma is valid in half of Europe and invalid in every JSON parser.
         let degrees =
-            rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
-        return "{\"id\": \"\(id.isEmpty ? "SITE-ID" : id)\", \"grid_azimuth_deg\": \(degrees)}"
+            rounded == rounded.rounded()
+            ? String(Int(rounded))
+            : String(format: "%.1f", locale: AnnotationSession.jsonLocale, rounded)
+        let quoted = AnnotationSession.jsonString(id.isEmpty ? "SITE-ID" : id)
+        return "{\"id\": \(quoted), \"grid_azimuth_deg\": \(degrees)}"
+    }
+
+    /// The one locale a machine-readable number may be formatted in.
+    private static let jsonLocale = Locale(identifier: "en_US_POSIX")
+
+    /// `text` as a JSON string, quotes and all.
+    ///
+    /// The site id is typed by hand, and a stray quote or backslash in it
+    /// would otherwise produce a line that cannot be pasted into
+    /// map-marks.json at all. Escaping is better than refusing: the operator
+    /// sees what they typed, in a line that parses.
+    static func jsonString(_ text: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [text]),
+            let array = String(data: data, encoding: .utf8), let start = array.firstIndex(of: "\""),
+            let end = array.lastIndex(of: "\"")
+        else { return "\"\"" }
+        return String(array[start...end])
     }
 
     // MARK: Init

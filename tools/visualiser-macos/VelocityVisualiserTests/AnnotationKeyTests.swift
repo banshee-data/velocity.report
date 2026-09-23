@@ -197,6 +197,47 @@ struct GridAzimuthTests {
         #expect(parsed?["grid_azimuth_deg"] as? Double == 3)
     }
 
+    /// The id is typed by hand, so it can contain anything. Whatever it
+    /// contains, the line has to parse: an unescaped quote makes it garbage
+    /// that cannot be pasted into map-marks.json at all.
+    @Test func aSiteIdWithAwkwardCharactersStillParses() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        session.gridAzimuthDeg = 12
+
+        for awkward in [
+            #"say "hello""#, #"back\slash"#, "new\nline", "tab\there", "emoji 🚗", "quote\"and\\both",
+        ] {
+            let line = session.mapMarksLine(siteID: awkward)
+            let parsed =
+                try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+            #expect(parsed?["id"] as? String == awkward, "id did not survive: \(line)")
+            #expect(parsed?["grid_azimuth_deg"] as? Double == 12)
+        }
+    }
+
+    /// A decimal comma is valid in half of Europe and invalid in every JSON
+    /// parser, so the number is formatted in a fixed locale.
+    @Test func aFractionalAngleIsWrittenWithAPoint() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        session.gridAzimuthDeg = 3.5
+        let line = session.mapMarksLine(siteID: "columbus-broadway")
+        // The comma between the two keys is the separator; the number itself
+        // is what must not have one.
+        let number = try #require(line.split(separator: ":").last?.dropLast())
+        #expect(number.trimmingCharacters(in: .whitespaces) == "3.5")
+        let parsed = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+        #expect(parsed?["grid_azimuth_deg"] as? Double == 3.5)
+    }
+
+    @Test func jsonStringQuotesAndEscapesWhateverItIsGiven() {
+        #expect(AnnotationSession.jsonString("plain") == #""plain""#)
+        #expect(AnnotationSession.jsonString(#"a"b"#) == #""a\"b""#)
+        #expect(AnnotationSession.jsonString("") == #""""#)
+    }
+
     /// A pack does not know its junction, so the id is the operator's to give.
     /// An empty one leaves an obvious blank rather than a plausible wrong id.
     @Test func anUnknownSiteLeavesAPlaceholderRatherThanAGuess() throws {
