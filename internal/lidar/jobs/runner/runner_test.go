@@ -490,6 +490,70 @@ func TestACampaignRunsItsConfigsAndSummarisesThem(t *testing.T) {
 	if h.exec.ran.Load() != 3 {
 		t.Errorf("executor ran %d times", h.exec.ran.Load())
 	}
+	if !done.RunIdentityDigest.Valid() {
+		t.Error("campaign parent has no run identity: a hub cannot list it or check a bundle against it")
+	}
+	bundle, err := h.store.ReadBundle(done.Attempt.AttemptID)
+	if err != nil {
+		t.Fatalf("campaign parent bundle.json: %v", err)
+	}
+	if bundle.Outcome != "completed" || bundle.IdentityDigest != done.RunIdentityDigest {
+		t.Errorf("campaign parent bundle = %+v", bundle)
+	}
+	found := false
+	for _, f := range bundle.Files {
+		found = found || f.Path == "campaign.json"
+	}
+	if !found {
+		t.Errorf("campaign parent bundle files = %+v, want campaign.json listed", bundle.Files)
+	}
+}
+
+// A campaign parent is never itself queued for RunOne (NextQueued skips any
+// record with children), so finishParent normally only ever runs from a
+// child's own transition. If the last child to finish was instead marked
+// lost by a restart, nothing else will ever call it, and the parent would
+// stay queued forever without the reconciliation Run does after recovery.
+func TestARestartReconcilesAnOrphanedCampaignParent(t *testing.T) {
+	h := newHarness(t)
+	parent, err := h.store.SubmitCampaign(h.campaign("a", "b"), h.runner.now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The first child finishes normally, well before the restart.
+	first, _ := h.store.Get(parent.Children[0])
+	h.runner.RunOne(context.Background(), first)
+	if done, _ := h.store.Get(parent.Children[0]); done.Attempt.State != jobs.StateAccepted {
+		t.Fatalf("first child = %s", done.Attempt.State)
+	}
+
+	// The second was running when the worker died.
+	second := parent.Children[1]
+	if _, err := h.store.Transition(second, jobs.StateLeased, jobs.ActorHub, h.runner.now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.Transition(second, jobs.StateRunning, jobs.ActorWorker, h.runner.now()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Nothing is left queued: with both children now terminal (one accepted
+	// before the restart, one about to be marked lost by it), only the
+	// restart's own recovery step can ever finalise this parent.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_ = h.runner.Run(ctx)
+
+	done, _ := h.store.Get(parent.Attempt.AttemptID)
+	if !done.Attempt.State.Terminal() {
+		t.Fatalf("campaign parent after restart = %s, want terminal", done.Attempt.State)
+	}
+	if done.Attempt.State != jobs.StateFailed {
+		t.Errorf("campaign parent state = %s, want failed: one child was lost", done.Attempt.State)
+	}
+	if _, err := h.store.ReadBundle(done.Attempt.AttemptID); err != nil {
+		t.Errorf("campaign parent bundle.json after restart: %v", err)
+	}
 }
 
 func TestACampaignWithAFailedConfigIsFailedButKeepsTheRest(t *testing.T) {

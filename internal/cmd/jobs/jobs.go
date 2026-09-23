@@ -59,7 +59,7 @@ func Main(args []string) int {
 		err = c.printJSON("GET", "/api/worker/kinds", nil)
 	case "submit", "campaign":
 		if len(rest) < 2 {
-			return usageError("submit FILE")
+			return usageError(rest[0] + " FILE")
 		}
 		body, rerr := os.ReadFile(rest[1])
 		if rerr != nil {

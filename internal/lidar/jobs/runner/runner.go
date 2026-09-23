@@ -96,6 +96,18 @@ func (r *Runner) Run(ctx context.Context) error {
 		return err
 	} else if len(lost) > 0 {
 		r.event("marked %d attempt(s) lost that were in progress when the worker last stopped", len(lost))
+		// A lost child's campaign parent was never told: finishParent
+		// normally runs from RunOne on every child transition, and
+		// RecoverAfterRestart bypasses RunOne entirely by construction, since
+		// nothing was running to bypass. Give each affected parent the same
+		// chance to finalise it would have gotten from a live transition;
+		// finishParent already no-ops on a parent that is not found, already
+		// terminal, or still waiting on another child.
+		for _, id := range lost {
+			if rec, err := r.Store.Get(id); err == nil && rec.Parent != "" {
+				r.finishParent(rec)
+			}
+		}
 	}
 	interval := r.PollInterval
 	if interval == 0 {
@@ -317,7 +329,22 @@ func (r *Runner) verifyBundle(rec Record, written jobs.BundleManifest) (jobs.Dig
 			return "", fmt.Errorf("%s does not match its manifest entry", f.Path)
 		}
 	}
-	return m.Digest()
+	digest, err := m.Digest()
+	if err != nil {
+		return "", err
+	}
+	// written is the manifest this worker itself produced moments ago, still
+	// in memory; m is a fresh read of what is now actually on disk. They
+	// should be identical, and a mismatch means the bundle changed, or was
+	// corrupted, between the write and this verification.
+	writtenDigest, err := written.Digest()
+	if err != nil {
+		return "", fmt.Errorf("the manifest this worker wrote: %w", err)
+	}
+	if digest != writtenDigest {
+		return "", fmt.Errorf("bundle on disk (%s) does not match what this worker wrote (%s)", digest.Short(), writtenDigest.Short())
+	}
+	return digest, nil
 }
 
 // DefaultProfile describes this host.

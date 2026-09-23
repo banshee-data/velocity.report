@@ -2,7 +2,6 @@ package runner
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -152,12 +151,10 @@ func (c *Captures) digest(path string, log func(string, ...any)) (jobs.Digest, e
 	entry.Inode, entry.Device = inode(info)
 	c.mu.Lock()
 	c.cache[path] = entry
-	err = writeJSON(c.cachePath, c.cache)
+	// A cache write failure costs a hash next time, not a job: the digest
+	// just computed is returned regardless.
+	_ = writeJSON(c.cachePath, c.cache)
 	c.mu.Unlock()
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		// A cache that cannot be written costs a hash next time, not a job.
-		return digest, nil
-	}
 	return digest, nil
 }
 

@@ -347,8 +347,10 @@ func (a *API) bundleTar(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 		_, err = io.Copy(tw, f)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
 		return err
 	})
 }
@@ -371,6 +373,12 @@ func decodeBody(r *http.Request, into any) error {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
 		return fmt.Errorf("request body: %w", err)
+	}
+	// Decode reads exactly one JSON value and says nothing about what
+	// follows it, so a body with a second value appended would otherwise
+	// be silently ignored rather than rejected.
+	if dec.More() {
+		return fmt.Errorf("request body: unexpected data after the JSON value")
 	}
 	return nil
 }

@@ -133,10 +133,18 @@ func (s *Store) SubmitCampaign(c Campaign, now time.Time) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
+	parentJob := jobs.JobRequest{Kind: c.Kind, CaptureManifest: c.Base.CaptureManifest, Tuning: c.Base.Tuning,
+		Code: c.Base.Code, Replay: c.Base.Replay, Note: c.Note}
+	// The parent's identity is the base job's: it is never run itself, but
+	// a hub still needs a real identity to list it against and to check a
+	// bundle manifest against, the same as any other record.
+	identity, digest, err := parentJob.Identity()
+	if err != nil {
+		return Record{}, err
+	}
 	parentID := newID("cmp", now)
 	parent := Record{
-		Job: jobs.JobRequest{Kind: c.Kind, CaptureManifest: c.Base.CaptureManifest, Tuning: c.Base.Tuning,
-			Code: c.Base.Code, Replay: c.Base.Replay, Note: c.Note},
+		Job: parentJob, RunIdentity: identity, RunIdentityDigest: digest,
 		Attempt: jobs.Attempt{AttemptID: parentID, JobID: parentID, Ordinal: 1, State: jobs.StateQueued, CreatedAt: now.UTC()},
 		Label:   "campaign",
 	}
@@ -211,15 +219,25 @@ func (r *Runner) finishParent(child Record) {
 		}
 	}
 	final := jobs.StateAccepted
+	outcome := "completed"
 	if !allGood {
 		final = jobs.StateFailed
+		outcome = "partial"
 	}
 	done, err := r.Store.Transition(parent.Attempt.AttemptID, final, jobs.ActorHub, now)
 	if err != nil {
 		r.event("%s: %v", parent.Attempt.AttemptID, err)
 		return
 	}
-	_ = writeJSONUnder(r.Store.BundlePath(done.Attempt.AttemptID), "campaign.json", json.RawMessage(summary))
+	// campaign.json is the human-facing table; bundle.json is what
+	// /api/worker/jobs/{id}/bundle and .../bundle.tar read for every other
+	// record, and a campaign parent gets one the same way, listing
+	// campaign.json among its files.
+	if err := writeJSONUnder(r.Store.BundlePath(done.Attempt.AttemptID), "campaign.json", json.RawMessage(summary)); err != nil {
+		r.event("%s: campaign.json: %v", done.Attempt.AttemptID, err)
+	} else if _, err := r.writeBundle(done, parent.Attempt.CreatedAt, now, outcome, summary); err != nil {
+		r.event("%s: bundle.json: %v", done.Attempt.AttemptID, err)
+	}
 	if !allGood {
 		done.Attempt.Failure = &jobs.Failure{Reason: "one or more configs did not complete", LocalPath: r.Store.BundlePath(done.Attempt.AttemptID)}
 	}
