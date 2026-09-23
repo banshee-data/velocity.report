@@ -110,11 +110,18 @@ struct AnnotationViewportInputTests {
     @Test func draggingALassoRoundTheClusterSelectsIt() throws {
         let mounted = try mount()
         defer { mounted.cleanUp() }
+        // The default tool is the sphere brush now; this test is about the
+        // lasso specifically, so it sets the tool it names.
+        mounted.session.tool = .lasso
 
         // Round the three foreground returns near (1.5, 1.25), and nowhere
-        // near the ground return at (40, -30).
+        // near the ground return at (40, -30). Kept well inside the default
+        // view's world bounds: it now frames on the foreground alone, with a
+        // 1 m half-height floor around that same centre, so this stays on
+        // screen regardless of how the framing is tuned further.
         let corners = [
-            simd_float2(0, 0), simd_float2(3, 0), simd_float2(3, 3), simd_float2(0, 3),
+            simd_float2(0.75, 0.5), simd_float2(2.25, 0.5), simd_float2(2.25, 2.0),
+            simd_float2(0.75, 2.0),
         ].map { windowPoint($0, in: mounted) }
 
         try send(.leftMouseDown, at: corners[0], to: mounted)
@@ -129,6 +136,9 @@ struct AnnotationViewportInputTests {
     @Test func aClickWithTheLassoSelectsNothingAndLeavesNoStrokeOpen() throws {
         let mounted = try mount()
         defer { mounted.cleanUp() }
+        // The default tool is the sphere brush now; this test is about the
+        // lasso specifically, so it sets the tool it names.
+        mounted.session.tool = .lasso
 
         let point = windowPoint(simd_float2(1.5, 1.25), in: mounted)
         try send(.leftMouseDown, at: point, to: mounted)
@@ -177,8 +187,11 @@ struct AnnotationViewportInputTests {
         defer { mounted.cleanUp() }
         let before = mounted.session.viewport(for: .top, size: mounted.input.bounds.size)
 
+        // Same safe rectangle as the lasso test: within the default view's
+        // 1 m half-height floor around the foreground cluster it frames on.
         let corners = [
-            simd_float2(0, 0), simd_float2(3, 0), simd_float2(3, 3), simd_float2(0, 3),
+            simd_float2(0.75, 0.5), simd_float2(2.25, 0.5), simd_float2(2.25, 2.0),
+            simd_float2(0.75, 2.0),
         ].map { windowPoint($0, in: mounted) }
         try send(.leftMouseDown, at: corners[0], to: mounted)
         for corner in corners.dropFirst() { try send(.leftMouseDragged, at: corner, to: mounted) }

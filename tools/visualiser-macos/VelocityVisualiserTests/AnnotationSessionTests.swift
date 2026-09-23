@@ -37,6 +37,16 @@ struct AnnotationSessionTests {
         #expect(session.selectionCount == 0)
     }
 
+    /// Most of a session is painting objects with the brush; the lasso needs
+    /// a drag before it does anything, where the sphere follows the cursor
+    /// from the moment the views are on screen.
+    @Test func startsWithTheSphereBrushSelected() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(session.tool == .sphere)
+    }
+
+
     @Test func newObjectStartsProposedNotReviewed() throws {
         let (session, dir) = try makeSession()
         defer { try? FileManager.default.removeItem(at: dir) }
