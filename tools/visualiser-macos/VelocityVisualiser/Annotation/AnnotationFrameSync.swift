@@ -165,8 +165,9 @@ enum AnnotationScene {
     }
 
     static func frame(
-        points: PackPoints, classes: [UInt8], visibility: PointVisibility?, marks: Marks,
-        sample: AnnotationSample?, backdrop: Backdrop? = nil
+        points: PackPoints, classes: [UInt8], visibility: PointVisibility?,
+        labels: PointLabelSets? = nil, marks: Marks, sample: AnnotationSample?,
+        backdrop: Backdrop? = nil
     ) -> FrameBundle {
         // Resolved per point up front, so the loop below is one lookup.
         var marked: [Int: UInt8] = [:]
@@ -201,10 +202,18 @@ enum AnnotationScene {
 
         for index in 0..<points.count {
             let mark = marked[index]
+            // A hidden label state hides a marked return too: switching
+            // "agreed" off is a request to hide exactly what is in a reviewed
+            // mask, so the override below must not reach past it.
+            guard PointVisibility.showsLabelState(index, under: visibility, labels: labels) else {
+                continue
+            }
             // A marked return is drawn even when its class is hidden: it is in
             // a mask, and hiding it would hide what the mask claims.
             guard
-                mark != nil || PointVisibility.isVisible(index, classes: classes, under: visibility)
+                mark != nil
+                    || PointVisibility.isVisible(
+                        index, classes: classes, under: visibility, labels: labels)
             else { continue }
             guard points.x[index].isFinite, points.y[index].isFinite, points.z[index].isFinite
             else { continue }

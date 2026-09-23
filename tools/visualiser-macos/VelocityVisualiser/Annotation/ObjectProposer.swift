@@ -141,6 +141,8 @@ struct ProposerFrame {
 struct ObjectProposer {
     /// The column lattice's pitch: clusters are joined across it.
     static let pitch: Float = 0.5
+    /// The lattice the voxels sit on.
+    static let lattice = Lattice(pitch: pitch)
     /// Occupied in this share of frames, a voxel is fixed clutter.
     static let persistentShare: Float = 0.8
     /// Fewer returns than this is not seeded: it is the speckle every frame has.
@@ -157,18 +159,10 @@ struct ObjectProposer {
     static let searchRadius: Float = 2
     /// Edge of the plan bins a frame's returns are indexed by.
     static let binSize: Float = 2
-
-    static func bin(_ x: Float, _ y: Float) -> SIMD2<Int32> {
-        SIMD2(Int32((x / binSize).rounded(.down)), Int32((y / binSize).rounded(.down)))
-    }
+    /// The coarser lattice those bins sit on.
+    static let planLattice = Lattice(pitch: binSize)
 
     // MARK: Fixed clutter
-
-    static func voxel(_ p: simd_float3) -> SIMD3<Int32> {
-        SIMD3(
-            Int32((p.x / pitch).rounded(.down)), Int32((p.y / pitch).rounded(.down)),
-            Int32((p.z / pitch).rounded(.down)))
-    }
 
     /// Counts, per voxel, the frames it held a free return in. Fed one frame
     /// at a time so that a long pack is never held in memory at once.
@@ -181,7 +175,7 @@ struct ObjectProposer {
             var here = Set<SIMD3<Int32>>()
             for index in 0..<frame.points.count where frame.isFree(index) {
                 guard let p = frame.points.point(at: index) else { continue }
-                here.insert(ObjectProposer.voxel(p))
+                here.insert(ObjectProposer.lattice.voxel(p))
             }
             for v in here { seen[v, default: 0] += 1 }
         }
@@ -205,10 +199,9 @@ struct ObjectProposer {
     ) -> [[Int]] {
         var cells: [SIMD2<Int32>: [Int]] = [:]
         for index in 0..<frame.points.count where frame.isFree(index) && !claimed.contains(index) {
-            guard let p = frame.points.point(at: index), !persistent.contains(voxel(p)) else {
-                continue
-            }
-            let v = voxel(p)
+            guard let p = frame.points.point(at: index), !persistent.contains(lattice.voxel(p))
+            else { continue }
+            let v = lattice.voxel(p)
             cells[SIMD2(v.x, v.y), default: []].append(index)
         }
         var visited = Set<SIMD2<Int32>>()
@@ -291,14 +284,14 @@ struct ObjectProposer {
         var bins: [SIMD2<Int32>: [Int]] = [:]
         for index in 0..<frame.points.count where frame.isFree(index) {
             guard let p = frame.points.point(at: index),
-                !persistent.contains(ObjectProposer.voxel(p))
+                !persistent.contains(ObjectProposer.lattice.voxel(p))
             else { continue }
             available[index] = true
-            bins[ObjectProposer.bin(p.x, p.y), default: []].append(index)
+            bins[ObjectProposer.planLattice.cell(x: p.x, y: p.y), default: []].append(index)
         }
         func near(_ lower: simd_float3, _ upper: simd_float3) -> [Int] {
-            let lo = ObjectProposer.bin(lower.x, lower.y)
-            let hi = ObjectProposer.bin(upper.x, upper.y)
+            let lo = ObjectProposer.planLattice.cell(x: lower.x, y: lower.y)
+            let hi = ObjectProposer.planLattice.cell(x: upper.x, y: upper.y)
             guard lo.x <= hi.x, lo.y <= hi.y else { return [] }
             var found: [Int] = []
             for bx in lo.x...hi.x { for by in lo.y...hi.y { found += bins[SIMD2(bx, by)] ?? [] } }
@@ -362,7 +355,11 @@ struct ObjectProposer {
     }
 
     /// The chains that lasted, largest first.
-    mutating func finish() -> [ObjectProposal] {
+    ///
+    /// `firstID` is where the numbering starts, so that a second run can be
+    /// appended to a list already on screen without renumbering it under the
+    /// operator.
+    mutating func finish(firstID: Int = 0) -> [ObjectProposal] {
         finished += chains
         chains = []
         let kept = finished.filter { $0.frames.count >= ObjectProposer.minimumFrames }.sorted {
@@ -376,7 +373,7 @@ struct ObjectProposer {
             let length = ObjectProposer.median(chain.lengths)
             let height = ObjectProposer.median(chain.heights)
             return ObjectProposal(
-                id: id, kind: .moving,
+                id: firstID + id, kind: .moving,
                 classGuess: ObjectProposer.guess(
                     travelled: travelled, length: length, height: height), frames: chain.frames,
                 travelled: travelled, length: length, height: height)
@@ -424,7 +421,7 @@ struct ObjectProposer {
         mutating func add(_ frame: ProposerFrame, at frameIndex: Int) {
             for index in 0..<frame.points.count where frame.isFree(index) {
                 guard let p = frame.points.point(at: index),
-                    let patch = patchOf[ObjectProposer.voxel(p)]
+                    let patch = patchOf[ObjectProposer.lattice.voxel(p)]
                 else { continue }
                 members[patch][frameIndex, default: []].append(index)
                 lower[patch] = simd_min(lower[patch], p)

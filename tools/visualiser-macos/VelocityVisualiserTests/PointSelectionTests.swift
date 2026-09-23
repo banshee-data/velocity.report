@@ -63,6 +63,123 @@ struct OrthoViewBasisTests {
         }
     }
 
+    /// Every basis must be right-handed the same way, or one view mirrors the
+    /// scene and a selection checked in it is checked against a reflection.
+    @Test func everyViewIsHandedTheSameWay() {
+        for standard in OrthoViewBasis.Standard.allCases {
+            let basis = OrthoViewBasis(standard)
+            let cross = simd_cross(basis.right, basis.up)
+            #expect(
+                simd_length(cross + basis.forward) < 1e-6,
+                "\(standard) is mirrored: right x up is not -forward")
+        }
+    }
+
+    /// The four elevations are two opposed pairs, each looking along one
+    /// horizontal axis, so between them every side of an object is seen.
+    @Test func theElevationsLookFourDifferentWaysAlongTheGround() {
+        let forwards = OrthoViewBasis.Standard.elevations.map { OrthoViewBasis($0).forward }
+        #expect(forwards.count == 4)
+        for f in forwards {
+            // Horizontal: an elevation that tilted would not show height truly.
+            #expect(abs(f.z) < 1e-6)
+            #expect(OrthoViewBasis.Standard.elevations.allSatisfy { OrthoViewBasis($0).up == simd_float3(0, 0, 1) })
+        }
+        // Opposed in pairs, and no two the same.
+        #expect(simd_length(forwards[0] + forwards[1]) < 1e-6)
+        #expect(simd_length(forwards[2] + forwards[3]) < 1e-6)
+        #expect(abs(simd_dot(forwards[0], forwards[2])) < 1e-6)
+    }
+
+    /// The four elevations partition the scene: every point is in front of
+    /// exactly two of them, one from each opposed pair, so nothing is drawn
+    /// twice in the same picture and nothing is invisible everywhere.
+    @Test func eachElevationShowsOnlyTheHalfInFrontOfIt() {
+        let bases = OrthoViewBasis.Standard.elevations.map { OrthoViewBasis($0) }
+        for p in [
+            simd_float3(7, 3, 0), simd_float3(-7, 3, 0), simd_float3(7, -3, 0),
+            simd_float3(-7, -3, 1.5), simd_float3(0.1, 12, -2),
+        ] {
+            let showing = bases.filter { $0.shows(p) }.count
+            #expect(showing == 2, "\(p) is shown by \(showing) elevations, want 2")
+        }
+    }
+
+    /// The plan view is the one that sees everything, which is why it decides
+    /// whether a fit had anything to frame.
+    @Test func theTopViewShowsEverything() {
+        let top = OrthoViewBasis(.top)
+        for p in [simd_float3(5, 5, 5), simd_float3(-5, -5, -5), .zero] {
+            #expect(top.shows(p))
+        }
+    }
+
+    /// A point exactly on a dividing plane belongs to the view looking at it,
+    /// so the boundary is claimed rather than dropped by both.
+    @Test func aPointOnThePlaneIsStillShown() {
+        #expect(OrthoViewBasis(.front).shows(simd_float3(3, 0, 1)))
+        #expect(OrthoViewBasis(.back).shows(simd_float3(3, 0, 1)))
+        #expect(OrthoViewBasis(.side).shows(simd_float3(0, 3, 1)))
+        #expect(OrthoViewBasis(.farSide).shows(simd_float3(0, 3, 1)))
+    }
+
+    /// The whole point of turning the views: a lattice turned to follow the
+    /// kerbs has to land square on screen, or the grid is drawn skewed over a
+    /// scene that is not.
+    @Test func aTurnedTopViewPutsATurnedLatticeSquareOnScreen() {
+        let azimuth: Float = 37
+        let basis = OrthoViewBasis(.top, azimuthDeg: azimuth)
+        let lattice = Lattice(pitch: 0.5, azimuthDeg: azimuth)
+
+        for cell in [SIMD2<Int32>(0, 0), SIMD2(3, -7), SIMD2(-2, 5)] {
+            let centre = lattice.centre(ofCell: cell)
+            let world = simd_float3(centre.x, centre.y, 0)
+            let view = basis.project(world)
+            // In the turned view the cell's centre sits at its own lattice
+            // coordinates: the view plane and the lattice are the same frame.
+            #expect(abs(view.x - (Float(cell.x) + 0.5) * 0.5) < 1e-4, "cell \(cell)")
+            #expect(abs(view.y - (Float(cell.y) + 0.5) * 0.5) < 1e-4, "cell \(cell)")
+        }
+    }
+
+    /// Turning must not stretch anything: the basis stays orthonormal and the
+    /// same handedness, or a selection made in it is made against a distortion.
+    @Test func aTurnedBasisIsStillOrthonormalAndRightHanded() {
+        for azimuth in [Float(0), 17, 90, 181, 359] {
+            for standard in OrthoViewBasis.Standard.allCases {
+                let basis = OrthoViewBasis(standard, azimuthDeg: azimuth)
+                #expect(abs(simd_length(basis.right) - 1) < 1e-5)
+                #expect(abs(simd_length(basis.up) - 1) < 1e-5)
+                #expect(abs(simd_dot(basis.right, basis.up)) < 1e-5)
+                #expect(
+                    simd_length(simd_cross(basis.right, basis.up) + basis.forward) < 1e-5,
+                    "\(standard) at \(azimuth) is mirrored")
+            }
+        }
+    }
+
+    /// The elevations' cuts turn with the street, so the four sectors follow
+    /// the kerbs rather than however the tripod faced.
+    @Test func turningTheViewsTurnsWhereTheElevationsCut() {
+        let plain = OrthoViewBasis(.front)
+        let turned = OrthoViewBasis(.front, azimuthDeg: 90)
+        // A point straight ahead of the untouched front view is, after a
+        // quarter turn, exactly on that view's dividing plane.
+        let ahead = simd_float3(0, 10, 0)
+        #expect(plain.depth(ahead) > 0)
+        #expect(abs(turned.depth(ahead)) < 1e-4)
+        // The turn takes the look direction from +Y round to -X, so what was
+        // on the plane to its left is now what it faces.
+        #expect(turned.depth(simd_float3(-10, 0, 0)) > 0)
+        #expect(turned.depth(simd_float3(10, 0, 0)) < 0)
+    }
+
+    @Test func anUnturnedBasisIsUnchanged() {
+        for standard in OrthoViewBasis.Standard.allCases {
+            #expect(OrthoViewBasis(standard) == OrthoViewBasis(standard, azimuthDeg: 0))
+        }
+    }
+
     @Test func secondViewIsAlwaysADifferentAxis() {
         // The confirming view has to actually show a different angle, or the
         // second-view check verifies nothing.

@@ -49,7 +49,7 @@ func annotationExtent(of points: PackPoints, basis: OrthoViewBasis) -> Annotatio
     var maxY = -Float.greatestFiniteMagnitude
     var seen = false
     for index in 0..<points.count {
-        guard let p = points.point(at: index) else { continue }
+        guard let p = points.point(at: index), basis.shows(p) else { continue }
         let v = basis.project(p)
         minX = min(minX, v.x)
         maxX = max(maxX, v.x)
@@ -69,12 +69,22 @@ func annotationExtent(of points: PackPoints, basis: OrthoViewBasis) -> Annotatio
 /// flat sample — which is what a top-down view of a street is — at the sides.
 /// The floor stops a single-point or perfectly flat sample from collapsing the
 /// view to zero scale, which would divide by zero in the screen mapping.
+/// How far a view has to see, in metres either side of its centre.
+///
+/// `fitsWidth` is what makes the plan view and an elevation frame differently,
+/// and they must. A plan is about as wide as it is deep, so fitting both puts
+/// the whole scene on screen. An elevation is a street: a hundred metres wide
+/// and four high. Fitting its width would set the vertical scale from the
+/// horizontal span and leave a car two pixels tall, so an elevation frames its
+/// height and is panned to see along the street.
 func annotationFramingHalfHeight(
-    extent: AnnotationExtent, size: CGSize, margin: Float = 1.15, floor: Float = 1.0
+    extent: AnnotationExtent, size: CGSize, margin: Float = 1.15, floor: Float = 1.0,
+    fitsWidth: Bool = true
 ) -> Float {
     let aspect = size.height > 0 ? Float(size.width / size.height) : 1
     let neededForWidth = aspect > 0 ? extent.halfWidth / aspect : extent.halfWidth
-    return max(max(extent.halfHeight, neededForWidth) * margin, floor)
+    let needed = fitsWidth ? max(extent.halfHeight, neededForWidth) : extent.halfHeight
+    return max(needed * margin, floor)
 }
 
 // MARK: - Controller
@@ -330,18 +340,29 @@ struct AnnotationWorkspace: View {
                         ).padding(4).foregroundStyle(.secondary).allowsHitTesting(false)
                     }.frame(minHeight: 240).layoutPriority(2)
 
-                    // Top, front and side, always all three. The one being
-                    // edited in takes strokes; a click in another makes it the
-                    // editing view. Review is gated on a second view, and with
-                    // every view on screen there is always one to check in.
+                    // The top view large, because that is where a selection is
+                    // made, and the four elevations stacked beside it, each the
+                    // sensor looking outward. Between them they show every side
+                    // of an object without orbiting anything.
+                    //
+                    // The one being edited in takes strokes; a click in another
+                    // makes it the editing view. Review is gated on a second
+                    // view, and with all five on screen there is always one to
+                    // check in.
                     HSplitView {
-                        ForEach(OrthoViewBasis.Standard.allCases, id: \.self) { standard in
-                            AnnotationViewportView(
-                                session: session, standard: standard,
-                                editable: standard == session.viewStandard
-                            ).frame(minWidth: 180, minHeight: 180)
-                        }
-                    }.frame(minHeight: 200)
+                        AnnotationViewportView(
+                            session: session, standard: .top, editable: session.viewStandard == .top
+                        ).frame(minWidth: 320, minHeight: 240).layoutPriority(2)
+
+                        VStack(spacing: 1) {
+                            ForEach(OrthoViewBasis.Standard.elevations, id: \.self) { standard in
+                                AnnotationViewportView(
+                                    session: session, standard: standard,
+                                    editable: standard == session.viewStandard
+                                ).frame(minHeight: 84)
+                            }
+                        }.frame(minWidth: 200)
+                    }.frame(minHeight: 280)
                 }
                 AnnotationFrameStrip(session: session) { index in
                     if session.step(to: index) != nil {
@@ -413,7 +434,7 @@ struct AnnotationViewportView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let basis = OrthoViewBasis(standard)
+            let basis = session.basis(standard)
             // The session's framing, not one measured from this sample: see
             // AnnotationViewState.swift.
             let viewport = session.viewport(for: standard, size: geometry.size)
@@ -431,6 +452,7 @@ struct AnnotationViewportView: View {
                 AnnotationPointCanvas(
                     points: session.currentPoints, classes: session.currentClasses, basis: basis,
                     viewport: viewport, visibility: session.effectiveVisibility,
+                    labels: session.effectiveLabelSets,
                     identity: AnnotationPointCanvas.Identity(
                         packDigest: session.pack.manifest.packDigest,
                         sampleID: session.currentSample?.sampleID ?? -1)
@@ -562,6 +584,7 @@ struct AnnotationBackgroundCanvas: View, Equatable {
                 var path = Path()
                 for index in indices {
                     let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                    guard basis.shows(p) else { continue }
                     let screen = viewport.screenPoint(from: basis.project(p))
                     guard visible.contains(screen) else { continue }
                     path.addRect(
@@ -661,6 +684,9 @@ struct AnnotationPointCanvas: View, Equatable {
     let basis: OrthoViewBasis
     let viewport: OrthoViewport
     let visibility: PointVisibility?
+    /// Which returns are agreed and which in question, when the filter needs
+    /// them. Compared by revision, not by contents.
+    let labels: PointLabelSets?
     let identity: Identity
 
     // Points are immutable under a pack digest and sample, so two canvases
@@ -669,7 +695,7 @@ struct AnnotationPointCanvas: View, Equatable {
     // candidate count, without every publish redrawing the whole cloud.
     static func == (lhs: AnnotationPointCanvas, rhs: AnnotationPointCanvas) -> Bool {
         lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
-            && lhs.visibility == rhs.visibility
+            && lhs.visibility == rhs.visibility && lhs.labels == rhs.labels
     }
 
     static let backgroundColour = Color(red: 0.55, green: 0.55, blue: 0.62)
@@ -686,10 +712,12 @@ struct AnnotationPointCanvas: View, Equatable {
             // in a frame late while panning.
             let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
             for index in 0..<points.count {
-                guard PointVisibility.isVisible(index, classes: classes, under: visibility) else {
-                    continue
-                }
+                guard
+                    PointVisibility.isVisible(
+                        index, classes: classes, under: visibility, labels: labels)
+                else { continue }
                 let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                guard basis.shows(p) else { continue }
                 let screen = viewport.screenPoint(from: basis.project(p))
                 // Zoomed in, most of the sample is off screen, and a path of
                 // tens of thousands of rectangles nobody can see is most of

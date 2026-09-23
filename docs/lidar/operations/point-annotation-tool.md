@@ -30,7 +30,7 @@ The window uses the main view's words where it means the same thing.
 | Run         | The recording the pack was cut from                                                           |
 | Frame       | One scan. Shown by the run's own frame number, which is the one the main view's timeline uses |
 | Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                 |
-| Object      | One real thing, named by class and number: "car 2"                                            |
+| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame      |
 | Labelled by | Your name. Saved with every label. Not the name of an object or a track                       |
 | Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                              |
 | Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth            |
@@ -51,13 +51,26 @@ it unchanged.
 
 ## The window
 
-| Area                        | What it is                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Left sidebar                | What is being labelled: run and frame, this frame's progress, proposals, objects          |
-| 3D view (top, large)        | The main view's renderer on this frame. For looking, not selecting                        |
-| Top, Front and Side (below) | All three orthographic views. The one outlined takes strokes; click another to edit there |
-| Frame strip (bottom)        | One bar a frame: green agreed, amber in question. A yellow marker is a background update  |
-| Right sidebar               | How: display, tools, depth slab, carrying, saving and review                              |
+| Area                  | What it is                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
+| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting                       |
+| Top view (below left) | Large, because this is where a selection is usually made                                 |
+| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
+| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
+| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                             |
+
+Each elevation is the sensor looking outward and **shows only the half of the scene in front of
+it**: 180° of azimuth each, the pairs opposed. Without that the half behind the sensor lands on
+top of the half in front and two views along one axis are the same picture mirrored. Every
+return is in front of exactly two elevations, one from each pair, so between them every side of
+an object is on screen without orbiting anything. Back and Far side are turned around rather
+than mirrored: a car driving right in Front drives left in Back. The axes are the sensor's own
+— a pack records no site transform — so they are not compass directions.
+
+The top view frames the whole sample. An elevation frames its **height** and is panned along,
+because a street is a hundred metres wide and four high and fitting its width would leave a car
+too small to see.
 
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
@@ -72,7 +85,7 @@ The status line across the top of the views always says what went wrong or what 
 | Pan a selection view         | Right-drag, middle-drag, or control-drag                  |
 | Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                  |
 | Frame the views              | **Fit**: Sample, Foreground, Selection; or click a sector |
-| Step a frame                 | `,` and `.`, or the frame strip                           |
+| Step a frame                 | `←` and `→`, `,` and `.`, or the frame strip              |
 | Follow the main view         | **Follow the main view**, on by default                   |
 
 The two bars across the top say how far through you are: this frame, and every frame in the
@@ -109,6 +122,15 @@ above its ceiling, by the filter's own strict comparisons. Hiding it leaves what
 to work with. A pack that does not record its band uses the pipeline default and says
 "assumed". A hidden class cannot be selected.
 
+Display also switches the three states the progress bars count: **agreed**, **in question** and
+**unlabelled**. Turning the settled ones off leaves the work still to do on its own — the saved
+masks go with them — and since a hidden return cannot be selected, a lasso thrown over what is
+left cannot take back what is already agreed. Agreed is reviewed or labelled by hand; in
+question is saved but still the algorithm's word for it.
+
+Hiding a _class_ is different: a mask is still drawn through it, because switching the
+background off must not hide what a mask claims about it.
+
 The **settled background** in force is drawn behind each frame. It is context: no tool selects
 from it. Stepping forward onto a new snapshot shows a banner, and returns that moved by half a
 metre or more are drawn in white.
@@ -117,7 +139,9 @@ metre or more are drawn in white.
 
 1. Enter your name under **Labelled by**. It is remembered.
 2. **Propose objects.** Fixed clutter comes back as one proposal a patch; everything else as one
-   proposal an object, followed through the frames.
+   proposal an object, followed through the frames. Clicking one goes to its first frame.
+   **Propose more** adds to the list: it finds only what nothing yet covers, never clears what is
+   already there, and does not hand back anything you dismissed.
 3. Click a proposal and step through its frames. Then:
    - **Accept** as a class, or **Noise** if it is not an object.
    - **Accept up to here** or **From here** to split a chain that ran from one car onto another.
@@ -149,16 +173,46 @@ mostly the speckle of every frame, are behind a toggle.
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts                                                                                             |
 | Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view |
-| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts                                                                                     |
+| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                              |
 
 The **depth slab** limits every tool along the view's depth axis. Set by hand, it is kept from
 frame to frame until reset.
 
+Voxel 0 is the ground, so excluding the road while keeping the bottom of a car standing on it is
+one press of `0`. Where that leaves kerb or tarmac in, or the wheels out, the ground plane is in
+the wrong place rather than the filter being too blunt: `↑` and `↓` move it a twentieth of a
+metre, or a quarter with shift. **Estimate** puts it back where a twentieth of this frame's
+returns lie below it.
+
+**Grid angle** turns the views and the columns together so they follow the kerbs instead of the
+sensor's mounting: the top view's axes become the lattice's axes, so the grid sits square on
+screen, and the four elevations cut along the street. Changing it re-frames the views, because a
+framing kept from before is a position in the old view plane. It
+is the scene's `grid_azimuth_deg`, and **this window is not where that value lives**: it belongs
+to `tools/s2-archive/map-marks.json`, one per site, because it is a property of the street and
+is shared by every site on the same grid. What the window keeps is a working value, remembered
+for this pack on this machine. When you have it right, type the site id and press **Copy**: that
+gives you the one line to paste into map-marks.json, the same way the scene viewer's own angle
+panel does. Nothing reads the angle back from the scene yet — see Limits.
+
 Stepping to the next frame lays the last frame's selection over it in cyan. Arrows nudge it
-(shift for 0.5 m), Return accepts, Esc dismisses. For something that does not move, **Apply to
+(shift for 0.5 m), Return accepts, Esc dismisses. While it is on screen it claims all four
+arrows, so the frame cannot step out from under it. For something that does not move, **Apply to
 every frame** saves its mask into all of them.
 
 ⌘Z and ⇧⌘Z undo and redo selection edits.
+
+### Two objects that are one
+
+Click the object to keep, then tick the merge arrow on each of the others and press
+**Merge N into …**. Every frame of them becomes a frame of the first, and they are gone. Where
+both have the same frame the returns are unioned: two masks over one thing are two accounts of
+the same returns. Several at a time, because a chain that broke twice comes back as three.
+
+This is the repair for a chain that came back as two objects because it went behind a bus, and
+the undo for a split that should not have happened. Merged frames go back to proposed even where
+both sides were reviewed — what was checked was two objects, and nobody has yet looked at the
+one — so step through them before reviewing.
 
 ### One object that is two
 
@@ -197,4 +251,10 @@ view is: agreed, in question, and not labelled. Click a sector to go to what is 
 - Class guesses come from size and distance travelled only. The class you choose is what is
   saved.
 - Every save writes a full snapshot to `annotation-revisions/`, and nothing prunes them.
+- **The grid angle is not yet synced from the scene.** A pack records the sensor, the capture
+  and the run, and nothing that says which junction it stood at, so the angle cannot be looked
+  up; and no server reads `map-marks.json`. The channel that should carry it already exists —
+  `CoordinateFrameInfo.rotation_deg` in the visualiser proto, "rotation of X-axis from East",
+  which reaches the macOS client and is never populated. Filling that in, and recording the site
+  in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.

@@ -14,6 +14,8 @@ struct SelectionFootprint: Equatable {
     /// Voxel edge, in metres. Half the column lattice's pitch: fine enough to
     /// keep a pedestrian apart from the wall behind them.
     static let pitch: Float = 0.25
+    /// The lattice those voxels sit on.
+    static let lattice = Lattice(pitch: pitch)
 
     /// Occupied voxels, already dilated.
     private(set) var voxels: Set<SIMD3<Int32>> = []
@@ -35,7 +37,7 @@ struct SelectionFootprint: Equatable {
         // the cost of following it.
         var occupied = Set<SIMD3<Int32>>()
         for p in points where p.x.isFinite && p.y.isFinite && p.z.isFinite {
-            occupied.insert(SelectionFootprint.voxel(of: p))
+            occupied.insert(SelectionFootprint.lattice.voxel(p))
             let reach = Float(dilation + 1) * SelectionFootprint.pitch
             lower = simd_min(lower, p - reach)
             upper = simd_max(upper, p + reach)
@@ -56,16 +58,10 @@ struct SelectionFootprint: Equatable {
         lhs.voxels == rhs.voxels
     }
 
-    static func voxel(of p: simd_float3) -> SIMD3<Int32> {
-        SIMD3(
-            Int32((p.x / pitch).rounded(.down)), Int32((p.y / pitch).rounded(.down)),
-            Int32((p.z / pitch).rounded(.down)))
-    }
-
     /// True when `p` is inside the footprint after the footprint has been
     /// moved by `offset`.
     func contains(_ p: simd_float3, offset: simd_float3) -> Bool {
-        voxels.contains(SelectionFootprint.voxel(of: p - offset))
+        voxels.contains(SelectionFootprint.lattice.voxel(p - offset))
     }
 
     /// Canonical indices of the returns inside the moved footprint, ascending.
@@ -144,7 +140,7 @@ struct SelectionFootprint: Equatable {
         let scale = Int32((step / SelectionFootprint.pitch).rounded())
         if scale >= 1, abs(Float(scale) * SelectionFootprint.pitch - step) < 1e-4 {
             for p in nearby {
-                let v = SelectionFootprint.voxel(of: p - prediction)
+                let v = SelectionFootprint.lattice.voxel(p - prediction)
                 for f in layers[v.z] ?? [] {
                     let dx = v.x - f.x
                     let dy = v.y - f.y

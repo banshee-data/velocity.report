@@ -45,6 +45,69 @@ struct PointVisibilityTests {
         #expect(!visibility.showsEverything)
     }
 
+    /// Hiding what is settled is how the work left is looked at on its own.
+    @Test func eachLabelStateCanBeHiddenOnItsOwn() {
+        var visibility = PointVisibility()
+        #expect(visibility.showsEveryLabelState)
+        visibility.agreed = false
+        #expect(!visibility.shows(PointLabelState.agreed))
+        #expect(visibility.shows(PointLabelState.inQuestion))
+        #expect(visibility.shows(PointLabelState.unlabelled))
+        #expect(!visibility.showsEverything)
+        #expect(!visibility.showsEveryLabelState)
+    }
+
+    @Test func aReturnIsInExactlyOneLabelState() {
+        let sets = PointLabelSets(agreed: [1, 2], inQuestion: [3], revision: 1)
+        #expect(sets.state(of: 1) == .agreed)
+        #expect(sets.state(of: 3) == .inQuestion)
+        #expect(sets.state(of: 9) == .unlabelled)
+        // Agreed wins if something is somehow in both, because a reviewed
+        // mask is the stronger claim.
+        #expect(PointLabelSets(agreed: [4], inQuestion: [4]).state(of: 4) == .agreed)
+    }
+
+    /// The sets are thousands of indices, so the canvases compare a revision
+    /// instead. Comparing the contents to decide whether to redraw would cost
+    /// more than the redraw.
+    @Test func labelSetsCompareByRevisionNotContents() {
+        #expect(
+            PointLabelSets(agreed: [1], inQuestion: [], revision: 7)
+                == PointLabelSets(agreed: [99], inQuestion: [5], revision: 7))
+        #expect(
+            PointLabelSets(agreed: [1], inQuestion: [], revision: 7)
+                != PointLabelSets(agreed: [1], inQuestion: [], revision: 8))
+    }
+
+    @Test func theLabelFilterIsSkippedEntirelyWhenAllThreeAreShown() {
+        // No sets passed, every state shown: everything is drawn, and the
+        // caller never has to work out which state a return is in.
+        let classes: [UInt8] = [PointClass.foreground]
+        #expect(PointVisibility.isVisible(0, classes: classes, under: PointVisibility()))
+    }
+
+    @Test func aHiddenLabelStateHidesItsReturns() {
+        let classes = [UInt8](repeating: PointClass.foreground, count: 4)
+        let sets = PointLabelSets(agreed: [0], inQuestion: [1], revision: 1)
+        var visibility = PointVisibility()
+        visibility.agreed = false
+
+        #expect(!PointVisibility.isVisible(0, classes: classes, under: visibility, labels: sets))
+        #expect(PointVisibility.isVisible(1, classes: classes, under: visibility, labels: sets))
+        #expect(PointVisibility.isVisible(2, classes: classes, under: visibility, labels: sets))
+    }
+
+    /// A hidden class still wins: the two filters are an and, not an or.
+    @Test func classAndLabelFiltersBothHaveToPass() {
+        let classes: [UInt8] = [PointClass.ground]
+        let sets = PointLabelSets(agreed: [], inQuestion: [], revision: 1)
+        var visibility = PointVisibility()
+        visibility.ground = false
+        visibility.agreed = false
+
+        #expect(!PointVisibility.isVisible(0, classes: classes, under: visibility, labels: sets))
+    }
+
     @Test func aClassThisClientDoesNotKnowIsShown() {
         // A newer recorder adding a class must not make returns vanish.
         let nothing = PointVisibility(background: false, foreground: false, ground: false)
@@ -84,6 +147,28 @@ struct VisibilitySelectionTests {
         session.visibility.foreground = false
         #expect(session.select(polygon: everythingLasso, mode: .replace))
         #expect(session.canonicalSelection == [3])
+    }
+
+    /// The point of hiding what is agreed is to work on the rest, so a lasso
+    /// over the remainder must not take back what is already settled.
+    @Test func aHiddenLabelStateCannotBeSelectedEither() throws {
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // A mask made by hand is agreed as soon as it is saved: there is no
+        // algorithm's word to check, which is what "in question" means.
+        session.createObject(objectClass: "car")
+        #expect(session.select(polygon: everythingLasso, mode: .replace))
+        #expect(session.save())
+
+        let agreed = session.labelSets.agreed
+        #expect(!agreed.isEmpty, "nothing was saved, so the filter has nothing to hide")
+
+        session.visibility.agreed = false
+        for index in agreed { #expect(!session.isVisible(index)) }
+
+        session.visibility.agreed = true
+        for index in agreed { #expect(session.isVisible(index)) }
     }
 
     @Test func aSphereCannotBeCentredOnAHiddenReturn() throws {
@@ -516,6 +601,48 @@ struct AnnotationSceneTests {
         #expect(cloud.intensity == [10, 20, 30, 40, 60])
     }
 
+    /// The whole point of hiding "agreed" is to stop seeing what is settled,
+    /// and what is settled is exactly what is in a mask. The mask override
+    /// exists for the class filter — switching the background off must not
+    /// hide what a mask claims about it — and must not reach past this one.
+    @Test func aHiddenLabelStateHidesMarkedReturnsToo() throws {
+        var marks = AnnotationScene.Marks()
+        marks.activeClass = "car"
+        marks.saved = [1, 3]
+
+        var visibility = PointVisibility()
+        visibility.agreed = false
+        let labels = PointLabelSets(agreed: [1, 3], inQuestion: [], revision: 1)
+
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: visibility, labels: labels,
+                marks: marks, sample: nil
+            ).pointCloud)
+
+        #expect(!cloud.x.contains(1), "an agreed return in a mask was drawn while agreed is off")
+        #expect(!cloud.x.contains(3))
+        // Everything else is untouched; the NaN is dropped as always.
+        #expect(cloud.x == [0, 2, 5])
+    }
+
+    /// The override itself still stands: a mask shows through a hidden class.
+    @Test func aMarkedReturnIsStillDrawnThroughAHiddenClass() throws {
+        var marks = AnnotationScene.Marks()
+        marks.activeClass = "car"
+        marks.saved = [1]
+
+        var visibility = PointVisibility()
+        visibility.foreground = false
+
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: visibility, marks: marks, sample: nil
+            ).pointCloud)
+
+        #expect(cloud.x.contains(1), "hiding a class hid what a mask claims about it")
+    }
+
     @Test func unmarkedReturnsKeepTheirOwnClass() throws {
         let cloud = try #require(
             AnnotationScene.frame(
@@ -593,11 +720,37 @@ struct AnnotationViewportWiringTests {
     }
 
     @Test func theOverlayTakesItsInputFromTheLayerThatCanZoom() throws {
-        let pane = try source("UI/AnnotationPane.swift")
-        #expect(pane.contains("ViewportInputLayer("))
+        let overlay = try source("UI/LassoOverlay.swift")
+        #expect(overlay.contains("ViewportInputLayer("))
         // SwiftUI's drag gesture has no scroll wheel and no right button; if
-        // it came back the views would stop zooming and panning.
-        #expect(!pane.contains("DragGesture("))
+        // it came back the views would stop zooming and panning. The pane is
+        // checked too, because the overlay used to live inside it and that is
+        // where a reintroduced gesture would most plausibly land.
+        #expect(!overlay.contains("DragGesture("))
+        #expect(!(try source("UI/AnnotationPane.swift")).contains("DragGesture("))
+    }
+
+    /// The brush hover is not one of the session's published properties, so a
+    /// view that reads it through the session alone compiles, passes every
+    /// test, and silently stops redrawing as the cursor moves. Only these two
+    /// read it, and both have to observe it themselves.
+    @Test func thePairOfViewsThatDrawTheBrushObserveItThemselves() throws {
+        for relative in ["UI/LassoOverlay.swift", "UI/AnnotationViewports.swift"] {
+            let view = try source(relative)
+            #expect(
+                view.contains("@ObservedObject private var hover: BrushHover"),
+                "\(relative) reads the hover without observing it")
+            #expect(
+                view.contains("ObservedObject(wrappedValue: session.hover)"),
+                "\(relative) never takes the hover from the session")
+        }
+        // And nothing reaches for them on the session, which would not publish.
+        for relative in ["UI/LassoOverlay.swift", "UI/AnnotationViewports.swift", "UI/AnnotationPane.swift"] {
+            let view = try source(relative)
+            #expect(!view.contains("session.hover.sphere"))
+            #expect(!view.contains("session.hover.indices"))
+            #expect(!view.contains("session.hover.depthOffset"))
+        }
     }
 
     @Test func theAppGivesTheWindowTheMainViewAndRoutesItsKeys() throws {

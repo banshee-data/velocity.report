@@ -25,9 +25,49 @@ struct ViewportStroke: Equatable {
 /// The keys an orthographic view acts on when it has the focus.
 enum ViewportKey: Equatable {
     /// An arrow, as a direction in the view; `coarse` when shift is held.
+    ///
+    /// What an arrow means depends on what is on screen, and the view decides
+    /// that rather than the menu, so the order is in one readable place: with
+    /// a carried proposal it moves the proposal, and without one the
+    /// left and right arrows step frames while up and down move the ground
+    /// plane.
     case nudge(right: Int, up: Int, coarse: Bool)
+    /// A digit, turning that voxel of the column stack on or off.
+    case voxel(Int)
     case accept
     case cancel
+
+    /// What this key does, which depends only on whether a proposal is being
+    /// carried. Kept apart from the view so the order can be read and tested
+    /// rather than inferred from a switch inside a body.
+    enum Meaning: Equatable {
+        case nudgeCarried(right: Int, up: Int, coarse: Bool)
+        case acceptCarried
+        case dismissCarried
+        case stepFrame(forward: Bool)
+        case moveGround(steps: Int, coarse: Bool)
+        case toggleVoxel(Int)
+        /// Not this view's key; let it go on up the chain.
+        case pass
+    }
+
+    func meaning(carrying: Bool) -> Meaning {
+        if carrying {
+            switch self {
+            case .nudge(let right, let up, let coarse):
+                return .nudgeCarried(right: right, up: up, coarse: coarse)
+            case .accept: return .acceptCarried
+            case .cancel: return .dismissCarried
+            case .voxel(let k): return .toggleVoxel(k)
+            }
+        }
+        switch self {
+        case .nudge(let right, 0, _): return .stepFrame(forward: right > 0)
+        case .nudge(0, let up, let coarse): return .moveGround(steps: up, coarse: coarse)
+        case .voxel(let k): return .toggleVoxel(k)
+        case .nudge, .accept, .cancel: return .pass
+        }
+    }
 }
 
 /// Mouse and trackpad input for an orthographic view.
@@ -192,7 +232,13 @@ final class ViewportInputView: NSView {
         case 126: return .nudge(right: 0, up: 1, coarse: coarse)
         case 36, 76: return .accept
         case 53: return .cancel
-        default: return nil
+        default:
+            // Digits 0 to 7, in the order they sit on the keyboard rather than
+            // the order of their key codes, which is not monotonic.
+            guard let k = [29, 18, 19, 20, 21, 23, 22, 26].firstIndex(of: Int(event.keyCode)) else {
+                return nil
+            }
+            return .voxel(k)
         }
     }
 
@@ -229,7 +275,16 @@ final class ViewportInputView: NSView {
 /// The 3D view: the main view's renderer, showing the current sample.
 struct AnnotationSceneView: NSViewRepresentable {
     @ObservedObject var session: AnnotationSession
+    /// The marks under the brush change on every mouse move, and the session
+    /// no longer republishes for them: see BrushHover.swift.
+    @ObservedObject private var hover: BrushHover
     let model: AnnotationSceneModel
+
+    init(session: AnnotationSession, model: AnnotationSceneModel) {
+        self.session = session
+        self._hover = ObservedObject(wrappedValue: session.hover)
+        self.model = model
+    }
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -272,9 +327,8 @@ struct AnnotationSceneView: NSViewRepresentable {
             marks.activeClass = session.activeObject?.objectClass
             marks.saved = session.savedSelection
             marks.selected = session.history.current
-            marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(
-                session.hoverIndices
-            ).union(session.carriedIndices).union(session.proposalIndices)
+            marks.candidates = Set(session.pendingCandidates?.indices ?? []).union(hover.indices)
+                .union(session.carriedIndices).union(session.proposalIndices)
             // The renderer keeps a background until it is given another, so
             // it is sent once per snapshot and switched on and off after that.
             let backdrop = session.currentBackground.map { snapshot in
@@ -289,8 +343,8 @@ struct AnnotationSceneView: NSViewRepresentable {
             renderer.updateFrame(
                 AnnotationScene.frame(
                     points: session.currentPoints, classes: session.currentClasses,
-                    visibility: session.effectiveVisibility, marks: marks,
-                    sample: session.currentSample, backdrop: backdrop))
+                    visibility: session.effectiveVisibility, labels: session.effectiveLabelSets,
+                    marks: marks, sample: session.currentSample, backdrop: backdrop))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {
             changed = true

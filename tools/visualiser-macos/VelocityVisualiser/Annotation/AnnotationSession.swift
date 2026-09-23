@@ -248,16 +248,13 @@ enum AnnotationGuard: Equatable {
 
     // MARK: Brush
 
-    /// Where the sphere brush would mark if the button went down now. Shown in
-    /// every view, because the one the cursor is in cannot show its depth.
-    @Published private(set) var hoverSphere: SelectionSphere? {
-        didSet { if hoverSphere != oldValue { sceneRevision &+= 1 } }
-    }
-    /// The returns inside `hoverSphere`.
-    @Published private(set) var hoverIndices: [Int] = []
-    /// Moves the brush along the view's depth axis, away from the return it
-    /// took its depth from. In the top view that is up and down.
-    @Published private(set) var brushDepthOffset: Float = 0
+    /// Where the sphere brush would mark, and what is under it.
+    ///
+    /// Its own object, not properties here: it changes on every mouse move,
+    /// and only the overlay and the 3D view read it. A `let` rather than a
+    /// `@Published`, so that moving the cursor does not republish the session
+    /// to the eight views that do not care. See BrushHover.swift.
+    let hover = BrushHover()
     /// The depth the brush last found a return at, used where there is none
     /// under the cursor so that a stroke does not jump between depths.
     private var lastBrushDepth: Float?
@@ -351,6 +348,88 @@ enum AnnotationGuard: Equatable {
     let sessionID: String = UUID().uuidString
 
     private static let operatorKey = "annotation.operatorName"
+    private static let gridAzimuthKeyPrefix = "annotation.gridAzimuth."
+
+    /// How far the column lattice is turned from the sensor's axes, so the
+    /// squares follow the kerbs rather than the mounting.
+    ///
+    /// This is the scene's `grid_azimuth_deg`, and **this is not where it
+    /// lives**. The measured value belongs to map-marks.json, keyed by site,
+    /// because it is a property of the street shared by every site on the same
+    /// grid: a second copy would drift and nothing could say which was meant.
+    /// What is kept here is a local working value, remembered per pack the way
+    /// the scene viewer's dev panel remembers one per browser, and the way out
+    /// is `mapMarksLine`, which hands over the one line to paste. A pack that
+    /// carried the angle from its site would seed this instead; none does yet.
+    /// Stored apart from its accessor because normalising in a `didSet` would
+    /// assign to the property from inside its own setter, and a `@Published`
+    /// property re-enters the wrapper when you do that rather than skipping
+    /// the observer the way a plain stored property does. It recurses until
+    /// the stack runs out.
+    @Published private var storedGridAzimuthDeg: Float = 0
+
+    var gridAzimuthDeg: Float {
+        get { storedGridAzimuthDeg }
+        set {
+            let turned = AnnotationSession.normalisedAzimuth(newValue)
+            guard turned != storedGridAzimuthDeg else { return }
+            storedGridAzimuthDeg = turned
+            columnGrid.azimuthDeg = turned
+            defaults?.set(Double(turned), forKey: gridAzimuthKey)
+            // Every view is in a different frame now, so the framing kept from
+            // before means nothing: a centre held in the old view plane would
+            // put the operator somewhere arbitrary. Re-frame instead.
+            sceneRevision &+= 1
+            fitViews(to: .sample)
+        }
+    }
+
+    private var gridAzimuthKey: String {
+        AnnotationSession.gridAzimuthKeyPrefix + pack.manifest.packDigest
+    }
+
+    /// Wraps into [0, 360), so a hand-typed -90 or 450 means what the person
+    /// meant. The same rule the scene's own angle editor applies.
+    static func normalisedAzimuth(_ degrees: Float) -> Float {
+        guard degrees.isFinite else { return 0 }
+        return (degrees.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(
+            dividingBy: 360)
+    }
+
+    /// The one line to paste into map-marks.json, where the value belongs.
+    ///
+    /// The site id is the operator's to supply: a pack records the sensor, the
+    /// capture and the run, and nothing that says which junction it stood at.
+    /// Until one does, this cannot be looked up and must be told.
+    func mapMarksLine(siteID: String) -> String {
+        let id = siteID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rounded = (gridAzimuthDeg * 10).rounded() / 10
+        // A fixed locale, because the line is read by a machine: a decimal
+        // comma is valid in half of Europe and invalid in every JSON parser.
+        let degrees =
+            rounded == rounded.rounded()
+            ? String(Int(rounded))
+            : String(format: "%.1f", locale: AnnotationSession.jsonLocale, rounded)
+        let quoted = AnnotationSession.jsonString(id.isEmpty ? "SITE-ID" : id)
+        return "{\"id\": \(quoted), \"grid_azimuth_deg\": \(degrees)}"
+    }
+
+    /// The one locale a machine-readable number may be formatted in.
+    private static let jsonLocale = Locale(identifier: "en_US_POSIX")
+
+    /// `text` as a JSON string, quotes and all.
+    ///
+    /// The site id is typed by hand, and a stray quote or backslash in it
+    /// would otherwise produce a line that cannot be pasted into
+    /// map-marks.json at all. Escaping is better than refusing: the operator
+    /// sees what they typed, in a line that parses.
+    static func jsonString(_ text: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [text]),
+            let array = String(data: data, encoding: .utf8), let start = array.firstIndex(of: "\""),
+            let end = array.lastIndex(of: "\"")
+        else { return "\"\"" }
+        return String(array[start...end])
+    }
 
     // MARK: Init
 
@@ -371,6 +450,17 @@ enum AnnotationGuard: Equatable {
         // The name last saved under, so that it is typed once per machine and
         // not once per pack. It is still the operator's own, and still editable.
         self.operatorName = defaults?.string(forKey: AnnotationSession.operatorKey) ?? ""
+        // The 3D view redraws on a revision rather than by observing, so the
+        // hover has to move that revision itself now that it is not one of
+        // this object's own published properties.
+        hover.didChange = { [weak self] in self?.sceneRevision &+= 1 }
+        // A working value the operator set last time they had this pack open.
+        // Property observers do not run in an initialiser, so the grid is set
+        // alongside it rather than by the observer.
+        if let stored = defaults?.object(forKey: gridAzimuthKey) as? Double {
+            self.storedGridAzimuthDeg = AnnotationSession.normalisedAzimuth(Float(stored))
+            self.columnGrid.azimuthDeg = self.storedGridAzimuthDeg
+        }
         if let first = orderedSamples.first {
             let points = (try? pack.points(sampleID: first.sampleID)) ?? PackPoints()
             // Property observers do not run in an initialiser.
@@ -421,16 +511,46 @@ enum AnnotationGuard: Equatable {
         return object
     }
 
-    /// Makes another object the one under edit, loading its saved mask.
-    /// Refused while the current one has unsaved changes.
+    /// Makes another object the one under edit, loading its saved mask, and
+    /// goes to the first frame it is labelled in.
+    ///
+    /// Refused while the current one has unsaved changes. The seek is the same
+    /// one picking a proposal does, and for the same reason: choosing an
+    /// object out of the list is asking to be shown it, and working through it
+    /// means starting where it appears rather than wherever the last one left
+    /// the frame.
     @discardableResult func activate(objectID: String) -> AnnotationGuard? {
         if let blocker = navigationGuard() { return blocker }
         activeObjectID = objectID
         secondViewChecked = false
         carried = nil
         carriedIndices = []
-        loadSelectionForCurrentSample()
+        if let first = firstLabelledFrame(objectID: objectID), first != sampleIndex {
+            // The guard above has already passed, so this cannot be refused
+            // for unsaved changes; it loads the frame's mask on the way.
+            _ = step(to: first)
+        } else {
+            loadSelectionForCurrentSample()
+        }
         return nil
+    }
+
+    /// A view's basis, turned by the scene's grid angle so that the views and
+    /// the column lattice agree about which way the street runs. Every caller
+    /// goes through here; constructing a bare OrthoViewBasis would give a view
+    /// that disagreed with the brush painting into it.
+    func basis(_ standard: OrthoViewBasis.Standard) -> OrthoViewBasis {
+        OrthoViewBasis(standard, azimuthDeg: gridAzimuthDeg)
+    }
+
+    /// The basis of the view that takes strokes.
+    var editingBasis: OrthoViewBasis { basis(viewStandard) }
+
+    /// Where in the pack's frame order this object is first labelled.
+    func firstLabelledFrame(objectID: String) -> Int? {
+        let sampleIDs = Set(sidecar.masks.filter { $0.objectID == objectID }.map(\.sampleID))
+        guard !sampleIDs.isEmpty else { return nil }
+        return orderedSamples.indices.first { sampleIDs.contains(orderedSamples[$0].sampleID) }
     }
 
     var activeObject: AnnotationObject? {
@@ -578,8 +698,7 @@ enum AnnotationGuard: Equatable {
         if !followingMainView { operatorNavigationRevision &+= 1 }
         currentPoints = (try? pack.points(sampleID: orderedSamples[index].sampleID)) ?? PackPoints()
         pendingCandidates = nil
-        hoverSphere = nil
-        hoverIndices = []
+        hover.clear()
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         secondViewChecked = false
@@ -621,7 +740,7 @@ enum AnnotationGuard: Equatable {
     /// Evaluates a gesture without applying it, so the candidate count can be
     /// shown before acceptance.
     @discardableResult func previewSelection(polygon: SelectionPolygon) -> SelectionCandidates {
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         let candidates = visibleOnly(
             PointSelectionEngine.candidates(
                 points: currentPoints, basis: basis, polygon: polygon, slab: slab))
@@ -658,8 +777,7 @@ enum AnnotationGuard: Equatable {
     private func sphereCandidates(_ sphere: SelectionSphere) -> SelectionCandidates {
         visibleOnly(
             PointSelectionEngine.candidates(
-                points: currentPoints, sphere: sphere, basis: OrthoViewBasis(viewStandard),
-                slab: slab))
+                points: currentPoints, sphere: sphere, basis: editingBasis, slab: slab))
     }
 
     /// The sphere the brush marks with at a position in the editing view.
@@ -670,7 +788,7 @@ enum AnnotationGuard: Equatable {
     /// had, so that crossing a gap does not drop it to the ground. The
     /// operator moves it off that depth with `adjustBrushDepth`.
     func brushSphere(atViewPoint viewPoint: simd_float2, pickDistance: Float) -> SelectionSphere {
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         let reach = max(pickDistance, sphereRadius)
         if let index = nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: reach),
             let p = currentPoints.point(at: index)
@@ -678,7 +796,8 @@ enum AnnotationGuard: Equatable {
             lastBrushDepth = basis.depth(p)
         }
         let depth =
-            (lastBrushDepth ?? slab.map { ($0.minDepth + $0.maxDepth) / 2 } ?? 0) + brushDepthOffset
+            (lastBrushDepth ?? slab.map { ($0.minDepth + $0.maxDepth) / 2 } ?? 0)
+            + hover.depthOffset
         let centre =
             basis.origin + basis.right * viewPoint.x + basis.up * viewPoint.y + basis.forward
             * depth
@@ -688,38 +807,33 @@ enum AnnotationGuard: Equatable {
     /// Shows where the sphere brush would mark at this position, or clears it.
     func hover(atViewPoint viewPoint: simd_float2?, pickDistance: Float) {
         guard tool == .sphere, !strokeInProgress, let viewPoint else {
-            if hoverSphere != nil {
-                hoverSphere = nil
-                hoverIndices = []
-            }
+            hover.clear()
             return
         }
         let sphere = brushSphere(atViewPoint: viewPoint, pickDistance: pickDistance)
-        hoverIndices = sphereCandidates(sphere).indices
-        hoverSphere = sphere
+        hover.show(sphere, indices: sphereCandidates(sphere).indices)
     }
 
     /// Moves the brush along the depth axis by whole steps of a tenth of a
     /// metre. Positive is away from the viewer: downward, in the top view.
     func adjustBrushDepth(steps: Int) {
-        brushDepthOffset = ((brushDepthOffset + Float(steps) * 0.1) * 10).rounded() / 10
-        if let sphere = hoverSphere {
-            let basis = OrthoViewBasis(viewStandard)
+        hover.setDepthOffset(((hover.depthOffset + Float(steps) * 0.1) * 10).rounded() / 10)
+        if let sphere = hover.sphere {
+            let basis = editingBasis
             let moved = SelectionSphere(
                 centre: sphere.centre + basis.forward * Float(steps) * 0.1, radius: sphere.radius)
-            hoverIndices = sphereCandidates(moved).indices
-            hoverSphere = moved
+            hover.show(moved, indices: sphereCandidates(moved).indices)
         }
     }
 
-    func resetBrushDepth() { brushDepthOffset = 0 }
+    func resetBrushDepth() { hover.setDepthOffset(0) }
 
     /// Evaluates a set of painted columns without applying it.
     @discardableResult func previewSelection(cells: Set<ColumnCell>) -> SelectionCandidates {
         let candidates = visibleOnly(
             PointSelectionEngine.candidates(
                 points: currentPoints, cells: cells, grid: columnGrid, enabledVoxels: enabledVoxels,
-                basis: OrthoViewBasis(viewStandard), slab: slab))
+                basis: editingBasis, slab: slab))
         pendingCells = cells
         pendingCandidates = candidates
         return candidates
@@ -729,17 +843,23 @@ enum AnnotationGuard: Equatable {
     /// where a sphere is centred. `maxViewDistance` is in metres.
     func nearestPointIndex(toViewPoint viewPoint: simd_float2, maxViewDistance: Float) -> Int? {
         PointSelectionEngine.nearestPoint(
-            points: currentPoints, basis: OrthoViewBasis(viewStandard), viewPoint: viewPoint,
-            slab: slab, maxViewDistance: maxViewDistance, where: isVisible)
+            points: currentPoints, basis: editingBasis, viewPoint: viewPoint, slab: slab,
+            maxViewDistance: maxViewDistance, where: isVisible)
     }
 
     /// The class filter in force, or nil when every class is on.
     var effectiveVisibility: PointVisibility? { visibility.showsEverything ? nil : visibility }
 
+    /// The label sets the filter needs, or nil when it does not need them.
+    /// Working them out costs a pass over every mask, so it is skipped
+    /// entirely while all three label states are shown.
+    var effectiveLabelSets: PointLabelSets? { visibility.showsEveryLabelState ? nil : labelSets }
+
     /// True when the current sample's point at `index` is drawn, and so can
     /// be selected.
     func isVisible(_ index: Int) -> Bool {
-        PointVisibility.isVisible(index, classes: currentClasses, under: effectiveVisibility)
+        PointVisibility.isVisible(
+            index, classes: currentClasses, under: effectiveVisibility, labels: effectiveLabelSets)
     }
 
     /// Drops candidates the class filter hides, and counts them, so a gesture
@@ -777,6 +897,29 @@ enum AnnotationGuard: Equatable {
     /// Sets the grid's ground from the current sample.
     func estimateGround() {
         if let z = ColumnGrid.estimateGroundZ(points: currentPoints) { columnGrid.groundZ = z }
+    }
+
+    /// How far one press moves the ground plane, and how far with shift held.
+    /// A twentieth of a metre is finer than the road is flat; a quarter is
+    /// about the height of a kerb.
+    static let groundStep: Float = 0.05
+    static let coarseGroundStep: Float = 0.25
+
+    /// Raises or lowers the ground plane by whole steps.
+    ///
+    /// The plane is what "voxel 0" means, so moving it is how the operator
+    /// separates the road from the bottom of a car standing on it: a column
+    /// selection that takes the wheels but not the tarmac is a ground plane in
+    /// the right place, not a cleverer filter.
+    func adjustGroundZ(steps: Int, coarse: Bool = false) {
+        let step = coarse ? AnnotationSession.coarseGroundStep : AnnotationSession.groundStep
+        columnGrid.groundZ = ((columnGrid.groundZ + Float(steps) * step) * 100).rounded() / 100
+    }
+
+    /// Turns one voxel of the column stack on or off.
+    func toggleVoxel(_ k: Int) {
+        guard k >= 0, k < ColumnGrid.voxelCount else { return }
+        enabledVoxels ^= UInt8(1) << UInt8(k)
     }
 
     /// Applies the previewed gesture to the membership under the current mode.
@@ -839,7 +982,7 @@ enum AnnotationGuard: Equatable {
             slab = nil
             return
         }
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         var lo = Float.greatestFiniteMagnitude
         var hi = -Float.greatestFiniteMagnitude
         for i in 0..<currentPoints.count {
@@ -867,7 +1010,8 @@ enum AnnotationGuard: Equatable {
             return OrthoViewport(halfHeight: 10, size: size, centre: .zero)
         }
         return OrthoViewport(
-            halfHeight: annotationFramingHalfHeight(extent: extent, size: size), size: size,
+            halfHeight: annotationFramingHalfHeight(
+                extent: extent, size: size, fitsWidth: standard == .top), size: size,
             centre: extent.centre)
     }
 
@@ -927,12 +1071,14 @@ enum AnnotationGuard: Equatable {
     private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
         for standard in OrthoViewBasis.Standard.allCases {
-            guard
-                let extent = annotationExtent(
-                    of: currentPoints, basis: OrthoViewBasis(standard), trim: trim, where: include)
-            else { return false }
-            extents[standard] = extent
+            extents[standard] = annotationExtent(
+                of: currentPoints, basis: basis(standard), trim: trim, where: include)
         }
+        // An elevation shows one half of the scene, so a selection entirely
+        // behind it frames nothing and simply has no extent. Only the plan
+        // view sees everything, so it is the one that decides whether there
+        // was anything to frame at all.
+        guard extents[.top] != nil else { return false }
         referenceExtents = extents
         viewStates = [:]
 
@@ -1081,7 +1227,7 @@ enum AnnotationGuard: Equatable {
     /// `right` and `up` as the operator sees them, in metres.
     func nudgeCarried(right: Float, up: Float) {
         guard var moved = carried else { return }
-        let basis = OrthoViewBasis(viewStandard)
+        let basis = editingBasis
         moved.offset += basis.right * right + basis.up * up
         carried = moved
         refreshCarriedIndices()
@@ -1423,22 +1569,36 @@ enum AnnotationGuard: Equatable {
     /// is waiting to be graded here.
     var proposedIndices: [Int] { proposals.flatMap { $0.frames[sampleIndex] ?? [] } }
 
-    /// Walks the pack once and proposes the objects in it that nobody has
-    /// labelled: fixed clutter as one proposal a patch, and what moves as one
-    /// proposal an object. Replaces any proposals already listed.
+    /// Walks the pack and proposes the objects in it that nothing yet covers:
+    /// fixed clutter as one proposal a patch, and what moves as one proposal
+    /// an object.
+    ///
+    /// Appends. Proposals already listed are kept, with their ids, so that
+    /// asking again part-way through grading does not throw away the list
+    /// being worked through or move the operator's place in it. What is
+    /// already labelled, already proposed, or was dismissed is excluded from
+    /// the search, so the run finds only what is genuinely uncovered and
+    /// nothing comes back twice.
     func proposeObjects() async {
         lastError = nil
         guard navigationGuard() == nil else {
             lastError = "Save or discard this frame's changes before proposing objects."
             return
         }
-        proposals = []
-        selectedProposalID = nil
         proposalProgress = 0
         defer { proposalProgress = nil }
 
         let labelled = Dictionary(grouping: sidecar.masks, by: \.sampleID).mapValues { masks in
             Set(masks.flatMap(\.pointIndices))
+        }
+        // Returns an existing or dismissed proposal already speaks for, by
+        // position in the pack's frame order rather than by sample id, which
+        // is how a proposal records its frames.
+        var claimed: [Int: Set<Int>] = dismissedProposalIndices
+        for proposal in proposals {
+            for (frame, indices) in proposal.frames {
+                claimed[frame, default: []].formUnion(indices)
+            }
         }
         func frame(_ index: Int) -> ProposerFrame? {
             let sample = orderedSamples[index]
@@ -1447,7 +1607,8 @@ enum AnnotationGuard: Equatable {
                 points: points,
                 classes: PointClass.displayClasses(
                     points: points, hasClassification: pack.manifest.hasClassification,
-                    band: heightBand), labelled: labelled[sample.sampleID] ?? [])
+                    band: heightBand),
+                labelled: (labelled[sample.sampleID] ?? []).union(claimed[index] ?? []))
         }
 
         // Once through to find what stays put, once more to follow what does
@@ -1473,29 +1634,51 @@ enum AnnotationGuard: Equatable {
                 await Task.yield()
             }
         }
-        let moving = proposer.finish()
-        proposals =
-            moving + patches.finish(firstID: moving.count, bandFloor: Float(heightBand.floorM))
+        // Ids carry on from the ones already listed, so a proposal an operator
+        // has been calling "14" stays 14 for as long as the window is open.
+        let firstID = (proposals.map(\.id).max() ?? -1) + 1
+        let moving = proposer.finish(firstID: firstID)
+        let fixed = patches.finish(
+            firstID: firstID + moving.count, bandFloor: Float(heightBand.floorM))
+        proposals += moving + fixed
         sessionLogger.info(
-            "Proposed \(moving.count) moving and \(self.proposals.count - moving.count) fixed objects"
-        )
+            "Proposed \(moving.count) moving and \(fixed.count) fixed objects, "
+                + "\(self.proposals.count) listed")
     }
 
-    /// Looks at a proposal: goes to a frame it covers and frames the views on
-    /// it. Nil stops looking.
+    /// Looks at a proposal: goes to the first frame it covers and frames the
+    /// views on it. Nil stops looking.
+    ///
+    /// Always the first frame, not merely one it covers. Picking a proposal
+    /// out of the list is asking to be shown it, and grading one means walking
+    /// it from where it appears: landing in the middle because the current
+    /// frame happened to be covered left the operator to work out where the
+    /// start was.
     func selectProposal(_ id: Int?) {
         selectedProposalID = id
         guard let proposal = selectedProposal else { return }
-        if proposal.frames[sampleIndex] == nil {
+        if sampleIndex != proposal.firstFrame {
             guard step(to: proposal.firstFrame) == nil else { return }
         }
         if let indices = proposal.frames[sampleIndex] { fitViews(toIndices: Set(indices)) }
     }
 
+    /// Drops a proposal from the list, and remembers what it covered so that
+    /// proposing again does not hand it straight back. Dismissals last as long
+    /// as the window is open: they are the operator's judgement about a
+    /// suggestion, not a label, and nothing in the pack records them.
     func dismissProposal(_ id: Int) {
+        if let proposal = proposals.first(where: { $0.id == id }) {
+            for (frame, indices) in proposal.frames {
+                dismissedProposalIndices[frame, default: []].formUnion(indices)
+            }
+        }
         proposals.removeAll { $0.id == id }
         if selectedProposalID == id { selectedProposalID = nil }
     }
+
+    /// Returns a dismissed proposal covered, by position in the frame order.
+    private var dismissedProposalIndices: [Int: Set<Int>] = [:]
 
     /// Saves a proposal as an object: a new one of `objectClass`, or, with
     /// `into`, more frames of an object that exists, which is how the pieces
@@ -1586,6 +1769,90 @@ enum AnnotationGuard: Equatable {
         loadSelectionForCurrentSample()
         refreshFrameProgress()
         return written
+    }
+
+    /// Merges one object into another: every frame `otherID` is labelled in
+    /// becomes a frame of `targetID`, and `otherID` is gone.
+    ///
+    /// This is the undo for a split that should not have happened, and the
+    /// repair for a chain that came back as two objects because it went behind
+    /// a bus. Where both objects have the same frame the returns are unioned,
+    /// because two masks over one thing are two accounts of the same returns
+    /// and the union is what the thing actually covered.
+    ///
+    /// A merged frame goes back to proposed even where both sides were
+    /// reviewed: what was checked was two objects, and nobody has yet looked
+    /// at the one. Returns how many frames the target ended up with.
+    @discardableResult func mergeObject(_ otherID: String, into targetID: String) -> Int? {
+        mergeObjects([otherID], into: targetID)
+    }
+
+    /// Merges several objects into one, in a single save.
+    ///
+    /// One save rather than one each: a merge of four objects is one decision
+    /// and should be one revision to undo, not four to unpick in order.
+    @discardableResult func mergeObjects(_ otherIDs: [String], into targetID: String) -> Int? {
+        lastError = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail("Enter your name under Labelled by before merging: a label has an author.")
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before merging.")
+        }
+        let others = Set(otherIDs).subtracting([targetID])
+        guard !others.isEmpty else { return fail("An object cannot be merged into itself.") }
+        guard sidecar.objects.contains(where: { $0.objectID == targetID }),
+            others.allSatisfy({ id in sidecar.objects.contains { $0.objectID == id } })
+        else { return nil }
+
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        var change = Provenance(
+            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            operation: "merge_object")
+
+        let moving = sidecar.masks.filter { others.contains($0.objectID) }
+        guard !moving.isEmpty else {
+            return fail(
+                others.count == 1
+                    ? "That object has no frames to merge."
+                    : "Those objects have no frames to merge.")
+        }
+        for mask in moving {
+            var merged = FrameMask(objectID: targetID, sampleID: mask.sampleID)
+            if let existing = edited.sidecar.mask(objectID: targetID, sampleID: mask.sampleID) {
+                merged = existing
+                merged.pointIndices = Array(Set(existing.pointIndices).union(mask.pointIndices))
+                    .sorted()
+            } else {
+                merged.pointIndices = mask.pointIndices
+                merged.visibility = mask.visibility
+                merged.completeness = mask.completeness
+            }
+            merged.status = .proposed
+            merged.provenance = change
+            edited.sidecar.upsert(mask: merged)
+        }
+        edited.sidecar.masks.removeAll { others.contains($0.objectID) }
+        edited.sidecar.objects.removeAll { others.contains($0.objectID) }
+
+        do {
+            document = try store.save(edited, change: change)
+            sidecar = document.sidecar
+        } catch let error as SidecarStoreError {
+            conflict = error
+            return fail(AnnotationSession.describe(error))
+        } catch { return fail("\(error)") }
+
+        if let active = activeObjectID, others.contains(active) { activeObjectID = targetID }
+        secondViewChecked = false
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return sidecar.masks.filter { $0.objectID == targetID }.count
     }
 
     /// Makes one of the three orthographic views the one that takes strokes.
@@ -1852,14 +2119,31 @@ enum AnnotationGuard: Equatable {
     /// The current frame's labelling, by sector.
     var completeness: FrameCompleteness {
         if talliedRevision != labelRevision {
-            let (agreed, inQuestion) = labelStates()
+            let sets = labelSets
             tallied = FrameCompleteness.tally(
-                points: currentPoints, classes: currentClasses, agreed: agreed,
-                inQuestion: inQuestion)
+                points: currentPoints, classes: currentClasses, agreed: sets.agreed,
+                inQuestion: sets.inQuestion)
             talliedRevision = labelRevision
         }
         return tallied
     }
+
+    /// Which of this frame's returns are agreed and which in question, cached
+    /// against the same revision the tally uses. Rebuilt on every save, so it
+    /// is worked out once and read by the display filter, the canvases and the
+    /// selection engine alike.
+    var labelSets: PointLabelSets {
+        if cachedLabelSetsRevision != labelRevision {
+            let (agreed, inQuestion) = labelStates()
+            cachedLabelSets = PointLabelSets(
+                agreed: agreed, inQuestion: inQuestion, revision: labelRevision)
+            cachedLabelSetsRevision = labelRevision
+        }
+        return cachedLabelSets
+    }
+
+    private var cachedLabelSets = PointLabelSets()
+    private var cachedLabelSetsRevision = -1
 
     /// Which of the current frame's returns are agreed and which in question.
     private func labelStates() -> (agreed: Set<Int>, inQuestion: Set<Int>) {

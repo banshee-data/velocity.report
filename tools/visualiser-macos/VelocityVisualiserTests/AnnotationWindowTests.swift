@@ -65,6 +65,24 @@ struct AnnotationFramingTests {
         #expect(abs(half - 30) < 1e-4)
     }
 
+    /// An elevation is a street: a hundred metres wide and four high. Fitting
+    /// its width would set the vertical scale from the horizontal span and
+    /// leave a car too small to see, so it frames its height and is panned.
+    @Test func anElevationFramesItsHeightAndNotItsWidth() {
+        let street = AnnotationExtent(centre: .zero, halfHeight: 2, halfWidth: 100)
+        let size = CGSize(width: 400, height: 100)
+
+        let plan = annotationFramingHalfHeight(
+            extent: street, size: size, margin: 1, floor: 0.001, fitsWidth: true)
+        let elevation = annotationFramingHalfHeight(
+            extent: street, size: size, margin: 1, floor: 0.001, fitsWidth: false)
+
+        // Aspect is 4, so fitting the width needs 25 m of half-height and
+        // leaves a two-metre car a twelfth of the view tall.
+        #expect(abs(plan - 25) < 1e-4)
+        #expect(abs(elevation - 2) < 1e-4)
+    }
+
     @Test func framingLeavesAMargin() {
         let extent = AnnotationExtent(centre: .zero, halfHeight: 10, halfWidth: 1)
         let half = annotationFramingHalfHeight(
@@ -256,16 +274,29 @@ struct AnnotationWiringTests {
     }
 
     @Test func onlyTheEditingViewTakesStrokes() throws {
-        // Review is gated on a check from another view. All three orthographic
-        // views are on screen, and if each took strokes there would be three
-        // editing surfaces and no view left to check in.
+        // Review is gated on a check from another view. The top view and all
+        // four elevations are on screen, and if each took strokes there would
+        // be five editing surfaces and no view left to check in.
         let window = try source("UI/AnnotationWindow.swift")
         #expect(
-            window.contains("ForEach(OrthoViewBasis.Standard.allCases"),
-            "the three orthographic views are not all mounted")
+            window.contains("ForEach(OrthoViewBasis.Standard.elevations"),
+            "the four elevations are not all mounted")
+        #expect(
+            window.contains("standard: .top"), "the top view is not mounted on its own")
         #expect(
             window.contains("editable: standard == session.viewStandard"),
-            "a view other than the editing view accepts strokes")
+            "an elevation other than the editing view accepts strokes")
+        #expect(
+            window.contains("editable: session.viewStandard == .top"),
+            "the top view accepts strokes when it is not the editing view")
+    }
+
+    /// Every standard has to be reachable, or a view exists that nothing can
+    /// mount and no selection can ever be checked in.
+    @Test func theTopViewAndTheElevationsCoverEveryStandard() {
+        let mounted = Set([OrthoViewBasis.Standard.top] + OrthoViewBasis.Standard.elevations)
+        #expect(mounted == Set(OrthoViewBasis.Standard.allCases))
+        #expect(OrthoViewBasis.Standard.elevations.count == 4)
     }
 
     // "Generate from Run…", "Open Pack…" and "Close" in AnnotationWorkspace
