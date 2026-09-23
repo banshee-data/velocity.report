@@ -19,6 +19,21 @@ Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 
 See [docs/lidar/architecture/foreground-tracking.md](../architecture/foreground-tracking.md) for the implemented tracking architecture.
 
+## Route capture (cargo bike and backpack)
+
+A cargo bike or a backpack pedestrian covering a route, with stops at corners, is the near-term
+moving-sensor case. It borrows this document's ego-motion compensation and leaves 3D object
+orientation aside: the tracked objects stay on a ground plane in a world-fixed frame, so the
+2D+velocity tracker survives once every frame carries a pose. Route segments run through offline
+odometry and a world-anchored foreground engine; stops run through a keyframe stabiliser; the
+outputs are speeds along road segments either side of intersections. That case is specified in
+[lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md).
+
+The [portable timing design](../architecture/portable-capture-timing.md) specifies a costed
+GNSS PPS/MCU/IMU prototype, measured fallbacks, and acquisition-time quality gates. Current point
+timestamps and replay precedence need work before deskew; an IMU does not make correction exact.
+Clock mapping, sensor filter delay, rigid extrinsics, and rotor phase are separate concerns.
+
 ## When motion capture is needed
 
 | Scenario              | Why 7DOF is Needed                                           |
