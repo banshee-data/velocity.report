@@ -246,14 +246,14 @@ not anything is ever published.
 Everything above is arithmetic over assumed numbers. Six quantities turn it into
 an analysis.
 
-| Symbol    | What                                             | How                                                      |
-| --------- | ------------------------------------------------ | -------------------------------------------------------- |
-| $N$       | Passes per period, per site                      | Already measured                                         |
-| $p_c$     | Class share of local traffic                     | From the site's own observations, not a national average |
-| $b$       | Branching factor of the class tree               | Falls out of the taxonomy once built                     |
-| $|A_c|$   | Class-$c$ vehicles plausibly using the street    | Hardest of the six; bounded by local registrations       |
-| $q$       | Per-day appearance probability of a regular user | Estimable from repeat structure in the site's own data   |
-| $k$       | Chosen anonymity floor                           | A decision, informed by the above                        |
+| Symbol | What                                             | How                                                      |
+| ------ | ------------------------------------------------ | -------------------------------------------------------- |
+| $N$    | Passes per period, per site                      | Already measured                                         |
+| $p_c$  | Class share of local traffic                     | From the site's own observations, not a national average |
+| $b$    | Branching factor of the class tree               | Falls out of the taxonomy once built                     |
+| $      | A_c                                              | $                                                        | Class-$c$ vehicles plausibly using the street | Hardest of the six; bounded by local registrations |
+| $q$    | Per-day appearance probability of a regular user | Estimable from repeat structure in the site's own data   |
+| $k$    | Chosen anonymity floor                           | A decision, informed by the above                        |
 
 $q$ is measurable without identifying anybody: the repeat structure of anonymous
 observations tells you how regular the traffic is, which is exactly the input

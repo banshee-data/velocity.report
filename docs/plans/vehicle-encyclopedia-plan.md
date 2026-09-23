@@ -377,10 +377,11 @@ The shell gives three footprints, in increasing usefulness and difficulty.
 
 Static is available as soon as a shell exists, and it is the one that carries
 the argument: two vehicles rated for the same number of people can differ by
-half a parking space. Dynamic needs braking from domain 5 and a measured speed,
-which the sensor supplies. Swept needs a turning circle, which is not currently
-a recorded field and should become one if the junction-geometry argument is
-worth making.
+half a parking space. Dynamic needs braking distance (a published 60-0 test or
+a tyre-and-mass model, not domain 5, which is power and acceleration) and a
+measured speed, which the sensor supplies. Swept needs a turning circle, which
+is not currently a recorded field and should become one if the
+junction-geometry argument is worth making.
 
 ## Stance: lift, squat and fitted tyres
 
