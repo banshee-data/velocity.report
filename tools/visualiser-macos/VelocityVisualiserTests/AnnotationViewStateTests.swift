@@ -601,6 +601,48 @@ struct AnnotationSceneTests {
         #expect(cloud.intensity == [10, 20, 30, 40, 60])
     }
 
+    /// The whole point of hiding "agreed" is to stop seeing what is settled,
+    /// and what is settled is exactly what is in a mask. The mask override
+    /// exists for the class filter — switching the background off must not
+    /// hide what a mask claims about it — and must not reach past this one.
+    @Test func aHiddenLabelStateHidesMarkedReturnsToo() throws {
+        var marks = AnnotationScene.Marks()
+        marks.activeClass = "car"
+        marks.saved = [1, 3]
+
+        var visibility = PointVisibility()
+        visibility.agreed = false
+        let labels = PointLabelSets(agreed: [1, 3], inQuestion: [], revision: 1)
+
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: visibility, labels: labels,
+                marks: marks, sample: nil
+            ).pointCloud)
+
+        #expect(!cloud.x.contains(1), "an agreed return in a mask was drawn while agreed is off")
+        #expect(!cloud.x.contains(3))
+        // Everything else is untouched; the NaN is dropped as always.
+        #expect(cloud.x == [0, 2, 5])
+    }
+
+    /// The override itself still stands: a mask shows through a hidden class.
+    @Test func aMarkedReturnIsStillDrawnThroughAHiddenClass() throws {
+        var marks = AnnotationScene.Marks()
+        marks.activeClass = "car"
+        marks.saved = [1]
+
+        var visibility = PointVisibility()
+        visibility.foreground = false
+
+        let cloud = try #require(
+            AnnotationScene.frame(
+                points: points, classes: classes, visibility: visibility, marks: marks, sample: nil
+            ).pointCloud)
+
+        #expect(cloud.x.contains(1), "hiding a class hid what a mask claims about it")
+    }
+
     @Test func unmarkedReturnsKeepTheirOwnClass() throws {
         let cloud = try #require(
             AnnotationScene.frame(

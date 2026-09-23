@@ -105,8 +105,24 @@ struct LassoOverlay: View {
     private var maskLayer: some View {
         // Read here, on the main actor, and not inside the renderer closure.
         let points = session.currentPoints
-        let others = session.otherMasks
-        let saved = session.savedSelection
+        // Saved masks are drawn over the cloud, so hiding a label state in the
+        // point canvas alone left the mask on screen and the toggle looked
+        // broken. These are the two sets the label states describe; the live
+        // selection and the proposal overlays are not saved masks and are left
+        // alone. Filtered here rather than in the closure, which is not on the
+        // main actor.
+        let hidesALabelState = !session.visibility.showsEveryLabelState
+        let labelSets = session.effectiveLabelSets
+        let visibility = session.effectiveVisibility
+        func shown(_ index: Int) -> Bool {
+            PointVisibility.showsLabelState(index, under: visibility, labels: labelSets)
+        }
+        let others =
+            hidesALabelState
+            ? session.otherMasks.map {
+                (name: $0.name, objectClass: $0.objectClass, indices: $0.indices.filter(shown))
+            } : session.otherMasks
+        let saved = hidesALabelState ? session.savedSelection.filter(shown) : session.savedSelection
         let current = session.history.current
         let activeClass = session.activeObject?.objectClass
         let activeName = session.activeObjectName

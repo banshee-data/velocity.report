@@ -129,7 +129,21 @@ extension PointVisibility {
     ) -> Bool {
         guard let visibility, index >= 0, index < classes.count else { return true }
         guard visibility.shows(classes[index]) else { return false }
-        guard !visibility.showsEveryLabelState, let labels else { return true }
+        return showsLabelState(index, under: visibility, labels: labels)
+    }
+
+    /// True when this return's label state is shown, ignoring its class.
+    ///
+    /// The layers that draw masks ask this rather than `isVisible`, because a
+    /// mask is drawn through a hidden class on purpose — switching the
+    /// background off must not hide what a mask claims about it — while
+    /// switching a label state off is a request to hide exactly those masks.
+    /// The two filters are not the same kind of thing and the mask override
+    /// only ever applied to the first.
+    static func showsLabelState(
+        _ index: Int, under visibility: PointVisibility?, labels: PointLabelSets?
+    ) -> Bool {
+        guard let visibility, !visibility.showsEveryLabelState, let labels else { return true }
         return visibility.shows(labels.state(of: index))
     }
 }
