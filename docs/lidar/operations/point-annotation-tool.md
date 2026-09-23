@@ -30,7 +30,7 @@ The window uses the main view's words where it means the same thing.
 | Run         | The recording the pack was cut from                                                           |
 | Frame       | One scan. Shown by the run's own frame number, which is the one the main view's timeline uses |
 | Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                 |
-| Object      | One real thing, named by class and number: "car 2"                                            |
+| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame      |
 | Labelled by | Your name. Saved with every label. Not the name of an object or a track                       |
 | Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                              |
 | Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth            |
@@ -123,10 +123,13 @@ to work with. A pack that does not record its band uses the pipeline default and
 "assumed". A hidden class cannot be selected.
 
 Display also switches the three states the progress bars count: **agreed**, **in question** and
-**unlabelled**. Turning the settled ones off leaves the work still to do on its own — and since
-a hidden return cannot be selected, a lasso thrown over what is left cannot take back what is
-already agreed. Agreed is reviewed or labelled by hand; in question is saved but still the
-algorithm's word for it.
+**unlabelled**. Turning the settled ones off leaves the work still to do on its own — the saved
+masks go with them — and since a hidden return cannot be selected, a lasso thrown over what is
+left cannot take back what is already agreed. Agreed is reviewed or labelled by hand; in
+question is saved but still the algorithm's word for it.
+
+Hiding a _class_ is different: a mask is still drawn through it, because switching the
+background off must not hide what a mask claims about it.
 
 The **settled background** in force is drawn behind each frame. It is context: no tool selects
 from it. Stepping forward onto a new snapshot shows a banner, and returns that moved by half a
@@ -195,6 +198,17 @@ arrows, so the frame cannot step out from under it. For something that does not 
 every frame** saves its mask into all of them.
 
 ⌘Z and ⇧⌘Z undo and redo selection edits.
+
+### Two objects that are one
+
+Click the object to keep, then right-click the other and **Merge into…**. Every frame of it
+becomes a frame of the first, and it is gone. Where both have the same frame the returns are
+unioned: two masks over one thing are two accounts of the same returns.
+
+This is the repair for a chain that came back as two objects because it went behind a bus, and
+the undo for a split that should not have happened. Merged frames go back to proposed even where
+both sides were reviewed — what was checked was two objects, and nobody has yet looked at the
+one — so step through them before reviewing.
 
 ### One object that is two
 
