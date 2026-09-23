@@ -24,6 +24,12 @@ Canonical vocabulary of track classification labels used across the proto wire f
 The system ships **7 user-assignable classes**. Truck and motorcyclist are
 disabled in the classifier, hidden in UIs, and rejected by the label API.
 
+This vocabulary is level 0 of the proposed
+[vehicle taxonomy](vehicle-taxonomy.md), which extends beneath `CAR` with
+range-dependent classes derived from what the sensor can resolve. That work
+proposes no change to this enum: deeper classes live in a separate,
+edition-versioned field.
+
 ## Wire protocol
 
 - `visualiser.proto`: `ObjectClass` enum (field 26 on Track)
