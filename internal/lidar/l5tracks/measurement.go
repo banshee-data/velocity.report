@@ -12,9 +12,12 @@ import (
 type MeasurementSource string
 
 const (
-	// MeasurementMedoidV0 is retained only for offline A/B evaluation against
-	// the historical position model. Production defaults to OBB centre.
-	MeasurementMedoidV0         MeasurementSource = "medoid_v0"
+	// MeasurementMedoidV0 is the production position model: the cluster
+	// medoid, as every release before D2 used.
+	MeasurementMedoidV0 MeasurementSource = "medoid_v0"
+	// MeasurementOBBCentreV1 is D2's candidate, opt-in only. Against kirk0's
+	// annotated objects it switched identity more often than the medoid at the
+	// same recall, so it stays off until it beats the medoid on held-out truth.
 	MeasurementOBBCentreV1      MeasurementSource = "obb_centre_v1"
 	MeasurementMedoidFallbackV1 MeasurementSource = "medoid_fallback_v1"
 	// MeasurementNearEdgeCandidateV1 describes a visible face selected for
@@ -65,9 +68,8 @@ type FilterResidual struct {
 	GeometryCovariance       MeasurementCovariance
 }
 
-// measurementForCluster applies Decision D2 consistently to association,
-// initialisation, and the Kalman update. A malformed or absent OBB fails
-// visibly to the medoid; it never silently presents a zero-valued box centre.
+// measurementForCluster is the production measurement: the default mode,
+// applied alike to association, initialisation and the Kalman update.
 func measurementForCluster(cluster l4perception.WorldCluster, frameUnixNanos int64) PositionMeasurement {
 	return measurementForMode(cluster, frameUnixNanos, "")
 }
@@ -77,9 +79,11 @@ func measurementForMode(cluster l4perception.WorldCluster, frameUnixNanos int64,
 	if timestamp <= 0 {
 		timestamp = frameUnixNanos
 	}
-	if mode == MeasurementMedoidV0 {
+	if mode != MeasurementOBBCentreV1 {
 		return PositionMeasurement{X: cluster.CentroidX, Y: cluster.CentroidY, UnixNanos: timestamp, Source: MeasurementMedoidV0}
 	}
+	// A malformed or absent OBB fails visibly to the medoid; the candidate
+	// never silently presents a zero-valued box centre.
 	if obb := cluster.OBB; obb != nil && finiteMeasurementCoordinate(obb.CenterX) && finiteMeasurementCoordinate(obb.CenterY) {
 		return PositionMeasurement{X: obb.CenterX, Y: obb.CenterY, UnixNanos: timestamp, Source: MeasurementOBBCentreV1}
 	}
@@ -90,12 +94,12 @@ func (t *Tracker) measurementForCluster(cluster WorldCluster, frameUnixNanos int
 	return measurementForMode(cluster, frameUnixNanos, t.Config.MeasurementSourceMode)
 }
 
-// InterpretMeasurement records both D2's filter input and the near face that
-// E1 must evaluate. sensorX/Y must be the calibrated sensor origin in the
+// InterpretMeasurement records D2's OBB-centre candidate beside the near face
+// that E1 evaluates, whatever the tracker's own mode. sensorX/Y must be the calibrated sensor origin in the
 // same site frame as the cluster. If that identity is unavailable, callers
 // retain the OBB-centre measurement and record why no face was claimed.
 func InterpretMeasurement(cluster l4perception.WorldCluster, frameUnixNanos int64, sensorX, sensorY, predictedX, predictedY, baseVariance float32) MeasurementInterpretation {
-	measurement := measurementForCluster(cluster, frameUnixNanos)
+	measurement := measurementForMode(cluster, frameUnixNanos, MeasurementOBBCentreV1)
 	interpretation := MeasurementInterpretation{
 		Measurement: measurement,
 		Covariance:  covarianceForCluster(cluster, baseVariance),

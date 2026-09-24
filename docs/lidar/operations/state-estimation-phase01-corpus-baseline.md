@@ -280,9 +280,10 @@ repeat `tracking_baseline.json` reproduces the published digest above exactly:
 
 20,320 frames first and repeat, source ID `source/v1/23d962b7…`, 102,013
 observations and 77,891 estimates — the same population, not a re-derivation.
-Run with `-measurement-mode medoid_v0`, matching the original; the tool's
-default is `obb_centre_v1`, and a run left on the default compares two
-measurement models rather than two code states.
+Run with `-measurement-mode medoid_v0`, matching the original. The tool's
+default was `obb_centre_v1` at the time and is `medoid_v0` since D2 was reverted;
+naming the mode keeps a run comparing two code states rather than two
+measurement models.
 
 Two of the landed fixes are geometric and might have been expected to move
 this. That they did not is consistent with what each does: P2 replaces a

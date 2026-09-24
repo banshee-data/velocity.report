@@ -153,8 +153,8 @@ type TrackerConfig struct {
 	// costs and no history. Default false: the campaign's ground-truth and
 	// label-free harnesses measure it against the shipped behaviour first.
 	CascadedAssociation bool
-	// MeasurementSourceMode is empty/OBB by default. medoid_v0 is a replay-only
-	// reference arm used to establish an A/B acceptance baseline.
+	// MeasurementSourceMode selects the position model. Empty means the
+	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup

@@ -139,9 +139,9 @@ type Config struct {
 	// ProfileEvidence includes exact frame-evidence persistence timings in the
 	// returned Result. It is diagnostic-only and does not alter recorded data.
 	ProfileEvidence bool
-	// MeasurementSourceMode selects a replay-only position model. Empty uses
-	// the shipped OBB-centre D2; medoid_v0 exists solely to establish the
-	// historical reference arm for an acceptance comparison.
+	// MeasurementSourceMode selects the replay's position model. Empty (or
+	// medoid_v0) is the production medoid; obb_centre_v1 replays D2's candidate
+	// for an acceptance comparison.
 	MeasurementSourceMode l5tracks.MeasurementSource
 	// UseSurfaceGround enables P11's settled-background, surface-relative
 	// clipping. It remains opt-in while multi-site evidence is collected.
@@ -600,9 +600,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// change under test. Determinism matters more than throughput offline.
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
-	stateObservationModelID := string(l5tracks.MeasurementOBBCentreV1)
-	if cfg.MeasurementSourceMode == l5tracks.MeasurementMedoidV0 {
-		stateObservationModelID = string(l5tracks.MeasurementMedoidV0)
+	stateObservationModelID := string(l5tracks.MeasurementMedoidV0)
+	if cfg.MeasurementSourceMode == l5tracks.MeasurementOBBCentreV1 {
+		stateObservationModelID = string(l5tracks.MeasurementOBBCentreV1)
 	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{

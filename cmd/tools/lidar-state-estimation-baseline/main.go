@@ -91,7 +91,7 @@ func main() {
 		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
-		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
+		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
 		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
 	)

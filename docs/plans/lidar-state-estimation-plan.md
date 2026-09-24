@@ -148,8 +148,8 @@ links before retiring any task ledger.
 ## 0. Principles
 
 **Branch delivery declaration:** PR #559 delivered heading-stability and evaluation work, a
-bounded SQLite observation store, regional ground-surface work and D2's OBB-centre online position
-input. Phases 0-2 remain the minimum core of this plan: a lower course-error statistic, an
+bounded SQLite observation store, regional ground-surface work and D2's OBB-centre position input,
+opt-in since its A/B against annotated truth (21.1 D5). Phases 0-2 remain the minimum core of this plan: a lower course-error statistic, an
 annotation exporter or a new motion filter does not substitute for the position-measurement
 correction. The near-edge implementation remains
 an offline candidate, not the online Kalman measurement; G-PER-1, G-GEO-1, G-UNC-1 and G-SMO-1
@@ -764,9 +764,10 @@ what makes Experiment E1 possible at all.
 
 ### 5.2 Proposed evidence and interpretation contracts
 
-`DetectionObservation` is implemented as immutable evidence. D2 is implemented as an explicit
-OBB-centre filter input with a medoid fallback, cluster acquisition time, frame time, and source
-recorded on the legacy tracker row. `MeasurementInterpretation` now has a bounded in-memory
+`DetectionObservation` is implemented as immutable evidence. D2 is implemented as an opt-in
+OBB-centre filter input (`obb_centre_v1`, with a medoid fallback); the production input is the
+medoid (21.1 D5). Cluster acquisition time, frame time and source are recorded on the legacy
+tracker row. `MeasurementInterpretation` now has a bounded in-memory
 candidate helper for E1: it records the OBB-centre input, geometry-conditioned covariance and the
 nearest visible OBB boundary when a calibrated sensor origin is supplied. It does **not** promote
 that boundary into the online filter: no physical centre may be inferred from an unseen face before
@@ -2704,9 +2705,10 @@ appears as a headline metric, only paired with manoeuvre-magnitude preservation,
 | #   | Decision                                                                    | Consequence                                                                                                                                                                   |
 | --- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | **P11 is treated as a current defect**: deployment sites are graded         | The slope-aware ground-filter remedy moves into Phase 1, ahead of the Phase 2 measurement change. Severity is still to be confirmed by measuring the grade per site, per 16.5 |
-| D2  | **Ship the OBB centre as an immediate stopgap**, ahead of E1 and Phase 2    | 0.279 m mean lateral bias against the medoid's 0.676 m: a 2.4x improvement for a change of one measurement source. Conditions below                                           |
+| D2  | **Ship the OBB centre as an immediate stopgap**, ahead of E1 and Phase 2    | 0.279 m mean lateral bias against the medoid's 0.676 m: a 2.4x improvement for a change of one measurement source. Conditions below. Reverted by D5                           |
 | D3  | **Gate set confirmed** as G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, G-SMO-1       | Gates beyond G-EST-1 are deferred to the conditions table in 7.3                                                                                                              |
 | D4  | **Product priority leads with bumper-to-bumper gap and following exposure** | September 2026 reprioritisation: temporal body geometry and occlusion continuity support both this metric and stable trails; VRU interactions remain later scope              |
+| D5  | **The medoid stays the production measurement**; the OBB centre is opt-in   | D2 failed its own condition 2 on real data: against annotated objects it tracked identity worse at equal recall. Headway pairing needs stable identity. See D2 outcome below  |
 
 #### D2 conditions
 
@@ -2725,6 +2727,45 @@ quantity that is still not the vehicle centre.
 4. Re-baseline the regression numbers after it ships. The 0.676 m and 11.3 % figures
    G-GEO-1 is written against are medoid figures. Leaving them in place would make Phase 2
    appear to clear a bar it already receives.
+
+#### D2 outcome, 2026-09-24
+
+E1's real-data run could not satisfy condition 2: its reference path was fitted to estimates the
+tracker had produced from the OBB centre, so the OBB centre's flatness there was circular. The A/B
+below replaced it with evidence that does not depend on either position definition. Both arms ran
+the same build and configuration; only `-measurement-mode` differed.
+
+**Against annotated truth.** kirk0, scored from 6 s against the annotation pack's labelled road
+users (30 objects, 2,579 object-frames, 771 frames). An estimate matches an object when it lies
+within 1 m plus half the object's footprint diagonal, a gate both candidate positions sit inside.
+A repeat of the OBB arm was identical on every metric.
+
+| Metric                                 | OBB centre | Medoid |
+| -------------------------------------- | ---------: | -----: |
+| Recall                                 |      0.534 |  0.527 |
+| Identity switches                      |        146 |     92 |
+| Fragmentations                         |         64 |     55 |
+| Identity recall                        |      0.323 |  0.334 |
+| IDF1                                   |      0.366 |  0.380 |
+| Vehicle speed step, RMS (m/s²)         |       2.11 |   1.97 |
+| Vehicle speed against truth, MAD (m/s) |       0.53 |   0.48 |
+
+The direction held at every gate tried (fixed 1, 2 and 3 m; half and double the footprint gate)
+and with only tracks long enough to confirm. Both arms carried two tracks inside one object's gate
+on about 17% of object-frames; the OBB centre handed the cluster between them more often. Two cars
+account for most of the gap, and one capture is one capture: this is a reason not to ship the OBB
+centre, not proof that the medoid is right.
+
+**Across the corpus, without labels.** The 24-site first-segment corpus, 200 s scored after a
+70 s warm-up. The OBB centre's constant-velocity prediction error was lower across track at 20 of
+24 sites (median 19% lower, sign test p = 0.002), which is the lateral steadiness D2 predicted. That
+compares each arm with its own measurements, so it measures self-consistency, not accuracy. Track
+count, median lifetime and the sub-second share did not separate. The two outputs diverged
+materially (median MOTA 0.888 between arms), so the choice is not cosmetic.
+
+The evidence, scorer and corpus driver are on the LiDAR volume under
+`velocity-campaign/obb-centre-ab-20260924/`. Phase 2's near-edge model is the correction that
+replaces both; the OBB centre remains available as `obb_centre_v1` for comparisons with it.
 
 ## 22. Changes introduced by this revision
 
@@ -2778,7 +2819,8 @@ architecture; it does not relitigate findings.
 - [x] Implement D2: association, initialisation, and the CV update use a valid OBB centre;
       the persisted legacy observation records `measurement_source`, cluster capture time and frame time.
       The source falls back explicitly to the medoid for absent or invalid OBB geometry.
-- [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
+- [x] Validate D2 on real data (condition 2): failed against annotated truth, reverted, see 21.1 D5.
+      G-GEO-1's figures remain medoid figures, so condition 4's re-baseline no longer applies
 - [x] Generalise the global P11 plane to regions: `l3grid.RegionalGroundSurface` fits an independent plane per grid cell, falling back to the global fit where a cell has too few settled background points, verified against synthetic crest/valley and sparse-region-fallback geometry
 - [x] Fit and publish a measured coarse ground gradient per site from a real multi-site replay: Marina 4.35%, Columbus 0.88%, Embarcadero 0.14% — see [corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md#p11-ground-plane-fit-measured-per-site)
 - [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out

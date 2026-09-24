@@ -8,26 +8,54 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
-func TestMeasurementForClusterUsesOBBCentreAndCaptureTime(t *testing.T) {
+// The production measurement is the medoid even where a valid OBB exists: D2's
+// OBB centre switched identity more often against annotated truth.
+func TestMeasurementForClusterDefaultsToMedoidAtCaptureTime(t *testing.T) {
 	cluster := l4perception.WorldCluster{
 		CentroidX: 9, CentroidY: 8, TSUnixNanos: 1234,
 		OBB: &l4perception.OrientedBoundingBox{CenterX: 2, CenterY: 3},
 	}
 	got := measurementForCluster(cluster, 999)
+	if got.X != 9 || got.Y != 8 || got.UnixNanos != 1234 || got.Source != MeasurementMedoidV0 {
+		t.Fatalf("measurement = %+v", got)
+	}
+}
+
+func TestOBBCentreCandidateUsesOBBCentreAndCaptureTime(t *testing.T) {
+	cluster := l4perception.WorldCluster{
+		CentroidX: 9, CentroidY: 8, TSUnixNanos: 1234,
+		OBB: &l4perception.OrientedBoundingBox{CenterX: 2, CenterY: 3},
+	}
+	got := measurementForMode(cluster, 999, MeasurementOBBCentreV1)
 	if got.X != 2 || got.Y != 3 || got.UnixNanos != 1234 || got.Source != MeasurementOBBCentreV1 {
 		t.Fatalf("measurement = %+v", got)
 	}
 }
 
-func TestMeasurementForClusterFallsBackExplicitly(t *testing.T) {
+func TestOBBCentreCandidateFallsBackExplicitly(t *testing.T) {
 	cluster := l4perception.WorldCluster{
 		CentroidX: 9, CentroidY: 8,
 		OBB: &l4perception.OrientedBoundingBox{CenterX: float32(math.NaN()), CenterY: 3},
 	}
-	got := measurementForCluster(cluster, 999)
+	got := measurementForMode(cluster, 999, MeasurementOBBCentreV1)
 	if got.X != 9 || got.Y != 8 || got.UnixNanos != 999 || got.Source != MeasurementMedoidFallbackV1 {
 		t.Fatalf("measurement = %+v", got)
 	}
+}
+
+func TestTrackerDefaultsToMedoid(t *testing.T) {
+	tracker := NewTracker(DefaultTrackerConfig())
+	tracker.Update([]l4perception.WorldCluster{{
+		SensorID: "test", ClusterID: 1, CentroidX: 9, CentroidY: 8,
+		OBB: &l4perception.OrientedBoundingBox{CenterX: 2, CenterY: 3},
+	}}, time.Unix(0, 100))
+	for _, track := range tracker.Tracks {
+		if track.X != 9 || track.Y != 8 || track.LastMeasurementSource != MeasurementMedoidV0 {
+			t.Fatalf("default state = %+v", track)
+		}
+		return
+	}
+	t.Fatal("default tracker created no track")
 }
 
 func TestTrackerCanUseExplicitReplayMedoidReference(t *testing.T) {
@@ -47,9 +75,10 @@ func TestTrackerCanUseExplicitReplayMedoidReference(t *testing.T) {
 	t.Fatal("replay reference created no track")
 }
 
-func TestTrackerUsesSameCorrectedMeasurementForInitialAndUpdatedState(t *testing.T) {
+func TestTrackerUsesSameCandidateMeasurementForInitialAndUpdatedState(t *testing.T) {
 	config := DefaultTrackerConfig()
 	config.HitsToConfirm = 1
+	config.MeasurementSourceMode = MeasurementOBBCentreV1
 	tracker := NewTracker(config)
 	t0 := time.Unix(0, 1_000)
 	first := l4perception.WorldCluster{
@@ -78,7 +107,7 @@ func TestTrackerUsesSameCorrectedMeasurementForInitialAndUpdatedState(t *testing
 		t.Fatalf("updated provenance = %d %s", track.LastMeasurementUnixNanos, track.LastMeasurementSource)
 	}
 	if track.X > 10 || track.Y > 10 {
-		t.Fatalf("medoid leaked into corrected update: x=%f y=%f", track.X, track.Y)
+		t.Fatalf("medoid leaked into the candidate's update: x=%f y=%f", track.X, track.Y)
 	}
 }
 
