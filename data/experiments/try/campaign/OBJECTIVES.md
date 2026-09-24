@@ -1,6 +1,8 @@
 # Campaign objectives from 2026-09-19
 
-For the agent running [supervisor.py](supervisor.py). Read this before queueing a seventh pass.
+For the agent running the campaign supervisor (`supervisor.py`, now archived: see the
+[campaign plan](../../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#archived-evidence)).
+Read this before queueing a seventh pass.
 It replaces the "Next, in order" list at the end of the fifth-pass results in the
 [campaign plan](../../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md). The
 evidence behind every statement here is in the

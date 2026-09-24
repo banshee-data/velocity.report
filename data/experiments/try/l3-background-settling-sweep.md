@@ -45,9 +45,8 @@ convergence computed from the grid's own measured state — no live server, no
 labelled tracks. For each key listed below, run `settling-eval` on each
 corpus site with ≥ 5 sweep values, holding all other keys at production
 defaults ([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
-The driver at
-[data/experiments/try/l3-settling-sweep/run_sweep.py](l3-settling-sweep/run_sweep.py)
-does this across all 24 sites; see
+The driver, `l3-settling-sweep/run_sweep.py` (archived with the campaign's results), did
+this across all 24 sites; see
 [the campaign plan, Batch 1](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#batch-1--l3-background-settling-broad-sweep-ready-now)
 for the exact command and current results.
 

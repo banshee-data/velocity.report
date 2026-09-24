@@ -115,6 +115,8 @@ The campaign's one-at-a-time ground-truth sweep is the first L4 evidence of any 
 
 Halving ε recovers more labelled tracks at both sites and produces half as many again candidates; raising it loses tracks. That is the direction D3's merge pathology predicts, and no value is a Pareto improvement at both sites, which is what a scene needing more than one density looks like (D5). It is not proof of either. The evaluator matches on temporal overlap only (M5), so it cannot tell a merged pair coming apart from one object breaking into pieces, and kirk1's +4 is inside that site's noise threshold of 5.
 
+The counts are weaker still than M5 implies. Both reference runs were scored over `lidar_run_tracks` rows written before #584, which stored each track as it was first sighted, so "matched" meant two tracks confirmed at about the same moment, not coverage. Treat the table as a record of what ran, not as evidence for D3 or D5.
+
 The paper offers a cheaper cross-check than more sweeps: the sorted 4-dist graph of the corpus's own foreground points, per site and per range band. It needs no labels and no replay through the tracker. If the valley sits near 0.8 m at every range, the default is defensible; if it moves with range, that is the quantitative case for D5, and its slope says what an adaptive ε would have to follow.
 
 ---
@@ -165,7 +167,7 @@ A 2.7% reduction, against `GatingDistanceSquared` = 36 — a margin of **173×**
 
 Both findings are asserted in the tests rather than merely logged, so that a future tuning change that _does_ make either gap bite — a tighter gate, a longer `MaxPredictDt`, or a conditioning change that starts losing symmetry — fails the suite instead of passing unnoticed. K3 (explicit $P = (P + P^T)/2$ enforcement) is correspondingly lower priority than its row suggests: there is currently no measured asymmetry for it to enforce away.
 
-**Corroborated by the campaign.** The "association is governed by the width of the gate" reading above was an inference from one synthetic target. The campaign's ground-truth sweep moved `gating_distance_squared` across 9, 16, 64 and 100 on two labelled captures and saw no visible change at either: labelled tracks recovered stayed at exactly 7 of 16 and 10 of 49, and candidate counts moved by at most 6. K10 works out why.
+**Not yet corroborated by the campaign.** The "association is governed by the width of the gate" reading above was an inference from one synthetic target. The campaign's ground-truth sweep moved `gating_distance_squared` across 9, 16, 64 and 100 on two labelled captures and saw no visible change at either: labelled tracks recovered stayed at exactly 7 of 16 and 10 of 49, and candidate counts moved by at most 6. That metric was computed over rows written before #584, which stored each track as first sighted, so it could not see association over a track's life, and its indifference to the gate is weak evidence. K10 works out why the gate should not matter; a per-frame comparison (M5) is what would confirm it.
 
 ### Measured outcome: K9
 

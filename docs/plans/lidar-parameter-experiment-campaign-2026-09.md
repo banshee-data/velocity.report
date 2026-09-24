@@ -1,8 +1,10 @@
 # LiDAR parameter/algorithm experiment campaign, 2026-09
 
-- **Status:** Batch 1 running (started 2026-09-17 23:12, operator-launched, unattended).
-  An unattended supervisor (below) is prepared to wait for it, then run Batches 2 and
-  5 and attempt Batch 3, for up to a configurable wall-clock budget (default 12h).
+- **Status:** Complete. Seven passes ran unattended from 2026-09-17 to 2026-09-20;
+  [OBJECTIVES.md](../../data/experiments/try/campaign/OBJECTIVES.md) redirected the
+  campaign on 2026-09-19 from choosing defaults to measuring structural changes. The
+  harness, its state and its results are archived (see
+  [Archived evidence](#archived-evidence)).
 - **Scope:** Execute the backlog in [data/experiments/try/](../../data/experiments/try/) against the
   now-complete 24-site S2 corpus (312,315 frames; see
   [state-estimation-phase01-corpus-baseline.md](../lidar/operations/state-estimation-phase01-corpus-baseline.md))
@@ -13,6 +15,30 @@
   [lidar-heading-coherence-sprint-plan.md §5.2](lidar-heading-coherence-sprint-plan.md)
   (harness notes, the disk-contention finding and its fix),
   [lidar-state-estimation-plan.md](lidar-state-estimation-plan.md) (Phase 0/1 status).
+
+## Archived evidence
+
+The campaign's drivers (`supervisor.py`, the `run_*`, `analyze_*` and `plan_*` scripts),
+its state (`manifest.json`, `status.json`) and every result table were moved out of the
+repository before merge. They are not needed to read this document, and the drivers assume
+one workstation's paths. Script and file names below refer to the archive, which is laid
+out as `data/experiments/try/` was:
+
+- git branch `backup/state-est-experiment-data-20260924` (commit `c0ffb5912`);
+- the LiDAR volume, `velocity-campaign/state-est-experiments-20260924/`, which also holds
+  the untracked per-run output (`raw/`, `configs/`, logs) that was never in git.
+
+The repository keeps the experiment write-ups, `campaign/OBJECTIVES.md` and the pass-7
+campaign definitions (`option-scorecard/pass7-configs*.json`), which the analysis worker
+documents as its campaign format.
+
+**Not reliable:** every ground-truth score in this campaign (passes 3-6 and Batch 3) matched
+candidate and labelled tracks by temporal IoU over `lidar_run_tracks` rows written before
+#584, which stored each track as it was first sighted, a few observations old. "Labelled
+tracks recovered" therefore measured whether two tracks were confirmed at about the same
+moment, not coverage or continuity. The reference runs cannot be repaired from the
+database. Read those counts as a record of what was run, not as evidence for or against
+a setting.
 
 ## Why this doc exists
 
@@ -232,7 +258,8 @@ blocked stage never blocks the ones after it; `budget_hours` 7):
    increasing the candidate count, otherwise it is an unranked trade-off. A
    live kirk0 test already shows the metric responding
    (`hits_to_confirm=1`: 0/16 matched, 141 candidates; `foreground_dbscan_eps=0.4`:
-   9/16, 130 candidates, vs baseline 7/16, 81).
+   9/16, 130 candidates, vs baseline 7/16, 81). These matched counts are not reliable:
+   see [Archived evidence](#archived-evidence).
 4. **Extended L3 sweep** (28 values across 8 keys Batch 1 never touched):
    `background_update_fraction`, `seed_from_first`,
    `post_settle_update_fraction`, `reacquisition_boost_multiplier`,
@@ -522,6 +549,69 @@ flip rule needs the D2 course-alignment harness, not these. `process_noise_pos` 
 deserves one GT and label-free run before Phase 3 decides how R and Q vary with
 speed.
 
+### Seventh pass (2026-09-19 to 2026-09-20, after OBJECTIVES.md)
+
+Pass 7 scored L3 options against the shipped configuration, deliberately leaving L4 and L5
+alone: OBJECTIVES.md records that the measurement, its covariance and the association
+cost are all scheduled to change, and a return the foreground test discards cannot be
+recovered downstream. Ten arms (`option-scorecard/pass7-configs-l3.json`) ran 200 s at
+all 24 sites, 240 runs, no errors, with each run's evidence kept.
+
+**Determinism first.** The `baseline_again` arm replays the shipped configuration a second
+time. All 24 sites were byte-identical, and all 24 per-frame comparisons against their
+own baseline score exactly MOTA 1.0, IDSW 0 and FM 0. The noise floor is a measured zero,
+so every difference below is signal.
+
+**Population.** Track count and median track lifetime move together, in both directions,
+at every site. Medians against each site's own baseline:
+
+| Arm                                | Tracks | Median lifetime | Share under 1 s |
+| ---------------------------------- | -----: | --------------: | --------------: |
+| `no_region_overrides__closeness_2` |  2.55x |           3.06x |           0.60x |
+| `no_region_overrides`              |  2.24x |           2.31x |           0.67x |
+| `closeness_1p5`                    |  1.92x |           2.15x |           0.74x |
+| `closeness_2`                      |  1.50x |           1.44x |           0.83x |
+| `closeness_2p5`                    |  1.21x |           1.12x |           0.93x |
+| `post_settle_update_0p002`         |  1.04x |           1.00x |           1.00x |
+| `closeness_4`                      |  0.74x |           0.81x |           1.09x |
+| `noise_relative_0p04`              |  0.48x |           0.84x |           1.08x |
+
+Fragments are short. If a looser foreground test only added fragments, median lifetime
+would fall and the sub-second share would rise; both move the other way at 23 or 24 of
+24 sites. Tightening the test does the reverse: fewer tracks that are also shorter. The
+consistent mechanism is a cluster starved of points failing association, so its track
+dies early. The region-override defect (B8) is the largest single effect the campaign
+measured: holding the global values instead of the per-region ones gives 2.24x the tracks
+at 2.31x the lifetime on 24 of 24 sites. A post-settle update fraction of 0.002 is a null
+result: freezing the background after settling does not cost tracks over 200 s.
+
+**Per frame** (`lidar-track-scorecard -reference`, each arm against its own site's
+baseline, 216 comparisons, medians over 24 sites):
+
+| Arm                                |  MOTA | IDSW |  FM |    FP |   FN |  HOTA | Candidate/reference |
+| ---------------------------------- | ----: | ---: | --: | ----: | ---: | ----: | ------------------: |
+| `no_region_overrides__closeness_2` | -5.54 |  318 |  78 | 29868 |  432 | 0.253 |               2.80x |
+| `no_region_overrides`              | -2.89 |  278 |  90 | 19438 |  478 | 0.315 |               2.30x |
+| `closeness_1p5`                    | -1.71 |  288 |  96 | 11442 |  460 | 0.372 |               1.87x |
+| `closeness_2`                      | -0.51 |  198 |  74 |  7045 |  370 | 0.469 |               1.55x |
+| `closeness_2p5`                    |  0.30 |  192 |  84 |  2506 |  393 | 0.632 |               1.15x |
+| `post_settle_update_0p002`         |  0.93 |   41 |  19 |   203 |   57 | 0.943 |               1.04x |
+| `baseline_again`                   |  1.00 |    0 |   0 |     0 |    0 | 1.000 |               1.00x |
+| `closeness_4`                      |  0.36 |  127 | 139 |   242 | 2834 | 0.481 |               0.66x |
+| `noise_relative_0p04`              |  0.19 |   66 |  77 |   150 | 3724 | 0.358 |               0.45x |
+
+The reference is another run, not ground truth, so each row measures divergence from the
+shipped output and never accuracy: a high MOTA or HOTA means "changed little", not
+"better". Read how far an arm moves and in which direction (candidate against reference
+tracks, FP against FN). FM counts interruptions of the baseline's trajectories, which is
+why `closeness_4`, the tightest arm, scores worst on it while missing 2834 detections.
+
+**What this does not establish** is that the extra tracks are real. It establishes that they
+behave like real tracks rather than like fragments. A background model that is too
+permissive also yields persistent spurious objects. Deciding between the two needs labelled
+per-frame truth, the M5 path, not a default change. The arms this pass had no night for are
+in `option-scorecard/pass7-configs-l3-tier2.json`.
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)
@@ -531,7 +621,7 @@ speed.
 `pcap-analyse`, settling metrics in place of the unimplemented
 fragmentation/GT metrics).
 
-**Harness:** [data/experiments/try/l3-settling-sweep/run_sweep.py](../../data/experiments/try/l3-settling-sweep/run_sweep.py) —
+**Harness:** `l3-settling-sweep/run_sweep.py` (archived) —
 new, but it's a thin orchestration script, not a new experiment framework: it
 shells out to the existing `settling-eval` binary once per (site, config)
 combination, using the site→PCAP mapping already recorded in the corpus'
@@ -561,21 +651,18 @@ full CSV or the per-run raw JSON reports.
 
 **Outputs:**
 
-- `data/experiments/try/l3-settling-sweep/results.csv` — one row per run:
+- `l3-settling-sweep/results.csv` (archived) — one row per run:
   timestamp, exact git SHA, site ID, swept key/value, capture relative path +
   sha256, recommended settling frame, converged flag, final coverage/spread/
-  stability/confidence, wall time. Committed to git (small, like the existing
-  L5 sweep CSV).
-- `data/experiments/try/l3-settling-sweep/summary.json` — rolling aggregate
-  (mean/min/max settling frame and non-convergence count per key). Committed.
-- `data/experiments/try/l3-settling-sweep/raw/*.json` — full per-run
-  `settling-eval` report (full metrics history). Local only, gitignored:
-  cheap and deterministic to regenerate from the row's git SHA + config +
-  capture sha256, so not worth ~130MB in git.
+  stability/confidence, wall time.
+- `l3-settling-sweep/summary.json` (archived) — rolling aggregate
+  (mean/min/max settling frame and non-convergence count per key).
+- `l3-settling-sweep/raw/*.json` (archive volume only) — full per-run
+  `settling-eval` report (full metrics history), never in git.
 
 **Result (completed 2026-09-18, ~76 minutes, 408/408 rows, zero errors):**
 deterministic analysis
-([analyze_sensitivity.py](l3-settling-sweep/analyze_sensitivity.py), rule
+(`analyze_sensitivity.py`, rule
 documented in its own docstring) flags 2 of the 4 keys as sensitive across
 the corpus, 2 as robust:
 
@@ -591,7 +678,7 @@ Full per-value numbers: `sensitivity-analysis.json` in the same directory.
 ## Batch 2 — confirmation pass (in progress, started automatically 2026-09-18)
 
 Two independent sub-passes, both using the same `run_sweep.py` driver (see
-[plan_narrowed_sweep.py](l3-settling-sweep/plan_narrowed_sweep.py) for the
+`plan_narrowed_sweep.py` for the
 narrowing rule):
 
 - **Narrowed sweep** (ordinal 0, `--sweep-json narrowed-sweep.json`):
@@ -607,13 +694,16 @@ narrowing rule):
   narrowing): checks Batch 1's findings against a second, independent
   120s window per site. 23/24 sites have a second capture segment; the
   missing one is recorded as a coverage gap, not an error.
-  [analyze_replicate_consistency.py](l3-settling-sweep/analyze_replicate_consistency.py)
+  `analyze_replicate_consistency.py`
   compares the sensitive/insensitive verdict between ordinals per key and
   flags any disagreement explicitly rather than averaging it away.
 
 Both are driven by the supervisor below rather than run by hand.
 
 ## Batch 3 — L5 noise sweep, ground-truth-scored, kirk1 (built; blocked on a port conflict)
+
+Ground-truth scores from this harness are not reliable: see
+[Archived evidence](#archived-evidence).
 
 **Update, 2026-09-18:** the CLI is built, tested, and works against real data:
 [cmd/tools/lidar-ground-truth-eval](../../cmd/tools/lidar-ground-truth-eval/main.go)
@@ -652,7 +742,7 @@ the port is out of scope (never do this unattended); the real fix is a small
 future change to auto-detect the replay port per capture the way
 `settling-eval` already does (`network.DetectUDPPort`), decoupling it from
 the live-listen bind port.
-[data/experiments/try/l5-gt-sweep/run_l5_gt_sweep.py](../../data/experiments/try/l5-gt-sweep/run_l5_gt_sweep.py)
+`l5-gt-sweep/run_l5_gt_sweep.py` (archived)
 checks this before doing anything else and exits with a distinct "blocked"
 code and a written reason rather than guessing or faking a result. Retry
 once that's no longer true. Single-site only (kirk1) even once unblocked —
@@ -675,7 +765,7 @@ physical range-accuracy spec; otherwise Batch 1's settling evidence plus a
 Deliberately narrower than
 [multi-key-interaction-grid.md](../../data/experiments/try/multi-key-interaction-grid.md)'s
 original 3-level (low/default/high) design:
-[plan_interaction_levels.py](l3-settling-sweep/plan_interaction_levels.py)
+`plan_interaction_levels.py`
 takes up to the top 3 sensitive keys and just 2 levels each (default, worst
 flagged value), so N sensitive keys cost 2^N joint runs instead of 3^N. That
 answers the actual question this experiment asks — do the single-key worst
@@ -684,7 +774,7 @@ cost; a finer 3-level grid is the natural follow-up only if this one finds a
 real interaction. With 2 sensitive keys from Batch 1
 (`neighbour_confirmation_count`, `noise_relative`), this is a 4-combo grid
 across all 24 sites via
-[run_interaction_grid.py](l3-settling-sweep/run_interaction_grid.py), which
+`run_interaction_grid.py`, which
 varies multiple L3 keys per config and records combos in its own
 `interaction-results.csv` (a different row shape than the per-key
 `results.csv`, so they're kept separate rather than overloading one schema).
