@@ -19,8 +19,7 @@ import (
 type ClusterSummary struct {
 	ObservationID  string
 	FrameUnixNanos int64
-	// X and Y are the position the tracker measured under obb_centre_v1: the
-	// OBB centre when the cluster has one, its centroid otherwise.
+	// X and Y are the position under the ClusterPosition asked for.
 	X, Y        float64
 	PointsCount int
 }
@@ -46,10 +45,33 @@ func (s *ObservationStore) ListSourceIDs() ([]string, error) {
 	return ids, nil
 }
 
+// ClusterPosition is which point of a stored cluster stands for its position.
+// It must match the position model the run's tracker measured, or a
+// prediction is compared against a point it never tracked.
+type ClusterPosition int
+
+const (
+	// ClusterCentroid is the cluster medoid, the production measurement.
+	ClusterCentroid ClusterPosition = iota
+	// ClusterOBBCentre is the OBB centre when the cluster has one, its
+	// centroid otherwise: D2's obb_centre_v1 candidate.
+	ClusterOBBCentre
+)
+
 // ListClusterSummariesBySource returns every cluster of a source in frame
 // order, then observation_id order within a frame.
-func (s *ObservationStore) ListClusterSummariesBySource(sourceID string) ([]ClusterSummary, error) {
-	rows, err := s.db.Query(`
+func (s *ObservationStore) ListClusterSummariesBySource(sourceID string, position ClusterPosition) ([]ClusterSummary, error) {
+	query := `
+		SELECT observation_id
+		     , frame_unix_nanos
+		     , json_extract(record_json, '$.raw_cluster.CentroidX')
+		     , json_extract(record_json, '$.raw_cluster.CentroidY')
+		     , COALESCE(json_extract(record_json, '$.raw_cluster.PointsCount'), 0)
+		  FROM lidar_observations
+		 WHERE source_id = ?
+		 ORDER BY frame_unix_nanos, observation_id`
+	if position == ClusterOBBCentre {
+		query = `
 		SELECT observation_id
 		     , frame_unix_nanos
 		     , COALESCE(json_extract(record_json, '$.raw_cluster.OBB.CenterX'), json_extract(record_json, '$.raw_cluster.CentroidX'))
@@ -57,7 +79,9 @@ func (s *ObservationStore) ListClusterSummariesBySource(sourceID string) ([]Clus
 		     , COALESCE(json_extract(record_json, '$.raw_cluster.PointsCount'), 0)
 		  FROM lidar_observations
 		 WHERE source_id = ?
-		 ORDER BY frame_unix_nanos, observation_id`, sourceID)
+		 ORDER BY frame_unix_nanos, observation_id`
+	}
+	rows, err := s.db.Query(query, sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("list cluster summaries for source %s: %w", sourceID, err)
 	}

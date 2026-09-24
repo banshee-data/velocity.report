@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -102,11 +103,17 @@ func score(dbPath string, scoringStartSeconds float64, referenceDBPath string, m
 		return doc, err
 	}
 	for _, sourceID := range sourceIDs {
-		summaries, err := observations.ListClusterSummariesBySource(sourceID)
+		frameStates, err := states.ListFrameStateEstimatesBySource(sourceID)
 		if err != nil {
 			return doc, err
 		}
-		frameStates, err := states.ListFrameStateEstimatesBySource(sourceID)
+		// Termination checks compare predictions with cluster positions, so
+		// the clusters must be read under the model the run measured.
+		position := observationsqlite.ClusterCentroid
+		if len(frameStates) > 0 && frameStates[0].Estimate.ObservationModelID == string(l5tracks.MeasurementOBBCentreV1) {
+			position = observationsqlite.ClusterOBBCentre
+		}
+		summaries, err := observations.ListClusterSummariesBySource(sourceID, position)
 		if err != nil {
 			return doc, err
 		}

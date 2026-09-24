@@ -54,7 +54,16 @@ func TestScorecardQueriesReturnADeterministicOrder(t *testing.T) {
 		t.Fatalf("source ids = %v, want both sources sorted", ids)
 	}
 
-	clusters, err := observations.ListClusterSummariesBySource(source)
+	// The production medoid reads the centroid even where the cluster has an OBB.
+	centroids, err := observations.ListClusterSummariesBySource(source, ClusterCentroid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(centroids) != 3 || centroids[0].X != 3 || centroids[0].Y != 4 || centroids[0].PointsCount != 40 {
+		t.Fatalf("centroid summaries = %+v, want the first at its centroid (3, 4) with 40 points", centroids)
+	}
+
+	clusters, err := observations.ListClusterSummariesBySource(source, ClusterOBBCentre)
 	if err != nil {
 		t.Fatal(err)
 	}

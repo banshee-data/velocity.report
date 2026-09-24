@@ -18,6 +18,14 @@ import (
 // trackID stands in for the tracker's random UUID.
 func writeEvidence(t *testing.T, path, trackID string) {
 	t.Helper()
+	writeEvidenceFor(t, path, trackID, "obb_centre_v1", 0)
+}
+
+// writeEvidenceFor records the run under the given position model. A non-zero
+// obbOffsetY gives every cluster an OBB whose centre sits that far from the
+// centroid the track followed.
+func writeEvidenceFor(t *testing.T, path, trackID, model string, obbOffsetY float32) {
+	t.Helper()
 	database, err := db.NewDB(path)
 	if err != nil {
 		t.Fatal(err)
@@ -32,10 +40,14 @@ func writeEvidence(t *testing.T, path, trackID string) {
 		ts := base + f*frame
 		x := float32(f) * 0.5
 		id := fmt.Sprintf("observation/v1/%04d", f)
+		var obb *l4perception.OrientedBoundingBox
+		if obbOffsetY != 0 {
+			obb = &l4perception.OrientedBoundingBox{CenterX: x, CenterY: 12 + obbOffsetY, Length: 4, Width: 2, Height: 1.5}
+		}
 		record := l4bobserve.Record{SchemaVersion: 1, ObservationID: id, SourceID: source,
 			CalibrationID: "calibration/v1/test", FrameUnixNanos: ts,
 			Cluster: l4perception.WorldCluster{ClusterID: 1, SensorID: "hesai-pandar40p", FrameID: "site/test",
-				TSUnixNanos: ts + 3, CentroidX: x, CentroidY: 12, PointsCount: 60,
+				TSUnixNanos: ts + 3, CentroidX: x, CentroidY: 12, PointsCount: 60, OBB: obb,
 				RetainedPoints: []l4perception.WorldPoint{{X: float64(x), Y: 12, Z: -2, Timestamp: time.Unix(0, ts+3).UTC(), SensorID: "hesai-pandar40p"}}},
 		}
 		observation, err := l4bobserve.New(record)
@@ -51,8 +63,8 @@ func writeEvidence(t *testing.T, path, trackID string) {
 		estimateID := fmt.Sprintf("estimate/%s/%04d", trackID, f)
 		estimate := observationsqlite.TrackEstimate{EstimateID: estimateID, TrackID: trackID, ObservationID: id,
 			SourceID: source, CalibrationID: "calibration/v1/test", FrameUnixNanos: ts, MeasurementUnixNanos: ts + 3,
-			EstimatorID: "cv_kf_v1", ObservationModelID: "obb_centre_v1", ParamHash: "params/test", Stage: "online",
-			MeasurementSource: "obb_centre_v1", CreationSequence: 1, X: x, Y: 12, VX: 5, VY: 0}
+			EstimatorID: "cv_kf_v1", ObservationModelID: model, ParamHash: "params/test", Stage: "online",
+			MeasurementSource: model, CreationSequence: 1, X: x, Y: 12, VX: 5, VY: 0}
 		residual := observationsqlite.TrackResidual{EstimateID: estimateID, ObservationID: id,
 			MeasurementX: x, MeasurementY: 12, InnovationX: 0.1, InnovationY: 0.05, NIS: 1.5,
 			Disposition: "accepted", Reason: "association_accepted"}
@@ -113,6 +125,27 @@ func TestScorecardReadsTheEvidenceItWasGiven(t *testing.T) {
 	// The track ends at frame 29 and its object carries on, unassociated, on
 	// its predicted path.
 	for _, c := range sc.Termination.ByClass {
+		want := 0
+		if c.Class == "unassigned_nearby" {
+			want = 1
+		}
+		if c.Count != want {
+			t.Errorf("termination %s = %d, want %d", c.Class, c.Count, want)
+		}
+	}
+}
+
+// A medoid run is judged against the centroids it tracked, not against OBB
+// centres it never measured: with every OBB 3 m off the path, the object that
+// carries on after the track ends is still found beside the prediction.
+func TestTerminationReadsClustersUnderTheRunsPositionModel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.db")
+	writeEvidenceFor(t, path, "trk_test", "medoid_v0", 3)
+	doc, err := score(path, 0, "", 2.0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range doc.Sources[0].Scorecard.Termination.ByClass {
 		want := 0
 		if c.Class == "unassigned_nearby" {
 			want = 1
