@@ -26,7 +26,7 @@ with the immutable observation store enabled, then `lidar-e1-analysis` computed 
 measurements from the persisted evidence:
 
 ```bash
-go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR_PCAP_DIR" \
   -existing-source-manifest manifest.json -out out/ -evidence-dir ev/ -duration 0 -warmup 70
 go run ./cmd/tools/lidar-e1-analysis -observations ev/observations.db -manifest manifest.json
 ```

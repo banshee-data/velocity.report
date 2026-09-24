@@ -72,7 +72,7 @@ func main() {
 	var (
 		corpusPath                 = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
 		indexPath                  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
-		pcapRoot                   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
+		pcapRoot                   = flag.String("pcap-root", "", "directory holding archive capture subdirectories (required; make passes LIDAR_PCAP_DIR)")
 		pcapSubdir                 = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
 		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required); put this on a different device from -pcap-root, or replay will run slower than it should")
 		evidenceDir                = flag.String("evidence-dir", "", "empty directory for observations.db; put this on a different device from -pcap-root and -out, or replay will run slower than it should")
@@ -108,6 +108,9 @@ func main() {
 	}
 	if !*sourceManifestOnly && *outDir == "" {
 		fatal(fmt.Errorf("-out is required"))
+	}
+	if *pcapRoot == "" {
+		fatal(fmt.Errorf("-pcap-root is required"))
 	}
 	var observationDBPath string
 	if !*sourceManifestOnly {
