@@ -985,6 +985,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
+	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
