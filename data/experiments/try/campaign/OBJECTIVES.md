@@ -1,10 +1,10 @@
 # Campaign objectives from 2026-09-19
 
 For the agent running the campaign supervisor (`supervisor.py`, now archived: see the
-[campaign plan](../../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#archived-evidence)).
+[campaign plan](../../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#archived-evidence)).
 Read this before queueing a seventh pass.
 It replaces the "Next, in order" list at the end of the fifth-pass results in the
-[campaign plan](../../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md). The
+[campaign plan](../../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md). The
 evidence behind every statement here is in the
 [gap analysis](../../../maths/paper-implementation-gap-analysis.md); row IDs (S3, B8, M5, K9) refer
 to it.

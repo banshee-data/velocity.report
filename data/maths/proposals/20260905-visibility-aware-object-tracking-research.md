@@ -16,10 +16,8 @@ documents.
 ## 1. Recommendation and evidence boundary
 
 **Root integration:** This research and its companion revisions now live in the root
-checkout. The [D2 readiness review][d2-review] records later code at `9b5525ab3`, including
+checkout. The [D2 experiment report][d2-experiment] records the later code, including
 new replay and lock-telemetry findings. The earlier inspection below is retained as history.
-
-[d2-review]: ../../../docs/plans/lidar-heading-d2-readiness-review.md
 
 **Implementation boundary:** The [D2 experiment report][d2-experiment] now records an
 implemented, default-off axial selector and observed-envelope projection. Its cost scales and

@@ -6,7 +6,7 @@ physical-heading and identity evidence still needed to enable it.
 - **Status:** Experimental implementation delivered; rollout and physical acceptance open
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Scope:** D1.4 and D2.1–D2.3/D2.5 on root branch `dd/docs/state-est`; D2.4 remains open
-- **Related:** [Sprint](lidar-heading-coherence-sprint-plan.md), [Readiness review](lidar-heading-d2-readiness-review.md), [Visibility-aware maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
+- **Related:** [Sprint](lidar-heading-coherence-sprint-plan.md), [Visibility-aware maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 
 ## Decision
 
@@ -26,7 +26,7 @@ The latest two-capture association comparison is inconclusive: overlap candidate
 errors move in opposite directions and eligible track populations differ. Physical-object reference
 masks are the next dependency. Annotation pack/export work is now committed in `71c3a46d7`, with
 CLI error-path coverage extended in `6252be7f2`; neither a painting client nor labelled acceptance
-is complete. See the [branch audit](lidar-state-estimation-branch-audit.md).
+is complete. The [backlog](../BACKLOG.md)'s v0.5.2 sprints carry the remaining sequence.
 
 Sections headed “Historical” preserve the earlier experiment and its configuration. They must not
 be read as the current algorithm or as evidence that a later model passed.

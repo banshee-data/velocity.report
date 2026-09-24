@@ -22,8 +22,7 @@ extent revision in `42265394c`; it is not a diagnosis of the current histogram m
 two-capture comparisons remain mixed and use changing eligible populations. Course alignment is an
 opt-in diagnostic, not body-yaw truth or permission to enable the candidate.
 
-The [readiness review](lidar-heading-d2-readiness-review.md) preserves the pre-implementation
-inspection at `9b5525ab3`. Warm-up/scoring boundaries, episode outcomes, comparison fields, and a
+The pre-implementation inspection at `9b5525ab3` is preserved in git history. Warm-up/scoring boundaries, episode outcomes, comparison fields, and a
 recorded-output fixture have since landed. Human identity and observable-yaw references remain
 missing. Section 6 is the current task ledger; Sections 1–2 preserve the original run.
 
@@ -543,7 +542,7 @@ backlog as though no implementation exists.
 | Guard 2 threshold experiment                         | Measured on kirk0 (§6.2): fewer/shorter locks as predicted, but median course alignment worsens — a real trade-off                                                                                       | Site diversity beyond kirk0; this was a single-site, single-parameter probe                                                                                    |
 
 The annotation backend is work in progress, not the D2.4 client or D2.5 reference truth. The
-[branch audit](lidar-state-estimation-branch-audit.md) owns the current cross-plan sequence.
+[backlog](../BACKLOG.md)'s v0.5.2 sprints own the cross-plan sequence.
 
 ### 6.1 Day 2 gate evidence: kirk0 A/B, 2026-09-17
 

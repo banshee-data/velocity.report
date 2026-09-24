@@ -1,7 +1,7 @@
 # Experiment: velocity-coherent vs background-subtraction baseline comparison
 
 - **Status:** Blocked, out of scope for the
-  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md).
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md).
   Two independent blockers, either one sufficient on its own: (1) no
   `velocity_coherent` L4 engine exists anywhere in `internal/lidar/l4perception`
   or the config engine registry — only `dbscan_xy_v1` is implemented, so

@@ -4,7 +4,7 @@
   non-substituting pass ran 2026-09-17 using `tune sweep`'s own alignment metric — see
   "Preliminary pass" below. It does not satisfy this experiment's acceptance criteria and must not
   be read as though it did. Scheduled as **Batch 3** of the
-  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#batch-3--l5-noise-sweep-ground-truth-scored-kirk1-built-blocked-on-a-port-conflict):
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#batch-3--l5-noise-sweep-ground-truth-scored-kirk1-built-blocked-on-a-port-conflict):
   a real `GroundTruthEvaluator`-scored rerun on kirk0 (the only site with any
   labelled reference tracks), pending a small standalone CLI wrapper around
   `adapters.EvaluateGroundTruth` — that function is fully implemented and
@@ -126,7 +126,7 @@ experiment's acceptance criteria and does not license a default change.**
 via its monitor API, replaying `kirk0.pcapng` for each combination (8 samples/combination, 1 s
 apart, 4 s settle). Raw results: `l5-tracking-noise-parameter-sweep-kirk0-20260917.csv`, archived
 with the campaign (see the
-[campaign plan](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#archived-evidence)).
+[campaign plan](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#archived-evidence)).
 
 ### What it shows
 

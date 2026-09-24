@@ -1,7 +1,7 @@
 # Experiment: L3 background settling parameter sweep
 
 - **Status:** Batch 1 of the
-  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md)
   — prepared, broad sweep ready to run across all 24 S2 corpus sites. See
   that doc for why `pcap-analyse` (named below) no longer exists and has
   been replaced with `settling-eval`, and why the metrics below differ from
@@ -47,7 +47,7 @@ corpus site with ≥ 5 sweep values, holding all other keys at production
 defaults ([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
 The driver, `l3-settling-sweep/run_sweep.py` (archived with the campaign's results), did
 this across all 24 sites; see
-[the campaign plan, Batch 1](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#batch-1--l3-background-settling-broad-sweep-ready-now)
+[the campaign plan, Batch 1](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#batch-1--l3-background-settling-broad-sweep-ready-now)
 for the exact command and current results.
 
 #### Keys under test
@@ -74,7 +74,7 @@ comparison):**
 | Mean confidence            | Mean per-cell confidence (Welford sample count-derived)                                       | ≥ `settling_min_confidence` (10)                |
 
 **Gated on labelled reference tracks that don't exist for this corpus (see
-[campaign plan](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)):
+[campaign plan](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md)):
 confirmed track count, `GroundTruthEvaluator` composite score. Deferred, not
 part of Batch 1.**
 
@@ -122,7 +122,7 @@ a site-adaptive approach rather than a single default.
 ## Timeline
 
 Batch 1 of the
-[2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)
+[2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md)
 runs against the 24-site corpus, which already exists — no longer blocked on
 corpus availability.
 
@@ -131,4 +131,4 @@ corpus availability.
 - [config/CONFIG.md §1: background settling](../../../config/CONFIG.md#config-to-maths-cross-reference)
 - [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
 - [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure
-- [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md): execution plan and current results
+- [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md): execution plan and current results

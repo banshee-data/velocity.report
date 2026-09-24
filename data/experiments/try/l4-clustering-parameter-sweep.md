@@ -8,10 +8,10 @@
   the two sites with enough labelled tracks (kirk1 run 60a4774c, kirk0 run
   dd98c68e), scored by `EvaluateGroundTruth` on recall of labelled tracks and
   candidate-track count — see "Third pass" in the
-  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md).
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md).
   Those scores are not reliable: they matched tracks over rows written before #584
   stored each track as first sighted (see the campaign plan's
-  [Archived evidence](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#archived-evidence)).
+  [Archived evidence](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#archived-evidence)).
   That is two sites, not a corpus, and `max_cluster_diameter`, the height band
   and the other L4 keys are not runtime-updatable on the server, so they remain
   unswept. `pcap-analyse`, named throughout this doc, has been removed from the

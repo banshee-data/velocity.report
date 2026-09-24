@@ -147,9 +147,11 @@ links before retiring any task ledger.
 
 ## 0. Principles
 
-**Branch delivery declaration:** The [branch audit](lidar-state-estimation-branch-audit.md)
-is a dated checkpoint. Since then, the branch added a bounded SQLite observation store, regional
-ground-surface work and D2's OBB-centre online position input. The near-edge implementation remains
+**Branch delivery declaration:** PR #559 delivered heading-stability and evaluation work, a
+bounded SQLite observation store, regional ground-surface work and D2's OBB-centre online position
+input. Phases 0-2 remain the minimum core of this plan: a lower course-error statistic, an
+annotation exporter or a new motion filter does not substitute for the position-measurement
+correction. The near-edge implementation remains
 an offline candidate, not the online Kalman measurement; G-PER-1, G-GEO-1, G-UNC-1 and G-SMO-1
 have not passed. The committed annotation backend is tracked separately; a point-mask sidecar is
 not the production observation log.

@@ -2,7 +2,7 @@
 
 - **Scope:** Papers in [references.bib](references.bib) cross-referenced against production code (L3–L8). See [Source inventory](#source-inventory) for which papers were actually in hand for each section.
 - **Method:** Trace each algorithm from the paper through the Go implementation. Note where the code deviates from the paper's intent, where edge cases go unhandled, and where the behaviour is plausible but untested.
-- **Last revised:** 2026-09-19, against the paper texts themselves, the current code, and the results of the [2026-09 parameter experiment campaign](../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md). See [Revision 2026-09-19](#revision-2026-09-19).
+- **Last revised:** 2026-09-19, against the paper texts themselves, the current code, and the results of the [2026-09 parameter experiment campaign](../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md). See [Revision 2026-09-19](#revision-2026-09-19).
 
 ---
 
@@ -657,7 +657,7 @@ The corpus cache also holds one paper that is not in the bibliography and is clo
 
 ## Campaign evidence map, 2026-09
 
-What the [2026-09 parameter experiment campaign](../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md) measured, against the rows it bears on. Passes 1–4 are complete; the fifth was queued when this was written and its stages are marked _pending_.
+What the [2026-09 parameter experiment campaign](../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md) measured, against the rows it bears on. Passes 1–4 are complete; the fifth was queued when this was written and its stages are marked _pending_.
 
 | Campaign result                                                                                          | Evidence strength                                     | Rows        | What it changes                                                                                                    |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -695,7 +695,7 @@ Found during this pass and **not** corrected by it, since they are outside this 
 | The same doc, and [pipeline-review-open-questions.md](pipeline-review-open-questions.md) Q6                      | Track completeness at temporal IoU ≥ 0.5                                   | The evaluator's threshold is > 0.3 (M5)                                                                         |
 | [pipeline-review-open-questions.md](pipeline-review-open-questions.md) Q5                                        | CA, then CV+CA IMM, as additive and future-forward                         | Schöller's CA baseline was the worst predictor on final error; specify coasting behaviour per mode first (V2)   |
 | [ground-plane-maths.md](ground-plane-maths.md), and the pipeline review §1                                       | No plane-fit state; height band only                                       | True of production. A background-fitted regional surface filter exists in the replay-evaluation path (G1)       |
-| [Campaign plan](../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md), Batch 1 table                  | `closeness_multiplier` insensitive, "no further sweeping planned"          | Insensitive over the span tested, which stopped short of where `noise_relative` turns sensitive (B7)            |
+| [Campaign plan](../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md), Batch 1 table             | `closeness_multiplier` insensitive, "no further sweeping planned"          | Insensitive over the span tested, which stopped short of where `noise_relative` turns sensitive (B7)            |
 | The same, third pass                                                                                             | L5 noise has no metric that can see it                                     | NIS can, without labels (K9)                                                                                    |
 
 ---

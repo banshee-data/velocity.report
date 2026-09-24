@@ -392,7 +392,7 @@ exhaustive) agree with the E1.3 direction.
 This does not run E1.1/E1.3 against a _new_ measurement candidate or tuning change — it is the same
 `obb_centre_v1` reference arm the original three sites used, extended for site diversity. It closes
 the "new captures mistaken for a completed corpus" gap the
-[branch audit](../../plans/lidar-state-estimation-branch-audit.md) flagged: file count now equals
+September 2026 audit of PR #559 flagged: file count now equals
 site diversity, with real per-site calibration (`north_azimuth_deg`) and file presence verified
 before replay, not assumed.
 
