@@ -290,9 +290,12 @@ func MustLoadDefaultConfig() *TuningConfig {
 		}
 	}
 	if len(embeddedDefaults) > 0 {
-		if cfg, err := ParseTuningConfig(embeddedDefaults); err == nil {
+		cfg, err := ParseTuningConfig(embeddedDefaults)
+		if err == nil {
 			return cfg
 		}
+		panic("cannot find " + DefaultConfigPath + " by any relative path, and the embedded default set by " +
+			"config.SetEmbeddedDefaults failed to parse: " + err.Error())
 	}
 	panic("cannot find " + DefaultConfigPath + " by any relative path, and no embedded default is set - " +
 		"a binary running outside the repository tree must call config.SetEmbeddedDefaults at startup")

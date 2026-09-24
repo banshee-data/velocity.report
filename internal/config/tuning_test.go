@@ -52,6 +52,50 @@ func TestMustLoadDefaultConfigWorksOutsideTheRepository(t *testing.T) {
 	}
 }
 
+// A corrupted embedded default and a missing one are different operator
+// problems: the first means SetEmbeddedDefaults ran with bad bytes, the
+// second means it never ran. Before this test, MustLoadDefaultConfig
+// discarded the parse error and panicked with the "no embedded default is
+// set" message for both, which sends an operator chasing a startup wiring
+// bug when the real fault is corrupted config bytes.
+func TestMustLoadDefaultConfigPanicsWithTheParseErrorWhenEmbeddedDefaultIsInvalid(t *testing.T) {
+	SetEmbeddedDefaults([]byte("not valid json"))
+	t.Cleanup(func() { SetEmbeddedDefaults(nil) })
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := t.TempDir()
+	if err := os.Chdir(elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+	for _, name := range []string{"config", "..", "../.."} {
+		if _, err := os.Stat(filepath.Join(elsewhere, name, DefaultConfigPath)); err == nil {
+			t.Fatalf("test setup is broken: %s resolves from %s, so this proves nothing", name, elsewhere)
+		}
+	}
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected MustLoadDefaultConfig to panic on an invalid embedded default")
+		}
+		msg, ok := r.(string)
+		if !ok {
+			t.Fatalf("expected a string panic value, got %T: %v", r, r)
+		}
+		if strings.Contains(msg, "no embedded default is set") {
+			t.Fatalf("panic blamed a missing embedded default, but one was set (just invalid): %s", msg)
+		}
+		if !strings.Contains(msg, "failed to parse") {
+			t.Fatalf("panic message does not mention the parse failure: %s", msg)
+		}
+	}()
+	MustLoadDefaultConfig()
+}
+
 func TestLoadDefaultsFile(t *testing.T) {
 	cfg := MustLoadDefaultConfig()
 
