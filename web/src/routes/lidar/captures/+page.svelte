@@ -171,6 +171,8 @@
 			await loadIndex();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not scan the capture volumes.';
+			// A failed probe request never starts the poll that would clear this.
+			scanning = false;
 		} finally {
 			if (!probe) scanning = false;
 		}
