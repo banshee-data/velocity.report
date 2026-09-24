@@ -9,6 +9,93 @@ import (
 	"time"
 )
 
+// A compiled binary run as a background service, from any directory, is
+// exactly what MustLoadDefaultConfig's relative-path search cannot see: it
+// only ever resolves from inside the repository tree, which is where every
+// other test in this package runs from. This is the one real bug the VM
+// smoke test of #586 actually found: a worker daemon started from outside
+// the tree panicked on its first job, mid-run, taking the whole process
+// down with it.
+func TestMustLoadDefaultConfigWorksOutsideTheRepository(t *testing.T) {
+	fromTree := MustLoadDefaultConfig()
+	embedded, err := json.Marshal(fromTree)
+	if err != nil {
+		t.Fatalf("marshal the known-good config: %v", err)
+	}
+
+	SetEmbeddedDefaults(embedded)
+	t.Cleanup(func() { SetEmbeddedDefaults(nil) })
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := t.TempDir()
+	if err := os.Chdir(elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	// No candidate relative path can resolve from here: prove it, so a
+	// passing test means the embedded fallback did the work, not a lucky
+	// relative path.
+	for _, name := range []string{"config", "..", "../.."} {
+		if _, err := os.Stat(filepath.Join(elsewhere, name, DefaultConfigPath)); err == nil {
+			t.Fatalf("test setup is broken: %s resolves from %s, so this proves nothing", name, elsewhere)
+		}
+	}
+
+	got := MustLoadDefaultConfig()
+	if got.Fingerprint() != fromTree.Fingerprint() {
+		t.Errorf("config loaded outside the tree has fingerprint %s, want %s (the same defaults, from the embedded fallback)",
+			got.Fingerprint(), fromTree.Fingerprint())
+	}
+}
+
+// A corrupted embedded default and a missing one are different operator
+// problems: the first means SetEmbeddedDefaults ran with bad bytes, the
+// second means it never ran. Before this test, MustLoadDefaultConfig
+// discarded the parse error and panicked with the "no embedded default is
+// set" message for both, which sends an operator chasing a startup wiring
+// bug when the real fault is corrupted config bytes.
+func TestMustLoadDefaultConfigPanicsWithTheParseErrorWhenEmbeddedDefaultIsInvalid(t *testing.T) {
+	SetEmbeddedDefaults([]byte("not valid json"))
+	t.Cleanup(func() { SetEmbeddedDefaults(nil) })
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := t.TempDir()
+	if err := os.Chdir(elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+	for _, name := range []string{"config", "..", "../.."} {
+		if _, err := os.Stat(filepath.Join(elsewhere, name, DefaultConfigPath)); err == nil {
+			t.Fatalf("test setup is broken: %s resolves from %s, so this proves nothing", name, elsewhere)
+		}
+	}
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected MustLoadDefaultConfig to panic on an invalid embedded default")
+		}
+		msg, ok := r.(string)
+		if !ok {
+			t.Fatalf("expected a string panic value, got %T: %v", r, r)
+		}
+		if strings.Contains(msg, "no embedded default is set") {
+			t.Fatalf("panic blamed a missing embedded default, but one was set (just invalid): %s", msg)
+		}
+		if !strings.Contains(msg, "failed to parse") {
+			t.Fatalf("panic message does not mention the parse failure: %s", msg)
+		}
+	}()
+	MustLoadDefaultConfig()
+}
+
 func TestLoadDefaultsFile(t *testing.T) {
 	cfg := MustLoadDefaultConfig()
 

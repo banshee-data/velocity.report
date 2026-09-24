@@ -68,7 +68,7 @@ func (m CaptureManifest) Validate() error {
 			return fmt.Errorf("capture %d (%s) declares %d bytes", i, c.LogicalID, c.ByteSize)
 		}
 		if !c.SHA256.Valid() {
-			return fmt.Errorf("capture %d (%s) has no valid sha256", i, c.LogicalID)
+			return fmt.Errorf("capture %d (%s): sha256 %q is not %s<64 hex chars>; a plain sha256sum needs that prefix added", i, c.LogicalID, string(c.SHA256), digestPrefix)
 		}
 		if prev, dup := seen[c.SHA256]; dup {
 			return fmt.Errorf("capture %d (%s) has the same bytes as capture %d", i, c.LogicalID, prev)

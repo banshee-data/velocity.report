@@ -259,6 +259,23 @@ func LoadTuningConfigOrEmbedded(path string, embedded []byte) (*TuningConfig, er
 }
 
 // MustLoadDefaultConfig loads the canonical defaults file or panics.
+// embeddedDefaults is set once, by SetEmbeddedDefaults, so MustLoadDefaultConfig
+// works from a compiled binary's working directory as well as from a Go
+// test's. It stays nil until something sets it: the relative-path candidates
+// below are what every existing test still resolves through, and are tried
+// first so nothing behavioural changes for them.
+var embeddedDefaults []byte
+
+// SetEmbeddedDefaults gives MustLoadDefaultConfig a fallback for when no
+// candidate relative path resolves: the case for any compiled binary run
+// from outside the repository tree, which every candidate below assumes.
+// The single shared binary entrypoint calls this once, with the config
+// bytes embedded at compile time, so every subcommand gets it regardless of
+// which one is invoked or from where.
+func SetEmbeddedDefaults(b []byte) {
+	embeddedDefaults = b
+}
+
 func MustLoadDefaultConfig() *TuningConfig {
 	candidates := []string{
 		DefaultConfigPath,
@@ -272,5 +289,14 @@ func MustLoadDefaultConfig() *TuningConfig {
 			return cfg
 		}
 	}
-	panic("cannot find " + DefaultConfigPath + " - run tests from repository root")
+	if len(embeddedDefaults) > 0 {
+		cfg, err := ParseTuningConfig(embeddedDefaults)
+		if err == nil {
+			return cfg
+		}
+		panic("cannot find " + DefaultConfigPath + " by any relative path, and the embedded default set by " +
+			"config.SetEmbeddedDefaults failed to parse: " + err.Error())
+	}
+	panic("cannot find " + DefaultConfigPath + " by any relative path, and no embedded default is set - " +
+		"a binary running outside the repository tree must call config.SetEmbeddedDefaults at startup")
 }
