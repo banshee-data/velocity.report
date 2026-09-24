@@ -2,7 +2,7 @@
 
 - **Status:** Draft, open for investigation. No source verified, no code, no commitment
 - **Layers:** L4 perception, L9 endpoints, Svelte frontend, public scene site
-- **Target:** investigation spikes in v0.6.3; delivery from v1.0, matching work from v2.0
+- **Target:** investigation spikes in v0.6.6; delivery from v1.0, matching work from v2.0
 - **Companion plans:** [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [web scene export](lidar-web-scene-export-plan.md)
 - **Canonical:** [Vehicle encyclopedia](../platform/architecture/vehicle-encyclopedia.md) (single source of truth)
 - **Related:** [shape descriptors](lidar-shape-descriptors-plan.md), [track labelling](lidar-track-labelling-auto-aware-tuning-plan.md), [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md)

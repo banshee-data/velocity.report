@@ -366,7 +366,7 @@ check. The scan now applies that same check, so the index lists exactly what rep
 | Runtime-configurable roots widen the file-read surface | Medium            | High                                   | Roots are operator-configured only; UI selects, never adds; per-root escape check retained                                 |
 | Digesting 1.2 GB files on every scan is slow           | High              | Medium                                 | Digest only when size or mtime changed; store the digest with the row                                                      |
 | Session derivation disagrees with operator intent      | Medium            | Medium                                 | Sessions are derived and advisory; a case may name any subset that forms a valid sequence                                  |
-| `pcap_file` removal breaks external consumers          | Low               | Medium                                 | Keep the column as a read-only projection for one release; remove in v0.6.3                                                |
+| `pcap_file` removal breaks external consumers          | Low               | Medium                                 | Keep the column as a read-only projection for one release; remove in v0.6.6                                                |
 | Scope creep into the split/cut-review UI               | High              | Medium                                 | Cut-point review is explicitly out of scope here; it depends on items 1-6 and gets its own plan                            |
 
 ## Checklist

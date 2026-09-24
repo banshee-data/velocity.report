@@ -4,12 +4,13 @@ This plan corrects viewpoint-dependent position measurements before extending th
 defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
 
 - **Status:** In progress: heading/evaluation foundations and the Section 5.4 solid-body contract delivered; the corrected measurement that populates it, and the acceptance gates, outstanding
-- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.6, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
+- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.7, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
 - **Target:** v0.5.2 in full, sequenced as sprints 0.5.2.0 to 0.5.2.4: evidence, solid-body geometry, continuity, calibrated uncertainty and the gates a validated tailgating measurement depends on. Richer motion models remain gated follow-ons at v1.0+
 - **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
 - **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
+- **Capture and worker contracts:** [asynchronous tracking](lidar-cluster-observation-log-and-async-tracking-plan.md) and [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 - **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 
@@ -65,6 +66,56 @@ fragmentation, false persistence after departure and reacquisition error. Pin ho
 acceptance bounds before held-out scoring; suppress unsupported precision rather than invent it.
 Predicted existence is a hypothesis, not proof that the object remains present.
 
+### Sprint 0.5.2.2 integration boundary
+
+The [asynchronous tracking plan](lidar-cluster-observation-log-and-async-tracking-plan.md) supplies
+the accuracy and scheduling boundary for this sprint; the
+[shared VRLOG plan](lidar-vrlog-observation-format-plan.md) owns its durable recording format.
+Phase 1's SQLite observation and frame-batch path is a valuable replay and fidelity oracle, not a
+second production authority. Phase 2's corrected physical measurement and G-GEO-1 remain
+prerequisites for promoting a refined trajectory. The first worker uses the four-state CV model,
+an uncertain body/heading belief, and bounded reassociation. Asynchronous execution gives that
+worker time to revise identity and geometry; moving the existing centre-based filter into a job
+would not deliver the accuracy goal.
+
+Build one compatible path, in this order:
+
+1. Extend the immutable observation domain with source-ordered frames, explicit gaps, acquisition
+   lineage, profile/capability identity, foreground points and membership. Keep the existing
+   capped JSON records readable and labelled as reduced evidence; they cannot satisfy a request
+   for the complete accuracy profile. Commit L4 batches independently of L5, then expose only the
+   durable frontier to readers.
+2. Run the estimator from that frontier with capture-time prediction, bounded coasting and a
+   corrected face-aware measurement. Fix association-cost bias before increasing coast
+   uncertainty. Preserve ambiguous assignments and point ownership for later correction.
+3. Compare fixed-association RTS with bounded backward reassociation on the same held-out
+   episodes. Start from this plan's three-frame lag and measure 0.5, 1 and 2 seconds of capture
+   time as experiments. Choose the horizon from position, identity, manoeuvre and latency evidence,
+   not from the proposal's one-second starting suggestion alone.
+4. Publish provisional and final run versions with source references, revision lineage,
+   uncertainty and a completeness watermark. Check restart, empty frames and transport gaps.
+   Production behaviour consumes one coherent final run after G-UNC-1, G-SMO-1, the VRLOG
+   revision/recovery gates and the metric's own held-out acceptance checks.
+
+Do not extend the combined L4-plus-L5 SQLite transaction into the new capture authority, label a
+1,024-point sample complete foreground, infer an unseen bumper as observed, or emit a metric from
+provisional/coasted states. Retain the old records and tests for compatibility and comparison.
+CA, turn-rate and IMM models, shell catalogues, site maps, remote-worker transport and Pi
+optimisation are outside this sprint's minimum path. Their experiments can consume the same
+immutable observations later, with a new estimator/run identity.
+
+| Branch work to cut from the 0.5.2.2 delivery path                                               | Keep and migrate                                                                                                          |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| A larger SQLite JSON observation writer or a live combined L4/L5 frame transaction              | Keep the existing offline rows and checksum oracle; new capture commits L4 before the worker reads it.                    |
+| Treating `RetainedPoints` (at most 1,024) or a visualiser frame as the complete accuracy record | Keep reduced-profile replay; add a separately declared full-foreground profile with member and unassigned-point identity. |
+| Shipping OBB-centre or fixed-assignment smoothing as a physical bumper/trail correction         | Keep both as A/B baselines; promote the corrected face-aware update and test identity-revising inference independently.   |
+| Setting a one-second lag, CA/IMM or model-specific shell prior by design decree                 | Keep the three-frame comparator; measure longer horizons and richer priors on held-out scenes before selecting them.      |
+
+Review every new observation or estimator edit on this branch against those migration paths:
+it must preserve old-reader behaviour, name its required evidence capabilities and estimator
+version, and show whether it changes a gate's input. A passing local test on the reduced path is
+not approval to widen its production claim.
+
 Phase numbers identify existing contracts, not execution order. Phase 4 CA experiments and the
 Phase 8 review surface move behind these outcomes; preserve raw rejected evidence meanwhile.
 Work elsewhere within 0.5.4 and later is not a blanket prerequisite for following delivery. Pull
@@ -97,11 +148,11 @@ links before retiring any task ledger.
 ## 0. Principles
 
 **Branch delivery declaration:** The [branch audit](lidar-state-estimation-branch-audit.md)
-separates the committed heading sprint from this plan's original Phases 0–2. Axial heading,
-extent-reference, and association experiments do not replace the medoid position measurement. The
-immutable observation store, grade-aware measurement model, E1 report, and G-GEO-1 gate remain
-outstanding at the audited commit. The committed annotation backend is tracked separately; a
-point-mask sidecar is not the production observation store.
+is a dated checkpoint. Since then, the branch added a bounded SQLite observation store, regional
+ground-surface work and D2's OBB-centre online position input. The near-edge implementation remains
+an offline candidate, not the online Kalman measurement; G-PER-1, G-GEO-1, G-UNC-1 and G-SMO-1
+have not passed. The committed annotation backend is tracked separately; a point-mask sidecar is
+not the production observation log.
 
 **Recovery checkpoint:** Phase 0 now has scoring-window residual/association accumulators and an
 offline `--include-debug` path through the pipeline, VRLOG storage, replay, and gRPC conversion.
@@ -1296,11 +1347,11 @@ is recorded per frame so this becomes detectable.
 
 Produce **both** outputs, and never conflate them.
 
-| Output      | Consumer                                        | Latency                | Revisable                        |
-| ----------- | ----------------------------------------------- | ---------------------- | -------------------------------- |
-| `online`    | Association, gRPC visualiser, live API          | 0 frames               | No                               |
-| `fixed_lag` | Persisted per-frame estimate, behaviour metrics | 3 frames, about 300 ms | Once, when the lag window closes |
-| `final`     | Reports, PDF output, public analysis            | Track close            | Yes, on re-estimation            |
+| Output      | Consumer                                          | Latency                | Revisable                        |
+| ----------- | ------------------------------------------------- | ---------------------- | -------------------------------- |
+| `online`    | Association, gRPC visualiser, live API            | 0 frames               | No                               |
+| `fixed_lag` | Persisted comparison and provisional inspection   | 3 frames, about 300 ms | Once, when the lag window closes |
+| `final`     | Production behaviour, reports and public analysis | Track close            | Yes, on re-estimation            |
 
 The three are distinguished by `EstimatedState.Stage`. A report that cites a speed must cite the
 `final` value, and the API must say which stage a number came from. Reports built on the online
@@ -1316,6 +1367,12 @@ three frames is 600 ms and typically two or three actual observations. The occlu
 in Section 3.2 spans three frames. A shorter window would not span it; a much longer one delays
 the persisted record without adding information, because the smoother's gain decays quickly
 past the process-noise correlation time.
+
+Three frames is the initial fixed-association comparator. The decoupled worker also tests bounded
+reassociation and point-ownership revisions over capture-time horizons of 0.5, 1 and 2 seconds.
+Those experiments may justify a different finality delay. A positional RTS pass alone cannot
+repair an identity switch or an L4 merge, so passing G-SMO-1 does not waive the shared VRLOG
+plan's G-OBS-REV and G-OBS-GEO evidence for the joint worker.
 
 ### 10.2 Decision gate G-SMO-1
 
@@ -1334,8 +1391,13 @@ Fixed-lag smoothing ships when:
 
 ## 11. Persistence matrix
 
-Current footprint: `lidar_track_observations` is 569 MB for 3.53 M rows, 161 bytes per
-row, on a Raspberry Pi with a 64 GB card.
+This matrix records the original SQLite sizing decision. The
+[shared VRLOG plan](lidar-vrlog-observation-format-plan.md) supersedes its choice of an
+authoritative per-cluster SQL payload for the decoupled path: immutable observation and versioned
+analysis streams are canonical, while SQLite holds rebuildable catalogue, job and result views.
+The old row counts remain useful as a comparator, not a capacity estimate for full foreground
+retention. `lidar_track_observations` is 569 MB for 3.53 M rows, 161 bytes per row, on a Raspberry
+Pi with a 64 GB card.
 
 | Strategy                                                      | C8   | C12  | C13  | C6   | Query cost | Note                                                                |
 | ------------------------------------------------------------- | ---- | ---- | ---- | ---- | ---------- | ------------------------------------------------------------------- |
@@ -1343,56 +1405,67 @@ row, on a Raspberry Pi with a 64 GB card.
 | Store only finalised tracks                                   | `++` | `--` | `--` | `--` | `++`       | What the summary tables do today; blocks all of this work           |
 | Reduced-rate derived states                                   | `+`  | `-`  | `o`  | `-`  | `+`        | Loses exactly the single-frame excursions this plan exists to study |
 | Store reconstructable data only                               | `++` | `+`  | `++` | `o`  | `o`        | Requires deterministic replay, which requires the raw observation   |
-| **Compact per-frame record plus optional detailed artifacts** | `+`  | `++` | `++` | `++` | `+`        | Recommended                                                         |
+| **Compact per-frame record plus optional detailed artifacts** | `+`  | `++` | `++` | `++` | `+`        | Original SQLite recommendation; reduced-profile oracle only         |
 
-### 11.1 Recommended schema shape
+### 11.1 Existing SQLite schema and new authority
 
-Three tables, with a clear ownership rule: **observations are immutable,
-estimates are versioned, residuals join them.**
+The branch's three tables remain an evaluation and migration surface: **observations are
+immutable, estimates are versioned, residuals join them.** They are not a second definition of
+what a full observation contains. New readers first validate the VRLOG profile and capability set,
+then materialise only the indexes and results they need in SQLite.
 
-| Table                   | Content                                                                                                                                 | Lifecycle                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `lidar_observations`    | One row per cluster per frame. Raw geometry, edge measurements, quality covariates, sensor-frame sigmas. Never updated.                 | Retained on a rolling window; the unit of replay                            |
-| `lidar_track_estimates` | One row per track per frame per `(estimator_id, stage)`. Pose, motion, covariance upper triangle, geometry belief, model probabilities. | Written online, updated once at fixed-lag close, rewritten on re-estimation |
-| `lidar_track_residuals` | One row per observation per estimate. Track-local residuals, NIS, disposition, weight, reason.                                          | Follows the estimate                                                        |
+| Table                   | Content                                                                                                                                 | Lifecycle                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `lidar_observations`    | One row per cluster per frame in the reduced JSON oracle; source identities and retained points carry their declared cap.               | Immutable legacy evidence; not the full-profile capture frontier |
+| `lidar_track_estimates` | One row per track per frame per `(estimator_id, stage)`. Pose, motion, covariance upper triangle, geometry belief, model probabilities. | Versioned comparison view; rebuilt from a named analysis run     |
+| `lidar_track_residuals` | One row per observation per estimate. Track-local residuals, NIS, disposition, weight, reason.                                          | Follows the named analysis run                                   |
 
-Estimated cost: the observation row is comparable to today's 161 bytes; the estimate row with a
-21-element covariance is roughly 300 bytes; the residual row is roughly 120 bytes. At the
-observed production rate this is a **three to four times increase** on the LiDAR track storage,
-which is currently about 1.1 GB of the 15.8 GB database, or roughly plus 2 to 3 GB over a
-comparable period. That is affordable on a 64 GB card **only with retention policy**, so the
-policy belongs in the schema, not as an afterthought:
+For the legacy SQL-only design, the observation row was comparable to 161 bytes, the estimate row
+with a 21-element covariance roughly 300 bytes, and the residual row roughly 120 bytes. Its
+projected **three to four times increase** in LiDAR track storage, about plus 2 to 3 GB over a
+comparable period, excludes the complete foreground points and binary capture journal. It cannot
+qualify the new profile's disk or memory budget. The following retention periods were working
+assumptions for those SQL rows, not permission to delete a VRLOG chunk still referenced by a worker,
+annotation, or published analysis:
 
-| Data                                                              | Retention                                                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Observations                                                      | 30 days rolling, plus indefinitely for any track in a labelled corpus partition |
-| Online estimates                                                  | 7 days; they are reproducible from observations                                 |
-| Fixed-lag and final estimates                                     | Indefinite                                                                      |
-| Residuals                                                         | 30 days, plus indefinitely for corpus tracks                                    |
-| Detailed artifacts, retained point sets and per-face point counts | Analysis runs only, never the live path                                         |
+| Data                                                  | Retention                                                                            |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Observations                                          | 30 days rolling, plus indefinitely for any track in a labelled corpus partition      |
+| Online estimates                                      | 7 days; they are reproducible from observations                                      |
+| Fixed-lag and final estimates                         | Indefinite                                                                           |
+| Residuals                                             | 30 days, plus indefinitely for corpus tracks                                         |
+| Detailed artifacts and reduced retained-point samples | Legacy analysis runs; the new accuracy profile retains full foreground when selected |
+
+The shared VRLOG plan owns capture retention, dependency leases, crash recovery and disk-capacity
+tests. Index pruning cannot advance the observation frontier or erase a referenced source chunk.
 
 `lidar_track_observations` stays unchanged during the transition and is deprecated once the new
-tables hold the same data. Nothing that reads it breaks mid-migration. Its misleading contents,
+VRLOG streams and their compatible views hold the same data. Nothing that reads it breaks
+mid-migration. Its misleading contents,
 described in Section 1.6, are documented rather than silently corrected: 3.5 M existing rows are
 already interpreted as observations by downstream code.
 
 ### 11.2 Reproducibility
 
-Every estimate row carries `estimator_id` and `param_hash`. The VRLOG header already records a
-`tuning_hash`, so the convention exists. A re-estimation run writes new estimate and residual rows
-against the same immutable observations with a new `estimator_id`, and comparison between estimator
-versions becomes a join rather than a re-run of the whole pipeline. **This is what makes the
-decision gates in this plan evaluable at all**, and it is why P3 gates everything else.
+Every estimate carries `estimator_id` and `param_hash`; a VRLOG analysis stream also names the
+source observation frontier and revision. The existing header's `tuning_hash` establishes the
+provenance convention. Re-estimation writes a new analysis run against unchanged observations;
+SQLite comparison views may join its estimates and residuals by version. A mutable SQL row must
+not silently replace an older physical estimate. **Versioned evidence makes the decision gates
+evaluable**, which is why P3 gates everything else.
 
 ### 11.3 Decision gate G-PER-1
 
-G-PER-1 is the **exit gate for Phase 1**, before promoting a changed measurement model. Phase 1
-builds and deploys the observation collector with the baseline tracker unchanged. It passes only
-after at least one full week of live observations plus the full kirk0 replay are stored and a
-round-trip test reproduces the current `lidar_track_observations` output within floating-point
-tolerance. Offline Phase 2 development may use available observations while this evidence
-accumulates; production promotion must wait. The week is a calendar-time requirement, not an
-obstacle to implementing the collector that satisfies it.
+G-PER-1 is the **exit gate for Phase 1**, before promoting a changed measurement model. It is an
+evidence gate, not a vote for one storage format. With the baseline tracker unchanged, collect at
+least one full week of live observations under a declared profile and replay the full kirk0 case.
+Round-trip the available evidence exactly and reproduce the current `lidar_track_observations`
+output within floating-point tolerance. The branch's SQLite frame batch can establish a
+reduced-profile compatibility baseline; it cannot establish full foreground fidelity. A new VRLOG
+profile must also pass G-OBS-FID, G-OBS-TIME and G-OBS-COMPAT for the capabilities it declares.
+Offline Phase 2 development may use available observations while the week accumulates; production
+promotion must wait. The week is a calendar-time requirement, not an obstacle to implementing the
+collector that satisfies it.
 
 ## 12. Abnormal motion and crash preservation
 
@@ -1681,8 +1754,8 @@ The smallest coherent first implementation, stated so that scope creep is visibl
 | **Persistence scope**           | `lidar_observations` and `lidar_track_residuals` created and written. `lidar_track_estimates` created, written at `stage = online` only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Realtime / offline boundary** | Online: measurement, association, filter, residual computation. Offline: everything else, including all candidate estimator prototypes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Excluded**                    | IMM, CA, CTRV, CTRA, UKF, factor graphs, smoothing of any kind, behaviour metrics, jerk, lane and stop context, crash classification, learned uncertainty, site frame, multi-sensor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Acceptance tests**            | Gate G-GEO-1 in full: p99 lateral residual down at least 50 %, excursion rate from 11.3 % to under 4 %, no detection or fragmentation regression above 5 %, genuine lane changes preserved at at least 90 % magnitude. Plus: round-trip replay determinism, and added frame time under 3 ms on M1 (Pi 4 confirmation is a v0.6.6 deployment check, not part of this gate)                                                                                                                                                                                                                                                                                             |
-| **Invalidating conditions**     | The design is wrong, and should be reconsidered rather than patched, if: (a) the near-edge measurement fails to beat the OBB centre on real kirk0 data despite winning on synthetic data, which would mean real clusters lack a clean near face; (b) predicted heading proves too unreliable to select the visible face, making the observation model circular; (c) P4 turns out to be a clustering failure rather than a gating failure, in which case L4 is the correct place to spend the next increment; (d) retained points prove unaffordable in memory at realistic cluster counts on M1 (a Pi 4 memory ceiling is a separate v0.6.6 concern, not a gate here) |
+| **Acceptance tests**            | Gate G-GEO-1 in full: p99 lateral residual down at least 50 %, excursion rate from 11.3 % to under 4 %, no detection or fragmentation regression above 5 %, genuine lane changes preserved at at least 90 % magnitude. Plus: round-trip replay determinism, and added frame time under 3 ms on M1 (Pi 4 confirmation is a v0.6.7 deployment check, not part of this gate)                                                                                                                                                                                                                                                                                             |
+| **Invalidating conditions**     | The design is wrong, and should be reconsidered rather than patched, if: (a) the near-edge measurement fails to beat the OBB centre on real kirk0 data despite winning on synthetic data, which would mean real clusters lack a clean near face; (b) predicted heading proves too unreliable to select the visible face, making the observation model circular; (c) P4 turns out to be a clustering failure rather than a gating failure, in which case L4 is the correct place to spend the next increment; (d) retained points prove unaffordable in memory at realistic cluster counts on M1 (a Pi 4 memory ceiling is a separate v0.6.7 concern, not a gate here) |
 
 **The ordering principle**: a component enters the first implementation only when its
 dependencies exist and its acceptance criteria are measurable. IMM is excluded not because it is
@@ -2047,7 +2120,7 @@ decile, point-count decile, aspect octant and manoeuvre type.
 | False manoeuvre rejection               | Fraction of labelled genuine manoeuvres whose peak magnitude is attenuated by over 15 %         | Lower                             |
 | Occlusion recovery                      | Frames to return within 1-sigma after a synthetic occlusion                                     | Lower                             |
 | Lateral acceleration plausibility       | Fraction of frames exceeding 8 m/s², which is beyond dry-road adhesion                          | Lower, but never zero             |
-| Frame time                              | Mean and p99 for the tracking stage specifically, on M1 (Pi 4 recorded separately in v0.6.6)    | Lower                             |
+| Frame time                              | Mean and p99 for the tracking stage specifically, on M1 (Pi 4 recorded separately in v0.6.7)    | Lower                             |
 | Parameter sensitivity                   | Change in each headline metric for a ±20 % change in each parameter                             | Lower                             |
 
 ### 17.1 On smoothness
@@ -2175,7 +2248,7 @@ publishes the speed-banded residual and association tables across three sites, a
 [jump-track replacement review](../lidar/operations/lidar-jump-track-replacement-review.md)
 freezes the reviewed 33-track replacement set. Current accumulators report count, RMS, bias, mean
 NIS, and exceedance; they do not yet retain residual quantiles or an empirical distribution.
-Per-stage Pi 4 timing is deferred to v0.6.6 as a target-hardware optimisation pass, not a Phase 0
+Per-stage Pi 4 timing is deferred to v0.6.7 as a target-hardware optimisation pass, not a Phase 0
 acceptance item — it does not block Phase 1.
 
 **Gate to Phase 1.** Baseline reproducible across two runs to within 2 %. The warmed kirk0
@@ -2204,7 +2277,7 @@ counts, so an archive-index edit cannot quietly turn a multi-file replay into a 
 checks the capture joins, writes immutable observations on its first pass, and rejects a second-pass
 baseline mismatch. Two comparable full runs and residual distributions for each selected case are
 now published in the [corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md).
-Per-case Pi stage timings are deferred to v0.6.6 as a target-hardware optimisation pass; M1
+Per-case Pi stage timings are deferred to v0.6.7 as a target-hardware optimisation pass; M1
 timings already published in that baseline are sufficient to proceed.
 
 #### Historical Phase 0 baseline, schema 1
@@ -2247,7 +2320,7 @@ bands and saved/reopened debug overlays and cluster samples. Wider S2 replicatio
 distribution storage, and reviewed replacement-track partitioning are now published — see the
 [Phase 0/1 corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md) and
 the [jump-track replacement review](../lidar/operations/lidar-jump-track-replacement-review.md).
-Per-stage Pi 4 timing is deferred to v0.6.6 as a target-hardware optimisation pass, not a
+Per-stage Pi 4 timing is deferred to v0.6.7 as a target-hardware optimisation pass, not a
 blocker: M1 evidence is sufficient to close Phase 0.
 
 ### Phase 1: observation model and persistence
@@ -2271,8 +2344,8 @@ the tracker must not invent either from a sensor name or S2 cell. A bounded dete
 extractor stores one supported plane and edge candidate when retained geometry permits it, using a
 0.02 m support threshold. The stricter edge-offset acceptance test remains open with P11.
 
-The storage round-trip proves equality of the frozen raw evidence, including retained-point timing,
-intensity and primitive candidates. `replayeval` now accepts an ordered `PCAPFiles` sequence,
+The storage round-trip proves equality of the frozen reduced-profile evidence, including retained
+point timing, intensity and primitive candidates. `replayeval` now accepts an ordered `PCAPFiles` sequence,
 rejects a broken or reordered join, derives content-bound source identity, and writes observations
 before L5. Its PCAP integration test proves that this observer leaves the schema 2 tracker baseline
 byte-identical. The multi-site corpus runner applies the same comparison. This does not yet make the
@@ -2430,7 +2503,8 @@ frame's points with no reference to track history. Track-conditioned interpretat
 estimates are separate derived products. `OBBHeadingRad` is a heading estimate without calibrated
 uncertainty. Raw cluster extents describe visible support; projected or smoothed track extents are
 derived products, not independent measurements of whole-body dimensions. Observations become
-immutable rows; estimates are versioned by `(estimator_id, stage)`.
+immutable VRLOG records in the new profile, with reduced SQLite rows retained as a compatibility
+oracle; estimates are versioned by `(estimator_id, stage)`.
 
 **3. Which motion estimator should we implement first?** The one already running. Keep the linear
 constant-velocity Kalman filter and change its input. Evidence shows the reported defect has no
@@ -2528,7 +2602,7 @@ roughly 84 KB estimate for a five-frame smoothing buffer at 100 tracks is a desi
 not a measured allocation profile. The replacement historical benchmark has non-zero stage
 totals, but does not establish this branch's M1 budget. Phase 0 must publish current per-stage
 time and peak memory against the 100 ms frame interval at 10 Hz. The equivalent Pi 4 budget is a
-v0.6.6 deployment measurement, not a Phase 0 requirement. Six-state or IMM cost claims belong to
+v0.6.7 deployment measurement, not a Phase 0 requirement. Six-state or IMM cost claims belong to
 their future model evaluations, not this increment.
 
 **17. Which pieces should remain offline?** Online: measurement, association, filtering, residual
@@ -2617,7 +2691,7 @@ appears as a headline metric, only paired with manoeuvre-magnitude preservation,
 | Q2  | Why is the association rate only 43.6 % for moving tracks?                                                                                       | Instrument association failures by cause: no cluster produced, cluster outside the gate, cluster lost to a competing track, frame throttled                                                                                                                                                                                                                                                                                                                                                     | Phase 2 scope, and possibly a redirect of the whole increment to L4 |
 | Q3  | How much of the residual is intra-frame timing rather than geometry?                                                                             | Re-run the tracker using `WorldCluster.TSUnixNanos` instead of `frame.StartTimestamp`; measure the residual change, especially near the azimuth wrap                                                                                                                                                                                                                                                                                                                                            | Phase 1; possibly a very cheap partial win                          |
 | Q4  | Is predicted heading reliable enough to select the visible face during track initialisation?                                                     | Measure heading error against synthetic ground truth over the first ten frames of a track                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 2 fallback design                                             |
-| Q5  | What is the real memory cost of point retention on M1 at peak cluster counts? (Pi 4 is a v0.6.6 follow-on measurement, not a Phase 1 blocker)    | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 1                                                             |
+| Q5  | What is the real memory cost of point retention on M1 at peak cluster counts? (Pi 4 is a v0.6.7 follow-on measurement, not a Phase 1 blocker)    | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 1                                                             |
 | Q6  | Does the dimension prior converge fast enough to be useful on short tracks?                                                                      | Distribution of frames to reach a stable length estimate, by class and range                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 2                                                             |
 | Q7  | Is acceleration observable at all at the effective 5 Hz rate, or does the CA state just absorb noise?                                            | Offline CA against synthetic braking with known ground truth, swept over sample rate                                                                                                                                                                                                                                                                                                                                                                                                            | G-EST-1                                                             |
 | Q8  | Do replacement jump candidates represent the same phenomenon?                                                                                    | **Answered: no.** [Reviewed and frozen](../lidar/operations/lidar-jump-track-replacement-review.md): 27 of 2,136 candidates are a distinct 80-second episode, root-caused as a storage-layer track-ID collision from the pre-UUID `track_%d` identifier scheme (fixed by PR #276, 2026-02-16, before this investigation) — not a live tracker defect — excluded and tracked separately; the remaining 2,109 match the intended phenomenon, and 33 are frozen as the replacement regression set. | Phase 0                                                             |
@@ -2685,7 +2759,7 @@ architecture; it does not relitigate findings.
 - [x] Phase 0: wire opt-in offline diagnostics through saved/reopened VRLOG and gRPC
 - [x] Phase 0: scoring-window speed-banded summaries and a repeat-run regression test
 - [x] Phase 0: residual distributions and wider capture replication — three-site, 16-capture corpus published with full per-speed-band residual/association tables: [Phase 0/1 corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
-- [x] Phase 0: current M1 per-stage timings published (see corpus baseline above); Pi 4 per-stage timings deferred to v0.6.6 as a target-hardware optimisation pass, not a Phase 0 blocker
+- [x] Phase 0: current M1 per-stage timings published (see corpus baseline above); Pi 4 per-stage timings deferred to v0.6.7 as a target-hardware optimisation pass, not a Phase 0 blocker
 - [x] Phase 0: review and freeze replacement candidates; original 33 IDs are unavailable — [jump-track replacement review](../lidar/operations/lidar-jump-track-replacement-review.md): 27 of 2,136 candidates excluded as a distinct, previously-undocumented association defect (not a jump phenomenon); 33 frozen as the replacement regression set from the remaining 2,109
 - [x] Phase 1 start: bounded offline cluster retention and copy-isolated observation boundary
 - [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1

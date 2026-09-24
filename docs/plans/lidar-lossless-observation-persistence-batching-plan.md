@@ -1,10 +1,18 @@
 # Lossless LiDAR observation persistence batching
 
-- **Status:** Planned
+- **Status:** Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0
 - **Backlog:** [State-estimation evidence sprint](../BACKLOG.md#sprint-0520-state-estimation-evidence-and-correction)
-- **Related:** [State estimation](lidar-state-estimation-plan.md), [test corpus](lidar-test-corpus-plan.md), [performance measurement harness](lidar-performance-measurement-harness-plan.md)
+- **Related:** [State estimation](lidar-state-estimation-plan.md), [test corpus](lidar-test-corpus-plan.md), [performance measurement harness](lidar-performance-measurement-harness-plan.md), [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
+
+The sections below preserve the original SQLite performance and equivalence design. The branch now
+has an offline `FrameEvidenceStore` that commits observations with linked online estimates and
+residuals per frame. It remains a reduced-profile replay/oracle path: its configured point cap and
+combined L4-plus-L5 transaction do not meet the independent, complete observation-capture
+contract. Sprint 0.5.2.2 reuses its source manifests, tests and semantic comparisons while making
+the shared VRLOG stream the new capture authority. Do not extend this writer as a competing live
+recording path.
 
 ## Objective
 

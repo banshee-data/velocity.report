@@ -5,12 +5,12 @@ rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
 - **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
-- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md#target-platform). Raspberry Pi is the deployment target but is a v0.6.6 optimisation pass, not a gate on publishing these metrics.
+- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md#target-platform). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.5.2 end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds the second metric-buildout release: post-encroachment time, passing clearance, the Phase 6A kinematics remainder, and the shared transit record/behaviour-label/conflict-detector surface those three consume. Other interactions follow at v1.0+
+- **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
-- **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
+- **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md)
 
 > **Scope split.** The estimation plan takes raw points to a trustworthy
 > physical trajectory. This plan takes that trajectory and measures road-user
@@ -25,6 +25,22 @@ foundation is the state-estimation plan's temporal body model and bounded occlus
 which also fixes trails. A body model may infer an unseen bumper with stated uncertainty; it must
 not relabel that inference as a measured return. Neither a larger motion filter nor an L7 planner
 is required for the first shared-path following metric.
+
+The [decoupled observation plan](lidar-cluster-observation-log-and-async-tracking-plan.md) and
+[shared VRLOG plan](lidar-vrlog-observation-format-plan.md) make estimator inputs replayable and
+final trajectories versioned. Sprint 0.5.2.2 supplies that boundary before this plan consumes a
+field track. An early LiDAR-only review may show an `observed_surface_gap` when both relevant faces
+are directly supported; it is a separate, sparse measurement with its own coverage and uncertainty.
+It is not a substitute for the physical bumper-to-bumper gap from partial views specified here.
+Fixed-line rear-to-front clearance time is another possible supplemental measure, not this first
+net time-gap contract. Neither exploratory output enters the published following distribution
+without a named acceptance gate and denominator.
+
+The 0.5.2 metric definitions remain the only headway contract for portable capture. The
+[route plan](lidar-route-capture-plan.md#mobile-following-transfer-gate) adds platform-specific
+clock, ego-pose, deskew, endpoint and identity validation in 0.6.2 for backpack and 0.6.3 for
+bike. Passing static G-GEO-1, G-UNC-1 and G-SMO-1 does not by itself qualify moving recordings;
+unqualified intervals remain suppressed and do not enter the exposure denominator.
 
 The central design decision is what **not** to build: no composite "safe driver",
 "aggressive driver" or "risk" score. Such a score destroys the information that makes the
@@ -565,6 +581,11 @@ do not substitute cluster extrema, a medoid, or an unqualified OBB centre. Use t
 and orientation beliefs, with class priors where justified, and propagate joint pose/extent
 uncertainty into the endpoint gap. Suppress unresolved front/rear orientation, extent, ordering
 or common-path ambiguity. A short empirical path is sufficient; no route planner is required.
+
+Record each endpoint's source as directly observed, temporally inferred or prior-dominated.
+Report the two observed surfaces separately when the physical endpoint remains unresolved;
+do not promote their separation to a bumper gap by changing only its label. A model-family or
+shell match can narrow a later prior, but cannot turn an unseen surface into a measurement.
 
 Here `THW` is a **net time gap**, not front-to-front passage headway at a fixed detector.
 Keep that definition in the metric contract. At standstill a spatial gap may remain valid, but
@@ -1160,14 +1181,14 @@ observe, which is what the soma captures are for.
 Engineering dependency order and product priority are not the same list, and conflating them lets
 implementation convenience masquerade as importance.
 
-| Engineering dependency                                               | Delivery outcome                                                                   |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Analytical pair fixtures and the real report output path             | Sprint 0.5.2.3: visible, synthetic headway oracle while estimator work proceeds    |
-| Independent evidence, corrected body anchors and temporal extent     | Sprints 0.5.2.0-0.5.2.1: geometry that can support unseen bumper estimates         |
-| Calibrated uncertainty, bounded coasting/reacquisition and smoothing | Sprint 0.5.2.2: stable, honest trails for vehicles, pedestrians and cyclists       |
-| Local path pairing, persistence and provisional field output         | Sprint 0.5.2.4: end-to-end report with accuracy claims explicitly withheld         |
-| Held-out physical validation and supported exposure                  | Sprint 0.5.2.4: promote bumper-to-bumper gap and net time gap in field reports     |
-| Additional interaction geometry and context                          | v0.5.3: passing clearance and PET; later: yielding and intersection/stop behaviour |
+| Engineering dependency                                                          | Delivery outcome                                                                                        |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Analytical pair fixtures and the real report output path                        | Sprint 0.5.2.3: visible, synthetic headway oracle while estimator work proceeds                         |
+| Independent evidence, corrected body anchors and temporal extent                | Sprints 0.5.2.0-0.5.2.1: geometry that can support unseen bumper estimates                              |
+| Decoupled evidence, corrected association, calibrated uncertainty and smoothing | Sprint 0.5.2.2: one versioned final trajectory with explicit observation support and revisable identity |
+| Local path pairing, persistence and provisional field output                    | Sprint 0.5.2.4: end-to-end report with accuracy claims explicitly withheld                              |
+| Held-out physical validation and supported exposure                             | Sprint 0.5.2.4: promote bumper-to-bumper gap and net time gap in field reports                          |
+| Additional interaction geometry and context                                     | v0.5.3: passing clearance and PET; later: yielding and intersection/stop behaviour                      |
 
 Pull the Phase 6A support/speed contracts and Phase 6B following slice forward together.
 Acceleration, braking, jerk and all other Phase 6A features need not ship before following.
