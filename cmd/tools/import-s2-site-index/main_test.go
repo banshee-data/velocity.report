@@ -49,18 +49,25 @@ func TestPhase01CorpusSitesRemainMultiFileAndSelectable(t *testing.T) {
 	if len(selected) != len(want) {
 		t.Fatalf("selected %d corpus sites, want %d", len(selected), len(want))
 	}
+	// The Phase 0/1 cases exist to exercise PCAP roll-over joins.
+	phase01 := map[string]bool{"marina-webster-beach": true, "columbus-broadway": true, "embarcadero-folsom": true}
 	totalCaptures := 0
 	for _, entry := range selected {
 		if got, ok := want[entry.ID]; !ok || len(entry.Captures) != got {
 			t.Fatalf("%s has %d captures, want %d", entry.ID, len(entry.Captures), want[entry.ID])
 		}
+		if phase01[entry.ID] && len(entry.Captures) < 2 {
+			t.Fatalf("%s has %d capture, want a multi-file case", entry.ID, len(entry.Captures))
+		}
 		totalCaptures += len(entry.Captures)
 	}
-	if totalCaptures != 16 {
-		t.Fatalf("corpus has %d captures, want 16", totalCaptures)
+	// The corpus covers all 24 S2 archive sites; the committed phase01 baseline
+	// is measured against exactly these 110 captures.
+	if len(wanted) != 24 || totalCaptures != 110 {
+		t.Fatalf("corpus has %d cases and %d captures, want 24 and 110", len(wanted), totalCaptures)
 	}
-	if fmt.Sprint(wanted) != "[marina-webster-beach columbus-broadway embarcadero-folsom]" {
-		t.Fatalf("corpus changed the required Phase 0/1 test cases: %v", wanted)
+	if fmt.Sprint(wanted[:3]) != "[marina-webster-beach columbus-broadway embarcadero-folsom]" {
+		t.Fatalf("corpus no longer leads with the Phase 0/1 test cases: %v", wanted[:3])
 	}
 }
 
