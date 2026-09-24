@@ -6,7 +6,7 @@ Historical capture results remain below; the delivery ledger separates them from
 - **Status:** Most mechanisms implemented; D2.4 UI and physical acceptance remain open
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L8 Analytics, L9 Endpoints, web UI
-- **Target:** v0.5.2; a two-day slice, not the full geometry rewrite
+- **Target:** the v0.5.2 two-day slice (delivered), not the full geometry rewrite; D2.4 comparison UI and candidate acceptance are the v0.5.7 backlog item
 - **Evidence run:** `baf20f02-075b-4041-9860-ff090754f94f`, 600 frames, 60 s, 346 distinct tracks, build `6d8c799e6`
 - **Canonical maths:** [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md), [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 - **Related plans:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [lidar-analysis-run-infrastructure-plan](lidar-analysis-run-infrastructure-plan.md)

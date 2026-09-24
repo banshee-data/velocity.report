@@ -1,6 +1,6 @@
 # LiDAR replay case terminology alignment
 
-- **Status:** Planned for v0.5.1 or v0.5.2
+- **Status:** Planned for v0.5.8 (layer cleanup + codebase hygiene)
 - **Design Phase:** Nomenclature standardisation
 - **Scope:** Rename "scene" → "replay case" across Go API, store layer, sweep interfaces, Web routes, and Svelte components.
 - **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
@@ -77,7 +77,7 @@ Migration 031 has renamed:
 
 No further database work required: code changes follow renamed schema.
 
-### Documentation (batch 4: defer to v0.5.2+)
+### Documentation (batch 4: after the code rename)
 
 ~50+ markdown files reference "scene". Sweep will happen after code rename lands, focusing on evaluation/replay context:
 
@@ -95,7 +95,7 @@ POST /api/lidar/scenes → POST /api/lidar/replay-cases
 Response: { scenes: [...] } → { replay_cases: [...] }
 ```
 
-All consumers (Svelte, testing, integration) must update. This is a deliberate breaking change for v0.5.1 or v0.5.2.
+All consumers (Svelte, testing, integration) must update. This is a deliberate breaking change for v0.5.8.
 
 ## Testing expectations
 
@@ -118,10 +118,10 @@ These files/uses of "scene" remain unchanged:
 
 ## Rollout strategy
 
-1. **Batch 1 (v0.5.1 or v0.5.2):** Store + API layer rename (API-breaking)
+1. **Batch 1 (v0.5.8):** Store + API layer rename (API-breaking)
 2. **Batch 2:** Sweep interfaces and wiring
 3. **Batch 3:** Web/Svelte local updates
-4. **Batch 4:** Documentation sweep (lower priority, can extend into v0.5.4+)
+4. **Batch 4:** Documentation sweep (lower priority, can follow in a later release)
 
 All batches go to main together to maintain API consistency.
 

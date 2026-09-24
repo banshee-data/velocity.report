@@ -1,8 +1,8 @@
-# Go cmd/ business logic extraction plan (v0.5.2)
+# Go cmd/ business logic extraction plan (v0.5.8)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
-- **Target:** v0.5.2; extract before [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) grows past 1,500 LOC
+- **Target:** v0.5.8; extract before [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) grows past 1,500 LOC
 - **Companion plans:**
   [go-god-file-split-plan.md](go-god-file-split-plan.md) (Complete),
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Active)
@@ -21,7 +21,7 @@ Every new consumer must reimplement or duplicate.
 
 [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) is 1,194 lines. Of those, roughly 350 are business logic
 (adapters, CLI dispatch, config resolution) rather than flag parsing and component
-wiring. If left, the file will cross 1,500 LOC by v0.6.2 as HINT and sweep features
+wiring. If left, the file will cross 1,500 LOC by v0.6.0 as HINT and sweep features
 expand.
 
 ## Current state
@@ -86,7 +86,7 @@ whose types it already wraps.
 3. Update [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to use `api.NewCapabilitiesProvider()`
 4. Add unit tests for state transitions (disabled → starting → ready → error)
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 2: extract `lidar_helpers.go` to existing `internal/` packages
 
@@ -108,7 +108,7 @@ homes in [internal/config/](../../internal/config) and [internal/lidar/server/](
 7. Move `isNilHelperTarget` to the package that uses it (or inline if only one caller)
 8. Add unit tests for each moved function
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 3: extract adapters from `radar.go` to [internal/lidar/](../../internal/lidar)
 
@@ -124,7 +124,7 @@ orchestration out of `package main`.
 5. Add unit tests for the struct field mapping in each adapter
 6. Add unit test for `hintRunCreator.CreateSweepRun` parameter construction
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 4: extract `runTransitsCommand` dispatch to [internal/db/](../../internal/db)
 
@@ -140,7 +140,7 @@ owns `TransitCLI`.
 5. Add unit tests for each subcommand dispatch path
 6. Add unit tests for confirmation prompt handling (accept/reject/EOF)
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 5: extract teX flow configuration to [internal/config/](../../internal/config)
 
@@ -154,7 +154,7 @@ into the config package.
 3. Update [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to call `config.ConfigurePDFLaTeXFlow()`
 4. Add unit tests for path resolution edge cases
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 6: extract `config-migrate` logic to [internal/config/](../../internal/config)
 
@@ -168,7 +168,7 @@ into the config package.
 3. Reduce [cmd/tools/config-migrate/main.go](../../cmd/tools/config-migrate/main.go) to flag parsing + one function call
 4. Add unit tests for field mapping from flat to nested schema
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 7: extract `backfill_ring_elevations` SQL to [internal/lidar/storage/sqlite/](../../internal/lidar/storage/sqlite)
 
@@ -181,7 +181,7 @@ the `lidar_bg_snapshot` table schema.
 2. Reduce [cmd/tools/backfill_ring_elevations/backfill.go](../../cmd/tools/backfill_ring_elevations/backfill.go) to DB-open + one call
 3. Add unit test exercising the backfill on a test database
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ### Item 8: extract `settling-eval` orchestration to [internal/lidar/l3grid/](../../internal/lidar/l3grid)
 
@@ -195,7 +195,7 @@ into the background grid package.
 3. Reduce [cmd/tools/settling-eval/main.go](../../cmd/tools/settling-eval/main.go) to flag parsing + one call (done; engine in [internal/lidar/settlingeval](../../internal/lidar/settlingeval))
 4. Add unit test for the config adapter function
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.8
 
 ## Dependencies
 

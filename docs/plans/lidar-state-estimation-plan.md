@@ -2372,7 +2372,7 @@ grade (0.250 m global RMSE, 129 regions), Columbus 0.88% (0.187 m, 90 regions), 
 (0.052 m, 125 regions) — Marina is a genuinely graded waterfront site, close to five times
 Columbus's slope and thirty times Embarcadero's, exactly the case a single global plane handles
 worst. Still open: crest/valley validation specifically (this corpus has real grade but no site with
-a documented crest or valley shape to confirm against), and target-device cost (deferred to v0.6.x
+a documented crest or valley shape to confirm against), and target-device cost (deferred to v0.6.7
 with the rest of Pi hardware validation). This work belongs in Phase 1 because graded clipping
 corrupts the extents Phase 2 depends on.
 

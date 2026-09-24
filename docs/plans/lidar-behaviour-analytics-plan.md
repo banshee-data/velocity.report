@@ -5,7 +5,7 @@ rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
 - **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
-- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md#target-platform). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
+- **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)

@@ -1,8 +1,8 @@
-# LiDAR visualiser stream robustness (v0.5.8)
+# LiDAR visualiser stream robustness (v0.5.5)
 
 - **Status:** Complete
 - **Layers:** L9 endpoints (gRPC streaming, publisher), macOS visualiser (Swift client, UI)
-- **Target:** v0.5.8; the state model landed, and then the stream carrying it proved unreliable
+- **Target:** v0.5.5; the state model landed, and then the stream carrying it proved unreliable
 - **Canonical:** [data-source-switching.md](../lidar/operations/data-source-switching.md)
 
 ## Motivation

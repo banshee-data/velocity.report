@@ -8,6 +8,7 @@ are future contracts, not descriptions of the fixed-site runtime.
 - **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 - **Purpose:** Long-term architecture specification for motion capture scenarios
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
+- **Near-term path:** [route capture](lidar-route-capture-plan.md) owns backpack and cargo-bike capture for headway and road-segment speeds (v0.6.1–v0.6.8); this document remains the long-term specification for other moving platforms
 
 **State-model boundary:** The future six-state `[x, y, z, vx, vy, vz]` and `covariance_6x6`
 below are not requirements for the current planar `[x, y, vx, vy]` filter. The

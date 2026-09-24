@@ -1,8 +1,8 @@
-# LiDAR captures: multi-file replay cases (v0.6.2)
+# LiDAR captures: multi-file replay cases
 
-- **Status:** Active
+- **Status:** Complete: all six items delivered in #569; retiring the read-only `pcap_file` projection remains (v0.6.6)
 - **Layers:** Cross-cutting (LiDAR L1 ingest, Go API, database, Svelte frontend)
-- **Target:** v0.6.2; the field workflow now produces many 5-minute PCAPs per site visit, and
+- **Target:** delivered in #569; the field workflow now produces many 5-minute PCAPs per site visit, and
   a replay case that can only name one file cannot describe a static period that straddles a
   file boundary.
 - **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) <!-- link-ignore -->
@@ -166,7 +166,7 @@ session-relative window into per-file read steps.
 4. Table-driven tests: seamless, acceptable, broken, overlap, single file, unordered input,
    window entirely inside one file, window spanning three files, zero-length window.
 
-**Milestone:** v0.6.2. No libpcap dependency, so it runs in the default `go test ./...`.
+**Milestone:** delivered in #569. No libpcap dependency, so it runs in the default `go test ./...`.
 
 ### Item 2: multi-file replay execution
 
@@ -182,7 +182,7 @@ session-relative window into per-file read steps.
    promoting it to a one-element sequence.
 5. Integration test over two truncated fixtures cut from a reference capture at a known seam.
 
-**Milestone:** v0.6.2.
+**Milestone:** delivered in #569.
 
 **Landed with two constraints.** Multi-file replay requires `analysis` speed mode: realtime and
 scaled replay pace packets against a single file's own clock, and crossing a join there needs a
@@ -213,7 +213,7 @@ a property of this capture or of the parser's LiDAR timestamp mode is worth its 
    `GET /api/lidar/capture/sessions`, `GET /api/lidar/capture/files`,
    `POST /api/lidar/capture/session/label`.
 
-**Milestone:** v0.6.2.
+**Milestone:** delivered in #569.
 
 **Landed as a two-phase scan.** The original step 3 folded stat, digest and extent probe into
 one walk. Measured against the field volume that is untenable: probing an extent means reading
@@ -242,7 +242,7 @@ extent recorded for the old bytes says nothing about the new ones.
 3. `POST /api/lidar/capture/files/{id}/motion-pass`, `GET .../jobs`.
 4. Store `pcapsplit.MotionPeriod` rows keyed by capture file.
 
-**Milestone:** v0.6.2.
+**Milestone:** delivered in #569.
 
 **Landed per session, not per file.** Steps 2 and 4 above said one job per capture file. The
 field validation above measured what that costs: per-file classification invented a ~14 second
@@ -269,7 +269,7 @@ rather than a second.
 3. Reject a case whose files do not form a sequence with worst grade `acceptable` or better.
 4. Update the replay launch path to build a plan from the case.
 
-**Milestone:** v0.6.2.
+**Milestone:** delivered in #569.
 
 ### Item 6: Captures page
 
@@ -284,7 +284,7 @@ rather than a second.
 5. Detail slide-over: metadata, health checks, motion strip, jobs, actions.
 6. Multi-select → create a case from the selected files, with seam grades shown before commit.
 
-**Milestone:** v0.6.2. Items 1-5 must land first; this is the last phase, not the first.
+**Milestone:** delivered in #569. Items 1-5 must land first; this is the last phase, not the first.
 
 **The old route is kept, not redirected.** Step 1 said to redirect `/lidar/replay-cases`. That
 page still owns case editing — description, reference run, recommended parameters — which

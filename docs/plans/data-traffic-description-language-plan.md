@@ -1,13 +1,13 @@
 # Traffic description language and description interface
 
-- **Status:** Scheduled; v0.6.0-v0.6.1
+- **Status:** Proposed; steps 1-2 scheduled at v0.5.3 with behaviour analytics, steps 3-7 unscheduled
 - **Canonical:** [traffic-description-language.md](../platform/architecture/traffic-description-language.md)
 
 Defines the Traffic Description Language (TDL) for querying the transit database, and the description interface for browsing and aggregating transit statistics.
 
 - **Layers:** L8 Analytics
-- **Target:** v0.6.0 query foundations (transit table, radar transit union, vocabulary registry, parser, query builder, aggregation API); v0.6.1 description interface and reporting. Depends on the v0.5.3 transit record and behaviour label pipeline, which are LiDAR-only; the fusion-deferred radar union in §3.1 is the only radar dependency
-- **Related:** [Product Vision](../VISION.md), [Backlog v0.6.0](../BACKLOG.md), [behaviour analytics plan](lidar-behaviour-analytics-plan.md)
+- **Target:** v0.5.3 for the LiDAR-only transit record and behaviour-label pipeline that following, PET and clearance share. The query foundations (transit table, radar transit union, vocabulary registry, parser, query builder, aggregation API) and the description interface are unscheduled: nothing in the backlog places them, and the fused transit schema is deferred ([D-01](../DECISIONS.md)). The fusion-deferred radar union in §3.1 is the only radar dependency
+- **Related:** [Product Vision](../VISION.md), [Backlog v0.5.3](../BACKLOG.md), [behaviour analytics plan](lidar-behaviour-analytics-plan.md)
 
 ---
 
@@ -428,15 +428,15 @@ The Raspberry Pi runs a single Go process handling both sensor ingestion and HTT
 
 Steps 1-2 are v0.5.3 (the LiDAR-only transit record and behaviour-label pipeline, defined and
 scheduled alongside PET and passing clearance in the [behaviour analytics plan](lidar-behaviour-analytics-plan.md));
-steps 3-7 are v0.6.0-v0.6.1.
+steps 3-7 are unscheduled until the behaviour metrics they would query are published.
 
 1. **Define the transit schema** (v0.5.3) as a Go struct and SQLite view over `lidar_tracks` and `lidar_track_obs`. Per-transit columns: `max_speed_mph`, `mean_speed_mph`, `direction`, `behaviour_style`, `classification`, `context`. No per-transit percentile columns; p50/p85/p98 are query-time aggregates.
 2. **Implement the behaviour labelling pipeline** (v0.5.3, §5.4): speed-profile analyser, stop detector, conflict detector. Store L2 labels in the transit record.
-3. **Materialise the transit query table and radar union** (v0.6.0, §6.2, §3.1): index the v0.5.3 transit record for query-time use and add the `radar_transit_id`/`fusion_confidence` provenance columns.
-4. **Build the vocabulary registry** (v0.6.0, §5.3): map natural-language tokens to abstract schema filters. Start with the core vocabulary (§4.1 filter and subject tables) and expand from usage.
-5. **Build the TDL parser and query builder** (v0.6.0): parse natural-language strings into a structured filter tree; translate to parameterised SQL.
-6. **Expose a JSON API** (v0.6.0-v0.6.1): the web frontend and PDF generator post TDL strings; the server returns filtered transits or aggregated statistics.
-7. **Wire the description interface** (v0.6.1, §8) to the TDL API.
+3. **Materialise the transit query table and radar union** (§6.2, §3.1): index the v0.5.3 transit record for query-time use and add the `radar_transit_id`/`fusion_confidence` provenance columns.
+4. **Build the vocabulary registry** (§5.3): map natural-language tokens to abstract schema filters. Start with the core vocabulary (§4.1 filter and subject tables) and expand from usage.
+5. **Build the TDL parser and query builder**: parse natural-language strings into a structured filter tree; translate to parameterised SQL.
+6. **Expose a JSON API**: the web frontend and PDF generator post TDL strings; the server returns filtered transits or aggregated statistics.
+7. **Wire the description interface** (§8) to the TDL API.
 
 ## 8. Description interface
 

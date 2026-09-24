@@ -2,7 +2,7 @@
 
 - **Document Version:** 1.1
 - **Status:** Approved (v0.5.1 target; work unit D of the consolidation plan)
-- **Target:** v0.5.1 (pulled forward from v0.6.2)
+- **Target:** v0.5.1 (pulled forward from v0.6.0)
 - **Layers:** Image build, systemd, Go server, docs
 - **Canonical:** [tls-local-certificates.md](../platform/operations/tls-local-certificates.md)
 - **Related:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md), [tls-local-certificates.md](../platform/operations/tls-local-certificates.md), [tailscale-remote-access-guide.md](./tailscale-remote-access-guide.md)
@@ -11,7 +11,7 @@
 
 ---
 
-> **Sequencing update (2026-05):** pulled forward from v0.6.2 into v0.5.1 so the public install path the v0.6.2 release announces is `http://velocity.local` with no self-signed CA dance. See [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit D for the parent direction.
+> **Sequencing update (2026-05):** pulled forward from v0.6.0 into v0.5.1 so the public install path the v0.6.0 release announces is `http://velocity.local` with no self-signed CA dance. See [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit D for the parent direction.
 
 ---
 

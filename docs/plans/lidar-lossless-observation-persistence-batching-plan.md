@@ -3,7 +3,7 @@
 - **Status:** Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0
-- **Backlog:** [State-estimation evidence sprint](../BACKLOG.md#sprint-0520-state-estimation-evidence-and-correction)
+- **Backlog:** [State-estimation evidence sprint](../BACKLOG.md#sprint-0520-trustworthy-replay-evidence)
 - **Related:** [State estimation](lidar-state-estimation-plan.md), [test corpus](lidar-test-corpus-plan.md), [performance measurement harness](lidar-performance-measurement-harness-plan.md), [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 
 The sections below preserve the original SQLite performance and equivalence design. The branch now
