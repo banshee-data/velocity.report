@@ -6,6 +6,12 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 25, 2026 - Plan hygiene and the worker's storage path
+
+- Cleared thirteen plan-hygiene gate violations and graduated two Complete plans, `lidar-pipeline-state-model-plan.md` and `lidar-visualiser-stream-robustness-plan.md`, to symlinks onto their canonical hub (#594).
+- {claude/truenas-vm-banshee-setup-4ad3fd} Diagnosed why the job runner's worker VM (`bansheeworker`, introduced in #586) could not reach the TrueNAS pool over a local path: its macvtap NIC isolates it from its own host, and every bridge fix stripped the host's own address because that interface had no row in TrueNAS's network database.
+- {claude/truenas-vm-banshee-setup-4ad3fd} Registered the host interface on its own first, then created the isolated bridge with zero outage, attached the VM's second NIC, and repointed its NFS mounts off a dead Tailscale address onto the new local path. Verified end to end, including across a guest reboot, at 603 MB/s.
+
 ## September 24, 2026 - State estimation: the OBB centre stays opt-in, and the branch against main
 
 - A/B tested D2's OBB-centre measurement against the medoid on kirk0's annotated road users (30 objects, 771 frames). Recall was level, but the OBB centre switched identity 146 times against 92 and fragmented more, so the medoid stays the production measurement and `obb_centre_v1` becomes opt-in (21.1 D5).
@@ -25,7 +31,8 @@ older entries stay put, however tempting hindsight may be.
 - Landed the `velocity worker` and `velocity jobs` runner (#586): captures are verified by a cached content hash before a job runs, attempt state lives as a directory tree that marks in-flight work lost on restart, and `state_estimation_baseline` and `track_scorecard` run from a `git worktree` staged at the job's own commit. Validated end to end against kirk0 on a live worker.
 - Fixed `lidar_run_tracks` writing a track's first-sighting snapshot instead of its final state: measurement columns now flush from the newest values on a ten-second interval, on completion, and on failure, while the update statement never touches label columns, so a label written mid-run survives (#584). Flagged that ground-truth scores and per-track statistics computed from rows written before this change are suspect.
 - Landed two rounds of annotation-tool fixes from live labelling sessions: re-proposing no longer discards the in-progress list, objects can be merged back together, the four elevation views each show their own 180-degree half instead of a mirrored overlap, and the column lattice and views turn with the site's recorded grid azimuth (#589); a guard blocking "new object from selection" on unsaved membership was removed because the split already preserves that selection, the default brush is now the sphere rather than the lasso, and the default view frames the foreground extent rather than the whole scan (#592).
-- {dd/lidar/job-queue-vm-fixes} Found two real bugs running #586 against actual hardware: a bare sha256 digest produced an unhelpful validation error, and the worker panicked when started from outside the repository tree because its config lookup only tried relative paths.
+- Found two real bugs running #586 against actual hardware: a bare sha256 digest produced an unhelpful validation error, and the worker panicked when started from outside the repository tree because its config lookup only tried relative paths (#593).
+- Fixed a third bug in the same follow-up, caught by Copilot's review: the panic fix's own fallback silently blamed the wrong cause when the embedded config failed to parse. Re-validated all three fixes against a second, unrelated capture and a mid-job kill-and-restart (#593).
 
 ## September 22, 2026 - Annotation lands, scored against the full corpus
 
