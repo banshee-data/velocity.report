@@ -29,12 +29,10 @@ import (
 // The exact formulae and edge-case handling follow the widely-reproduced MOT16
 // protocol; the primary Bernardin (2008) source is tracked as gap M4 for a
 // future re-verification.
-
-// clearMOTForbidden is the sentinel cost for out-of-gate pairs. The l5tracks
-// Hungarian solver treats costs >= 1e18 as forbidden; we use the same value and
-// additionally re-check the assigned distance against the gate, because the
-// solver may assign a forbidden cell to complete the (padded) matching.
-const clearMOTForbidden = float32(1e18)
+//
+// Out-of-gate pairs are forbidden in the assignment rather than given the
+// solver's 1e18 sentinel cost; assign.go explains why the sentinel cannot be
+// trusted there.
 
 // GroundTruthPoint is a ground-truth object position at one frame.
 type GroundTruthPoint struct {

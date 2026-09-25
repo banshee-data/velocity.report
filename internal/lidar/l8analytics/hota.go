@@ -3,8 +3,6 @@ package l8analytics
 import (
 	"math"
 	"sort"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // HOTA (Luiten et al., 2021), gap-analysis row M2.
@@ -69,6 +67,20 @@ type pairKey struct{ ref, hyp string }
 // Reference points marked Ignore are excluded entirely, as are hypotheses that
 // match only them.
 func ComputeHOTA(reference, hypothesis []TrackSeries, maxDistMetres float64, alphas []float64) HOTAResult {
+	return ComputeHOTAGated(reference, hypothesis, FixedGate(maxDistMetres), alphas)
+}
+
+// ComputeHOTAGated is ComputeHOTA under an explicit gate rule. Similarity
+// reaches zero at the reference point's own gate, so under GateFootprint a
+// large object's similarity falls off more slowly than a small one's, exactly
+// as its matching tolerance does.
+//
+// Ignore absorption here is decided per localisation threshold, inside each
+// alpha's own assignment, not once before the sweep as TrackEval's
+// preprocessing does. A hypothesis close to an ignored point is absorbed at
+// every alpha its similarity clears; at a stricter alpha it is scored like any
+// other unmatched hypothesis.
+func ComputeHOTAGated(reference, hypothesis []TrackSeries, gate MatchGate, alphas []float64) HOTAResult {
 	if len(alphas) == 0 {
 		alphas = DefaultHOTAAlphas()
 	}
@@ -86,8 +98,9 @@ func ComputeHOTA(reference, hypothesis []TrackSeries, maxDistMetres float64, alp
 				continue
 			}
 			refCount[refID]++
+			g := gate.forReference(r)
 			for hypID, h := range hypFrame {
-				if similarity(r.pos, h.pos, maxDistMetres) > 0 {
+				if similarity(r.pos, h.pos, g) > 0 {
 					coincidence[pairKey{refID, hypID}]++
 				}
 			}
@@ -129,24 +142,28 @@ func ComputeHOTA(reference, hypothesis []TrackSeries, maxDistMetres float64, alp
 
 			matchedRef, matchedHyp := map[string]bool{}, map[string]bool{}
 			if len(refIDs) > 0 && len(hypIDs) > 0 {
-				// Maximise alignment-weighted similarity. HungarianAssign
+				// Maximise alignment-weighted similarity. The solver
 				// minimises, so the cost is the negated score shifted positive;
 				// pairs below the threshold are forbidden outright.
-				cost := make([][]float32, len(refIDs))
+				cost := make([][]float64, len(refIDs))
+				allowed := make([][]bool, len(refIDs))
 				for i, refID := range refIDs {
-					cost[i] = make([]float32, len(hypIDs))
+					cost[i] = make([]float64, len(hypIDs))
+					allowed[i] = make([]bool, len(hypIDs))
+					r := refFrame[refID]
+					g := gate.forReference(r)
 					for j, hypID := range hypIDs {
-						s := similarity(refFrame[refID].pos, hypFrame[hypID].pos, maxDistMetres)
+						s := similarity(r.pos, hypFrame[hypID].pos, g)
 						if s < alpha {
-							cost[i][j] = float32(clearMOTForbidden)
 							continue
 						}
 						weight := alignment[pairKey{refID, hypID}]
-						cost[i][j] = float32(2.0 - s*(1.0+weight))
+						cost[i][j] = 2.0 - s*(1.0+weight)
+						allowed[i][j] = true
 					}
 				}
-				for i, j := range l5tracks.HungarianAssign(cost) {
-					if j < 0 || j >= len(hypIDs) || cost[i][j] >= float32(clearMOTForbidden) {
+				for i, j := range assignMinCost(cost, allowed) {
+					if j < 0 {
 						continue
 					}
 					refID, hypID := refIDs[i], hypIDs[j]

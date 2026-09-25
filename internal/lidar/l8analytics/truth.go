@@ -46,6 +46,11 @@ type SeriesPoint struct {
 	// a false positive, and the point itself is not counted as ground truth,
 	// so it can neither be missed nor found. Unused on the hypothesis side.
 	Ignore bool `json:"ignore,omitempty"`
+	// FootprintDiagonalMetres is the reference object's horizontal extent in
+	// this frame, for GateFootprint. Zero means unknown, and the footprint
+	// gate then falls back to its slack alone. Unused on the hypothesis side
+	// and by GateFixed.
+	FootprintDiagonalMetres float32 `json:"footprint_diagonal_m,omitempty"`
 }
 
 // TruthSource supplies reference tracks for one evidence source. The two
@@ -94,8 +99,9 @@ func SeriesFromTracked(hyp []*l5tracks.TrackedObject) []TrackSeries {
 type frameIndex map[int64]map[string]seriesEntry
 
 type seriesEntry struct {
-	pos    point2
-	ignore bool
+	pos           point2
+	ignore        bool
+	footprintDiag float32
 }
 
 func indexSeries(series []TrackSeries) frameIndex {
@@ -107,7 +113,7 @@ func indexSeries(series []TrackSeries) frameIndex {
 				frame = make(map[string]seriesEntry)
 				idx[p.TimestampNanos] = frame
 			}
-			frame[s.ID] = seriesEntry{pos: point2{p.X, p.Y}, ignore: p.Ignore}
+			frame[s.ID] = seriesEntry{pos: point2{p.X, p.Y}, ignore: p.Ignore, footprintDiag: p.FootprintDiagonalMetres}
 		}
 	}
 	return idx
