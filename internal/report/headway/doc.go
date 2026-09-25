@@ -39,6 +39,8 @@
 //     score or category about any road user.
 //
 // Staging (Section 10.4): this package delivers the sprint 0.5.2.3 oracle
-// (Oracle and OracleInput) and the contract the sprint 0.5.2.4 provisional
-// slice will feed from persisted encounters. Field promotion is not built.
+// (Oracle and OracleInput) and the contract. The sprint 0.5.2.4 provisional
+// slice, package fieldrun, feeds the same contract from persisted estimates,
+// and is the only part of the report that touches storage. Field promotion
+// is not built.
 package headway

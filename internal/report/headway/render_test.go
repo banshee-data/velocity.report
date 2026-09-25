@@ -399,10 +399,8 @@ func headwayTemplate(t *testing.T) string {
 	return string(src[typst.EntryHeadway])
 }
 
-// verdictPattern is language the report must never use (Sections 1 and
-// 8.3): no verdict, score, category or trait of a road user, in any form,
-// including in negation.
-var verdictPattern = regexp.MustCompile(`(?i)tailgat|aggress|driver|risk|score|verdict|unsafe|danger|violat|offend|propensity|profil`)
+// verdictPattern is the report's forbidden language, VerdictPattern.
+var verdictPattern = VerdictPattern
 
 // TestNoVerdictLanguage scans everything a reader can see: the data, every
 // chart's text, the template and the archive README.
