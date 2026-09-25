@@ -3,8 +3,9 @@
 // Package: velocity.recording.v1
 //
 // Typed payloads for VRLOG 1.x containers: the capture manifest, the L4
-// observation frame and gap records, and the chunk header, seal, index and
-// closing-summary objects. The container's fixed-binary record envelope,
+// observation frame and gap records, the chunk header, seal, index and
+// closing-summary objects, and the commit generations and current-generation
+// pointer that make them durable. The container's fixed-binary record envelope,
 // object preambles and record kinds are specified in
 // data/structures/VRLOG_FORMAT.md, not here: the envelope is deliberately
 // independent of this package so a reader can reject a file before it
@@ -479,6 +480,130 @@ func (GapTime) EnumDescriptor() ([]byte, []int) {
 	return file_recording_proto_rawDescGZIP(), []int{7}
 }
 
+type GenerationKind int32
+
+const (
+	GenerationKind_GENERATION_KIND_UNSPECIFIED GenerationKind = 0
+	// Generation 0: the container exists and nothing is committed yet.
+	GenerationKind_GENERATION_KIND_OPEN GenerationKind = 1
+	// Commits new chunks.
+	GenerationKind_GENERATION_KIND_COMMIT GenerationKind = 2
+	// Terminal: the writer closed cleanly; commits the last chunk, if any, and
+	// the closing summary.
+	GenerationKind_GENERATION_KIND_CLOSE GenerationKind = 3
+	// Terminal: admission stopped on a capture failure.
+	GenerationKind_GENERATION_KIND_FAILURE GenerationKind = 4
+	// Written only by recovery. It may follow any generation; after a
+	// terminal generation nothing else may.
+	GenerationKind_GENERATION_KIND_RECOVERY GenerationKind = 5
+)
+
+// Enum value maps for GenerationKind.
+var (
+	GenerationKind_name = map[int32]string{
+		0: "GENERATION_KIND_UNSPECIFIED",
+		1: "GENERATION_KIND_OPEN",
+		2: "GENERATION_KIND_COMMIT",
+		3: "GENERATION_KIND_CLOSE",
+		4: "GENERATION_KIND_FAILURE",
+		5: "GENERATION_KIND_RECOVERY",
+	}
+	GenerationKind_value = map[string]int32{
+		"GENERATION_KIND_UNSPECIFIED": 0,
+		"GENERATION_KIND_OPEN":        1,
+		"GENERATION_KIND_COMMIT":      2,
+		"GENERATION_KIND_CLOSE":       3,
+		"GENERATION_KIND_FAILURE":     4,
+		"GENERATION_KIND_RECOVERY":    5,
+	}
+)
+
+func (x GenerationKind) Enum() *GenerationKind {
+	p := new(GenerationKind)
+	*p = x
+	return p
+}
+
+func (x GenerationKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (GenerationKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_recording_proto_enumTypes[8].Descriptor()
+}
+
+func (GenerationKind) Type() protoreflect.EnumType {
+	return &file_recording_proto_enumTypes[8]
+}
+
+func (x GenerationKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use GenerationKind.Descriptor instead.
+func (GenerationKind) EnumDescriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{8}
+}
+
+// CommitTrigger says why a batch was closed.
+type CommitTrigger int32
+
+const (
+	CommitTrigger_COMMIT_TRIGGER_UNSPECIFIED CommitTrigger = 0
+	CommitTrigger_COMMIT_TRIGGER_BATCH_AGE   CommitTrigger = 1
+	CommitTrigger_COMMIT_TRIGGER_BATCH_BYTES CommitTrigger = 2
+	CommitTrigger_COMMIT_TRIGGER_STRICT      CommitTrigger = 3
+	CommitTrigger_COMMIT_TRIGGER_CLOSE       CommitTrigger = 4
+	CommitTrigger_COMMIT_TRIGGER_FLUSH       CommitTrigger = 5
+)
+
+// Enum value maps for CommitTrigger.
+var (
+	CommitTrigger_name = map[int32]string{
+		0: "COMMIT_TRIGGER_UNSPECIFIED",
+		1: "COMMIT_TRIGGER_BATCH_AGE",
+		2: "COMMIT_TRIGGER_BATCH_BYTES",
+		3: "COMMIT_TRIGGER_STRICT",
+		4: "COMMIT_TRIGGER_CLOSE",
+		5: "COMMIT_TRIGGER_FLUSH",
+	}
+	CommitTrigger_value = map[string]int32{
+		"COMMIT_TRIGGER_UNSPECIFIED": 0,
+		"COMMIT_TRIGGER_BATCH_AGE":   1,
+		"COMMIT_TRIGGER_BATCH_BYTES": 2,
+		"COMMIT_TRIGGER_STRICT":      3,
+		"COMMIT_TRIGGER_CLOSE":       4,
+		"COMMIT_TRIGGER_FLUSH":       5,
+	}
+)
+
+func (x CommitTrigger) Enum() *CommitTrigger {
+	p := new(CommitTrigger)
+	*p = x
+	return p
+}
+
+func (x CommitTrigger) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CommitTrigger) Descriptor() protoreflect.EnumDescriptor {
+	return file_recording_proto_enumTypes[9].Descriptor()
+}
+
+func (CommitTrigger) Type() protoreflect.EnumType {
+	return &file_recording_proto_enumTypes[9]
+}
+
+func (x CommitTrigger) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CommitTrigger.Descriptor instead.
+func (CommitTrigger) EnumDescriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{9}
+}
+
 // RecordingManifest is the container's immutable root: written once, before
 // any record is admitted, and never rewritten.
 type RecordingManifest struct {
@@ -504,7 +629,10 @@ type RecordingManifest struct {
 	Provenance            *Provenance         `protobuf:"bytes,11,opt,name=provenance,proto3" json:"provenance,omitempty"`
 	// Metadata objects embedded by value, each with its SHA-256, so the
 	// manifest reproduces its configuration without an external path.
-	Metadata      []*MetadataObject `protobuf:"bytes,12,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	Metadata []*MetadataObject `protobuf:"bytes,12,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	// How accepted evidence becomes durable, declared before any is admitted.
+	// Present exactly when required_features names "commit-generations".
+	CommitPolicy  *CommitPolicy `protobuf:"bytes,13,opt,name=commit_policy,json=commitPolicy,proto3" json:"commit_policy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -623,6 +751,157 @@ func (x *RecordingManifest) GetMetadata() []*MetadataObject {
 	return nil
 }
 
+func (x *RecordingManifest) GetCommitPolicy() *CommitPolicy {
+	if x != nil {
+		return x.CommitPolicy
+	}
+	return nil
+}
+
+// CommitPolicy declares the writer's group-commit policy and the crash-loss
+// bound it implies. The root manifest is immutable and written first, so it
+// holds what was declared; each CommitGeneration and the closing summary
+// hold what was measured. Durations are nanoseconds.
+type CommitPolicy struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The open batch is committed when its first record is this old, or when
+	// it holds max_batch_bytes, whichever comes first. Zero only when strict.
+	MaxBatchAgeNanos int64  `protobuf:"fixed64,1,opt,name=max_batch_age_nanos,json=maxBatchAgeNanos,proto3" json:"max_batch_age_nanos,omitempty"`
+	MaxBatchBytes    uint64 `protobuf:"varint,2,opt,name=max_batch_bytes,json=maxBatchBytes,proto3" json:"max_batch_bytes,omitempty"`
+	// Every record is durable before its append returns.
+	Strict bool `protobuf:"varint,3,opt,name=strict,proto3" json:"strict,omitempty"`
+	// A record not durable within max_batch_age + commit_deadline of its
+	// acceptance puts the capture into failure; admission stops.
+	CommitDeadlineNanos int64 `protobuf:"fixed64,4,opt,name=commit_deadline_nanos,json=commitDeadlineNanos,proto3" json:"commit_deadline_nanos,omitempty"`
+	// The caller's declared bound on how long a frame waits upstream of the
+	// writer (the bounded ingress queue). Declared, not enforced here.
+	UpstreamQueueAgeNanos int64 `protobuf:"fixed64,5,opt,name=upstream_queue_age_nanos,json=upstreamQueueAgeNanos,proto3" json:"upstream_queue_age_nanos,omitempty"`
+	// How long an append may wait for the committer before the frame is
+	// recorded as an explicit gap instead. Zero: never shed; wait, and fail at
+	// the commit deadline.
+	ShedAfterNanos int64 `protobuf:"fixed64,6,opt,name=shed_after_nanos,json=shedAfterNanos,proto3" json:"shed_after_nanos,omitempty"`
+	// Bytes preallocated so a failure marker can still be written on a full
+	// disk. Not a promise that a failed disk can store its own obituary.
+	FailureReserveBytes uint64 `protobuf:"varint,7,opt,name=failure_reserve_bytes,json=failureReserveBytes,proto3" json:"failure_reserve_bytes,omitempty"`
+	// The source's highest frame rate, used only to state the frame bound.
+	MaxFrameRateHz float64 `protobuf:"fixed64,8,opt,name=max_frame_rate_hz,json=maxFrameRateHz,proto3" json:"max_frame_rate_hz,omitempty"`
+	// Derived from the fields above and stored so an operator need not
+	// recompute them: upstream queue age + batch age + commit deadline; the
+	// bytes in the committing and open batches; frames in the interval.
+	CrashLossIntervalNanos int64  `protobuf:"fixed64,9,opt,name=crash_loss_interval_nanos,json=crashLossIntervalNanos,proto3" json:"crash_loss_interval_nanos,omitempty"`
+	CrashLossBytes         uint64 `protobuf:"varint,10,opt,name=crash_loss_bytes,json=crashLossBytes,proto3" json:"crash_loss_bytes,omitempty"`
+	CrashLossFrames        uint64 `protobuf:"varint,11,opt,name=crash_loss_frames,json=crashLossFrames,proto3" json:"crash_loss_frames,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CommitPolicy) Reset() {
+	*x = CommitPolicy{}
+	mi := &file_recording_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitPolicy) ProtoMessage() {}
+
+func (x *CommitPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitPolicy.ProtoReflect.Descriptor instead.
+func (*CommitPolicy) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CommitPolicy) GetMaxBatchAgeNanos() int64 {
+	if x != nil {
+		return x.MaxBatchAgeNanos
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetMaxBatchBytes() uint64 {
+	if x != nil {
+		return x.MaxBatchBytes
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetStrict() bool {
+	if x != nil {
+		return x.Strict
+	}
+	return false
+}
+
+func (x *CommitPolicy) GetCommitDeadlineNanos() int64 {
+	if x != nil {
+		return x.CommitDeadlineNanos
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetUpstreamQueueAgeNanos() int64 {
+	if x != nil {
+		return x.UpstreamQueueAgeNanos
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetShedAfterNanos() int64 {
+	if x != nil {
+		return x.ShedAfterNanos
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetFailureReserveBytes() uint64 {
+	if x != nil {
+		return x.FailureReserveBytes
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetMaxFrameRateHz() float64 {
+	if x != nil {
+		return x.MaxFrameRateHz
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetCrashLossIntervalNanos() int64 {
+	if x != nil {
+		return x.CrashLossIntervalNanos
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetCrashLossBytes() uint64 {
+	if x != nil {
+		return x.CrashLossBytes
+	}
+	return 0
+}
+
+func (x *CommitPolicy) GetCrashLossFrames() uint64 {
+	if x != nil {
+		return x.CrashLossFrames
+	}
+	return 0
+}
+
 // CaptureIdentity names one capture. The UUID is random and allocated before
 // ingestion: two replays of the same PCAP are two captures, and the UUID and
 // creation time are the only fields that legitimately differ between them.
@@ -641,7 +920,7 @@ type CaptureIdentity struct {
 
 func (x *CaptureIdentity) Reset() {
 	*x = CaptureIdentity{}
-	mi := &file_recording_proto_msgTypes[1]
+	mi := &file_recording_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -653,7 +932,7 @@ func (x *CaptureIdentity) String() string {
 func (*CaptureIdentity) ProtoMessage() {}
 
 func (x *CaptureIdentity) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[1]
+	mi := &file_recording_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -666,7 +945,7 @@ func (x *CaptureIdentity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureIdentity.ProtoReflect.Descriptor instead.
 func (*CaptureIdentity) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{1}
+	return file_recording_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CaptureIdentity) GetCaptureUuid() string {
@@ -726,7 +1005,7 @@ type ExtractionIdentity struct {
 
 func (x *ExtractionIdentity) Reset() {
 	*x = ExtractionIdentity{}
-	mi := &file_recording_proto_msgTypes[2]
+	mi := &file_recording_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -738,7 +1017,7 @@ func (x *ExtractionIdentity) String() string {
 func (*ExtractionIdentity) ProtoMessage() {}
 
 func (x *ExtractionIdentity) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[2]
+	mi := &file_recording_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -751,7 +1030,7 @@ func (x *ExtractionIdentity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtractionIdentity.ProtoReflect.Descriptor instead.
 func (*ExtractionIdentity) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{2}
+	return file_recording_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ExtractionIdentity) GetSourceId() string {
@@ -814,7 +1093,7 @@ type CaptureFile struct {
 
 func (x *CaptureFile) Reset() {
 	*x = CaptureFile{}
-	mi := &file_recording_proto_msgTypes[3]
+	mi := &file_recording_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +1105,7 @@ func (x *CaptureFile) String() string {
 func (*CaptureFile) ProtoMessage() {}
 
 func (x *CaptureFile) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[3]
+	mi := &file_recording_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +1118,7 @@ func (x *CaptureFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureFile.ProtoReflect.Descriptor instead.
 func (*CaptureFile) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{3}
+	return file_recording_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CaptureFile) GetPath() string {
@@ -867,7 +1146,7 @@ type SourceWindow struct {
 
 func (x *SourceWindow) Reset() {
 	*x = SourceWindow{}
-	mi := &file_recording_proto_msgTypes[4]
+	mi := &file_recording_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -879,7 +1158,7 @@ func (x *SourceWindow) String() string {
 func (*SourceWindow) ProtoMessage() {}
 
 func (x *SourceWindow) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[4]
+	mi := &file_recording_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -892,7 +1171,7 @@ func (x *SourceWindow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceWindow.ProtoReflect.Descriptor instead.
 func (*SourceWindow) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{4}
+	return file_recording_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SourceWindow) GetStartOffsetNanos() int64 {
@@ -931,7 +1210,7 @@ type Calibration struct {
 
 func (x *Calibration) Reset() {
 	*x = Calibration{}
-	mi := &file_recording_proto_msgTypes[5]
+	mi := &file_recording_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +1222,7 @@ func (x *Calibration) String() string {
 func (*Calibration) ProtoMessage() {}
 
 func (x *Calibration) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[5]
+	mi := &file_recording_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -956,7 +1235,7 @@ func (x *Calibration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Calibration.ProtoReflect.Descriptor instead.
 func (*Calibration) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{5}
+	return file_recording_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Calibration) GetSensorId() string {
@@ -1004,7 +1283,7 @@ type Limits struct {
 
 func (x *Limits) Reset() {
 	*x = Limits{}
-	mi := &file_recording_proto_msgTypes[6]
+	mi := &file_recording_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1016,7 +1295,7 @@ func (x *Limits) String() string {
 func (*Limits) ProtoMessage() {}
 
 func (x *Limits) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[6]
+	mi := &file_recording_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1029,7 +1308,7 @@ func (x *Limits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Limits.ProtoReflect.Descriptor instead.
 func (*Limits) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{6}
+	return file_recording_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Limits) GetTargetChunkBytes() uint64 {
@@ -1099,7 +1378,7 @@ type Provenance struct {
 
 func (x *Provenance) Reset() {
 	*x = Provenance{}
-	mi := &file_recording_proto_msgTypes[7]
+	mi := &file_recording_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1111,7 +1390,7 @@ func (x *Provenance) String() string {
 func (*Provenance) ProtoMessage() {}
 
 func (x *Provenance) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[7]
+	mi := &file_recording_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1124,7 +1403,7 @@ func (x *Provenance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Provenance.ProtoReflect.Descriptor instead.
 func (*Provenance) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{7}
+	return file_recording_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Provenance) GetBuildVersion() string {
@@ -1182,7 +1461,7 @@ type MetadataObject struct {
 
 func (x *MetadataObject) Reset() {
 	*x = MetadataObject{}
-	mi := &file_recording_proto_msgTypes[8]
+	mi := &file_recording_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1473,7 @@ func (x *MetadataObject) String() string {
 func (*MetadataObject) ProtoMessage() {}
 
 func (x *MetadataObject) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[8]
+	mi := &file_recording_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1486,7 @@ func (x *MetadataObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetadataObject.ProtoReflect.Descriptor instead.
 func (*MetadataObject) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{8}
+	return file_recording_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *MetadataObject) GetName() string {
@@ -1268,7 +1547,7 @@ type FrameRecord struct {
 
 func (x *FrameRecord) Reset() {
 	*x = FrameRecord{}
-	mi := &file_recording_proto_msgTypes[9]
+	mi := &file_recording_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1280,7 +1559,7 @@ func (x *FrameRecord) String() string {
 func (*FrameRecord) ProtoMessage() {}
 
 func (x *FrameRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[9]
+	mi := &file_recording_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1293,7 +1572,7 @@ func (x *FrameRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrameRecord.ProtoReflect.Descriptor instead.
 func (*FrameRecord) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{9}
+	return file_recording_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FrameRecord) GetSequence() uint64 {
@@ -1406,7 +1685,7 @@ type StageCount struct {
 
 func (x *StageCount) Reset() {
 	*x = StageCount{}
-	mi := &file_recording_proto_msgTypes[10]
+	mi := &file_recording_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1418,7 +1697,7 @@ func (x *StageCount) String() string {
 func (*StageCount) ProtoMessage() {}
 
 func (x *StageCount) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[10]
+	mi := &file_recording_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1431,7 +1710,7 @@ func (x *StageCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageCount.ProtoReflect.Descriptor instead.
 func (*StageCount) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{10}
+	return file_recording_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StageCount) GetStage() string {
@@ -1491,7 +1770,7 @@ type RetainedPoints struct {
 
 func (x *RetainedPoints) Reset() {
 	*x = RetainedPoints{}
-	mi := &file_recording_proto_msgTypes[11]
+	mi := &file_recording_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1503,7 +1782,7 @@ func (x *RetainedPoints) String() string {
 func (*RetainedPoints) ProtoMessage() {}
 
 func (x *RetainedPoints) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[11]
+	mi := &file_recording_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1516,7 +1795,7 @@ func (x *RetainedPoints) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetainedPoints.ProtoReflect.Descriptor instead.
 func (*RetainedPoints) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{11}
+	return file_recording_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RetainedPoints) GetPointCount() uint32 {
@@ -1616,7 +1895,7 @@ type Membership struct {
 
 func (x *Membership) Reset() {
 	*x = Membership{}
-	mi := &file_recording_proto_msgTypes[12]
+	mi := &file_recording_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1628,7 +1907,7 @@ func (x *Membership) String() string {
 func (*Membership) ProtoMessage() {}
 
 func (x *Membership) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[12]
+	mi := &file_recording_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1641,7 +1920,7 @@ func (x *Membership) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Membership.ProtoReflect.Descriptor instead.
 func (*Membership) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{12}
+	return file_recording_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Membership) GetClusters() []*Cluster {
@@ -1678,7 +1957,7 @@ type Cluster struct {
 
 func (x *Cluster) Reset() {
 	*x = Cluster{}
-	mi := &file_recording_proto_msgTypes[13]
+	mi := &file_recording_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1690,7 +1969,7 @@ func (x *Cluster) String() string {
 func (*Cluster) ProtoMessage() {}
 
 func (x *Cluster) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[13]
+	mi := &file_recording_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1703,7 +1982,7 @@ func (x *Cluster) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cluster.ProtoReflect.Descriptor instead.
 func (*Cluster) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{13}
+	return file_recording_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Cluster) GetClusterId() int64 {
@@ -1749,7 +2028,7 @@ type ClusterSummary struct {
 
 func (x *ClusterSummary) Reset() {
 	*x = ClusterSummary{}
-	mi := &file_recording_proto_msgTypes[14]
+	mi := &file_recording_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1761,7 +2040,7 @@ func (x *ClusterSummary) String() string {
 func (*ClusterSummary) ProtoMessage() {}
 
 func (x *ClusterSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[14]
+	mi := &file_recording_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1774,7 +2053,7 @@ func (x *ClusterSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterSummary.ProtoReflect.Descriptor instead.
 func (*ClusterSummary) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{14}
+	return file_recording_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ClusterSummary) GetFirstMemberUnixNanos() int64 {
@@ -1877,7 +2156,7 @@ type OrientedBox struct {
 
 func (x *OrientedBox) Reset() {
 	*x = OrientedBox{}
-	mi := &file_recording_proto_msgTypes[15]
+	mi := &file_recording_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1889,7 +2168,7 @@ func (x *OrientedBox) String() string {
 func (*OrientedBox) ProtoMessage() {}
 
 func (x *OrientedBox) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[15]
+	mi := &file_recording_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1902,7 +2181,7 @@ func (x *OrientedBox) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrientedBox.ProtoReflect.Descriptor instead.
 func (*OrientedBox) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{15}
+	return file_recording_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *OrientedBox) GetCenterX() float32 {
@@ -1970,7 +2249,7 @@ type GapRecord struct {
 
 func (x *GapRecord) Reset() {
 	*x = GapRecord{}
-	mi := &file_recording_proto_msgTypes[16]
+	mi := &file_recording_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1982,7 +2261,7 @@ func (x *GapRecord) String() string {
 func (*GapRecord) ProtoMessage() {}
 
 func (x *GapRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[16]
+	mi := &file_recording_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +2274,7 @@ func (x *GapRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GapRecord.ProtoReflect.Descriptor instead.
 func (*GapRecord) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{16}
+	return file_recording_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GapRecord) GetSequenceRange() *SequenceRange {
@@ -2050,7 +2329,7 @@ type SequenceRange struct {
 
 func (x *SequenceRange) Reset() {
 	*x = SequenceRange{}
-	mi := &file_recording_proto_msgTypes[17]
+	mi := &file_recording_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2062,7 +2341,7 @@ func (x *SequenceRange) String() string {
 func (*SequenceRange) ProtoMessage() {}
 
 func (x *SequenceRange) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[17]
+	mi := &file_recording_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2075,7 +2354,7 @@ func (x *SequenceRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SequenceRange.ProtoReflect.Descriptor instead.
 func (*SequenceRange) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{17}
+	return file_recording_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SequenceRange) GetFirst() uint64 {
@@ -2104,7 +2383,7 @@ type ChunkHeader struct {
 
 func (x *ChunkHeader) Reset() {
 	*x = ChunkHeader{}
-	mi := &file_recording_proto_msgTypes[18]
+	mi := &file_recording_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2116,7 +2395,7 @@ func (x *ChunkHeader) String() string {
 func (*ChunkHeader) ProtoMessage() {}
 
 func (x *ChunkHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[18]
+	mi := &file_recording_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2129,7 +2408,7 @@ func (x *ChunkHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkHeader.ProtoReflect.Descriptor instead.
 func (*ChunkHeader) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{18}
+	return file_recording_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ChunkHeader) GetOrdinal() uint64 {
@@ -2172,7 +2451,7 @@ type ChunkSeal struct {
 
 func (x *ChunkSeal) Reset() {
 	*x = ChunkSeal{}
-	mi := &file_recording_proto_msgTypes[19]
+	mi := &file_recording_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2184,7 +2463,7 @@ func (x *ChunkSeal) String() string {
 func (*ChunkSeal) ProtoMessage() {}
 
 func (x *ChunkSeal) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[19]
+	mi := &file_recording_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2197,7 +2476,7 @@ func (x *ChunkSeal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkSeal.ProtoReflect.Descriptor instead.
 func (*ChunkSeal) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{19}
+	return file_recording_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ChunkSeal) GetOrdinal() uint64 {
@@ -2307,7 +2586,7 @@ type ChunkIndex struct {
 
 func (x *ChunkIndex) Reset() {
 	*x = ChunkIndex{}
-	mi := &file_recording_proto_msgTypes[20]
+	mi := &file_recording_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2319,7 +2598,7 @@ func (x *ChunkIndex) String() string {
 func (*ChunkIndex) ProtoMessage() {}
 
 func (x *ChunkIndex) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[20]
+	mi := &file_recording_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2332,7 +2611,7 @@ func (x *ChunkIndex) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkIndex.ProtoReflect.Descriptor instead.
 func (*ChunkIndex) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{20}
+	return file_recording_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ChunkIndex) GetOrdinal() uint64 {
@@ -2453,13 +2732,24 @@ type CaptureSummary struct {
 	SemanticSha256 []byte `protobuf:"bytes,8,opt,name=semantic_sha256,json=semanticSha256,proto3" json:"semantic_sha256,omitempty"`
 	// Sum of the sealed chunk files' sizes.
 	TotalChunkBytes uint64 `protobuf:"varint,9,opt,name=total_chunk_bytes,json=totalChunkBytes,proto3" json:"total_chunk_bytes,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Frames the writer could not admit in time under its overload policy,
+	// each replaced by a gap over its sequence. Non-zero means incomplete.
+	ShedFrames uint64 `protobuf:"varint,10,opt,name=shed_frames,json=shedFrames,proto3" json:"shed_frames,omitempty"`
+	// Commit generations published before the close, and the measured
+	// publication latency (steps 2 to 4 of the protocol) across them, from a
+	// histogram whose buckets are within 10% of each other.
+	CommitCount    uint64 `protobuf:"varint,11,opt,name=commit_count,json=commitCount,proto3" json:"commit_count,omitempty"`
+	CommitP50Nanos int64  `protobuf:"fixed64,12,opt,name=commit_p50_nanos,json=commitP50Nanos,proto3" json:"commit_p50_nanos,omitempty"`
+	CommitP95Nanos int64  `protobuf:"fixed64,13,opt,name=commit_p95_nanos,json=commitP95Nanos,proto3" json:"commit_p95_nanos,omitempty"`
+	CommitP99Nanos int64  `protobuf:"fixed64,14,opt,name=commit_p99_nanos,json=commitP99Nanos,proto3" json:"commit_p99_nanos,omitempty"`
+	CommitMaxNanos int64  `protobuf:"fixed64,15,opt,name=commit_max_nanos,json=commitMaxNanos,proto3" json:"commit_max_nanos,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CaptureSummary) Reset() {
 	*x = CaptureSummary{}
-	mi := &file_recording_proto_msgTypes[21]
+	mi := &file_recording_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2471,7 +2761,7 @@ func (x *CaptureSummary) String() string {
 func (*CaptureSummary) ProtoMessage() {}
 
 func (x *CaptureSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_recording_proto_msgTypes[21]
+	mi := &file_recording_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2484,7 +2774,7 @@ func (x *CaptureSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureSummary.ProtoReflect.Descriptor instead.
 func (*CaptureSummary) Descriptor() ([]byte, []int) {
-	return file_recording_proto_rawDescGZIP(), []int{21}
+	return file_recording_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CaptureSummary) GetChunkCount() uint64 {
@@ -2550,11 +2840,702 @@ func (x *CaptureSummary) GetTotalChunkBytes() uint64 {
 	return 0
 }
 
+func (x *CaptureSummary) GetShedFrames() uint64 {
+	if x != nil {
+		return x.ShedFrames
+	}
+	return 0
+}
+
+func (x *CaptureSummary) GetCommitCount() uint64 {
+	if x != nil {
+		return x.CommitCount
+	}
+	return 0
+}
+
+func (x *CaptureSummary) GetCommitP50Nanos() int64 {
+	if x != nil {
+		return x.CommitP50Nanos
+	}
+	return 0
+}
+
+func (x *CaptureSummary) GetCommitP95Nanos() int64 {
+	if x != nil {
+		return x.CommitP95Nanos
+	}
+	return 0
+}
+
+func (x *CaptureSummary) GetCommitP99Nanos() int64 {
+	if x != nil {
+		return x.CommitP99Nanos
+	}
+	return 0
+}
+
+func (x *CaptureSummary) GetCommitMaxNanos() int64 {
+	if x != nil {
+		return x.CommitMaxNanos
+	}
+	return 0
+}
+
+// CommitGeneration is one immutable step of the commit chain, published by
+// the four-step protocol in VRLOG_FORMAT.md: its chunks and objects are
+// durable before it is written, and it is durable before the current
+// pointer names it. Cumulative fields cover generations 0 to this one.
+type CommitGeneration struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Generation uint64                 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
+	// SHA-256 of the manifest object.
+	ManifestSha256 []byte `protobuf:"bytes,2,opt,name=manifest_sha256,json=manifestSha256,proto3" json:"manifest_sha256,omitempty"`
+	// SHA-256 of the previous generation object; empty for generation 0.
+	PreviousSha256 []byte         `protobuf:"bytes,3,opt,name=previous_sha256,json=previousSha256,proto3" json:"previous_sha256,omitempty"`
+	Kind           GenerationKind `protobuf:"varint,4,opt,name=kind,proto3,enum=velocity.recording.v1.GenerationKind" json:"kind,omitempty"`
+	Trigger        CommitTrigger  `protobuf:"varint,5,opt,name=trigger,proto3,enum=velocity.recording.v1.CommitTrigger" json:"trigger,omitempty"`
+	// Chunks this generation commits, in ordinal order, continuing the chain.
+	Chunks []*CommittedChunk `protobuf:"bytes,6,rep,name=chunks,proto3" json:"chunks,omitempty"`
+	// Other immutable objects this generation publishes (the summary).
+	Objects    []*CommittedObject `protobuf:"bytes,7,rep,name=objects,proto3" json:"objects,omitempty"`
+	ChunkCount uint64             `protobuf:"varint,8,opt,name=chunk_count,json=chunkCount,proto3" json:"chunk_count,omitempty"`
+	// chain_i = SHA-256(chain_{i-1} || body_sha256_i), as in CaptureSummary.
+	ChunkChainSha256 []byte `protobuf:"bytes,9,opt,name=chunk_chain_sha256,json=chunkChainSha256,proto3" json:"chunk_chain_sha256,omitempty"`
+	RecordCount      uint64 `protobuf:"varint,10,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+	FrameCount       uint64 `protobuf:"varint,11,opt,name=frame_count,json=frameCount,proto3" json:"frame_count,omitempty"`
+	GapCount         uint64 `protobuf:"varint,12,opt,name=gap_count,json=gapCount,proto3" json:"gap_count,omitempty"`
+	// Committed coverage is source sequences [0, end_sequence); gaps count.
+	EndSequence     uint64 `protobuf:"varint,13,opt,name=end_sequence,json=endSequence,proto3" json:"end_sequence,omitempty"`
+	TotalChunkBytes uint64 `protobuf:"varint,14,opt,name=total_chunk_bytes,json=totalChunkBytes,proto3" json:"total_chunk_bytes,omitempty"`
+	RejectedFrames  uint64 `protobuf:"varint,15,opt,name=rejected_frames,json=rejectedFrames,proto3" json:"rejected_frames,omitempty"`
+	ShedFrames      uint64 `protobuf:"varint,16,opt,name=shed_frames,json=shedFrames,proto3" json:"shed_frames,omitempty"`
+	// Wall clock when the generation was written (step 3).
+	CommittedUnixNanos int64 `protobuf:"fixed64,17,opt,name=committed_unix_nanos,json=committedUnixNanos,proto3" json:"committed_unix_nanos,omitempty"`
+	// Age of the batch's first record when the batch closed, and how long
+	// step 2 (synchronising and publishing its objects) took. A generation
+	// cannot time its own publication; the summary aggregates that.
+	BatchAgeNanos int64           `protobuf:"fixed64,18,opt,name=batch_age_nanos,json=batchAgeNanos,proto3" json:"batch_age_nanos,omitempty"`
+	SyncNanos     int64           `protobuf:"fixed64,19,opt,name=sync_nanos,json=syncNanos,proto3" json:"sync_nanos,omitempty"`
+	Failure       *CaptureFailure `protobuf:"bytes,20,opt,name=failure,proto3" json:"failure,omitempty"`
+	Recovery      *RecoveryRecord `protobuf:"bytes,21,opt,name=recovery,proto3" json:"recovery,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommitGeneration) Reset() {
+	*x = CommitGeneration{}
+	mi := &file_recording_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommitGeneration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommitGeneration) ProtoMessage() {}
+
+func (x *CommitGeneration) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommitGeneration.ProtoReflect.Descriptor instead.
+func (*CommitGeneration) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *CommitGeneration) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetManifestSha256() []byte {
+	if x != nil {
+		return x.ManifestSha256
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetPreviousSha256() []byte {
+	if x != nil {
+		return x.PreviousSha256
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetKind() GenerationKind {
+	if x != nil {
+		return x.Kind
+	}
+	return GenerationKind_GENERATION_KIND_UNSPECIFIED
+}
+
+func (x *CommitGeneration) GetTrigger() CommitTrigger {
+	if x != nil {
+		return x.Trigger
+	}
+	return CommitTrigger_COMMIT_TRIGGER_UNSPECIFIED
+}
+
+func (x *CommitGeneration) GetChunks() []*CommittedChunk {
+	if x != nil {
+		return x.Chunks
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetObjects() []*CommittedObject {
+	if x != nil {
+		return x.Objects
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetChunkCount() uint64 {
+	if x != nil {
+		return x.ChunkCount
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetChunkChainSha256() []byte {
+	if x != nil {
+		return x.ChunkChainSha256
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetRecordCount() uint64 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetFrameCount() uint64 {
+	if x != nil {
+		return x.FrameCount
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetGapCount() uint64 {
+	if x != nil {
+		return x.GapCount
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetEndSequence() uint64 {
+	if x != nil {
+		return x.EndSequence
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetTotalChunkBytes() uint64 {
+	if x != nil {
+		return x.TotalChunkBytes
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetRejectedFrames() uint64 {
+	if x != nil {
+		return x.RejectedFrames
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetShedFrames() uint64 {
+	if x != nil {
+		return x.ShedFrames
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetCommittedUnixNanos() int64 {
+	if x != nil {
+		return x.CommittedUnixNanos
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetBatchAgeNanos() int64 {
+	if x != nil {
+		return x.BatchAgeNanos
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetSyncNanos() int64 {
+	if x != nil {
+		return x.SyncNanos
+	}
+	return 0
+}
+
+func (x *CommitGeneration) GetFailure() *CaptureFailure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+func (x *CommitGeneration) GetRecovery() *RecoveryRecord {
+	if x != nil {
+		return x.Recovery
+	}
+	return nil
+}
+
+type CommittedChunk struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Ordinal    uint64                 `protobuf:"varint,1,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
+	ChunkBytes uint64                 `protobuf:"varint,2,opt,name=chunk_bytes,json=chunkBytes,proto3" json:"chunk_bytes,omitempty"`
+	BodySha256 []byte                 `protobuf:"bytes,3,opt,name=body_sha256,json=bodySha256,proto3" json:"body_sha256,omitempty"`
+	// SHA-256 of the index object as published.
+	IndexSha256   []byte `protobuf:"bytes,4,opt,name=index_sha256,json=indexSha256,proto3" json:"index_sha256,omitempty"`
+	FirstSequence uint64 `protobuf:"varint,5,opt,name=first_sequence,json=firstSequence,proto3" json:"first_sequence,omitempty"`
+	EndSequence   uint64 `protobuf:"varint,6,opt,name=end_sequence,json=endSequence,proto3" json:"end_sequence,omitempty"`
+	RecordCount   uint64 `protobuf:"varint,7,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommittedChunk) Reset() {
+	*x = CommittedChunk{}
+	mi := &file_recording_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommittedChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommittedChunk) ProtoMessage() {}
+
+func (x *CommittedChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommittedChunk.ProtoReflect.Descriptor instead.
+func (*CommittedChunk) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CommittedChunk) GetOrdinal() uint64 {
+	if x != nil {
+		return x.Ordinal
+	}
+	return 0
+}
+
+func (x *CommittedChunk) GetChunkBytes() uint64 {
+	if x != nil {
+		return x.ChunkBytes
+	}
+	return 0
+}
+
+func (x *CommittedChunk) GetBodySha256() []byte {
+	if x != nil {
+		return x.BodySha256
+	}
+	return nil
+}
+
+func (x *CommittedChunk) GetIndexSha256() []byte {
+	if x != nil {
+		return x.IndexSha256
+	}
+	return nil
+}
+
+func (x *CommittedChunk) GetFirstSequence() uint64 {
+	if x != nil {
+		return x.FirstSequence
+	}
+	return 0
+}
+
+func (x *CommittedChunk) GetEndSequence() uint64 {
+	if x != nil {
+		return x.EndSequence
+	}
+	return 0
+}
+
+func (x *CommittedChunk) GetRecordCount() uint64 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
+type CommittedObject struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Bytes         uint64                 `protobuf:"varint,2,opt,name=bytes,proto3" json:"bytes,omitempty"`
+	Sha256        []byte                 `protobuf:"bytes,3,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CommittedObject) Reset() {
+	*x = CommittedObject{}
+	mi := &file_recording_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommittedObject) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommittedObject) ProtoMessage() {}
+
+func (x *CommittedObject) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommittedObject.ProtoReflect.Descriptor instead.
+func (*CommittedObject) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CommittedObject) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CommittedObject) GetBytes() uint64 {
+	if x != nil {
+		return x.Bytes
+	}
+	return 0
+}
+
+func (x *CommittedObject) GetSha256() []byte {
+	if x != nil {
+		return x.Sha256
+	}
+	return nil
+}
+
+// CaptureFailure is the marker a failed writer leaves when it still can.
+// Frames in [committed end, accepted_end_sequence) were accepted and are
+// not in the container; frames after accepted_end_sequence were never
+// admitted.
+type CaptureFailure struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "disk-full", "io-error", "commit-stall" or "stopped" (the owner ended
+	// the capture abnormally, e.g. a replay that failed).
+	Cause               string `protobuf:"bytes,1,opt,name=cause,proto3" json:"cause,omitempty"`
+	Detail              string `protobuf:"bytes,2,opt,name=detail,proto3" json:"detail,omitempty"`
+	AcceptedEndSequence uint64 `protobuf:"varint,3,opt,name=accepted_end_sequence,json=acceptedEndSequence,proto3" json:"accepted_end_sequence,omitempty"`
+	AcceptedRecordCount uint64 `protobuf:"varint,4,opt,name=accepted_record_count,json=acceptedRecordCount,proto3" json:"accepted_record_count,omitempty"`
+	FailedUnixNanos     int64  `protobuf:"fixed64,5,opt,name=failed_unix_nanos,json=failedUnixNanos,proto3" json:"failed_unix_nanos,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CaptureFailure) Reset() {
+	*x = CaptureFailure{}
+	mi := &file_recording_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaptureFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaptureFailure) ProtoMessage() {}
+
+func (x *CaptureFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaptureFailure.ProtoReflect.Descriptor instead.
+func (*CaptureFailure) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *CaptureFailure) GetCause() string {
+	if x != nil {
+		return x.Cause
+	}
+	return ""
+}
+
+func (x *CaptureFailure) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *CaptureFailure) GetAcceptedEndSequence() uint64 {
+	if x != nil {
+		return x.AcceptedEndSequence
+	}
+	return 0
+}
+
+func (x *CaptureFailure) GetAcceptedRecordCount() uint64 {
+	if x != nil {
+		return x.AcceptedRecordCount
+	}
+	return 0
+}
+
+func (x *CaptureFailure) GetFailedUnixNanos() int64 {
+	if x != nil {
+		return x.FailedUnixNanos
+	}
+	return 0
+}
+
+// RecoveryRecord explains a generation written by recovery.
+type RecoveryRecord struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The generation the current pointer named, when it could be read.
+	PointerValid      bool   `protobuf:"varint,1,opt,name=pointer_valid,json=pointerValid,proto3" json:"pointer_valid,omitempty"`
+	PointerGeneration uint64 `protobuf:"varint,2,opt,name=pointer_generation,json=pointerGeneration,proto3" json:"pointer_generation,omitempty"`
+	PointerDetail     string `protobuf:"bytes,3,opt,name=pointer_detail,json=pointerDetail,proto3" json:"pointer_detail,omitempty"`
+	// Complete generations beyond the pointer, promoted by this record.
+	PromotedGenerations []uint64 `protobuf:"varint,4,rep,packed,name=promoted_generations,json=promotedGenerations,proto3" json:"promoted_generations,omitempty"`
+	// Container-relative names of uncommitted objects moved under
+	// quarantine/, never read as evidence. At most 256 are listed.
+	Quarantined      []string `protobuf:"bytes,5,rep,name=quarantined,proto3" json:"quarantined,omitempty"`
+	QuarantinedCount uint64   `protobuf:"varint,6,opt,name=quarantined_count,json=quarantinedCount,proto3" json:"quarantined_count,omitempty"`
+	// No close generation: the capture is incomplete. Without a failure
+	// marker either, how much was accepted after the committed end is unknown.
+	SessionIncomplete  bool   `protobuf:"varint,7,opt,name=session_incomplete,json=sessionIncomplete,proto3" json:"session_incomplete,omitempty"`
+	TailExtentUnknown  bool   `protobuf:"varint,8,opt,name=tail_extent_unknown,json=tailExtentUnknown,proto3" json:"tail_extent_unknown,omitempty"`
+	RecoveredUnixNanos int64  `protobuf:"fixed64,9,opt,name=recovered_unix_nanos,json=recoveredUnixNanos,proto3" json:"recovered_unix_nanos,omitempty"`
+	RecoveredBy        string `protobuf:"bytes,10,opt,name=recovered_by,json=recoveredBy,proto3" json:"recovered_by,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *RecoveryRecord) Reset() {
+	*x = RecoveryRecord{}
+	mi := &file_recording_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryRecord) ProtoMessage() {}
+
+func (x *RecoveryRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryRecord.ProtoReflect.Descriptor instead.
+func (*RecoveryRecord) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *RecoveryRecord) GetPointerValid() bool {
+	if x != nil {
+		return x.PointerValid
+	}
+	return false
+}
+
+func (x *RecoveryRecord) GetPointerGeneration() uint64 {
+	if x != nil {
+		return x.PointerGeneration
+	}
+	return 0
+}
+
+func (x *RecoveryRecord) GetPointerDetail() string {
+	if x != nil {
+		return x.PointerDetail
+	}
+	return ""
+}
+
+func (x *RecoveryRecord) GetPromotedGenerations() []uint64 {
+	if x != nil {
+		return x.PromotedGenerations
+	}
+	return nil
+}
+
+func (x *RecoveryRecord) GetQuarantined() []string {
+	if x != nil {
+		return x.Quarantined
+	}
+	return nil
+}
+
+func (x *RecoveryRecord) GetQuarantinedCount() uint64 {
+	if x != nil {
+		return x.QuarantinedCount
+	}
+	return 0
+}
+
+func (x *RecoveryRecord) GetSessionIncomplete() bool {
+	if x != nil {
+		return x.SessionIncomplete
+	}
+	return false
+}
+
+func (x *RecoveryRecord) GetTailExtentUnknown() bool {
+	if x != nil {
+		return x.TailExtentUnknown
+	}
+	return false
+}
+
+func (x *RecoveryRecord) GetRecoveredUnixNanos() int64 {
+	if x != nil {
+		return x.RecoveredUnixNanos
+	}
+	return 0
+}
+
+func (x *RecoveryRecord) GetRecoveredBy() string {
+	if x != nil {
+		return x.RecoveredBy
+	}
+	return ""
+}
+
+// CurrentGeneration is the pointer object: the latest generation the writer
+// published. It is replaced atomically and is a hint to the reader, which
+// still validates the chain up to it.
+type CurrentGeneration struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Generation uint64                 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
+	// SHA-256 of that generation's object.
+	GenerationSha256 []byte `protobuf:"bytes,2,opt,name=generation_sha256,json=generationSha256,proto3" json:"generation_sha256,omitempty"`
+	// Its committed coverage, so damage to the chain can be located.
+	EndSequence   uint64 `protobuf:"varint,3,opt,name=end_sequence,json=endSequence,proto3" json:"end_sequence,omitempty"`
+	RecordCount   uint64 `protobuf:"varint,4,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CurrentGeneration) Reset() {
+	*x = CurrentGeneration{}
+	mi := &file_recording_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CurrentGeneration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CurrentGeneration) ProtoMessage() {}
+
+func (x *CurrentGeneration) ProtoReflect() protoreflect.Message {
+	mi := &file_recording_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CurrentGeneration.ProtoReflect.Descriptor instead.
+func (*CurrentGeneration) Descriptor() ([]byte, []int) {
+	return file_recording_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CurrentGeneration) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+func (x *CurrentGeneration) GetGenerationSha256() []byte {
+	if x != nil {
+		return x.GenerationSha256
+	}
+	return nil
+}
+
+func (x *CurrentGeneration) GetEndSequence() uint64 {
+	if x != nil {
+		return x.EndSequence
+	}
+	return 0
+}
+
+func (x *CurrentGeneration) GetRecordCount() uint64 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
 var File_recording_proto protoreflect.FileDescriptor
 
 const file_recording_proto_rawDesc = "" +
 	"\n" +
-	"\x0frecording.proto\x12\x15velocity.recording.v1\"\xd7\x05\n" +
+	"\x0frecording.proto\x12\x15velocity.recording.v1\"\xa1\x06\n" +
 	"\x11RecordingManifest\x12K\n" +
 	"\x0eschema_version\x18\x01 \x01(\x0e2$.velocity.recording.v1.SchemaVersionR\rschemaVersion\x12B\n" +
 	"\vstream_kind\x18\x02 \x01(\x0e2!.velocity.recording.v1.StreamKindR\n" +
@@ -2573,7 +3554,21 @@ const file_recording_proto_rawDesc = "" +
 	"\n" +
 	"provenance\x18\v \x01(\v2!.velocity.recording.v1.ProvenanceR\n" +
 	"provenance\x12A\n" +
-	"\bmetadata\x18\f \x03(\v2%.velocity.recording.v1.MetadataObjectR\bmetadata\"\xd0\x01\n" +
+	"\bmetadata\x18\f \x03(\v2%.velocity.recording.v1.MetadataObjectR\bmetadata\x12H\n" +
+	"\rcommit_policy\x18\r \x01(\v2#.velocity.recording.v1.CommitPolicyR\fcommitPolicy\"\x84\x04\n" +
+	"\fCommitPolicy\x12-\n" +
+	"\x13max_batch_age_nanos\x18\x01 \x01(\x10R\x10maxBatchAgeNanos\x12&\n" +
+	"\x0fmax_batch_bytes\x18\x02 \x01(\x04R\rmaxBatchBytes\x12\x16\n" +
+	"\x06strict\x18\x03 \x01(\bR\x06strict\x122\n" +
+	"\x15commit_deadline_nanos\x18\x04 \x01(\x10R\x13commitDeadlineNanos\x127\n" +
+	"\x18upstream_queue_age_nanos\x18\x05 \x01(\x10R\x15upstreamQueueAgeNanos\x12(\n" +
+	"\x10shed_after_nanos\x18\x06 \x01(\x10R\x0eshedAfterNanos\x122\n" +
+	"\x15failure_reserve_bytes\x18\a \x01(\x04R\x13failureReserveBytes\x12)\n" +
+	"\x11max_frame_rate_hz\x18\b \x01(\x01R\x0emaxFrameRateHz\x129\n" +
+	"\x19crash_loss_interval_nanos\x18\t \x01(\x10R\x16crashLossIntervalNanos\x12(\n" +
+	"\x10crash_loss_bytes\x18\n" +
+	" \x01(\x04R\x0ecrashLossBytes\x12*\n" +
+	"\x11crash_loss_frames\x18\v \x01(\x04R\x0fcrashLossFrames\"\xd0\x01\n" +
 	"\x0fCaptureIdentity\x12!\n" +
 	"\fcapture_uuid\x18\x01 \x01(\tR\vcaptureUuid\x12\x1b\n" +
 	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x12\x1f\n" +
@@ -2762,7 +3757,7 @@ const file_recording_proto_rawDesc = "" +
 	"time_start\x18\v \x03(\x10R\ttimeStart\x12\x19\n" +
 	"\btime_end\x18\f \x03(\x10R\atimeEnd\x12\x14\n" +
 	"\x05flags\x18\r \x03(\rR\x05flags\x12\x14\n" +
-	"\x05epoch\x18\x0e \x03(\rR\x05epoch\"\xe1\x02\n" +
+	"\x05epoch\x18\x0e \x03(\rR\x05epoch\"\xcd\x04\n" +
 	"\x0eCaptureSummary\x12\x1f\n" +
 	"\vchunk_count\x18\x01 \x01(\x04R\n" +
 	"chunkCount\x12,\n" +
@@ -2774,7 +3769,83 @@ const file_recording_proto_rawDesc = "" +
 	"\fend_sequence\x18\x06 \x01(\x04R\vendSequence\x12'\n" +
 	"\x0frejected_frames\x18\a \x01(\x04R\x0erejectedFrames\x12'\n" +
 	"\x0fsemantic_sha256\x18\b \x01(\fR\x0esemanticSha256\x12*\n" +
-	"\x11total_chunk_bytes\x18\t \x01(\x04R\x0ftotalChunkBytes*E\n" +
+	"\x11total_chunk_bytes\x18\t \x01(\x04R\x0ftotalChunkBytes\x12\x1f\n" +
+	"\vshed_frames\x18\n" +
+	" \x01(\x04R\n" +
+	"shedFrames\x12!\n" +
+	"\fcommit_count\x18\v \x01(\x04R\vcommitCount\x12(\n" +
+	"\x10commit_p50_nanos\x18\f \x01(\x10R\x0ecommitP50Nanos\x12(\n" +
+	"\x10commit_p95_nanos\x18\r \x01(\x10R\x0ecommitP95Nanos\x12(\n" +
+	"\x10commit_p99_nanos\x18\x0e \x01(\x10R\x0ecommitP99Nanos\x12(\n" +
+	"\x10commit_max_nanos\x18\x0f \x01(\x10R\x0ecommitMaxNanos\"\xc6\a\n" +
+	"\x10CommitGeneration\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x01 \x01(\x04R\n" +
+	"generation\x12'\n" +
+	"\x0fmanifest_sha256\x18\x02 \x01(\fR\x0emanifestSha256\x12'\n" +
+	"\x0fprevious_sha256\x18\x03 \x01(\fR\x0epreviousSha256\x129\n" +
+	"\x04kind\x18\x04 \x01(\x0e2%.velocity.recording.v1.GenerationKindR\x04kind\x12>\n" +
+	"\atrigger\x18\x05 \x01(\x0e2$.velocity.recording.v1.CommitTriggerR\atrigger\x12=\n" +
+	"\x06chunks\x18\x06 \x03(\v2%.velocity.recording.v1.CommittedChunkR\x06chunks\x12@\n" +
+	"\aobjects\x18\a \x03(\v2&.velocity.recording.v1.CommittedObjectR\aobjects\x12\x1f\n" +
+	"\vchunk_count\x18\b \x01(\x04R\n" +
+	"chunkCount\x12,\n" +
+	"\x12chunk_chain_sha256\x18\t \x01(\fR\x10chunkChainSha256\x12!\n" +
+	"\frecord_count\x18\n" +
+	" \x01(\x04R\vrecordCount\x12\x1f\n" +
+	"\vframe_count\x18\v \x01(\x04R\n" +
+	"frameCount\x12\x1b\n" +
+	"\tgap_count\x18\f \x01(\x04R\bgapCount\x12!\n" +
+	"\fend_sequence\x18\r \x01(\x04R\vendSequence\x12*\n" +
+	"\x11total_chunk_bytes\x18\x0e \x01(\x04R\x0ftotalChunkBytes\x12'\n" +
+	"\x0frejected_frames\x18\x0f \x01(\x04R\x0erejectedFrames\x12\x1f\n" +
+	"\vshed_frames\x18\x10 \x01(\x04R\n" +
+	"shedFrames\x120\n" +
+	"\x14committed_unix_nanos\x18\x11 \x01(\x10R\x12committedUnixNanos\x12&\n" +
+	"\x0fbatch_age_nanos\x18\x12 \x01(\x10R\rbatchAgeNanos\x12\x1d\n" +
+	"\n" +
+	"sync_nanos\x18\x13 \x01(\x10R\tsyncNanos\x12?\n" +
+	"\afailure\x18\x14 \x01(\v2%.velocity.recording.v1.CaptureFailureR\afailure\x12A\n" +
+	"\brecovery\x18\x15 \x01(\v2%.velocity.recording.v1.RecoveryRecordR\brecovery\"\xfc\x01\n" +
+	"\x0eCommittedChunk\x12\x18\n" +
+	"\aordinal\x18\x01 \x01(\x04R\aordinal\x12\x1f\n" +
+	"\vchunk_bytes\x18\x02 \x01(\x04R\n" +
+	"chunkBytes\x12\x1f\n" +
+	"\vbody_sha256\x18\x03 \x01(\fR\n" +
+	"bodySha256\x12!\n" +
+	"\findex_sha256\x18\x04 \x01(\fR\vindexSha256\x12%\n" +
+	"\x0efirst_sequence\x18\x05 \x01(\x04R\rfirstSequence\x12!\n" +
+	"\fend_sequence\x18\x06 \x01(\x04R\vendSequence\x12!\n" +
+	"\frecord_count\x18\a \x01(\x04R\vrecordCount\"S\n" +
+	"\x0fCommittedObject\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05bytes\x18\x02 \x01(\x04R\x05bytes\x12\x16\n" +
+	"\x06sha256\x18\x03 \x01(\fR\x06sha256\"\xd2\x01\n" +
+	"\x0eCaptureFailure\x12\x14\n" +
+	"\x05cause\x18\x01 \x01(\tR\x05cause\x12\x16\n" +
+	"\x06detail\x18\x02 \x01(\tR\x06detail\x122\n" +
+	"\x15accepted_end_sequence\x18\x03 \x01(\x04R\x13acceptedEndSequence\x122\n" +
+	"\x15accepted_record_count\x18\x04 \x01(\x04R\x13acceptedRecordCount\x12*\n" +
+	"\x11failed_unix_nanos\x18\x05 \x01(\x10R\x0ffailedUnixNanos\"\xc1\x03\n" +
+	"\x0eRecoveryRecord\x12#\n" +
+	"\rpointer_valid\x18\x01 \x01(\bR\fpointerValid\x12-\n" +
+	"\x12pointer_generation\x18\x02 \x01(\x04R\x11pointerGeneration\x12%\n" +
+	"\x0epointer_detail\x18\x03 \x01(\tR\rpointerDetail\x121\n" +
+	"\x14promoted_generations\x18\x04 \x03(\x04R\x13promotedGenerations\x12 \n" +
+	"\vquarantined\x18\x05 \x03(\tR\vquarantined\x12+\n" +
+	"\x11quarantined_count\x18\x06 \x01(\x04R\x10quarantinedCount\x12-\n" +
+	"\x12session_incomplete\x18\a \x01(\bR\x11sessionIncomplete\x12.\n" +
+	"\x13tail_extent_unknown\x18\b \x01(\bR\x11tailExtentUnknown\x120\n" +
+	"\x14recovered_unix_nanos\x18\t \x01(\x10R\x12recoveredUnixNanos\x12!\n" +
+	"\frecovered_by\x18\n" +
+	" \x01(\tR\vrecoveredBy\"\xa6\x01\n" +
+	"\x11CurrentGeneration\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x01 \x01(\x04R\n" +
+	"generation\x12+\n" +
+	"\x11generation_sha256\x18\x02 \x01(\fR\x10generationSha256\x12!\n" +
+	"\fend_sequence\x18\x03 \x01(\x04R\vendSequence\x12!\n" +
+	"\frecord_count\x18\x04 \x01(\x04R\vrecordCount*E\n" +
 	"\rSchemaVersion\x12\x1e\n" +
 	"\x1aSCHEMA_VERSION_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SCHEMA_VERSION_1\x10\x01*F\n" +
@@ -2816,7 +3887,21 @@ const file_recording_proto_rawDesc = "" +
 	"\x1eREJECTION_REASON_CLUSTER_SHAPE\x10\a*5\n" +
 	"\aGapTime\x12\x14\n" +
 	"\x10GAP_TIME_UNKNOWN\x10\x00\x12\x14\n" +
-	"\x10GAP_TIME_BOUNDED\x10\x01BDZBgithub.com/banshee-data/velocity.report/internal/lidar/recordingpbb\x06proto3"
+	"\x10GAP_TIME_BOUNDED\x10\x01*\xbd\x01\n" +
+	"\x0eGenerationKind\x12\x1f\n" +
+	"\x1bGENERATION_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14GENERATION_KIND_OPEN\x10\x01\x12\x1a\n" +
+	"\x16GENERATION_KIND_COMMIT\x10\x02\x12\x19\n" +
+	"\x15GENERATION_KIND_CLOSE\x10\x03\x12\x1b\n" +
+	"\x17GENERATION_KIND_FAILURE\x10\x04\x12\x1c\n" +
+	"\x18GENERATION_KIND_RECOVERY\x10\x05*\xbc\x01\n" +
+	"\rCommitTrigger\x12\x1e\n" +
+	"\x1aCOMMIT_TRIGGER_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18COMMIT_TRIGGER_BATCH_AGE\x10\x01\x12\x1e\n" +
+	"\x1aCOMMIT_TRIGGER_BATCH_BYTES\x10\x02\x12\x19\n" +
+	"\x15COMMIT_TRIGGER_STRICT\x10\x03\x12\x18\n" +
+	"\x14COMMIT_TRIGGER_CLOSE\x10\x04\x12\x18\n" +
+	"\x14COMMIT_TRIGGER_FLUSH\x10\x05BDZBgithub.com/banshee-data/velocity.report/internal/lidar/recordingpbb\x06proto3"
 
 var (
 	file_recording_proto_rawDescOnce sync.Once
@@ -2830,8 +3915,8 @@ func file_recording_proto_rawDescGZIP() []byte {
 	return file_recording_proto_rawDescData
 }
 
-var file_recording_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_recording_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_recording_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_recording_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_recording_proto_goTypes = []any{
 	(SchemaVersion)(0),         // 0: velocity.recording.v1.SchemaVersion
 	(StreamKind)(0),            // 1: velocity.recording.v1.StreamKind
@@ -2841,56 +3926,72 @@ var file_recording_proto_goTypes = []any{
 	(PointColumn)(0),           // 5: velocity.recording.v1.PointColumn
 	(RejectionReason)(0),       // 6: velocity.recording.v1.RejectionReason
 	(GapTime)(0),               // 7: velocity.recording.v1.GapTime
-	(*RecordingManifest)(nil),  // 8: velocity.recording.v1.RecordingManifest
-	(*CaptureIdentity)(nil),    // 9: velocity.recording.v1.CaptureIdentity
-	(*ExtractionIdentity)(nil), // 10: velocity.recording.v1.ExtractionIdentity
-	(*CaptureFile)(nil),        // 11: velocity.recording.v1.CaptureFile
-	(*SourceWindow)(nil),       // 12: velocity.recording.v1.SourceWindow
-	(*Calibration)(nil),        // 13: velocity.recording.v1.Calibration
-	(*Limits)(nil),             // 14: velocity.recording.v1.Limits
-	(*Provenance)(nil),         // 15: velocity.recording.v1.Provenance
-	(*MetadataObject)(nil),     // 16: velocity.recording.v1.MetadataObject
-	(*FrameRecord)(nil),        // 17: velocity.recording.v1.FrameRecord
-	(*StageCount)(nil),         // 18: velocity.recording.v1.StageCount
-	(*RetainedPoints)(nil),     // 19: velocity.recording.v1.RetainedPoints
-	(*Membership)(nil),         // 20: velocity.recording.v1.Membership
-	(*Cluster)(nil),            // 21: velocity.recording.v1.Cluster
-	(*ClusterSummary)(nil),     // 22: velocity.recording.v1.ClusterSummary
-	(*OrientedBox)(nil),        // 23: velocity.recording.v1.OrientedBox
-	(*GapRecord)(nil),          // 24: velocity.recording.v1.GapRecord
-	(*SequenceRange)(nil),      // 25: velocity.recording.v1.SequenceRange
-	(*ChunkHeader)(nil),        // 26: velocity.recording.v1.ChunkHeader
-	(*ChunkSeal)(nil),          // 27: velocity.recording.v1.ChunkSeal
-	(*ChunkIndex)(nil),         // 28: velocity.recording.v1.ChunkIndex
-	(*CaptureSummary)(nil),     // 29: velocity.recording.v1.CaptureSummary
+	(GenerationKind)(0),        // 8: velocity.recording.v1.GenerationKind
+	(CommitTrigger)(0),         // 9: velocity.recording.v1.CommitTrigger
+	(*RecordingManifest)(nil),  // 10: velocity.recording.v1.RecordingManifest
+	(*CommitPolicy)(nil),       // 11: velocity.recording.v1.CommitPolicy
+	(*CaptureIdentity)(nil),    // 12: velocity.recording.v1.CaptureIdentity
+	(*ExtractionIdentity)(nil), // 13: velocity.recording.v1.ExtractionIdentity
+	(*CaptureFile)(nil),        // 14: velocity.recording.v1.CaptureFile
+	(*SourceWindow)(nil),       // 15: velocity.recording.v1.SourceWindow
+	(*Calibration)(nil),        // 16: velocity.recording.v1.Calibration
+	(*Limits)(nil),             // 17: velocity.recording.v1.Limits
+	(*Provenance)(nil),         // 18: velocity.recording.v1.Provenance
+	(*MetadataObject)(nil),     // 19: velocity.recording.v1.MetadataObject
+	(*FrameRecord)(nil),        // 20: velocity.recording.v1.FrameRecord
+	(*StageCount)(nil),         // 21: velocity.recording.v1.StageCount
+	(*RetainedPoints)(nil),     // 22: velocity.recording.v1.RetainedPoints
+	(*Membership)(nil),         // 23: velocity.recording.v1.Membership
+	(*Cluster)(nil),            // 24: velocity.recording.v1.Cluster
+	(*ClusterSummary)(nil),     // 25: velocity.recording.v1.ClusterSummary
+	(*OrientedBox)(nil),        // 26: velocity.recording.v1.OrientedBox
+	(*GapRecord)(nil),          // 27: velocity.recording.v1.GapRecord
+	(*SequenceRange)(nil),      // 28: velocity.recording.v1.SequenceRange
+	(*ChunkHeader)(nil),        // 29: velocity.recording.v1.ChunkHeader
+	(*ChunkSeal)(nil),          // 30: velocity.recording.v1.ChunkSeal
+	(*ChunkIndex)(nil),         // 31: velocity.recording.v1.ChunkIndex
+	(*CaptureSummary)(nil),     // 32: velocity.recording.v1.CaptureSummary
+	(*CommitGeneration)(nil),   // 33: velocity.recording.v1.CommitGeneration
+	(*CommittedChunk)(nil),     // 34: velocity.recording.v1.CommittedChunk
+	(*CommittedObject)(nil),    // 35: velocity.recording.v1.CommittedObject
+	(*CaptureFailure)(nil),     // 36: velocity.recording.v1.CaptureFailure
+	(*RecoveryRecord)(nil),     // 37: velocity.recording.v1.RecoveryRecord
+	(*CurrentGeneration)(nil),  // 38: velocity.recording.v1.CurrentGeneration
 }
 var file_recording_proto_depIdxs = []int32{
 	0,  // 0: velocity.recording.v1.RecordingManifest.schema_version:type_name -> velocity.recording.v1.SchemaVersion
 	1,  // 1: velocity.recording.v1.RecordingManifest.stream_kind:type_name -> velocity.recording.v1.StreamKind
-	9,  // 2: velocity.recording.v1.RecordingManifest.capture:type_name -> velocity.recording.v1.CaptureIdentity
-	10, // 3: velocity.recording.v1.RecordingManifest.extraction:type_name -> velocity.recording.v1.ExtractionIdentity
-	13, // 4: velocity.recording.v1.RecordingManifest.calibration:type_name -> velocity.recording.v1.Calibration
-	14, // 5: velocity.recording.v1.RecordingManifest.limits:type_name -> velocity.recording.v1.Limits
-	15, // 6: velocity.recording.v1.RecordingManifest.provenance:type_name -> velocity.recording.v1.Provenance
-	16, // 7: velocity.recording.v1.RecordingManifest.metadata:type_name -> velocity.recording.v1.MetadataObject
-	11, // 8: velocity.recording.v1.ExtractionIdentity.capture_files:type_name -> velocity.recording.v1.CaptureFile
-	12, // 9: velocity.recording.v1.ExtractionIdentity.window:type_name -> velocity.recording.v1.SourceWindow
-	2,  // 10: velocity.recording.v1.FrameRecord.completeness:type_name -> velocity.recording.v1.Completeness
-	3,  // 11: velocity.recording.v1.FrameRecord.background:type_name -> velocity.recording.v1.BackgroundState
-	4,  // 12: velocity.recording.v1.FrameRecord.disposition:type_name -> velocity.recording.v1.Disposition
-	18, // 13: velocity.recording.v1.FrameRecord.stages:type_name -> velocity.recording.v1.StageCount
-	19, // 14: velocity.recording.v1.FrameRecord.points:type_name -> velocity.recording.v1.RetainedPoints
-	20, // 15: velocity.recording.v1.FrameRecord.membership:type_name -> velocity.recording.v1.Membership
-	21, // 16: velocity.recording.v1.Membership.clusters:type_name -> velocity.recording.v1.Cluster
-	22, // 17: velocity.recording.v1.Cluster.summary:type_name -> velocity.recording.v1.ClusterSummary
-	23, // 18: velocity.recording.v1.ClusterSummary.obb:type_name -> velocity.recording.v1.OrientedBox
-	25, // 19: velocity.recording.v1.GapRecord.sequence_range:type_name -> velocity.recording.v1.SequenceRange
-	7,  // 20: velocity.recording.v1.GapRecord.time:type_name -> velocity.recording.v1.GapTime
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	12, // 2: velocity.recording.v1.RecordingManifest.capture:type_name -> velocity.recording.v1.CaptureIdentity
+	13, // 3: velocity.recording.v1.RecordingManifest.extraction:type_name -> velocity.recording.v1.ExtractionIdentity
+	16, // 4: velocity.recording.v1.RecordingManifest.calibration:type_name -> velocity.recording.v1.Calibration
+	17, // 5: velocity.recording.v1.RecordingManifest.limits:type_name -> velocity.recording.v1.Limits
+	18, // 6: velocity.recording.v1.RecordingManifest.provenance:type_name -> velocity.recording.v1.Provenance
+	19, // 7: velocity.recording.v1.RecordingManifest.metadata:type_name -> velocity.recording.v1.MetadataObject
+	11, // 8: velocity.recording.v1.RecordingManifest.commit_policy:type_name -> velocity.recording.v1.CommitPolicy
+	14, // 9: velocity.recording.v1.ExtractionIdentity.capture_files:type_name -> velocity.recording.v1.CaptureFile
+	15, // 10: velocity.recording.v1.ExtractionIdentity.window:type_name -> velocity.recording.v1.SourceWindow
+	2,  // 11: velocity.recording.v1.FrameRecord.completeness:type_name -> velocity.recording.v1.Completeness
+	3,  // 12: velocity.recording.v1.FrameRecord.background:type_name -> velocity.recording.v1.BackgroundState
+	4,  // 13: velocity.recording.v1.FrameRecord.disposition:type_name -> velocity.recording.v1.Disposition
+	21, // 14: velocity.recording.v1.FrameRecord.stages:type_name -> velocity.recording.v1.StageCount
+	22, // 15: velocity.recording.v1.FrameRecord.points:type_name -> velocity.recording.v1.RetainedPoints
+	23, // 16: velocity.recording.v1.FrameRecord.membership:type_name -> velocity.recording.v1.Membership
+	24, // 17: velocity.recording.v1.Membership.clusters:type_name -> velocity.recording.v1.Cluster
+	25, // 18: velocity.recording.v1.Cluster.summary:type_name -> velocity.recording.v1.ClusterSummary
+	26, // 19: velocity.recording.v1.ClusterSummary.obb:type_name -> velocity.recording.v1.OrientedBox
+	28, // 20: velocity.recording.v1.GapRecord.sequence_range:type_name -> velocity.recording.v1.SequenceRange
+	7,  // 21: velocity.recording.v1.GapRecord.time:type_name -> velocity.recording.v1.GapTime
+	8,  // 22: velocity.recording.v1.CommitGeneration.kind:type_name -> velocity.recording.v1.GenerationKind
+	9,  // 23: velocity.recording.v1.CommitGeneration.trigger:type_name -> velocity.recording.v1.CommitTrigger
+	34, // 24: velocity.recording.v1.CommitGeneration.chunks:type_name -> velocity.recording.v1.CommittedChunk
+	35, // 25: velocity.recording.v1.CommitGeneration.objects:type_name -> velocity.recording.v1.CommittedObject
+	36, // 26: velocity.recording.v1.CommitGeneration.failure:type_name -> velocity.recording.v1.CaptureFailure
+	37, // 27: velocity.recording.v1.CommitGeneration.recovery:type_name -> velocity.recording.v1.RecoveryRecord
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_recording_proto_init() }
@@ -2898,17 +3999,17 @@ func file_recording_proto_init() {
 	if File_recording_proto != nil {
 		return
 	}
-	file_recording_proto_msgTypes[9].OneofWrappers = []any{}
 	file_recording_proto_msgTypes[10].OneofWrappers = []any{}
-	file_recording_proto_msgTypes[16].OneofWrappers = []any{}
-	file_recording_proto_msgTypes[19].OneofWrappers = []any{}
+	file_recording_proto_msgTypes[11].OneofWrappers = []any{}
+	file_recording_proto_msgTypes[17].OneofWrappers = []any{}
+	file_recording_proto_msgTypes[20].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_recording_proto_rawDesc), len(file_recording_proto_rawDesc)),
-			NumEnums:      8,
-			NumMessages:   22,
+			NumEnums:      10,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
