@@ -159,6 +159,53 @@ render immediately. Source changes publish an empty background first, including
 the return to live, so a reconnect cannot combine a recording's cached scene
 with foreground from the new source.
 
+## Stream delivery
+
+A truthful state model is only useful if the client receives it. Three rules
+govern the gRPC stream between the publisher and the visualiser.
+
+**A stream describes its own failure.** A send that blocks past its bound is
+reported rather than severing the stream, and the warning names the frame: id,
+type, point count and serialised size. Drop accounting keeps publish-stage and
+client-stage loss separate, so neither hides the other, and a source change is
+not counted as dropped frames. Individual drops are summarised rather than
+logged one by one.
+
+**A client's first frame is sufficient to render.** The publisher caches the
+latest background and hands it to each client as it registers; every
+subscription, including the gRPC handler's, goes through the same registration
+path. A fresh background is also sent as soon as settling completes, rather than
+waiting for the next refresh interval. Only backgrounds are cached: caching a
+foreground frame would replay one arbitrary moment to every later client.
+
+**An empty scene says why it is empty.** Settling state travels on
+`/api/lidar/data_source` and proto `PlaybackInfo` beside the source mode, and
+outranks it on the badge (see [Visualiser status](#visualiser-status)).
+
+On the client side, returning to live restarts the gRPC stream, in the same way
+that loading a replay does. A stream that ends clears the connection state, not
+only the replay-finished flag, so a server restart is never shown as connected.
+Views whose availability changes use `.inert` rather than `.disabled()`, because
+toggling AppKit's enabled state re-entered SwiftUI's view graph and caused
+AttributeGraph cycles. A test fails on any view that disables on changing state.
+
+### Transport window
+
+Stalls of 37–105 s were client-side: a second client with an unrelated HTTP/2
+stack (`make debug-grpc-probe`) streamed from the same server without stalling.
+The visualiser now sets its HTTP/2 target window explicitly to 16 MB in
+[`VisualiserClient.swift`](../../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift)
+rather than using grpc-swift's default. The builds without it stalled 7–30 times
+per run. The build with it stalled zero times. An hour-long soak
+(`make debug-grpc-soak`, four streams on separate connections) delivered about
+36,000 frames per stream at a steady 10 fps, with four gaps over a second and
+none over 2.2 s.
+
+This is validated on **macOS loopback only**. A real round trip, a Linux server
+and a Raspberry Pi are not yet exercised. That work, attribution of the residual
+gaps, and consolidation of the four frame-drop paths are tracked in
+[BACKLOG.md](../../BACKLOG.md). `ADDR` lets the soak target another host.
+
 ## Concurrency
 
 | Lock           | Guards                                                                          |
