@@ -426,8 +426,9 @@ func (t *Tracker) classCoastExpired(track *TrackedObject, support ObservationSup
 // frame interval. Under CaptureTimeInflation the track's class rate is
 // charged for the capture time this frame added to its coast age, so the
 // same unobserved second costs the same whether one frame reached the tracker
-// in it or ten. Both are capped at MaxCovarianceDiag.
-func (t *Tracker) inflateCoastCovariance(track *TrackedObject) {
+// in it or ten. Both are capped at MaxCovarianceDiag. It returns the variance
+// it added before the cap, so a shadow estimator can be charged the same.
+func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	var add float32
 	if t.Config.OcclusionContinuity.CaptureTimeInflation {
 		elapsed := track.CoastAgeSecs - track.inflatedCoastSecs
@@ -450,6 +451,7 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) {
 			track.P[1*4+1] = t.Config.MaxCovarianceDiag
 		}
 	}
+	return add
 }
 
 // Absence-explanation geometry. Heuristics, stated as such.

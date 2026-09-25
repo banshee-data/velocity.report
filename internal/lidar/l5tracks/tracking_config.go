@@ -225,6 +225,12 @@ type TrackerConfig struct {
 	// on with starting values. See continuity.go.
 	OcclusionContinuity OcclusionContinuityConfig
 
+	// SolidBody populates a solid-body estimate per track from the near-edge
+	// measurement model, as a shadow of the tracked filter that never feeds
+	// back into association or the tracked state. Default off; see
+	// solid_body_nearedge.go.
+	SolidBody SolidBodyOptions
+
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
 	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)
