@@ -726,6 +726,8 @@ type commitJob struct {
 	firstAge time.Duration
 	// releaseReserve frees the failure reserve before anything is written.
 	releaseReserve bool
+	// err, when set, fails the job before anything is published.
+	err error
 }
 
 // commitLoop is the committer goroutine: it takes due batches and publishes
@@ -842,9 +844,10 @@ func (w *Writer) closeJobLocked(job *commitJob) {
 		CommitP99Nanos: int64(publish.P99), CommitMaxNanos: int64(publish.Max),
 	})
 	if err != nil {
-		// A deterministic marshal of fixed-size fields cannot fail; if it
-		// did, the close generation would be refused by publish below.
-		payload = nil
+		// Not expected for fixed-size fields; if it happens, publish fails
+		// the job and the capture, rather than committing an empty summary.
+		job.err = fmt.Errorf("encode closing summary: %w", err)
+		return
 	}
 	job.summary = appendRecord(appendPreamble(nil, objectSummary), envelope{kind: RecordSummary, tag: w.tag}, payload)
 	sum := sha256.Sum256(job.summary)
@@ -871,6 +874,9 @@ func (w *Writer) publish(job *commitJob) publishResult {
 	n := job.prev.next()
 	var res publishResult
 	fail := func(err error) publishResult { res.err = err; return res }
+	if job.err != nil {
+		return fail(job.err)
+	}
 	if job.releaseReserve {
 		// Freeing the reserve is what lets a full disk take the marker.
 		_ = os.Remove(filepath.Join(w.dir, reserveName))
