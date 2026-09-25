@@ -5,9 +5,9 @@ package l8behaviour
 // order the pair, a tangent to project each body's extent, and a lateral
 // offset to tell a same-path leader from a lane-adjacent distractor.
 //
-// Building that path from final trajectories is the next increment. This file
-// fixes the interface it must satisfy, and provides the one path that needs no
-// construction: a straight line, which is what the analytic fixtures use.
+// This file fixes the interface a path must satisfy, and provides the one path
+// that needs no construction: a straight line, which is what the analytic
+// fixtures use. A path fitted from trajectories satisfies the same interface.
 
 import (
 	"fmt"
@@ -31,8 +31,15 @@ type PathLocation struct {
 // supported extent; a caller suppresses with no_common_path rather than
 // extrapolating. GeometryID names the path version for provenance, so a result
 // can be regenerated against the geometry that produced it.
+//
+// Stage is the least final estimate stage the geometry was built from. An
+// empirical path is fitted from estimates, so a gap measured along one built
+// from fixed-lag trajectories is no more final than they are, however final
+// the pair itself; EvaluateFollowing folds it into the pair's stage. Analytic
+// geometry is not an estimate and is final.
 type PathFrame interface {
 	GeometryID() string
+	Stage() EstimateStage
 	Locate(x, y float64) (PathLocation, bool)
 }
 
@@ -59,6 +66,9 @@ func (p StraightPath) Validate() error {
 
 // GeometryID names the path for provenance.
 func (p StraightPath) GeometryID() string { return p.ID }
+
+// Stage is final: a straight path is stated, not estimated.
+func (p StraightPath) Stage() EstimateStage { return StageFinal }
 
 // Locate projects a point onto the line. Points whose projection falls before
 // the origin or beyond the end are off the path.

@@ -493,9 +493,85 @@ type brokenPath struct {
 	tangent float64
 }
 
-func (p brokenPath) GeometryID() string { return "broken" }
+func (p brokenPath) GeometryID() string   { return "broken" }
+func (p brokenPath) Stage() EstimateStage { return StageFinal }
 func (p brokenPath) Locate(x, _ float64) (PathLocation, bool) {
 	return PathLocation{ArcM: p.arc(x), TangentRad: p.tangent}, true
+}
+
+// stagedPath is the straight fixture path, but estimated at a chosen stage.
+type stagedPath struct {
+	StraightPath
+	stage EstimateStage
+}
+
+func (p stagedPath) Stage() EstimateStage { return p.stage }
+
+// TestEvaluateFollowingPathStage: a gap measured along a path fitted from
+// non-final estimates is no more final than they are, even when the pair
+// itself is final. It stays supported opportunity for review, as a non-final
+// pair does, and an unset path stage is a caller error.
+func TestEvaluateFollowingPathStage(t *testing.T) {
+	path, leader, follower := alignedParties(t)
+	pt := mustEvaluate(t, stagedPath{path, StageFixedLag}, leader, follower)
+	if !reflect.DeepEqual(pt.Reasons, []SuppressionReason{ReasonEstimateNotFinal}) ||
+		pt.SpatialGap.Reason != ReasonEstimateNotFinal || pt.NetTimeGap.Reason != ReasonEstimateNotFinal {
+		t.Fatalf("fixed-lag path: reasons %v gap %s thw %s", pt.Reasons, pt.SpatialGap.Reason, pt.NetTimeGap.Reason)
+	}
+	if !pt.SupportedOpportunity || pt.SpatialGap.Provenance.Version.EstimateStage != StageFixedLag {
+		t.Fatalf("fixed-lag path: opportunity %v stage %s", pt.SupportedOpportunity, pt.SpatialGap.Provenance.Version.EstimateStage)
+	}
+	if pt := mustEvaluate(t, stagedPath{path, StageFinal}, leader, follower); len(pt.Reasons) != 0 {
+		t.Fatalf("final path: reasons %v", pt.Reasons)
+	}
+	if _, err := EvaluateFollowing(stagedPath{path, StageUnspecified}, leader, follower, FixtureParams()); err == nil ||
+		!strings.Contains(err.Error(), "stage") {
+		t.Fatalf("unset path stage: err %v", err)
+	}
+	if _, err := EvaluateFollowing(nil, leader, follower, FixtureParams()); err == nil {
+		t.Fatal("nil path: want an error")
+	}
+}
+
+// TestEvaluateFollowingRetainsTimeGapArithmetic: the time-gap arithmetic is
+// kept beside the measurement, so a provisional pair still has a value to
+// review, while a gap that carries its own reason yields none.
+func TestEvaluateFollowingRetainsTimeGapArithmetic(t *testing.T) {
+	path, leader, follower := alignedParties(t)
+	pt := mustEvaluate(t, path, leader, follower)
+	if pt.TimeGap == nil || pt.TimeGap.ValueS == nil || *pt.TimeGap.ValueS != *pt.NetTimeGap.Value ||
+		*pt.TimeGap.SigmaS != *pt.NetTimeGap.Uncertainty.Sigma {
+		t.Fatalf("supported: time gap %+v, measurement %+v", pt.TimeGap, pt.NetTimeGap)
+	}
+
+	provisional := follower
+	provisional.Sample.Stage = StageFixedLag
+	pt = mustEvaluate(t, path, leader, provisional)
+	if !pt.NetTimeGap.Suppressed || pt.TimeGap == nil || pt.TimeGap.ValueS == nil || *pt.TimeGap.ValueS != 1.15 {
+		t.Fatalf("provisional: measurement %+v, time gap %+v", pt.NetTimeGap, pt.TimeGap)
+	}
+
+	crawling := follower
+	crawling.Sample.VX = 0.25
+	pt = mustEvaluate(t, path, leader, crawling)
+	if pt.TimeGap == nil || pt.TimeGap.ValueS != nil || pt.TimeGap.Reason != ReasonBelowSpeedFloor {
+		t.Fatalf("below the floor: time gap %+v", pt.TimeGap)
+	}
+
+	coasted := follower
+	coasted.Sample.Support, coasted.Sample.Faces = SupportCoasted, FaceVisibility{}
+	coasted.Sample.LastObservedUnixNanos -= FixtureFramePeriodNanos
+	pt = mustEvaluate(t, path, leader, coasted)
+	if pt.TimeGap == nil || pt.TimeGap.ValueS != nil || pt.TimeGap.Reason != ReasonNotObserved {
+		t.Fatalf("coasted: time gap %+v", pt.TimeGap)
+	}
+
+	noBody := follower
+	noBody.Sample.Estimation, noBody.Sample.Faces = EstimationGeometryConverging, FaceVisibility{}
+	noBody.Sample.Heading.AmbiguousModeWeight = 0.5
+	if pt = mustEvaluate(t, path, leader, noBody); pt.Gap != nil || pt.TimeGap != nil {
+		t.Fatalf("no body: gap %+v time gap %+v", pt.Gap, pt.TimeGap)
+	}
 }
 
 // TestEvaluateFollowingRejectsABrokenPath: a defective path implementation
