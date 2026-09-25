@@ -202,6 +202,10 @@ type Result struct {
 	// Config.ObservationLogDir, or nil when none was requested.
 	ObservationLog      *vrlog.Summary
 	EvidencePersistence *observationsqlite.FrameEvidenceStats
+	// Refinement is the fixed_lag_rts experiment's comparison of the online
+	// estimate with each refinement horizon, also written to
+	// refinement_report.json. Nil without the experiment.
+	Refinement *RefinementReport
 	// GroundSurfaceFit is the P11 ground-plane fit reached during this
 	// replay, when Config.UseSurfaceGround was set and the background
 	// settled in time to fit one. Nil otherwise.
@@ -652,6 +656,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	var frameEvidenceSink *strictFrameEvidenceSink
 	var frameEvidenceStore *observationsqlite.FrameEvidenceStore
+	var evidenceDB observationsqlite.DBClient
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	// Both evidence outputs bind the same explicit identities; neither may
@@ -686,6 +691,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, fmt.Errorf("open observation database: %w", err)
 		}
 		defer database.Close()
+		evidenceDB = database
 		// The offline database owns one transaction per completed frame. It
 		// persists both pre-association L4 evidence and the L5 records derived
 		// from it; a failed frame therefore cannot leave a partial corpus.
@@ -787,6 +793,25 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.UseSurfaceGround {
 		pipeCfg.GroundSurfaceFit = &groundSurfaceFit
 	}
+	// The refinement harness observes the tracker's filter record; it is
+	// attached before the first frame so every chain is seen whole.
+	var refinement *refinementHarness
+	if hasExperiment(experiments, ExperimentFixedLagRTS) {
+		var identity *pipeline.RefinedEstimateIdentity
+		if frameEvidenceSink != nil {
+			identity = &pipeline.RefinedEstimateIdentity{
+				SourceID: observationSourceID, CalibrationID: observationCalibrationID,
+				OnlineEstimatorID: pipeCfg.StateEstimatorID, ObservationModelID: stateObservationModelID,
+				OnlineParamHash: paramsHash,
+			}
+		}
+		refinement, err = newRefinementHarness(float64(tracker.Config.MeasurementNoise), scoreStart, paramsHash,
+			stateObservationModelID, identity, evidenceDB)
+		if err != nil {
+			return nil, fmt.Errorf("apply %s: %w", ExperimentFixedLagRTS, err)
+		}
+		tracker.SetFilterStepObserver(refinement)
+	}
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
 		collector.SetEnabled(true)
@@ -815,6 +840,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			}
 		}
 		pipelineCallback(frame)
+		refinement.flush()
 		if cfg.ProgressEvery > 0 && frameCount%cfg.ProgressEvery == 0 {
 			log.Printf("frame=%d recorded=%d", frameCount, pub.recorded)
 		}
@@ -852,6 +878,15 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	// Drain before closing the recorder, or the tail of the capture is lost.
 	fb.Close()
+
+	var refinementReport *RefinementReport
+	if refinement != nil {
+		var refinementErr error
+		refinementReport, refinementErr = refinement.finish(observationSourceID)
+		if refinementErr != nil && replayErr == nil {
+			replayErr = refinementErr
+		}
+	}
 
 	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
@@ -943,6 +978,16 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, fmt.Errorf("write replay manifest: %w", err)
 	}
 
+	if refinementReport != nil {
+		reportJSON, err := runtime.marshalIndent(refinementReport, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshal refinement report: %w", err)
+		}
+		if err := runtime.writeFile(filepath.Join(cfg.OutDir, "refinement_report.json"), append(reportJSON, '\n'), 0644); err != nil {
+			return nil, fmt.Errorf("write refinement report: %w", err)
+		}
+	}
+
 	// Phase 0 scoring-window aggregates include empty frames and ended tracks.
 	// Debug VRLOGs also carry individual innovations, but not these banded NIS
 	// and association summaries. Keep the population declaration beside the run.
@@ -971,6 +1016,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			stats := frameEvidenceStore.Stats()
 			return &stats
 		}(),
+		Refinement:       refinementReport,
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
 		Continuity:       continuity,

@@ -94,9 +94,12 @@ An arm is one of two sources, and both arms of a comparison must be the same kin
 Any estimate field left unset must be unambiguous in the database; if several versions match, the
 command lists them and stops. Acceptance scores `final` estimates. Anything else, including every
 analysis run (its positions are what the tracker believed at the time), is scored only with
-`-a-declared-baseline` or `-b-declared-baseline`, and the output says so. **No `final` estimates
-exist yet**: the pipeline writes `online` only, so every comparison run today is between declared
-baselines. A source whose creation sequence restarts (a tracker reset mid-source) is refused.
+`-a-declared-baseline` or `-b-declared-baseline`, and the output says so. The live pipeline writes
+`online` only. A replay with `-experiment fixed_lag_rts` also writes fixed-assignment `fixed_lag`
+arms and a whole-track `final` arm, each under its own estimator ID and parameter hash; none is
+promoted, so they too are compared as declared baselines
+([retrospective-refinement criteria](retrospective-refinement-criteria.md)). A source whose creation
+sequence restarts (a tracker reset mid-source) is refused.
 
 ## Matching
 
@@ -230,8 +233,8 @@ candidate twin.
 - **The held-out acceptance run itself.** It needs reviewed held-out episodes (kirk0 has four
   reviewed objects and 292 reviewed masks; the three corpus sites have no pack) and a frozen split
   manifest for each pack.
-- **Final estimates.** Until the retrospective estimator writes `stage = final`, every run is a
-  declared baseline and says so.
+- **A promoted final stage.** Offline fixed-assignment `final` estimates exist, but no horizon has
+  passed G-SMO-1, so every run is still a declared baseline and says so.
 - **Coordinate frames.** The harness does not check that the pack and the estimates share a frame.
   kirk0's do (sensor origin, no site transform). For a site with a pose transform, check that the
   baseline arm's MOTP is well under a metre before reading anything else.

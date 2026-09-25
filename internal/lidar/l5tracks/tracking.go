@@ -263,6 +263,10 @@ type Tracker struct {
 
 	// DebugCollector captures algorithm internals for visualisation (optional)
 	DebugCollector DebugCollector
+	// filterSteps records each frame's prior and posterior for an attached
+	// offline observer (a smoother). Nil, the default, records nothing. See
+	// filter_steps.go.
+	filterSteps *filterStepRecorder
 	// Window baselines outlive individual tracks and exclude warm-up when reset
 	// at the scoring boundary. Per-track lifetime metrics remain unchanged.
 	baselineEnabled     bool
@@ -327,6 +331,7 @@ func (t *Tracker) Reset() {
 	t.baselineEnabled = false
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
+	t.filterSteps.endAll(ChainEndReset)
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -539,6 +544,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	}
 
 	// Step 6: Cleanup deleted tracks (keep for grace period, then remove)
+	t.filterSteps.endFrame(t.Tracks, nowNanos)
 	t.cleanupDeletedTracks(nowNanos)
 
 	if traceLogger != nil {

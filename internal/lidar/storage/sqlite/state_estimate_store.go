@@ -136,6 +136,11 @@ func validateStateEstimate(estimate TrackEstimate, residual TrackResidual) error
 // Ordering is by CreationSequence rather than TrackID: the latter is a random
 // UUID, deliberately, so it is not reproducible across two replays of the same
 // input, whereas the creation sequence is.
+//
+// Only online estimates are returned. That is every row this reader was
+// written against; a replay that also persists fixed_lag or final stages must
+// not hand its consumers several estimates per frame under one source. Read
+// those with ListRevisedEstimates, which names the version.
 func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, error) {
 	rows, err := s.db.Query(`
 		SELECT estimate_id, track_id, observation_id, source_id, calibration_id
@@ -143,8 +148,8 @@ func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, err
 		     , observation_model_id, param_hash, stage, measurement_source
 		     , creation_sequence, x, y, vx, vy, covariance_json
 		  FROM lidar_track_estimates
-		 WHERE source_id = ?
-		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID)
+		 WHERE source_id = ? AND stage = ?
+		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID, EstimateStageOnline)
 	if err != nil {
 		return nil, fmt.Errorf("list track estimates for source %s: %w", sourceID, err)
 	}

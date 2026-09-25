@@ -178,9 +178,11 @@ func (b *oracleBuilder) readEstimates(db *sql.DB) error {
 	// track's random UUID (l5tracks assigns it that way deliberately, to stay
 	// collision-free across tracker resets and restarts), so ordering by it
 	// would make accumulation order itself non-reproducible between two
-	// replays of the same input.
+	// replays of the same input. One observation carries one online estimate
+	// but may also carry refined ones (fixed_lag, final), so the version key
+	// breaks the tie; with online rows alone the order is unchanged.
 	rows, err := db.Query(`SELECT estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json
-		FROM lidar_track_estimates ORDER BY source_id, frame_unix_nanos, observation_id`)
+		FROM lidar_track_estimates ORDER BY source_id, frame_unix_nanos, observation_id, estimator_id, observation_model_id, param_hash, stage`)
 	if err != nil {
 		return fmt.Errorf("query estimates: %w", err)
 	}
@@ -212,9 +214,12 @@ func (b *oracleBuilder) readEstimates(db *sql.DB) error {
 
 func (b *oracleBuilder) readResiduals(db *sql.DB) error {
 	// Ordered by observation_id for the same reason as readEstimates:
-	// estimate_id embeds the estimate's random track UUID.
-	rows, err := db.Query(`SELECT estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y, nis, geometry_cov_xx, geometry_cov_xy, geometry_cov_yy, disposition, reason
-		FROM lidar_track_residuals ORDER BY observation_id`)
+	// estimate_id embeds the estimate's random track UUID. The joined version
+	// key breaks ties between an observation's online and refined residuals;
+	// the LEFT JOIN keeps an orphaned residual so the check below reports it.
+	rows, err := db.Query(`SELECT r.estimate_id, r.observation_id, r.predicted_x, r.predicted_y, r.measurement_x, r.measurement_y, r.innovation_x, r.innovation_y, r.nis, r.geometry_cov_xx, r.geometry_cov_xy, r.geometry_cov_yy, r.disposition, r.reason
+		FROM lidar_track_residuals r LEFT JOIN lidar_track_estimates e ON e.estimate_id = r.estimate_id
+		ORDER BY r.observation_id, e.estimator_id, e.observation_model_id, e.param_hash, e.stage`)
 	if err != nil {
 		return fmt.Errorf("query residuals: %w", err)
 	}

@@ -59,6 +59,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	if dt > t.Config.MaxPredictDt {
 		dt = t.Config.MaxPredictDt
 	}
+	t.filterSteps.notePredict(track, dt)
 
 	// State transition matrix F for constant velocity model:
 	// F = [1  0  dt  0 ]
