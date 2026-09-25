@@ -45,7 +45,7 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 
 Chart rendering is converging on a single SVG-first pipeline:
 
-- **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
+- **Web:** LayerChart/d3-scale components producing inline SVG in Svelte; report-view charts and the scene route's headway distribution are Go-served SVG from `/api/charts/*`, embedded through `InlineSvgChart` (D-11, D-17)
 - **Public scenes:** dependency-free SVG charts fed by static scene summaries
 - **PDF (current):** Go native SVG generation (`internal/report/chart/`) → Typst templates (`internal/report/typst/`) → PDF via `typst`
 - **PDF (removed):** Python matplotlib report pipeline, superseded by Go + Typst pipeline; directory deleted from repository
@@ -136,22 +136,27 @@ above 5 mph. It must not derive percentiles from timeline buckets or repeated
 frames from the same track. Percentiles use the radar report's empirical
 nearest-rank method: sort the population and select `ceil(p * n) - 1`.
 
-### 4.4 Following-evidence charts
+### 4.4 Following-evidence and headway distribution charts
 
-The headway report's charts ([following.go](../../internal/report/chart/following.go)) show one
-encounter's gap evidence or a time-weighted net-time-gap distribution, not a speed population. Any
-surface that draws them, including the scenes dashboard when it renders the distribution, keeps
-these rules:
+Two chart families show following evidence rather than a speed population. The headway report's
+charts ([following.go](../../internal/report/chart/following.go)) show one encounter's gap
+evidence or a time-weighted net-time-gap distribution. The scene route's headway distribution
+([headway.go](../../internal/report/chart/headway.go), served at
+`/api/charts/histogram?kind=headway&scene=<id>`) shows a scene's observed following time. Any
+surface that draws either keeps these rules:
 
-| Rule                  | Requirement                                                                                                                                                |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status                | The report status (`SYNTHETIC ORACLE`, `PROVISIONAL`) is drawn on every chart, so a chart lifted out of its report still says what it is                   |
-| Names                 | Metric ids, suppression reasons and visibility tokens are drawn verbatim from the registries; a chart invents no metric name                               |
-| Unsupported intervals | Shaded and labelled with their reason. An observed line breaks across them and is never bridged, which departs from §4.1's continuous-line rule on purpose |
-| Predicted gap         | `review_only`: dashed, grey, hollow markers, one-sigma whiskers and its coast age; never joined to the observed line                                       |
-| Bands                 | Neutral dashed rules labelled with the threshold only. No percentile or alarm colour: the bands are descriptive bins with `no_established_threshold`       |
-| Suppressed share      | Accounted time outside a distribution is drawn as its own column per reason, on the same share axis. It is never dropped and never shown as a zero bar     |
-| Palette               | `ColourFollowing*` in [palette.go](../../internal/report/chart/palette.go); separate from the §3.3 percentile palette                                      |
+| Rule                  | Requirement                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status                | The status label is drawn on every chart, message charts included, so a chart lifted out of its report or page says what it is. The report draws `SYNTHETIC ORACLE` or `PROVISIONAL`; the scene chart draws `PROVISIONAL` or `PROVISIONAL · SYNTHETIC ORACLE`   |
+| Names                 | Metric ids, suppression reasons, visibility tokens and the band benchmark kind are drawn verbatim from the registries; a chart invents no metric name                                                                                                           |
+| Unsupported intervals | Shaded and labelled with their reason. An observed line breaks across them and is never bridged, which departs from §4.1's continuous-line rule on purpose                                                                                                      |
+| Predicted gap         | `review_only`: dashed, grey, hollow markers, one-sigma whiskers and its coast age; never joined to the observed line                                                                                                                                            |
+| Share axis            | A distribution's bars are shares of all accounted time, valid plus suppressed, so the bins add up to the valid share rather than to 100 %                                                                                                                       |
+| Suppressed share      | Accounted time outside a distribution is its own column per reason on the same share axis, its predicted-only part lighter and dashed. It is never dropped and never shown as a zero bar                                                                        |
+| Uncertainty           | A scene distribution bin's whisker runs from the time wholly inside it at one sigma to the time that reaches it                                                                                                                                                 |
+| Bands                 | Neutral dashed rules labelled with the threshold only. No percentile or alarm colour: the bands are descriptive bins with `no_established_threshold`                                                                                                            |
+| Palette               | `ColourFollowing*` in [palette.go](../../internal/report/chart/palette.go) for the report; neutral greys and the existing histogram blue for the scene chart, whose status box uses the §3.2 warning amber. Both stay separate from the §3.3 percentile palette |
+| Empty states          | A selection with nothing to draw is a labelled message chart that says why                                                                                                                                                                                      |
 
 ## 5. Web UI style system
 

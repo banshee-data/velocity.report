@@ -286,7 +286,8 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 - [x] Mirror them in `internal/lidar/l8behaviour/metrics.go`, where a measurement may only use a registered name and unit, and a test fails when the registry and the code disagree.
 - [x] Register the encounter statistics (`interaction.following_{spatial_gap,net_time_gap}_{min,p50}_*`), adding the `raw_min` estimator and the `min` term, and emit them with interval uncertainty from the encounter method.
 - [x] Carry the same ids and suppression reasons through persistence: the following-interaction tables key every stored value by metric id and every suppression by reason token, and `AuditSurfaceJSON` in `internal/lidar/l8behaviour/surface.go` fails a test when a stored name is not registered (see [surfaces](../platform/architecture/metrics-registry.md#following-metric-surfaces)).
-- [ ] Carry them through API and report output, auditing each served payload with the same check.
+- [x] Carry them through the scene API: `GET /api/scenes/<id>/headway` and its SVG chart serve the distribution and encounter rows keyed by metric id and reason token, and each served body is audited with the same check (see [surfaces](../platform/architecture/metrics-registry.md#following-metric-surfaces)).
+- [ ] Carry them through report output, auditing the report's data file with the same check.
 
 ### Phase 1 - speed naming reset
 

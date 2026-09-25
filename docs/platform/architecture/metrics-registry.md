@@ -128,9 +128,9 @@ Definitions that every surface must keep:
 
 ### Following metric surfaces
 
-The surface completeness check for the following family. Persistence is built
-([behaviour plan Section 10.3](../../plans/lidar-behaviour-analytics-plan.md#103-persistence)); the
-API and report are not, and must use the same names. Stored metric values are keyed by id inside
+The surface completeness check for the following family. Persistence and the scene API are built
+([behaviour plan Sections 10.3 and 10.4](../../plans/lidar-behaviour-analytics-plan.md#103-persistence));
+the report is not, and must use the same names. Stored metric values are keyed by id inside
 each row's JSON payload, and no column names a metric. `event_json`, `instant_json` and
 `window_json` are the payloads of `lidar_interaction_events`, `lidar_interaction_instants` and
 `lidar_exposure_windows`.
@@ -152,8 +152,27 @@ Every name a surface emits is checked by `AuditSurfaceJSON` in
 [internal/lidar/l8behaviour/surface.go](../../../internal/lidar/l8behaviour/surface.go): an object
 key must be a registered metric id, a suppression reason token or a structural name from one shared
 list, no key or value may be an alias, and a value claiming the `interaction.` level must be a
-registered id. The persisted payloads and table columns are audited in tests; the API and report
-PRs audit what they serve the same way.
+registered id. The persisted payloads, table columns and scene API responses are audited in tests;
+the report PR audits what it serves the same way.
+
+The scene API, `GET /api/scenes/<id>/headway`, serves one version group's distribution under
+`distribution` and one row per encounter under `encounters`
+([server_scenes_headway.go](../../../internal/api/server_scenes_headway.go)). The SVG at
+`/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution and writes metric ids,
+reason tokens and the band benchmark kind verbatim.
+
+| Metric ids                                                                    | API names                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interaction.following_net_time_gap_s`, `interaction.following_spatial_gap_m` | `distribution.histograms.<id>.bins[]`: `lower`, `upper` (absent on the open last bin), `instants`, `nanos` of valid time and the one-sigma reach, `sigma_inside_nanos` and `sigma_overlap_nanos`   |
+| `interaction.following_time_below_{2000,1500,1000}ms_s`                       | `distribution.bands[].name`, with `threshold`, `instants`, `nanos` and `events` over encounters whose band exposure is supported; `distribution.accounting.band_nanos.<id>` covers every encounter |
+| `interaction.following_rate_below_{2000,1500,1000}ms_ratio`                   | `distribution.bands[].rate.name`: time below over supported valid time, with `opportunity_seconds` and uncertainty `none`                                                                          |
+| Encounter statistics and `interaction.following_valid_time_s`                 | `encounters[].measurements.<id>` as stored, without the provenance each repeats, and `encounters[].provisional.<id>` below the final stage                                                         |
+| `interaction.following_predicted_gap_m`, `interaction.observed_surface_gap_m` | Not served                                                                                                                                                                                         |
+| Suppression reasons                                                           | `distribution.excluded.<token>` (`instants`, `nanos`, `predicted_only_nanos`), `distribution.accounting.suppressions.<token>`, and `reason` on every measurement                                   |
+
+The envelope adds `scene_id`, `status` (`provisional`, or `synthetic_oracle` for the analytic
+fixture estimator; never promoted), `availability`, the scene's capture window as
+`start_unix_nanos` and `end_unix_nanos`, `source_id` and `sources`, and `version` and `versions`.
 
 ## Consistency across pipeline strata
 

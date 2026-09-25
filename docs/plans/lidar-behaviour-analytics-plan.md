@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -1212,6 +1212,32 @@ uncertainty. That series is excluded from exposure and aggregate distributions. 
 remain descriptive bins, not a tailgating verdict or a universal safety standard. Prometheus
 export is not a delivery dependency; canonical registry names across storage, API and report are.
 
+**Status (sprint 0.5.2.4).** The scene distribution and its API are built over persisted
+encounters; the report's provisional slice and field promotion are not.
+
+- **Distribution.** `AggregateFollowing` in
+  [distribution.go](../../internal/lidar/l8behaviour/distribution.go) pools one version group's
+  stored encounters (`following_distribution_v1`). An encounter's values come from its production
+  block when final and its provisional block otherwise. Only encounters whose band exposure is
+  supported fill the time-weighted net time gap (0.25 s bins to 3 s) and spatial gap (2 m bins to
+  40 m) histograms. Every other accounted second stands beside them under its reason, with its
+  predicted-only part, so the bins and the excluded time add up to the accounted denominator.
+- **Uncertainty.** Each bin carries the time wholly inside it at one sigma and the time that
+  reaches it, from the stored per-instant sigma. Per-encounter minimum and median keep their stored
+  Monte Carlo intervals; no pooled minimum or median is derived, because the per-encounter draws do
+  not give its interval.
+- **Scene to source.** A scene stores its capture window, not the analysis source. The source id
+  digests the replay case, capture paths, capture digests and extractor, none of which a scene
+  keeps. The API therefore reads the sources whose following encounters overlap the scene's
+  window. It lists several, such as one capture extracted under two tunings, rather than merging
+  them. No schema change was needed.
+- **API and chart.** `GET /api/scenes/<id>/headway` serves the distribution and a summary row per
+  encounter; its default is the newest final-stage version, and it never falls back to a less
+  final stage. `/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution as SVG
+  for the scene page (D-11, D-17). Every served payload passes `AuditSurfaceJSON`, carries a
+  status that is `provisional` or `synthetic_oracle` and never promoted, and is tested free of
+  verdict words.
+
 ## 11. Evaluation datasets
 
 What each source can and cannot validate. Claiming validation from a dataset lacking the
@@ -1368,13 +1394,14 @@ closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
 
 Following encounters are persisted (Section 10.3), keyed by registry metric id, with
 predicted-only time stored apart from observed opportunity and every stored name checked against
-the registry. The report oracle is delivered (Section 10.4). Remaining: the API that serves
-persisted encounters; storing the directed path's geometry, which events reference by id only; a
-provisional run over persisted estimator output (sprint 0.5.2.4); calibration of every
-fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction first; a
-per-follower total of valid following time across leaders; and the held-out physical validation
-run itself, which needs independently annotated references, a scoring plan pinned before scoring,
-and the gates G-GEO-1, G-UNC-1 and G-SMO-1.
+the registry. The report oracle is delivered (Section 10.4), and a scene's encounters are pooled
+into a headway distribution and served, with an SVG chart on the scene page (Section 10.4).
+Remaining: storing the directed path's geometry, which events reference by id only; a provisional
+run over persisted estimator output (sprint 0.5.2.4); calibration of every fixture-valued bound,
+the speed floor, corridor, grouping bound and common-mode fraction first; a per-follower total of
+valid following time across leaders; and the held-out physical validation run itself, which needs
+independently annotated references, a scoring plan pinned before scoring, and the gates G-GEO-1,
+G-UNC-1 and G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.
