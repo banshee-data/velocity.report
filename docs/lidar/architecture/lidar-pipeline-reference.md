@@ -38,6 +38,12 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Ground Removal        | [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)                 | ✅ Complete |
 | OBB Estimation        | [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                       | ✅ Complete |
 | Debug Collector       | [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go)                         | ✅ Complete |
+| Behaviour Contracts   | [internal/lidar/l8behaviour/doc.go](../../../internal/lidar/l8behaviour/doc.go)                         | Contracts   |
+
+Behaviour contracts carry the following-metric equations, suppression vocabulary and analytic
+fixtures only. Path construction, pairing, persistence and reporting are not built, and production
+emission waits for G-SMO-1; see the
+[behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md).
 
 ## Production deployment architecture (phase 4.3)
 

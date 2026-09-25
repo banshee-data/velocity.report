@@ -152,6 +152,7 @@ For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented
 | L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, OBB heading smoothing, track coasting |
 | L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment         |
 | L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                  |
+| L8    | `l8behaviour/`  | Behaviour contracts: suppression reasons, following gap and time gap, fixtures   |
 | L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI    |
 
 **`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.

@@ -280,6 +280,12 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 - [ ] Use this plan as the naming reference for ongoing speed-metric work.
 - [x] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set. Adopted by the LiDAR pipeline state model: the same four tokens are reported by `/api/lidar/data_source`, `/api/lidar/playback/status`, and the gRPC `SourceMode` enum.
 
+### Phase 0.5 - following metric names (v0.5.2)
+
+- [x] Reserve the following-metric ids in the [registry](../platform/architecture/metrics-registry.md#following-metrics) with the full canonical shape, adding the `interaction` level, `instantaneous` estimator, `s` unit, `review_only` visibility and `event_id` forbidden tag.
+- [x] Mirror them in `internal/lidar/l8behaviour/metrics.go`, where a measurement may only use a registered name and unit, and a test fails when the registry and the code disagree.
+- [ ] Carry the same ids and suppression reasons through persistence, API and report output.
+
 ### Phase 1 - speed naming reset
 
 - [ ] Rename raw public `peak_speed_mps` to `max_speed_mps` on unshipped surfaces.

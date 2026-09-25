@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations and analytic fixtures implemented in `internal/lidar/l8behaviour/` (see Phases 6A and 6B); production emission gated on G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -362,6 +362,11 @@ rather than invented per metric:
 | `model_degraded`                  | The estimator reported `model_invalid` or `temporarily_degraded` for a contributing track |
 | `extent_not_converged`            | A required dimension belief has not met its admissibility count                           |
 | `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates      |
+
+The canonical list is the precedence-ordered one in
+[label-vocabulary.md](../lidar/architecture/label-vocabulary.md#suppression-reasons). The following
+slice adds six reasons from Sections 2, 8.3, 9.1 and 9.2: `not_observed`, `ambiguous_leader`,
+`orientation_unresolved`, `non_positive_gap`, `below_speed_floor` and `estimate_not_final`.
 
 **A suppressed metric is preferable to false precision**, and a suppression reason is a
 first-class result: it is stored, queryable and reportable. The rate of each
@@ -1053,8 +1058,11 @@ Adapted to repository conventions rather than copied: track identifiers are **st
 (`trk_<uuid>`, per `TrackedObject.TrackID`), not integers; timestamps are `TSUnixNanos int64`;
 analytics uses `float64`; JSON tags are snake case.
 
-The following are proposed field contracts, not implemented storage or API types. Numeric
-measurements, categorical outcomes, support state, and provenance remain distinct.
+Sprint 0.5.2.3 implements the uncertainty, scope, provenance, measurement, outcome and passage
+identity rows, and the propagation-method and observation-support vocabularies, as Go contracts in
+`internal/lidar/l8behaviour/`. The passage-evidence, interaction and exposure-window rows, and the
+interaction-type and exposure-kind vocabularies, remain proposals. None is storage or API yet.
+Numeric measurements, categorical outcomes, support state, and provenance remain distinct.
 
 | Record                     | Fields                                                                                                                  | Contract                                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -1235,6 +1243,16 @@ with a published rate of suppressed metrics per class.
 **Suppression conditions.** Passage shorter than the metric's minimum support; coasted fraction
 above a stated bound; track quality below floor.
 
+**Status (sprint 0.5.2.3).** The contract subset is implemented in `internal/lidar/l8behaviour/`:
+the trajectory sample (pose with 4x4 covariance, heading and extent beliefs with provenance and
+convergence, support state, estimate stage, estimation state), passage identity and class, duration
+by support state, the class-applicability table, the production-emission guard (final, established
+and observed, or review-only with a reason), and the closed vocabularies, whose registry rows are
+enforced by tests. A thin adapter reads `l5tracks.SolidBodyEstimate` and never infers `final`.
+Remaining: `PassageSummary`, `ExposureWindow` and their migrations, passage speed metrics, a class
+confidence gate (applicability currently gates on motion class alone), and a `final`-stage
+trajectory source, which waits for the state-estimation smoother.
+
 ### Phase 6B: pairwise interactions
 
 **Goal.** Gap, headway, TTC, DRAC, closest approach, and PET from
@@ -1264,6 +1282,21 @@ crossing interactions; soma for how often both parties are simultaneously observ
 **Acceptance.** Interaction type classified before metric computation, with a published confusion
 matrix on synthetic data. TTC suppressed below the closing speed floor in at least the fraction the
 uncertainty model predicts. PET uncertainty within the derived bound.
+
+**Status (sprint 0.5.2.3).** The pointwise following slice is implemented: registered metric ids
+(see the [metrics registry](../platform/architecture/metrics-registry.md#following-metrics)),
+physical endpoints projected onto a `PathFrame` with anchor offsets, oblique headings and
+linearised uncertainty, spatial gap, net time gap with its speed floor, the supplemental
+observed-surface gap, the review-only predicted gap, per-instant supported opportunity and
+precedence-ordered suppression.
+Eight frozen analytic fixtures cover known lengths, offset anchors, an oblique heading, partial
+views, standstill, occlusion, an ambiguous pair and a lane-adjacent distractor; their literals were
+computed independently of the package. Standstill is treated as constrained time (Section 6, rule
+2): its spatial gap is valid, but it is not following opportunity. Remaining: the empirical
+directed path, candidate pairing and `ambiguous_leader` suppression (the fixtures pin the expected
+outcomes), encounter aggregation with a minimum-opportunity rule, interaction persistence, the
+report oracle, and held-out physical validation, which needs annotated references and the gates
+G-GEO-1, G-UNC-1 and G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.
