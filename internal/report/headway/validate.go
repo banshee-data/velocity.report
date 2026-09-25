@@ -46,7 +46,7 @@ func (e Encounter) validate() error {
 		want = ValueBlockMeasurements
 	}
 	if !e.Stage.Valid() || e.ValueBlock != want {
-		return fmt.Errorf("a %s encounter reads %s, not %s", e.Stage, want, e.ValueBlock)
+		return fmt.Errorf("a %s encounter must read %s, got %s", e.Stage, want, e.ValueBlock)
 	}
 	ids := l8behaviour.EncounterMetrics()
 	if len(e.Measurements) != len(ids) {
