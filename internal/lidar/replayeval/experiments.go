@@ -28,6 +28,14 @@ const (
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
 	ExperimentNoRegionOverrides = "no_region_overrides"
+	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
+	// state-estimation plan question Q3: update each track at its cluster's
+	// own acquisition time rather than the frame start.
+	ExperimentMeasurementTime = "measurement_time"
+	// ExperimentCaptureGapPredict: l5tracks.TrackerConfig.CaptureGapPrediction,
+	// predict across a whole capture-time gap instead of clamping it to
+	// max_predict_dt.
+	ExperimentCaptureGapPredict = "capture_gap_predict"
 )
 
 var knownExperiments = map[string]bool{
@@ -36,6 +44,8 @@ var knownExperiments = map[string]bool{
 	ExperimentDensityCap:        true,
 	ExperimentFlipRule:          true,
 	ExperimentNoRegionOverrides: true,
+	ExperimentMeasurementTime:   true,
+	ExperimentCaptureGapPredict: true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

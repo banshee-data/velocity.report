@@ -66,6 +66,10 @@ type caseSummary struct {
 	GroundSurfaceRMSEMetres    float64 `json:"ground_surface_rmse_metres,omitempty"`
 	GroundSurfaceRegionCount   int     `json:"ground_surface_region_count,omitempty"`
 	GroundSurfaceCellMetres    float64 `json:"ground_surface_cell_metres,omitempty"`
+	// TimeDomain is the first run's capture-time diagnostics: backward or
+	// duplicate frame timestamps and gaps the tracker clamped. A corpus case
+	// with any of them needs reading before its temporal results are trusted.
+	TimeDomain l5tracks.TimeDomainStats `json:"time_domain"`
 }
 
 func main() {
@@ -250,7 +254,11 @@ func main() {
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
 			Experiments:           experiments,
+			TimeDomain:            firstResult.TimeDomain,
 		}
+		td := firstResult.TimeDomain
+		fmt.Printf("%s: capture time frames=%d backward=%d duplicate=%d clamped_gaps=%d max_gap=%.3fs\n",
+			selectedCase.ID, td.Frames, td.BackwardTimestamps, td.DuplicateTimestamps, td.ClampedGaps, td.MaxGapSecs)
 		if fit := firstResult.GroundSurfaceFit; fit != nil {
 			summary.GroundSurfaceSupport = fit.Global.Support
 			summary.GroundSurfaceGradientMetre = fit.Global.GradientMetre

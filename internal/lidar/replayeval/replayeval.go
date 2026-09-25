@@ -176,6 +176,10 @@ type Result struct {
 	// replay, when Config.UseSurfaceGround was set and the background
 	// settled in time to fit one. Nil otherwise.
 	GroundSurfaceFit *l3grid.RegionalGroundSurface
+	// TimeDomain describes the capture-time stream the tracker consumed
+	// across the processed window, warm-up included. It is also written to
+	// replay_manifest.json.
+	TimeDomain l5tracks.TimeDomainStats
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -507,12 +511,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	// --- L5, L6 ---
-	trackerConfig := l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1)
-	trackerConfig.MeasurementSourceMode = cfg.MeasurementSourceMode
-	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
-	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
-	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
-	tracker := l5tracks.NewTracker(trackerConfig)
+	tracker := l5tracks.NewTracker(trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments))
 	classifier := l6objects.NewTrackClassifierWithMinObservations(
 		tuningCfg.GetMinObservationsForClassification())
 
@@ -690,8 +689,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("plan replay window: %w", err)
 	}
+	// Unpaced unless a test asks otherwise. Pacing is a wall-clock concern
+	// and must not change a single track; the replay-equivalence test sets
+	// runtime.pacedSpeed to prove it.
 	_, replayErr := network.ReadPCAPSequence(context.Background(), steps, network.SequenceReplayConfig{
 		UDPPort: cfg.UDPPort, Parser: parser, FrameBuilder: fb,
+		Paced: network.RealtimeReplayConfig{SpeedMultiplier: runtime.pacedSpeed},
 	})
 
 	// Drain before closing the recorder, or the tail of the capture is lost.
@@ -716,6 +719,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
 	}
+	timeDomain := tracker.TimeDomainStats()
 	manifest := map[string]interface{}{
 		// source_sha256/source_basename are retained for single-file consumers;
 		// the plural fields carry the complete ordered multi-file provenance.
@@ -735,6 +739,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"warmup_static_verified":  false,
 		"measurement_source_mode": stateObservationModelID,
 		"experiments":             experiments,
+		// Capture-time diagnostics for the whole processed window, warm-up
+		// included: backward or duplicate frame timestamps, and gaps the
+		// tracker clamped. Descriptive only; see l5tracks.TimeDomainStats.
+		"time_domain": timeDomain,
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
@@ -776,7 +784,22 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return &stats
 		}(),
 		GroundSurfaceFit: groundSurfaceFit.Load(),
+		TimeDomain:       timeDomain,
 	}, nil
+}
+
+// trackerConfigFor is the replay's tracker configuration: the tuning file's
+// L5 block, the requested position model, and each tracker experiment
+// switched on by name. Everything else stays at the shipped default.
+func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string) l5tracks.TrackerConfig {
+	trackerConfig := l5tracks.TrackerConfigFromTuning(l5)
+	trackerConfig.MeasurementSourceMode = mode
+	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
+	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
+	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
+	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
+	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
+	return trackerConfig
 }
 
 func fileSHA256(path string) (string, error) {
