@@ -406,17 +406,10 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		if trackID != "" {
 			track := t.Tracks[trackID]
 			t.observeBaselineAssociation(track, true)
-			if t.Config.MeasurementTimePrediction {
-				t.predictToMeasurement(track, clusters[clusterIdx], nowNanos)
-			}
-			t.update(track, clusters[clusterIdx], nowNanos)
-			t.markObserved(track)
-			if track.TrackState != TrackDeleted {
-				t.recordSupport(track, SupportObserved)
-			}
-			track.Hits++
-			track.Misses = 0
 			matchedTracks[trackID] = true
+			if !t.updateMatched(track, clusters[clusterIdx], nowNanos) {
+				continue
+			}
 
 			// Promote tentative → confirmed
 			if track.TrackState == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
@@ -723,6 +716,25 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 		}
 	}
 	tracef("AdvanceMisses complete: ts=%d deleted_tracks=%d", nowNanos, deletedTracks)
+}
+
+// updateMatched applies an associated cluster to its track and does the
+// observed bookkeeping: coast reset, support, hit and miss counts. It returns
+// false, having done none of that, when the update deleted the track (the
+// non-finite guard); a deleted track is never marked observed.
+func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowNanos int64) bool {
+	if t.Config.MeasurementTimePrediction {
+		t.predictToMeasurement(track, cluster, nowNanos)
+	}
+	t.update(track, cluster, nowNanos)
+	if track.TrackState == TrackDeleted {
+		return false
+	}
+	t.markObserved(track)
+	t.recordSupport(track, SupportObserved)
+	track.Hits++
+	track.Misses = 0
+	return true
 }
 
 // predictToMeasurement moves an associated track's state from the frame time

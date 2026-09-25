@@ -612,6 +612,37 @@ func TestNonFiniteDeletionRecordsItsReason(t *testing.T) {
 	}
 }
 
+// A track the update deletes takes none of the observed bookkeeping: no hit,
+// no miss reset, no coast reset, no observed support and no reacquisition.
+func TestUpdateMatchedSkipsBookkeepingForDeletedTrack(t *testing.T) {
+	tk, track, last := confirmedTrack(t, DefaultTrackerConfig(), 10, 5, 4.5, 1.8)
+	tk.Update(nil, tdAt(last+0.1))
+	if track.Misses == 0 || track.CoastAgeSecs == 0 || track.LastSupport != SupportCoasted {
+		t.Fatalf("setup: misses=%d coast=%v support=%s", track.Misses, track.CoastAgeSecs, track.LastSupport)
+	}
+	hits, misses, coast := track.Hits, track.Misses, track.CoastAgeSecs
+	lastObserved := track.LastObservedUnixNanos
+	reacquired := tk.ContinuityStats().Reacquisitions
+
+	track.X = float32(math.NaN())
+	if tk.updateMatched(track, ccCluster(10, 5, 4.5, 1.8), tdAt(last+0.2).UnixNano()) {
+		t.Fatal("updateMatched reported an observation for a track the update deleted")
+	}
+	if track.TrackState != TrackDeleted || track.ExpiryReason != ExpiryNonFinite {
+		t.Fatalf("state=%s reason=%s", track.TrackState, track.ExpiryReason)
+	}
+	if track.Hits != hits || track.Misses != misses || track.CoastAgeSecs != coast {
+		t.Fatalf("hits %d→%d misses %d→%d coast %v→%v", hits, track.Hits, misses, track.Misses, coast, track.CoastAgeSecs)
+	}
+	if track.LastObservedUnixNanos != lastObserved || track.LastSupport == SupportObserved {
+		t.Fatalf("deleted track marked observed: last_observed %d→%d support=%s",
+			lastObserved, track.LastObservedUnixNanos, track.LastSupport)
+	}
+	if got := tk.ContinuityStats().Reacquisitions; got != reacquired {
+		t.Fatalf("reacquisitions %d→%d", reacquired, got)
+	}
+}
+
 // Reset and the start of a scoring window both clear the continuity window.
 func TestContinuityWindowResets(t *testing.T) {
 	tk, _, _ := confirmedTrack(t, DefaultTrackerConfig(), 10, 5, 4.5, 1.8)
