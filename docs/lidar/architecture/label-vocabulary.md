@@ -116,7 +116,7 @@ is last, so a run over non-final estimates still shows the physical reasons bene
 | `lane_geometry_unavailable`       | No lane centreline or edges                                                                    | 7.2              |
 | `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates           | 7.2              |
 | `orientation_unresolved`          | The body's front/rear direction is unresolved, so no physical endpoint can be named            | 8.3              |
-| `extent_not_converged`            | A required dimension belief has not met its admissibility count, or is a class prior           | 7.2, 9.1         |
+| `extent_not_converged`            | A required dimension belief is absent, short of its admissibility count, or a class prior      | 7.2, 9.1         |
 | `trajectory_uncertainty_too_high` | Propagated uncertainty exceeds the metric's usable bound                                       | 7.2              |
 | `non_positive_gap`                | The endpoint gap is zero or negative; requires overlap/geometry review, not a collision claim  | 8.3              |
 | `below_speed_floor`               | Follower speed below the calibrated floor: net time gap is undefined at rest, not infinite     | 8.3, 9.1         |

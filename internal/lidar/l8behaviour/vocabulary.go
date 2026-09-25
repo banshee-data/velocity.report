@@ -133,8 +133,9 @@ const (
 	// ReasonOrientationUnresolved: the body's front/rear direction is not
 	// resolved, so a physical endpoint cannot be named. Section 8.3.
 	ReasonOrientationUnresolved
-	// ReasonExtentNotConverged: a required dimension belief has not met its
-	// admissibility count, or is a class prior. Sections 7.2 and 9.1.
+	// ReasonExtentNotConverged: a required dimension belief is absent, has
+	// not met its admissibility count, or is a class prior. Sections 7.2 and
+	// 9.1; ProjectBody reports it for a missing length or width belief.
 	ReasonExtentNotConverged
 	// ReasonTrajectoryUncertaintyTooHigh: propagated uncertainty exceeds the
 	// metric's usable bound. Section 7.2.
