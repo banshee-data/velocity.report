@@ -17,9 +17,10 @@ package l8behaviour
 // short decimals. The oblique fixture is deliberately not exact, so it is the
 // one that exercises trigonometry and the covariance cross term.
 //
-// The ambiguous and distractor fixtures also carry pairing expectations. This
-// package does not choose leaders; those expectations are the oracle the
-// pairing step must reproduce.
+// The ambiguous and distractor fixtures also carry pairing expectations, fixed
+// before any leader choice existed: they are the oracle DecideLeader must
+// reproduce. Multi-frame scenarios for the path, pairing and encounter steps
+// are in encounter_fixtures.go.
 
 import "math"
 
@@ -74,13 +75,16 @@ type ExpectedFollowing struct {
 }
 
 // ExpectedPairing is what the pairing step must decide for one follower: a
-// leader, or a suppression reason and no leader.
+// leader, or a suppression reason and no leader. CandidateTrackIDs is the set
+// of other bodies present; its order carries no meaning.
 type ExpectedPairing struct {
 	FollowerTrackID   string            `json:"follower_track_id"`
 	CaptureUnixNanos  int64             `json:"capture_unix_nanos"`
 	CandidateTrackIDs []string          `json:"candidate_track_ids"`
 	LeaderTrackID     string            `json:"leader_track_id,omitempty"`
 	Reason            SuppressionReason `json:"reason,omitempty"`
+	// Condition is the detail behind a no_common_path reason.
+	Condition PathCondition `json:"condition,omitempty"`
 }
 
 // Fixture is one frozen scenario.

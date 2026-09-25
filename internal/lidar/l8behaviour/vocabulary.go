@@ -623,6 +623,142 @@ func ParsePathExtremity(s string) (PathExtremity, error) { return pathExtremitie
 // PathExtremities lists every extremity.
 func PathExtremities() []PathExtremity { return pathExtremities.values() }
 
+// --- Path condition --------------------------------------------------------
+
+// PathCondition says why no common path could be established: the detail
+// behind a no_common_path suppression. The first five are why a local path
+// was refused, or why a track is not on one; the last two are why one
+// follower instant could not be ordered along a path that was built. The
+// declaration order is the reporting precedence when a refusal has several.
+type PathCondition uint8
+
+const (
+	// PathConditionUnspecified is the zero value and never valid.
+	PathConditionUnspecified PathCondition = iota
+	// PathWeakSupport: too little observed, moving evidence to fit a path,
+	// or to place a track on one.
+	PathWeakSupport
+	// PathDirectionReversal: motion in both directions along the corridor,
+	// from a member that reverses or a body moving against the path.
+	PathDirectionReversal
+	// PathCrossing: a body crosses the corridor at an angle no following
+	// relation allows.
+	PathCrossing
+	// PathForkOrMerge: tracks share part of the corridor and diverge
+	// elsewhere, so the path branches.
+	PathForkOrMerge
+	// PathLateralIncompatible: tracks that overlap along the path are
+	// laterally apart, so the corridor spans more than one path.
+	PathLateralIncompatible
+	// PathOutsideExtent: the follower lies outside the path's supported
+	// extent at this instant.
+	PathOutsideExtent
+	// PathUnestablishedBody: the nearest body ahead in the corridor is not
+	// established on the path, so it can be neither chosen nor ruled out.
+	PathUnestablishedBody
+	pathConditionEnd
+)
+
+var pathConditions = vocabulary[PathCondition]{
+	kind: "path condition",
+	names: []string{
+		"",
+		"weak_support",
+		"direction_reversal",
+		"crossing",
+		"fork_or_merge",
+		"lateral_incompatible",
+		"outside_extent",
+		"unestablished_body",
+	},
+}
+
+func (c PathCondition) String() string { return pathConditions.name(c) }
+
+// Valid reports whether c is a registered condition.
+func (c PathCondition) Valid() bool { return pathConditions.valid(c) }
+
+// MarshalText writes the registered token and refuses an unspecified value.
+func (c PathCondition) MarshalText() ([]byte, error) { return pathConditions.marshal(c) }
+
+// UnmarshalText accepts registered tokens only.
+func (c *PathCondition) UnmarshalText(b []byte) error { return pathConditions.unmarshal(c, b) }
+
+// ParsePathCondition parses a registered token.
+func ParsePathCondition(s string) (PathCondition, error) { return pathConditions.parse(s) }
+
+// PathConditions lists every condition in precedence order.
+func PathConditions() []PathCondition { return pathConditions.values() }
+
+// --- Candidate disposition -------------------------------------------------
+
+// CandidateDisposition is what the pairing step decided about one other body
+// at one follower instant, so a chosen leader, or a suppression, can be
+// explained from the record rather than re-derived.
+type CandidateDisposition uint8
+
+const (
+	// DispositionUnspecified is the zero value and never valid.
+	DispositionUnspecified CandidateDisposition = iota
+	// DispositionLeader: the nearest credible leader, chosen.
+	DispositionLeader
+	// DispositionCompeting: ahead in the corridor and not separable from the
+	// nearest, so neither can be chosen.
+	DispositionCompeting
+	// DispositionUnestablished: the nearest body ahead in the corridor, but
+	// not established on the follower's path.
+	DispositionUnestablished
+	// DispositionBlocked: ahead in the corridor, separably beyond the nearest.
+	DispositionBlocked
+	// DispositionBeyondRange: ahead in the corridor, beyond the search range.
+	DispositionBeyondRange
+	// DispositionBehind: in the corridor, not ahead of the follower.
+	DispositionBehind
+	// DispositionOutsideCorridor: on the path, laterally outside the corridor.
+	DispositionOutsideCorridor
+	// DispositionOffPath: does not project onto the path's supported extent.
+	DispositionOffPath
+	candidateDispositionEnd
+)
+
+var candidateDispositions = vocabulary[CandidateDisposition]{
+	kind: "candidate disposition",
+	names: []string{
+		"",
+		"leader",
+		"competing",
+		"unestablished",
+		"blocked",
+		"beyond_range",
+		"behind",
+		"outside_corridor",
+		"off_path",
+	},
+}
+
+func (d CandidateDisposition) String() string { return candidateDispositions.name(d) }
+
+// Valid reports whether d is a registered disposition.
+func (d CandidateDisposition) Valid() bool { return candidateDispositions.valid(d) }
+
+// MarshalText writes the registered token and refuses an unspecified value.
+func (d CandidateDisposition) MarshalText() ([]byte, error) {
+	return candidateDispositions.marshal(d)
+}
+
+// UnmarshalText accepts registered tokens only.
+func (d *CandidateDisposition) UnmarshalText(b []byte) error {
+	return candidateDispositions.unmarshal(d, b)
+}
+
+// ParseCandidateDisposition parses a registered token.
+func ParseCandidateDisposition(s string) (CandidateDisposition, error) {
+	return candidateDispositions.parse(s)
+}
+
+// CandidateDispositions lists every disposition.
+func CandidateDispositions() []CandidateDisposition { return candidateDispositions.values() }
+
 // --- Uncertainty kind and propagation method -------------------------------
 
 // UncertaintyKind is the representation an uncertainty uses, per Section 9.3:

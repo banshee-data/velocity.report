@@ -127,22 +127,36 @@ func TestLabelVocabularyRegistersEveryToken(t *testing.T) {
 	for _, k := range BenchmarkKinds() {
 		tokens = append(tokens, k)
 	}
+	for _, c := range PathConditions() {
+		tokens = append(tokens, c)
+	}
+	for _, d := range CandidateDispositions() {
+		tokens = append(tokens, d)
+	}
 	for _, tok := range tokens {
 		if !strings.Contains(section, "`"+tok.String()+"`") {
 			t.Errorf("%T token %s is not registered in %s", tok, tok, labelVocabularyDoc)
 		}
 	}
 
-	// Suppression reasons are documented in precedence order, one row each.
-	last := -1
+	// Suppression reasons and path conditions are documented in precedence
+	// order, one row each.
+	var ordered []fmt.Stringer
 	for _, r := range SuppressionReasons() {
-		i := strings.Index(section, "| `"+r.String()+"`")
+		ordered = append(ordered, r)
+	}
+	for _, c := range PathConditions() {
+		ordered = append(ordered, c)
+	}
+	last := -1
+	for _, tok := range ordered {
+		i := strings.Index(section, "| `"+tok.String()+"`")
 		if i < 0 {
-			t.Errorf("reason %s has no table row", r)
+			t.Errorf("%T %s has no table row", tok, tok)
 			continue
 		}
 		if i < last {
-			t.Errorf("reason %s is out of precedence order in %s", r, labelVocabularyDoc)
+			t.Errorf("%T %s is out of precedence order in %s", tok, tok, labelVocabularyDoc)
 		}
 		last = i
 	}

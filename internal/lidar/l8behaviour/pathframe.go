@@ -7,7 +7,8 @@ package l8behaviour
 //
 // This file fixes the interface a path must satisfy, and provides the one path
 // that needs no construction: a straight line, which is what the analytic
-// fixtures use. A path fitted from trajectories satisfies the same interface.
+// fixtures use. The path fitted from trajectories, LocalPath in localpath.go,
+// satisfies the same interface.
 
 import (
 	"fmt"

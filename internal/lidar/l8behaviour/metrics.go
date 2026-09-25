@@ -42,6 +42,18 @@ const (
 	MetricFollowingPredictedGap       MetricID = "interaction.following_predicted_gap_m"
 )
 
+// Encounter-level following statistics: the raw minimum and the median of the
+// supported spatial gap and net time gap series of one leader/follower
+// encounter (Section 8.3's thw_min and thw_median, and their spatial-gap
+// counterparts). They are extrema and order statistics of a correlated
+// series, so their uncertainty is an interval, never a sigma (Section 9.3).
+const (
+	MetricFollowingSpatialGapMin MetricID = "interaction.following_spatial_gap_min_m"
+	MetricFollowingSpatialGapP50 MetricID = "interaction.following_spatial_gap_p50_m"
+	MetricFollowingNetTimeGapMin MetricID = "interaction.following_net_time_gap_min_s"
+	MetricFollowingNetTimeGapP50 MetricID = "interaction.following_net_time_gap_p50_s"
+)
+
 // Registry field tokens used by the following family. The registry document
 // defines each; they are unexported because no caller should invent a row.
 const (
@@ -50,6 +62,8 @@ const (
 	estimatorInstantaneous = "instantaneous"
 	estimatorDuration      = "duration"
 	estimatorRatio         = "ratio"
+	estimatorRawMin        = "raw_min"
+	estimatorP50           = "p50"
 	unitMetres             = "m"
 	unitSeconds            = "s"
 	unitRatio              = "ratio"
@@ -141,6 +155,28 @@ func followingMetricTable() []MetricDefinition {
 			ID: MetricFollowingValidTime, Family: followingFamily, Level: interactionLevel,
 			Estimator: estimatorDuration, Unit: unitSeconds, Visibility: VisibilityPublic,
 			Aliases: []string{"following_valid_time", "valid_following_time"},
+		},
+		{
+			ID: MetricFollowingSpatialGapMin, Family: followingFamily, Level: interactionLevel,
+			Estimator: estimatorRawMin, Unit: unitMetres, Visibility: VisibilityPublic,
+			Benchmark: BenchmarkLocalDistribution,
+		},
+		{
+			ID: MetricFollowingSpatialGapP50, Family: followingFamily, Level: interactionLevel,
+			Estimator: estimatorP50, Unit: unitMetres, Visibility: VisibilityPublic,
+			Benchmark: BenchmarkLocalDistribution,
+		},
+		{
+			ID: MetricFollowingNetTimeGapMin, Family: followingFamily, Level: interactionLevel,
+			Estimator: estimatorRawMin, Unit: unitSeconds, Visibility: VisibilityPublic,
+			Benchmark: BenchmarkLocalDistribution,
+			Aliases:   []string{"thw_min"},
+		},
+		{
+			ID: MetricFollowingNetTimeGapP50, Family: followingFamily, Level: interactionLevel,
+			Estimator: estimatorP50, Unit: unitSeconds, Visibility: VisibilityPublic,
+			Benchmark: BenchmarkLocalDistribution,
+			Aliases:   []string{"thw_median"},
 		},
 	}
 	defs = append(defs, band(2.0, MetricFollowingTimeBelow2000ms, MetricFollowingRateBelow2000ms, "2.0")...)

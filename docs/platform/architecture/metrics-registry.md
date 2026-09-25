@@ -22,6 +22,7 @@ aggregate-only.
 | `avg` / `mean` | Arithmetic mean over the stated sample set                    | Any level if explicitly defined                | `avg` can remain as transport/storage name where already stable |
 | `typical`      | Robust central estimate after metric-specific filtering       | Track, scene, or session metrics               | Use when intentionally not a mean or percentile                 |
 | `max`          | Raw observed maximum with no outlier rejection                | Any level                                      | Canonical raw-maximum term repo-wide                            |
+| `min`          | Raw observed minimum with no outlier rejection                | Any level                                      | Canonical raw-minimum term; estimator `raw_min`                 |
 | `peak`         | Filtered or context-aware top value                           | Only when filtering rule is explicitly defined | Reserve for future filtered metrics, not raw maxima             |
 | `p50/p85/p98`  | Percentiles across a population of values                     | Aggregate/report/transit/grouped outputs       | For speed, keep on grouped/report outputs only                  |
 | `p95`          | Valid percentile term in general, but not canonical for speed | Family-specific                                | `height_p95` can stay; speed `p95` is historical-only legacy    |
@@ -31,19 +32,19 @@ aggregate-only.
 
 Each metric is defined conceptually using these fields:
 
-| Field            | Meaning                                             | Example                                                                                                |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `id`             | Stable repo-wide identifier                         | `track.max_observed_speed_mps`                                                                         |
-| `family`         | Metric family                                       | `speed`, `height`, `following`, `performance`, `ops`                                                   |
-| `level`          | Observation level                                   | `track`, `transit`, `aggregate`, `cluster`, `scene`, `interaction`, `performance`, `ops`               |
-| `estimator`      | Measure type                                        | `mean`, `raw_max`, `filtered_peak`, `p50`, `p85`, `p98`, `count`, `ratio`, `duration`, `instantaneous` |
-| `unit`           | Canonical unit token                                | `mps`, `mph`, `ms`, `s`, `count`, `ratio`, `m`                                                         |
-| `visibility`     | Surface expectation                                 | `public`, `internal`, `review_only`, `future_stub`, `deprecated`                                       |
-| `status`         | Lifecycle state                                     | `stable`, `provisional`, `future_stub`, `deprecated`                                                   |
-| `aliases`        | Temporary or historical names                       | `peak_speed_mps`                                                                                       |
-| `source_modes`   | Valid runtime contexts                              | `live`, `pcap`, `pcap_analysis`, `vrlog`                                                               |
-| `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                                  |
-| `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                                        |
+| Field            | Meaning                                             | Example                                                                                                           |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `id`             | Stable repo-wide identifier                         | `track.max_observed_speed_mps`                                                                                    |
+| `family`         | Metric family                                       | `speed`, `height`, `following`, `performance`, `ops`                                                              |
+| `level`          | Observation level                                   | `track`, `transit`, `aggregate`, `cluster`, `scene`, `interaction`, `performance`, `ops`                          |
+| `estimator`      | Measure type                                        | `mean`, `raw_max`, `raw_min`, `filtered_peak`, `p50`, `p85`, `p98`, `count`, `ratio`, `duration`, `instantaneous` |
+| `unit`           | Canonical unit token                                | `mps`, `mph`, `ms`, `s`, `count`, `ratio`, `m`                                                                    |
+| `visibility`     | Surface expectation                                 | `public`, `internal`, `review_only`, `future_stub`, `deprecated`                                                  |
+| `status`         | Lifecycle state                                     | `stable`, `provisional`, `future_stub`, `deprecated`                                                              |
+| `aliases`        | Temporary or historical names                       | `peak_speed_mps`                                                                                                  |
+| `source_modes`   | Valid runtime contexts                              | `live`, `pcap`, `pcap_analysis`, `vrlog`                                                                          |
+| `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                                             |
+| `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                                                   |
 
 ## Seed naming decisions
 
@@ -78,6 +79,10 @@ tests fail when a row here is missing or disagrees with it on unit or visibility
 | `interaction.following_spatial_gap_m`           | `following` | `interaction` | `instantaneous` | `m`     | `public`      | `provisional` | `external_distribution`    | `distance_headway`, `gap`                      |
 | `interaction.following_net_time_gap_s`          | `following` | `interaction` | `instantaneous` | `s`     | `public`      | `provisional` | `no_established_threshold` | `time_headway`, `thw`                          |
 | `interaction.following_valid_time_s`            | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | none                       | `following_valid_time`, `valid_following_time` |
+| `interaction.following_spatial_gap_min_m`       | `following` | `interaction` | `raw_min`       | `m`     | `public`      | `provisional` | `local_distribution`       | none                                           |
+| `interaction.following_spatial_gap_p50_m`       | `following` | `interaction` | `p50`           | `m`     | `public`      | `provisional` | `local_distribution`       | none                                           |
+| `interaction.following_net_time_gap_min_s`      | `following` | `interaction` | `raw_min`       | `s`     | `public`      | `provisional` | `local_distribution`       | `thw_min`                                      |
+| `interaction.following_net_time_gap_p50_s`      | `following` | `interaction` | `p50`           | `s`     | `public`      | `provisional` | `local_distribution`       | `thw_median`                                   |
 | `interaction.following_time_below_2000ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_2.0_seconds`                        |
 | `interaction.following_time_below_1500ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_1.5_seconds`                        |
 | `interaction.following_time_below_1000ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_1.0_seconds`                        |
@@ -105,6 +110,12 @@ Definitions that every surface must keep:
 - **Valid following time** counts supported opportunity only: observed instants where net time gap
   is supported. Coasted, standstill and otherwise suppressed time is excluded, and a rate over too
   little of it is suppressed with `insufficient_observation`, never reported as zero.
+- **Encounter statistics** (`raw_min`, `p50`) are over the supported instants of one
+  leader/follower encounter, not weighted by time: the spatial gap over every instant whose gap is
+  supported, standstill included, and the net time gap over valid following instants. They are an
+  extremum and an order statistic of a correlated series, so their uncertainty is a Monte Carlo
+  interval with its coverage and sample count, never a sigma. An empty series is suppressed with
+  `insufficient_observation`.
 - **Bands** are descriptive bins with no established threshold, never a tailgating verdict.
   Membership is strict (`THW < X`). Band ids carry the threshold in milliseconds, because a decimal
   `p` would read as a percentile and a literal `.` would collide with the level separator.
