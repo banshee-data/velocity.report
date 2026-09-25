@@ -45,8 +45,13 @@ var (
 	renderAllFonts     = assets.AllFonts
 )
 
-// EntryReport is the radar speed report's entry template, and the default.
-const EntryReport = "report.typ"
+// Entry templates a document may compile from.
+const (
+	// EntryReport is the radar speed report, and the default.
+	EntryReport = "report.typ"
+	// EntryHeadway is the headway report (internal/report/headway).
+	EntryHeadway = "headway.typ"
+)
 
 // templateSets names, for each entry template a document may compile from,
 // every embedded template that entry needs, itself included. A render
@@ -56,7 +61,8 @@ const EntryReport = "report.typ"
 // that no longer compiles. The sets are stated rather than derived from the
 // #import lines so a reviewer sees them; a test holds them to those lines.
 var templateSets = map[string][]string{
-	EntryReport: {"report.typ", "preamble.typ", "sections.typ"},
+	EntryReport:  {"report.typ", "preamble.typ", "sections.typ"},
+	EntryHeadway: {"headway.typ", "preamble.typ", "sections.typ"},
 }
 
 // templateSet returns the files an entry needs, or an error for an entry

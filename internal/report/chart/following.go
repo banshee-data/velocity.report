@@ -175,7 +175,7 @@ func RenderFollowingDistribution(d FollowingDistributionData, style ChartStyle) 
 
 	left, right := 52.0, wPx-10
 	bottom := hPx - (style.AxisTickFontPx + style.AxisLabelFontPx + 22)
-	const excludedColW, excludedGap = 26.0, 34.0
+	const excludedColW, excludedGap = 34.0, 34.0
 	mainRight := right
 	if len(d.Excluded) > 0 {
 		mainRight = right - excludedGap - float64(len(d.Excluded))*excludedColW

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="190.000mm" height="95.000mm" viewBox="0 0 718.1102 359.0551">
+<defs><!-- embedded font elided from the golden file --></defs>
+<g font-family="Atkinson Hyperlegible">
+<rect x="4.0000" y="4.0000" width="115.4000" height="19.0000" fill="white" stroke="black" stroke-width="1.2"/>
+<text x="10.0000" y="18.0000" class="status" font-size="11.0" font-weight="bold">SYNTHETIC ORACLE</text>
+<text x="708.1102" y="17.0000" class="ref" font-size="9.0" text-anchor="end">E6 trk_s_wide_b -&gt; trk_s_wide_follower</text>
+<line x1="52.0000" y1="35.0000" x2="68.0000" y2="35.0000" stroke="#2d1e2f" stroke-width="1.20"/>
+<text x="72.0000" y="38.0000" class="vocab" font-size="9.0">interaction.following_spatial_gap_m</text>
+<line x1="232.0500" y1="35.0000" x2="248.0500" y2="35.0000" stroke="#8a817c" stroke-width="1.20" stroke-dasharray="5 3"/>
+<text x="252.0500" y="38.0000" class="vocab" font-size="9.0">interaction.following_predicted_gap_m</text>
+<text x="414.5600" y="38.0000" class="vocab" font-size="9.0">review_only</text>
+<line x1="473.0900" y1="35.0000" x2="489.0900" y2="35.0000" stroke="#4682b4" stroke-width="1.20"/>
+<text x="493.0900" y="38.0000" class="vocab" font-size="9.0">interaction.following_net_time_gap_s</text>
+<rect x="657.3700" y="31.2500" width="12.0000" height="6.7500" fill="#d8d3cf" fill-opacity="0.6"/>
+<text x="673.3700" y="38.0000" font-size="9.0">suppressed</text>
+<rect x="52.0000" y="58.0000" width="622.1102" height="138.0709" fill="#d8d3cf" fill-opacity="0.6"/>
+<rect x="52.0000" y="220.0709" width="622.1102" height="84.4843" fill="#d8d3cf" fill-opacity="0.6"/>
+<text x="59.5000" y="192.0709" class="vocab" font-size="8.0" fill="#555" transform="rotate(-90 59.5000 192.0709)">ambiguous_leader</text>
+<line x1="49.0000" y1="196.0709" x2="674.1102" y2="196.0709" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="198.9042" font-size="8.5" text-anchor="end">0</text>
+<line x1="49.0000" y1="168.4567" x2="674.1102" y2="168.4567" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="171.2900" font-size="8.5" text-anchor="end">0.2</text>
+<line x1="49.0000" y1="140.8425" x2="674.1102" y2="140.8425" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="143.6759" font-size="8.5" text-anchor="end">0.4</text>
+<line x1="49.0000" y1="113.2283" x2="674.1102" y2="113.2283" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="116.0617" font-size="8.5" text-anchor="end">0.6</text>
+<line x1="49.0000" y1="85.6142" x2="674.1102" y2="85.6142" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="88.4475" font-size="8.5" text-anchor="end">0.8</text>
+<line x1="49.0000" y1="58.0000" x2="674.1102" y2="58.0000" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="60.8333" font-size="8.5" text-anchor="end">1</text>
+<text x="363.0551" y="127.0354" font-size="10.0" text-anchor="middle" fill="gray">no supported value</text>
+<line x1="52.0000" y1="58.0000" x2="52.0000" y2="196.0709" stroke="black" stroke-width="1"/>
+<line x1="52.0000" y1="196.0709" x2="674.1102" y2="196.0709" stroke="black" stroke-width="0.6"/>
+<text x="47.0000" y="49.0000" font-size="8.5" text-anchor="end">m</text>
+<line x1="49.0000" y1="304.5551" x2="674.1102" y2="304.5551" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="307.3885" font-size="8.5" text-anchor="end">0</text>
+<line x1="49.0000" y1="283.4341" x2="674.1102" y2="283.4341" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="286.2674" font-size="8.5" text-anchor="end">0.5</text>
+<line x1="49.0000" y1="262.3130" x2="674.1102" y2="262.3130" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="265.1463" font-size="8.5" text-anchor="end">1</text>
+<line x1="49.0000" y1="241.1919" x2="674.1102" y2="241.1919" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="244.0253" font-size="8.5" text-anchor="end">1.5</text>
+<line x1="49.0000" y1="220.0709" x2="674.1102" y2="220.0709" stroke="#e6e6e6" stroke-width="0.5"/>
+<text x="47.0000" y="222.9042" font-size="8.5" text-anchor="end">2</text>
+<line x1="52.0000" y1="220.0709" x2="674.1102" y2="220.0709" stroke="#4a4a4a" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="678.1102" y="222.9042" font-size="8.5" fill="#4a4a4a">2 s</text>
+<line x1="52.0000" y1="241.1919" x2="674.1102" y2="241.1919" stroke="#4a4a4a" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="678.1102" y="244.0253" font-size="8.5" fill="#4a4a4a">1.5 s</text>
+<line x1="52.0000" y1="262.3130" x2="674.1102" y2="262.3130" stroke="#4a4a4a" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="678.1102" y="265.1463" font-size="8.5" fill="#4a4a4a">1 s</text>
+<text x="363.0551" y="262.3130" font-size="10.0" text-anchor="middle" fill="gray">no supported value</text>
+<line x1="52.0000" y1="220.0709" x2="52.0000" y2="304.5551" stroke="black" stroke-width="1"/>
+<line x1="52.0000" y1="304.5551" x2="674.1102" y2="304.5551" stroke="black" stroke-width="1"/>
+<text x="47.0000" y="211.0709" font-size="8.5" text-anchor="end">s</text>
+<line x1="52.0000" y1="304.5551" x2="52.0000" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="52.0000" y="318.0551" font-size="8.5" text-anchor="middle">0</text>
+<line x1="114.2110" y1="304.5551" x2="114.2110" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="114.2110" y="318.0551" font-size="8.5" text-anchor="middle">0.2</text>
+<line x1="176.4220" y1="304.5551" x2="176.4220" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="176.4220" y="318.0551" font-size="8.5" text-anchor="middle">0.4</text>
+<line x1="238.6331" y1="304.5551" x2="238.6331" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="238.6331" y="318.0551" font-size="8.5" text-anchor="middle">0.6</text>
+<line x1="300.8441" y1="304.5551" x2="300.8441" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="300.8441" y="318.0551" font-size="8.5" text-anchor="middle">0.8</text>
+<line x1="363.0551" y1="304.5551" x2="363.0551" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="363.0551" y="318.0551" font-size="8.5" text-anchor="middle">1</text>
+<line x1="425.2661" y1="304.5551" x2="425.2661" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="425.2661" y="318.0551" font-size="8.5" text-anchor="middle">1.2</text>
+<line x1="487.4772" y1="304.5551" x2="487.4772" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="487.4772" y="318.0551" font-size="8.5" text-anchor="middle">1.4</text>
+<line x1="549.6882" y1="304.5551" x2="549.6882" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="549.6882" y="318.0551" font-size="8.5" text-anchor="middle">1.6</text>
+<line x1="611.8992" y1="304.5551" x2="611.8992" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="611.8992" y="318.0551" font-size="8.5" text-anchor="middle">1.8</text>
+<line x1="674.1102" y1="304.5551" x2="674.1102" y2="307.5551" stroke="black" stroke-width="0.5"/>
+<text x="674.1102" y="318.0551" font-size="8.5" text-anchor="middle">2</text>
+<text x="363.0551" y="337.0551" font-size="10.0" text-anchor="middle">time since the encounter&apos;s first instant (s)</text>
+</g>
+</svg>
