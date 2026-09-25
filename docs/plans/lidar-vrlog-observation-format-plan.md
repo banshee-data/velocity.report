@@ -4,7 +4,9 @@ This plan brings LiDAR observation capture, annotation packs, and evaluation evi
 VRLOG data model, with binary storage and JSON projections. It defines what geometry must survive,
 when readers may trust it, and how asynchronous estimates and reviewed labels remain distinct.
 
-- **Status:** Proposed design; no format or runtime changes implemented
+- **Status:** In progress: the Sprint 0.5.2.2 domain contract, in-memory builder and opt-in
+  pre-L5 tap are delivered; the binary codec, durable writer and every runtime gate below remain
+  outstanding
 - **Layers:** L2 provenance, L3 retention boundary, L4 evidence, L5 estimation, L9 playback
 - **Canonical:** [LiDAR architecture](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Related:** [Asynchronous tracking proposal][async-plan], [state estimation][state-plan],
@@ -81,6 +83,34 @@ Annotation-pack consolidation, web projections, remote transport, compression tu
 default enablement are follow-ons. None may redefine point identity or quietly lower the declared
 accuracy profile. Desktop estimator acceptance does not claim the target-hardware G-OBS-CRASH or
 G-OBS-PI gates have passed.
+
+#### Delivered: domain contract, builder and tap
+
+The first slice defines the contract in memory; nothing is written to disk by it.
+
+| Part                           | Delivered behaviour                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profiles and capabilities      | `l4bobserve` declares `reduced-cluster-sample` (the schema-1 JSON records) and `foreground-complete`. `CapabilitySet.Require` and `Profile.Satisfies` return a typed error naming every missing capability. Legacy records and `ObservationStore.SourceProfile` report the reduced profile, so a request for full evidence fails.                   |
+| Frame and gap records          | `FrameRecord` has a dense source sequence per extraction, capture start and end, and separate completeness, disposition (§3.3) and payload fields. Stage counts keep unknown distinct from zero. `GapRecord` carries sequence or time bounds with certainty. `StreamValidator` enforces dense coverage and ordered starts.                          |
+| Retained domain and membership | Every L3 foreground return, copied before the height filter compacts it: float64 XYZ as L4 computed them, int64 ns time offsets, native intensity, channel, source ordinal, block, and packet sequence when the source numbers packets. Clusters hold sorted unique indices; unassigned points complete an exact partition with a rejection reason. |
+| Acquisition lineage            | A source ordinal is stamped on each `WorldPoint` in former alignment padding, so the struct stays 72 bytes and its JSON is unchanged. It survives the height filter, voxel representatives, the DBSCAN input cap and clustering. `DBSCANWithTrace` exposes the labels DBSCAN already computed.                                                      |
+| Tap and replay                 | `TrackingPipelineConfig.ObservationFrameSink` emits one record per frame before L5, including empty, unsettled, suppressed and failed frames. `replayeval.Config.ObservationFrames` validates the stream and fails the replay on a refused record or broken lineage.                                                                                |
+
+On kirk0's 20-second warm-up plus four-second window, all 241 frames have records in sequence and
+every partition is exact. All 666 cluster summaries equal their legacy observations, and every
+legacy sample point is a member, bit for bit. The schema-2 tracker baseline and the reduced
+evidence oracle are byte-identical with the tap on. Across the whole capture, 832 frames retain
+1,140 points per frame, a 55 KiB payload. The tap's own work is 0.21–0.22 ms, 62 KB and 29
+allocations per frame (`BenchmarkFrameDraftKirk0Scale`). A whole replay with a streaming sink
+allocated 0.09% more; wall time and peak heap stayed within shared-host noise. With the tap off,
+`lidar-bench` on kirk0 matched the base commit: same work, fingerprint and allocation.
+
+Still outstanding from the Sprint 0.5.2.2 boundary: the binary codec, manifest, L4 commit
+independent of L5 and the durable frontier (the next change). Also outstanding: a gap producer for
+L2 callback-queue drops, a voxel contributor map, return index for dual-return firings, epoch and
+clock-reset records, and failed-frame recoverability. The extraction does not yet record its
+source window. Held-out geometry, S2 corpus re-extraction and target-hardware evidence are
+unchanged.
 
 ## 2. What exists and what must change
 
@@ -645,6 +675,11 @@ Set numerical promotion thresholds before experiments; do not select them after 
 - [x] Reconcile the proposed binary capture with unmerged observation-store and async plans.
 - [x] Specify fidelity, timing, durability, revisions, retention, compatibility, and failure gates.
 - [x] Align annotation selections and web projections around one evidence model and point identity.
+- [x] Sprint 0.5.2.2 domain slice: declared profiles with typed capability refusal, frame and gap
+      records with stream validation, the foreground-complete retained domain, exact membership,
+      source-ordinal lineage and an opt-in pre-L5 tap wired into `replayeval`, with kirk0 evidence.
+- [ ] Binary codec, manifest, L4 commit independent of L5, and the durable frontier.
+- [ ] Gap producer for L2 queue drops, voxel contributor map, dual-return index, epoch records.
 - [ ] Agree implementation owners, acceptance thresholds, and the first deployment's loss budget.
 - [ ] Deliver phases 1–3 with the corresponding fidelity and recovery evidence.
 - [ ] Publish PCAP/direct-L4 comparisons and target Raspberry Pi results.
