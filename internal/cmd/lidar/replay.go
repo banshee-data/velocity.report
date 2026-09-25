@@ -14,6 +14,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/analysis"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
@@ -38,6 +39,8 @@ func ReplayEvalMain(args []string) int {
 	analyse := fs.Bool("analyse", true, "Generate analysis.json in the output directory")
 	compareTo := fs.String("compare-to", "", "Path to a baseline VRLOG; writes an A/B comparison against it")
 	compareOut := fs.String("compare-output", "", "Where to write the comparison JSON (default: <output>/comparison.json)")
+	observations := fs.String("observations", "", "Also write every frame's foreground-complete L4 evidence to a new VRLOG 1.x observation container at this path (must not exist); needs --replay-case-id")
+	replayCaseID := fs.String("replay-case-id", "", "Stable name of the replayed case, bound into the observation source identity (required with --observations)")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: velocity lidar pcap-replay --pcap FILE --output DIR [options]\n\n")
@@ -69,6 +72,15 @@ Examples:
       --config config/before.json
   velocity lidar pcap-replay --pcap capture.pcap --output ./runs/after \
       --config config/after.json --compare-to ./runs/before
+
+  # Also capture foreground-complete L4 observations, then verify them
+  velocity lidar pcap-replay --pcap capture.pcap --output ./runs/obs \
+      --observations ./runs/obs.vrlog --replay-case-id site-a-2026-09-01
+  velocity lidar observations verify --require foreground-complete ./runs/obs.vrlog
+
+The observation container records coordinates exactly as the replay computed
+them: in the sensor frame, since offline replay applies no site pose. Its
+manifest declares that identity transform rather than a surveyed one.
 `)
 	}
 
@@ -90,12 +102,17 @@ Examples:
 		return 2
 	}
 
+	if *observations != "" && *replayCaseID == "" {
+		fmt.Fprintln(os.Stderr, "error: --observations needs --replay-case-id: a source identity is never guessed from a file name")
+		return 2
+	}
+
 	port := resolveUDPPort(*udpPort, *pcapFile)
 	if port < 0 {
 		return 1
 	}
 
-	result, err := replayeval.Run(replayeval.Config{
+	cfg := replayeval.Config{
 		PCAPFile:        *pcapFile,
 		OutDir:          *outDir,
 		TuningFile:      *configPath,
@@ -108,7 +125,13 @@ Examples:
 		IncludePoints:   *includePoints,
 		IncludeDebug:    *includeDebug,
 		ProgressEvery:   *progress,
-	})
+	}
+	if *observations != "" {
+		cfg.ObservationLogDir = *observations
+		cfg.ReplayCaseID = *replayCaseID
+		cfg.ObservationCalibration = replayCalibration(*sensor)
+	}
+	result, err := replayeval.Run(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "pcap-replay: %v\n", err)
 		return 1
@@ -117,6 +140,10 @@ Examples:
 	fmt.Printf("recorded %d frames (%d with no tracks) in %s\n",
 		result.FramesRecorded, result.FramesEmpty, result.Elapsed.Round(time.Millisecond))
 	fmt.Printf("vrlog: %s\n", result.VRLOGPath)
+	if s := result.ObservationLog; s != nil {
+		fmt.Printf("observations: %s (%d frames, %d gaps, %d chunks, %d bytes, semantic %s)\n",
+			*observations, s.Frames, s.Gaps, s.Chunks, s.ChunkBytes, s.Semantic)
+	}
 
 	if !*analyse && *compareTo == "" {
 		return 0
@@ -145,6 +172,15 @@ Examples:
 	}
 	fmt.Printf("comparison: %s\n", out)
 	return 0
+}
+
+// replayCalibration is the transform offline replay actually applies: none.
+// The pipeline computes world points with no pose, so the retained
+// coordinates are sensor-frame; declaring that identity is a statement of
+// what was done, not a guess at the site's survey.
+func replayCalibration(sensorID string) l4bobserve.Calibration {
+	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",
+		Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
 }
 
 // printReplaySummary prints the handful of figures a tracker change is judged

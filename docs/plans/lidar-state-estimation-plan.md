@@ -86,7 +86,9 @@ Build one compatible path, in this order:
    for the complete accuracy profile. Commit L4 batches independently of L5, then expose only the
    durable frontier to readers. _Status:_ the in-memory domain, typed capability refusal,
    source-ordinal lineage and an opt-in pre-L5 tap are delivered with kirk0 evidence
-   ([VRLOG plan](lidar-vrlog-observation-format-plan.md#delivered-domain-contract-builder-and-tap));
+   ([VRLOG plan](lidar-vrlog-observation-format-plan.md#delivered-domain-contract-builder-and-tap)),
+   as are the typed binary codec and offline reader
+   ([phase 1](lidar-vrlog-observation-format-plan.md#delivered-codec-and-offline-reader-phase-1));
    the L4 commit and durable frontier are not.
 2. Run the estimator from that frontier with capture-time prediction, bounded coasting and a
    corrected face-aware measurement. Fix association-cost bias before increasing coast
@@ -2855,7 +2857,9 @@ architecture; it does not relitigate findings.
 - [x] Sprint 0.5.2.2 step 1, domain: `foreground-complete` frame records with membership and
       lineage, capped JSON records labelled `reduced-cluster-sample` and refused for full-profile
       requests, and an opt-in pre-L5 tap in `replayeval`
-- [ ] Sprint 0.5.2.2 step 1, durable: binary codec, L4 commit independent of L5, durable frontier
+- [x] Sprint 0.5.2.2 step 1, codec: typed VRLOG 1.x container and offline reader with exact
+      kirk0 round trips, a versioned semantic digest and located corruption
+- [ ] Sprint 0.5.2.2 step 1, durable: L4 commit independent of L5, durable frontier
 - [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test
