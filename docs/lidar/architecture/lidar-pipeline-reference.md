@@ -42,8 +42,11 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 
 Behaviour following carries the following-metric contracts and equations, the local following
 path, leader choice, encounter exposure and a held-out scoring harness, validated on analytic
-scenarios only. Persistence and reporting are not built, and production emission waits for G-SMO-1
-and the held-out metric gate; see the
+scenarios only. Encounters persist to `lidar_interaction_events`, `lidar_interaction_instants` and
+`lidar_exposure_windows` through
+[interaction_store.go](../../../internal/lidar/storage/sqlite/interaction_store.go), write-once
+per version. Reporting and its API are not built, and production emission waits for G-SMO-1 and
+the held-out metric gate; see the
 [behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md).
 
 ### Behaviour following methods
