@@ -271,6 +271,11 @@ func extentFromL5(d l5tracks.DimensionBelief, bounds l5tracks.ConvergenceBounds)
 //   - Heading, length and width. None: no orientation or dimension belief is
 //     persisted, so no endpoint can be projected from a row.
 //   - Class. Unknown: the classifier's label is not persisted.
+//   - Covariance. The row's, made exactly symmetric. The online filter
+//     updates P in float32 and does not re-symmetrise it, so its
+//     off-diagonal pairs differ by round-off (5e-8 of the largest variance on
+//     kirk0); each pair is averaged when it agrees within
+//     persistedAsymmetryTolerance, and the row is refused otherwise.
 type PersistedEstimate struct {
 	TrackID           string
 	SensorID          string
@@ -381,7 +386,10 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 	if !ok {
 		return TrajectorySample{}, current, fmt.Errorf("measurement source %q names no reference point", r.MeasurementSource)
 	}
-	p := r.Covariance
+	p, err := symmetricCovariance(r.Covariance)
+	if err != nil {
+		return TrajectorySample{}, current, err
+	}
 	body := l5tracks.SolidBodyEstimate{
 		StateModel: stateModel, Reference: reference, X: r.X, Y: r.Y,
 		PositionCovariance: [4]float32{p[0], p[1], p[4], p[5]},
@@ -402,4 +410,31 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 		return TrajectorySample{}, current, err
 	}
 	return s, body.Estimation, nil
+}
+
+// persistedAsymmetryTolerance bounds how far apart a persisted covariance's
+// off-diagonal pairs may be, relative to its largest diagonal term (at least
+// one), and still be read as round-off: about eight float32 units in the
+// last place. Beyond it the matrix is not a covariance with round-off.
+const persistedAsymmetryTolerance = 1e-6
+
+// symmetricCovariance averages each off-diagonal pair of a float32
+// covariance that is symmetric to within round-off, and refuses one that is
+// not.
+func symmetricCovariance(p [16]float32) ([16]float32, error) {
+	scale := 1.0
+	for i := 0; i < 4; i++ {
+		scale = math.Max(scale, math.Abs(float64(p[i*4+i])))
+	}
+	for i := 0; i < 4; i++ {
+		for j := i + 1; j < 4; j++ {
+			a, b := float64(p[i*4+j]), float64(p[j*4+i])
+			if !(math.Abs(a-b) <= persistedAsymmetryTolerance*scale) {
+				return p, fmt.Errorf("covariance terms (%d,%d) %g and (%d,%d) %g differ by more than round-off", i, j, a, j, i, b)
+			}
+			m := float32((a + b) / 2)
+			p[i*4+j], p[j*4+i] = m, m
+		}
+	}
+	return p, nil
 }

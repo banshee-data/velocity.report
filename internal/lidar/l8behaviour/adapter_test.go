@@ -1,6 +1,7 @@
 package l8behaviour
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -312,6 +313,23 @@ func TestTrajectoriesFromEstimates(t *testing.T) {
 	}
 	if b[0].Covariance[1] != float64(float32(0.01)) || b[0].Covariance[10] != 0.25 {
 		t.Errorf("covariance not carried: %v", b[0].Covariance)
+	}
+}
+
+// TestTrajectoriesFromEstimatesAveragesRoundOff: a float32 filter's
+// covariance pairs that differ in their last places, as kirk0's online rows
+// do, are averaged into one symmetric matrix rather than refused.
+func TestTrajectoriesFromEstimatesAveragesRoundOff(t *testing.T) {
+	rows := []PersistedEstimate{persistedRow("trk_a", 0, 0, 10), persistedRow("trk_a", 1, 1, 10)}
+	// 0.01 and the float32 two units above it: a 2e-9 disagreement.
+	rows[1].Covariance[4] = math.Nextafter32(math.Nextafter32(0.01, 1), 1)
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatalf("round-off refused: %v", err)
+	}
+	c := trajectories[0].Samples[1].Covariance
+	if c[1] != c[4] || c[1] != float64(math.Nextafter32(0.01, 1)) {
+		t.Errorf("pair = %v and %v, want both the float32 between them", c[1], c[4])
 	}
 }
 
