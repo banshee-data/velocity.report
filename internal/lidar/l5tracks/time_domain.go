@@ -209,11 +209,12 @@ func (t *Tracker) predictSpan(track *TrackedObject, dt float32) {
 		t.predict(track, dt)
 		return
 	}
-	// The callers clamp dt to gapPredictionLimit, so the step bound below is
-	// a guard against float accumulation, not a truncation that happens in
-	// practice.
+	// The callers clamp dt to gapPredictionLimit, so at most
+	// maxGapPredictionSteps whole steps are needed. The bound is exact: when a
+	// step that is not a binary fraction leaves float residue after the last
+	// step, that residue (nanoseconds) is not worth another predict.
 	remaining := dt
-	for n := 0; remaining > 0 && track.TrackState != TrackDeleted && n <= maxGapPredictionSteps; n++ {
+	for n := 0; remaining > 0 && track.TrackState != TrackDeleted && n < maxGapPredictionSteps; n++ {
 		s := step
 		if remaining < s {
 			s = remaining

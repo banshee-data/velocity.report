@@ -437,3 +437,17 @@ func TestResetClearsTimeDomainStats(t *testing.T) {
 		t.Fatalf("stats survived Reset: %+v", got)
 	}
 }
+
+// predictSpan never takes more than maxGapPredictionSteps sub-steps, even when
+// handed an interval at the limit whose step is not a binary fraction.
+func TestPredictSpanRespectsTheStepCap(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.CaptureGapPrediction = true
+	cfg.MaxPredictDt = 0.1
+	tk, track := movingTrack(t, cfg, 1, 1)
+	before := track.X
+	tk.predictSpan(track, tk.gapPredictionLimit()+1)
+	if moved := float64(track.X - before); moved > float64(maxGapPredictionSteps)*0.1+1e-3 {
+		t.Fatalf("predictSpan moved %v m at 1 m/s, more than %d steps of 0.1 s", moved, maxGapPredictionSteps)
+	}
+}
