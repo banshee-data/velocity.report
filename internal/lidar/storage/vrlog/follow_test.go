@@ -476,3 +476,68 @@ func TestTimeAndCompletenessSurviveCommitGenerations(t *testing.T) {
 		t.Fatalf("end of capture = %+v", st)
 	}
 }
+
+// An offline reader of a container still being written sees the pointer's
+// prefix; Refresh catalogues generations committed since, and a pointer that
+// goes backwards is refused as stale rather than silently shrinking the
+// prefix a consumer has read.
+func TestRefreshCataloguesNewGenerations(t *testing.T) {
+	m := testManifest(t)
+	m.Commit.MaxBatchAge = time.Hour
+	w, dir := createTest(t, m)
+	for seq := range uint64(2) {
+		if err := w.AppendFrame(synthFrame(seq, 8)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Open(dir, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := r.Refresh(); err != nil || n != 0 {
+		t.Fatalf("refresh with nothing new = %d, %v", n, err)
+	}
+	stale, err := Open(dir, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for seq := uint64(2); seq < 5; seq++ {
+		if err := w.AppendFrame(synthFrame(seq, 8)); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Flush(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := r.Refresh(); err != nil || n != 3 || r.Status().Frames != 5 {
+		t.Fatalf("refresh = %d, %v; status %+v", n, err, r.Status())
+	}
+	var got []uint64
+	for {
+		rec, err := r.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, rec.Frame.Sequence)
+	}
+	if len(got) != 5 || got[4] != 4 {
+		t.Fatalf("read %v after refresh", got)
+	}
+	// Point current back at generation 1, as a lying device might.
+	c, err := encodeCurrent(r.tag, stale.chain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, currentName), c, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Refresh(); !errors.Is(err, ErrStaleCursor) {
+		t.Fatalf("a pointer that went backwards = %v", err)
+	}
+}
