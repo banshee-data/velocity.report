@@ -13,7 +13,9 @@ Core mathematical components:
 1. constant-velocity Kalman filtering,
 2. Mahalanobis gating with physical plausibility guards,
 3. global assignment with Hungarian optimisation,
-4. lifecycle state transitions using hit/miss counters.
+4. lifecycle state transitions using hit/miss counters,
+5. offline retrospective refinement: a fixed-assignment Rauch–Tung–Striebel smoother over the
+   filter's own record (Section 11).
 
 ## 2. State-Space model
 
@@ -182,7 +184,111 @@ For long-running static traffic monitoring:
 3. monitor jitter/alignment metrics continuously,
 4. co-tune with clustering and L3 foreground thresholds, not in isolation.
 
-## 11. References
+## 11. Retrospective refinement
+
+State-estimation plan §10 and Phase 5. Implementation:
+[smoother.go](../../internal/lidar/l5tracks/smoother.go) over the record kept by
+[filter_steps.go](../../internal/lidar/l5tracks/filter_steps.go). Offline only: the live tracker
+attaches no observer.
+
+### 11.1 What the filter records
+
+For each track and each Update call `k` the tracker records, exactly as it computed them:
+
+- the prior `x_{k|k-1}, P_{k|k-1}` entering the Kalman update. For a step with no accepted
+  observation the prior and posterior are the same stored numbers, after the miss handling's
+  covariance inflation, which therefore counts as part of that step's transition;
+- the posterior `x_{k|k}, P_{k|k}`;
+- `tau_k`, the interval `predict()` actually applied, summed over sub-steps after the
+  `MaxPredictDt` clamp. It equals `t_k - t_{k-1}` except where that clamp shortened a gap; the
+  smoother uses `tau_k` because the prior was built with it, and flags the clamped transition.
+
+The stored prior is used as is rather than recomputed as `F P F^T + Q`, so the covariance cap, the
+occlusion inflation and the velocity clamp enter exactly as the filter applied them. Where the
+velocity clamp makes `x_{k+1|k} != F x_{k|k}` the recursion below remains well defined but is no
+longer an exact Gaussian smoother for that step.
+
+### 11.2 Backward recursion
+
+With `F = F(tau_{k+1})`:
+
+- `C_k = P_{k|k} F^T P_{k+1|k}^{-1}`
+- `x_{k|j} = x_{k|k} + C_k (x_{k+1|j} - x_{k+1|k})`
+- `P_{k|j} = P_{k|k} + C_k (P_{k+1|j} - P_{k+1|k}) C_k^T`
+
+starting from `x_{j|j}, P_{j|j}`. Starting at a later posterior gives `E[x_k | z_1 .. z_j]`
+exactly, and the states before `k` are not needed, which is what bounds the window. The end index
+sets the look-ahead:
+
+| Lag              | `j` for state `k`                                                                                                                                                     | Stage       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `L` frames       | `k + L`                                                                                                                                                               | `fixed_lag` |
+| Capture time `Λ` | the last step with `t_j <= t_k + Λ`, once a step at or beyond `t_k + Λ` arrives; both within 5 ms, so a sensor period a fraction short of nominal still meets the lag | `fixed_lag` |
+| Whole track      | the chain's last step                                                                                                                                                 | `final`     |
+
+A state whose track or input ends first is released with the look-ahead it has, flagged. Its
+estimate then equals the whole-track one, bit for bit, because it is the same computation.
+
+Association is never revisited: this is the fixed-assignment control experiment of the
+asynchronous tracking plan. A wrong assignment is smoothed into the path, not repaired.
+
+### 11.3 No evidence, no revision
+
+If every step after `k` up to `j` is unobserved, each of those steps has `x_{i|i} = x_{i|i-1}` as
+stored numbers, the bracket in 11.2 is exactly zero, and `x_{k|j} = x_{k|k}` to the bit. A revision
+therefore needs an observation in `(k, j]`, and the revision record lists those observations. A
+non-zero revision without one is counted as a defect, not tolerated.
+
+### 11.4 Numerics
+
+- Everything is computed in float64 from the float32 record; covariances are symmetrised,
+  `½(P + P^T)`, on entry and after every backward step.
+- Positive definiteness is tested by Cholesky with a pivot floor of `1e-12` times the largest
+  diagonal entry. The gain solves `P_{k+1|k} X = F P_{k|k}` and takes `C_k = X^T`.
+- A prior that fails the test (the diagonal-only covariance cap can produce one), a state time that
+  runs backwards, or a step with a non-finite value is a barrier: the chain is split and the states
+  before it keep only the evidence before it.
+- A smoothed covariance that fails the test is replaced by `P_{k|k}`, which is never smaller in
+  exact arithmetic, and flagged.
+
+The Joseph form belongs to the forward update (Section 2.2); the backward covariance recursion is
+kept symmetric and checked instead.
+
+### 11.5 Consistency of a residual
+
+For an observed step, `r = z_k - H x_{k|j}` has covariance `R - H P_{k|j} H^T` under the model, and
+`r^T (R - H P_{k|j} H^T)^{-1} r` has expectation `m = 2`. The same holds for the posterior residual
+with `P_{k|k}`. The replay comparison reports its mean per arm as a label-free consistency check;
+steps where the covariance is not positive definite are counted, not scored.
+
+### 11.6 Bandwidth, and why manoeuvres flatten
+
+Treat the filter in continuous time: velocity driven by white acceleration of density `q`
+(`ProcessNoiseVel`), position by a white-velocity term of density `q_p` (`ProcessNoisePos`), and
+measurements with noise density `r = R dt`. The spectrum of position is `q_p / w^2 + q / w^4`, so
+the whole-track smoother's gain on true motion at angular frequency `w` is
+
+`H(w) = (q + q_p w^2) / (q + q_p w^2 + r w^4)`.
+
+Shipped values are `q = 0.2 m^2/s^3`, `q_p = 0.05 m^2/s` and `R = 0.05 m^2` at 10 Hz, so
+`r = 0.005 m^2 s`. Gain falls to one half at `w^2 = (q_p + sqrt(q_p^2 + 4 r q)) / (2 r)`,
+`w = 3.6 rad/s` (0.58 Hz). A 3 s lane change has its lateral acceleration at `w = 2.1 rad/s`, where
+`H = 0.81`, and harmonics near `4.2 rad/s`, where `H = 0.41`: its peak rates are attenuated.
+With `q = 3` the half-gain point moves to `5.5 rad/s` and those gains become 0.97 and 0.71. The
+synthetic tests measure the consequence (whole-track RTS keeps 48 % of the true peak course rate at
+the shipped `q`, and at least 85 % at `q = 3`). A longer look-ahead approaches `H(w)`; a short one
+stays closer to the causal filter. Horizon choice and process-noise calibration are therefore one
+decision, not two.
+
+### 11.7 Memory
+
+Each window holds at most its cap at any instant: `L + 1` steps for a frame lag, `1 + ceil(20 Λ)`
+for a capture-time lag (every step of a 20 Hz capture), and 3,000 for the whole track, beyond which
+the oldest state is released early as `fixed_lag`. A held step is about 0.45 kB (the record and one
+4×4 gain). On the full kirk0 replay the peak across all tracks was 60, 93, 168, 294 and 695 steps
+for three frames, 0.5 s, 1 s, 2 s and the whole track.
+
+## 12. References
 
 | Reference                       | BibTeX key        | Relevance                                                                                     |
 | ------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
@@ -194,6 +300,6 @@ For long-running static traffic monitoring:
 | Bewley et al. (2016)            | `Bewley2016`      | SORT: 2D Kalman+Hungarian lifecycle model; our lifecycle (Section 5) follows SORT conventions |
 | Bernardin & Stiefelhagen (2008) | `Bernardin2008`   | CLEAR MOT metrics (MOTA, MOTP) used in L8 run comparisons                                     |
 | Blom & Bar-Shalom (1988)        | `Blom1988`        | IMM algorithm: foundation for planned `imm_cv_ca_v2` motion-model extension (Section 10)      |
-| Rauch et al. (1965)             | `Rauch1965`       | RTS smoother: evaluation-only path in planned `imm_cv_ca_rts_eval_v2` (Section 10)            |
+| Rauch et al. (1965)             | `Rauch1965`       | RTS smoother: fixed-assignment fixed-lag and whole-track refinement (Section 11)              |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)
