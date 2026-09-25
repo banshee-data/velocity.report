@@ -1,5 +1,5 @@
 {
-  "contract": "headway_report_v1",
+  "contract": "headway_report_v2",
   "status": "synthetic_oracle",
   "status_label": "SYNTHETIC ORACLE",
   "status_note": "Synthetic oracle: analytic two-body trajectories whose bumpers, gap and time gap are known. No sensor data is used. The report exists so its contract can be reviewed before any estimator reaches it.",
@@ -1234,7 +1234,7 @@
       "unsupported": [],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 0,
             "value": 20,
@@ -2137,7 +2137,7 @@
         }
       ],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 0,
             "value": 15.75,
@@ -2887,7 +2887,7 @@
       ],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 0,
             "value": 6,
@@ -3688,7 +3688,7 @@
       "unsupported": [],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 0,
             "value": 13.75,
@@ -4304,7 +4304,7 @@
       ],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 2000000000,
             "value": 15.75,
@@ -4659,7 +4659,7 @@
       ],
       "predicted": [],
       "series": {
-        "gap": [],
+        "spatial_gap": [],
         "net_time_gap": [],
         "predicted": []
       },
@@ -5030,7 +5030,7 @@
       ],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 500000000,
             "value": 15.75,
@@ -5650,7 +5650,7 @@
       ],
       "predicted": [],
       "series": {
-        "gap": [
+        "spatial_gap": [
           {
             "offset_nanos": 0,
             "value": 15.75,

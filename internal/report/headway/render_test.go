@@ -577,7 +577,7 @@ func TestGenerateWithMockTypst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(pdf, []byte("status:synthetic_oracle")) || !bytes.Contains(pdf, []byte("contract:headway_report_v1")) {
+	if !bytes.Contains(pdf, []byte("status:synthetic_oracle")) || !bytes.Contains(pdf, []byte("contract:"+ContractID)) {
 		t.Error("the PDF metadata does not carry the status and contract")
 	}
 

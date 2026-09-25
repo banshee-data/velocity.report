@@ -31,7 +31,7 @@ recompile the PDF is included.
 
 - ` + "`headway.typ`" + ` — Typst entry point (imports preamble.typ and sections.typ)
 - ` + "`preamble.typ`, `sections.typ`" + ` — shared layout, fonts and table helpers
-- ` + "`data.json`" + ` — the report contract (headway_report_v1): every value,
+- ` + "`data.json`" + ` — the report contract (headway_report_v2): every value,
   suppression, provenance field and printed string the PDF shows
 - ` + "`charts/*.svg`" + ` — one chart per version group and per encounter
 - ` + "`fonts/`" + ` — Atkinson Hyperlegible font files used by the report

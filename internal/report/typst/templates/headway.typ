@@ -1,6 +1,6 @@
 // headway.typ — the headway report: observed following exposure.
 //
-// The data is the headway_report_v1 contract (internal/report/headway,
+// The data is the headway_report_v2 contract (internal/report/headway,
 // model.go). Every number, name and suppression arrives as the exact text to
 // print, so this file is layout only: it formats no value and names no
 // metric, reason or status itself. The status label is printed in the page
