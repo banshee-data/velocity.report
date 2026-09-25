@@ -34,16 +34,29 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 	parser := parse.NewPandar40PParser(config)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
 
-	// Step 2: Set up frame builder with callback
+	// Step 2: Set up frame builder with callback. The callback keeps a
+	// summary of each frame, not the frame: retaining every frame's points
+	// until the end of a 100 MB capture held about 13 GB under -race, enough
+	// for the kernel to kill a 16 GB CI runner when another heavy package ran
+	// beside it.
+	type frameSummary struct {
+		PointCount             int
+		MinAzimuth, MaxAzimuth float64
+		Duration               time.Duration
+	}
 	var (
-		completedFrames []*lidar.LiDARFrame
+		completedFrames []frameSummary
 		completedMu     sync.Mutex
 	)
 	frameConfig := lidar.FrameBuilderConfig{
 		SensorID: "hesai-pandar40p-integration-test",
 		FrameCallback: func(frame *lidar.LiDARFrame) {
 			completedMu.Lock()
-			completedFrames = append(completedFrames, frame)
+			completedFrames = append(completedFrames, frameSummary{
+				PointCount: frame.PointCount,
+				MinAzimuth: frame.MinAzimuth, MaxAzimuth: frame.MaxAzimuth,
+				Duration: frame.EndTimestamp.Sub(frame.StartTimestamp),
+			})
 			completedMu.Unlock()
 			t.Logf("Frame completed: %s, %d points, %.1f°-%.1f° azimuth, %v duration",
 				frame.FrameID, frame.PointCount, frame.MinAzimuth, frame.MaxAzimuth,
@@ -74,7 +87,7 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 
 	// Step 5: Validate the integration results
 	completedMu.Lock()
-	framesCopy := append([]*lidar.LiDARFrame(nil), completedFrames...)
+	framesCopy := append([]frameSummary(nil), completedFrames...)
 	completedMu.Unlock()
 
 	if len(framesCopy) == 0 {
@@ -95,9 +108,8 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 		if azimuthSpan < 0 {
 			azimuthSpan += 360
 		}
-		frameDuration := frame.EndTimestamp.Sub(frame.StartTimestamp)
 		t.Logf("Frame %d: %d points, %.1f° coverage, %v duration",
-			i, frame.PointCount, azimuthSpan, frameDuration)
+			i, frame.PointCount, azimuthSpan, frame.Duration)
 	}
 
 	pointsUsedRatio := float64(totalFramePoints) / float64(totalPoints)
