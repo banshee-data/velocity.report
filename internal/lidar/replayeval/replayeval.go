@@ -42,6 +42,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
@@ -186,6 +187,20 @@ type Config struct {
 	// and recorded in the run metadata. Empty leaves the replay exactly as
 	// shipped, hash included.
 	Experiments []string
+	// UncertaintyReport writes uncertainty_calibration.json beside the
+	// baseline: pre-gate NIS over the scoring window, G-UNC-1's label-free
+	// checks, the gate-rejection outcomes and a per-stratum fit of the
+	// adaptive noise model (l8analytics.BuildUncertaintyReport). It opens the
+	// tracker's calibration window at the scoring boundary, which reads
+	// tracker state and changes no estimate: the recording, the baseline and
+	// the parameter hash are those of the same replay without it.
+	UncertaintyReport bool
+	// UncertaintyCalibrationFile loads a fitted coefficient table from an
+	// earlier replay's uncertainty_calibration.json, typically of a fitting
+	// partition, into the adaptive noise model. It requires the
+	// adaptive_uncertainty experiment; its table ID is folded into the
+	// parameter hash and written to the manifest.
+	UncertaintyCalibrationFile string
 }
 
 // Result summarises a completed replay.
@@ -228,6 +243,11 @@ type Result struct {
 	// what each instant rested on, how tracks ended, and the coast ages
 	// closed and reached. It is also written to replay_manifest.json.
 	Continuity l5tracks.ContinuityStats
+	// Uncertainty is the report written when Config.UncertaintyReport was
+	// set, and UncertaintySamples the window's samples behind it, so a caller
+	// can pool several replays into one fit. Both nil otherwise.
+	Uncertainty        *l8analytics.UncertaintyReport
+	UncertaintySamples []l5tracks.UncertaintySample
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -576,6 +596,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	noiseCalibration, err := loadUncertaintyCalibration(cfg.UncertaintyCalibrationFile, experiments)
+	if err != nil {
+		return nil, err
+	}
 
 	tuningCfg, err := config.LoadTuningConfigOrEmbedded(cfg.TuningFile, radarassets.TuningDefaults)
 	if err != nil {
@@ -627,6 +651,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, err
 	}
 	tracker := l5tracks.NewTracker(trackerCfg)
+	if noiseCalibration != nil {
+		tracker.UpdateConfig(func(c *l5tracks.TrackerConfig) { c.MeasurementNoiseCalibration = noiseCalibration })
+	}
 	classifier := l6objects.NewTrackClassifierWithMinObservations(
 		tuningCfg.GetMinObservationsForClassification())
 
@@ -653,7 +680,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Experiments change the estimator without changing the tuning file, so
 	// they are hashed with it. With none selected the suffix is empty and the
 	// hash is the one every earlier replay of this tuning file produced.
-	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(append(append([]byte{}, paramsJSON...), experimentsHashSuffix(experiments)...)))
+	// A fitted noise table changes the estimator the same way, and is hashed
+	// by its content address.
+	hashInput := append(append([]byte{}, paramsJSON...), experimentsHashSuffix(experiments)...)
+	hashInput = append(hashInput, calibrationHashSuffix(noiseCalibration)...)
+	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(hashInput))
 
 	rec.SetDeterministicConfig(
 		"",         // no run-config row exists offline
@@ -849,6 +880,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if !boundaryChecked && frame.StartTimestamp.UnixNano() >= scoreStart {
 			boundaryChecked = true
 			tracker.BeginTrackingBaseline()
+			if cfg.UncertaintyReport {
+				tracker.BeginUncertaintyCalibration()
+			}
 			settledAtBoundary = bgMgr.IsSettlingComplete()
 			if cfg.RequireSettled && !settledAtBoundary {
 				pub.mu.Lock()
@@ -971,6 +1005,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// l5tracks.ContinuityStats.
 		"continuity": continuity,
 	}
+	if cfg.UncertaintyReport {
+		manifest["uncertainty_report"] = uncertaintyReportFile
+	}
+	if noiseCalibration != nil {
+		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
+	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
 		manifest["observation_calibration_id"] = observationCalibrationID
@@ -1014,8 +1054,21 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := runtime.writeBaseline(cfg.OutDir, tracker.GetWindowBaseline()); err != nil {
 		return nil, err
 	}
+	var uncertainty *l8analytics.UncertaintyReport
+	var uncertaintySamples []l5tracks.UncertaintySample
+	if cfg.UncertaintyReport {
+		window := tracker.UncertaintyWindow()
+		report, err := uncertaintyReportFor(window, continuity, tracker.GetConfig())
+		if err != nil {
+			return nil, err
+		}
+		if err := writeUncertaintyReport(runtime, cfg.OutDir, report); err != nil {
+			return nil, err
+		}
+		uncertainty, uncertaintySamples = &report, window.Samples
+	}
 
-	return &Result{
+	result := &Result{
 		VRLOGPath:           filepath.Clean(cfg.OutDir),
 		FramesRead:          frameCount,
 		FramesEmpty:         pub.emptyFrames,
@@ -1041,7 +1094,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
 		Continuity:       continuity,
-	}, nil
+	}
+	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
+	return result, nil
 }
 
 // trackerConfigFor is the replay's tracker configuration: the tuning file's
@@ -1050,6 +1105,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string) (l5tracks.TrackerConfig, error) {
 	trackerConfig := l5tracks.TrackerConfigFromTuning(l5)
 	trackerConfig.MeasurementSourceMode = mode
+	trackerConfig.AdaptiveMeasurementNoise = hasExperiment(experiments, ExperimentAdaptiveUncertainty)
 	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)

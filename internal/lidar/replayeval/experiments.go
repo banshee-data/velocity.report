@@ -18,6 +18,11 @@ import (
 // sorted list is folded into the parameter hash and written to the run
 // metadata. An empty list leaves both exactly as they were.
 const (
+	// ExperimentAdaptiveUncertainty: l5tracks.TrackerConfig.AdaptiveMeasurementNoise,
+	// state-estimation plan Phase 3: anisotropic R along and across the line
+	// of sight. Uncalibrated unless Config.UncertaintyCalibrationFile supplies
+	// a fitted table; see G-UNC-1.
+	ExperimentAdaptiveUncertainty = "adaptive_uncertainty"
 	// ExperimentLikelihoodCost: l5tracks.TrackerConfig.LikelihoodAssociationCost (gap analysis S3).
 	ExperimentLikelihoodCost = "likelihood_cost"
 	// ExperimentCascade: l5tracks.TrackerConfig.CascadedAssociation (S2).
@@ -68,6 +73,7 @@ const (
 )
 
 var knownExperiments = map[string]bool{
+	ExperimentAdaptiveUncertainty: true,
 	ExperimentLikelihoodCost:      true,
 	ExperimentCascade:             true,
 	ExperimentDensityCap:          true,
