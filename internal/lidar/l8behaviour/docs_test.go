@@ -85,10 +85,11 @@ func TestMetricsRegistryDocumentsEveryFollowingMetric(t *testing.T) {
 
 func TestLabelVocabularyRegistersEveryToken(t *testing.T) {
 	doc := readRepoFile(t, labelVocabularyDoc)
-	section := doc[strings.Index(doc, "## Behaviour analytics vocabularies"):]
-	if !strings.HasPrefix(section, "## Behaviour analytics vocabularies") {
+	start := strings.Index(doc, "## Behaviour analytics vocabularies")
+	if start < 0 {
 		t.Fatalf("%s has no behaviour vocabulary section", labelVocabularyDoc)
 	}
+	section := doc[start:]
 	var tokens []fmt.Stringer
 	for _, r := range SuppressionReasons() {
 		tokens = append(tokens, r)

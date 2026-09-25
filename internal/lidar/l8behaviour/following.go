@@ -139,7 +139,10 @@ func ProjectBody(path PathFrame, trackID string, s TrajectorySample) (BodyOnPath
 	cosT, sinT := math.Cos(theta), math.Sin(theta)
 	tx, ty := math.Cos(loc.TangentRad), math.Sin(loc.TangentRad)
 	p := s.Covariance
-	posVar := tx*tx*p[0] + tx*ty*(p[1]+p[4]) + ty*ty*p[5]
+	// Validate accepts a covariance within a rounding tolerance of positive
+	// semi-definite, so a projected variance can come out a hair below zero;
+	// clamp it rather than let a square root turn it into NaN.
+	posVar := math.Max(tx*tx*p[0]+tx*ty*(p[1]+p[4])+ty*ty*p[5], 0)
 	speedVar := tx*tx*p[10] + tx*ty*(p[11]+p[14]) + ty*ty*p[15]
 
 	halfL, halfW := s.Length.Metres/2, s.Width.Metres/2

@@ -596,3 +596,34 @@ func TestStraightPath(t *testing.T) {
 		t.Fatal("geometry id")
 	}
 }
+
+// TestProjectBodyClampsARoundingNegativeVariance pins the clamp on the
+// projected position variance. Validate accepts a position block within a
+// rounding tolerance of positive semidefinite, and projecting such a block
+// onto the wrong diagonal gives a variance a hair below zero; with exact
+// extents and heading nothing else in the sum lifts it, so without the clamp
+// the endpoint sigma is NaN.
+func TestProjectBodyClampsARoundingNegativeVariance(t *testing.T) {
+	_, _, follower := alignedParties(t)
+	path := StraightPath{ID: "diag", HeadingRad: -math.Pi / 4, LengthM: 200}
+	s := follower.Sample
+	s.X, s.Y = path.PointAt(50, 0)
+	s.VX, s.VY = 8*math.Cos(path.HeadingRad), 8*math.Sin(path.HeadingRad)
+	s.Heading.Rad, s.Heading.VarianceRad2 = path.HeadingRad, 0
+	s.Length.SigmaMetres, s.Width.SigmaMetres = 0, 0
+	const delta = 4e-10
+	s.Covariance[0], s.Covariance[5] = 1, 1
+	s.Covariance[1], s.Covariance[4] = 1+delta, 1+delta
+	if err := s.Validate(); err != nil {
+		t.Fatalf("a block within the PSD tolerance is valid: %v", err)
+	}
+	body, reason, err := ProjectBody(path, "trk", s)
+	if err != nil || reason != ReasonUnspecified {
+		t.Fatalf("reason %s err %v", reason, err)
+	}
+	for _, e := range []Endpoint{body.Leading, body.Trailing} {
+		if math.IsNaN(e.SigmaM) || e.SigmaM < 0 {
+			t.Fatalf("%s sigma %v, want a finite non-negative value", e.Extremity, e.SigmaM)
+		}
+	}
+}

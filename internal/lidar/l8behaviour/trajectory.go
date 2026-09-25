@@ -173,7 +173,7 @@ func (s TrajectorySample) Validate() error {
 		return err
 	}
 	if s.Reference != ReferenceNearFaceCentre && (s.AnchorToCentre != BodyOffset{}) {
-		return fmt.Errorf("a %s reference has no anchor offset", s.Reference)
+		return fmt.Errorf("a %s reference must not carry an anchor offset; only %s does", s.Reference, ReferenceNearFaceCentre)
 	}
 	if err := s.Heading.validate(); err != nil {
 		return err
@@ -198,7 +198,7 @@ func (s TrajectorySample) Validate() error {
 		return fmt.Errorf("sample last-observed time must be positive and not after capture")
 	}
 	if s.Support == SupportObserved && s.LastObservedUnixNanos != s.CaptureUnixNanos {
-		return fmt.Errorf("an observed instant was last observed at its own capture time")
+		return fmt.Errorf("an observed instant must have been last observed at its own capture time")
 	}
 	return nil
 }
