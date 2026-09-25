@@ -103,9 +103,11 @@ SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 STRIDE = "2"
 TRANSIENT_FRAMES = 400  # 40 s at 10 Hz, dropped at export not at record
 POLL_SECONDS = 20
-# The per-frame foreground cap the published point-cloud clip was made with
-# (docs/plans/lidar-web-scene-export-plan.md, item 5).
+# The per-frame foreground cap and chunk span the published point-cloud clip was
+# made with (docs/plans/lidar-web-scene-export-plan.md, item 5): 10-second chunks
+# keep each request below 1 MiB, where the exporter's default would make one.
 CLIP_MAX_POINTS = 1200
+CLIP_CHUNK_SECONDS = 10
 
 
 def log(message):
@@ -290,6 +292,8 @@ def carry_over(vrlog, live, assets, site, title):
             str(selection["source_frame_count"]),
             "--max-points",
             str(CLIP_MAX_POINTS),
+            "--chunk-seconds",
+            str(CLIP_CHUNK_SECONDS),
         ],
     )
     shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))

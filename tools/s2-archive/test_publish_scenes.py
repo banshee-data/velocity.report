@@ -315,6 +315,8 @@ class CarryOverTests(unittest.TestCase):
                 "301",
                 "--max-points",
                 "1200",
+                "--chunk-seconds",
+                "10",
             ],
         )
         # The manifest records the selection, so it is kept, not remade.
