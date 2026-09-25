@@ -84,7 +84,10 @@ Build one compatible path, in this order:
    lineage, profile/capability identity, foreground points and membership. Keep the existing
    capped JSON records readable and labelled as reduced evidence; they cannot satisfy a request
    for the complete accuracy profile. Commit L4 batches independently of L5, then expose only the
-   durable frontier to readers.
+   durable frontier to readers. _Status:_ the in-memory domain, typed capability refusal,
+   source-ordinal lineage and an opt-in pre-L5 tap are delivered with kirk0 evidence
+   ([VRLOG plan](lidar-vrlog-observation-format-plan.md#delivered-domain-contract-builder-and-tap));
+   the L4 commit and durable frontier are not.
 2. Run the estimator from that frontier with capture-time prediction, bounded coasting and a
    corrected face-aware measurement. Fix association-cost bias before increasing coast
    uncertainty. Preserve ambiguous assignments and point ownership for later correction.
@@ -2358,6 +2361,12 @@ byte-identical. The multi-site corpus runner applies the same comparison. This d
 stored observations an alternative tracker input or establish the current Pi timing and one-week
 G-PER-1 collection.
 
+Those JSON records are the `reduced-cluster-sample` profile: a capped sample cannot become complete
+evidence by migration. The accuracy work reads the `foreground-complete` `l4bobserve.FrameRecord`
+instead, from an opt-in tap that precedes L5 and display filtering. It holds one record per
+frame, every L3 foreground return with source-ordinal lineage, and an exact cluster/unassigned
+partition. It is in memory only until the shared VRLOG writer lands.
+
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
 `storage/sqlite/observation_store.go`; migration for `lidar_observations`.
@@ -2808,6 +2817,10 @@ architecture; it does not relitigate findings.
 - [x] Phase 0: current M1 per-stage timings published (see corpus baseline above); Pi 4 per-stage timings deferred to v0.6.7 as a target-hardware optimisation pass, not a Phase 0 blocker
 - [x] Phase 0: review and freeze replacement candidates; original 33 IDs are unavailable — [jump-track replacement review](../lidar/operations/lidar-jump-track-replacement-review.md): 27 of 2,136 candidates excluded as a distinct, previously-undocumented association defect (not a jump phenomenon); 33 frozen as the replacement regression set from the remaining 2,109
 - [x] Phase 1 start: bounded offline cluster retention and copy-isolated observation boundary
+- [x] Sprint 0.5.2.2 step 1, domain: `foreground-complete` frame records with membership and
+      lineage, capped JSON records labelled `reduced-cluster-sample` and refused for full-profile
+      requests, and an opt-in pre-L5 tap in `replayeval`
+- [ ] Sprint 0.5.2.2 step 1, durable: binary codec, L4 commit independent of L5, durable frontier
 - [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test

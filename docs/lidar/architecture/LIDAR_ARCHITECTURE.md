@@ -162,6 +162,28 @@ L5  Hungarian assignment: clusters matched to existing Kalman tracks
 L6  Classification: confirmed tracks accumulate features → class label
 ```
 
+### Observation evidence tap (opt-in)
+
+`TrackingPipelineConfig.ObservationFrameSink` records L4 evidence for accuracy work. It is off
+by default; `replayeval.Config.ObservationFrames` enables it for offline replays. When on, each
+frame yields one `l4bobserve.FrameRecord` of profile `foreground-complete`, emitted after DBSCAN
+and before L5:
+
+- **Retained domain:** every L3 foreground return, copied before the height-band filter, voxel
+  reduction and the DBSCAN input cap. XYZ are the float64 values L4 computed; acquisition time,
+  intensity, channel, source ordinal and packet locator come from L2.
+- **Membership:** clusters list sorted indices into that domain. The unassigned returns complete
+  the partition with the stage that rejected them: height, voxel, input cap, noise or cluster
+  shape.
+- **Every frame:** empty, unsettled, suppressed and failed frames are recorded too, so a quiet
+  road is distinguishable from missing evidence.
+
+Lineage is carried by a source ordinal on `l4perception.WorldPoint`, stamped before the first
+filter. The field sits in former padding, so enabling nothing costs nothing. The legacy
+`lidar_observations` JSON records are the `reduced-cluster-sample` profile: readable, but refused
+for a full-evidence request. Durable binary storage of the new records is planned in the
+[shared VRLOG plan](../../plans/lidar-vrlog-observation-format-plan.md).
+
 ### Background settling and the 30-second warmup
 
 When a new data source starts (live sensor or PCAP replay), the L3 background grid must _settle_ before foreground extraction begins. During the settling period (default: **100 frames AND 30 seconds**, whichever is longer):
