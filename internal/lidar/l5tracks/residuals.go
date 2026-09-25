@@ -57,12 +57,16 @@ func (t *Tracker) observeBaselineAssociation(track *TrackedObject, matched bool)
 
 // BeginTrackingBaseline starts a fresh measurement window without resetting
 // tracks, predictions, background state, or lifetime diagnostic accumulators.
+// The continuity window (ContinuityStats) starts here too, so a replay's
+// support, expiry and reacquisition figures cover its scoring window.
 func (t *Tracker) BeginTrackingBaseline() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.baselineEnabled = true
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
+	t.continuity = ContinuityStats{}
+	t.continuityBornAfter = t.NextTrackID
 }
 
 // RecordBaselineEmptyFrame records an emitted frame with no usable detections.

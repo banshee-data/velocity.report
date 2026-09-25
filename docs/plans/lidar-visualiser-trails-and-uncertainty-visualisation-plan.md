@@ -67,6 +67,13 @@ Rendering alone need not introduce a DB schema. Stage/support/age and revision p
 from the estimator contract; add protocol fields if existing fields cannot distinguish them.
 The persisted final trajectory remains the estimator's responsibility.
 
+The estimator side of observed-versus-coasted now exists: every `l5tracks.TrackPoint` carries a
+support token (`observed`, `coasted`, `occluded_inferred`, `missed_unknown`, `out_of_fov`) and each
+track its capture-time coast age; see
+[coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry).
+The protobuf `TrackPoint` does not carry the token yet, so existing fields cannot distinguish the
+segments; adding it is the protocol extension this section anticipates.
+
 Use existing streaming fields:
 
 - `TrackTrail.points`

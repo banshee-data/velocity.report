@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations and analytic fixtures implemented in `internal/lidar/l8behaviour/` (see Phases 6A and 6B); production emission gated on G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/` (see Phases 6A and 6B); the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -1292,11 +1292,32 @@ precedence-ordered suppression.
 Eight frozen analytic fixtures cover known lengths, offset anchors, an oblique heading, partial
 views, standstill, occlusion, an ambiguous pair and a lane-adjacent distractor; their literals were
 computed independently of the package. Standstill is treated as constrained time (Section 6, rule
-2): its spatial gap is valid, but it is not following opportunity. Remaining: the empirical
-directed path, candidate pairing and `ambiguous_leader` suppression (the fixtures pin the expected
-outcomes), encounter aggregation with a minimum-opportunity rule, interaction persistence, the
-report oracle, and held-out physical validation, which needs annotated references and the gates
-G-GEO-1, G-UNC-1 and G-SMO-1.
+2): its spatial gap is valid, but it is not following opportunity.
+
+The encounter slice is implemented on top of it, as versioned methods whose ids and parameters are
+listed in the [pipeline reference](../lidar/architecture/lidar-pipeline-reference.md#behaviour-following-methods).
+The local path (Section 8.3's "deliberately local" path) is fitted per follower over its own
+passage from observed, moving evidence, groups same-path tracks, and refuses weak support, forks,
+merges, crossings, reversals and lateral incompatibility with a registered path condition rather
+than fitting through them. Leader choice takes the nearest credible body and suppresses
+`ambiguous_leader` under a declared separability rule, and `no_common_path` when the nearest body
+is not on the path. Encounter aggregation reports valid following time over observed support,
+time below each band and its rate with a minimum-opportunity rule, the minimum and median of the
+gap and time-gap series with Monte Carlo intervals, unobserved time, a review-only predicted
+series, and suppression counts by reason; a non-final encounter carries its values only in a
+review-labelled block. Ten multi-frame scenarios with hand-computed answers cover the approach
+across all bands, occlusion, standstill, a distractor, an ambiguous pair, a partial view, a fork, a
+reversal, a crossing and sparse support. The held-out scoring harness (endpoint and gap error,
+interval coverage, strata by class, range, face aspect and support, bounds pinned by hash) is
+built and exercised on the scenarios with known perturbations; on a 150 m curve it finds the
+closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
+
+Remaining: interaction persistence and the report oracle; a provisional run over persisted
+estimator output (sprint 0.5.2.4); calibration of every fixture-valued bound, the speed floor,
+corridor, grouping bound and common-mode fraction first; a per-follower total of valid following
+time across leaders; and the held-out physical validation run itself, which needs independently
+annotated references, a scoring plan pinned before scoring, and the gates G-GEO-1, G-UNC-1 and
+G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.
@@ -1308,7 +1329,9 @@ that make `local_distribution` benchmarks possible.
 
 The minimal directed path used for the v0.5.2 following slice is a Phase 6B dependency and does not wait for
 this phase. Phase 6C owns durable population paths, deviation metrics and stratified distributions,
-not the bounded encounter-local projection needed to order a simple following pair.
+not the bounded encounter-local projection needed to order a simple following pair. That projection
+is implemented as `internal/lidar/l8behaviour/localpath.go`, so this phase's own file keeps the
+name `path.go` free.
 
 **Inputs.** Weeks of Phase 6A output. Still no map.
 

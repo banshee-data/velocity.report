@@ -12,6 +12,10 @@
 // time, never from the host's wall clock. See time_domain.go; a test scans
 // this package's non-test sources to hold the rule.
 //
+// Continuity rule: existence is not observation. Every instant and history
+// point records whether it was observed or coasted, and why; the default-off
+// occlusion-continuity options live in continuity.go.
+//
 // See docs/lidar/architecture/LIDAR_ARCHITECTURE.md for the full
 // layer model.
 package l5tracks

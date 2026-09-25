@@ -46,8 +46,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
+
+// secondsToNanos converts a configured window in seconds to nanoseconds.
+func secondsToNanos(seconds float64) int64 { return int64(math.Round(seconds * 1e9)) }
 
 // sha256Sum is a small helper so the provenance block reads in one line.
 func sha256Sum(b []byte) []byte {
@@ -142,9 +146,20 @@ type Config struct {
 	// record is checked against the stream contract first; an invalid record,
 	// a broken lineage or an error returned here fails the replay. It needs
 	// ReplayCaseID and ObservationCalibration, and is independent of
-	// ObservationDBPath. Records are in memory only: durable binary storage is
-	// a separate writer.
+	// ObservationDBPath. Records are delivered in memory; ObservationLogDir
+	// writes the same records to disk.
 	ObservationFrames func(l4bobserve.FrameRecord) error
+	// ObservationLogDir writes the foreground-complete records to a new VRLOG
+	// 1.x observation container at this path, which must not exist: the same
+	// records ObservationFrames receives, warm-up included, and the two
+	// compose. It needs ReplayCaseID and ObservationCalibration. The manifest
+	// embeds the effective tuning, the capture files and the replay window. A
+	// replay that fails leaves the container readable but unclosed, so it
+	// cannot pass for a complete extraction. Empty writes nothing.
+	ObservationLogDir string
+	// ObservationLogLimits overrides the container's declared limits; the
+	// zero value uses vrlog.DefaultLimits.
+	ObservationLogLimits vrlog.Limits
 	// ProfileEvidence includes exact frame-evidence persistence timings in the
 	// returned Result. It is diagnostic-only and does not alter recorded data.
 	ProfileEvidence bool
@@ -181,8 +196,11 @@ type Result struct {
 	SourcePCAPs         []string
 	ObservationSourceID string
 	// ObservationFrames counts foreground-complete records delivered to
-	// Config.ObservationFrames.
-	ObservationFrames   int
+	// Config.ObservationFrames or Config.ObservationLogDir.
+	ObservationFrames int
+	// ObservationLog is the closing summary of the container written to
+	// Config.ObservationLogDir, or nil when none was requested.
+	ObservationLog      *vrlog.Summary
 	EvidencePersistence *observationsqlite.FrameEvidenceStats
 	// Refinement is the fixed_lag_rts experiment's comparison of the online
 	// estimate with each refinement horizon, also written to
@@ -196,6 +214,10 @@ type Result struct {
 	// across the processed window, warm-up included. It is also written to
 	// replay_manifest.json.
 	TimeDomain l5tracks.TimeDomainStats
+	// Continuity describes the tracker's hypotheses over the scoring window:
+	// what each instant rested on, how tracks ended, and the coast ages
+	// closed and reached. It is also written to replay_manifest.json.
+	Continuity l5tracks.ContinuityStats
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -639,13 +661,15 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	// Both evidence outputs bind the same explicit identities; neither may
 	// guess a replay case or an identity transform from a sensor label.
-	if cfg.ObservationDBPath != "" || cfg.ObservationFrames != nil {
+	wantFrames := cfg.ObservationFrames != nil || cfg.ObservationLogDir != ""
+	extractorID := "l4.dbscan_xy/v1/" + paramsHash
+	if cfg.ObservationDBPath != "" || wantFrames {
 		if err := validateObservationIdentity(cfg); err != nil {
 			return nil, err
 		}
 		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
 			ReplayCaseID: cfg.ReplayCaseID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
-			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash,
+			ExtractorID: extractorID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("derive observation source identity: %w", err)
@@ -715,9 +739,52 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink
 	}
 	var observationFrameSink *strictObservationFrameSink
-	if cfg.ObservationFrames != nil {
+	var observationLog *vrlog.Writer
+	if wantFrames {
+		if cfg.ObservationLogDir != "" {
+			files := make([]vrlog.CaptureFile, len(pcapFiles))
+			for i := range pcapFiles {
+				files[i] = vrlog.CaptureFile{Path: pcapFiles[i], SHA256: rawHashes[i]}
+			}
+			observationLog, err = vrlog.Create(cfg.ObservationLogDir, vrlog.Manifest{
+				Capture: vrlog.CaptureIdentity{SensorID: cfg.SensorID, SourceType: "pcap"},
+				Extraction: vrlog.ExtractionIdentity{
+					SourceID: observationSourceID, CalibrationID: observationCalibrationID,
+					// The tap's own coordinate frame; see newObservationFrameTap.
+					CoordinateFrame: "site/" + cfg.SensorID,
+					ReplayCaseID:    cfg.ReplayCaseID, CaptureFiles: files, ExtractorID: extractorID,
+					Window: vrlog.SourceWindow{StartOffsetNanos: secondsToNanos(cfg.StartSeconds),
+						// run normalised "the rest of the capture" to -1; the
+						// manifest's spelling of it is zero.
+						WarmupNanos: secondsToNanos(cfg.WarmupSeconds), DurationNanos: secondsToNanos(max(cfg.DurationSeconds, 0))},
+				},
+				Calibration: cfg.ObservationCalibration,
+				Limits:      cfg.ObservationLogLimits,
+				Provenance: vrlog.Provenance{BuildVersion: version.Version, BuildGitSHA: version.GitSHA, Writer: "replayeval",
+					ParamsHash: paramsHash, ParamsSchemaVersion: schemaVersionOrUnknown(tuningCfg), Experiments: experiments},
+				Metadata: []vrlog.MetadataObject{vrlog.NewMetadataObject("tuning", "application/json", paramsJSON)},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create observation log: %w", err)
+			}
+			// A no-op once closed; on any early return the container stays
+			// readable but unclosed.
+			defer observationLog.Abandon()
+		}
+		deliver := cfg.ObservationFrames
+		if observationLog != nil {
+			deliver = func(record l4bobserve.FrameRecord) error {
+				if err := observationLog.AppendFrame(record); err != nil {
+					return fmt.Errorf("observation log: %w", err)
+				}
+				if cfg.ObservationFrames != nil {
+					return cfg.ObservationFrames(record)
+				}
+				return nil
+			}
+		}
 		observationFrameSink = &strictObservationFrameSink{
-			deliver: cfg.ObservationFrames,
+			deliver: deliver,
 			stream:  l4bobserve.NewStreamValidator(l4bobserve.ForegroundComplete()),
 		}
 		pipeCfg.ObservationFrameSink = observationFrameSink
@@ -834,6 +901,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if replayErr != nil {
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)
 	}
+	var observationLogSummary *vrlog.Summary
+	if observationLog != nil {
+		summary, err := observationLog.Close()
+		if err != nil {
+			return nil, fmt.Errorf("close observation log: %w", err)
+		}
+		observationLogSummary = &summary
+	}
 	if pub.writeErr != nil {
 		return nil, fmt.Errorf("record frame: %w", pub.writeErr)
 	}
@@ -845,6 +920,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
 	}
 	timeDomain := tracker.TimeDomainStats()
+	continuity := tracker.ContinuityStats()
 	manifest := map[string]interface{}{
 		// source_sha256/source_basename are retained for single-file consumers;
 		// the plural fields carry the complete ordered multi-file provenance.
@@ -868,6 +944,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// included: backward or duplicate frame timestamps, and gaps the
 		// tracker clamped. Descriptive only; see l5tracks.TimeDomainStats.
 		"time_domain": timeDomain,
+		// Continuity diagnostics for the scoring window only: support per
+		// track-instant, expiries by reason, coast age at expiry and at
+		// reacquisition, births and confirmations. Label-free, so a default
+		// replay and an occlusion_continuity one compare on any capture. See
+		// l5tracks.ContinuityStats.
+		"continuity": continuity,
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
@@ -881,6 +963,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// declares which profile the caller received and how many frames.
 		manifest["observation_frame_profile"] = string(l4bobserve.ProfileForegroundComplete)
 		manifest["observation_frames"] = observationFrames
+	}
+	if observationLogSummary != nil {
+		manifest["observation_log"] = map[string]interface{}{
+			"path": filepath.Clean(cfg.ObservationLogDir), "semantic_sha256": observationLogSummary.Semantic.String(),
+			"chunks": observationLogSummary.Chunks, "records": observationLogSummary.Records,
+		}
 	}
 	manifestJSON, err := runtime.marshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -920,6 +1008,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SourcePCAPs:         append([]string(nil), pcapFiles...),
 		ObservationSourceID: observationSourceID,
 		ObservationFrames:   observationFrames,
+		ObservationLog:      observationLogSummary,
 		EvidencePersistence: func() *observationsqlite.FrameEvidenceStats {
 			if !cfg.ProfileEvidence || frameEvidenceStore == nil {
 				return nil
@@ -930,6 +1019,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		Refinement:       refinementReport,
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
+		Continuity:       continuity,
 	}, nil
 }
 
@@ -944,7 +1034,24 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
+	trackerConfig.OcclusionContinuity = occlusionContinuityFor(experiments)
 	return trackerConfig
+}
+
+// occlusionContinuityFor switches on the continuity options the experiments
+// name, with l5tracks' starting values. With none named it is the zero
+// value, so the tracker configuration is exactly the shipped one.
+func occlusionContinuityFor(experiments []string) l5tracks.OcclusionContinuityConfig {
+	all := hasExperiment(experiments, ExperimentOcclusionContinuity)
+	oc := l5tracks.DefaultOcclusionContinuity()
+	oc.ExplainAbsence = all || hasExperiment(experiments, ExperimentCoastSupport)
+	oc.CaptureTimeInflation = all || hasExperiment(experiments, ExperimentCoastTimeInflation)
+	oc.ClassCoastBounds = all || hasExperiment(experiments, ExperimentClassCoastBounds)
+	oc.ReacquisitionGuard = all || hasExperiment(experiments, ExperimentReacquisitionGuard)
+	if !oc.ExplainAbsence && !oc.CaptureTimeInflation && !oc.ClassCoastBounds && !oc.ReacquisitionGuard {
+		return l5tracks.OcclusionContinuityConfig{}
+	}
+	return oc
 }
 
 func fileSHA256(path string) (string, error) {
@@ -1032,11 +1139,11 @@ func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
 // unset, not as a mismatch between an empty sensor and the replay's.
 func validateObservationIdentity(cfg Config) error {
 	if strings.TrimSpace(cfg.ReplayCaseID) == "" {
-		return fmt.Errorf("ReplayCaseID is required when ObservationDBPath or ObservationFrames is set")
+		return fmt.Errorf("ReplayCaseID is required when ObservationDBPath, ObservationFrames or ObservationLogDir is set")
 	}
 	cal := cfg.ObservationCalibration
 	if strings.TrimSpace(cal.SensorID) == "" || strings.TrimSpace(cal.FromFrame) == "" || strings.TrimSpace(cal.ToFrame) == "" {
-		return fmt.Errorf("ObservationCalibration (sensor, source frame and site frame) is required when ObservationDBPath or ObservationFrames is set")
+		return fmt.Errorf("ObservationCalibration (sensor, source frame and site frame) is required when ObservationDBPath, ObservationFrames or ObservationLogDir is set")
 	}
 	if cal.SensorID != cfg.SensorID {
 		return fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cal.SensorID, cfg.SensorID)

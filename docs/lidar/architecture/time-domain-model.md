@@ -3,8 +3,9 @@
 Which clock each part of the LiDAR pipeline runs on, why the estimator runs on capture time alone,
 and what that means for replay, transport gaps and more than one sensor.
 
-- **Status:** Implemented for the estimator boundary (L5 and the timestamps that feed it). Clock
-  injection into runtime code is the separate clock-abstraction remainder.
+- **Status:** Implemented for the estimator boundary (L5 and the timestamps that feed it), with
+  the occlusion-continuity primitives built on it (default-off). Clock injection into runtime code
+  is the separate clock-abstraction remainder.
 - **Layers:** L1 Packets, L2 Frames, L3 Grid, L5 Tracks, pipeline, offline replay
 - **Plan:** [clock abstraction and time-domain model plan](../../plans/lidar-clock-abstraction-and-time-domain-model-plan.md)
 - **Related:** [state-estimation plan](../../plans/lidar-state-estimation-plan.md) (Section 5.6, question Q3),
@@ -153,16 +154,184 @@ largest gap and the number clamped, and replay writes them to `replay_manifest.j
 ## Default-off options
 
 All are Go-level `TrackerConfig` options, deliberately not tuning keys, so the tuning fingerprint
-and the committed perf baselines do not move. The replay harness reaches two of them by name.
+and the committed perf baselines do not move. The replay harness reaches most of them by name.
 
 | Option                                           | Replay experiment     | Effect                                                                                                                                                                                                                |
 | ------------------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MaxCoastSecsTentative`, `MaxCoastSecsConfirmed` | None yet              | Expire a track once its capture-time coast age reaches the bound, alongside the miss count. Checked before association, so an observation arriving after the bound seeds a new track instead of reviving the old one. |
 | `CaptureGapPrediction`                           | `capture_gap_predict` | Predict across the whole gap in steps of at most `max_predict_dt`, so the covariance cap applies per step as it would across ordinary frames. Bounded at 1,200 steps; the remainder is counted, not predicted.        |
 | `MeasurementTimePrediction`                      | `measurement_time`    | Predict each associated track from the frame time to its cluster's acquisition time before the update (question Q3). Gating and assignment still use the frame-time prediction.                                       |
+| `OcclusionContinuity`                            | See below             | Absence explanation, capture-time coast uncertainty, per-class capture-time coast bounds and the reacquisition guard: [coast, existence and expiry](#coast-existence-and-expiry).                                     |
 
-The expiry bounds have no replay experiment because no value is yet justified by evidence;
-wiring one should wait for bounds chosen against held-out occlusion scenes.
+The simple expiry bounds have no replay experiment because no value is yet justified by
+evidence. The per-class bounds below are wired, with stated starting values, so that the evidence
+can be gathered.
+
+## Coast, existence and expiry
+
+Sprint 0.5.2.2 asks the tracker to keep an object's existence hypothesis through a bounded
+unobserved interval without mistaking it for observation. The code is
+[continuity.go](../../../internal/lidar/l5tracks/continuity.go).
+
+### Existence is not observation
+
+Every instant a live track is updated carries a support token, recorded on its history point
+(`TrackPoint.Support`) and as `TrackedObject.LastSupport`. The tokens are the closed vocabulary of
+the [behaviour plan's Section 7.3](../../plans/lidar-behaviour-analytics-plan.md#73-observation-support),
+identical to `l8behaviour.SupportState`; a test reads them from the plan. L5 cannot import L8, so
+a consumer maps by token, never by numeric value. This is always on and changes no estimate.
+
+| Token                             | When l5tracks records it                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `observed`                        | A cluster was associated at this instant                                                                  |
+| `coasted`                         | Unobserved, and absence explanation is off (the default)                                                  |
+| `out_of_fov`                      | Unobserved, and the prediction lies outside the configured `SensorCoverage`                               |
+| `occluded_inferred`               | Unobserved, and this frame's clusters wholly nearer the sensor cover half the predicted footprint's angle |
+| `missed_unknown`                  | Unobserved with neither explanation                                                                       |
+| `cluster_merged`, `cluster_split` | Declared for the vocabulary; not claimed. The merge and split flags are size ratios, not ownership        |
+
+`TrackedObject.Existence` is a third lifecycle, beside `TrackState` (should the track exist?) and
+the solid-body `EstimationState` (is the pose believed?): `observed`, `coasting`,
+`coasting_explained` (`occluded_inferred` or `out_of_fov`), `coasting_unexplained` and `expired`.
+Every deletion records an `ExpiryReason`: `misses`, `coast_age`, `missed_unknown`,
+`occluded_inferred`, `out_of_fov` or `non_finite`. `SolidBodyEstimate.Support.Instant` carries the
+token to the estimate contract.
+
+`Tracker.ContinuityStats` counts, per window, support by track-instant, expiries by reason, coast
+age at expiry and at reacquisition, tracks born and those of them confirmed, and the guard's
+refusals. The window restarts with `BeginTrackingBaseline`, so a replay's figures cover its scoring
+window; `replay_manifest.json` carries them as `continuity`.
+
+### Options
+
+`TrackerConfig.OcclusionContinuity`; its zero value is the shipped tracker, and
+`DefaultOcclusionContinuity` switches everything on with starting values.
+
+| Switch                 | Replay experiment      | Effect                                                                                                                                                                            |
+| ---------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExplainAbsence`       | `coast_support`        | Classify every unobserved instant. Diagnostic only: tracks and baseline are byte-identical to the default replay's                                                                |
+| `CaptureTimeInflation` | `coast_time_inflation` | Replace the per-missed-frame `occlusion_cov_inflation` with the class rate times the unobserved capture time the frame added. Rate zero is pure CV growth                         |
+| `ClassCoastBounds`     | `class_coast_bounds`   | Replace the miss count with capture-time bounds: tentative, else the class's unexplained or, while `occluded_inferred`, explained allowance. Implies explanation                  |
+| `ReacquisitionGuard`   | `reacquisition_guard`  | A coasting track may not reclaim a cluster whose extent does not fit its believed body, nor choose between ambiguous candidates; its implied-speed check divides by its coast age |
+| All four               | `occlusion_continuity` | The bundle. It does not imply `capture_gap_predict`; name both for prediction in capture time as well                                                                             |
+
+The class is the L6 label the pipeline writes back through `UpdateClassification`, mapped by
+`MotionClassForLabel`, at the strength of its confidence: each allowance and rate interpolates
+linearly from `unknown`'s row toward the class's, per Section 5.5's first rule. A track not yet
+classified is `unknown`. Starting values, not evidence-chosen:
+
+| Class           | Unexplained | Explained | Inflation    |
+| --------------- | ----------- | --------- | ------------ |
+| `unknown`       | 1.0 s       | 2.0 s     | 3.0 m² / s   |
+| `rigid_vehicle` | 1.5 s       | 3.0 s     | 3.0 m² / s   |
+| `two_wheeler`   | 1.5 s       | 3.0 s     | 2.0 m² / s   |
+| `pedestrian`    | 1.5 s       | 4.0 s     | 1.0 m² / s   |
+| Tentative, any  | 0.3 s       | 0.3 s     | as its class |
+
+The unexplained allowance is the shipped confirmed miss budget (15 frames) in capture time at
+10 Hz. Every rate is below the 5 m²/s the shipped inflation adds at 10 Hz, so at the nominal rate
+a coasting track's association discount (gap analysis S3) is never deeper than today; a test
+holds that per class and per miss. The bound is judged before association against the last
+instant's explanation and after association against this frame's, so an explanation that
+disappears (the occluder moved on, or the prediction left its shadow, and nothing is there)
+lapses the hypothesis on that instant.
+
+Three findings shaped the guard. First, the shipped implied-speed check divides a pairing's
+distance from the prediction by one frame interval, so at 10 Hz and 30 m/s no coasting track can
+be reacquired more than 3 m from its prediction, however long it coasted. That binds before the
+Mahalanobis gate and before the 5 m jump guard, and it made growing uncertainty pointless: in the
+synthetic full-occlusion scene a car whose partial views on entry left its velocity 13 % low
+re-emerged 2.9 m ahead of its prediction after 1.4 s and was refused. Under the guard a
+reacquiring track is judged over its coast age. Second, the believed extent must not be the
+running mean of spans, which is what `believedLongExtent` falls back to with the axis path off
+(the default): partial views drag it down, and a whole view of the same car can then read as a
+merge (a unit test pins the case). The guard keeps its own corroborated-maximum long-extent
+belief, fed only while it is on.
+Third, two fragments of one body are a split, not an identity question: two candidates closer
+together than the believed extent are not treated as ambiguous.
+
+Occlusion is explained from foreground clusters only. A parked vehicle absorbed into the
+background, a building or a pole produces no cluster, so an object behind one reads as
+`missed_unknown`. The sensor origin (`SensorX`, `SensorY`) is zero while the pipeline runs in
+sensor coordinates with a nil pose; a site pose must set it. `SensorCoverage` is unset by default,
+so `out_of_fov` is never claimed until a site configures it.
+
+### Synthetic evidence
+
+[continuity_scenario_test.go](../../../internal/lidar/l5tracks/continuity_scenario_test.go)
+generates scenes by ray geometry with known truth: a sensor at the origin, the road user in a lane
+12 m out, and a stationary occluder 6 m out sized to hide it. Seven scenes for each of a car
+(10 m/s), cyclist (5 m/s) and pedestrian (1.4 m/s), under `DefaultOcclusionContinuity` with a
+correct L6. Each asserts that support agrees with why the generator produced no cluster (an
+occlusion is never claimed where there was none, and a real one is recognised on at least 80 % of
+hidden instants), that history points carry their instant's token, the identity rule, that no
+hypothesis is ever live beyond its instant's allowance, and that the truth lies inside the 99 %
+position ellipse at 0.5 s and 1 s of coast. A companion test shows the checks catch the shipped
+tracker's failures.
+
+| Scene                 | Option                                                                                       | Shipped, same scene                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Full occlusion        | Identity kept, all three; covered to the reacquisition                                       | Identity lost, all three: the car to the 3 m limit, the rest to misses |
+| Hidden stop           | Expires with its reason (explained bound, or the prediction leaves the shadow); new identity | New identity                                                           |
+| Turn during occlusion | Expires once the prediction leaves the shadow; the car's truth leaves the ellipse at 1.5 s   | Expires by misses                                                      |
+| Sparse returns        | Identity kept; misses are `missed_unknown`, never an occlusion                               | Identity kept                                                          |
+| Re-entry              | Expires `out_of_fov` within the unexplained bound; re-enters as a new identity               | New identity                                                           |
+| Distractor            | Identity kept; never mixed with the distractor                                               | Car and pedestrian handed to the distractor's track                    |
+| Departure             | Expires `missed_unknown` within the unexplained bound                                        | Expires by misses                                                      |
+
+An unclassified pedestrian behind the same occluder is let go at `unknown`'s two seconds and seen
+again under a new identity, where a classified one is held. The pedestrian ellipses are loose
+(d² near 0.04 at 2 s of coast): coverage holds, calibration is not claimed, and G-UNC-1 remains
+the gate for that.
+
+### Replay evidence on kirk0
+
+The whole of kirk0 after a 20 s warm-up (631 recorded frames), each arm the default replay with
+experiments named. Label-free: `ContinuityStats` over the scoring window, and the recording's
+confirmed tracks. The default arm is byte-identical to the base branch, and `coast_support` to the
+default, in schema-2 baseline and every frame's track decisions.
+
+| Arm                    | Born | Never confirmed | Reacquired | Expired by                     | Longest coast at expiry | ≥ 3 s | Confirmed tracks, median life |
+| ---------------------- | ---- | --------------- | ---------- | ------------------------------ | ----------------------- | ----- | ----------------------------- |
+| default                | 113  | 67 %            | 243        | misses 113                     | 6.4 s                   | 8     | 41, 5.8 s                     |
+| `coast_time_inflation` | 113  | 65 %            | 200        | misses 114                     | 6.4 s                   | 8     | 45, 4.8 s                     |
+| `class_coast_bounds`   | 122  | 65 %            | 262        | missed_unknown 82, occluded 40 | 2.9 s                   | 0     | 46, 4.2 s                     |
+| `reacquisition_guard`  | 117  | 62 %            | 175        | misses 117                     | 6.3 s                   | 7     | 47, 4.4 s                     |
+| `occlusion_continuity` | 124  | 61 %            | 125        | missed_unknown 87, occluded 37 | 2.8 s                   | 0     | 52, 3.5 s                     |
+
+Reading it:
+
+- **The miss count lets hypotheses outlive their evidence.** Frames with no clusters never reach
+  the tracker, so by default eight tracks were still alive 3 to 6.4 s of capture time after their
+  last observation. Capture-time bounds end every one by 2.9 s.
+- **Most absences are unexplained.** `coast_support` splits the default's 1,263 coasted instants
+  into 373 `occluded_inferred` (30 %) and 890 `missed_unknown`. Some of the latter are occlusion
+  by static structure, which is not yet modelled.
+- **The guard mostly refuses small hypotheses a vehicle's cluster.** About 60 % of the pairings
+  it refused as too large (logged over the whole replay) were L6 `bird` or `dynamic` tracks
+  believing in under a metre, 2 to 4 m from a vehicle-sized cluster; most of the rest look like
+  merges (a 5.1 m belief against a 10.5 m cluster). Its
+  failures are its belief's: one car track carried a merge-inflated 10.4 m belief and refused
+  2.4 m views. The counters count forbidden pairings, not changed decisions.
+- **`capture_gap_predict` adds nothing on top of the bundle here.** Every track spanning kirk0's
+  long empty-frame gaps is expired by capture time before whole-gap prediction could act on it.
+- **Direction is not established.** Fewer never-confirmed hypotheses and more confirmed tracks,
+  with shorter lives and fewer reacquisitions, fit less identity mixing and more fragmentation
+  of real objects equally. One capture without labels cannot separate them.
+
+To compare on the S2 corpus (put `-out` on a different device from the captures):
+
+```bash
+go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR_PCAP_DIR" \
+  -out /tmp/continuity-default
+go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR_PCAP_DIR" \
+  -out /tmp/continuity-option -experiment occlusion_continuity
+```
+
+Compare each case's `continuity` in `phase0-summary.json`, then attribute with the single
+switches (`coast_support`, `coast_time_inflation`, `class_coast_bounds`, `reacquisition_guard`)
+and with `occlusion_continuity,capture_gap_predict`. Judge identity against labelled tracks before
+any value is chosen. The in-repo smoke run is `TestOcclusionContinuityExperimentsOnKirk0`.
 
 ## Measurement time versus frame time (Q3)
 
@@ -222,7 +391,9 @@ is an open question for L7; see
 
 | Item                                                                                                                                              | Owner                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Choose capture-time expiry bounds from held-out occlusion scenes; then wire an experiment                                                         | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Choose the continuity values (class bounds and rates, `MaxCoastSecs*`) from held-out occlusion scenes, comparing `occlusion_continuity` on S2     | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Explain occlusion by static structure from the L3 background range at the predicted azimuth                                                       | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                       | Visualiser trails plan; state-estimation plan         |
 | Answer Q3 on the corpus with `-experiment measurement_time`                                                                                       | State-estimation plan, question Q3                    |
 | Measure `capture_gap_predict` on reacquisition across gaps                                                                                        | State-estimation plan, Sprint 0.5.2.2                 |
 | Inject `timeutil.Clock` into the throttle, replay pacing and cleanup; stop the paced reader skipping the packet it forgives on                    | Clock plan, phases A and B (v0.5.4 remainder)         |

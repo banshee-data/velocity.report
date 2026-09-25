@@ -36,6 +36,11 @@ type TrackPoint struct {
 	X         float32
 	Y         float32
 	Timestamp int64 // Unix nanos
+	// Support says whether this point was observed or coasted, and when
+	// coasted, why. A trail is otherwise a smooth line through evidence and
+	// hypothesis alike. Zero for points not produced by the live tracker,
+	// such as history restored from storage. See continuity.go.
+	Support ObservationSupport
 }
 
 // TrackedObject represents a single tracked object in the tracker.
@@ -91,6 +96,17 @@ type TrackedObject struct {
 	CoastAgeSecs          float32
 	MaxCoastAgeSecs       float32
 
+	// Existence, separate from observation; see continuity.go. LastSupport is
+	// the latest instant's support token, recorded whether or not the instant
+	// reached History. Existence is the continuity hypothesis it implies,
+	// distinct from TrackState and from the solid-body EstimationState.
+	// ExpiryReason says why a deleted track was deleted. inflatedCoastSecs is
+	// the coast age CaptureTimeInflation has already charged for.
+	LastSupport       ObservationSupport
+	Existence         ExistenceState
+	ExpiryReason      ExpiryReason
+	inflatedCoastSecs float32
+
 	// History of positions
 	History []TrackPoint
 
@@ -112,6 +128,10 @@ type TrackedObject struct {
 	// dimensions, built from confidently assigned observations only. They are
 	// deliberately not running means of raw spans; see heading_extent.go.
 	lengthBelief, widthBelief extentBelief
+	// reacquisitionExtent is the same kind of belief about the longest span,
+	// fed only under OcclusionContinuity.ReacquisitionGuard, which reads it;
+	// see reacquisitionBelief.
+	reacquisitionExtent extentBelief
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -216,6 +236,11 @@ type Tracker struct {
 
 	// timeStats records the capture-time stream for diagnostics.
 	timeStats TimeDomainStats
+	// continuity records support, expiry and reacquisition for diagnostics.
+	// A track whose CreationSequence exceeds continuityBornAfter was born in
+	// the current continuity window.
+	continuity          ContinuityStats
+	continuityBornAfter int64
 
 	// Fragmentation counters (reset via ResetFragmentation)
 	TracksCreated   int
@@ -296,6 +321,8 @@ func (t *Tracker) Reset() {
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
 	t.timeStats = TimeDomainStats{}
+	t.continuity = ContinuityStats{}
+	t.continuityBornAfter = 0
 	t.lastAssociations = nil
 	t.TotalForegroundPoints = 0
 	t.ClusteredPoints = 0
@@ -350,15 +377,22 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 	// Step 1: Refresh each active track's capture-time coast age, expire any
 	// that have outlived their capture-time bound (a no-op unless
-	// MaxCoastSecs* is set), and predict the rest to the current time. The
-	// expiry precedes association on purpose: see TrackerConfig.
+	// MaxCoastSecs* or ClassCoastBounds is set), and predict the rest to the
+	// current time. The expiry precedes association on purpose: see
+	// TrackerConfig. The class bound is judged here against the last
+	// instant's explanation, the latest there is.
 	deletedThisFrame := 0
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
 			continue
 		}
 		if t.observeCoastAge(track, nowNanos) {
-			t.deleteExpired(track, nowNanos, true)
+			t.deleteExpired(track, nowNanos, ExpiryCoastAge)
+			deletedThisFrame++
+			continue
+		}
+		if reason, expired := t.classCoastExpired(track, track.LastSupport); expired {
+			t.deleteExpired(track, nowNanos, reason)
 			deletedThisFrame++
 			continue
 		}
@@ -377,19 +411,18 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		if trackID != "" {
 			track := t.Tracks[trackID]
 			t.observeBaselineAssociation(track, true)
-			if t.Config.MeasurementTimePrediction {
-				t.predictToMeasurement(track, clusters[clusterIdx], nowNanos)
-			}
-			t.update(track, clusters[clusterIdx], nowNanos)
-			markObserved(track)
-			track.Hits++
-			track.Misses = 0
 			matchedTracks[trackID] = true
+			if !t.updateMatched(track, clusters[clusterIdx], nowNanos) {
+				continue
+			}
 
 			// Promote tentative → confirmed
 			if track.TrackState == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
 				track.TrackState = TrackConfirmed
 				t.TracksConfirmed++
+				if track.CreationSequence > t.continuityBornAfter {
+					t.continuity.TracksConfirmed++
+				}
 				newlyConfirmed++
 				diagf("Track confirmed: track_id=%s hits=%d observations=%d cluster_id=%d",
 					track.TrackID, track.Hits, track.ObservationCount, clusters[clusterIdx].ClusterID)
@@ -427,7 +460,10 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// than tentative tracks (MaxMisses). During occlusion the Kalman
 	// prediction step (already applied above) keeps the position estimate
 	// coasting, and we inflate the covariance to widen the gating gate
-	// so re-association is easier when the object reappears.
+	// so re-association is easier when the object reappears. The instant is
+	// recorded as coasted, or classified when absence explanation is on;
+	// under ClassCoastBounds the capture-time class bound replaces the miss
+	// count as the expiry rule.
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
 			t.observeBaselineAssociation(track, false)
@@ -437,21 +473,12 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			if track.Misses > track.MaxOcclusionFrames {
 				track.MaxOcclusionFrames = track.Misses
 			}
+			support := t.supportForAbsence(track, clusters)
+			t.recordSupport(track, support)
 
 			// Inflate covariance during occlusion so the gating
 			// ellipse grows and re-association becomes easier.
-			// Capped at MaxCovarianceDiag to prevent unbounded growth
-			// over long coasting periods (e.g. 15 frames × 0.5 = +7.5).
-			if t.Config.OcclusionCovInflation > 0 {
-				track.P[0*4+0] += t.Config.OcclusionCovInflation
-				track.P[1*4+1] += t.Config.OcclusionCovInflation
-				if track.P[0*4+0] > t.Config.MaxCovarianceDiag {
-					track.P[0*4+0] = t.Config.MaxCovarianceDiag
-				}
-				if track.P[1*4+1] > t.Config.MaxCovarianceDiag {
-					track.P[1*4+1] = t.Config.MaxCovarianceDiag
-				}
-			}
+			t.inflateCoastCovariance(track)
 
 			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -460,10 +487,19 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 					X:         track.X,
 					Y:         track.Y,
 					Timestamp: nowNanos,
+					Support:   support,
 				})
 				if len(track.History) > t.Config.MaxTrackHistoryLength {
 					track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 				}
+			}
+
+			if t.Config.OcclusionContinuity.ClassCoastBounds {
+				if reason, expired := t.classCoastExpired(track, support); expired {
+					t.deleteExpired(track, nowNanos, reason)
+					deletedThisFrame++
+				}
+				continue
 			}
 
 			// Determine miss limit based on track maturity.
@@ -473,7 +509,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			}
 			if track.Misses >= maxMisses {
 				prevState := track.TrackState
-				t.deleteExpired(track, nowNanos, false)
+				t.deleteExpired(track, nowNanos, ExpiryMisses)
 				deletedThisFrame++
 				diagf("Track deleted after misses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 					track.TrackID, prevState, track.Misses, maxMisses)
@@ -583,6 +619,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			X:         measurement.X,
 			Y:         measurement.Y,
 			Timestamp: measurement.UnixNanos,
+			Support:   SupportObserved,
 		}},
 		LastClusterID: cluster.ClusterID,
 
@@ -599,12 +636,15 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	}
 
 	t.Tracks[trackID] = track
+	t.observeReacquisitionExtent(track, &cluster)
 	if t.Config.OBBAxisCoherenceEnabled {
 		t.updateAxisHeading(track, cluster)
 	} else {
 		track.HeadingEpisodes.Observe(track.HeadingSource, nowNanos)
 	}
 	t.TracksCreated++
+	t.continuity.TracksBorn++
+	t.recordSupport(track, SupportObserved)
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
 	return track
@@ -638,15 +678,18 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 // not artificially kept alive by the lack of cluster delivery (task 7.2).
 //
 // timestamp is the skipped frame's capture time. It refreshes coast age and
-// applies the capture-time bound, but it does not move LastUpdateNanos: no
+// applies the capture-time bounds, but it does not move LastUpdateNanos: no
 // prediction happened here, so the next Update must still predict across the
-// whole interval since the last one.
+// whole interval since the last one. No clusters were seen, so no absence is
+// classified and no support instant recorded; a class bound is judged against
+// the last instant's explanation, as before association in Update.
 func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := 0
 	t.timeStats.AdvancedFrames++
+	classBounds := t.Config.OcclusionContinuity.ClassCoastBounds
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
@@ -662,18 +705,42 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 			maxMisses = t.Config.MaxMissesConfirmed
 		}
 		switch {
-		case track.Misses >= maxMisses:
+		case !classBounds && track.Misses >= maxMisses:
 			prevState := track.TrackState
-			t.deleteExpired(track, nowNanos, false)
+			t.deleteExpired(track, nowNanos, ExpiryMisses)
 			deletedTracks++
 			diagf("Track deleted during AdvanceMisses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 				track.TrackID, prevState, track.Misses, maxMisses)
 		case coastExpired:
-			t.deleteExpired(track, nowNanos, true)
+			t.deleteExpired(track, nowNanos, ExpiryCoastAge)
 			deletedTracks++
+		case classBounds:
+			if reason, expired := t.classCoastExpired(track, track.LastSupport); expired {
+				t.deleteExpired(track, nowNanos, reason)
+				deletedTracks++
+			}
 		}
 	}
 	tracef("AdvanceMisses complete: ts=%d deleted_tracks=%d", nowNanos, deletedTracks)
+}
+
+// updateMatched applies an associated cluster to its track and does the
+// observed bookkeeping: coast reset, support, hit and miss counts. It returns
+// false, having done none of that, when the update deleted the track (the
+// non-finite guard); a deleted track is never marked observed.
+func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowNanos int64) bool {
+	if t.Config.MeasurementTimePrediction {
+		t.predictToMeasurement(track, cluster, nowNanos)
+	}
+	t.update(track, cluster, nowNanos)
+	if track.TrackState == TrackDeleted {
+		return false
+	}
+	t.markObserved(track)
+	t.recordSupport(track, SupportObserved)
+	track.Hits++
+	track.Misses = 0
+	return true
 }
 
 // predictToMeasurement moves an associated track's state from the frame time

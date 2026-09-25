@@ -284,6 +284,7 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 
 - [x] Reserve the following-metric ids in the [registry](../platform/architecture/metrics-registry.md#following-metrics) with the full canonical shape, adding the `interaction` level, `instantaneous` estimator, `s` unit, `review_only` visibility and `event_id` forbidden tag.
 - [x] Mirror them in `internal/lidar/l8behaviour/metrics.go`, where a measurement may only use a registered name and unit, and a test fails when the registry and the code disagree.
+- [x] Register the encounter statistics (`interaction.following_{spatial_gap,net_time_gap}_{min,p50}_*`), adding the `raw_min` estimator and the `min` term, and emit them with interval uncertainty from the encounter method.
 - [ ] Carry the same ids and suppression reasons through persistence, API and report output.
 
 ### Phase 1 - speed naming reset

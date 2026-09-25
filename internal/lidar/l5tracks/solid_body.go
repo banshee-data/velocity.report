@@ -408,6 +408,11 @@ type SupportState struct {
 	// CoastedFrames is how many consecutive frames have had no accepted
 	// measurement. Zero means this frame was observed.
 	CoastedFrames int
+	// Instant is the tracker's support token for this instant, the behaviour
+	// plan's Section 7.3 vocabulary (see ObservationSupport). It carries the
+	// explanation of an absence, which CoastedFrames cannot; zero when the
+	// estimate was not read off a live track.
+	Instant ObservationSupport
 	// Fragmented and Truncated mark evidence that Section 9.2.1 refuses as
 	// dimension evidence: a fragment's extent is meaningless as a dimension,
 	// and a cluster cut off at the field-of-view boundary has an extent that

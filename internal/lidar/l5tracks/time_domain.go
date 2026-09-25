@@ -77,7 +77,8 @@ type TimeDomainStats struct {
 	MeasurementIntervalsClamped int64 `json:"measurement_intervals_clamped"`
 
 	// ExpiredByMisses and ExpiredByCoastAge count deletions by rule. The
-	// frame-count rule is checked first where both apply in one call.
+	// frame-count rule is checked first where both apply in one call. Every
+	// other reason, and these two again, are counted in ContinuityStats.
 	ExpiredByMisses   int64 `json:"expired_by_misses"`
 	ExpiredByCoastAge int64 `json:"expired_by_coast_age"`
 }
@@ -253,30 +254,56 @@ func (t *Tracker) observeCoastAge(track *TrackedObject, nowNanos int64) (expired
 }
 
 // markObserved records an accepted observation at the capture time the
-// track's posterior now refers to, and the unobserved interval it closes.
-func markObserved(track *TrackedObject) {
+// track's posterior now refers to, and the unobserved interval it closes. A
+// track that missed at least the previous frame has been reacquired; the
+// interval it closed is counted in ContinuityStats.
+func (t *Tracker) markObserved(track *TrackedObject) {
 	observed := track.StateUnixNanos
 	if track.LastObservedUnixNanos > 0 && observed > track.LastObservedUnixNanos {
-		if gap := float32(observed-track.LastObservedUnixNanos) / 1e9; gap > track.MaxCoastAgeSecs {
+		gap := float32(observed-track.LastObservedUnixNanos) / 1e9
+		if gap > track.MaxCoastAgeSecs {
 			track.MaxCoastAgeSecs = gap
+		}
+		if track.Misses > 0 {
+			t.continuity.Reacquisitions++
+			t.continuity.ReacquiredCoastAge.observe(gap)
 		}
 	}
 	if observed > track.LastObservedUnixNanos {
 		track.LastObservedUnixNanos = observed
 	}
 	track.CoastAgeSecs = 0
+	track.inflatedCoastSecs = 0
 }
 
-// deleteExpired marks a track deleted at nowNanos and counts the rule.
-func (t *Tracker) deleteExpired(track *TrackedObject, nowNanos int64, byCoastAge bool) {
+// deleteExpired marks a track deleted at nowNanos and records why. The two
+// shipped rules keep their TimeDomainStats counters; every reason is counted
+// in ContinuityStats with the coast age the track had reached.
+func (t *Tracker) deleteExpired(track *TrackedObject, nowNanos int64, reason ExpiryReason) {
 	prevState := track.TrackState
 	track.TrackState = TrackDeleted
 	track.EndUnixNanos = nowNanos
-	if byCoastAge {
+	t.recordExpiry(track, reason)
+	switch reason {
+	case ExpiryMisses:
+		t.timeStats.ExpiredByMisses++
+	case ExpiryCoastAge:
 		t.timeStats.ExpiredByCoastAge++
 		diagf("Track deleted after capture-time coast: track_id=%s previous_state=%s coast_age=%.3fs bound=%.3fs misses=%d",
 			track.TrackID, prevState, track.CoastAgeSecs, t.maxCoastSecs(prevState), track.Misses)
-		return
+	default:
+		diagf("Track deleted by class coast bound: track_id=%s previous_state=%s reason=%s class=%s coast_age=%.3fs misses=%d",
+			track.TrackID, prevState, reason, track.ObjectClass, track.CoastAgeSecs, track.Misses)
 	}
-	t.timeStats.ExpiredByMisses++
+}
+
+// recordExpiry marks a deleted track's existence expired and counts the
+// reason with the coast age reached. It is separate from deleteExpired so the
+// non-finite guards in predict and update, which delete without closing the
+// track's time span, record their reason too.
+func (t *Tracker) recordExpiry(track *TrackedObject, reason ExpiryReason) {
+	track.ExpiryReason = reason
+	track.Existence = ExistenceExpired
+	t.continuity.ExpiredByReason.observe(reason)
+	t.continuity.CoastAgeAtExpiry.observe(track.CoastAgeSecs)
 }

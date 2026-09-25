@@ -36,6 +36,29 @@ const (
 	// predict across a whole capture-time gap instead of clamping it to
 	// max_predict_dt.
 	ExperimentCaptureGapPredict = "capture_gap_predict"
+
+	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
+	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
+	// can be attributed, and all four together. Every one runs with
+	// l5tracks.DefaultOcclusionContinuity's starting values.
+	//
+	// ExperimentCoastSupport: ExplainAbsence alone. Diagnostic: the tracks
+	// are the default replay's exactly, and only the manifest's continuity
+	// support counts split coasted into occluded_inferred, missed_unknown and
+	// out_of_fov. It is the arm to read the shipped tracker's absences with.
+	ExperimentCoastSupport = "coast_support"
+	// ExperimentCoastTimeInflation: CaptureTimeInflation, uncertainty per
+	// coast second rather than per missed frame.
+	ExperimentCoastTimeInflation = "coast_time_inflation"
+	// ExperimentClassCoastBounds: ClassCoastBounds, per-class capture-time
+	// coast bounds in place of the miss count (implies absence explanation).
+	ExperimentClassCoastBounds = "class_coast_bounds"
+	// ExperimentReacquisitionGuard: ReacquisitionGuard.
+	ExperimentReacquisitionGuard = "reacquisition_guard"
+	// ExperimentOcclusionContinuity: all four. It does not imply
+	// capture_gap_predict; name both for prediction in capture time too.
+	ExperimentOcclusionContinuity = "occlusion_continuity"
+
 	// ExperimentFixedLagRTS attaches the fixed-assignment RTS smoother at the
 	// comparison horizons (three frames; 0.5, 1 and 2 s; the whole track) and
 	// writes refinement_report.json; see refinement.go. It observes the
@@ -45,14 +68,19 @@ const (
 )
 
 var knownExperiments = map[string]bool{
-	ExperimentLikelihoodCost:    true,
-	ExperimentCascade:           true,
-	ExperimentDensityCap:        true,
-	ExperimentFlipRule:          true,
-	ExperimentNoRegionOverrides: true,
-	ExperimentMeasurementTime:   true,
-	ExperimentCaptureGapPredict: true,
-	ExperimentFixedLagRTS:       true,
+	ExperimentLikelihoodCost:      true,
+	ExperimentCascade:             true,
+	ExperimentDensityCap:          true,
+	ExperimentFlipRule:            true,
+	ExperimentNoRegionOverrides:   true,
+	ExperimentMeasurementTime:     true,
+	ExperimentCaptureGapPredict:   true,
+	ExperimentCoastSupport:        true,
+	ExperimentCoastTimeInflation:  true,
+	ExperimentClassCoastBounds:    true,
+	ExperimentReacquisitionGuard:  true,
+	ExperimentOcclusionContinuity: true,
+	ExperimentFixedLagRTS:         true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

@@ -75,6 +75,11 @@ type caseSummary struct {
 	// duplicate frame timestamps and gaps the tracker clamped. A corpus case
 	// with any of them needs reading before its temporal results are trusted.
 	TimeDomain l5tracks.TimeDomainStats `json:"time_domain"`
+	// Continuity is the first run's scoring-window continuity diagnostics:
+	// support per track-instant, expiries by reason, coast-age histograms and
+	// births against confirmations. Compare it between a default run and an
+	// -experiment occlusion_continuity run of the same corpus.
+	Continuity l5tracks.ContinuityStats `json:"continuity"`
 }
 
 func main() {
@@ -270,10 +275,16 @@ func main() {
 			RefinementArms:        refinementArms,
 			Experiments:           experiments,
 			TimeDomain:            firstResult.TimeDomain,
+			Continuity:            firstResult.Continuity,
 		}
 		td := firstResult.TimeDomain
 		fmt.Printf("%s: capture time frames=%d backward=%d duplicate=%d clamped_gaps=%d max_gap=%.3fs\n",
 			selectedCase.ID, td.Frames, td.BackwardTimestamps, td.DuplicateTimestamps, td.ClampedGaps, td.MaxGapSecs)
+		cs := firstResult.Continuity
+		fmt.Printf("%s: continuity born=%d confirmed=%d reacquired=%d expired misses=%d coast_age=%d missed_unknown=%d occluded_inferred=%d out_of_fov=%d\n",
+			selectedCase.ID, cs.TracksBorn, cs.TracksConfirmed, cs.Reacquisitions, cs.ExpiredByReason.Misses,
+			cs.ExpiredByReason.CoastAge, cs.ExpiredByReason.MissedUnknown, cs.ExpiredByReason.OccludedInferred,
+			cs.ExpiredByReason.OutOfFOV)
 		if fit := firstResult.GroundSurfaceFit; fit != nil {
 			summary.GroundSurfaceSupport = fit.Global.Support
 			summary.GroundSurfaceGradientMetre = fit.Global.GradientMetre

@@ -1,0 +1,415 @@
+// velocity.report recording domain
+// Version: v1
+// Package: velocity.recording.v1
+//
+// Typed payloads for VRLOG 1.x containers: the capture manifest, the L4
+// observation frame and gap records, and the chunk header, seal, index and
+// closing-summary objects. The container's fixed-binary record envelope,
+// object preambles and record kinds are specified in
+// data/structures/VRLOG_FORMAT.md, not here: the envelope is deliberately
+// independent of this package so a reader can reject a file before it
+// trusts any protobuf.
+//
+// This schema is independent of velocity.visualiser.v1. A FrameBundle is a
+// display projection; nothing here may be derived from it, and a
+// FrameBundle may be derived from this but never stored in its place.
+//
+// Evolution rules. They exist because protobuf accepts a different message
+// whose field numbers overlap, so a version string alone cannot protect a
+// reader:
+//   - Field and enum numbers are never reused. A retired field's number and
+//     name are reserved in its message, with the reason.
+//   - A new field is a minor change only if a reader that ignores it still
+//     reads every existing field correctly. A field that changes the meaning
+//     of another must also add a manifest required feature, which older
+//     readers refuse.
+//   - Enum values equal the l4bobserve constants they carry; a reader
+//     rejects values it does not know rather than mapping them to a default.
+//   - Scalars whose zero is valid data (ring 0, intensity 0, a count of 0)
+//     carry explicit presence: `optional`, a presence bit set, or a
+//     sub-message. Absent never means zero.
+
+syntax = "proto3";
+
+package velocity.recording.v1;
+
+option go_package = "github.com/banshee-data/velocity.report/internal/lidar/recordingpb";
+
+// =============================================================================
+// Versions and stream identity
+// =============================================================================
+
+// SchemaVersion names the revision of this file's message definitions that
+// a container's records use. A reader refuses a version it does not know.
+enum SchemaVersion {
+  SCHEMA_VERSION_UNSPECIFIED = 0;
+  SCHEMA_VERSION_1 = 1;
+}
+
+// StreamKind says what a container's records are. A full capture is an
+// observation stream; analysis runs and portable selections are planned
+// kinds that reference committed observations without claiming to be one.
+enum StreamKind {
+  STREAM_KIND_UNSPECIFIED = 0;
+  STREAM_KIND_OBSERVATION = 1;
+}
+
+// RecordingManifest is the container's immutable root: written once, before
+// any record is admitted, and never rewritten.
+message RecordingManifest {
+  SchemaVersion schema_version = 1;
+  StreamKind stream_kind = 2;
+  // Evidence profile (l4bobserve.ProfileName) and its capabilities, sorted.
+  // Both are stored so a reader in another language needs no Go mapping; a
+  // Go reader refuses a known profile whose list disagrees with its
+  // declaration.
+  string profile = 3;
+  repeated string capabilities = 4;
+  // Format features a reader must understand to read the records correctly.
+  // A reader refuses any it does not know. Empty in container 1.0.
+  repeated string required_features = 5;
+  // Version of the semantic digest recorded in chunk seals
+  // (l4bobserve.SemanticDigestVersion).
+  string semantic_digest_version = 6;
+  CaptureIdentity capture = 7;
+  ExtractionIdentity extraction = 8;
+  Calibration calibration = 9;
+  Limits limits = 10;
+  Provenance provenance = 11;
+  // Metadata objects embedded by value, each with its SHA-256, so the
+  // manifest reproduces its configuration without an external path.
+  repeated MetadataObject metadata = 12;
+}
+
+// CaptureIdentity names one capture. The UUID is random and allocated before
+// ingestion: two replays of the same PCAP are two captures, and the UUID and
+// creation time are the only fields that legitimately differ between them.
+message CaptureIdentity {
+  string capture_uuid = 1;
+  string sensor_id = 2;
+  // "pcap", "live" or "synthetic".
+  string source_type = 3;
+  // Set when this capture is derived from another (a salvage or selection).
+  string parent_capture_uuid = 4;
+  sfixed64 created_unix_nanos = 5;
+}
+
+// ExtractionIdentity binds the records to the ordered source and the
+// extractor that produced them. source_id and calibration_id are the
+// l4bobserve identities; a reader recomputes both from the fields beside them.
+message ExtractionIdentity {
+  string source_id = 1;
+  string calibration_id = 2;
+  // Frame of the retained XYZ, e.g. "site/<sensor>".
+  string coordinate_frame = 3;
+  string replay_case_id = 4;
+  // Ordered capture files exactly as they entered source_id.
+  repeated CaptureFile capture_files = 5;
+  string extractor_id = 6;
+  // Replay window as configured, relative to the capture sequence's first
+  // packet. Zero duration means the remainder of the capture.
+  SourceWindow window = 7;
+}
+
+message CaptureFile {
+  string path = 1;
+  // Lower-case hex SHA-256 of the file's bytes.
+  string sha256 = 2;
+}
+
+message SourceWindow {
+  sfixed64 start_offset_nanos = 1;
+  sfixed64 warmup_nanos = 2;
+  sfixed64 duration_nanos = 3;
+}
+
+// Calibration is the transform that placed sensor points in the coordinate
+// frame, embedded so the geometry is reproducible without a database row.
+message Calibration {
+  string sensor_id = 1;
+  string from_frame = 2;
+  string to_frame = 3;
+  // Row-major 4x4; exactly 16 values.
+  repeated double transform = 4;
+}
+
+// Limits a writer promises and a reader enforces before allocating. A
+// reader also refuses limits above its own hard ceilings.
+message Limits {
+  uint64 target_chunk_bytes = 1;
+  uint64 max_chunk_bytes = 2;
+  uint32 max_record_bytes = 3;
+  uint32 max_records_per_chunk = 4;
+  uint32 max_points_per_frame = 5;
+  uint32 max_clusters_per_frame = 6;
+  uint32 max_stages_per_frame = 7;
+}
+
+// Provenance identifies the software and configuration that wrote the
+// container. params_hash is the same identity the legacy VRLOG header and
+// replay manifest carry for the effective tuning.
+message Provenance {
+  string build_version = 1;
+  string build_git_sha = 2;
+  // Component that wrote the container, e.g. "replayeval".
+  string writer = 3;
+  string params_hash = 4;
+  string params_schema_version = 5;
+  repeated string experiments = 6;
+}
+
+message MetadataObject {
+  string name = 1;
+  string media_type = 2;
+  bytes content = 3;
+  // Lower-case hex SHA-256 of content.
+  string sha256 = 4;
+}
+
+// =============================================================================
+// Observation records
+// =============================================================================
+
+enum Completeness {
+  COMPLETENESS_UNKNOWN = 0;
+  COMPLETENESS_COMPLETE = 1;
+  COMPLETENESS_PARTIAL = 2;
+}
+
+enum BackgroundState {
+  BACKGROUND_STATE_UNKNOWN = 0;
+  BACKGROUND_STATE_SETTLING = 1;
+  BACKGROUND_STATE_SETTLED = 2;
+}
+
+enum Disposition {
+  DISPOSITION_UNSPECIFIED = 0;
+  DISPOSITION_OBSERVED = 1;
+  DISPOSITION_UNSETTLED = 2;
+  DISPOSITION_SUPPRESSED = 3;
+  DISPOSITION_FAILED = 4;
+}
+
+// Bits of RetainedPoints.columns. A column is present when its bit is set,
+// even for an empty domain; its values are then exactly point_count long.
+enum PointColumn {
+  POINT_COLUMN_UNSPECIFIED = 0;
+  POINT_COLUMN_ACQUISITION_TIME = 1;
+  POINT_COLUMN_INTENSITY = 2;
+  POINT_COLUMN_CHANNEL = 4;
+  POINT_COLUMN_RETURN_INDEX = 8;
+  POINT_COLUMN_SOURCE_ORDINAL = 16;
+  POINT_COLUMN_PACKET_SEQUENCE = 32;
+  POINT_COLUMN_BLOCK_INDEX = 64;
+}
+
+// RejectionReason values are the bytes of Membership.unassigned_reasons.
+enum RejectionReason {
+  REJECTION_REASON_UNKNOWN = 0;
+  REJECTION_REASON_HEIGHT_BAND = 1;
+  REJECTION_REASON_SURFACE_BELOW_FLOOR = 2;
+  REJECTION_REASON_SURFACE_ABOVE_CEILING = 3;
+  REJECTION_REASON_VOXEL_REDUCED = 4;
+  REJECTION_REASON_CLUSTER_INPUT_CAP = 5;
+  REJECTION_REASON_CLUSTER_NOISE = 6;
+  REJECTION_REASON_CLUSTER_SHAPE = 7;
+}
+
+// FrameRecord is one l4bobserve.FrameRecord: the evidence for one frame the
+// extractor received, in source sequence.
+message FrameRecord {
+  uint64 sequence = 1;
+  string sensor_frame_id = 2;
+  sfixed64 frame_unix_nanos = 3;
+  sfixed64 capture_start_unix_nanos = 4;
+  sfixed64 capture_end_unix_nanos = 5;
+  Completeness completeness = 6;
+  // Absent: the loss is unknown, which is not a loss of zero.
+  optional uint64 lost_packets = 7;
+  BackgroundState background = 8;
+  Disposition disposition = 9;
+  // Required for suppressed and failed frames, empty otherwise.
+  string disposition_stage = 10;
+  string disposition_reason = 11;
+  // In the order the pipeline reported them.
+  repeated StageCount stages = 12;
+  // Presence is payload availability: points present means the retained
+  // domain is recorded (possibly empty); membership present means clusters
+  // and unassigned points partition it.
+  RetainedPoints points = 13;
+  Membership membership = 14;
+}
+
+message StageCount {
+  string stage = 1;
+  optional uint64 input = 2;
+  optional uint64 output = 3;
+  optional uint64 rejected = 4;
+}
+
+// RetainedPoints is the frame's ordered retained-point domain in columns.
+// Index i in every present column is the same return. The domain holds only
+// valid returns, so there is no per-point validity column: an invalid
+// return is counted at its stage, never stored as zeros.
+message RetainedPoints {
+  uint32 point_count = 1;
+  // PointColumn bits.
+  uint32 columns = 2;
+  // Float64 exactly as L4 computed them; always present, point_count long.
+  repeated double x = 3;
+  repeated double y = 4;
+  repeated double z = 5;
+  // Acquisition time minus FrameRecord.frame_unix_nanos.
+  repeated sint64 time_offset_nanos = 6;
+  // One byte per point, the sensor's native scale.
+  bytes intensity = 7;
+  repeated uint32 channel = 8;
+  // One byte per point.
+  bytes return_index = 9;
+  repeated uint32 source_ordinal = 10;
+  repeated uint32 packet_sequence = 11;
+  repeated uint32 block_index = 12;
+}
+
+message Membership {
+  repeated Cluster clusters = 1;
+  // Ascending retained indices in no cluster.
+  repeated uint32 unassigned = 2;
+  // One RejectionReason byte per unassigned index.
+  bytes unassigned_reasons = 3;
+}
+
+message Cluster {
+  // Frame-local; never implies a persistent object.
+  int64 cluster_id = 1;
+  // Sorted, unique retained indices.
+  repeated uint32 members = 2;
+  ClusterSummary summary = 3;
+}
+
+// ClusterSummary is L4's summary at its original float32 precision.
+message ClusterSummary {
+  sfixed64 first_member_unix_nanos = 1;
+  float centroid_x = 2;
+  float centroid_y = 3;
+  float centroid_z = 4;
+  float bounding_box_length = 5;
+  float bounding_box_width = 6;
+  float bounding_box_height = 7;
+  float height_p95 = 8;
+  float intensity_mean = 9;
+  uint64 points_count = 10;
+  bool ground_clipped = 11;
+  // Absent when L4 produced no oriented box.
+  OrientedBox obb = 12;
+}
+
+message OrientedBox {
+  float center_x = 1;
+  float center_y = 2;
+  float center_z = 3;
+  float length = 4;
+  float width = 5;
+  float height = 6;
+  // An axis: heading and heading + pi describe the same box.
+  float heading_rad = 7;
+}
+
+enum GapTime {
+  GAP_TIME_UNKNOWN = 0;
+  GAP_TIME_BOUNDED = 1;
+}
+
+// GapRecord is one l4bobserve.GapRecord: a missing interval made explicit.
+message GapRecord {
+  // Present when the gap covers sequence numbers already assigned.
+  SequenceRange sequence_range = 1;
+  optional uint64 missing_frames = 2;
+  GapTime time = 3;
+  sfixed64 start_unix_nanos = 4;
+  sfixed64 end_unix_nanos = 5;
+  string cause = 6;
+}
+
+message SequenceRange {
+  uint64 first = 1;
+  uint64 last = 2;
+}
+
+// =============================================================================
+// Container objects
+// =============================================================================
+
+// ChunkHeader opens a chunk and binds it to its manifest.
+message ChunkHeader {
+  uint64 ordinal = 1;
+  // SHA-256 of the manifest object's bytes.
+  bytes manifest_sha256 = 2;
+}
+
+// ChunkSeal closes a chunk. body_sha256 covers every byte before the seal
+// record; a chunk without a valid seal is an unsealed tail, not evidence.
+message ChunkSeal {
+  uint64 ordinal = 1;
+  uint64 record_count = 2;
+  uint64 frame_count = 3;
+  uint64 gap_count = 4;
+  // Source sequences covered: [first_sequence, end_sequence).
+  uint64 first_sequence = 5;
+  uint64 end_sequence = 6;
+  // Earliest and latest record start in capture time; absent when no
+  // record in the chunk has a known time.
+  optional sfixed64 first_start_unix_nanos = 7;
+  optional sfixed64 last_start_unix_nanos = 8;
+  uint64 body_bytes = 9;
+  bytes body_sha256 = 10;
+  // Semantic digest of the chunk's records in order, computed by the writer
+  // from the values it was given; a reader recomputes it from decoded ones.
+  bytes semantic_sha256 = 11;
+}
+
+// ChunkIndex locates every record of one sealed chunk. It is derived data:
+// rebuildable from the chunk, and never trusted over the chunk's digest.
+// Entries are parallel arrays so allocation is bounded by the object size;
+// the wide columns are fixed-width for the same reason.
+message ChunkIndex {
+  uint64 ordinal = 1;
+  uint64 chunk_bytes = 2;
+  bytes chunk_body_sha256 = 3;
+  uint64 seal_offset = 4;
+  uint32 seal_length = 5;
+  repeated fixed64 offset = 6;
+  repeated fixed32 length = 7;
+  repeated uint32 kind = 8;
+  repeated fixed64 sequence_first = 9;
+  // Sequences the record covers: 1 for a frame, the range for a gap over
+  // assigned sequences, 0 for a gap between received frames.
+  repeated fixed64 sequence_count = 10;
+  repeated sfixed64 time_start = 11;
+  repeated sfixed64 time_end = 12;
+  // Bit 0: the record's time is known.
+  repeated uint32 flags = 13;
+  // Clock/metadata epoch; 0 until epoch records exist.
+  repeated uint32 epoch = 14;
+}
+
+// CaptureSummary is written by a clean close. It is optional: sealed chunks
+// are readable without it. When present, a reader requires the sealed
+// chunks to match it exactly, which detects a missing final chunk.
+message CaptureSummary {
+  uint64 chunk_count = 1;
+  // chain_i = SHA-256(chain_{i-1} || body_sha256_i), chain_{-1} = 32 zero
+  // bytes; this is chain_{chunk_count-1}, or zeros for no chunks.
+  bytes chunk_chain_sha256 = 2;
+  uint64 record_count = 3;
+  uint64 frame_count = 4;
+  uint64 gap_count = 5;
+  uint64 end_sequence = 6;
+  // Frames the writer refused (over a limit), each replaced by a gap over
+  // its sequence. Non-zero means the capture is incomplete.
+  uint64 rejected_frames = 7;
+  // Semantic digest of every record in order.
+  bytes semantic_sha256 = 8;
+  // Sum of the sealed chunk files' sizes.
+  uint64 total_chunk_bytes = 9;
+}

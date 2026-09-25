@@ -88,7 +88,7 @@ func invert4(m [16]float64) [16]float64 {
 // the smoother computed the smoothing problem, not merely its own algebra.
 func TestFullTrackSmootherMatchesBatchLeastSquares(t *testing.T) {
 	cfg := DefaultTrackerConfig()
-	_, arms := runScene(t, cfg, gentleCurve, 10, 40, 0.15, 7, nil, LagTrackEnd())
+	_, arms := runSmootherScene(t, cfg, gentleCurve, 10, 40, 0.15, 7, nil, LagTrackEnd())
 	states := soleTrackStates(t, arms.released[0])
 
 	// The chain the smoother saw, step by step.
@@ -192,7 +192,7 @@ func TestFullTrackSmootherMatchesBatchLeastSquares(t *testing.T) {
 // where the track ended inside the window, the two are the same computation
 // and must agree to the bit.
 func TestFixedLagConvergesToFullTrackInTheInterior(t *testing.T) {
-	_, arms := runScene(t, DefaultTrackerConfig(), gentleCurve, 10, 150, 0.15, 11, nil, comparatorLags...)
+	_, arms := runSmootherScene(t, DefaultTrackerConfig(), gentleCurve, 10, 150, 0.15, 11, nil, comparatorLags...)
 	final := soleTrackStates(t, arms.released[len(comparatorLags)-1])
 	n := len(final)
 	tailStart := func(lag SmootherLag) int { // first state whose lag the track end cut short
@@ -255,7 +255,7 @@ type manoeuvreFigures struct {
 }
 
 func measureBraking(t *testing.T, cfg TrackerConfig) []manoeuvreFigures {
-	_, arms := runScene(t, cfg, brakingPath, 10, 80, 0.1, 1, nil, comparatorLags...)
+	_, arms := runSmootherScene(t, cfg, brakingPath, 10, 80, 0.1, 1, nil, comparatorLags...)
 	var out []manoeuvreFigures
 	for i, lag := range comparatorLags {
 		st := soleTrackStates(t, arms.released[i])
@@ -273,7 +273,7 @@ func measureBraking(t *testing.T, cfg TrackerConfig) []manoeuvreFigures {
 }
 
 func measureLaneChange(t *testing.T, cfg TrackerConfig) []manoeuvreFigures {
-	_, arms := runScene(t, cfg, laneChangePath, 10, 100, 0.1, 2, nil, comparatorLags...)
+	_, arms := runSmootherScene(t, cfg, laneChangePath, 10, 100, 0.1, 2, nil, comparatorLags...)
 	var out []manoeuvreFigures
 	for i, lag := range comparatorLags {
 		st := soleTrackStates(t, arms.released[i])
@@ -473,8 +473,8 @@ func TestImpactStaysIdentifiableInTheRevisionAudit(t *testing.T) {
 	trueDeltaV := math.Hypot(9-15, 3)
 
 	for _, lag := range comparatorLags {
-		_, impactArms := runScene(t, DefaultTrackerConfig(), impactPath, 10, 60, 0.05, 3, nil, lag)
-		_, anomalyArms := runScene(t, DefaultTrackerConfig(), anomalyScene, 10, 60, 0.05, 3, nil, lag)
+		_, impactArms := runSmootherScene(t, DefaultTrackerConfig(), impactPath, 10, 60, 0.05, 3, nil, lag)
+		_, anomalyArms := runSmootherScene(t, DefaultTrackerConfig(), anomalyScene, 10, 60, 0.05, 3, nil, lag)
 		impact := soleTrackStates(t, impactArms.released[0])
 		anomaly := soleTrackStates(t, anomalyArms.released[0])
 
@@ -566,7 +566,7 @@ func onlineSeries(states []SmoothedState) []SmoothedState {
 // coast before deletion has no later evidence, so it is not revised at all.
 func TestCoastedStatesStaySmoothedPredictions(t *testing.T) {
 	gap := func(k int) bool { return (k >= 40 && k < 45) || k >= 70 }
-	tk, arms := runScene(t, DefaultTrackerConfig(), straightPath, 10, 90, 0.1, 5, gap, comparatorLags...)
+	tk, arms := runSmootherScene(t, DefaultTrackerConfig(), straightPath, 10, 90, 0.1, 5, gap, comparatorLags...)
 	if tk.TimeDomainStats().ExpiredByMisses == 0 {
 		t.Fatal("setup: the trailing gap should expire the track by misses")
 	}
@@ -598,7 +598,7 @@ func TestCoastedStatesStaySmoothedPredictions(t *testing.T) {
 				if s.Revision.PositionMetres == 0 || len(s.Revision.Evidence) == 0 {
 					t.Fatalf("%s coasted frame %d was not revised by the observation ending the gap", lag, frame)
 				}
-				if s.Revision.Evidence[0].ClusterID != 46 { // runScene numbers clusters k+1
+				if s.Revision.Evidence[0].ClusterID != 46 { // runSmootherScene numbers clusters k+1
 					t.Fatalf("%s coasted frame %d cites cluster %d first, want 46", lag, frame, s.Revision.Evidence[0].ClusterID)
 				}
 			}

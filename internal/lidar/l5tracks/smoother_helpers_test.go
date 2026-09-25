@@ -65,7 +65,7 @@ func byTrack(states []SmoothedState) map[int64][]SmoothedState {
 // scenePath is a road user's true planar position at capture time t seconds.
 type scenePath func(t float64) (x, y float64)
 
-// runScene feeds a single object along path, sampled at hz with Gaussian
+// runSmootherScene feeds a single object along path, sampled at hz with Gaussian
 // position noise of sigma metres (fixed seed), through a tracker with arms
 // attached, and flushes the arms at the end. skip, when non-nil, drops the
 // cluster on frames it returns true for, so the track coasts there.
@@ -76,7 +76,7 @@ type scenePath func(t float64) (x, y float64)
 // first frame runs unrecorded, the track's velocity is seeded with the truth
 // (as the time-domain tests do), and the recorder is attached from the second
 // frame, where the chain starts unlinked.
-func runScene(t *testing.T, cfg TrackerConfig, path scenePath, hz float64, frames int, sigma float64, seed int64,
+func runSmootherScene(t *testing.T, cfg TrackerConfig, path scenePath, hz float64, frames int, sigma float64, seed int64,
 	skip func(k int) bool, lags ...SmootherLag) (*Tracker, *smootherArms) {
 	t.Helper()
 	tk := NewTracker(cfg)
@@ -118,7 +118,7 @@ func soleTrackStates(t *testing.T, states []SmoothedState) []SmoothedState {
 	return nil
 }
 
-// sceneSecs is a state's time on the scene clock used by runScene's paths.
+// sceneSecs is a state's time on the scene clock used by runSmootherScene's paths.
 func sceneSecs(s SmoothedState) float64 {
 	return float64(s.StateUnixNanos-tdAt(1).UnixNano()) / 1e9
 }

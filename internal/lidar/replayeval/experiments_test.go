@@ -70,8 +70,9 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentDensityCap, ExperimentFixedLagRTS,
-		ExperimentFlipRule, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides}
+	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds, ExperimentCoastSupport,
+		ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule, ExperimentLikelihoodCost,
+		ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity, ExperimentReacquisitionGuard}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -92,6 +93,21 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
 		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
+		ExperimentCoastSupport: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ExplainAbsence = true })
+		},
+		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
+		},
+		ExperimentClassCoastBounds: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ClassCoastBounds = true })
+		},
+		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
+		},
+		ExperimentOcclusionContinuity: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = l5tracks.DefaultOcclusionContinuity()
+		},
 	}
 	for name, set := range cases {
 		want := shipped
@@ -109,4 +125,20 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	if got := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil); got.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
 		t.Errorf("measurement source mode not applied: %q", got.MeasurementSourceMode)
 	}
+	// The continuity switches compose: naming all four singly is the bundle.
+	singly := trackerConfigFor(l5, "", []string{ExperimentCoastSupport, ExperimentCoastTimeInflation,
+		ExperimentClassCoastBounds, ExperimentReacquisitionGuard})
+	if bundle := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}); singly != bundle {
+		t.Errorf("the four continuity switches together differ from occlusion_continuity:\n%+v\n%+v",
+			singly.OcclusionContinuity, bundle.OcclusionContinuity)
+	}
+}
+
+// continuityWith is DefaultOcclusionContinuity's starting values with every
+// switch off except those set.
+func continuityWith(set func(*l5tracks.OcclusionContinuityConfig)) l5tracks.OcclusionContinuityConfig {
+	oc := l5tracks.DefaultOcclusionContinuity()
+	oc.ExplainAbsence, oc.CaptureTimeInflation, oc.ClassCoastBounds, oc.ReacquisitionGuard = false, false, false, false
+	set(&oc)
+	return oc
 }
