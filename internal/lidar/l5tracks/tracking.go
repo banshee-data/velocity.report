@@ -273,6 +273,16 @@ type Tracker struct {
 	baselineResiduals   ResidualBands
 	baselineAssociation AssociationBands
 
+	// Calibration window: pre-gate samples, the pre-gate band set and open
+	// gate-rejection events (pregate.go). Off unless
+	// BeginUncertaintyCalibration opened it; read-only with respect to tracks.
+	calibrationEnabled        bool
+	preGate                   PreGateBands
+	uncertaintySamples        []UncertaintySample
+	uncertaintySamplesDropped int
+	uncertaintySampleCap      int
+	pendingRejections         map[string]*pendingGateRejection
+
 	mu sync.RWMutex
 }
 
@@ -332,6 +342,11 @@ func (t *Tracker) Reset() {
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
 	t.filterSteps.endAll(ChainEndReset)
+	t.calibrationEnabled = false
+	t.preGate = PreGateBands{}
+	t.uncertaintySamples = nil
+	t.uncertaintySamplesDropped = 0
+	t.pendingRejections = nil
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -400,9 +415,19 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		track.StateUnixNanos = nowNanos
 	}
 
-	// Step 2: Associate clusters to tracks using gating
+	// Step 2: Associate clusters to tracks using gating. Inside a calibration
+	// window the pairings are also evaluated before the gate, from the same
+	// predicted state, and resolved against the assignment; neither step
+	// writes to a track.
+	var preGate *preGateFrame
+	if t.calibrationEnabled {
+		preGate = t.observePreGate(clusters, dt)
+	}
 	associations := t.associate(clusters, dt)
 	t.lastAssociations = associations
+	if preGate != nil {
+		t.resolvePreGate(preGate, associations)
+	}
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
