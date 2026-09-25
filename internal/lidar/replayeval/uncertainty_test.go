@@ -128,6 +128,35 @@ func TestUncertaintyReportForAddsTheWindow(t *testing.T) {
 	}
 }
 
+func TestWriteUncertaintySamples(t *testing.T) {
+	dir := t.TempDir()
+	samples := syntheticUncertaintySamples(3)
+	samples[1].FrameUnixNanos, samples[1].X, samples[1].Y = 1_700_000_000_100_000_000, 4.5, -12.25
+	if err := writeUncertaintySamples(defaultRuntime(), dir, samples); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, uncertaintySamplesFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("%d lines, want 3", len(lines))
+	}
+	var got l5tracks.UncertaintySample
+	if err := json.Unmarshal([]byte(lines[1]), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got != samples[1] {
+		t.Errorf("round trip %+v, want %+v", got, samples[1])
+	}
+	runtime := defaultRuntime()
+	runtime.writeFile = func(string, []byte, os.FileMode) error { return errors.New("disk full") }
+	if err := writeUncertaintySamples(runtime, dir, samples); err == nil {
+		t.Error("a failed write was not reported")
+	}
+}
+
 func TestWriteUncertaintyReportFailureIsReported(t *testing.T) {
 	runtime := defaultRuntime()
 	runtime.writeFile = func(string, []byte, os.FileMode) error { return errors.New("disk full") }

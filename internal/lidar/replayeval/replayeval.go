@@ -1007,6 +1007,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	if cfg.UncertaintyReport {
 		manifest["uncertainty_report"] = uncertaintyReportFile
+		manifest["uncertainty_samples"] = uncertaintySamplesFile
 	}
 	if noiseCalibration != nil {
 		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
@@ -1063,6 +1064,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, err
 		}
 		if err := writeUncertaintyReport(runtime, cfg.OutDir, report); err != nil {
+			return nil, err
+		}
+		if err := writeUncertaintySamples(runtime, cfg.OutDir, window.Samples); err != nil {
 			return nil, err
 		}
 		uncertainty, uncertaintySamples = &report, window.Samples

@@ -90,9 +90,14 @@ const (
 
 // UncertaintySample is one eligible pre-gate pairing, decomposed along and
 // across the sensor's line of sight. It carries everything the calibration fit
-// and the G-UNC-1 checks need, and nothing about identity.
+// and the G-UNC-1 checks need, and no track identity: the frame time and the
+// measured position are the join keys a labelled scorer matches a reference
+// object on, as the per-frame harness does.
 type UncertaintySample struct {
-	Source MeasurementSource `json:"source"`
+	FrameUnixNanos int64             `json:"frame_unix_nanos"`
+	X              float32           `json:"x"`
+	Y              float32           `json:"y"`
+	Source         MeasurementSource `json:"source"`
 	// Rank is the measurement dimension m. Every online position measurement
 	// is two-dimensional; a rank-one face measurement would carry 1.
 	Rank        int     `json:"rank"`
@@ -411,6 +416,7 @@ func (t *Tracker) uncertaintySample(pt preGateTrack, c preGateCandidate, gated, 
 		noiseRadial, noiseTangential = c.noise.Radial, c.noise.Tangential
 	}
 	return UncertaintySample{
+		FrameUnixNanos: t.LastUpdateNanos, X: c.measurement.X, Y: c.measurement.Y,
 		Source: c.measurement.Source, Rank: 2,
 		RangeMetres: g.RangeMetres, Support: g.Support, AspectRad: g.AspectRad, SpeedMps: pt.speed, Misses: pt.track.Misses,
 		InnovRadial:     ux*c.dx + uy*c.dy,

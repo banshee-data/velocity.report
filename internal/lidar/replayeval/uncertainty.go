@@ -1,6 +1,7 @@
 package replayeval
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,11 @@ import (
 // uncertaintyReportFile is the report Config.UncertaintyReport writes, and the
 // file Config.UncertaintyCalibrationFile reads a fitted table back from.
 const uncertaintyReportFile = "uncertainty_calibration.json"
+
+// uncertaintySamplesFile holds the window's samples, one JSON object per line,
+// for a scorer that joins them to labelled manoeuvres by frame time and
+// position: G-UNC-1's falsely-gated row cannot be computed from the report.
+const uncertaintySamplesFile = "uncertainty_samples.jsonl"
 
 // loadUncertaintyCalibration reads the fitted table a replay was asked to use.
 // A table without the adaptive model would be carried, hashed and reported
@@ -94,6 +100,23 @@ func roundPreGateBands(in []l5tracks.PreGateBandSummary) []l5tracks.PreGateBandS
 		b.AssignedRatio = roundBaselineMetric(b.AssignedRatio)
 	}
 	return out
+}
+
+// writeUncertaintySamples writes one sample per line through the replay's
+// runtime. The samples are already in memory for the report; this adds one
+// buffer of their encoding, not a second pass over the capture.
+func writeUncertaintySamples(runtime replayRuntime, outDir string, samples []l5tracks.UncertaintySample) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	for _, s := range samples {
+		if err := enc.Encode(s); err != nil {
+			return fmt.Errorf("encode uncertainty sample: %w", err)
+		}
+	}
+	if err := runtime.writeFile(filepath.Join(outDir, uncertaintySamplesFile), buf.Bytes(), 0644); err != nil {
+		return fmt.Errorf("write uncertainty samples: %w", err)
+	}
+	return nil
 }
 
 // writeUncertaintyReport writes the report through the replay's runtime, so

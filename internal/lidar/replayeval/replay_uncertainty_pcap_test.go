@@ -80,6 +80,10 @@ func TestUncertaintyHarnessOnKirk0(t *testing.T) {
 	if _, ok := reported.manifest["uncertainty_report"]; !ok {
 		t.Error("the manifest does not name the report")
 	}
+	if raw, err := os.ReadFile(filepath.Join(reported.dir, uncertaintySamplesFile)); err != nil ||
+		bytes.Count(raw, []byte("\n")) != len(reported.result.UncertaintySamples) {
+		t.Errorf("samples file: %v, want one line per sample", err)
+	}
 	r := reported.report
 	if r.SchemaVersion != l8analytics.UncertaintyReportSchemaVersion || r.NoiseModel != "isotropic" || r.Samples == 0 ||
 		!strings.HasPrefix(r.GateVerdict, "not_assessed") || r.Window == nil || len(r.PreGateBands) == 0 {

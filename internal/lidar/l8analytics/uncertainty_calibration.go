@@ -423,7 +423,7 @@ func canonicalSamples(in []l5tracks.UncertaintySample) ([]l5tracks.UncertaintySa
 	out := make([]l5tracks.UncertaintySample, 0, len(in))
 	invalid := 0
 	for _, s := range in {
-		if (s.Rank != 1 && s.Rank != 2) || !finite32(s.RangeMetres, s.AspectRad, s.SpeedMps, s.InnovRadial,
+		if (s.Rank != 1 && s.Rank != 2) || !finite32(s.X, s.Y, s.RangeMetres, s.AspectRad, s.SpeedMps, s.InnovRadial,
 			s.InnovTangential, s.PredRadial, s.PredTangential, s.NoiseRadial, s.NoiseTangential, s.PhysRadial,
 			s.PhysTangential, s.NIS) || s.NIS < 0 || !(s.PredRadial+s.NoiseRadial > 0) || !(s.PredTangential+s.NoiseTangential > 0) {
 			invalid++
@@ -448,9 +448,12 @@ func sampleLess(a, b l5tracks.UncertaintySample) bool {
 	if a.Misses != b.Misses {
 		return a.Misses < b.Misses
 	}
-	fa := [...]float32{a.RangeMetres, a.AspectRad, a.SpeedMps, a.InnovRadial, a.InnovTangential, a.PredRadial,
+	if a.FrameUnixNanos != b.FrameUnixNanos {
+		return a.FrameUnixNanos < b.FrameUnixNanos
+	}
+	fa := [...]float32{a.X, a.Y, a.RangeMetres, a.AspectRad, a.SpeedMps, a.InnovRadial, a.InnovTangential, a.PredRadial,
 		a.PredTangential, a.NoiseRadial, a.NoiseTangential, a.PhysRadial, a.PhysTangential, a.NIS}
-	fb := [...]float32{b.RangeMetres, b.AspectRad, b.SpeedMps, b.InnovRadial, b.InnovTangential, b.PredRadial,
+	fb := [...]float32{b.X, b.Y, b.RangeMetres, b.AspectRad, b.SpeedMps, b.InnovRadial, b.InnovTangential, b.PredRadial,
 		b.PredTangential, b.NoiseRadial, b.NoiseTangential, b.PhysRadial, b.PhysTangential, b.NIS}
 	for i := range fa {
 		if fa[i] != fb[i] {

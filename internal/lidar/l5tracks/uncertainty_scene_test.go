@@ -222,9 +222,16 @@ func TestPreGateEligibilityExcludesAmbiguity(t *testing.T) {
 	if want := 40 - DefaultTrackerConfig().HitsToConfirm; len(w.Samples) != want {
 		t.Errorf("isolated body: %d samples, want %d", len(w.Samples), want)
 	}
-	for _, s := range w.Samples {
+	frames := isolated.render()
+	for i, s := range w.Samples {
 		if s.Rank != 2 || s.Source != MeasurementMedoidV0 || !s.Assigned || s.Gated || s.Misses != 0 {
 			t.Fatalf("unexpected sample %+v", s)
+		}
+		// The join keys: the frame's capture time and the measured position.
+		f := frames[DefaultTrackerConfig().HitsToConfirm+i]
+		if s.FrameUnixNanos != f.at.UnixNano() || s.X != f.clusters[0].CentroidX || s.Y != f.clusters[0].CentroidY {
+			t.Fatalf("sample %d join keys (%d, %v, %v), frame (%d, %v, %v)", i, s.FrameUnixNanos, s.X, s.Y,
+				f.at.UnixNano(), f.clusters[0].CentroidX, f.clusters[0].CentroidY)
 		}
 	}
 
