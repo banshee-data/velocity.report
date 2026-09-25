@@ -24,9 +24,10 @@ import (
 // Ignore implements MOT16's distractor rule. The benchmark protocol matches
 // first and only then discards hypotheses that matched an ignore-class
 // annotation, so that a tracker is "neither penalized nor rewarded" for them.
-// That is what the annotation sidecar's Visibility: fully_occluded and
-// Completeness: partial will map onto: evidence a human could not certify, and
-// so must not become a false negative.
+// The annotation reference adapter (annotation.BuildReference) maps onto it
+// every mask a human did not certify: unreviewed, not a road user, not
+// visible, only uncertain returns, or completeness never stated. Such evidence
+// must not become a false negative.
 
 // TrackSeries is one object's positions over time, for either side of the
 // comparison. IDs are compared for equality and sorted for determinism; they
@@ -54,8 +55,9 @@ type SeriesPoint struct {
 }
 
 // TruthSource supplies reference tracks for one evidence source. The two
-// implementations are the synthetic generator, which needs no labels, and the
-// annotation pack reader, which needs reviewed human poses.
+// sources are the synthetic generator, which needs no labels, and the
+// annotation pack, whose reviewed masks internal/lidar/perframeeval turns into
+// per-episode series.
 type TruthSource interface {
 	// Name identifies the adapter in the report, so a number can never be read
 	// without knowing what it was scored against.

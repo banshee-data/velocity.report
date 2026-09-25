@@ -123,12 +123,12 @@ func TestCombiningEpisodesEqualsScoringThemTogether(t *testing.T) {
 	whole := EvaluatePerFrame(append(append([]TrackSeries(nil), first[0]...), second[0]...),
 		append(append([]TrackSeries(nil), first[1]...), second[1]...), gate, nil)
 
-	clear := CombineTrackMetrics([]TrackMetrics{p1.CLEARMOT, p2.CLEARMOT})
+	pooled := CombineTrackMetrics([]TrackMetrics{p1.CLEARMOT, p2.CLEARMOT})
 	w := whole.CLEARMOT
-	if clear.NumGT != w.NumGT || clear.FN != w.FN || clear.FP != w.FP || clear.IDSwitches != w.IDSwitches ||
-		clear.Fragmentations != w.Fragmentations || clear.Matches != w.Matches || clear.NumFrames != w.NumFrames ||
-		math.Abs(clear.MOTA-w.MOTA) > 1e-12 || math.Abs(clear.MOTP-w.MOTP) > 1e-9 {
-		t.Fatalf("combined CLEAR MOT %+v, scored together %+v", clear, w)
+	if pooled.NumGT != w.NumGT || pooled.FN != w.FN || pooled.FP != w.FP || pooled.IDSwitches != w.IDSwitches ||
+		pooled.Fragmentations != w.Fragmentations || pooled.Matches != w.Matches || pooled.NumFrames != w.NumFrames ||
+		math.Abs(pooled.MOTA-w.MOTA) > 1e-12 || math.Abs(pooled.MOTP-w.MOTP) > 1e-9 {
+		t.Fatalf("combined CLEAR MOT %+v, scored together %+v", pooled, w)
 	}
 	if id := CombineIdentity([]IdentityMetrics{p1.Identity, p2.Identity}); id != whole.Identity {
 		t.Fatalf("combined identity %+v, scored together %+v", id, whole.Identity)
