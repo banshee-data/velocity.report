@@ -153,16 +153,39 @@ func TestCaptureGapPredictionCoversTheWholeGap(t *testing.T) {
 }
 
 // A clock that jumps by years must not stall the frame in a sub-step loop.
+// The gap is clamped once, at the frame, to the sub-step limit: every track is
+// predicted across exactly that limit (never part of it), each state is
+// re-anchored at the frame time as a MaxPredictDt clamp would be, and the
+// truncation is counted once for the frame rather than once per track.
 func TestCaptureGapPredictionIsBounded(t *testing.T) {
 	cfg := DefaultTrackerConfig()
 	cfg.CaptureGapPrediction = true
 	cfg.MaxMisses = 100
-	tk, _ := movingTrack(t, cfg, 1, 1)
+	tk := NewTracker(cfg)
+	tk.Update([]WorldCluster{tdCluster(0, 10, 0), tdCluster(0, -10, 0)}, tdAt(1))
+	var tracks []*TrackedObject
+	for _, track := range tk.Tracks {
+		track.VX = 1
+		tracks = append(tracks, track)
+	}
+	if len(tracks) != 2 {
+		t.Fatalf("got %d tracks, want 2", len(tracks))
+	}
 
-	tk.Update(nil, tdAt(1+10*365*24*3600)) // ten years later
+	later := tdAt(1 + 10*365*24*3600) // ten years later
+	tk.Update(nil, later)
 
 	if got := tk.TimeDomainStats().TruncatedGapPredictions; got != 1 {
-		t.Fatalf("TruncatedGapPredictions = %d, want 1", got)
+		t.Fatalf("TruncatedGapPredictions = %d, want 1 for the frame, not one per track", got)
+	}
+	limit := float64(maxGapPredictionSteps) * float64(cfg.MaxPredictDt)
+	for _, track := range tracks {
+		if math.Abs(float64(track.X)-limit) > 1e-2 {
+			t.Fatalf("track predicted to X=%v, want the whole %v s limit at 1 m/s", track.X, limit)
+		}
+		if track.StateUnixNanos != later.UnixNano() {
+			t.Fatalf("StateUnixNanos = %d, want the frame time %d", track.StateUnixNanos, later.UnixNano())
+		}
 	}
 }
 

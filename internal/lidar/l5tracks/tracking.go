@@ -72,7 +72,11 @@ type TrackedObject struct {
 	//
 	// StateUnixNanos is the capture time the Kalman state refers to: the
 	// frame time after each prediction, or the measurement time after a
-	// MeasurementTimePrediction update. LastObservedUnixNanos is the state
+	// MeasurementTimePrediction update. When an interval is clamped (to
+	// MaxPredictDt by default, or to the CaptureGapPrediction limit) the
+	// state is re-anchored at the frame time and the unpredicted remainder is
+	// counted in TimeDomainStats, the convention the default clamp has always
+	// followed. LastObservedUnixNanos is the state
 	// time of the last accepted observation. It differs from
 	// LastMeasurementUnixNanos, which is evidence (the acquisition time of
 	// the cluster geometry), while this is the estimator's own clock.

@@ -33,8 +33,10 @@ package l5tracks
 // default MaxPredictDt of 0.5 s it covers ten minutes of capture. A gap that
 // long is a restart or a clock step rather than an occlusion; expiry, not
 // prediction, is the right response to it, and an unbounded loop over a
-// clock that jumped by years would stall the frame. The remainder is not
-// predicted and is counted in TimeDomainStats.TruncatedGapPredictions.
+// clock that jumped by years would stall the frame. A longer interval is
+// clamped to the cap before any track is predicted, exactly as MaxPredictDt
+// clamps it by default, and the frame is counted once in
+// TimeDomainStats.TruncatedGapPredictions.
 const maxGapPredictionSteps = 1200
 
 // TimeDomainStats describes the capture-time stream the tracker consumed.
@@ -63,8 +65,9 @@ type TimeDomainStats struct {
 	LastGapSecs float64 `json:"last_gap_secs"`
 	MaxGapSecs  float64 `json:"max_gap_secs"`
 	ClampedGaps int64   `json:"clamped_gaps"`
-	// TruncatedGapPredictions counts CaptureGapPrediction gaps longer than
-	// maxGapPredictionSteps × MaxPredictDt, whose remainder went unpredicted.
+	// TruncatedGapPredictions counts frames whose CaptureGapPrediction gap
+	// exceeded maxGapPredictionSteps × MaxPredictDt and was clamped to it; the
+	// remainder went unpredicted. Counted once per frame, not per track.
 	TruncatedGapPredictions int64 `json:"truncated_gap_predictions"`
 
 	// MeasurementIntervalsClamped counts, under MeasurementTimePrediction,
@@ -142,6 +145,9 @@ func (t *Tracker) frameInterval(nowNanos int64) float32 {
 	if dt > t.Config.MaxPredictDt {
 		if !hasPrevious || !t.Config.CaptureGapPrediction {
 			dt = t.Config.MaxPredictDt
+		} else if limit := t.gapPredictionLimit(); dt > limit {
+			dt = limit
+			t.timeStats.TruncatedGapPredictions++
 		}
 		if hasPrevious {
 			t.timeStats.ClampedGaps++
@@ -172,10 +178,24 @@ func (t *Tracker) stateInterval(track *TrackedObject, targetNanos int64) float32
 		return 0
 	}
 	dt := float32(deltaNanos) / 1e9
-	if dt > t.Config.MaxPredictDt && !t.Config.CaptureGapPrediction {
-		dt = t.Config.MaxPredictDt
+	if dt > t.Config.MaxPredictDt {
+		if !t.Config.CaptureGapPrediction {
+			dt = t.Config.MaxPredictDt
+		} else if limit := t.gapPredictionLimit(); dt > limit {
+			dt = limit
+		}
 	}
 	return dt
+}
+
+// gapPredictionLimit is the longest interval CaptureGapPrediction predicts
+// across: maxGapPredictionSteps sub-steps of MaxPredictDt. Intervals are
+// clamped to it before any track is predicted, so predictSpan always covers
+// the whole interval it is given. The part of a gap beyond the limit is
+// dropped at the frame, counted once, and each state re-anchored at the frame
+// time, just as a MaxPredictDt clamp is by default.
+func (t *Tracker) gapPredictionLimit() float32 {
+	return float32(maxGapPredictionSteps) * t.Config.MaxPredictDt
 }
 
 // predictSpan predicts a track across dt. Ordinarily that is one predict()
@@ -189,12 +209,11 @@ func (t *Tracker) predictSpan(track *TrackedObject, dt float32) {
 		t.predict(track, dt)
 		return
 	}
+	// The callers clamp dt to gapPredictionLimit, so the step bound below is
+	// a guard against float accumulation, not a truncation that happens in
+	// practice.
 	remaining := dt
-	for n := 0; remaining > 0 && track.TrackState != TrackDeleted; n++ {
-		if n == maxGapPredictionSteps {
-			t.timeStats.TruncatedGapPredictions++
-			return
-		}
+	for n := 0; remaining > 0 && track.TrackState != TrackDeleted && n <= maxGapPredictionSteps; n++ {
 		s := step
 		if remaining < s {
 			s = remaining
