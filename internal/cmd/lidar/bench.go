@@ -31,6 +31,7 @@ func BenchMain(args []string) int {
 	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.StringVar(&cfg.BenchmarkOutput, "benchmark-output", "", "Output file for benchmark JSON (default: {pcap}_benchmark.json)")
 	fs.StringVar(&cfg.CompareBaseline, "compare-baseline", "", "Compare against a baseline benchmark file")
+	fs.StringVar(&cfg.HostClass, "host-class", "", "Performance-matrix row: pi, mac, ci (default: detected from the environment)")
 	fs.Float64Var(&cfg.RegressionThreshold, "regression-threshold", 0.10, "Threshold for flagging regressions (default: 0.10 = 10%)")
 	profileName := fs.String("profile", "", "Reduce pipeline depth to l3-only or detect by disabling layers (default: whatever the config runs)")
 	maxOverBudgetPct := fs.Float64("max-frames-over-budget-pct", 1.0,

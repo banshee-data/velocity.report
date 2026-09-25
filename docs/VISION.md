@@ -136,9 +136,11 @@ The vector scene is a read-time projection, not a separate stored artefact.
 
 ## 5. Traffic description language
 
-A **Traffic Description Language (TDL)** provides a textual query interface over the fused transit
+A **Traffic Description Language (TDL)** provides a textual query interface over the transit
 database: an abstract schema, a JSON filter API,
-and an optional DSL for report templates and CLI queries.
+and an optional DSL for report templates and CLI queries. The schema is LiDAR-first; a narrow
+radar speed/provenance union is its only fusion dependency, so the query language does not wait
+on the broader sensor-fusion architecture in §3.3.
 
 The point is to let people ask street-safety questions in ordinary traffic language
 instead of SQL. That includes questions such as:
@@ -173,24 +175,28 @@ Full design: [TDL plan](plans/data-traffic-description-language-plan.md).
 
 This vision document should inform prioritisation in [BACKLOG.md](BACKLOG.md):
 
-| Vision pillar                         | Supports                                                                                                                       | Deprioritises                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| **Radar feed expansion** (§3.1)       | FFT ingestion, multi-feed simultaneous capture                                                                                 | Features unrelated to sensor data quality                |
-| **LiDAR maturation** (§3.2)           | Metrics-first tuning, track labelling QC, optional classification benchmarking                                                 | Cosmetic visualiser features without tracking value      |
-| **Data science principle** (§1.1)     | Replay packs, scorecards, explicit thresholds, auditable transit metrics                                                       | Opaque model work that bypasses reproducible evaluation  |
-| **Sensor fusion** (§3.3)              | Fused transit schema, temporal association logic                                                                               | Single-sensor features that duplicate fused capabilities |
-| **Storage minimalism** (§4)           | Polyline vector scene, point-cloud ephemeral policy                                                                            | Long-term point-cloud storage, large BLOB tables         |
-| **Traffic Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints: [design doc](plans/data-traffic-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |
-| **PDF reporting** (§6.1)              | Fused-data report templates, TDL-scoped reports                                                                                | Report features that only use radar data                 |
-| **Description interface** (§6.2)      | Transit browser, aggregate stats, vector replay: [design doc](plans/data-traffic-description-language-plan.md)                 | Heavy 3D visualisation in production (development-only)  |
+| Vision pillar                         | Supports                                                                                                                                                      | Deprioritises                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Radar feed expansion** (§3.1)       | FFT ingestion, multi-feed simultaneous capture                                                                                                                | Features unrelated to sensor data quality                |
+| **LiDAR maturation** (§3.2)           | Metrics-first tuning, track labelling QC, optional classification benchmarking                                                                                | Cosmetic visualiser features without tracking value      |
+| **Data science principle** (§1.1)     | Replay packs, scorecards, explicit thresholds, auditable transit metrics                                                                                      | Opaque model work that bypasses reproducible evaluation  |
+| **Sensor fusion** (§3.3)              | Radar speed/provenance union on the transit record; full L7 fusion architecture remains unscheduled                                                           | Single-sensor features that duplicate fused capabilities |
+| **Storage minimalism** (§4)           | Polyline vector scene, point-cloud ephemeral policy                                                                                                           | Long-term point-cloud storage, large BLOB tables         |
+| **Traffic Description Language** (§5) | LiDAR-first transit schema (v0.5.3), query engine and JSON API (v0.6.0), aggregation endpoints: [design doc](plans/data-traffic-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |
+| **PDF reporting** (§6.1)              | Fused-data report templates, TDL-scoped reports                                                                                                               | Report features that only use radar data                 |
+| **Description interface** (§6.2)      | Transit browser, aggregate stats, vector replay: [design doc](plans/data-traffic-description-language-plan.md)                                                | Heavy 3D visualisation in production (development-only)  |
 
 ## 8. Phasing
 
-| Phase                                | Focus                                                                                                                     | Depends On                              |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **A: Radar completeness**            | Ingest FFT data; fuse speed + object + FFT into a single transit record                                                   | Existing radar infrastructure           |
-| **B: Fused transit schema**          | Define the fused transit table/view joining radar and LiDAR; expose via API                                               | Phase A + existing LiDAR track storage  |
-| **C: JSON filter API**               | Build the filter/aggregation endpoint over the fused schema; wire to web UI                                               | Phase B                                 |
-| **D: TDL and description interface** | Transit browser, aggregate statistics, vector-scene replay: [design doc](plans/data-traffic-description-language-plan.md) | Phase C                                 |
-| **E: Fused PDF reports**             | Extend PDF generator to pull from fused schema with TDL filters                                                           | Phase C                                 |
-| **F: Advanced queries**              | Work-crew clearance, cyclist passing space, driving style classification, and stop-compliance by time of day              | Phase D + LiDAR classification maturity |
+Radar/LiDAR fusion is not a TDL dependency: the abstract transit schema is LiDAR-first, with a
+narrow radar speed/provenance union as its only radar dependency. Full multi-sensor fusion (§3.3)
+is a separate, unscheduled L7 question and does not gate any phase below.
+
+| Phase                        | Focus                                                                                                                                         | Depends On                    | Target        |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------- |
+| **A: Behaviour metrics**     | Bumper-to-bumper gap, PET, passing clearance and the shared transit record/behaviour-label pipeline they use                                  | Existing LiDAR track storage  | v0.5.2-v0.5.3 |
+| **B: TDL transit schema**    | Materialise the transit record as an indexed query table; add the narrow radar speed/provenance union                                         | Phase A                       | v0.6.0        |
+| **C: TDL query engine**      | Vocabulary registry, natural-language parser, query builder, JSON aggregation API                                                             | Phase B                       | v0.6.0        |
+| **D: Description interface** | Transit browser, aggregate statistics, vector-scene replay, CSV/GeoJSON export: [design doc](plans/data-traffic-description-language-plan.md) | Phase C                       | v0.6.1        |
+| **E: Fused PDF reports**     | Extend PDF generator to accept TDL filter parameters and generate comparison sections                                                         | Phase C                       | v0.6.1        |
+| **F: Radar completeness**    | Ingest FFT data; extend the radar transit union with spectral signatures for multi-target disambiguation                                      | Existing radar infrastructure | Unscheduled   |

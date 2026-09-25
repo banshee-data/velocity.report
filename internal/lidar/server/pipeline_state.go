@@ -165,6 +165,19 @@ func (ws *Server) ReplayActiveFlag() *atomic.Bool {
 	return &ws.replayActiveFlag
 }
 
+// AnalysisModeFlag exposes whether the active replay was started in analysis
+// mode, as a lock-free flag for the tracking pipeline's per-frame hot path.
+//
+// The frame-rate throttle must not apply to it: an analysis-mode replay
+// persists an observation database and/or a VRLOG that downstream tooling
+// (Phase 0 corpus evidence, HINT scoring, side-by-side comparison) treats as
+// a complete, semantically-processed record. Throttling silently converts a
+// throttled foreground frame into an empty one — correct for a fast visual
+// scrub nobody is recording, wrong for output something else will trust.
+func (ws *Server) AnalysisModeFlag() *atomic.Bool {
+	return &ws.analysisModeFlag
+}
+
 // PipelineState returns a snapshot of the current pipeline state.
 func (ws *Server) PipelineState() PipelineState {
 	ws.stateMu.RLock()
@@ -240,6 +253,7 @@ func (ws *Server) mutateState(reason string, fn func(*PipelineState)) {
 // starts a replay, which is what the throttle needs to know about.
 func (ws *Server) publishStateProjections(after PipelineState) {
 	ws.replayActiveFlag.Store(after.ReplayActive)
+	ws.analysisModeFlag.Store(after.AnalysisMode())
 }
 
 // reportStateTransition logs a state change and shouts about a broken

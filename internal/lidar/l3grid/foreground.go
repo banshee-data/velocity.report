@@ -286,7 +286,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				neighbourCell := g.Cells[neighbourIdx]
 				if neighbourCell.TimesSeenCount > 0 {
 					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - p.Distance)
-					neighbourCloseness := closenessMultiplier * (float64(neighbourCell.RangeSpreadMeters) + cellNoiseRel*float64(neighbourCell.AverageRangeMeters) + 0.01)
+					neighbourCloseness := ClosenessThresholdMetres(
+						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
+						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
 					if neighbourDiff <= neighbourCloseness {
 						neighbourConfirmCount++
 					}
@@ -299,13 +301,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		// When a cell is new (low confidence), we haven't learned its true variance yet.
 		// We should be more tolerant (higher threshold) to avoid classifying noise as foreground,
 		// which prevents "initialization trails" where wall points are flagged as FG before spread converges.
-		warmupMultiplier := 1.0
-		if cell.TimesSeenCount < 100 {
-			// Linear decay from 4.0x at count=0 to 1.0x at count=100
-			warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
-		}
+		warmupMultiplier := WarmupMultiplier(cell.TimesSeenCount)
 
-		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*p.Distance+0.01)*warmupMultiplier + safety
+		closenessThreshold := ForegroundClosenessWindowMetres(
+			closenessMultiplier, float64(cell.RangeSpreadMeters),
+			cellNoiseRel, p.Distance, safety, warmupMultiplier)
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
 		// Locked baseline classification: if cell has a locked baseline, use it for classification
@@ -315,11 +315,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if cell.LockedBaseline > 0 && cell.LockedAtCount >= lockedThresholdU32 {
 			// Use locked baseline for classification - more stable than EMA average
 			lockedDiff := math.Abs(float64(cell.LockedBaseline) - p.Distance)
-			// Acceptance window: locked spread * multiplier + noise-based margin + safety
-			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + cellNoiseRel*p.Distance + safety
-			if lockedWindow < 0.1 {
-				lockedWindow = 0.1 // Minimum 10cm window
-			}
+			lockedWindow := LockedBaselineWindowMetres(
+				lockedMultiplier, float64(cell.LockedSpread),
+				cellNoiseRel, p.Distance, safety)
 			isWithinLockedRange = lockedDiff <= lockedWindow
 		}
 

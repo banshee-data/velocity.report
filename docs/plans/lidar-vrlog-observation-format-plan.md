@@ -62,6 +62,26 @@ existing lossless-only SQLite batching proposal. It does not choose a production
 vehicle dimensions, replace PCAP for L1–L3 experiments, or establish a publication/privacy
 guarantee.
 
+### Sprint 0.5.2.2 boundary on `dd/docs/state-est`
+
+The first consumer is an offline, independently scheduled L5 worker on committed observations from
+known PCAP captures. Reuse `l4bobserve` identities and the existing SQLite frame-batch path as a
+fidelity oracle. Define and encode source-ordered L4 frames, explicit empty/gap states, full
+foreground membership, acquisition lineage, profile capabilities and commit frontiers before that
+worker reads a batch. A reduced legacy JSON observation must remain readable, but must fail a
+request for the complete accuracy profile. The worker writes a separate, versioned analysis stream;
+it never changes capture evidence. A portable or live producer then uses this same contract, after
+its latency, power-loss and backlog evidence is measured.
+
+This is the shared source for the state plan's capture-time CV, face-aware measurement, bounded
+reassociation and fixed-lag comparisons. The existing combined L4-plus-L5 SQLite transaction is
+not the new writer: waiting for L5 would defeat the split. Keep its semantic checks and migration
+reader; do not add another authoritative payload copy or change the old record in place.
+Annotation-pack consolidation, web projections, remote transport, compression tuning and Pi
+default enablement are follow-ons. None may redefine point identity or quietly lower the declared
+accuracy profile. Desktop estimator acceptance does not claim the target-hardware G-OBS-CRASH or
+G-OBS-PI gates have passed.
+
 ## 2. What exists and what must change
 
 | Inspected source                                                                                                 | Existing behaviour                                                                                                      | Consequence                                                                                         |
@@ -594,14 +614,15 @@ association; physical centre, unseen extent, and absolute speed need independent
 measurements or controlled synthetic truth. A smoother trail alone does not establish greater
 accuracy.
 
-| Phase                       | Delivery and exit                                                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0. Freeze the contract      | Map #559 domain fields, #582 scheduling semantics, annotation packs/sidecars, and tool/web projections into one model and capability matrix; freeze fixtures, fidelity targets, limits, and hardware thresholds. No default changes. |
-| 1. Codec and offline reader | Implement the shared typed payload/envelope, selection manifest, identity mapping, metadata packing, and range index. Pass G-OBS-FID, G-OBS-REP input checks, G-OBS-COMPAT, and G-OBS-PACK.                                          |
-| 2. Capture and durable tail | Add the pre-display L4 tap, pre-reduction point lineage, ordered writer, commit generations, recovery, and explicit failure accounting. Pass G-OBS-TIME, G-OBS-CRASH, and G-OBS-QUEUE.                                               |
-| 3. Worker and restart       | Use committed observations for joint interpretation with a simple motion comparator; add revisions, persistent shape belief, output/checkpoint transactions, and correction runs. Pass G-OBS-REV and G-OBS-RESUME.                   |
-| 4. Measured deployment      | Publish full-corpus geometry/association comparisons and target-hardware performance. Pass G-OBS-GEO and G-OBS-PI before selecting defaults or removing any evaluation PCAP dependency.                                              |
-| 5. Consolidate and operate  | Migrate shared readers, document recovery/retention, and remove duplicate authoritative write paths. Update canonical architecture and planning registers once delivery is evidenced.                                                |
+| Phase                       | Delivery and exit                                                                                                                                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Freeze the contract      | Map #559 domain fields, #582 scheduling semantics, annotation packs/sidecars, and tool/web projections into one model and capability matrix; freeze fixtures, fidelity targets, limits, and hardware thresholds. No default changes.                                                                 |
+| 1. Codec and offline reader | Implement the shared typed payload/envelope, identity mapping, metadata packing, and range index. Pass G-OBS-FID, G-OBS-REP input checks, and G-OBS-COMPAT. Selection-manifest migration and G-OBS-PACK follow the first worker.                                                                     |
+| 2. Capture and durable tail | Add the pre-display L4 tap, pre-reduction point lineage, ordered writer, commit generations, recovery, and explicit failure accounting. Pass G-OBS-TIME and G-OBS-QUEUE; test process-crash paths now. Full G-OBS-CRASH includes target-hardware power-loss evidence before live default enablement. |
+| 3. Worker and restart       | Use committed observations for joint interpretation with a simple motion comparator; add revisions, persistent shape belief, output/checkpoint transactions, and correction runs. Pass G-OBS-REV and G-OBS-RESUME.                                                                                   |
+| 4. Accuracy comparison      | Compare direct L4, binary replay and reduced profiles on held-out geometry, association and uncertainty evidence. Pass G-OBS-GEO before promoting the worker's final physical trajectories.                                                                                                          |
+| 5. Measured deployment      | Publish target-hardware performance and power-loss results. Pass G-OBS-PI and full G-OBS-CRASH before selecting live defaults or removing any evaluation PCAP dependency.                                                                                                                            |
+| 6. Consolidate and operate  | Migrate shared readers, document recovery/retention, and remove duplicate authoritative write paths. Update canonical architecture and planning registers once delivery is evidenced.                                                                                                                |
 
 ### Open choices and who resolves them
 

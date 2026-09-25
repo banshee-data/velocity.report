@@ -34,6 +34,25 @@ The project gains a repeatable boundary between **what was observed** and **what
 moved through it**. It also takes on a durable queue, result revisions, and explicit completeness
 semantics. This is a substantial architecture change, not merely another goroutine.
 
+### Integration on the state-estimation branch
+
+Sprint 0.5.2.2 implements the minimum compatible slice on `dd/docs/state-est`; the
+[state-estimation plan](lidar-state-estimation-plan.md#sprint-0522-integration-boundary) owns the
+estimator and its acceptance order, while the
+[shared VRLOG plan](lidar-vrlog-observation-format-plan.md) owns the canonical observation and
+analysis streams. This proposal's one-second look-ahead is an experiment. The state plan's
+three-frame fixed-lag comparator stays in the comparison set; select neither as a default before
+held-out position, identity, manoeuvre and latency results exist.
+
+Reuse the branch's immutable observation identities, SQLite replay oracle, bounded frame writer,
+E1 geometry candidates and per-frame evaluator. Do not promote its capped JSON sample or combined
+L4-plus-L5 transaction into the new capture contract: the accuracy profile needs complete
+foreground membership and a durable L4 frontier independent of L5. The first worker keeps CV
+dynamics, then adds bounded association and body-state revision. A smoother with fixed wrong
+assignments is a comparator, not the final accuracy claim. Remote transport, alternative motion
+models and deployment tuning follow measured benefit and cost; they are not prerequisites for the
+first fixed-site following metric.
+
 ## 1. What exists, and where the split belongs
 
 The repository's layer numbers are fixed: L3 separates background from foreground, L4 produces

@@ -2752,14 +2752,17 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 	ws := setupCov3Server(t)
+	safeDir := resolveSymlinks(t, t.TempDir())
+	vrlogPath := filepath.Join(safeDir, "test.vrlog")
 	loadedPath := ""
 	ws.onVRLogLoad = func(p string) (string, error) { loadedPath = p; return "proto", nil }
-	ws.vrlogSafeDir = "/var/lib/velocity-report"
+	ws.vrlogSafeDir = safeDir
 
 	// Insert a run with vrlog_path
 	_, err := ws.db.Exec(
 		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status, vrlog_path)
-		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', 'completed', '/var/lib/velocity-report/test.vrlog')`,
+		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', 'completed', ?)`,
+		vrlogPath,
 	)
 	if err != nil {
 		t.Fatalf("insert run: %v", err)
@@ -2773,15 +2776,15 @@ func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
-	if loadedPath != "/var/lib/velocity-report/test.vrlog" {
-		t.Errorf("loadedPath = %q, want /var/lib/velocity-report/test.vrlog", loadedPath)
+	if loadedPath != vrlogPath {
+		t.Errorf("loadedPath = %q, want %q", loadedPath, vrlogPath)
 	}
 }
 
 func TestCov3_HandleVRLogLoad_WithPath_Relative(t *testing.T) {
 	ws := &Server{
 		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
-		vrlogSafeDir: "/var/lib/velocity-report",
+		vrlogSafeDir: resolveSymlinks(t, t.TempDir()),
 	}
 	body := `{"vrlog_path": "relative/path.vrlog"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
@@ -2796,7 +2799,7 @@ func TestCov3_HandleVRLogLoad_WithPath_Relative(t *testing.T) {
 func TestCov3_HandleVRLogLoad_WithPath_OutsideSafeDir(t *testing.T) {
 	ws := &Server{
 		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
-		vrlogSafeDir: "/var/lib/velocity-report",
+		vrlogSafeDir: resolveSymlinks(t, t.TempDir()),
 	}
 	body := `{"vrlog_path": "/etc/passwd"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
@@ -2809,12 +2812,17 @@ func TestCov3_HandleVRLogLoad_WithPath_OutsideSafeDir(t *testing.T) {
 }
 
 func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
+	safeDir := resolveSymlinks(t, t.TempDir())
+	if err := os.MkdirAll(filepath.Join(safeDir, "data"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(): %v", err)
+	}
+	vrlogPath := filepath.Join(safeDir, "data", "test.vrlog")
 	loadedPath := ""
 	ws := &Server{
 		onVRLogLoad:  func(p string) (string, error) { loadedPath = p; return "proto", nil },
-		vrlogSafeDir: "/var/lib/velocity-report",
+		vrlogSafeDir: safeDir,
 	}
-	body := `{"vrlog_path": "/var/lib/velocity-report/data/test.vrlog"}`
+	body := fmt.Sprintf(`{"vrlog_path": %q}`, vrlogPath)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -2822,23 +2830,89 @@ func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
-	if loadedPath != "/var/lib/velocity-report/data/test.vrlog" {
-		t.Errorf("loadedPath = %q", loadedPath)
+	if loadedPath != vrlogPath {
+		t.Errorf("loadedPath = %q, want %q", loadedPath, vrlogPath)
 	}
 }
 
 func TestCov3_HandleVRLogLoad_LoadError(t *testing.T) {
+	safeDir := resolveSymlinks(t, t.TempDir())
+	vrlogPath := filepath.Join(safeDir, "test.vrlog")
 	ws := &Server{
 		onVRLogLoad:  func(string) (string, error) { return "", fmt.Errorf("load failed") },
-		vrlogSafeDir: "/var/lib/velocity-report",
+		vrlogSafeDir: safeDir,
 	}
-	body := `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`
+	body := fmt.Sprintf(`{"vrlog_path": %q}`, vrlogPath)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ws.handleVRLogLoad(w, req)
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestCov3_HandleVRLogLoad_SymlinkEscape proves the boundary check follows
+// symlinks rather than matching the literal path string: evil-symlink sits
+// inside the safe directory, so a prefix check on the unresolved string would
+// accept it, even though it resolves outside the safe directory on disk.
+func TestCov3_HandleVRLogLoad_SymlinkEscape(t *testing.T) {
+	safeDir := resolveSymlinks(t, t.TempDir())
+	outsideDir := resolveSymlinks(t, t.TempDir())
+	secretPath := filepath.Join(outsideDir, "secret.vrlog")
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o644); err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+	symlinkPath := filepath.Join(safeDir, "escape")
+	if err := os.Symlink(outsideDir, symlinkPath); err != nil {
+		t.Fatalf("Symlink(): %v", err)
+	}
+
+	ws := &Server{
+		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
+		vrlogSafeDir: safeDir,
+	}
+	body := fmt.Sprintf(`{"vrlog_path": %q}`, filepath.Join(symlinkPath, "secret.vrlog"))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handleVRLogLoad(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d; a symlink pointing outside the safe directory should be refused", w.Code, http.StatusBadRequest)
+	}
+}
+
+// TestCov3_HandleVRLogLoad_WithRunID_SymlinkEscape mirrors the direct
+// vrlog_path escape above, but through the run_id lookup path: the stored
+// vrlog_path itself resolves outside the safe directory via a symlink, which
+// a run record predating this check (or a compromised row) could contain.
+func TestCov3_HandleVRLogLoad_WithRunID_SymlinkEscape(t *testing.T) {
+	ws := setupCov3Server(t)
+	safeDir := resolveSymlinks(t, t.TempDir())
+	outsideDir := resolveSymlinks(t, t.TempDir())
+	symlinkPath := filepath.Join(safeDir, "escape")
+	if err := os.Symlink(outsideDir, symlinkPath); err != nil {
+		t.Fatalf("Symlink(): %v", err)
+	}
+	ws.vrlogSafeDir = safeDir
+	ws.onVRLogLoad = func(string) (string, error) { return "proto", nil }
+
+	storedPath := filepath.Join(symlinkPath, "test.vrlog")
+	if _, err := ws.db.Exec(
+		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status, vrlog_path)
+		 VALUES ('run-escape', 1000, 'pcap', 'cov3-sensor', 'completed', ?)`,
+		storedPath,
+	); err != nil {
+		t.Fatalf("insert run: %v", err)
+	}
+
+	body := `{"run_id": "run-escape"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handleVRLogLoad(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d; a run_id resolving through a symlink out of the safe directory should be refused", w.Code, http.StatusBadRequest)
 	}
 }
 
@@ -5974,13 +6048,17 @@ func TestCov7_HandleTuningParams_POST_ExtendedTrackerFields(t *testing.T) {
 	body, _ := json.Marshal(map[string]interface{}{
 		"l5": map[string]interface{}{
 			"cv_kf_v1": map[string]interface{}{
-				"max_reasonable_speed_mps":            50.0,
-				"max_position_jump_metres":            5.0,
-				"max_predict_dt":                      0.5,
-				"max_covariance_diag":                 100.0,
-				"min_points_for_pca":                  3,
-				"obb_heading_smoothing_alpha":         0.8,
-				"obb_aspect_ratio_lock_threshold":     1.5,
+				"max_reasonable_speed_mps":        50.0,
+				"max_position_jump_metres":        5.0,
+				"max_predict_dt":                  0.5,
+				"max_covariance_diag":             100.0,
+				"min_points_for_pca":              3,
+				"obb_heading_smoothing_alpha":     0.8,
+				"obb_aspect_ratio_lock_threshold": 1.5,
+				"obb_heading_lock_max_rejections": 5, "obb_axis_coherence_enabled": false,
+				"min_associable_extent_metres":        0.5,
+				"association_extent_cost_weight":      0,
+				"deleted_track_render_fade":           "500ms",
 				"max_track_history_length":            200,
 				"max_speed_history_length":            100,
 				"merge_size_ratio":                    0.5,

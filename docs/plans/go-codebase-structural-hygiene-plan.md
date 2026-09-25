@@ -2,7 +2,7 @@
 
 - **Status:** Active; substantially complete on `main`; `dd/fix-more-of-it` carries the final JSON tag and error-drop fixes
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.5.x; lock in the right structural defaults before v0.5.0 hardens them
+- **Target:** v0.5.8; lock in the right structural defaults before v0.5.0 hardens them
 - **Companion plans:**
   [go-structured-logging-plan.md](go-structured-logging-plan.md),
   [go-god-file-split-plan.md](go-god-file-split-plan.md),

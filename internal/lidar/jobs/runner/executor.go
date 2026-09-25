@@ -145,9 +145,10 @@ func canonicalIndent(raw json.RawMessage) []byte {
 	return out
 }
 
-// The state-estimation baseline, as data/experiments/try/option-scorecard/
-// run_scorecard_sweep.py invokes it. The corpus, its index and the case are
-// how that tool names its input; the manifest is what this worker verified.
+// The state-estimation baseline, invoked as the 2026-09 campaign's
+// run_scorecard_sweep.py did (archived; see its campaign plan). The corpus,
+// its index and the case are how that tool names its input; the manifest is
+// what this worker verified.
 func baselineArgs(req jobs.JobRequest, env Env, tuningPath string) ([]string, error) {
 	var p jobs.BaselineParams
 	if len(req.Params) > 0 {

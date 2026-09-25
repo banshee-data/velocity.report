@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 
@@ -578,7 +579,7 @@ func TestGetSystemInfoReadsAndAbbreviatesRevision(t *testing.T) {
 			Value: "1234567890abcdef",
 		}}}, true
 	}
-	if got := getSystemInfo().CommitHash; got != "1234567890ab" {
+	if got := getSystemInfo("").CommitHash; got != "1234567890ab" {
 		t.Fatalf("CommitHash = %q, want abbreviated revision", got)
 	}
 }
@@ -630,7 +631,7 @@ func TestMsSinceIsNonNegative(t *testing.T) {
 }
 
 func TestGetSystemInfoPopulatesHostDetails(t *testing.T) {
-	info := getSystemInfo()
+	info := getSystemInfo("")
 
 	if info.GOOS == "" {
 		t.Error("GOOS is empty")
@@ -749,4 +750,76 @@ func TestPrintComparisonSummary(t *testing.T) {
 	t.Run("no significant changes", func(t *testing.T) {
 		printComparisonSummary(&BenchmarkComparison{BaselineFile: "baseline.json"}, 0.05)
 	})
+}
+
+// A baseline from another machine is refused rather than reported as a
+// regression. This is the check the platform pair cannot make: a Pi and an ARM
+// CI runner are both linux/arm64.
+func TestHostClassRefusesACrossMachineComparison(t *testing.T) {
+	same := func(hostClass string) *BenchmarkResult {
+		return &BenchmarkResult{
+			Profile:           "full",
+			TuningFingerprint: "abc123",
+			PCAPFile:          "kirk0.pcapng",
+			SystemInfo: SystemInfo{
+				GOOS: "linux", GOARCH: "arm64", HostClass: hostClass,
+			},
+		}
+	}
+
+	err := checkWorkloadIdentity(same(HostClassPi), same(HostClassCI), 0.1)
+	if err == nil {
+		t.Fatal("a Pi baseline was compared against a CI run on the same platform pair")
+	}
+	if !strings.Contains(err.Error(), "host class") {
+		t.Fatalf("refusal does not name the host class: %v", err)
+	}
+
+	if err := checkWorkloadIdentity(same(HostClassPi), same(HostClassPi), 0.1); err != nil {
+		t.Fatalf("two runs on the same host class were refused: %v", err)
+	}
+}
+
+// A baseline written before host classes existed still compares, on the
+// platform pair alone, with a warning. Refusing it would strand every existing
+// baseline for no safety gain.
+func TestBaselineWithoutHostClassStillCompares(t *testing.T) {
+	old := &BenchmarkResult{
+		Profile: "full", TuningFingerprint: "abc123", PCAPFile: "kirk0.pcapng",
+		SystemInfo: SystemInfo{GOOS: "darwin", GOARCH: "arm64"},
+	}
+	current := &BenchmarkResult{
+		Profile: "full", TuningFingerprint: "abc123", PCAPFile: "kirk0.pcapng",
+		SystemInfo: SystemInfo{GOOS: "darwin", GOARCH: "arm64", HostClass: HostClassMac},
+	}
+	if err := checkWorkloadIdentity(old, current, 0.1); err != nil {
+		t.Fatalf("a pre-host-class baseline was refused: %v", err)
+	}
+}
+
+func TestDetectHostClass(t *testing.T) {
+	t.Setenv("PERF_HOST_CLASS", "")
+	t.Setenv("CI", "true")
+	if got := detectHostClass(); got != HostClassCI {
+		t.Fatalf("CI=true detected as %q", got)
+	}
+
+	t.Setenv("CI", "")
+	if got := detectHostClass(); got == "" {
+		t.Fatal("detection produced no class")
+	}
+
+	// An explicit value always wins: detection is a default, not an authority.
+	t.Setenv("PERF_HOST_CLASS", "bench-rig")
+	if got := detectHostClass(); got != "bench-rig" {
+		t.Fatalf("override ignored, got %q", got)
+	}
+}
+
+// The class reaches the document, which is what makes a committed baseline
+// self-describing rather than named-and-hoped.
+func TestSystemInfoCarriesTheHostClass(t *testing.T) {
+	if got := getSystemInfo("pi").HostClass; got != HostClassPi {
+		t.Fatalf("host class = %q, want pi", got)
+	}
 }

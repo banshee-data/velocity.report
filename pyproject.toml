@@ -21,3 +21,10 @@ extend-exclude = [
     "web/node_modules",
     "docs_html/node_modules",
 ]
+
+[tool.ruff.lint]
+# Stated rather than inherited: ruff 0.16 widened its default rule set, and
+# `make format-python` applies every fixable rule across the repository, so a
+# version bump would otherwise rewrite files and fail the pre-commit hook.
+# Widen this deliberately, with the churn in its own commit.
+select = ["E4", "E7", "E9", "F"]

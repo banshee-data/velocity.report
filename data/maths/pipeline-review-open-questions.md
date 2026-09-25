@@ -521,33 +521,29 @@ per-layer sweeps and multi-key interaction grid.
 
 ### Q8. rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
 
-**Answer: Expected improvement is large and verifiable.**
+**Answer: Plausible, but the gain remains an experimental question.**
 
-The current reactive guard system (Guard 1: min points, Guard 2: aspect-ratio
-lock, Guard 3: 90° jump rejection, Guard 4: EMA smoothing) treats each failure
-mode independently. The geometry-coherent proposal replaces Guards 2, 3, and
-the dimension sync logic with a single Bayesian model.
+The earlier quantified improvement table was a set of unvalidated expectations,
+not an established baseline or demonstrated gain. Do not use those numbers as
+acceptance evidence. The original D-04 recipe also does not supply a complete
+Bayesian model of partial views or correlated shape memory. The
+[visibility-aware review](proposals/20260905-visibility-aware-object-tracking-research.md)
+states the revised assumptions and counterexamples.
 
-**Expected quantified improvements** (from the proposal, pending validation):
+**Validation protocol:** Pin source PCAP, configuration, build, and replay
+provenance for both arms. Repeat both arms and report spread. Frozen VRLOG
+playback compares recorded output; rerunning perception requires source data.
+Evaluate held-out membership and identity, centre/axial-yaw accuracy where a
+reference is valid, turn lag, loss/interventions, and visible-surface fit.
+Course agreement and lower raw-to-smoothed innovation are diagnostics, not
+body-yaw accuracy. A shape fit must report weak directions separately from its
+motion prior.
 
-| Metric                            | Current (guards) | Expected (geometry model) |
-| --------------------------------- | ---------------- | ------------------------- |
-| Dimension stability (σ per track) | 0.3–0.5 m        | < 0.1 m                   |
-| Heading drift (stationary, °/s)   | 2–5              | < 0.5                     |
-| 90° jump frequency (per track)    | 0.1–0.3          | < 0.01                    |
-| Convergence time (frames)         | 15–20            | 5–10                      |
-
-**Validation protocol:** Run geometry-coherent tracker on kirk0 PCAP and
-compare dimension stability, heading drift, and jump frequency against the
-current guard-based tracker. Compare analysis runs using
-`GroundTruthEvaluator` for track-level scored evaluation or
-run-to-run vrlog comparison via `analysis.CompareReports` for
-unlabelled diffs.
-
-**Why this is the highest-priority work:** Bounding box instability is the
-most visible artifact in the visualiser and the most frequently reported
-user issue. It also degrades classification accuracy (dimension features
-are noisy inputs to the rule cascade).
+Use `GroundTruthEvaluator` for the track-level labels it actually supports;
+point membership and physical-pose claims require the corresponding new labels.
+`analysis.CompareReports` remains useful for unlabelled differences, not proof
+of correctness. Prioritise this experiment because it tests the observation
+model behind the reported instability without promising an unmeasured gain.
 
 ### Q9. L3/L4 settlement boundary: how to handle GPS alignment and priors?
 

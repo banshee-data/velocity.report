@@ -62,6 +62,22 @@ type File struct {
 // other 199 rows. A root that cannot be opened at all is a different matter and
 // returns ErrRootUnreachable.
 func Scan(root string) ([]File, error) {
+	return scan(root, true)
+}
+
+// ScanMetadata walks a capture root without opening every capture.  It is the
+// fast path used by the interactive capture index: on a removable disk, even
+// reading a small prefix and suffix of each of several hundred captures can
+// take longer than an HTTP request is allowed to live.
+//
+// Content tags are deliberately omitted.  Size and modification time still
+// identify new, resized and touched files; an existing tag is retained by the
+// store until a deliberate content-verification scan needs to replace it.
+func ScanMetadata(root string) ([]File, error) {
+	return scan(root, false)
+}
+
+func scan(root string, contentTags bool) ([]File, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %v", ErrRootUnreachable, root, err)
@@ -105,11 +121,15 @@ func Scan(root string) ([]File, error) {
 		if infoErr != nil {
 			return nil
 		}
-		tag, tagErr := ContentTag(path, entryInfo.Size())
-		if tagErr != nil {
-			// A file we cannot read gets an empty tag rather than vanishing
-			// from the index; it will simply always look changed.
-			tag = ""
+		var tag string
+		if contentTags {
+			var tagErr error
+			tag, tagErr = ContentTag(path, entryInfo.Size())
+			if tagErr != nil {
+				// A file we cannot read gets an empty tag rather than vanishing
+				// from the index; it will simply always look changed.
+				tag = ""
+			}
 		}
 		files = append(files, File{
 			RelPath:    filepath.ToSlash(rel),

@@ -6,50 +6,172 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 24, 2026 - State estimation: the OBB centre stays opt-in, and the branch against main
+
+- A/B tested D2's OBB-centre measurement against the medoid on kirk0's annotated road users (30 objects, 771 frames). Recall was level, but the OBB centre switched identity 146 times against 92 and fragmented more, so the medoid stays the production measurement and `obb_centre_v1` becomes opt-in (21.1 D5).
+- Fixed the label-free scorecard reading every cluster at its OBB centre whatever position the run tracked, which skewed how it classified track endings for medoid runs.
+- Replayed Columbus Broadway through the live server at 0.25x, once with the branch and once with main: heading acceptance rose from 0.605 to 0.789, median course alignment fell from 51.9° to 24.0°, and tracks, lifetimes and speed percentiles stayed where main has them: [record](lidar/operations/state-estimation-columbus-0p25x-vs-main.md).
+- Found that the branch's server panicked when started outside the repository tree, as on a Pi, because `MustLoadDefaultConfig` looked for the tuning file on disk. Main's #593 embedded fallback resolves it on merge.
+- Moved the 2026-09 campaign's drivers, state and results out of the repository to a backup branch and the LiDAR volume, and recorded pass 7, whose findings existed only in commit messages. Its ground-truth scores are marked unreliable: they matched first-sighting rows.
+- Realigned the branch's plans with the headway-first backlog, retired the schema v2 freeze plan, the branch audit and the D2 readiness review, and cleared the CI failures that had skipped the Go tests since September 17.
+
+## September 23, 2026 - Route capture, the job runner, and a backlog of design plans land
+
+- Landed a route-capture design for two new moving-sensor rigs, a cargo bike and a backpack pedestrian: four capture regimes, a road model of intersections and segments, distance-band speed aggregates, and a portable-timing appendix establishing that today's point timestamps are not validated acquisition times (#580). Added the LiDAR hardware market-watch page with its selection rule, budget rule, shortlist, and first dated snapshot.
+- Landed the offline placement design for a stationary capture: five stages from a rounded GPS fix through OSM and S2 candidate discovery, coarse pose from street and façade geometry, point-to-plane ICP against USGS 3DEP surfaces, to an accept-or-fail decision that reports an unresolved hypothesis rather than guessing at it (#588).
+- Landed the vehicle-encyclopedia ideation, five documents proposing a Canadian vehicle mass and dimension catalogue, a distance-coarsened classification taxonomy that leaves the shipped seven-class vocabulary untouched, and a maths proposal framing vehicle naming as retrieval rather than classification, predicting a resolution floor set by the catalogue rather than the sensor (#587).
+- Landed the decoupled-observation design, separating immutable L4 observations from revisable L5-and-later track estimates, with bounded look-ahead, revisions, finality, and provenance defined as a proposal with no runtime change (#582).
+- Landed the shared VRLOG storage design that unifies capture, annotation-pack, and evaluation-evidence data on one binary and JSON model (#591), and rewrote the LiDAR market-watch page's dating convention: one evolving file rather than one per snapshot, with a "Last surveyed" pointer into its own log, since git history already keeps every earlier reading.
+- Landed the `velocity worker` and `velocity jobs` runner (#586): captures are verified by a cached content hash before a job runs, attempt state lives as a directory tree that marks in-flight work lost on restart, and `state_estimation_baseline` and `track_scorecard` run from a `git worktree` staged at the job's own commit. Validated end to end against kirk0 on a live worker.
+- Fixed `lidar_run_tracks` writing a track's first-sighting snapshot instead of its final state: measurement columns now flush from the newest values on a ten-second interval, on completion, and on failure, while the update statement never touches label columns, so a label written mid-run survives (#584). Flagged that ground-truth scores and per-track statistics computed from rows written before this change are suspect.
+- Landed two rounds of annotation-tool fixes from live labelling sessions: re-proposing no longer discards the in-progress list, objects can be merged back together, the four elevation views each show their own 180-degree half instead of a mirrored overlap, and the column lattice and views turn with the site's recorded grid azimuth (#589); a guard blocking "new object from selection" on unsaved membership was removed because the split already preserves that selection, the default brush is now the sphere rather than the lasso, and the default view frames the foreground extent rather than the whole scan (#592).
+- {dd/lidar/job-queue-vm-fixes} Found two real bugs running #586 against actual hardware: a bare sha256 digest produced an unhelpful validation error, and the worker panicked when started from outside the repository tree because its config lookup only tried relative paths.
+
+## September 22, 2026 - Annotation lands, scored against the full corpus
+
+- Landed the point-annotation toolset tracked here since September 7 (#579): immutable point packs, revision-safe sidecars, and the macOS labelling tool. Scored against the whole of kirk0 (832 frames, 61 objects, 4,606 masks), the shipped tracker defaults find 56% of labelled road-user object-frames and 20% of pedestrians, the first score of tracker output against independent, human-labelled ground truth.
+- Landed four net-new LiDAR plans gathered from the branches that would implement them (#585): background-region overlays, an S2-anchored 0.5 m occupancy column grid that three separate jobs each wanted, a single review workflow from proposal to graded reference truth, and static-scene local geometry fitting.
+- Fixed a leaked file handle in `runBenchmark`: `openClusterDump` had no matching close on any exit path (#583).
+- Bumped the "application" dependency group across Go, Python, and web (#581).
+
 ## September 21, 2026 - Annotation: the unit of work becomes the object
 
-- {dd/lidar/annotation} Measured the job on a real 200-frame pack before building more of the tool: about 43 moving clusters a frame, 8,600 object-frames in twenty seconds, and a median of six seconds to label one by hand. The 1,954 larger object-frames alone are three to six hours, so labelling frame by frame cannot reach minutes of ground truth (#579).
-- {dd/lidar/annotation} Found that fifty minutes of labelling had produced nothing that counted. Reference truth is a reviewed mask of a reviewed object, "Mark reviewed" marked only the object, and no control could review a mask. Review now reaches the masks, per frame and per object, and a reviewed frame whose points change returns to proposed (#579).
-- {dd/lidar/annotation} Fixed creating an object wiping the selection it was for: it reloaded the new object's empty saved mask over whatever was selected. Errors moved from the foot of a scrolling pane, off screen, to a status line that also says what to do next (#579).
-- {dd/lidar/annotation} Added unattended propagation in `MaskPropagation.swift`: a voxelised footprint of the mask refitted frame by frame, saved once, stopping where the object is lost (scaled for range), doubles, has a rival fit, jumps, or meets another object's points. On a copy of the real pack a car labelled in 19 frames was carried to 167, its point count rising from 5 to 6,656 and falling to 54 (#579).
-- {dd/lidar/annotation} The first attempt carried that car nowhere: a rival fit was any position a metre away scoring 80% as well, and a six-metre car moved a metre along itself still covers most of its own returns. A rival is now a separate peak with a valley before it (#579).
-- {dd/lidar/annotation} Added `ObjectProposer.swift`. Foreground in the same half-metre voxel in four frames of five is fixed clutter, one proposal a patch; the rest is clustered on the column lattice and chained by the same footprint fit. Against the operator's own labels the car was one proposal in all 19 frames at a median overlap of 1.00, and 445 proposals covered 83% of the labelable foreground. Scoring every search offset at once took it from 137 s to 24 s in a debug build with identical output (#579).
-- {dd/lidar/annotation} Chose to cluster the pack's points rather than read the run's clusters: a recording keeps cluster boxes and not their membership, and that run starts 218 tracks in the twenty seconds, which a reference should not inherit (#579).
-- {dd/lidar/annotation} Packs now carry the settled background. The recording had 20 snapshots of about 67,000 returns, one every fifteen seconds, and the exporter skipped them as frames without points. They are ordered by record position: the first is stamped after every frame that follows it, which also ended any windowed export at frame 0, and the sequence number never moved (#579).
-- {dd/lidar/annotation} Packs record the run's L4 height band, read from the composed config under the engine that ran, so "ground" in the tool is exactly what the clusterer never saw. The exporter refuses `full` coverage when every classed point is foreground: the newest pack claimed it with 1,076,843 points, all foreground (#579).
-- {dd/lidar/annotation} Set the background-change threshold by measurement on a real pair of snapshots: a quarter of a metre flagged 6,507 of 67,015 returns, mostly range jitter; half a metre, 2,295; a metre, 271 (#579).
-- {dd/lidar/annotation} Added a sixteen-sector completeness ring, a frame strip, object names over their points, and the main view's words (Run, Frame, Labelled by) after "Operator name" was read as the name of a track and saved as the author of 61 masks (#579).
-- {dd/lidar/annotation} Wrote the operator's guide, [point-annotation-tool.md](lidar/operations/point-annotation-tool.md), and the delivery record in the annotation plan (#579).
+- Measured the job on a real 200-frame pack before building more of the tool: about 43 moving clusters a frame, 8,600 object-frames in twenty seconds, and a median of six seconds to label one by hand. The 1,954 larger object-frames alone are three to six hours, so labelling frame by frame cannot reach minutes of ground truth (#579).
+- Found that fifty minutes of labelling had produced nothing that counted. Reference truth is a reviewed mask of a reviewed object, "Mark reviewed" marked only the object, and no control could review a mask. Review now reaches the masks, per frame and per object, and a reviewed frame whose points change returns to proposed (#579).
+- Fixed creating an object wiping the selection it was for: it reloaded the new object's empty saved mask over whatever was selected. Errors moved from the foot of a scrolling pane, off screen, to a status line that also says what to do next (#579).
+- Added unattended propagation in `MaskPropagation.swift`: a voxelised footprint of the mask refitted frame by frame, saved once, stopping where the object is lost (scaled for range), doubles, has a rival fit, jumps, or meets another object's points. On a copy of the real pack a car labelled in 19 frames was carried to 167, its point count rising from 5 to 6,656 and falling to 54 (#579).
+- The first attempt carried that car nowhere: a rival fit was any position a metre away scoring 80% as well, and a six-metre car moved a metre along itself still covers most of its own returns. A rival is now a separate peak with a valley before it (#579).
+- Added `ObjectProposer.swift`. Foreground in the same half-metre voxel in four frames of five is fixed clutter, one proposal a patch; the rest is clustered on the column lattice and chained by the same footprint fit. Against the operator's own labels the car was one proposal in all 19 frames at a median overlap of 1.00, and 445 proposals covered 83% of the labelable foreground. Scoring every search offset at once took it from 137 s to 24 s in a debug build with identical output (#579).
+- Chose to cluster the pack's points rather than read the run's clusters: a recording keeps cluster boxes and not their membership, and that run starts 218 tracks in the twenty seconds, which a reference should not inherit (#579).
+- Packs now carry the settled background. The recording had 20 snapshots of about 67,000 returns, one every fifteen seconds, and the exporter skipped them as frames without points. They are ordered by record position: the first is stamped after every frame that follows it, which also ended any windowed export at frame 0, and the sequence number never moved (#579).
+- Packs record the run's L4 height band, read from the composed config under the engine that ran, so "ground" in the tool is exactly what the clusterer never saw. The exporter refuses `full` coverage when every classed point is foreground: the newest pack claimed it with 1,076,843 points, all foreground (#579).
+- Set the background-change threshold by measurement on a real pair of snapshots: a quarter of a metre flagged 6,507 of 67,015 returns, mostly range jitter; half a metre, 2,295; a metre, 271 (#579).
+- Added a sixteen-sector completeness ring, a frame strip, object names over their points, and the main view's words (Run, Frame, Labelled by) after "Operator name" was read as the name of a track and saved as the author of 61 masks (#579).
+- Wrote the operator's guide, [point-annotation-tool.md](lidar/operations/point-annotation-tool.md), and the delivery record in the annotation plan (#579).
 
 ## September 20, 2026 - Annotation: views an operator can work in
 
-- {dd/lidar/annotation} Found why a region could not be selected: both orthographic views re-fitted to every sample and could not be panned or zoomed, so a car was a few pixels across in the same white as the wall behind it. The views now hold their framing, zoom about the cursor, and pan, through an AppKit input layer because SwiftUI has no scroll-wheel or second-button gesture (#579).
-- {dd/lidar/annotation} Added a third, 3D view that reuses `MetalRenderer` on the pack sample, class toggles in the main view's colours, and frame sync with the main view by capture timestamp. A step made to follow the main view does not ask it to seek, or the two windows drag each other backwards during playback (#579).
-- {dd/lidar/annotation} Added sphere and column brushes on a local 0.5 m lattice with eight half-metre voxels a column. The Playback menu's bare keys mean the Annotation window when it is in front; a bracket that arrives by both routes is applied once, by event timestamp (#579).
-- {dd/lidar/annotation} Tested the viewport by mounting it in a window and delivering mouse and scroll events through its hit test, since a viewport that looks right and ignores the mouse passes every unit test (#579).
-- {dd/lidar/annotation} Covered the annotation export's failure boundaries for Codecov (#579).
+- Found why a region could not be selected: both orthographic views re-fitted to every sample and could not be panned or zoomed, so a car was a few pixels across in the same white as the wall behind it. The views now hold their framing, zoom about the cursor, and pan, through an AppKit input layer because SwiftUI has no scroll-wheel or second-button gesture (#579).
+- Added a third, 3D view that reuses `MetalRenderer` on the pack sample, class toggles in the main view's colours, and frame sync with the main view by capture timestamp. A step made to follow the main view does not ask it to seek, or the two windows drag each other backwards during playback (#579).
+- Added sphere and column brushes on a local 0.5 m lattice with eight half-metre voxels a column. The Playback menu's bare keys mean the Annotation window when it is in front; a bracket that arrives by both routes is applied once, by event timestamp (#579).
+- Tested the viewport by mounting it in a window and delivering mouse and scroll events through its hit test, since a viewport that looks right and ignores the mouse passes every unit test (#579).
+- Covered the annotation export's failure boundaries for Codecov (#579).
 
 ## September 19, 2026 - Annotation: review fixes, paths and the sandbox
 
-- {dd/lidar/annotation} Split the annotation toolset out of the state-estimation branch into its own PR and addressed its review: `ResolvePathWithinDirectory` with a pinned canonical-path contract, the pack directory resolved through `resolveLidarDir`, and the packs directory created before anything is resolved inside it, which had made the first export on any machine a 500 (#579).
-- {dd/lidar/annotation} Set the capture, recording, plots and annotation paths independently (`--lidar-vrlog-dir`, `--lidar-plots-dir`, `--lidar-annotation-dir`). Deriving the recording directory from the capture directory was why VRLOG replays returned 400 once captures moved to an external volume (#579).
-- {dd/lidar/annotation} Let the sandboxed app open and save packs the server had just written: a remembered security-scoped bookmark for the packs folder, asked for once. Stopped the sheet pre-selecting "Full scene" coverage (#579).
+- Split the annotation toolset out of the state-estimation branch into its own PR and addressed its review: `ResolvePathWithinDirectory` with a pinned canonical-path contract, the pack directory resolved through `resolveLidarDir`, and the packs directory created before anything is resolved inside it, which had made the first export on any machine a 500 (#579).
+- Set the capture, recording, plots and annotation paths independently (`--lidar-vrlog-dir`, `--lidar-plots-dir`, `--lidar-annotation-dir`). Deriving the recording directory from the capture directory was why VRLOG replays returned 400 once captures moved to an external volume (#579).
+- Let the sandboxed app open and save packs the server had just written: a remembered security-scoped bookmark for the packs folder, asked for once. Stopped the sheet pre-selecting "Full scene" coverage (#579).
 
 ## September 17, 2026 - Annotation: reachable from the app
 
-- {dd/lidar/annotation} Wired the annotation toolset into the app: a window, a pack picker, `POST /api/lidar/runs/{run_id}/annotation-export`, and a sheet that generates a pack from a run without leaving the app. Leaving a pack is guarded against unsaved membership (#579).
+- Wired the annotation toolset into the app: a window, a pack picker, `POST /api/lidar/runs/{run_id}/annotation-export`, and a sheet that generates a pack from a run without leaving the app. Leaving a pack is guarded against unsaved membership (#579).
 
 ## September 16, 2026 - Annotation: point-cloud editing toolset
 
-- {dd/lidar/annotation} Added the point-cloud editing toolset for the physical reference pilot: pack reader, canonical-index lasso and slab selection, membership history, and the session rules for navigation and provenance. Made track and run IDs selectable and copyable (#579).
+- Added the point-cloud editing toolset for the physical reference pilot: pack reader, canonical-index lasso and slab selection, membership history, and the session rules for navigation and provenance. Made track and run IDs selectable and copyable (#579).
+- Delivered the point-cloud annotation client in the macOS visualiser: orthographic lasso and rectangle selection over a depth slab against canonical pack indices, add/subtract, stroke undo/redo, a second view for the contamination check, operator provenance, and dirty-navigation protection. 94 Swift tests, with the pack reader tested against bytes the Go writer actually produced and pinned on both sides. Selection is through-slab rather than hidden-surface picking; a radius brush and reviewed propagation remain future work.
+- Rendered `/app/lidar/tracks` through the same three.js player as the published scenes, driven by a session built over live database observations, and ported track picking and missed-region marking into the 3D view. Deleted the 932-line flat canvas map and the dead background-grid fetch, per-track observation cache and overlay-offset controls it kept alive.
+- Implemented Kalman gaps K1 and K2 as opt-in options and left both defaults alone, because neither predicted failure mode reproduced. K1's coupled process noise is 2.7% of the normalised distance to a 2 m/s² manoeuvre against a gate 173x wider; K2's premise did not reproduce at all, the shipped naive covariance form losing exactly zero symmetry over 10,000 cycles. Both measurements are asserted rather than logged, so a tuning change that makes either bite fails the suite.
+- Found and fixed a real inversion behind gap P1: L5's Guard 2, which exists to refuse an ambiguous heading from a near-square cluster, guarded its division with `maxDim > 0` and so skipped the check entirely for a zero-extent box — accepting the _most_ ambiguous measurement while correctly refusing a 5 cm square. P2's negative-discriminant fallback is removed rather than corrected, by computing the discriminant as the non-cancelling `(c00-c11)² + 4c01²`.
+- Measured gap HW1 against 367 deployed background snapshots and 24,007,669 settled cells with a new `lidar-closeness-audit`: the sensor beats its own specification in situ (median spread 6 mm close in, 47 mm past 100 m), the modelled noise term supplies 86-98% of the acceptance window against the measured spread's 1.5-5%, and the median effective window reaches 1.11 m at 10-20 m and 8.99 m past 100 m. The detection cost remains unmeasured and is filed as a follow-on.
+- Attributed the resulting wide-spread tail by ring elevation and disconfirmed the feedback-loop hypothesis: the rings that report the most foreground (11.2-12.6%) carry the fewest high-spread cells (0.5-1.0%), inverting the prediction, and 38.7% of high-spread cells sit above the horizon where the beam never reaches the road.
+- Added the Section 5.4 solid-body estimate contract: a named physical reference point, the filter's own covariance block, a bimodal orientation belief carrying the 180-degree ambiguity explicitly, per-dimension beliefs with sigma and admissible-frame counts, motion class as a posterior, and the estimation lifecycle. Seeding states the medoid's known bias — half a body width, ~0.95 m for a vehicle — where the measurement noise would have claimed ~0.22 m about a position that may be a metre out.
+- Promoted the synthetic Pandar40P pass into `l4perception` as the seed of the evaluation corpus, so Section 3's evidence is reproducible in the repository. It records one correction to the plan: §3.1's stated ring band cannot see its own vehicle for most of the pass, so the generator fires the real hardware elevation table and reproduces the mechanism (the medoid pinned at exactly -0.900 m on 20 of 40 frames) rather than §3.2's per-frame figures.
+- Implemented the near-edge measurement model with Section 9.1's variable-rank measurement: one visible face constrains its own normal and leaves the perpendicular direction to the prediction, with a covariance tight along the constraint and effectively unbounded across it. Lateral error against the synthetic pass is 0.0000 m mean and max, against the OBB centre's 0.1391 m and 0.8038 m. Its bias is exactly the dimension-prior error one-for-one, which is what makes the solid body's sigma and provenance load-bearing.
+- Ran experiment E1 against the three-site corpus — 43,068 scored frames matching the committed baseline exactly, 195,389 observations, 160,011 estimates, every site repeat-verified byte-identical. E1.1 finds the medoid's lateral offset near zero end-on and rising monotonically to 0.35-0.41 of the body's half-width at broadside at all three placements, and the trend survives range stratification in every well-populated cell. **Section 3's hypothesis is confirmed: the medoid's error is deterministic in aspect angle, so no estimator can filter it out.** A sign bug in the first E1.3 implementation initially inverted its conclusion by letting vehicles passing on opposite sides cancel; E1.1's independent reference exposed it: [E1 record](lidar/operations/state-estimation-e1-lateral-error.md).
+- Recaptured the `mac` perf baselines, which had recorded a workload the branch does not produce (1,611,256 foreground points against an actual 985,224) and so were being refused fail-closed. Diagnosed before recapturing: the branch's workload matches _main's_ baseline to within one cluster, so nothing had regressed and the stale file had captured a transient intermediate state.
+- Made the web build self-contained by resolving `three` from web's own dependency rather than from `public_html`, which CI has no reason to install — the build passed locally and failed in CI for that reason alone, taking the Go integration tests with it.
+- Replaced the sleep-based frame-timer tests with an injectable clock. `time.Sleep` guarantees a minimum and not a maximum, so asserting which stage was longest was at the mercy of the scheduler; exact durations also made the assertions stronger, catching a one-millisecond attribution error the previous bounds could not.
+- Rewrote the quarter-block lint in python comparing code points. Matching a literal bracket expression with grep was locale-dependent: outside a UTF-8 locale it matched byte-wise, and every character in U+2596-U+259F shares the em dash's lead byte, so `make lint` reported roughly eleven thousand findings locally while passing in CI. The check no longer needs to exclude itself, and excluding vendored code from black and ruff cleared `make lint-python`, whose only failures were Python 2 `print` statements in the libpcap submodule.
+
+## September 15, 2026 - Evidence oracle profiling & deterministic track identity
+
+- Bumped the application dependency group with three updates (#578).
+- Gave `FrameEvidenceStore` prepared statements and explicit cleanup, replacing per-write statement preparation on the batched persistence path.
+- Streamlined corpus replay preparation so a run reaches the evidence store without repeating manifest and source checks.
+- Persisted the tracker's deterministic `CreationSequence` alongside each estimate and keyed the evidence oracle on it. Two replays of the phase01 corpus had reported 99.2% of rows as different when every value was byte-identical: the random `track_id` was being hashed as content.
+- Added a plan proposing a v5 UUID seeded from `(site_id, sensor_id, frame_unix_nanos, cluster_id)`, reproducible across replays and collision-safe across restarts and sites: [design doc](plans/lidar-deterministic-track-identity-plan.md).
+- Generalised the P11 ground-plane fit from one global plane to an independently-fitted plane per grid cell (`l3grid.RegionalGroundSurface`), falling back to the global fit where a cell has too few settled points. Measured against the three-site corpus: Marina 4.35% grade, Columbus 0.88%, Embarcadero 0.14%.
+- Stopped stamping every site with the same placeholder calibration identity. `siteCalibration` now builds a real per-site yaw rotation from `site-index.json`'s operator-measured `north_azimuth_deg`, so `calibration_id` genuinely varies by site. Mounting height and tilt stay reported as ground-fit evidence rather than folded into the identity, so it does not wobble with ordinary measurement noise.
+
+## September 14, 2026 - Batched frame evidence & source manifests
+
+- Batched a frame's observations, estimates, and residuals into one SQLite transaction with prepared inserts, replacing frame-by-frame writes.
+- Added `lidar-evidence-oracle`, comparing batched writes against existing frame-by-frame evidence using table, ordered-row, payload, and linkage checks.
+- Added source-manifest verification, so a corpus run refuses to proceed when recorded source digests disagree with what is on disk.
+- Replaced `sql.Open` with `OpenReadOnly` on the analysis paths, with a unit test asserting the connection rejects writes.
+- Moved the Hugging Face dataset card out of the repository, and reformatted the backlog around independently deliverable outcomes.
+
+## September 13, 2026 - Deterministic scene capture & priors service review
+
+- Landed deterministic scene capture milestones 1 and 2 (#576): frozen multi-angle stills and frozen-target bullet-time camera paths, with readiness and pixel-stability checks, a provenance manifest, and deterministic trail history across 26 files.
+- Fixed layer-visibility initial state so a capture starts from a declared scene rather than whatever the viewer last displayed (#576).
+- Added the spatial priors service review alongside the SF bootstrap plan references (#577), 1,920 lines across four documents.
+- Prepared the settled static captures for Hugging Face publication, and stabilised the state-estimation replay path.
+- Replayed immutable multi-file cases end to end, crossing the five-minute PCAP roll-over inside a single replay case.
+
+## September 12, 2026 - Capture-time benchmark replay & immutable observations
+
+- Made the perf benchmark replay in capture time (#568). It had called `ProcessFramePolarWithMask`, which stamps `time.Now()`, so L3 warm-up and freeze windows advanced with machine speed: two CI runners 27% apart in wall clock produced foreground counts 11% apart on the same capture.
+- Established that this was the original defect behind the degenerate June baseline. A 30-second warm-up measured in CPU time cannot elapse inside a five-second replay, so the grid never settled (#568).
+- Confirmed the fix by measurement: two runs reported identical foreground counts of 985,224 and cluster counts within 0.07%, and `l3-only` and `full` agreed after previously disagreeing by 33% (#568).
+- Added Columbus scene controls, background and grid layer toggles, VRLOG provenance display, and a build-version readout to the published scene viewer (#574).
+- Added the deterministic screenshot capture plan (#575).
+- Persisted versioned state estimates and residuals through a new pipeline sink and SQLite store.
+- Added the immutable observation replay foundation with a phase01 corpus fixture, and recorded OBB centre measurement provenance so an estimate states which interpretation produced it.
+- Imported multi-file archive replay cases into the web replay-cases page, and added the SQLite schema v2 freeze-and-cleanup plan.
+
+## September 11, 2026 - Multi-file PCAP joins & published scene bundles
+
+- Added `internal/lidar/capseq` for multi-file replay cases (#569). Field capture writes rolling five-minute PCAPs, so a static period routinely straddles a file boundary, and the previous workaround merged files into a unioned copy at 1.2 GB per five minutes.
+- Graded every join against field tolerances: seamless at 10 ms or less, acceptable to 1 second, broken beyond that. Grading is data rather than failure, so a broken run still builds and names the join that broke (#569).
+- Dropped a revolution straddling a merely acceptable join. Fabricating one frame from two moments half a second apart is worse than a missing frame, because L3 records it as observed background (#569).
+- Published the generated scene catalogue and bundles for 25 scenes (#573): 509 compressed frame chunks holding 148,872 frames, with per-scene background, manifest, header, chunk index, timeline, and vantage data.
+
+## September 10, 2026 - Archive site inventory & scene catalogue
+
+- Indexed 23 sites across the three recording days, each with the captures it spans (#571). A day is one continuous recording, so a site is a static stretch inside it rather than a separate file.
+- Found 9/1 invisible because all 47 of its captures were unanalysed. Re-analysing them as continuous streams gave six static stretches of 18 to 22 minutes, done per recording block because the recorder restarted at 16:29 (#571).
+- Read site positions by eye from a photograph of the field map, accurate to about 450 m where a published scene gave an independent check. Four sites carry no position rather than a guess (#571).
+- Bumped the application dependency group with three updates (#570).
+- Grouped the scene list by level 10 area, made the field mark the only name a scene has, drew the S2 cells on the map, and carried two measured angles into the viewer.
 
 ## September 8, 2026 - Annotation: immutable point packs
 
-- {dd/lidar/annotation} Added immutable point packs in `internal/lidar/annotation`: canonical little-endian arrays, digests over the stored bytes, a pack digest that binds them, and a check for revision space exhaustion in the sidecar store (#579).
+- Added immutable point packs in `internal/lidar/annotation`: canonical little-endian arrays, digests over the stored bytes, a pack digest that binds them, and a check for revision space exhaustion in the sidecar store (#579).
+- Added `max_sample_points` to the L4 configuration, validation, and every fixture, bounding retained cluster points rather than leaving retention unlimited.
+- Added the L4BObserve and L4Perception modules with evidence-handling and clustering tests, and threaded sample points through L9 diagnostic frame processing.
+- Added immutable point packs and reference annotations, with a revision-space exhaustion check in sidecar storage.
+- Added a Pi performance benchmark runbook for capturing and refreshing baselines, and recorded recovery checkpoints across the affected plans.
+- Added a Python extractor for LiDAR jump candidates, with unit tests.
 
 ## September 7, 2026 - Annotation: revision-safe sidecars
 
-- {dd/lidar/annotation} Added sidecar annotations for LiDAR packs with revision-safe storage: a non-blocking lock, atomic replace, retained revisions and conflict detection, so that a human reference object is stored apart from predicted track identities (#579).
+- Added sidecar annotations for LiDAR packs with revision-safe storage: a non-blocking lock, atomic replace, retained revisions and conflict detection, so that a human reference object is stored apart from predicted track identities (#579).
+
+## September 7, 2026 - VRLOG web profile & censored extent belief
+
+- Added the VRLOG web profile and the scene catalogue publishing plan (#567), 10,180 lines across 70 files, including a Svelte scene route and a browser decoder generated from the same `.proto` under the existing drift gate.
+- Defined the web profile as a narrowing of the existing VRLOG format rather than a new one: same directory layout, same `FrameBundle`, rotated at 100 frames and gzipped per chunk. An absent `profile` means a recorded VRLOG, so existing readers were unaffected (#567).
+- Chose gzip over brotli because `DecompressionStream` supports `br` on Chromium alone (#567).
+- Replaced the extent mean with a censored lower-bound belief, since a visible face bounds a body's extent from below rather than estimating it.
+- Added a bounded shape term to association and measured the duplicates it resolves (D2.2), and made host class a dimension of the performance matrix.
+- Added sidecar storage with revision management and conflict resolution.
+
+## September 6, 2026 - Heading abstention telemetry
+
+- Split the heading-lock outcome three ways and marked forced releases, so an abstention is distinguishable from a rejection.
+- Attributed heading abstentions to their cause, bounded the axis hold, and reported acceptance rates.
+- Added the D2 measurement harness with the axis path defaulting to off, then re-measured the A/B comparison and relocated the D2.1 blocker.
+
+## September 5, 2026 - Headless replay harness & heading telemetry
+
+- Added a headless PCAP replay harness and measured the Day 1 gate against it, with frame back-pressure making the harness deterministic.
+- Added the course-alignment metric (D1.1) and heading lock telemetry (D1.2) for LiDAR tracks, and released the OBB heading lock after repeated rejections (D1.3).
+- Added the fragment guard and decoupled the ghost fade (D1.5, D1.6).
+- Seeded the DBSCAN subsample from the point set rather than the clock, and sorted the association track list, which corrected an overstated determinism claim.
+- Added the unified scene semantics research proposal, and recorded the background warm-up requirement for replay captures.
 
 ## September 3, 2026 - Perf gate rebuilt: a baseline that states what it measured
 
@@ -67,6 +189,28 @@ older entries stay put, however tempting hindsight may be.
 - Retired `baseline-kirk0-ci.json` and `baseline-kirk0.json` rather than renaming them. They recorded a degenerate state, not a profile, and carrying the file forward under a new name would have enshrined it (#566).
 - Found the capture workflow could not solve the problem it was written for: GitHub registers `workflow_dispatch` from the default branch alone, so a change needing a fresh baseline cannot dispatch one until after it lands — and needs the baseline to land. A path-filtered `pull_request` trigger closes the loop, firing exactly when a tuning change moves the fingerprint and invalidates the committed file (#566).
 - Deleted `kirk0_benchmark.json`, a stray benchmark artefact committed by accident in #564, and ignored the pattern (#566).
+- Bounded region identification memory to surviving regions (#565). Every `Region` carried a `CellMask` sized to the whole grid, and a freshly settled 40x1800 grid fragments into roughly 12,700 components before merging down to 50: about 915 MB of masks to keep 3.6 MB.
+- Found none of it freed either, because `mergeSmallestRegions` dropped regions with `regions = regions[1:]` and the returned slice keeps the whole backing array reachable. Live heap over a kirk0 replay fell from 1.72 GiB to 22 MiB (#565).
+- Threaded one scratch buffer through DBSCAN expansion and enqueued each point at most once, having appended every queried neighbourhood onto the seed list unfiltered. DBSCAN time fell from 8,523 ms to 4,225 ms, frame p95 from 74.7 ms to 37.9 ms, and total allocation from 62.2 GiB to 16.5 GiB (#565).
+- Confirmed behaviour unchanged with a 500-trial differential run against the previous implementation, which produced identical labels on every point (#565).
+- Bumped the application dependency group with three updates (#564).
+- Recorded 49.22 GB of field LiDAR capture on `/Volumes/lidar/lidar/s2` from 10:00 to 17:04, 71 five-minute segments across sites `s2_sf_6`-`s2_sf_9`.
+
+## September 2, 2026 - S2 artefact conformance
+
+- Standardised the geographic plans on S2, and documented the cell hierarchy and positioning (#561).
+- Threaded one canonical S2 tag pair through every artefact derived from a located static PCAP segment, so a detached capture stays coarse-addressable without opening a sidecar (#561).
+- Ruled that tokens are copied from trusted split metadata and never recovered by parsing a source basename, and that storing only one of the pair is invalid (#561).
+- Recorded S2 tags as execution provenance rather than part of parameter-set or run-config identity hashes (#561).
+- Bumped the documentation dependency group with two updates (#563).
+- Recorded 48.28 GB of field LiDAR capture on `/Volumes/lidar/lidar/s2` from 09:14 to 16:58, 71 five-minute segments across sites `s2_sf_2`-`s2_sf_6`.
+
+## September 1, 2026 - S2 Hilbert SVG tool
+
+- Added `tools/s2-hilbert`, a CLI generating SVG infographics and JSON data for S2 cell traversals along the Hilbert curve, with land and water masking (#562).
+- Generated the orientation legend, the coarse level 12 examples, and the level 10 quad composite used in the geographic indexing documentation (#562).
+- Wrote the hierarchy module to parse canonical and display S2 token forms and convert them to geographic geometry, keeping the core reusable from both Node and the browser (#562).
+- Recorded 36.25 GB of field LiDAR capture on `/Volumes/lidar/lidar/s2` from 12:25 to 16:39: `s2-sf-0.pcapng` (12:25-12:46) plus 47 five-minute `s2-1` segments (12:48-16:39).
 
 ## August 31, 2026 - Stall closed, replay state repaired & clean VRLOGs
 
@@ -123,7 +267,7 @@ older entries stay put, however tempting hindsight may be.
 - Delivered buffered frames in capture order, and confined the frame-rate throttle to replays so live input is no longer decimated.
 - Let a finished replay stay the data source rather than silently reverting to live, and closed the window where a teardown looked like an idle replay.
 - Added a Live toggle to the visualiser and moved Clear to the View menu.
-- {dd/docs/state-est} Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
+- Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
 
 ## August 19, 2026 - Background retention across source changes
 

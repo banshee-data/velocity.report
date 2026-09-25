@@ -33,6 +33,14 @@ Keep membership evidence, uncertain seed dimensions, and physical pose reference
 A mask does not certify unseen dimensions or cross-frame point correspondence. Future reviewed masks
 must not enter a causal evaluation; report assisted corrections separately from unassisted predictions.
 
+The [visibility-aware review][visibility-research]
+defines the estimator contract. Keep membership evidence, uncertain seed dimensions, and
+physical pose reference labels separate. A mask does not certify unseen dimensions or
+cross-frame point correspondence. Future reviewed masks must not enter a causal evaluation;
+report assisted corrections separately from unassisted predictions.
+
+[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
+
 ## 2. Existing work and the missing contract
 
 The root contains pack/export, digest, point-index, reference-object, and sidecar groundwork.

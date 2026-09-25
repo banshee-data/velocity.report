@@ -1,24 +1,25 @@
-# Route capture: cargo bike and backpack rigs, road-segment speeds (v0.6.x)
+# Route capture: backpack then cargo bike, headway and road-segment speeds (v0.6.1–0.6.8)
 
-This plan takes cargo-bike and backpack recordings through offline motion correction to
-road-segment speed measurements. Timing, pose, and measurement quality must pass explicit gates
-before publication.
+This plan transfers the static-sensor headway metric to backpack and cargo-bike recordings through
+offline motion correction. It also adds road-segment speed measurements. Timing, pose, endpoint
+support, and measurement quality must pass explicit gates before either result is published.
 
 - **Status:** Draft
 - **Layers:** LiDAR pipeline (L1 sidecars, L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L7 Scene, L8 Analytics), `pcapsplit`, capture index, report, platform hardware
-- **Target:** v0.6.x; capture protocol, segment classification, and the road model belong with the scene capture workflow
+- **Target:** v0.6.1 portable evidence, timing, and Pi recording; v0.6.2 backpack headway; v0.6.3 bike headway and speed reference; v0.6.8 road-segment reports and survey hand-off. v0.6.7 is the full tracker Pi optimisation pass.
 - **Companion plans:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is the tripod case the stop regime generalises; [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the motion classifier sweep; [spatial-priors-service-review](spatial-priors-service-review.md) owns route reconstruction and rig hardware findings; [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) is the 7DOF design this borrows ego-motion compensation from and leaves 3D orientation to; [lidar-l7-scene-plan](lidar-l7-scene-plan.md) owns road polygons and the scene graph; [speed-percentile-aggregation-alignment-plan](speed-percentile-aggregation-alignment-plan.md) owns the aggregate rules the segment outputs follow
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
 - **Timing design:** [portable-capture-timing.md](../lidar/architecture/portable-capture-timing.md) owns clock choices, acquisition semantics, component costs, and qualification
 
 ## Motivation
 
-Two deployment rigs are the goal: a cargo bike that covers routes, and a backpack pedestrian who
-covers routes too but can stop at a corner for as long as twenty minutes. Both should produce the
-same output: vehicle speeds along road segments, with particular attention to what happens on
-either side of an intersection. That output does not exist today. The system aggregates by site,
-a fixed point where a tripod stood, and the drives between sites are cut off as motion and never
-used.
+Two deployment rigs are the goal: a backpack pedestrian who can stop at a corner for as long as
+twenty minutes, then a cargo bike that covers routes. The first transferable output is the same
+supported vehicle-following gap and net time gap defined for a static sensor in
+[the behaviour plan](lidar-behaviour-analytics-plan.md). Road-segment speed profiles follow once
+ego-speed and map-projection gates pass. Neither output exists for moving capture today. The
+system aggregates by site, a fixed point where a tripod stood, and the drives between sites are
+cut off as motion and never used.
 
 Nothing in the pipeline tolerates a moving sensor. The background grid assumes each ring and
 azimuth bin watches the same world ray for the whole capture, and the motion classifier reads any
@@ -40,6 +41,12 @@ The workflow stays record-then-process throughout. The rig gathers PCAPs during 
 walk, and the stops, and every stage in this plan runs afterwards on a workstation. Nothing here
 adds a live requirement to the Raspberry Pi.
 
+The static 0.5.2 result is the prerequisite, not a new mobile-specific formula. The observation
+profile, versioned final tracks, body endpoints, empirical path pairing, uncertainty, and
+suppression reasons transfer unchanged. Mobile capture adds acquisition-time, ego-pose, deskew,
+world-frame foreground and mounting occlusion error. A qualified speed estimate alone cannot
+promote a mobile following result.
+
 ## Current state
 
 - **Background model.** `BackgroundGrid` in [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go) is a polar range image of 40 rings by 1800 azimuth bins with per-cell EMA, spread, freeze, and locked baseline. The [grid standards comparison](../lidar/architecture/lidar-background-grid-standards.md) chose it because it has no pose dependence, which is exactly the property a moving sensor breaks.
@@ -58,19 +65,19 @@ adds a live requirement to the Raspberry Pi.
 
 ## Findings
 
-| Area                      | Current state                                                                                                | Severity | Release view |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- | ------------ |
-| Route regime              | No ego-motion path: no trajectory input, no world-frame foreground, no deskew; moving captures are discarded | High     | v0.6.x       |
-| Background under rotation | Any yaw beyond one bin or pitch beyond half a ring spacing invalidates cells; stops cannot be stabilised     | High     | v0.6.x       |
-| Speed integrity           | Ego velocity error adds directly to object speed; nothing gates observations on pose quality                 | High     | v0.6.x       |
-| Road model                | No segments, intersections, or crossings; no way to say where along a road a speed was measured              | High     | v0.6.x       |
-| Segment aggregates        | Site is the only aggregation key; no distance-from-intersection bands, no presence minutes, no sample gating | High     | v0.6.x       |
-| Motion classification     | Continuous small motion reads as a drive; the stop regime needs stabilised frames before the classifier runs | Medium   | v0.6.x       |
-| Pose provenance           | No per-frame pose row, no capture mode, no pose source recorded                                              | Medium   | v0.6.x       |
-| Survey walk               | No segment kind; a tilted walk is classified as motion and discarded                                         | Medium   | v0.6.x       |
-| IMU and GNSS capture      | No daemon, no packet formats, no calibration path; both are needed for the bike                              | Medium   | v0.6.x       |
-| Field compute             | No Pi baseline; live feedback claims are unsupported                                                         | Low      | v0.6.x       |
-| Sensor supply             | One qualifying used unit under budget; alternatives were untracked until the market watch started            | Low      | Continuous   |
+| Area                      | Current state                                                                                                | Severity | Release view                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------- |
+| Route regime              | No ego-motion path: no trajectory input, no world-frame foreground, no deskew; moving captures are discarded | High     | v0.6.2, bike gate v0.6.3        |
+| Background under rotation | Any yaw beyond one bin or pitch beyond half a ring spacing invalidates cells; stops cannot be stabilised     | High     | v0.6.2                          |
+| Speed integrity           | Ego velocity error adds directly to object speed; nothing gates observations on pose quality                 | High     | v0.6.3                          |
+| Road model                | No segments, intersections, or crossings; no way to say where along a road a speed was measured              | High     | v0.6.8                          |
+| Segment aggregates        | Site is the only aggregation key; no distance-from-intersection bands, no presence minutes, no sample gating | High     | v0.6.8                          |
+| Motion classification     | Continuous small motion reads as a drive; the stop regime needs stabilised frames before the classifier runs | Medium   | v0.6.1–0.6.2                    |
+| Pose provenance           | No per-frame pose row, no capture mode, no pose source recorded                                              | Medium   | v0.6.1                          |
+| Survey walk               | No segment kind; a tilted walk is classified as motion and discarded                                         | Medium   | v0.6.8                          |
+| IMU and GNSS capture      | No daemon, no packet formats, no calibration path; both are needed for the bike                              | Medium   | v0.6.1, bike gate v0.6.3        |
+| Field compute             | No Pi capture baseline; live feedback claims are unsupported                                                 | Medium   | recorder v0.6.1, tracker v0.6.7 |
+| Sensor supply             | One qualifying used unit under budget; alternatives were untracked until the market watch started            | Low      | Continuous                      |
 
 ## Design / approach
 
@@ -133,6 +140,27 @@ Rules that hold throughout:
 - **The world-anchored foreground engine is required, not deferred.** The earlier reading of this
   plan kept it as a fallback for pitch aliasing at stops. The route regime cannot run without it,
   and once it exists it also serves stops where re-rendering into the polar grid aliases badly.
+
+### Mobile following transfer gate
+
+The static [following metric](lidar-behaviour-analytics-plan.md#83-following-behaviour) supplies
+the definitions of bumper gap, net time gap, valid opportunity, and named-band exposure. Mobile
+analysis may reuse its report and registry identifiers only after qualifying the extra sources
+of error. At each reported instant, both vehicles need independently supported front/rear
+endpoints or a bounded body estimate, a common directed world-frame path, and a final track
+version with stable identity. Propagate range, endpoint, clock, pose, and association uncertainty
+to the gap and time-gap interval. Mark unseen, coasted, merged, self-occluded, badly deskewed,
+or path-ambiguous periods unsupported; they never contribute to valid following time.
+
+Backpack acceptance starts with quasi-static stops: compare the corrected estimate with a
+co-located tripod recording and held-out endpoint annotations at the same corner. Then exercise
+walking segments with the qualified trajectory and world-anchored foreground engine. Publish
+separate stop and walking coverage and error, so a good stop result cannot conceal moving-pose
+failures. The bike repeats this comparison under vibration and faster ego motion. It needs
+qualified IMU timing and extrinsics, and its own observed error and suppression envelope. A
+speed comparison against radar checks ego velocity; it does not validate bumper endpoints or
+pair identity. If the independent endpoint or identity evidence is absent, retain review-only
+mobile output and publish no headway claim.
 
 ### Trajectory contract
 
@@ -357,7 +385,7 @@ are usable by it.
    clock/configuration records survive five-minute rotation and independent replay.
 4. Record the mount, plate, and detent geometry for each rig, with measured reference marks.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.1
 
 ### Item 2: motion spectrum and the car-drive proxy
 
@@ -374,7 +402,7 @@ Van Ness tripod episode, the first backpack stops, and the archive's car drives 
    and where registration fails, as the first route-regime evidence.
 4. Run part one of [backpack-motion-spectrum-and-stabiliser](../../data/experiments/try/backpack-motion-spectrum-and-stabiliser.md).
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.1
 
 ### Item 3: stop stabiliser and stability gate
 
@@ -389,7 +417,7 @@ mask, and pose provenance, all in analysis mode.
 4. Per-frame pose rows, `capture_mode` and `pose_source` in provenance, and the sensor pose in the FrameBundle.
 5. Run part two of the experiment: A/B against the tripod archive at the same site.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.2
 
 ### Item 4: trajectory contract and PoseProvider
 
@@ -405,7 +433,7 @@ and the `PoseProvider` that replays a trajectory into the pipeline.
    frame time for frame-level consumers; reject invalid clock segments.
 4. Ego speed threshold and regime labelling in `pcap-split` from the trajectory.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.1
 
 ### Item 5: world-anchored foreground and world-frame tracking
 
@@ -421,7 +449,7 @@ world-fixed frame with a moving sensor.
    capture architecture plan's update step.
 4. Ego-uncertainty gate on speed observations.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.2 for backpack; bike qualification in v0.6.3
 
 ### Item 6: road model, projection, and segment aggregates
 
@@ -436,7 +464,7 @@ projection of observations; band aggregates; the speed-by-distance report chart.
 4. Band aggregates with n and presence minutes; minimum sample rule; stop fraction.
 5. Report chart and API for the speed-by-distance profile and the segment map.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.8; route-speed reporting is independent of headway promotion
 
 ### Item 7: survey segment kind and priors hand-off
 
@@ -450,7 +478,7 @@ projection of observations; band aggregates; the speed-by-distance report chart.
 3. Register a stop's reference pose to the walk submap and record the transform.
 4. Run [survey-walk-geometry-gain](../../data/experiments/try/survey-walk-geometry-gain.md).
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.8; independent of headway promotion
 
 ### Item 8: IMU capture, shared timing, and separate calibration
 
@@ -473,7 +501,7 @@ deskew merely by attaching an IMU.
 5. Run the backpack experiment's timing phase, including known edges, loss, injected errors, and
    power measurements. Gate by measured uncertainty and compare against LiDAR-only processing.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.1 prototype and evidence; bike qualification in v0.6.3
 
 ### Item 9: LiDAR market watch
 
@@ -498,12 +526,12 @@ rests on a measurement.
 1. Run the gated profiles on the Pi and commit the baselines with a platform suffix.
 2. Record L3-only headroom, which bounds what a live stability meter may cost.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.7
 
 ### Item 11: validation against the fixed radar
 
-**Summary:** Prove that route-regime speeds agree with an independent fixed sensor before any
-segment aggregate is published.
+**Summary:** Prove that route-regime speeds agree with an independent fixed sensor before bike
+net time gap or segment aggregates are published.
 
 **Steps:**
 
@@ -511,7 +539,40 @@ segment aggregate is published.
    with the car drives first, then the bike.
 2. Set the ego-uncertainty gate and the minimum sample rule from its results.
 
-**Milestone:** v0.6.x
+**Milestone:** v0.6.3
+
+### Item 12: transfer static headway to backpack and bike
+
+**Summary:** Reuse the 0.5.2 following definitions and final-estimate contract with a measured
+mobile error budget. Keep headway distinct from route-speed validation.
+
+**Steps:**
+
+1. Compare supported vehicle endpoints, gap, identity and coverage from backpack stops against
+   co-located static recording and independently reviewed annotations.
+2. Add walking segments once timing, deskew, world-frame foreground and ego-pose gates pass;
+   publish stop and walking error and suppression separately.
+3. Repeat under bike vibration and speed, using qualified IMU timing and extrinsics. Gate or
+   suppress frames where pose, clock, common path, identity or endpoint support is inadequate.
+4. Preserve static metric IDs, estimate-version provenance, valid-observation denominators and
+   unknown intervals in both rig reports.
+
+**Milestone:** v0.6.2 backpack; v0.6.3 bike
+
+### Item 13: portable recorder Pi gate
+
+**Summary:** Qualify raw capture on the battery-powered Pi before backpack or bike field trials.
+This is a recording gate, separate from the later tracker performance baseline.
+
+**Steps:**
+
+1. Rotate LiDAR, IMU, GNSS and clock evidence with a session manifest, then replay every stream.
+2. Measure packet and sidecar drops, write backlog, clock continuity, power and recovery after
+   interruption over a representative capture duration.
+3. Keep offline workstation analysis as the initial processing path; defer live mobile tracking
+   and the full Pi stage budget to v0.6.7.
+
+**Milestone:** v0.6.1
 
 ## Dependencies
 
@@ -565,6 +626,8 @@ segment aggregate is published.
 - [ ] Item 9: market watch upkeep (`S`)
 - [ ] Item 10: Raspberry Pi perf baseline (`S`)
 - [ ] Item 11: validation against the fixed radar (`M`)
+- [ ] Item 12: backpack then bike headway transfer, independently validated (`L`)
+- [ ] Item 13: battery-powered Pi raw recorder and recovery gate (`M`)
 
 ### Deferred
 

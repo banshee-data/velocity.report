@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.6.0; unified logging streams and configuration across the Go codebase
+- **Target:** unscheduled (no backlog item); the LiDAR-package migration landed in #409. Unified logging streams and configuration across the Go codebase
 - **Prerequisite plans:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (v0.5.x)
 - **Existing design:**
@@ -175,10 +175,10 @@ once Phase A lands.
 
 ## Scheduling recommendation
 
-| Milestone | Items                                      | Rationale                                           |
-| --------- | ------------------------------------------ | --------------------------------------------------- |
-| v0.6.0    | Item 1 (stream migration), Item 2 (config) | Unified logging model across the entire Go process. |
-| v0.6.0    | Item 3 (test infra)                        | Reduces flaky test risk. Independent of logging.    |
+| Milestone   | Items                                      | Rationale                                           |
+| ----------- | ------------------------------------------ | --------------------------------------------------- |
+| Unscheduled | Item 1 (stream migration), Item 2 (config) | Unified logging model across the entire Go process. |
+| Unscheduled | Item 3 (test infra)                        | Reduces flaky test risk. Independent of logging.    |
 
 Items 1 and 2 are sequential (2 depends on 1). Item 3 is independent and can proceed in
 parallel.

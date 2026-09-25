@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre35
+VERSION := 0.5.1-pre36
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -160,6 +160,15 @@ help:
 	@echo "  perf-baseline        Capture a baseline for one profile (median of 5 runs)"
 	@echo "  perf-baseline-all    Capture baselines for every gated profile"
 	@echo ""
+	@echo "EVIDENCE:"
+	@echo "  evidence-run         Replay the corpus, writing immutable observations (RUN=, CASE=, EVIDENCE_DURATION=)"
+	@echo "  evidence-paths       Show the capture, recording, evidence, vrlog and plot paths"
+	@echo "  run-settling-eval    Measure a capture's convergence frame (PCAP=)"
+	@echo ""
+	@echo "  Captures are read from LIDAR_PCAP_DIR; recordings, evidence and plots are"
+	@echo "  written under LIDAR_DATA_DIR so a replay does not contend with its own"
+	@echo "  reads. Set either in local.mk (untracked) or on the command line."
+	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
 	@echo "  migrate-down         Rollback one migration"
@@ -204,6 +213,13 @@ help:
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
+	@echo ""
+	@echo "SCENE WEB ASSETS (from the S2 corpus of trimmed captures):"
+	@echo "  scene-assets         Rebuild every outstanding scene recording, then the pages"
+	@echo "  scene-assets-status  What is outstanding and roughly how long it will take"
+	@echo "  scene-assets-clean   Drop the .rebuilt markers so a rebuild runs again"
+	@echo "  scene-corpus-verify  Check the corpus against its manifest (SHA=1 for digests)"
+	@echo "    SITES=\"a b\" limits any of these to named sites; FORCE=1 ignores markers"
 	@echo ""
 	@echo "SCENE CAPTURE:"
 	@echo "  capture-scene RECIPE=path.json  Capture deterministic stills from a recipe (see docs/plans/lidar-deterministic-scene-capture-plan.md)"
@@ -968,6 +984,8 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
+	scripts/test_check_quarter_blocks.py \
+	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
@@ -976,6 +994,9 @@ PYTHON_TEST_PATHS = \
 	scripts/test_sqlite_erd.py \
 	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
+	tools/s2-archive/test_export_static_pcaps.py \
+	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
 install-python:
@@ -1530,7 +1551,38 @@ loc-coverage-chart:
 # Run performance regression test
 .PHONY: test-perf test-perf-all perf-baseline perf-baseline-all
 
-PERF_REGRESSION_THRESHOLD ?= 0.30
+# The performance matrix has one cell per (capture, profile, host class).
+# Host class is explicit rather than inferred from the platform pair, because
+# a Pi and an ARM CI runner are both linux/arm64 and share nothing else. See
+# docs/lidar/operations/performance-regression-testing.md.
+ifeq ($(origin PERF_HOST_CLASS), undefined)
+  ifeq ($(CI),true)
+    PERF_HOST_CLASS := ci
+  else ifeq ($(shell uname -s),Darwin)
+    PERF_HOST_CLASS := mac
+  else ifeq ($(shell uname -m),aarch64)
+    PERF_HOST_CLASS := pi
+  else
+    PERF_HOST_CLASS := $(shell uname -s | tr 'A-Z' 'a-z')-$(shell uname -m)
+  endif
+endif
+
+# Regression thresholds are per host class, because their noise floors differ
+# by more than the regressions worth catching. The Pi is quiet and
+# single-purpose, a workstation is quiet but shares a desktop, and a hosted
+# runner is virtualised and shares a physical host with strangers. One number
+# across all three is either too loose to catch anything on the Pi or a source
+# of false failures in CI.
+PERF_REGRESSION_THRESHOLD_pi ?= 0.20
+PERF_REGRESSION_THRESHOLD_mac ?= 0.30
+PERF_REGRESSION_THRESHOLD_ci ?= 0.50
+PERF_REGRESSION_THRESHOLD ?= $(or $(PERF_REGRESSION_THRESHOLD_$(PERF_HOST_CLASS)),0.30)
+
+# Repeats when capturing a baseline, also per host class: a shared runner needs
+# more samples to produce a median worth committing.
+PERF_BASELINE_REPEATS_pi ?= 5
+PERF_BASELINE_REPEATS_mac ?= 5
+PERF_BASELINE_REPEATS_ci ?= 9
 
 # Profiles the perf gate runs. `detect` is measurable on demand but not gated:
 # an unexercised gated profile is a set of numbers nobody can explain when it
@@ -1541,8 +1593,8 @@ PERF_GATED_PROFILES ?= full l3-only
 PERF_MAX_OVER_BUDGET_PCT ?= 1.0
 
 # Repeats used when capturing a baseline. One sample on a shared runner is not
-# a measurement; the median of five is.
-PERF_BASELINE_REPEATS ?= 5
+# a measurement; the median of several is.
+PERF_BASELINE_REPEATS ?= $(or $(PERF_BASELINE_REPEATS_$(PERF_HOST_CLASS)),5)
 
 # perf-pcap-path resolves NAME to a capture, honouring .pcapng then .pcap.
 define perf-resolve-pcap
@@ -1563,11 +1615,8 @@ test-perf:
 	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
 	echo "Target: $$BASE_NAME  profile: $$PROFILE"; \
 	$(perf-resolve-pcap); \
-	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
-	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
-	fi; \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
+	echo "Host class: $(PERF_HOST_CLASS)"; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
 	echo "Building lidar-bench..."; \
@@ -1592,6 +1641,82 @@ test-perf:
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
 
+# =============================================================================
+# EVIDENCE RUNS
+# =============================================================================
+# Replay the committed corpus through the production pipeline, writing
+# immutable observations. CASE selects one corpus case (default: all of them);
+# RUN names the output directories.
+#
+# The three paths are separate on purpose and the defaults keep them that way:
+# captures are read from LIDAR_PCAP_DIR, which may be an external volume, while
+# recordings and the observation database are written to the internal disk. A
+# run that read and wrote one external device would spend its time waiting on
+# it. The tool itself refuses -evidence-dir equal to -out, so the recorded
+# artefacts and the immutable evidence cannot land on top of each other.
+.PHONY: evidence-paths evidence-run
+evidence-paths:
+	@R="$${RUN:-<RUN>}"; \
+	echo "captures (read):  $(abspath $(LIDAR_PCAP_DIR))"; \
+	echo "recordings:       $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/out"; \
+	echo "observations:     $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/observations"; \
+	echo "vrlogs:           $(abspath $(LIDAR_VRLOG_DIR))"; \
+	echo "plots:            $(abspath $(LIDAR_PLOTS_DIR))"; \
+	echo "annotation packs: $(abspath $(LIDAR_ANNOTATION_DIR))"
+	@echo ""
+	@echo "override any of these in local.mk (untracked) or on the command line"
+
+# DURATION caps the scored window in seconds (0 = the whole case, the
+# default). A capped run still pays the -warmup cost, so it does not scale
+# down proportionally, but skips scoring and recording everything after the
+# cutoff — the difference between a 6-minute, 2 GB Columbus pass and a
+# roughly one-minute one. It scores a different, smaller population than a
+# full run, so the two are not byte-comparable; use a capped run to check
+# that a code change reproduces (first vs. repeat, same DURATION) quickly,
+# and an uncapped one when the comparison must match a prior full baseline.
+EVIDENCE_DURATION ?= 0
+
+evidence-run:
+	@RUN="$${RUN:-evidence-$$(date +%Y%m%d-%H%M%S)}"; \
+	ROOT="$(LIDAR_EVIDENCE_DIR)/$$RUN"; \
+	OUT_DIR="$$ROOT/out"; \
+	OBS_DIR="$$ROOT/observations"; \
+	MANIFEST="$$ROOT/source-manifest.json"; \
+	if [ -e "$$ROOT" ]; then \
+		echo "Error: $$ROOT already exists. Evidence is write-once; choose another RUN."; \
+		exit 1; \
+	fi; \
+	echo "Evidence run $$RUN (duration=$(EVIDENCE_DURATION)s, 0 = whole case)"; \
+	$(MAKE) --no-print-directory evidence-paths RUN="$$RUN"; \
+	echo ""; \
+	echo "Writing the immutable source manifest..."; \
+	mkdir -p "$$ROOT"; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-source-manifest "$$MANIFEST" -source-manifest-only \
+		$${CASE:+-case "$$CASE"} || exit $$?; \
+	echo "Replaying..."; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-existing-source-manifest "$$MANIFEST" \
+		-out "$$OUT_DIR" -evidence-dir "$$OBS_DIR" \
+		-duration "$(EVIDENCE_DURATION)" $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
+	echo ""; \
+	echo "Evidence written to $$OBS_DIR/observations.db"
+
+# Print which cell of the performance matrix this machine is in, and the policy
+# that applies to it. Run this before reading any perf number: the same command
+# means different things on different hosts, and the cell is what says which.
+.PHONY: perf-policy
+perf-policy:
+	@echo "host class:            $(PERF_HOST_CLASS)   (override with PERF_HOST_CLASS=)"
+	@echo "regression threshold:  $(PERF_REGRESSION_THRESHOLD)"
+	@echo "baseline repeats:      $(PERF_BASELINE_REPEATS)"
+	@echo "frames over budget:    $(PERF_MAX_OVER_BUDGET_PCT)% of $(shell python3 -c "import json;print(json.load(open('config/tuning.defaults.json'))['pipeline']['frame_budget_ms'])" 2>/dev/null)ms"
+	@echo "gated profiles:        $(PERF_GATED_PROFILES)"
+	@echo "baselines for this cell:"
+	@ls internal/lidar/perf/baseline/*-$(PERF_HOST_CLASS).json 2>/dev/null || echo "  (none captured yet: make perf-baseline-all)"
+
 # Run the gate across every gated profile, reporting all failures rather than
 # stopping at the first: which profiles moved is the diagnostic.
 test-perf-all:
@@ -1611,14 +1736,10 @@ perf-baseline:
 	BASE_NAME="$${NAME%.*}"; \
 	PROFILE="$${PROFILE:-full}"; \
 	$(perf-resolve-pcap); \
-	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
-	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
-	fi; \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
-	echo "Capturing $$PROFILE baseline from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
+	echo "Capturing $$PROFILE baseline on host class $(PERF_HOST_CLASS) from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
 	EXIT_CODE=0; \
 	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench || EXIT_CODE=$$?; \
 	if [ $$EXIT_CODE -eq 0 ]; then \
@@ -1826,7 +1947,7 @@ lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
-	@scripts/check-quarter-blocks.sh
+	@python3 scripts/check-quarter-blocks.py
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
@@ -2065,6 +2186,128 @@ render-s2-composite: install-s2-hilbert
 test-s2-hilbert: install-s2-hilbert
 	@echo "Running S2 Hilbert generator tests..."
 	@pnpm run --silent test:s2-hilbert
+
+# =============================================================================
+# SCENE WEB ASSETS
+# =============================================================================
+# The point-cloud recordings behind the published scene pages, rebuilt from the
+# S2 corpus of trimmed captures — one PCAPNG per site, already clipped to the
+# site bounds, as published in the dataset. Each one is replayed through the
+# live pipeline, recorded as a VRLOG and exported to
+# public_html/src/scenes/<site>/assets/.
+#
+# The corpus is the source rather than the original rolling captures because it
+# is the thing anyone else can download: a scene rebuilt from it is a scene a
+# reader can reproduce. `SCENE_SOURCE=archive` still replays the originals, for
+# reproducing a scene published before the dataset existed.
+#
+# This is slow and it needs a running server. In one shell:
+#
+#     make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+#
+# and in another:
+#
+#     make scene-assets-status     # what is outstanding, and how long it will take
+#     make scene-assets            # rebuild everything outstanding
+#     make scene-assets SITES=laguna-eddy
+#
+# Resumable: a finished scene carries a .rebuilt marker and is skipped, so an
+# interrupted batch — or an unplugged drive — costs only the scene in flight.
+# `make scene-assets-clean` drops the markers when the settings change and the
+# scenes have to be made again.
+
+# The published dataset root: the directory holding manifest.json, raw/ and
+# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
+# replay path against that directory and refuses anything outside it.
+S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
+
+# Replay settings. Not the pipeline defaults, and the reason each one is not is
+# in tools/s2-archive/publish-scenes.py — in short, analysis mode replays faster
+# than the background model settles, and the settling pass would train that
+# model on the very traffic the recording exists to show. They live here so a
+# rebuild does not depend on somebody remembering to export three variables.
+SCENE_SPEED_MODE ?= scaled
+SCENE_SPEED_RATIO ?= 0.5
+SCENE_SETTLE ?= 0
+SCENE_SOURCE ?= corpus
+
+SCENE_ASSETS_ENV := \
+	LIDAR_PCAP_DIR=$(abspath $(LIDAR_PCAP_DIR)) \
+	S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) \
+	SCENE_SOURCE=$(SCENE_SOURCE) \
+	REPLAY_SPEED_MODE=$(SCENE_SPEED_MODE) \
+	REPLAY_SPEED_RATIO=$(SCENE_SPEED_RATIO) \
+	REPLAY_SETTLE=$(SCENE_SETTLE)
+
+SCENE_PUBLISH := tools/s2-archive/publish-scenes.py
+SCENES_DIR := public_html/src/scenes
+
+.PHONY: scene-assets scene-assets-status scene-assets-clean scene-corpus-verify
+
+# Rebuild every outstanding scene, then the pages and map that list them.
+# publish-scenes.py refreshes the map after each scene too, so a fourteen-hour
+# batch never leaves a finished scene looking unpublished; this last call is for
+# the case where every scene was already done and none of them triggered it.
+scene-assets:
+	@$(MAKE) --no-print-directory scene-assets-preflight
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) $(if $(FORCE),--force)
+	@$(MAKE) --no-print-directory render-scene-map
+
+# What a rebuild would do: which scenes are published, which are outstanding,
+# which sites cannot be resolved to packets, and roughly how long it will take.
+# Reads the corpus manifest and the markers only — no server, no replay.
+scene-assets-status:
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status
+
+# Drop the .rebuilt markers so the next rebuild does the work again. The assets
+# themselves stay put: a scene keeps serving its old recording until there is a
+# new one to swap in.
+scene-assets-clean:
+	@if [ -n "$(SITES)" ]; then \
+		for site in $(SITES); do rm -f $(SCENES_DIR)/$$site/.rebuilt; done; \
+		echo "✓ markers dropped for: $(SITES)"; \
+	else \
+		find $(SCENES_DIR) -name .rebuilt -delete; \
+		echo "✓ every scene marker dropped; the next rebuild starts from nothing"; \
+	fi
+
+# The corpus is 70-odd GB on an external volume, and a capture that is present
+# but truncated fails in the middle of a replay rather than at the start. Check
+# the sizes the manifest recorded before committing an evening to it; SHA=1
+# checks the digests too, which reads every byte and takes a while.
+scene-corpus-verify:
+	@S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) SHA=$(SHA) \
+		python3 tools/s2-archive/verify-corpus.py
+
+# Everything the batch needs before it starts: a binary that answers to the
+# name `velocity`, the server running, and every wanted site resolvable to a
+# capture. Each of these has, at least once, been discovered an hour into a run.
+#
+# The binary is multi-call and dispatches on argv[0], so `scene export` is only
+# reachable under that name. Do not build to ./velocity — that is the operator's
+# symlink to whichever build is current, and overwriting it with a second
+# 131 MB copy is not what anyone meant.
+.PHONY: scene-assets-preflight
+scene-assets-preflight:
+	@if [ ! -e velocity ]; then \
+		if [ -x velocity-report-local ]; then \
+			ln -s velocity-report-local velocity; \
+			echo "✓ linked velocity -> velocity-report-local (scene export dispatches on argv[0])"; \
+		else \
+			echo "No velocity binary. Build one first:"; \
+			echo "    make build-radar-local"; \
+			exit 1; \
+		fi; \
+	fi
+	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
+		echo "$$report"; \
+		echo "Some sites could not be resolved to packets; nothing ran."; \
+		exit 1; }
+	@curl -fsS --max-time 5 http://localhost:8080/api/lidar/playback/status >/dev/null 2>&1 || { \
+		echo "The LiDAR server is not answering on :8080."; \
+		echo "Start it in another shell:"; \
+		echo "    make dev-go-lidar LIDAR_PCAP_DIR=$(LIDAR_PCAP_DIR)"; \
+		exit 1; }
 
 # =============================================================================
 # LIDAR SCENE CAPTURE

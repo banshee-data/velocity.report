@@ -180,6 +180,34 @@ func TestGetCaseReportsItsCaptures(t *testing.T) {
 	}
 }
 
+func TestUpdateCaseReplacesItsCaptureSequence(t *testing.T) {
+	ws := caseServer(t, 148*time.Millisecond, "file7.pcap", "file8.pcap")
+	ws.db = mustCaseDB(t)
+
+	create := httptest.NewRecorder()
+	ws.handleCreateScene(create, httptest.NewRequest(http.MethodPost, "/api/lidar/scenes",
+		strings.NewReader(`{"sensor_id":"hesai-pandar40p","pcap_file":"file7.pcap"}`)))
+	if create.Code != http.StatusCreated {
+		t.Fatalf("create = %d: %s", create.Code, create.Body.String())
+	}
+	caseID := decodeCaseBody(t, create)["replay_case_id"].(string)
+
+	update := httptest.NewRecorder()
+	ws.handleUpdateScene(update, httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+caseID,
+		strings.NewReader(`{"pcap_files":["file7.pcap","file8.pcap"]}`)), caseID)
+	if update.Code != http.StatusOK {
+		t.Fatalf("update = %d: %s", update.Code, update.Body.String())
+	}
+	payload := decodeCaseBody(t, update)
+	files, ok := payload["files"].([]any)
+	if !ok || len(files) != 2 {
+		t.Fatalf("updated files = %v, want two captures", payload["files"])
+	}
+	if payload["pcap_file"] != "file7.pcap" {
+		t.Errorf("legacy first file = %v, want file7.pcap", payload["pcap_file"])
+	}
+}
+
 func TestCreateCaseWithNoCaptures(t *testing.T) {
 	ws := caseServer(t, 0, "file7.pcap")
 	ws.db = mustCaseDB(t)

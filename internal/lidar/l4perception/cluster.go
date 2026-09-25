@@ -4,17 +4,11 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
-
-// subsampleSeq is a monotonically increasing counter mixed into the
-// uniformSubsample RNG seed to guarantee distinct seeds even when
-// consecutive calls occur within the same nanosecond (e.g. at 20 Hz).
-var subsampleSeq atomic.Uint64
 
 // EstimatedPointsPerCell is used for initial spatial index capacity estimation.
 const EstimatedPointsPerCell = 4
@@ -240,6 +234,36 @@ type DBSCANParams struct {
 	// is applied to keep runtime bounded. Zero or negative disables the
 	// cap. Typical value: 8000.
 	MaxInputPoints int
+	// MaxSamplePoints bounds retained evidence per accepted cluster. Zero is
+	// disabled; production defaults remain off pending the Pi memory gate.
+	MaxSamplePoints int
+	// ScaleMinPtsWhenSubsampled keeps the density threshold fixed when the
+	// cap subsamples a frame (gap analysis D6). DBSCAN's core condition is a
+	// count inside a fixed radius; thinning N points to M keeps each with
+	// probability f = M/N, so every neighbourhood's expected count falls by f
+	// while MinPts does not, and the effective threshold becomes MinPts/f:
+	// 7.5 for a 12,000-point frame at the shipped cap of 8000, 10 at 16,000.
+	// The frames over the cap are the busiest ones, and the sparse objects
+	// near the threshold are the distant and partly occluded ones, so recall
+	// is lost exactly where the scene has most in it. With this set the
+	// core test uses round(MinPts * f), floored at 2 (the point and one
+	// neighbour), which restores the original threshold in expectation.
+	// Default false: measured before it is shipped.
+	ScaleMinPtsWhenSubsampled bool
+}
+
+// effectiveMinPts is the core-point threshold that leaves the density
+// criterion unchanged after keeping kept of total points (see
+// DBSCANParams.ScaleMinPtsWhenSubsampled). It never drops below 2.
+func effectiveMinPts(minPts, kept, total int) int {
+	if total <= 0 || kept >= total || minPts <= 0 {
+		return minPts
+	}
+	scaled := int(math.Round(float64(minPts) * float64(kept) / float64(total)))
+	if scaled < 2 {
+		return 2
+	}
+	return scaled
 }
 
 // DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
@@ -261,6 +285,7 @@ func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
 		Eps:                   l4cfg.ForegroundDBSCANEps,
 		MinPts:                l4cfg.ForegroundMinClusterPoints,
 		MaxInputPoints:        l4cfg.ForegroundMaxInputPoints,
+		MaxSamplePoints:       l4cfg.MaxSamplePoints,
 		MaxClusterDiameter:    l4cfg.MaxClusterDiameter,
 		MinClusterDiameter:    l4cfg.MinClusterDiameter,
 		MaxClusterAspectRatio: l4cfg.MaxClusterAspectRatio,
@@ -287,8 +312,11 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 	// Safety cap: subsample when point count exceeds the threshold to
 	// prevent O(n²) worst-case DBSCAN on unexpectedly dense frames.
 	if params.MaxInputPoints > 0 && len(points) > params.MaxInputPoints {
-		diagf("DBSCAN subsampling: input_points=%d capped_points=%d",
-			len(points), params.MaxInputPoints)
+		if params.ScaleMinPtsWhenSubsampled {
+			params.MinPts = effectiveMinPts(params.MinPts, params.MaxInputPoints, len(points))
+		}
+		diagf("DBSCAN subsampling: input_points=%d capped_points=%d min_pts=%d",
+			len(points), params.MaxInputPoints, params.MinPts)
 		points = uniformSubsample(points, params.MaxInputPoints)
 	}
 
@@ -334,17 +362,24 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 // uniformSubsample returns a random subset of n points from the input
 // using Fisher-Yates partial shuffle. The original slice is not modified.
 //
-// A local *rand.Rand is used rather than the global generator to avoid
-// lock contention when DBSCAN is called concurrently. The seed mixes
-// wall-clock time with a monotonic counter so that consecutive calls
-// within the same nanosecond still produce distinct subsamples.
+// A local *rand.Rand is used rather than the global generator to avoid lock
+// contention when DBSCAN is called concurrently.
+//
+// The seed is derived from the point set itself, not from the clock. Seeding
+// from wall-clock time made the same capture cluster differently on every
+// replay: roughly 5 % of frames on a busy street exceed MaxInputPoints, each
+// drew a different subsample, and the differences cascaded through association
+// into track counts and course-error percentiles. That defeats any A/B
+// comparison, regression fixture, or golden replay test.
+//
+// Hashing the input preserves what the clock was there for. Different frames
+// still draw different subsamples, because their points differ. Identical
+// input now draws the identical subsample, which is what a replay needs.
 func uniformSubsample(points []WorldPoint, n int) []WorldPoint {
 	if n >= len(points) {
 		return points
 	}
-	seq := subsampleSeq.Add(1)
-	seed := time.Now().UnixNano() ^ int64(seq) //nolint:gosec // non-crypto use
-	rng := rand.New(rand.NewSource(seed))      //nolint:gosec // non-crypto use
+	rng := rand.New(rand.NewSource(subsampleSeed(points))) //nolint:gosec // non-crypto use
 	// Work on a copy of the index space to avoid mutating the caller's slice.
 	idx := make([]int, len(points))
 	for i := range idx {
@@ -359,6 +394,31 @@ func uniformSubsample(points []WorldPoint, n int) []WorldPoint {
 		result[i] = points[idx[i]]
 	}
 	return result
+}
+
+// subsampleSeed derives a deterministic seed from the point set. FNV-1a over
+// the coordinate bits is cheap next to DBSCAN itself and changes whenever any
+// point does, so distinct frames still get distinct subsamples.
+func subsampleSeed(points []WorldPoint) int64 {
+	const (
+		offset64 = 1469598103934665603
+		prime64  = 1099511628211
+	)
+	h := uint64(offset64)
+	mix := func(v uint64) {
+		for i := 0; i < 8; i++ {
+			h ^= v & 0xff
+			h *= prime64
+			v >>= 8
+		}
+	}
+	mix(uint64(len(points)))
+	for i := range points {
+		mix(uint64(math.Float64bits(points[i].X)))
+		mix(uint64(math.Float64bits(points[i].Y)))
+		mix(uint64(math.Float64bits(points[i].Z)))
+	}
+	return int64(h & 0x7fffffffffffffff) //nolint:gosec // non-crypto use
 }
 
 // expandCluster expands a cluster from a core point.
@@ -457,6 +517,16 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params D
 			continue
 		}
 
+		if params.MaxSamplePoints > 0 {
+			// uniformSubsample is now content-seeded and leaves input unchanged.
+			// Copy even an uncapped result so evidence owns its storage.
+			capPoints := min(params.MaxSamplePoints, 1024)
+			cluster.RetainedPoints = append([]WorldPoint(nil), uniformSubsample(clusterPoints, capPoints)...)
+			cluster.SamplePoints = make([][3]float32, len(cluster.RetainedPoints))
+			for i, p := range cluster.RetainedPoints {
+				cluster.SamplePoints[i] = [3]float32{float32(p.X), float32(p.Y), float32(p.Z)}
+			}
+		}
 		clusters = append(clusters, cluster)
 	}
 
