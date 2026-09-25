@@ -3,7 +3,7 @@
 This plan corrects viewpoint-dependent position measurements before extending the motion filter. It
 defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
 
-- **Status:** In progress: heading/evaluation foundations, the Section 5.4 solid-body contract and the Sprint 0.5.2.2 continuity primitives (default-off) delivered; the corrected measurement that populates it, the choice of continuity values, and the acceptance gates, outstanding
+- **Status:** In progress: heading/evaluation foundations, the Section 5.4 solid-body contract, the Sprint 0.5.2.2 continuity primitives and the Phase 3 adaptive-uncertainty harness (all default-off) delivered; the corrected measurement that populates it, the choice of continuity values, and the acceptance gates, outstanding
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.7, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
@@ -1226,6 +1226,11 @@ because gating truncates their distribution. Define eligibility and association 
 calibration, rather than selecting the observations that make a chosen noise model pass. The
 chi-squared check requires the stated Gaussian model and correct measurement association; a pooled
 fit across different measurement dimensions is not that test.
+
+The operational form of every row, the eligible population, the fitting and decision partitions
+and the calibration protocol are pinned in the
+[G-UNC-1 predeclared criteria](../lidar/operations/adaptive-uncertainty-criteria.md), with the
+label-free kirk0 evidence so far. The thresholds above are unchanged there.
 
 ## 9. Geometry matrix
 
@@ -2492,6 +2497,22 @@ ship behind a config flag with the fixed model retained.
 
 **Acceptance.** G-UNC-1.
 
+**Delivered (default-off, September 2026).** The model lives in `l5tracks`, not `l4bobserve`: it
+reads the track's believed heading for aspect and the tracker's measurement source, which the
+evidence layer does not know. `TrackerConfig.AdaptiveMeasurementNoise` (experiment
+`adaptive_uncertainty`) gives R along and across the line of sight, Section 8.1's physics terms plus
+a per-stratum coefficient, in the gate, the likelihood cost and the update; with it off every output
+is byte-identical. A calibration window records eligible pre-gate samples, a separate pre-gate band
+set and a gate-rejection classifier that separates a persistent departure (a genuine turn or brake)
+from a transient one (a spurious measurement). `l8analytics` fits the coefficients per stratum from
+those samples and reports G-UNC-1's label-free rows; the corpus tool pools cases and replays with a
+frozen table. See [tracking maths §12](../../data/maths/tracking-maths.md#12-adaptive-measurement-uncertainty)
+and the [predeclared criteria](../lidar/operations/adaptive-uncertainty-criteria.md). On kirk0 the
+fit lowers R towards a smaller scalar rather than separating the axes, row 2's chi-squared fit
+fails for every arm, and the calibrated arm confirmed slightly fewer tracks: evidence that the
+medoid's error shape, not its scale, is what Phase 2 must fix. The near-edge rank-one measurement,
+and so the one-dimensional stratum, is not online.
+
 ### Phase 4: motion model extension
 
 **Scheduling:** v1.0+ follow-on, after the current continuity and following outcomes. This phase
@@ -2944,6 +2965,15 @@ architecture; it does not relitigate findings.
       `lidar-ground-truth-eval perframe`, then apply the predeclared selection rule
 - [ ] G-SMO-1 criterion 3: build the abnormal-motion set, and calibrate process noise under G-UNC-1
       before a horizon of 2 s or more can preserve manoeuvres
+- [x] Phase 3 harness (Sprint 0.5.2.2, default-off): anisotropic line-of-sight R by range, support,
+      aspect and source (`-experiment adaptive_uncertainty`); eligible pre-gate NIS and a separate
+      pre-gate band set; gate-rejection manoeuvre evidence on synthetic scenes; per-stratum
+      calibration fit and report; corpus pooling and frozen-table replay; G-UNC-1 predeclared in the
+      [adaptive-uncertainty criteria](../lidar/operations/adaptive-uncertainty-criteria.md) with
+      label-free kirk0 evidence
+- [ ] G-UNC-1: fit on the marina and columbus cases, score embarcadero once with the frozen table,
+      build the labelled manoeuvre scorer over `uncertainty_samples.jsonl`, and re-run the 5-frame
+      occlusion recovery with the frozen table
 - [ ] Revisable-association arm: alternative assignments, point ownership and shape belief inside
       the window, on the asynchronous worker's immutable input, through the same smoother and report
 - [ ] Persist coasted refined states in the VRLOG trajectory record, and expose refined stages in

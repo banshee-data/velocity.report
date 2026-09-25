@@ -4,8 +4,8 @@ The criteria the adaptive measurement-noise model must meet before it ships, pin
 decision-partition replay is scored; and the label-free evidence gathered so far.
 
 - **Status:** Predeclared. Model, pre-gate statistics, gate-rejection evidence, calibration fit and
-  report implemented and tested on synthetic scenes; held-out decision-partition scoring and the
-  labelled manoeuvre set are outstanding
+  report implemented, tested on synthetic scenes and run once on kirk0; the corpus fitting and
+  decision runs, the labelled manoeuvre scorer and the frozen-table recovery check are outstanding
 - **Layers:** L5 Tracks, L8 Analytics, offline replay
 - **Related:** [State-estimation plan §8](../../plans/lidar-state-estimation-plan.md#8-uncertainty-matrix),
   [Phase 3](../../plans/lidar-state-estimation-plan.md#phase-3-adaptive-uncertainty-and-residual-statistics),
@@ -183,6 +183,45 @@ sight. Under the shipped, prior and a calibrated model:
 The `l8analytics` tests recover a known R per stratum and axis, show the range-decile row catching
 errors that cancel in the aggregate, and, end to end through the real tracker, move the tangential
 marginal from 2.1 to 1.0 when bearing noise dominates.
+
+### kirk0, label-free
+
+The development protocol above, run once after this page was committed. Reproduce with
+`UNCERTAINTY_EVIDENCE_OUT=<dir> go test -tags=pcap -run TestUncertaintyEvidenceOnKirk0
+./internal/lidar/replayeval/`, which writes every report and `summary.json`. kirk0 is one site and
+83 s; nothing here is a G-UNC-1 result.
+
+| Arm, window                 | Eligible | Mean NIS/m (row 1) | 95 % coverage | Fit X² (row 2) | Radial, tangential NIS | Rows 3, 4, 5: outside of judged | Gated | Rejections P/T/U | Born, confirmed |
+| --------------------------- | -------: | -----------------: | ------------: | -------------: | ---------------------: | ------------------------------- | ----: | ---------------: | --------------: |
+| Shipped, whole              |      581 |              0.718 |         0.964 |          530.5 |           0.750, 0.687 | 2/10, 2/10, 0/5                 |     4 |            3/0/1 |         112, 37 |
+| Adaptive prior, whole       |      582 |              0.709 |         0.964 |          537.1 |           0.738, 0.680 | 3/10, 2/10, 0/5                 |     4 |            3/0/1 |         112, 37 |
+| Shipped, evaluation half    |      291 |              0.806 |         0.952 |          227.7 |           0.897, 0.715 | 1/1, 0/4, 0/3                   |     2 |            2/0/0 |          70, 26 |
+| Calibrated, evaluation half |      263 |              1.066 |         0.947 |          125.5 |           1.151, 0.981 | 0/0, 1/1, 1/4                   |     1 |            1/0/0 |          69, 23 |
+
+Every fit statistic has p below 1e-6 against a critical value of 21.67, so row 2 fails for every
+arm, calibrated or not. Rows 3–5 on a half are mostly unjudged: a decile of 29 samples is below the
+30-sample floor. Rejections P/T/U are persistent, transient and unresolved gate-rejection events.
+
+The fitting half ran six rounds (0–5) without converging: the pooled medoid coefficients moved
+between 0.026 and 0.035 m² on both axes from round to round, and the frozen table is round 5's fit.
+No single stratum reached 30 samples in 30 s, so that table is the pooled source coefficient in
+every medoid cell, 0.028 m² radial and 0.033 m² tangential, and the prior 0.05 m² for the other
+sources.
+
+What this does and does not show:
+
+- The shipped scalar already sits inside row 1's band on kirk0, at its low end. The fit lowers the
+  coefficient by 35–45 % and moves the evaluation half from 0.81 to 1.07. That is a smaller scalar,
+  not anisotropy: on kirk0 the radial and tangential coefficients do not separate, so the model's
+  line-of-sight structure is untested by this capture.
+- Row 2 is not a calibration problem a coefficient can fix. The pre-gate NIS distribution is not
+  chi-squared at any R tried: its shape is wrong, which points at the medoid's non-Gaussian,
+  viewpoint-dependent error that Phase 2 exists to correct.
+- The calibrated arm confirmed 23 tracks where the shipped arm confirmed 26, from 69 and 70 births.
+  Three tracks is not a result, but it is the direction the synthetic acquisition ceiling predicts:
+  a smaller R tightens the gate a new track must pass. The promotion guard exists for this.
+- Accepted-only mean NIS/m reads 0.55–0.61 for the shipped arms against 0.72–0.81 before the
+  gate: the censoring the plan warned of, measured.
 
 ## Amendments
 
