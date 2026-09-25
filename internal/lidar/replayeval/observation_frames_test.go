@@ -95,3 +95,30 @@ func TestStrictObservationFrameSinkCallbackMayReenter(t *testing.T) {
 		t.Fatalf("frames=%d err=%v, want 2 delivered then the reported failure retained", frames, err)
 	}
 }
+
+// The evidence outputs refuse to guess identities, and each refusal names what
+// is actually wrong: an unset calibration is not reported as a sensor
+// mismatch against an empty string.
+func TestValidateObservationIdentity(t *testing.T) {
+	good := Config{SensorID: "hesai-pandar40p", ReplayCaseID: "kirk0",
+		ObservationCalibration: l4bobserve.Calibration{SensorID: "hesai-pandar40p", FromFrame: "sensor", ToFrame: "site"}}
+	if err := validateObservationIdentity(good); err != nil {
+		t.Fatalf("complete identities rejected: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		mutate func(*Config)
+		want   string
+	}{
+		"no replay case":   {func(c *Config) { c.ReplayCaseID = " " }, "ReplayCaseID is required"},
+		"no calibration":   {func(c *Config) { c.ObservationCalibration = l4bobserve.Calibration{} }, "ObservationCalibration"},
+		"no site frame":    {func(c *Config) { c.ObservationCalibration.ToFrame = "" }, "ObservationCalibration"},
+		"other sensor cal": {func(c *Config) { c.ObservationCalibration.SensorID = "other" }, "does not match replay sensor"},
+	} {
+		c := good
+		tc.mutate(&c)
+		err := validateObservationIdentity(c)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want it to mention %q", name, err, tc.want)
+		}
+	}
+}

@@ -636,11 +636,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Both evidence outputs bind the same explicit identities; neither may
 	// guess a replay case or an identity transform from a sensor label.
 	if cfg.ObservationDBPath != "" || cfg.ObservationFrames != nil {
-		if strings.TrimSpace(cfg.ReplayCaseID) == "" {
-			return nil, fmt.Errorf("ReplayCaseID is required when ObservationDBPath or ObservationFrames is set")
-		}
-		if cfg.ObservationCalibration.SensorID != cfg.SensorID {
-			return nil, fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cfg.ObservationCalibration.SensorID, cfg.SensorID)
+		if err := validateObservationIdentity(cfg); err != nil {
+			return nil, err
 		}
 		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
 			ReplayCaseID: cfg.ReplayCaseID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
@@ -957,6 +954,23 @@ func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
 	}
 	if err := os.WriteFile(filepath.Join(outDir, "tracking_baseline.json"), append(b, '\n'), 0644); err != nil {
 		return fmt.Errorf("write tracking baseline: %w", err)
+	}
+	return nil
+}
+
+// validateObservationIdentity checks the explicit identities both evidence
+// outputs bind before either is derived. An unset calibration is reported as
+// unset, not as a mismatch between an empty sensor and the replay's.
+func validateObservationIdentity(cfg Config) error {
+	if strings.TrimSpace(cfg.ReplayCaseID) == "" {
+		return fmt.Errorf("ReplayCaseID is required when ObservationDBPath or ObservationFrames is set")
+	}
+	cal := cfg.ObservationCalibration
+	if strings.TrimSpace(cal.SensorID) == "" || strings.TrimSpace(cal.FromFrame) == "" || strings.TrimSpace(cal.ToFrame) == "" {
+		return fmt.Errorf("ObservationCalibration (sensor, source frame and site frame) is required when ObservationDBPath or ObservationFrames is set")
+	}
+	if cal.SensorID != cfg.SensorID {
+		return fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cal.SensorID, cfg.SensorID)
 	}
 	return nil
 }
