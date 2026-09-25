@@ -296,6 +296,32 @@ func TestSteadyApproachBandIntervals(t *testing.T) {
 	}
 }
 
+// TestEncounterBenchmarksFollowTheRegistry: a band duration carries its
+// registered no_established_threshold benchmark with the band as threshold
+// and nothing else; the local_distribution metrics (rates, minima, medians)
+// carry none, because their stratification belongs to whoever holds the
+// comparison population, and valid time declares none at all.
+func TestEncounterBenchmarksFollowTheRegistry(t *testing.T) {
+	e := analyse(t, ScenarioSteadyApproach()).Encounters[0]
+	bands := map[MetricID]float64{}
+	for _, b := range FollowingBands() {
+		bands[b.Duration] = b.Seconds
+	}
+	for _, m := range e.Measurements {
+		def, _ := LookupMetric(m.Name)
+		if seconds, ok := bands[m.Name]; ok {
+			if m.Benchmark == nil || m.Benchmark.Kind != BenchmarkNoEstablishedThreshold ||
+				*m.Benchmark.Threshold != seconds || m.Benchmark.Stratification != "" || m.Benchmark.Citation != "" {
+				t.Errorf("%s benchmark %+v", m.Name, m.Benchmark)
+			}
+			continue
+		}
+		if m.Benchmark != nil {
+			t.Errorf("%s (registered %s) carries benchmark %+v", m.Name, def.Benchmark, m.Benchmark)
+		}
+	}
+}
+
 // TestProvisionalEncounterIsReviewLabelled: the steady approach over
 // fixed-lag estimates has the same arithmetic, but every production
 // measurement is suppressed with estimate_not_final, the path and encounter
