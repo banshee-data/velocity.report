@@ -309,9 +309,9 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 // A pairing only reaches the cost matrix if |S| >= MinDeterminantThreshold, so
 // ln|S| >= ln(MinDeterminantThreshold) and adding its negation bounds the term
 // below at zero. The offset is the same for every admitted pairing, and the
-// solver pads with hungarianlnf, so it first maximises how many admitted
-// pairings it uses and only then minimises their sum: a uniform shift cannot
-// change which assignment is optimal.
+// solver's objective is lexicographic (see HungarianAssign): it first
+// maximises how many admitted pairings it uses and only then minimises their
+// sum, so a uniform shift cannot change which assignment is optimal.
 var likelihoodCostOffset = float32(-math.Log(MinDeterminantThreshold))
 
 // covarianceCostTerm is what LikelihoodAssociationCost adds to d²: ln|S| for
