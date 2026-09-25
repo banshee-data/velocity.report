@@ -1424,6 +1424,202 @@ export async function deleteScene(sceneId: string): Promise<void> {
 	if (!res.ok) throw await sceneError(res, 'Could not delete scene');
 }
 
+// Scene headway: GET /api/scenes/<id>/headway and its SVG through
+// /api/charts/histogram?kind=headway. Field names are the Go payload's,
+// which are behaviour registry ids and structural names; metric-keyed maps
+// are keyed by registry id (for example interaction.following_net_time_gap_s)
+// and suppression maps by reason token. Durations are integer nanoseconds.
+
+/** Estimate stages, least final first. */
+export type EstimateStage = 'online' | 'fixed_lag' | 'final';
+
+/** Every served headway result is provisional; fixture output is a synthetic oracle. */
+export type HeadwayStatus = 'provisional' | 'synthetic_oracle';
+
+export type HeadwayAvailability =
+	'available' | 'no_capture_window' | 'no_encounters' | 'source_ambiguous' | 'no_matching_version';
+
+export interface InteractionVersion {
+	estimate_stage: EstimateStage;
+	estimator_id: string;
+	obs_model_id: string;
+	method_id: string;
+	param_hash: string;
+}
+
+export interface HeadwayUncertainty {
+	kind: 'none' | 'sigma' | 'interval' | 'bounds';
+	sigma?: number;
+	lower?: number;
+	upper?: number;
+	coverage?: number;
+	method?: string;
+	samples?: number;
+}
+
+/** A measurement without its provenance: a value, or a suppression and its reason. */
+export interface HeadwayMeasurement {
+	name: string;
+	unit: string;
+	value?: number;
+	uncertainty?: HeadwayUncertainty;
+	suppressed: boolean;
+	reason?: string;
+	opportunity_seconds?: number;
+}
+
+export interface HeadwaySuppressionCount {
+	instants: number;
+	nanos: number;
+}
+
+export interface HeadwayAccounting {
+	instants: number;
+	valid_nanos: number;
+	/** Valid time below each band, keyed by the band's duration metric id. */
+	band_nanos: Record<string, number>;
+	predicted_only_nanos: number;
+	record_gap_nanos: number;
+	suppressions?: Record<string, HeadwaySuppressionCount>;
+}
+
+export interface HeadwayHistogramBin {
+	lower: number;
+	/** Absent on the open last bin. */
+	upper?: number;
+	instants: number;
+	nanos: number;
+	sigma_inside_nanos: number;
+	sigma_overlap_nanos: number;
+}
+
+export interface HeadwayExcludedTime {
+	instants: number;
+	nanos: number;
+	predicted_only_nanos: number;
+}
+
+export interface HeadwayBandExposure {
+	/** The band's duration metric id. */
+	name: string;
+	/** The band's net time gap, in seconds. */
+	threshold: number;
+	events: number;
+	instants: number;
+	nanos: number;
+	/** Pooled rate, keyed by the band's rate metric id. */
+	rate: HeadwayMeasurement;
+}
+
+export interface HeadwayDistribution {
+	schema: string;
+	version: InteractionVersion;
+	events: number;
+	exposure_events: number;
+	accounting: HeadwayAccounting;
+	accounted_nanos: number;
+	histograms: Record<string, { unit: string; bins: HeadwayHistogramBin[] }>;
+	/** Accounted time outside the bins, keyed by reason token. */
+	excluded: Record<string, HeadwayExcludedTime>;
+	bands: HeadwayBandExposure[];
+}
+
+export interface HeadwayEncounter {
+	event_id: string;
+	/** The follower. */
+	primary_track_id: string;
+	/** The leader. */
+	secondary_track_id: string;
+	start_unix_nanos: number;
+	end_unix_nanos: number;
+	geometry_id: string;
+	worst_support: string;
+	accounting: HeadwayAccounting;
+	/** The production block: suppressed as estimate_not_final below the final stage. */
+	measurements: Record<string, HeadwayMeasurement>;
+	/** Review-only values, present exactly when the stage is not final. */
+	provisional?: Record<string, HeadwayMeasurement>;
+}
+
+export interface HeadwaySource {
+	source_id: string;
+	events: number;
+	first_unix_nanos: number;
+	last_unix_nanos: number;
+}
+
+export interface HeadwayVersionSummary {
+	version: InteractionVersion;
+	events: number;
+	status: HeadwayStatus;
+}
+
+export interface SceneHeadway {
+	scene_id: string;
+	status: HeadwayStatus;
+	availability: HeadwayAvailability;
+	start_unix_nanos?: number;
+	end_unix_nanos?: number;
+	source_id?: string;
+	sources: HeadwaySource[];
+	version?: InteractionVersion;
+	versions: HeadwayVersionSummary[];
+	distribution?: HeadwayDistribution;
+	encounters: HeadwayEncounter[];
+}
+
+/** Which analysis to read: a source, and a stage or one exact version. */
+export interface HeadwaySelection {
+	sourceId?: string;
+	stage?: EstimateStage;
+	version?: InteractionVersion;
+}
+
+function headwaySelectionParams(selection: HeadwaySelection = {}) {
+	const v = selection.version;
+	return {
+		source_id: selection.sourceId,
+		stage: v ? v.estimate_stage : selection.stage,
+		estimator_id: v?.estimator_id,
+		obs_model_id: v?.obs_model_id,
+		method_id: v?.method_id,
+		param_hash: v?.param_hash
+	};
+}
+
+export function buildSceneHeadwayPath(sceneId: string, selection: HeadwaySelection = {}): string {
+	return buildRelativeApiPath(
+		`/scenes/${encodeURIComponent(sceneId)}/headway`,
+		headwaySelectionParams(selection)
+	);
+}
+
+export interface HeadwayChartRequest extends HeadwaySelection {
+	sceneId: string;
+	/** A distributed metric id; the server defaults to the net time gap. */
+	metric?: string;
+	paperSize?: 'a4' | 'letter';
+}
+
+export function buildHeadwayChartPath(request: HeadwayChartRequest): string {
+	return buildRelativeApiPath('/charts/histogram', {
+		kind: 'headway',
+		scene: request.sceneId,
+		...headwaySelectionParams(request),
+		metric: request.metric,
+		paper_size: request.paperSize
+	});
+}
+
+export async function getSceneHeadway(
+	sceneId: string,
+	selection: HeadwaySelection = {}
+): Promise<SceneHeadway> {
+	const res = await fetch(buildSceneHeadwayPath(sceneId, selection));
+	if (!res.ok) throw await sceneError(res, 'Could not load following distribution');
+	return res.json();
+}
+
 // Capture index API
 //
 // The capture index records what is on the configured capture volumes, what
