@@ -389,6 +389,31 @@
         , updated_at_ns INTEGER
           );
 
+   CREATE TABLE lidar_track_estimate_revisions (
+          estimate_id TEXT PRIMARY KEY
+        , revises_estimate_id TEXT NOT NULL
+        , smoother_id TEXT NOT NULL
+        , lag TEXT NOT NULL
+        , lookahead_steps INTEGER NOT NULL
+        , lookahead_secs REAL NOT NULL
+        , released_at_unix_nanos INTEGER NOT NULL
+        , release_reason TEXT NOT NULL
+        , chain_end_reason TEXT NOT NULL
+        , flags TEXT NOT NULL
+        , previous_x REAL NOT NULL
+        , previous_y REAL NOT NULL
+        , previous_vx REAL NOT NULL
+        , previous_vy REAL NOT NULL
+        , revision_position_m REAL NOT NULL
+        , revision_velocity_mps REAL NOT NULL
+        , evidence_count INTEGER NOT NULL
+        , evidence_first_frame_unix_nanos INTEGER NOT NULL
+        , evidence_last_frame_unix_nanos INTEGER NOT NULL
+        , strongest_evidence_observation_id TEXT NOT NULL
+        , strongest_evidence_nis REAL NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+          );
+
    CREATE TABLE lidar_track_estimates (
           estimate_id TEXT PRIMARY KEY
         , track_id TEXT NOT NULL
@@ -1015,6 +1040,8 @@ CREATE INDEX idx_lidar_observations_calibration_time ON lidar_observations (cali
 CREATE INDEX idx_lidar_track_estimates_observation ON lidar_track_estimates (observation_id, estimator_id, stage);
 
 CREATE INDEX idx_lidar_track_residuals_observation ON lidar_track_residuals (observation_id, estimate_id);
+
+CREATE INDEX idx_lidar_track_estimate_revisions_revises ON lidar_track_estimate_revisions (revises_estimate_id);
 
 CREATE INDEX idx_lidar_interaction_events_version ON lidar_interaction_events (source_id, estimate_stage, estimator_id, obs_model_id, method_id, param_hash);
 

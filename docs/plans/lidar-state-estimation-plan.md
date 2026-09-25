@@ -1415,6 +1415,12 @@ plan's G-OBS-REV and G-OBS-GEO evidence for the joint worker.
 
 ### 10.2 Decision gate G-SMO-1
 
+**Status: not passed.** The thresholds below, and the identity, manoeuvre and latency criteria for
+choosing a horizon, are pinned before held-out scoring in the
+[retrospective-refinement criteria](../lidar/operations/retrospective-refinement-criteria.md). On evidence so far, criterion 3
+cannot pass at the shipped process noise for horizons of 2 s or more, and criterion 4 fails at
+every horizon on the medoid measurement; see Phase 5.
+
 Fixed-lag smoothing ships when:
 
 1. The online estimator is already at gate G-GEO-1, so smoothing is not being
@@ -2509,6 +2515,41 @@ ships first and alone; IMM only behind the deferred gate in 7.3.
 
 **Files.** New `l5tracks/smoother.go`; `EstimateStage` plumbing; persistence update path.
 
+**Status: fixed-assignment half delivered, offline; G-SMO-1 not passed.** The tracker records each
+track's prior, posterior and applied prediction interval (`l5tracks/filter_steps.go`), off unless
+an offline observer is attached and pinned to leave tracks bit-identical when one is.
+`l5tracks/smoother.go` is a bounded fixed-lag RTS smoother over that record at three frames,
+0.5, 1 and 2 s of capture time (`fixed_lag`) and the whole track (`final`). Every released state
+carries its stage, look-ahead, release reason and a revision record: online versus refined
+position and velocity, the magnitude, and the observations that justified it. Coasted states stay
+unobserved, and a revision without evidence is a counted defect. Migration 000050 adds
+`lidar_track_estimate_revisions`; refined stages are written beside online rows under their own
+estimator ID and parameter hash, never over them. `-experiment fixed_lag_rts` and
+`cmd/tools/lidar-refinement-eval` compare every horizon on one replay, and print the per-frame
+evaluator command for each arm. The maths is in
+[tracking maths §11](../../data/maths/tracking-maths.md#11-retrospective-refinement).
+
+Measured so far, before any held-out scoring:
+
+- The smoother agrees with an independent batch least-squares solve to 3 µm. Fixed-lag converges
+  to full-track RTS in a track's interior and equals it over the tail.
+- At the comparator horizons (three frames, 0.5 s) a synthetic hard brake keeps 97–98 % of its
+  true peak deceleration and a lane change 98–99 % of the course rate the online filter showed.
+- **At the shipped process noise the 2 s and whole-track arms flatten that lane change to 69 % of
+  the online course rate, and the online filter itself keeps only 70 % of the truth.** At
+  3 m²/s³ every horizon keeps at least 85 %. Long horizons need G-UNC-1's noise calibration
+  before criterion 3 can pass; the smoother returns what the model believes.
+- A synthetic impact is identifiable from the stored record and separable from a measurement
+  anomaly (Phase 8's acceptance), for a 6.7 m/s change. At about 10 m/s the shipped gate breaks
+  the track, which no fixed-assignment smoother can see across.
+- On the full kirk0 replay the per-frame largest observed-state revision has p99 0.63 m at every
+  horizon, against criterion 4's 0.3 m. The medoid measurement is still in use.
+
+Remaining: held-out identity and geometry scoring of each arm, the abnormal-motion set, the
+revisable-association arm (after the asynchronous worker), VRLOG persistence of coasted refined
+states, and exposure of the refined stage in the API and the visualiser, whose `Track` message has
+no stage today.
+
 **Tests.** Fixed-lag output converges to full-track RTS in the interior of a track. Manoeuvre
 magnitude preservation on the abnormal set.
 
@@ -2889,6 +2930,19 @@ architecture; it does not relitigate findings.
       coasted segments render distinctly
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
 - [x] Emit associated raw clusters beside estimates in opt-in diagnostic bundles
+- [x] Phase 5 fixed-assignment refinement (Sprint 0.5.2.2): filter-step record, bounded fixed-lag
+      RTS at three frames, 0.5, 1 and 2 s and the whole track, revision audit, refined-stage
+      persistence (migration 000050), one-replay comparison (`-experiment fixed_lag_rts`,
+      `lidar-refinement-eval`), and G-SMO-1 and horizon criteria predeclared in the
+      [retrospective-refinement criteria](../lidar/operations/retrospective-refinement-criteria.md)
+- [ ] G-SMO-1 and horizon choice: score every refined arm against held-out reviewed episodes with
+      `lidar-ground-truth-eval perframe`, then apply the predeclared selection rule
+- [ ] G-SMO-1 criterion 3: build the abnormal-motion set, and calibrate process noise under G-UNC-1
+      before a horizon of 2 s or more can preserve manoeuvres
+- [ ] Revisable-association arm: alternative assignments, point ownership and shape belief inside
+      the window, on the asynchronous worker's immutable input, through the same smoother and report
+- [ ] Persist coasted refined states in the VRLOG trajectory record, and expose refined stages in
+      the API and the visualiser
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
 - [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
 - [x] Implement D2: association, initialisation, and the CV update use a valid OBB centre;

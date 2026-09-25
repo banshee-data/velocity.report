@@ -100,10 +100,11 @@ func (s *ObservationStore) ListClusterSummariesBySource(sourceID string, positio
 	return out, nil
 }
 
-// ListFrameStateEstimatesBySource returns each estimate of a source with the
-// residual that produced it, in the same deterministic order as ListBySource:
-// creation_sequence, then frame, then estimate_id. Covariance is not decoded;
-// the scorecard does not use it.
+// ListFrameStateEstimatesBySource returns each online estimate of a source
+// with the residual that produced it, in the same deterministic order as
+// ListBySource: creation_sequence, then frame, then estimate_id. Covariance is
+// not decoded; the scorecard does not use it. Refined stages are excluded for
+// the reason ListBySource gives.
 func (s *StateEstimateStore) ListFrameStateEstimatesBySource(sourceID string) ([]FrameStateEstimate, error) {
 	rows, err := s.db.Query(`
 		SELECT e.estimate_id, e.observation_id, e.source_id
@@ -113,8 +114,8 @@ func (s *StateEstimateStore) ListFrameStateEstimatesBySource(sourceID string) ([
 		     , r.innovation_x, r.innovation_y, r.nis, r.disposition, r.reason
 		  FROM lidar_track_estimates e
 		  JOIN lidar_track_residuals r ON r.estimate_id = e.estimate_id
-		 WHERE e.source_id = ?
-		 ORDER BY e.creation_sequence, e.frame_unix_nanos, e.estimate_id`, sourceID)
+		 WHERE e.source_id = ? AND e.stage = ?
+		 ORDER BY e.creation_sequence, e.frame_unix_nanos, e.estimate_id`, sourceID, EstimateStageOnline)
 	if err != nil {
 		return nil, fmt.Errorf("list frame state estimates for source %s: %w", sourceID, err)
 	}

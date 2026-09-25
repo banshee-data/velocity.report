@@ -18,11 +18,13 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -58,6 +60,9 @@ type caseSummary struct {
 	// with. Always present, empty for a shipped-behaviour replay, so a
 	// summary can never be read without knowing which it was.
 	Experiments []string `json:"experiments"`
+	// RefinementArms is the first run's online-versus-refined comparison when
+	// the fixed_lag_rts experiment ran, identical on the repeat by check.
+	RefinementArms []l8analytics.RefinementArmMetrics `json:"refinement_arms,omitempty"`
 	// Ground surface fields are populated only when -surface-ground was
 	// passed and the background settled in time to fit a P11 ground plane
 	// for this case; omitted otherwise.
@@ -253,11 +258,21 @@ func main() {
 		if !bytes.Equal(firstBaseline, repeatBaseline) {
 			fatal(fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID))
 		}
+		// Every refinement horizon must reproduce too. Persistence is on for
+		// the first run only, which must not change a single figure.
+		var refinementArms []l8analytics.RefinementArmMetrics
+		if firstResult.Refinement != nil {
+			if repeatResult.Refinement == nil || !reflect.DeepEqual(firstResult.Refinement.Arms, repeatResult.Refinement.Arms) {
+				fatal(fmt.Errorf("refinement comparison differs on repeat for %s", selectedCase.ID))
+			}
+			refinementArms = firstResult.Refinement.Arms
+		}
 		summary := caseSummary{
 			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
+			RefinementArms:        refinementArms,
 			Experiments:           experiments,
 			TimeDomain:            firstResult.TimeDomain,
 			Continuity:            firstResult.Continuity,

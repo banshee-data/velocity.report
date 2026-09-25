@@ -22,6 +22,12 @@ func persistOnlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.Tra
 	return cfg.StateEstimateSink.Insert(pair.Estimate, pair.Residual)
 }
 
+// onlineEstimateID is the online estimate's key. A refined estimate names the
+// online estimate it revises by this same key; see refined_estimate_sink.go.
+func onlineEstimateID(trackID, estimatorID, observationModelID string, frameUnixNanos int64) string {
+	return fmt.Sprintf("estimate/%s/%s/%s/%d", trackID, estimatorID, observationModelID, frameUnixNanos)
+}
+
 func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObject, frameUnixNanos int64) (sqlite.FrameStateEstimate, error) {
 	if cfg.ObservationSourceID == "" || cfg.ObservationCalibrationID == "" || cfg.StateEstimatorID == "" || cfg.StateObservationModelID == "" || cfg.StateParameterHash == "" {
 		return sqlite.FrameStateEstimate{}, fmt.Errorf("state estimate sink requires source, calibration, estimator, observation-model, and parameter identities")
@@ -30,7 +36,7 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 	if err != nil {
 		return sqlite.FrameStateEstimate{}, fmt.Errorf("derive estimate observation identity: %w", err)
 	}
-	estimateID := fmt.Sprintf("estimate/%s/%s/%s/%d", track.TrackID, cfg.StateEstimatorID, cfg.StateObservationModelID, frameUnixNanos)
+	estimateID := onlineEstimateID(track.TrackID, cfg.StateEstimatorID, cfg.StateObservationModelID, frameUnixNanos)
 	residual := track.LastResidual
 	estimate := sqlite.TrackEstimate{
 		EstimateID: estimateID, TrackID: track.TrackID, ObservationID: observationID,
@@ -38,7 +44,7 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 		FrameUnixNanos: frameUnixNanos, MeasurementUnixNanos: track.LastMeasurementUnixNanos,
 		CreationSequence: track.CreationSequence,
 		EstimatorID:      cfg.StateEstimatorID, ObservationModelID: cfg.StateObservationModelID,
-		ParamHash: cfg.StateParameterHash, Stage: "online", MeasurementSource: string(track.LastMeasurementSource),
+		ParamHash: cfg.StateParameterHash, Stage: sqlite.EstimateStageOnline, MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
 	}
 	return sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{

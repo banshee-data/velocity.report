@@ -8,6 +8,7 @@ import (
 
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
+	t.filterSteps.notePrior(track)
 	track.LastResidual.Valid = false
 	measurement := t.measurementForCluster(cluster, nowNanos)
 	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
