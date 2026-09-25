@@ -175,6 +175,11 @@ var (
 	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
 	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	// Off unless set. Experimental: the power-loss and target-hardware
+	// evidence a live default needs does not exist yet (VRLOG plan, G-OBS-CRASH
+	// and G-OBS-PI).
+	lidarObservationDir = serveFlags.String("lidar-observation-dir", "",
+		"Experimental, off when empty: commit the live session's foreground-complete L4 observation frames to a new VRLOG 1.x container in this directory")
 	// Repeatable. Capture roots are the volumes the capture index scans; the
 	// web UI selects among them and cannot add one, which is what keeps the
 	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
@@ -580,6 +585,7 @@ func Main(args []string) int {
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
+		var liveObservations *liveObservationCapture // nil unless --lidar-observation-dir is set
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
@@ -690,6 +696,26 @@ func Main(args []string) int {
 			// before anyone starts diagnosing the silence.
 			lidarProfile := tuningCfg.Profile()
 			log.Printf("LiDAR pipeline profile: %s (runs L1-L%d)", lidarProfile, lidarProfile.TopLayer())
+			if *lidarObservationDir != "" {
+				tuningJSON, err := json.Marshal(tuningCfg)
+				if err != nil {
+					log.Fatalf("marshal tuning for the observation capture: %v", err)
+				}
+				// ReplayActive is wired after the web server exists; until
+				// then, and whenever it reads false, input is the live sensor.
+				live := func() bool { return pipelineConfig.ReplayActive == nil || !pipelineConfig.ReplayActive.Load() }
+				setup, err := startLiveObservationCapture(*lidarObservationDir, lidarSensorID, tuningJSON,
+					liveObservationPolicy(lidarFrameChCapacity), live, log.Printf)
+				if err != nil {
+					log.Printf("Live observation capture disabled: %v", err)
+				} else {
+					liveObservations = setup.capture
+					pipelineConfig.ObservationFrameSink = setup.capture
+					pipelineConfig.ObservationSourceID = setup.sourceID
+					pipelineConfig.ObservationCalibrationID = setup.calibrationID
+					defer liveObservations.End("server shutting down")
+				}
+			}
 			callback := pipelineConfig.NewFrameCallback()
 
 			frameBuilder = l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
@@ -702,7 +728,7 @@ func Main(args []string) int {
 				CleanupInterval: 250 * time.Millisecond,
 				// Larger callback channel buffer absorbs short processing
 				// stalls during PCAP replay without dropping frames.
-				FrameChCapacity: 32,
+				FrameChCapacity: lidarFrameChCapacity,
 			})
 		}
 
@@ -736,6 +762,14 @@ func Main(args []string) int {
 			UDPPort:        lidarUDPListenPort,
 		}
 
+		// A new extractor configuration is a new extraction: a live
+		// observation capture's identities no longer describe what follows.
+		endLiveObservationsOnTuning := func() {
+			if liveObservations != nil {
+				liveObservations.End("runtime tuning changed")
+			}
+		}
+
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
@@ -760,6 +794,7 @@ func Main(args []string) int {
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
 			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
 			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},

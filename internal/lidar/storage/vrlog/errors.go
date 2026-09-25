@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 var (
@@ -20,6 +21,26 @@ var (
 	ErrFrameTooLarge = errors.New("frame exceeds the container's limits")
 	// ErrSequenceNotFound: a seek named a sequence the stream does not cover.
 	ErrSequenceNotFound = errors.New("sequence not in the stream")
+	// ErrNotCommitted: a seek named evidence beyond the committed frontier.
+	// It matches ErrSequenceNotFound too.
+	ErrNotCommitted = errors.New("not yet committed")
+	// ErrCaptureFailed is matched by every *CaptureFailedError.
+	ErrCaptureFailed = errors.New("observation capture failed")
+	// ErrFrameShed is matched by every *FrameShedError.
+	ErrFrameShed = errors.New("frame shed under writer backlog")
+	// ErrStaleCursor: a cursor does not describe this container's committed
+	// prefix, because it belongs to another capture or the prefix it was
+	// taken from is no longer committed here.
+	ErrStaleCursor = errors.New("stale observation cursor")
+	// ErrContainerBusy: a writer or a recovery holds the container's lock.
+	ErrContainerBusy = errors.New("observation container is in use")
+	// ErrPreGenerationLayout: a container 1.0 written before commit
+	// generations. Its sealed chunks carry no commit record, so nothing says
+	// which of them a crash left uncommitted.
+	ErrPreGenerationLayout = errors.New("VRLOG 1.0 observation container without commit generations")
+
+	// errWriterKilled is returned after a test kill hook stopped the writer.
+	errWriterKilled = errors.New("observation writer killed")
 
 	errNotContainer = fmt.Errorf("%w: missing VRLOG root magic", ErrNotContainer)
 )
@@ -46,6 +67,79 @@ func (e *UnsupportedError) Error() string {
 
 // Is reports ErrUnsupported.
 func (e *UnsupportedError) Is(target error) bool { return target == ErrUnsupported }
+
+func isUnsupported(err error) bool { return errors.Is(err, ErrUnsupported) }
+
+type notCommittedError struct{ detail string }
+
+func (e *notCommittedError) Error() string { return "not yet committed: " + e.detail }
+func (e *notCommittedError) Is(target error) bool {
+	return target == ErrNotCommitted || target == ErrSequenceNotFound
+}
+
+// FailureCause classifies a capture failure. Values are stable strings,
+// recorded in the failure marker.
+type FailureCause string
+
+const (
+	// FailureDiskFull: a write or sync reported no space or quota.
+	FailureDiskFull FailureCause = "disk-full"
+	// FailureIO: any other write, sync or rename error.
+	FailureIO FailureCause = "io-error"
+	// FailureStall: an accepted record stayed undurable beyond the declared
+	// bound, the batch age plus the commit deadline.
+	FailureStall FailureCause = "commit-stall"
+	// FailureStopped: the capture's owner ended it abnormally (Writer.Fail).
+	FailureStopped FailureCause = "stopped"
+)
+
+// CaptureFailedError is the writer's capture-failure state. Evidence up to
+// CommittedEndSequence (and CommittedRecords) is durable; records accepted
+// after it, up to AcceptedEndSequence, are at risk or lost; nothing after is
+// admitted. MarkerWritten reports whether a failure generation recording
+// this reached the container.
+type CaptureFailedError struct {
+	Cause                FailureCause
+	Err                  error
+	At                   time.Time
+	CommittedEndSequence uint64
+	CommittedRecords     uint64
+	AcceptedEndSequence  uint64
+	AcceptedRecords      uint64
+	MarkerWritten        bool
+}
+
+func (e *CaptureFailedError) Error() string {
+	return fmt.Sprintf("observation capture failed (%s): committed to sequence %d, accepted to %d: %v",
+		e.Cause, e.CommittedEndSequence, e.AcceptedEndSequence, e.Err)
+}
+
+// Is reports ErrCaptureFailed.
+func (e *CaptureFailedError) Is(target error) bool { return target == ErrCaptureFailed }
+
+// Unwrap returns the underlying I/O or stall error.
+func (e *CaptureFailedError) Unwrap() error { return e.Err }
+
+// FrameShedError reports a frame the writer could not admit within the
+// policy's shed wait. It was recorded as a gap over its sequence; the
+// capture continues, incomplete.
+type FrameShedError struct {
+	Sequence uint64
+	Waited   time.Duration
+}
+
+func (e *FrameShedError) Error() string {
+	return fmt.Sprintf("frame %d shed after waiting %s for the committer; recorded as a gap", e.Sequence, e.Waited)
+}
+
+// Is reports ErrFrameShed.
+func (e *FrameShedError) Is(target error) bool { return target == ErrFrameShed }
+
+// staleCursorError explains why a cursor does not fit.
+type staleCursorError struct{ detail string }
+
+func (e *staleCursorError) Error() string   { return "stale observation cursor: " + e.detail }
+func (e *staleCursorError) Is(t error) bool { return t == ErrStaleCursor }
 
 // CorruptionKind classifies a CorruptionError. Values are stable strings.
 type CorruptionKind string

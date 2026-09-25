@@ -23,9 +23,13 @@ warm-up included, to a VRLOG 1.x observation container: the complete L3 foregrou
 cluster membership and explicit empty, unsettled and failed frames
 ([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)). The case
 identity is required. Coordinates are sensor-frame, because replay applies no site pose, and
-the manifest says so. `velocity lidar observations verify --require foreground-complete DIR`
-checks a container end to end. `compare A B` confirms two extractions of one source hold the same
-evidence.
+the manifest says so. Frames are committed durably as the replay runs, in generations, under
+the provisional group-commit policy the manifest declares. A replay that fails keeps what it
+committed and ends the container with a failure record saying why.
+`velocity lidar observations verify --require foreground-complete DIR` checks a container end to
+end and says how its capture ended. `compare A B` confirms two extractions of one source hold the
+same evidence. `recover DIR` makes an interrupted container consistent without rewriting what was
+committed.
 
 The server supports two modes for PCAP replay. Both park on their final
 frame when the selected window ends. While parked, the server listens for live

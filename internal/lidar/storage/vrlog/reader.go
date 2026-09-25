@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
@@ -43,11 +43,17 @@ type ChunkInfo struct {
 	FirstStartUnixNanos, LastStartUnixNanos int64
 	// IndexRebuilt reports that the index was rebuilt from the chunk.
 	IndexRebuilt bool
+	// Generation is the commit generation that committed the chunk, and
+	// FirstRecord the stream position of its first record.
+	Generation  uint64
+	FirstRecord uint64
 
 	// startCeiling is the latest known record start in this chunk or any
 	// before it: monotonic, so time seeks can binary-search chunks.
 	startCeiling     int64
 	haveStartCeiling bool
+	// indexSHA is the index digest its generation committed.
+	indexSHA [sha256.Size]byte
 }
 
 // Record is one record read from a container, with its location.
@@ -60,20 +66,69 @@ type Record struct {
 	Length uint32
 }
 
-// Status summarises what Open found.
+// Status summarises what Open found: the committed prefix and what lies
+// beyond it.
 type Status struct {
-	// Closed means a closing summary exists and matches the sealed chunks.
+	// Closed means a close generation committed a closing summary that
+	// matches the committed chunks.
 	Closed bool
-	// UnsealedTail names objects left open by an interrupted writer. They
-	// are never read as evidence.
-	UnsealedTail []string
-	Chunks       int
-	Records      uint64
-	Frames       uint64
-	Gaps         uint64
+	// State is derived from the chain's terminal generation, if any.
+	State CaptureState
+	// Generation is the last committed generation the reader validated.
+	Generation uint64
+	// PointerFallback is set when the current pointer could not be used
+	// (missing, torn or foreign): the committed prefix is then the longest
+	// validated chain, and this says why.
+	PointerFallback string
+	// Unpromoted lists complete, validated generations beyond the pointer:
+	// published but never acknowledged. They are not read; Recover promotes
+	// them with a recovery record.
+	Unpromoted []uint64
+	// UncommittedTail names objects no committed generation references
+	// (an open batch, a chunk sealed but never committed, a torn temporary
+	// object). They are never read as evidence.
+	UncommittedTail []string
+	// Failure is the failure marker a failed writer left, and Recovery the
+	// last recovery record, when present.
+	Failure  *FailureMarker
+	Recovery *RecoveryMarker
+	// TailExtentUnknown: the capture did not close and no failure marker
+	// says how much was accepted after the committed end.
+	TailExtentUnknown bool
+	Chunks            int
+	Records           uint64
+	Frames            uint64
+	Gaps              uint64
+	RejectedFrames    uint64
+	ShedFrames        uint64
 	// EndSequence is one past the last source sequence covered.
 	EndSequence uint64
 	ChunkBytes  uint64
+}
+
+// FailureMarker is a failure generation's record.
+type FailureMarker struct {
+	Generation          uint64
+	Cause               FailureCause
+	Detail              string
+	AcceptedEndSequence uint64
+	AcceptedRecords     uint64
+	FailedUnixNanos     int64
+}
+
+// RecoveryMarker is a recovery generation's record.
+type RecoveryMarker struct {
+	Generation         uint64
+	PointerValid       bool
+	PointerGeneration  uint64
+	PointerDetail      string
+	Promoted           []uint64
+	Quarantined        []string
+	QuarantinedCount   uint64
+	SessionIncomplete  bool
+	TailExtentUnknown  bool
+	RecoveredUnixNanos int64
+	RecoveredBy        string
 }
 
 // Reader reads a container's sealed records in source order. It holds chunk
@@ -88,6 +143,8 @@ type Reader struct {
 	chunks         []ChunkInfo
 	summary        *Summary
 	status         Status
+	// chain is the last committed generation catalogued.
+	chain chainState
 
 	chunkPos, entryPos int
 	loaded             *loadedChunk
@@ -121,11 +178,47 @@ type indexEntry struct {
 // zero-width gap still locates its damage.
 func (e indexEntry) covers() (uint64, uint64) { return e.first, e.first + max(e.count, 1) }
 
-// Open reads and validates the manifest, the chunk indexes and seals, and
-// the closing summary if there is one. It does not read chunk bodies: each
-// chunk's digest is verified when it is first read, before any of its
-// records is returned. Verify reads everything.
+// Open is the offline, read-only entry: it validates the manifest and the
+// commit chain up to the generation the current pointer names, with every
+// committed chunk's index and seal, and the closing summary if a close
+// generation committed one. Damage inside that committed prefix fails Open,
+// located to its object and sequences. A torn or missing pointer falls back
+// to the longest chain that validates. Generations and objects beyond the
+// pointer are reported in Status and never read; Recover acts on them.
+//
+// Open does not read chunk bodies: each chunk's digest is verified when it
+// is first read, before any of its records is returned. Verify reads
+// everything. Open takes no lock and writes nothing, so it is safe beside a
+// live writer, but a filesystem-only reader of a live capture sees at best a
+// published generation whose final directory sync may not be complete: a
+// live consumer follows the writer's announced frontier instead (Follow).
 func Open(dir string, opts Options) (*Reader, error) {
+	r, err := openManifest(dir, opts)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.catalogueFromPointer(); err != nil {
+		return nil, err
+	}
+	r.probeBeyond()
+	return r, nil
+}
+
+// openThrough opens dir with exactly generations 0 to generation committed:
+// a follower's entry, which trusts the writer's announcement rather than
+// the pointer.
+func openThrough(dir string, opts Options, generation uint64) (*Reader, error) {
+	r, err := openManifest(dir, opts)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.extendTo(generation); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func openManifest(dir string, opts Options) (*Reader, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
 		return nil, err
@@ -137,14 +230,12 @@ func Open(dir string, opts Options) (*Reader, error) {
 	if err := r.readManifest(); err != nil {
 		return nil, err
 	}
+	if !r.manifest.hasFeature(featureCommitGenerations) {
+		return nil, fmt.Errorf("%s: %w: written before commit generations (container 1.0), so nothing records which "+
+			"sealed chunks were committed; re-extract it from its source", dir, ErrPreGenerationLayout)
+	}
 	if err := r.manifest.Profile.Require(opts.Require...); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
-	}
-	if err := r.catalogue(); err != nil {
-		return nil, err
-	}
-	if err := r.readSummary(); err != nil {
-		return nil, err
 	}
 	return r, nil
 }
@@ -166,10 +257,22 @@ func (r *Reader) Summary() (Summary, bool) {
 	return *r.summary, true
 }
 
-// Status summarises the container.
+// Status summarises the container. It is a copy: changing it, the markers
+// included, does not change what the reader reports next.
 func (r *Reader) Status() Status {
 	s := r.status
-	s.UnsealedTail = append([]string(nil), s.UnsealedTail...)
+	s.UncommittedTail = append([]string(nil), s.UncommittedTail...)
+	s.Unpromoted = append([]uint64(nil), s.Unpromoted...)
+	if s.Failure != nil {
+		failure := *s.Failure
+		s.Failure = &failure
+	}
+	if s.Recovery != nil {
+		recovery := *s.Recovery
+		recovery.Promoted = append([]uint64(nil), recovery.Promoted...)
+		recovery.Quarantined = append([]string(nil), recovery.Quarantined...)
+		s.Recovery = &recovery
+	}
 	return s
 }
 
@@ -297,7 +400,8 @@ func readBounded(path string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file", path)
+		return nil, &CorruptionError{Kind: CorruptStructure, Object: filepath.Base(path), Chunk: -1, Length: -1,
+			Detail: "not a regular file"}
 	}
 	if info.Size() > limit {
 		return nil, &CorruptionError{Kind: CorruptLength, Object: filepath.Base(path), Chunk: -1, Offset: limit, Length: -1,
@@ -310,84 +414,14 @@ func readBounded(path string, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// catalogue builds the ordered chunk list from the sealed objects on disk:
-// contiguous ordinals, each index validated against its chunk's size and
-// seal, and source sequences contiguous across chunks. Phase 2 replaces the
-// directory listing with the committed generation chain; the per-chunk
-// checks stay the same.
-func (r *Reader) catalogue() error {
-	entries, err := os.ReadDir(filepath.Join(r.dir, chunksDir))
-	if err != nil {
-		return r.corruptObject(CorruptMissing, chunksDir, 0, err)
-	}
-	chunkFiles := map[uint64]bool{}
-	indexFiles := map[uint64]bool{}
-	for _, e := range entries {
-		name := e.Name()
-		switch {
-		case strings.HasSuffix(name, openSuffix):
-			r.status.UnsealedTail = append(r.status.UnsealedTail, chunksDir+"/"+name)
-		case strings.HasSuffix(name, chunkSuffix):
-			if ordinal, ok := parseOrdinal(strings.TrimSuffix(name, chunkSuffix)); ok {
-				chunkFiles[ordinal] = true
-			}
-		case strings.HasSuffix(name, indexSuffix):
-			if ordinal, ok := parseOrdinal(strings.TrimSuffix(name, indexSuffix)); ok {
-				indexFiles[ordinal] = true
-			}
-		}
-	}
-	for ordinal := range indexFiles {
-		if !chunkFiles[ordinal] {
-			return &CorruptionError{Kind: CorruptMissing, Object: chunkObject(ordinal), Chunk: int64(ordinal), Length: -1,
-				Detail: "an index exists for a chunk that does not"}
-		}
-	}
-	for ordinal := uint64(0); ordinal < uint64(len(chunkFiles)); ordinal++ {
-		if !chunkFiles[ordinal] {
-			return &CorruptionError{Kind: CorruptMissing, Object: chunkObject(ordinal), Chunk: int64(ordinal), Length: -1,
-				Detail: fmt.Sprintf("chunk ordinals are not contiguous: %d sealed chunks but no chunk %d", len(chunkFiles), ordinal)}
-		}
-	}
-	r.chunks = make([]ChunkInfo, 0, len(chunkFiles))
-	for position := range len(chunkFiles) {
-		ix, rebuilt, err := r.openIndex(position, indexFiles[uint64(position)])
-		if err != nil {
-			return err
-		}
-		info := ChunkInfo{Ordinal: uint64(position), Bytes: ix.chunkBytes, BodySHA256: ix.bodySHA, IndexRebuilt: rebuilt}
-		seal, err := r.readSeal(position, ix)
-		if err != nil {
-			return err
-		}
-		copy(info.SemanticSHA256[:], seal.GetSemanticSha256())
-		info.Records, info.Frames, info.Gaps = seal.RecordCount, seal.FrameCount, seal.GapCount
-		info.FirstSequence, info.EndSequence = seal.FirstSequence, seal.EndSequence
-		if seal.FirstStartUnixNanos != nil {
-			info.HaveTime, info.FirstStartUnixNanos, info.LastStartUnixNanos = true, *seal.FirstStartUnixNanos, *seal.LastStartUnixNanos
-		}
-		if err := r.joinChunk(&info); err != nil {
-			return err
-		}
-		r.chunks = append(r.chunks, info)
-		r.status.Records += info.Records
-		r.status.Frames += info.Frames
-		r.status.Gaps += info.Gaps
-		r.status.ChunkBytes += info.Bytes
-		r.status.EndSequence = info.EndSequence
-	}
-	r.status.Chunks = len(r.chunks)
-	return nil
-}
-
-// joinChunk checks a chunk continues the stream: its first sequence is the
-// previous chunk's end, and no record starts before one already seen.
-func (r *Reader) joinChunk(info *ChunkInfo) error {
+// joinChunk checks a chunk continues the stream after prev (nil for the
+// first chunk): its first sequence is the previous chunk's end, and no
+// record starts before one already seen.
+func joinChunk(prev *ChunkInfo, info *ChunkInfo) error {
 	var wantFirst uint64
 	var ceiling int64
 	haveCeiling := false
-	if n := len(r.chunks); n > 0 {
-		prev := r.chunks[n-1]
+	if prev != nil {
 		wantFirst, ceiling, haveCeiling = prev.EndSequence, prev.startCeiling, prev.haveStartCeiling
 	}
 	if info.FirstSequence != wantFirst {
@@ -419,20 +453,22 @@ func parseOrdinal(base string) (uint64, bool) {
 func chunkObject(ordinal uint64) string { return chunksDir + "/" + chunkBase(ordinal) + chunkSuffix }
 func indexObject(ordinal uint64) string { return chunksDir + "/" + chunkBase(ordinal) + indexSuffix }
 
-// openIndex returns chunk position's validated index: the stored one, or,
-// when that is missing or damaged and rebuilding is allowed, one rebuilt
-// from the chunk's bytes.
-func (r *Reader) openIndex(position int, stored bool) (*chunkIndex, bool, error) {
+// openIndex returns chunk position's validated index: the stored one, which
+// must be the object its generation committed, or, when that is missing or
+// damaged and rebuilding is allowed, one rebuilt from the chunk's bytes.
+func (r *Reader) openIndex(position int, committed [sha256.Size]byte) (*chunkIndex, bool, error) {
 	ordinal := uint64(position)
-	var err error
-	if stored {
-		var ix *chunkIndex
-		if ix, err = r.readIndex(position); err == nil {
-			return ix, false, nil
-		}
-	} else {
+	ix, digest, err := r.readIndex(position)
+	if err == nil && digest != committed {
+		err = &CorruptionError{Kind: CorruptDisagreement, Object: indexObject(ordinal), Chunk: int64(ordinal), Length: -1,
+			Detail: "the index is not the object its generation committed"}
+	}
+	if err == nil {
+		return ix, false, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
 		err = &CorruptionError{Kind: CorruptMissing, Object: indexObject(ordinal), Chunk: int64(ordinal), Length: -1,
-			Detail: "the chunk has no index; open with index rebuilding to derive it from the chunk"}
+			Detail: "the committed chunk has no index; open with index rebuilding to derive it from the chunk"}
 	}
 	if !r.opts.RebuildIndexes || errors.Is(err, ErrUnsupported) {
 		return nil, false, err
@@ -445,27 +481,29 @@ func (r *Reader) openIndex(position int, stored bool) (*chunkIndex, bool, error)
 	if rebuildErr != nil {
 		return nil, false, rebuildErr
 	}
-	r.rebuilt[position] = ix
 	return ix, true, nil
 }
 
-func (r *Reader) readIndex(position int) (*chunkIndex, error) {
+// readIndex reads and checks a stored index, returning it with the SHA-256
+// of its object.
+func (r *Reader) readIndex(position int) (*chunkIndex, [sha256.Size]byte, error) {
 	ordinal := uint64(position)
 	object := indexObject(ordinal)
+	var none [sha256.Size]byte
 	data, err := readBounded(filepath.Join(r.dir, object), preambleSize+envelopeSize+maxIndexBytes)
 	if err != nil {
 		var corrupt *CorruptionError
 		if errors.As(err, &corrupt) {
 			corrupt.Object, corrupt.Chunk = object, int64(ordinal)
-			return nil, corrupt
+			return nil, none, corrupt
 		}
-		return nil, err
+		return nil, none, err
 	}
 	if err := checkPreamble(data, objectIndex); err != nil {
 		if errors.Is(err, ErrUnsupported) {
-			return nil, err
+			return nil, none, err
 		}
-		return nil, &CorruptionError{Kind: CorruptStructure, Object: object, Chunk: int64(ordinal), Length: preambleSize, Detail: err.Error()}
+		return nil, none, &CorruptionError{Kind: CorruptStructure, Object: object, Chunk: int64(ordinal), Length: preambleSize, Detail: err.Error()}
 	}
 	payload, err := singleRecord(data, RecordChunkIndex, r.tag, maxIndexBytes)
 	if err != nil {
@@ -474,11 +512,11 @@ func (r *Reader) readIndex(position int) (*chunkIndex, error) {
 		if errors.As(e, &corrupt) {
 			corrupt.Chunk = int64(ordinal)
 		}
-		return nil, e
+		return nil, none, e
 	}
 	var m pb.ChunkIndex
 	if err := unmarshalOptions.Unmarshal(payload, &m); err != nil {
-		return nil, &CorruptionError{Kind: CorruptStructure, Object: object, Chunk: int64(ordinal), Offset: preambleSize + envelopeSize, Length: -1, Detail: err.Error()}
+		return nil, none, &CorruptionError{Kind: CorruptStructure, Object: object, Chunk: int64(ordinal), Offset: preambleSize + envelopeSize, Length: -1, Detail: err.Error()}
 	}
 	ix, err := r.indexFromProto(&m)
 	if err == nil {
@@ -486,12 +524,12 @@ func (r *Reader) readIndex(position int) (*chunkIndex, error) {
 	}
 	if errors.Is(err, ErrUnsupported) {
 		// A newer writer's record kind is not damage; say which is needed.
-		return nil, fmt.Errorf("%s: %w", object, err)
+		return nil, none, fmt.Errorf("%s: %w", object, err)
 	}
 	if err != nil {
-		return nil, &CorruptionError{Kind: CorruptDisagreement, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
+		return nil, none, &CorruptionError{Kind: CorruptDisagreement, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
 	}
-	return ix, nil
+	return ix, sha256.Sum256(data), nil
 }
 
 func (r *Reader) indexFromProto(m *pb.ChunkIndex) (*chunkIndex, error) {
@@ -597,7 +635,7 @@ func (r *Reader) readSeal(position int, ix *chunkIndex) (*pb.ChunkSeal, error) {
 	object := chunkObject(ordinal)
 	f, err := os.Open(filepath.Join(r.dir, object))
 	if err != nil {
-		return nil, &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
+		return nil, classifyReadError(err, object, int64(ordinal))
 	}
 	defer f.Close()
 	info, err := f.Stat()
@@ -679,12 +717,7 @@ func (r *Reader) readChunkBytes(ordinal, wantBytes uint64) ([]byte, error) {
 	object := chunkObject(ordinal)
 	data, err := readBounded(filepath.Join(r.dir, object), int64(r.manifest.Limits.MaxChunkBytes))
 	if err != nil {
-		var corrupt *CorruptionError
-		if errors.As(err, &corrupt) {
-			corrupt.Object, corrupt.Chunk = object, int64(ordinal)
-			return nil, corrupt
-		}
-		return nil, &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
+		return nil, classifyReadError(err, object, int64(ordinal))
 	}
 	if wantBytes != 0 && uint64(len(data)) != wantBytes {
 		return nil, &CorruptionError{Kind: CorruptTruncated, Object: object, Chunk: int64(ordinal), Offset: int64(min(uint64(len(data)), wantBytes)), Length: -1,
@@ -757,7 +790,8 @@ func (r *Reader) checkChunkBody(info ChunkInfo, ix *chunkIndex, data []byte) err
 	return nil
 }
 
-// index returns a chunk's validated index, keeping a handful in memory.
+// index returns a chunk's validated index, keeping a handful in memory. A
+// re-read index must still be the object its generation committed.
 func (r *Reader) index(position int) (*chunkIndex, error) {
 	if ix := r.rebuilt[position]; ix != nil {
 		return ix, nil
@@ -765,9 +799,13 @@ func (r *Reader) index(position int) (*chunkIndex, error) {
 	if ix := r.indexes[position]; ix != nil {
 		return ix, nil
 	}
-	ix, err := r.readIndex(position)
+	ix, digest, err := r.readIndex(position)
 	if err != nil {
 		return nil, err
+	}
+	if digest != r.chunks[position].indexSHA {
+		return nil, &CorruptionError{Kind: CorruptDisagreement, Object: indexObject(uint64(position)), Chunk: int64(position), Length: -1,
+			Detail: "the index changed after Open: it is not the object its generation committed"}
 	}
 	if len(r.indexes) >= 4 {
 		clear(r.indexes)
@@ -993,15 +1031,16 @@ func (r *Reader) previousTimed(c cursor) (cursor, bool, error) {
 	}
 }
 
-// readSummary reads the closing summary, if any, and requires it to match
-// the sealed chunks exactly.
-func (r *Reader) readSummary() error {
+// readSummary reads the closing summary a close generation committed, and
+// requires it to be that object and to match the committed chunks exactly.
+func (r *Reader) readSummary(committed *pb.CommittedObject) error {
 	data, err := readBounded(filepath.Join(r.dir, summaryName), preambleSize+envelopeSize+maxSummaryBytes)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
 	if err != nil {
-		return err
+		return locateObject(err, summaryName)
+	}
+	if sum := sha256.Sum256(data); uint64(len(data)) != committed.GetBytes() || !bytes.Equal(sum[:], committed.GetSha256()) {
+		return &CorruptionError{Kind: CorruptSummary, Object: summaryName, Chunk: -1, Length: -1,
+			Detail: "the summary is not the object its close generation committed"}
 	}
 	if err := checkPreamble(data, objectSummary); err != nil {
 		if errors.Is(err, ErrUnsupported) {
@@ -1022,7 +1061,9 @@ func (r *Reader) readSummary() error {
 	}
 	s := Summary{Chunks: m.ChunkCount, ChunkChain: l4bobserve.Digest(m.ChunkChainSha256), Records: m.RecordCount,
 		Frames: m.FrameCount, Gaps: m.GapCount, EndSequence: m.EndSequence, RejectedFrames: m.RejectedFrames,
-		ChunkBytes: m.TotalChunkBytes, Semantic: l4bobserve.Digest(m.SemanticSha256)}
+		ShedFrames: m.ShedFrames, ChunkBytes: m.TotalChunkBytes, Semantic: l4bobserve.Digest(m.SemanticSha256),
+		Commits: m.CommitCount, CommitLatency: Latency{Count: m.CommitCount, P50: time.Duration(m.CommitP50Nanos),
+			P95: time.Duration(m.CommitP95Nanos), P99: time.Duration(m.CommitP99Nanos), Max: time.Duration(m.CommitMaxNanos)}}
 	var chain l4bobserve.Digest
 	for _, c := range r.chunks {
 		chain = chainDigest(chain, c.BodySHA256[:])
@@ -1036,6 +1077,8 @@ func (r *Reader) readSummary() error {
 		mismatch = "the sealed chunks' digests do not chain to the summary's"
 	case s.Records != st.Records || s.Frames != st.Frames || s.Gaps != st.Gaps || s.EndSequence != st.EndSequence || s.ChunkBytes != st.ChunkBytes:
 		mismatch = fmt.Sprintf("the summary counts %d records to sequence %d, the chunks %d to %d", s.Records, s.EndSequence, st.Records, st.EndSequence)
+	case s.RejectedFrames != st.RejectedFrames || s.ShedFrames != st.ShedFrames:
+		mismatch = "the summary and the chain disagree on refused and shed frames"
 	}
 	if mismatch != "" {
 		return &CorruptionError{Kind: CorruptSummary, Object: summaryName, Chunk: -1, Length: -1,
@@ -1043,7 +1086,6 @@ func (r *Reader) readSummary() error {
 			Detail: mismatch + ": a chunk is missing, reordered or foreign"}
 	}
 	r.summary = &s
-	r.status.Closed = true
 	return nil
 }
 

@@ -155,10 +155,9 @@ func TestReorderedChunksAreRefused(t *testing.T) {
 // bounds, before the reader allocates for it or reads past the record.
 func TestOversizedLengthIsRefusedByBounds(t *testing.T) {
 	dir, chunks := damaged(t)
+	// The forgery re-seals the chunk and re-forges the commit chain and the
+	// summary around it, so only the length can give it away.
 	ForgeRecordLength(t, dir, 1, 0, 0xfffffff0)
-	// The closing summary chains the chunk digests and would catch the
-	// reseal; without it only the length can give the forgery away.
-	os.Remove(filepath.Join(dir, summaryName))
 	r, err := Open(dir, Options{})
 	if err != nil {
 		t.Fatalf("a consistently resealed chunk should open: %v", err)
@@ -205,9 +204,9 @@ func TestIndexChunkDisagreement(t *testing.T) {
 	requireCorruption(t, err, CorruptDisagreement, 1)
 }
 
-// Missing chunks: a hole in the ordinals is refused; a missing final chunk
-// is caught by the closing summary, and without one the capture reads as
-// unclosed rather than complete.
+// Missing committed objects: the chain names every chunk and the summary,
+// so a hole, a missing final chunk and a missing summary are each refused
+// and located, rather than read as a shorter or unclosed capture.
 func TestMissingChunks(t *testing.T) {
 	dir, _ := damaged(t)
 	os.Remove(ChunkPath(dir, 1))
@@ -220,15 +219,15 @@ func TestMissingChunks(t *testing.T) {
 	os.Remove(ChunkPath(dir, last))
 	os.Remove(IndexPath(dir, last))
 	_, err = Open(dir, Options{})
-	requireCorruption(t, err, CorruptSummary, -1)
-
-	os.Remove(filepath.Join(dir, summaryName))
-	r, err := Open(dir, Options{})
-	if err != nil {
-		t.Fatal(err)
+	if c := requireCorruption(t, err, CorruptMissing, int64(last)); !c.HaveSequences || c.FirstSequence != chunks[last].FirstSequence {
+		t.Fatalf("the missing final chunk is not located to its sequences: %+v", c)
 	}
-	if st := r.Status(); st.Closed || st.EndSequence != chunks[last].FirstSequence {
-		t.Fatalf("status = %+v", st)
+
+	dir, _ = damaged(t)
+	os.Remove(filepath.Join(dir, summaryName))
+	_, err = Open(dir, Options{})
+	if c := requireCorruption(t, err, CorruptMissing, -1); c.Object != summaryName {
+		t.Fatalf("damage located to %s", c.Object)
 	}
 }
 
@@ -254,7 +253,9 @@ func TestManifestAndSummaryDamage(t *testing.T) {
 	dir, _ := damaged(t)
 	FlipBit(t, filepath.Join(dir, summaryName), preambleSize+envelopeSize+1, 0)
 	_, err := Open(dir, Options{})
-	requireCorruption(t, err, CorruptChecksum, -1)
+	if c := requireCorruption(t, err, CorruptSummary, -1); c.Object != summaryName {
+		t.Fatalf("damage located to %s", c.Object)
+	}
 
 	dir, _ = damaged(t)
 	FlipBit(t, filepath.Join(dir, manifestName), preambleSize+envelopeSize+4, 3)

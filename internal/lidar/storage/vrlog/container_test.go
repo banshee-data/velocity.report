@@ -3,10 +3,13 @@ package vrlog
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
@@ -115,7 +118,7 @@ func TestContainerRoundTripsAStreamAcrossChunks(t *testing.T) {
 		t.Fatalf("expected several chunks, got %d", len(r.Chunks()))
 	}
 	st := r.Status()
-	if !st.Closed || len(st.UnsealedTail) != 0 || st.EndSequence != 20 || st.Frames != 18 || st.Gaps != 2 {
+	if !st.Closed || st.State != CaptureClosed || len(st.UncommittedTail) != 0 || st.EndSequence != 20 || st.Frames != 18 || st.Gaps != 2 {
 		t.Fatalf("status = %+v", st)
 	}
 	stored, ok := r.Summary()
@@ -357,11 +360,15 @@ func validRawManifest(t *testing.T) *pb.RecordingManifest {
 	m.Profile = l4bobserve.ForegroundComplete()
 	m.Limits = DefaultLimits()
 	m.Capture.UUID = "00000000-0000-4000-8000-000000000000"
+	m.RequiredFeatures = []string{featureCommitGenerations}
+	m.Commit = DefaultCommitPolicy().withDefaults(m.Limits)
 	return m.toProto()
 }
 
 func TestReaderRefusesWhatItCannotInterpret(t *testing.T) {
-	if _, err := Open(writeRawManifest(t, validRawManifest(t), nil), Options{}); err != nil {
+	// A manifest alone has no generations: Open finds nothing committed and
+	// says the pointer was missing.
+	if r, err := Open(writeRawManifest(t, validRawManifest(t), nil), Options{}); err != nil || r.Status().PointerFallback == "" || r.Status().Records != 0 {
 		t.Fatalf("the unmodified raw manifest was refused: %v", err)
 	}
 	for name, tc := range map[string]struct {
@@ -370,18 +377,23 @@ func TestReaderRefusesWhatItCannotInterpret(t *testing.T) {
 		unsupported bool
 		want        string
 	}{
-		"newer major version":  {preamble: func(b []byte) { b[12] = 2 }, unsupported: true, want: "major version 2"},
-		"required feature":     {mutate: func(m *pb.RecordingManifest) { m.RequiredFeatures = []string{"codec/zstd-blocks"} }, unsupported: true, want: "codec/zstd-blocks"},
-		"unknown profile":      {mutate: func(m *pb.RecordingManifest) { m.Profile = "foreground-complete-v2" }, unsupported: true, want: "foreground-complete-v2"},
-		"schema version":       {mutate: func(m *pb.RecordingManifest) { m.SchemaVersion = 2 }, unsupported: true, want: "schema version"},
-		"stream kind":          {mutate: func(m *pb.RecordingManifest) { m.StreamKind = 7 }, unsupported: true, want: "stream kind"},
-		"digest version":       {mutate: func(m *pb.RecordingManifest) { m.SemanticDigestVersion = "x/v9" }, unsupported: true, want: "semantic digest"},
-		"mislabelled profile":  {mutate: func(m *pb.RecordingManifest) { m.Capabilities = m.Capabilities[1:] }, want: "which declares"},
-		"limit over a ceiling": {mutate: func(m *pb.RecordingManifest) { m.Limits.MaxRecordBytes = HardMaxRecordBytes + 1 }, want: "record bound"},
-		"source identity":      {mutate: func(m *pb.RecordingManifest) { m.Extraction.ExtractorId = "l4.other/v1" }, want: "source identity"},
-		"calibration identity": {mutate: func(m *pb.RecordingManifest) { m.Calibration.Transform[3] = 1 }, want: "calibration identity"},
-		"metadata digest":      {mutate: func(m *pb.RecordingManifest) { m.Metadata[0].Content = []byte("{}") }, want: "SHA-256"},
-		"transform length":     {mutate: func(m *pb.RecordingManifest) { m.Calibration.Transform = m.Calibration.Transform[:15] }, want: "16"},
+		"newer major version":        {preamble: func(b []byte) { b[12] = 2 }, unsupported: true, want: "major version 2"},
+		"required feature":           {mutate: func(m *pb.RecordingManifest) { m.RequiredFeatures = append(m.RequiredFeatures, "codec/zstd-blocks") }, unsupported: true, want: "codec/zstd-blocks"},
+		"no commit generations":      {mutate: func(m *pb.RecordingManifest) { m.RequiredFeatures, m.CommitPolicy = nil, nil }, want: "written before commit generations"},
+		"policy without the feature": {mutate: func(m *pb.RecordingManifest) { m.RequiredFeatures = nil }, want: "without requiring commit generations"},
+		"feature without a policy":   {mutate: func(m *pb.RecordingManifest) { m.CommitPolicy = nil }, want: "declares no commit policy"},
+		"understated crash loss":     {mutate: func(m *pb.RecordingManifest) { m.CommitPolicy.CrashLossIntervalNanos /= 2 }, want: "crash-loss bound"},
+		"batch over the chunk":       {mutate: func(m *pb.RecordingManifest) { m.CommitPolicy.MaxBatchBytes = m.Limits.TargetChunkBytes + 1 }, want: "batch bytes"},
+		"unknown profile":            {mutate: func(m *pb.RecordingManifest) { m.Profile = "foreground-complete-v2" }, unsupported: true, want: "foreground-complete-v2"},
+		"schema version":             {mutate: func(m *pb.RecordingManifest) { m.SchemaVersion = 2 }, unsupported: true, want: "schema version"},
+		"stream kind":                {mutate: func(m *pb.RecordingManifest) { m.StreamKind = 7 }, unsupported: true, want: "stream kind"},
+		"digest version":             {mutate: func(m *pb.RecordingManifest) { m.SemanticDigestVersion = "x/v9" }, unsupported: true, want: "semantic digest"},
+		"mislabelled profile":        {mutate: func(m *pb.RecordingManifest) { m.Capabilities = m.Capabilities[1:] }, want: "which declares"},
+		"limit over a ceiling":       {mutate: func(m *pb.RecordingManifest) { m.Limits.MaxRecordBytes = HardMaxRecordBytes + 1 }, want: "record bound"},
+		"source identity":            {mutate: func(m *pb.RecordingManifest) { m.Extraction.ExtractorId = "l4.other/v1" }, want: "source identity"},
+		"calibration identity":       {mutate: func(m *pb.RecordingManifest) { m.Calibration.Transform[3] = 1 }, want: "calibration identity"},
+		"metadata digest":            {mutate: func(m *pb.RecordingManifest) { m.Metadata[0].Content = []byte("{}") }, want: "SHA-256"},
+		"transform length":           {mutate: func(m *pb.RecordingManifest) { m.Calibration.Transform = m.Calibration.Transform[:15] }, want: "16"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			m := validRawManifest(t)
@@ -462,8 +474,10 @@ func TestReaderRefusesLegacyRecordings(t *testing.T) {
 // current position, as a newer writer might.
 func injectRecord(t *testing.T, w *Writer, kind RecordKind) {
 	t.Helper()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	record := appendRecord(nil, envelope{kind: kind, tag: w.tag, sequence: w.stream.NextSequence()}, []byte("future"))
-	if err := w.append(record, entry{kind: kind, first: w.stream.NextSequence()}, l4bobserve.Digest{}); err != nil {
+	if _, err := w.writeRecordLocked(record, entry{kind: kind, first: w.stream.NextSequence()}, l4bobserve.Digest{}, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -505,78 +519,99 @@ func TestUnknownRecordKinds(t *testing.T) {
 	}
 }
 
-// An interrupted writer leaves at most an unsealed tail, which is reported
-// and never read; Abandon seals what a healthy writer holds.
-func TestUnsealedTailIsNeverEvidence(t *testing.T) {
-	w, dir := createTest(t, testManifest(t))
+// A killed writer leaves its open batch as an uncommitted tail, which is
+// reported and never read; what it committed stays readable.
+func TestUncommittedTailIsNeverEvidence(t *testing.T) {
+	m := testManifest(t)
+	m.Commit.MaxBatchAge = time.Hour // nothing commits by age during the test
+	w, dir := createTest(t, m)
 	for seq := range uint64(3) {
 		if err := w.AppendFrame(synthFrame(seq, 10)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// Simulate a crash: the open chunk is neither sealed nor summarised.
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	for seq := uint64(3); seq < 5; seq++ {
+		if err := w.AppendFrame(synthFrame(seq, 10)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.die() // as a killed process: the open batch is neither sealed nor committed
 	r, err := Open(dir, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	st := r.Status()
-	if st.Closed || len(st.UnsealedTail) != 1 || st.Records != 0 {
+	if st.Closed || st.State != CaptureOpen || !st.TailExtentUnknown || st.Frames != 3 || st.EndSequence != 3 ||
+		len(st.UncommittedTail) != 1 || st.UncommittedTail[0] != "chunks/00000001.chunk.open" {
 		t.Fatalf("status = %+v", st)
 	}
-	if _, err := r.Next(); !errors.Is(err, io.EOF) {
-		t.Fatalf("an unsealed record was read: %v", err)
+	if got := readAll(t, dir, Options{}); len(got) != 3 || got[2].Frame.Sequence != 2 {
+		t.Fatalf("read %d records past the committed prefix", len(got))
 	}
-	if err := w.Abandon(); err != nil {
-		t.Fatal(err)
-	}
-	r, err = Open(dir, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st := r.Status(); st.Closed || len(st.UnsealedTail) != 0 || st.Frames != 3 {
-		t.Fatalf("after Abandon: %+v", st)
-	}
-	if err := w.AppendFrame(synthFrame(3, 1)); err == nil {
-		t.Fatal("an abandoned writer accepted a frame")
+	if err := w.AppendFrame(synthFrame(5, 1)); !errors.Is(err, errWriterKilled) {
+		t.Fatalf("a killed writer accepted a frame: %v", err)
 	}
 }
 
-// After a failed write the open chunk's last record may be partial, so the
-// writer stops admitting evidence, never seals that chunk, and writes no
-// summary: the container reads as interrupted, with its sealed prefix intact.
-func TestWriteFailureIsStickyAndNeverSealed(t *testing.T) {
+// A failed write is a capture failure: the batch whose last record may be
+// partial is never sealed, admission stops, and a failure generation
+// records how far acceptance and commitment each got.
+func TestWriteFailureIsACaptureFailure(t *testing.T) {
 	m := testManifest(t)
 	m.Limits = smallChunks()
+	m.Commit.MaxBatchAge = time.Hour
 	w, dir := createTest(t, m)
 	for seq := range uint64(6) {
 		if err := w.AppendFrame(synthFrame(seq, 40)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	sealed := w.summary.Chunks
-	if sealed == 0 || w.chunk == nil {
-		t.Fatalf("fixture needs sealed chunks and an open one: %d sealed, open %v", sealed, w.chunk != nil)
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
 	}
-	w.chunk.file.Close() // the next write fails, as on a lost device
-	if err := w.AppendFrame(synthFrame(6, 40)); err == nil {
-		t.Fatal("a write to a failed chunk succeeded")
+	committed := w.Frontier()
+	if err := w.AppendFrame(synthFrame(6, 40)); err != nil {
+		t.Fatal(err)
 	}
-	if err := w.AppendFrame(synthFrame(7, 40)); err == nil || !strings.Contains(err.Error(), "failed earlier") {
+	// The chunk's device fails; the small objects still write, so the
+	// failure marker lands.
+	w.hooks.Store(&writerHooks{write: func(name string) error {
+		if strings.HasPrefix(name, chunksDir+"/") {
+			return syscall.EIO
+		}
+		return nil
+	}})
+	err := w.AppendFrame(synthFrame(7, 40))
+	var failed *CaptureFailedError
+	if !errors.As(err, &failed) || failed.Cause != FailureIO || failed.AcceptedEndSequence != 7 || failed.CommittedEndSequence != committed.EndSequence {
+		t.Fatalf("write failure = %v", err)
+	}
+	if err := w.AppendFrame(synthFrame(8, 40)); !errors.Is(err, ErrCaptureFailed) {
 		t.Fatalf("the failure was not sticky: %v", err)
 	}
-	if _, err := w.Close(); err == nil {
-		t.Fatal("Close reported success after a failed write")
+	if _, err := w.Close(); !errors.Is(err, ErrCaptureFailed) {
+		t.Fatalf("Close reported %v after a failed write", err)
+	}
+	if f := w.Frontier(); f.State != CaptureFailed || !f.Final || f.Failure == nil || !f.Failure.MarkerWritten {
+		t.Fatalf("frontier = %+v", f)
 	}
 	r, err := Open(dir, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	st := r.Status()
-	if st.Closed || len(st.UnsealedTail) != 1 || uint64(st.Chunks) != sealed {
-		t.Fatalf("status = %+v", st)
+	if st.Closed || st.State != CaptureFailed || st.TailExtentUnknown || st.Failure == nil || st.Failure.Cause != FailureIO ||
+		st.Failure.AcceptedEndSequence != 7 || st.EndSequence != committed.EndSequence || len(st.UncommittedTail) != 1 {
+		t.Fatalf("status = %+v (failure %+v)", st, st.Failure)
+	}
+	if _, err := os.Stat(filepath.Join(dir, reserveName)); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("the failure reserve was not released for the marker: %v", err)
 	}
 	if _, err := r.Verify(); err != nil {
-		t.Fatalf("the sealed prefix does not verify: %v", err)
+		t.Fatalf("the committed prefix does not verify: %v", err)
 	}
 }
 

@@ -85,8 +85,9 @@ func (l Limits) validate() error {
 type Manifest struct {
 	// Profile is the evidence profile every record satisfies.
 	Profile l4bobserve.Profile
-	// RequiredFeatures are format features a reader must understand. It is
-	// empty in container 1.0; a reader refuses any it does not know.
+	// RequiredFeatures are format features a reader must understand; a reader
+	// refuses any it does not know. The writer declares "commit-generations",
+	// and this reader requires it.
 	RequiredFeatures []string
 	Capture          CaptureIdentity
 	Extraction       ExtractionIdentity
@@ -95,6 +96,19 @@ type Manifest struct {
 	Provenance       Provenance
 	// Metadata objects are embedded by value with a SHA-256 the reader checks.
 	Metadata []MetadataObject
+	// Commit is the declared group-commit policy; zero fields take the
+	// provisional defaults at Create.
+	Commit CommitPolicy
+}
+
+// hasFeature reports whether the manifest requires feature.
+func (m Manifest) hasFeature(feature string) bool {
+	for _, f := range m.RequiredFeatures {
+		if f == feature {
+			return true
+		}
+	}
+	return false
 }
 
 // CaptureIdentity names one capture. UUID and CreatedUnixNanos are the
@@ -155,11 +169,12 @@ type MetadataObject struct {
 	SHA256 string
 }
 
-// knownFeatures are the required features this reader implements. Container
-// 1.0 defines none; a 1.x writer that needs a reader to understand something
-// new (a compressed codec, a changed field meaning) adds a name here and to
-// its manifest, and every older reader refuses the container.
-var knownFeatures = map[string]bool{}
+// knownFeatures are the required features this reader implements. A 1.x
+// writer that needs a reader to understand something new (a compressed
+// codec, a changed field meaning) adds a name here and to its manifest, and
+// every older reader refuses the container. Container 1.1 adds the commit
+// chain; container 1.0 defined none.
+var knownFeatures = map[string]bool{featureCommitGenerations: true}
 
 // validate checks everything a manifest promises that can be checked without
 // the records: a known profile whose capabilities match its declaration,
@@ -181,6 +196,11 @@ func (m Manifest) validate() error {
 	}
 	if err := m.Limits.validate(); err != nil {
 		return fmt.Errorf("limits: %w", err)
+	}
+	if m.hasFeature(featureCommitGenerations) {
+		if err := m.Commit.validate(m.Limits); err != nil {
+			return fmt.Errorf("commit policy: %w", err)
+		}
 	}
 	c, e := m.Capture, m.Extraction
 	for name, value := range map[string]string{
@@ -252,7 +272,12 @@ func (m Manifest) toProto() *pb.RecordingManifest {
 		metadata[i] = &pb.MetadataObject{Name: o.Name, MediaType: o.MediaType, Content: o.Content, Sha256: o.SHA256}
 	}
 	l := m.Limits
+	var policy *pb.CommitPolicy
+	if m.hasFeature(featureCommitGenerations) {
+		policy = m.Commit.toProto(l)
+	}
 	return &pb.RecordingManifest{
+		CommitPolicy:          policy,
 		SchemaVersion:         pb.SchemaVersion_SCHEMA_VERSION_1,
 		StreamKind:            pb.StreamKind_STREAM_KIND_OBSERVATION,
 		Profile:               string(m.Profile.Name),
@@ -308,6 +333,11 @@ func manifestFromProto(p *pb.RecordingManifest) (Manifest, error) {
 		if len(feature) > maxRequiredFeatureNameSize {
 			return Manifest{}, fmt.Errorf("required feature name of %d bytes", len(feature))
 		}
+		// Refuse an unknown feature before interpreting anything it may
+		// change, including the commit policy.
+		if !knownFeatures[feature] {
+			return Manifest{}, &UnsupportedError{What: fmt.Sprintf("required feature %q", feature)}
+		}
 	}
 	caps := make([]l4bobserve.Capability, len(p.GetCapabilities()))
 	for i, c := range p.GetCapabilities() {
@@ -356,6 +386,18 @@ func manifestFromProto(p *pb.RecordingManifest) (Manifest, error) {
 	}
 	for _, o := range p.GetMetadata() {
 		m.Metadata = append(m.Metadata, MetadataObject{Name: o.GetName(), MediaType: o.GetMediaType(), Content: o.GetContent(), SHA256: o.GetSha256()})
+	}
+	if m.hasFeature(featureCommitGenerations) {
+		if err := m.Limits.validate(); err != nil {
+			return Manifest{}, fmt.Errorf("limits: %w", err)
+		}
+		policy, err := commitPolicyFromProto(p.GetCommitPolicy(), m.Limits)
+		if err != nil {
+			return Manifest{}, err
+		}
+		m.Commit = policy
+	} else if p.GetCommitPolicy() != nil {
+		return Manifest{}, fmt.Errorf("the manifest declares a commit policy without requiring commit generations")
 	}
 	return m, nil
 }

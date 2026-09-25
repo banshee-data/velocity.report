@@ -1,9 +1,12 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
 )
 
 type memoryFrameSink struct {
@@ -211,5 +215,81 @@ func TestObservationFrameTapRefusesMissingIdentityAndSurvivesSinkErrors(t *testi
 	driveSeedAndForeground(cfg.NewFrameCallback(), 1)
 	if len(failing.records) != 6 {
 		t.Fatalf("a failing sink stopped the tap after %d records", len(failing.records))
+	}
+}
+
+// gatedTracker holds L5 inside Update until released, recording how many
+// observation records the writer had accepted when L5 was entered.
+type gatedTracker struct {
+	l5tracks.TrackerInterface
+	writer   *vrlog.Writer
+	entered  chan uint64
+	release  chan struct{}
+	gateOnce sync.Once
+}
+
+func (g *gatedTracker) Update(clusters []l5tracks.WorldCluster, timestamp time.Time) {
+	g.gateOnce.Do(func() {
+		g.entered <- g.writer.Frontier().AcceptedRecords
+		<-g.release
+	})
+	g.TrackerInterface.Update(clusters, timestamp)
+}
+
+// The L4 capture commit is independent of L5: with the durable writer as
+// the tap's sink and the tracker held inside Update, the frame L5 is working
+// on is committed and announced while L5 is still blocked. The callback
+// only waits for acceptance; durability happens on the writer's committer.
+func TestObservationCommitNeverWaitsForL5(t *testing.T) {
+	sensorID := "tap-" + t.Name()
+	calibration := l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site/" + sensorID,
+		Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+	calibrationID, err := l4bobserve.CalibrationID(calibration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), "tap.vrlog")
+	writer, err := vrlog.Create(dir, vrlog.Manifest{
+		Capture: vrlog.CaptureIdentity{SensorID: sensorID, SourceType: "synthetic"},
+		Extraction: vrlog.ExtractionIdentity{SourceID: "source/v1/tap-test", CalibrationID: calibrationID,
+			CoordinateFrame: "site/" + sensorID, ExtractorID: "l4.test/tap"},
+		Calibration: calibration,
+		Commit:      vrlog.CommitPolicy{MaxBatchAge: 5 * time.Millisecond},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writer.Abandon()
+	cfg := tapConfig(t, writer)
+	gate := &gatedTracker{TrackerInterface: l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()), writer: writer,
+		entered: make(chan uint64, 1), release: make(chan struct{})}
+	cfg.Tracker = gate
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		driveSeedAndForeground(cfg.NewFrameCallback(), 3)
+	}()
+	var accepted uint64
+	select {
+	case accepted = <-gate.entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("L5 was never entered")
+	}
+	if accepted == 0 {
+		t.Fatal("L5 ran before any frame was accepted")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	f := writer.Frontier()
+	for f.Records < accepted {
+		if f, err = writer.WaitFrontier(ctx, f.Generation); err != nil {
+			t.Fatalf("the frame L5 holds was not committed while L5 was blocked: %+v, %v", f, err)
+		}
+	}
+	close(gate.release)
+	<-done
+	summary, err := writer.Close()
+	if err != nil || summary.Frames != 8 {
+		t.Fatalf("summary = %+v, %v", summary, err)
 	}
 }

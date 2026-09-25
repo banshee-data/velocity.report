@@ -22,16 +22,25 @@ Usage:
   velocity lidar observations verify [--require PROFILE] [--rebuild-index] DIR...
   velocity lidar observations inspect [--records N] DIR
   velocity lidar observations compare DIR DIR
+  velocity lidar observations recover DIR
 
 Commands:
-  verify   Read every record: chunk digests, record checksums, indexes against
-           their chunks, the stream contract, and the semantic digests the
-           writer sealed. Exits 1 if any container fails, naming the damaged
-           object, bytes and source sequences.
-  inspect  Print the manifest, the sealed chunks and the first records.
+  verify   Read every committed record: the commit chain, chunk digests,
+           record checksums, indexes against their chunks, the stream
+           contract, and the semantic digests the writer sealed. Exits 1 if
+           any container fails, naming the damaged object, bytes and source
+           sequences. Reports how the capture ended.
+  inspect  Print the manifest and commit policy, the commit state, the
+           committed chunks and the first records.
   compare  Compare two containers record by record, value for value. Capture
            identity and chunking may differ; evidence may not. Use it to check
            that a repeat extraction of the same source reproduces the first.
+  recover  Make an interrupted capture consistent for offline readers: promote
+           generations published but never acknowledged, move uncommitted
+           objects under quarantine/, and record both in a recovery generation
+           that marks the capture incomplete. Committed evidence is never
+           rewritten; damage inside it is reported and left alone. Refuses a
+           container a live writer holds. Running it twice changes nothing.
 
 Write a container with:
   velocity lidar pcap-replay --pcap FILE --output DIR --observations OBS \
@@ -51,6 +60,8 @@ func ObservationsMain(args []string) int {
 		return observationsInspect(args[1:])
 	case "compare":
 		return observationsCompare(args[1:])
+	case "recover":
+		return observationsRecover(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(observationsUsage)
 		return 0
@@ -103,15 +114,11 @@ func observationsVerify(args []string) int {
 			failed++
 			continue
 		}
-		state := "closed"
-		if !report.Closed {
-			state = "UNCLOSED (no summary: the capture may have been interrupted)"
-		}
-		fmt.Printf("ok   %s: %d frames, %d gaps, sequences [0, %d), %d chunks, %d bytes, %s; semantic %s (%s)\n",
-			dir, report.Frames, report.Gaps, report.EndSequence, report.Chunks, report.ChunkBytes, state,
+		fmt.Printf("ok   %s: %d frames, %d gaps, sequences [0, %d), %d chunks, %d bytes, generation %d; semantic %s (%s)\n",
+			dir, report.Frames, report.Gaps, report.EndSequence, report.Chunks, report.ChunkBytes, report.Generation,
 			report.Semantic, time.Since(start).Round(time.Millisecond))
-		for _, tail := range report.UnsealedTail {
-			fmt.Printf("     unsealed tail not read: %s\n", tail)
+		for _, line := range describeState(report.Status) {
+			fmt.Printf("     %s\n", line)
 		}
 		if len(report.IndexesRebuilt) > 0 {
 			fmt.Printf("     indexes rebuilt in memory for chunks %v\n", report.IndexesRebuilt)
@@ -197,18 +204,62 @@ func printManifest(m vrlog.Manifest) {
 	l := m.Limits
 	fmt.Printf("limits       chunk target %d / max %d bytes, record %d bytes, %d points, %d clusters per frame\n",
 		l.TargetChunkBytes, l.MaxChunkBytes, l.MaxRecordBytes, l.MaxPointsPerFrame, l.MaxClustersPerFrame)
+	c := m.Commit
+	mode := fmt.Sprintf("group commit at %s or %d bytes", c.MaxBatchAge, c.MaxBatchBytes)
+	if c.Strict {
+		mode = "strict (every record durable before its append returns)"
+	}
+	loss := c.CrashLoss(l)
+	fmt.Printf("commit       %s; deadline %s, shed after %s; crash loss up to %s, %d bytes, %d frames (process crash, not power loss)\n",
+		mode, c.CommitDeadline, c.ShedAfter, loss.Interval, loss.Bytes, loss.Frames)
+}
+
+// describeState says how a capture ended and what lies beyond its
+// committed prefix, one line each.
+func describeState(st vrlog.Status) []string {
+	var out []string
+	switch st.State {
+	case vrlog.CaptureClosed:
+		out = append(out, "closed: a close generation committed the summary")
+	case vrlog.CaptureFailed:
+		f := st.Failure
+		out = append(out, fmt.Sprintf("FAILED (%s): %s; accepted to sequence %d, committed to %d", f.Cause, f.Detail,
+			f.AcceptedEndSequence, st.EndSequence))
+	case vrlog.CaptureIncomplete:
+		out = append(out, "INCOMPLETE: recovered after an interruption; the tail after the committed end is unknown")
+	default:
+		out = append(out, "OPEN: no terminal generation (still being written, or interrupted: run recover)")
+	}
+	if rec := st.Recovery; rec != nil {
+		out = append(out, fmt.Sprintf("recovered at generation %d by %s: promoted %v, quarantined %d objects",
+			rec.Generation, rec.RecoveredBy, rec.Promoted, rec.QuarantinedCount))
+	}
+	if st.PointerFallback != "" {
+		out = append(out, "current pointer unusable, fell back to the validated chain: "+st.PointerFallback)
+	}
+	if len(st.Unpromoted) > 0 {
+		out = append(out, fmt.Sprintf("generations %v published but never acknowledged: not read (recover promotes them)", st.Unpromoted))
+	}
+	if st.RejectedFrames+st.ShedFrames > 0 {
+		out = append(out, fmt.Sprintf("%d frames over a limit and %d shed under writer backlog, each recorded as a gap",
+			st.RejectedFrames, st.ShedFrames))
+	}
+	for _, tail := range st.UncommittedTail {
+		out = append(out, "uncommitted, not evidence: "+tail)
+	}
+	return out
 }
 
 func printChunks(r *vrlog.Reader) {
 	st := r.Status()
-	state := "closed"
-	if !st.Closed {
-		state = "unclosed"
+	fmt.Printf("\n%d chunks, %d records (%d frames, %d gaps), sequences [0, %d), %d bytes, generation %d\n",
+		st.Chunks, st.Records, st.Frames, st.Gaps, st.EndSequence, st.ChunkBytes, st.Generation)
+	for _, line := range describeState(st) {
+		fmt.Println(line)
 	}
-	fmt.Printf("\n%d chunks, %d records (%d frames, %d gaps), sequences [0, %d), %d bytes, %s\n",
-		st.Chunks, st.Records, st.Frames, st.Gaps, st.EndSequence, st.ChunkBytes, state)
-	for _, tail := range st.UnsealedTail {
-		fmt.Printf("unsealed tail (not evidence): %s\n", tail)
+	if s, ok := r.Summary(); ok && s.Commits > 0 {
+		fmt.Printf("commit latency over %d generations: p50 %s, p95 %s, max %s\n", s.Commits,
+			s.CommitLatency.P50, s.CommitLatency.P95, s.CommitLatency.Max)
 	}
 	fmt.Printf("%-8s %10s %8s %20s  %s\n", "CHUNK", "BYTES", "RECORDS", "SEQUENCES", "FIRST START (UTC)")
 	for _, c := range r.Chunks() {
@@ -238,6 +289,40 @@ func printRecord(rec vrlog.Record) {
 		}
 		fmt.Printf("%-8s %-6s %-11s %-10s %8s %8s %10s  %s (missing frames %s)\n", seq, "gap", "-", "-", "-", "-", "-", g.Cause, g.MissingFrames)
 	}
+}
+
+func observationsRecover(args []string) int {
+	fs := flag.NewFlagSet("velocity-lidar-observations-recover", flag.ContinueOnError)
+	if code, ok := parseObservationFlags(fs, args); !ok {
+		return code
+	}
+	if fs.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "error: exactly one container directory is required")
+		return 2
+	}
+	report, err := vrlog.Recover(fs.Arg(0), vrlog.Options{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "recover: %v\n", err)
+		return 1
+	}
+	action := "nothing to do: the container is consistent"
+	switch {
+	case report.Wrote:
+		action = fmt.Sprintf("wrote recovery generation %d", report.Generation)
+	case report.PointerRewritten:
+		action = fmt.Sprintf("completed an interrupted recovery: pointer now names generation %d", report.Generation)
+	}
+	fmt.Printf("%s: %s; %s, %d records to sequence %d\n", fs.Arg(0), action, report.State, report.Records, report.EndSequence)
+	if report.PointerDetail != "" {
+		fmt.Printf("  pointer was unusable: %s\n", report.PointerDetail)
+	}
+	if len(report.Promoted) > 0 {
+		fmt.Printf("  promoted generations %v (published, never acknowledged)\n", report.Promoted)
+	}
+	for _, q := range report.Quarantined {
+		fmt.Printf("  quarantined %s\n", q)
+	}
+	return 0
 }
 
 func observationsCompare(args []string) int {

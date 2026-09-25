@@ -88,8 +88,10 @@ Build one compatible path, in this order:
    source-ordinal lineage and an opt-in pre-L5 tap are delivered with kirk0 evidence
    ([VRLOG plan](lidar-vrlog-observation-format-plan.md#delivered-domain-contract-builder-and-tap)),
    as are the typed binary codec and offline reader
-   ([phase 1](lidar-vrlog-observation-format-plan.md#delivered-codec-and-offline-reader-phase-1));
-   the L4 commit and durable frontier are not.
+   ([phase 1](lidar-vrlog-observation-format-plan.md#delivered-codec-and-offline-reader-phase-1))
+   and, on the desktop, the L4 commit independent of L5 with a durable frontier and recovery
+   ([phase 2](lidar-vrlog-observation-format-plan.md#delivered-capture-and-durable-tail-phase-2-desktop)).
+   Power-loss and target-hardware evidence, and the worker that reads the frontier, are not.
 2. Run the estimator from that frontier with capture-time prediction, bounded coasting and a
    corrected face-aware measurement. Fix association-cost bias before increasing coast
    uncertainty. Preserve ambiguous assignments and point ownership for later correction.
@@ -2408,7 +2410,8 @@ Those JSON records are the `reduced-cluster-sample` profile: a capped sample can
 evidence by migration. The accuracy work reads the `foreground-complete` `l4bobserve.FrameRecord`
 instead, from an opt-in tap that precedes L5 and display filtering. It holds one record per
 frame, every L3 foreground return with source-ordinal lineage, and an exact cluster/unassigned
-partition. It is in memory only until the shared VRLOG writer lands.
+partition. The shared VRLOG writer commits it durably, independently of L5, when a replay or
+the opt-in live capture asks.
 
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
@@ -2900,7 +2903,9 @@ architecture; it does not relitigate findings.
       requests, and an opt-in pre-L5 tap in `replayeval`
 - [x] Sprint 0.5.2.2 step 1, codec: typed VRLOG 1.x container and offline reader with exact
       kirk0 round trips, a versioned semantic digest and located corruption
-- [ ] Sprint 0.5.2.2 step 1, durable: L4 commit independent of L5, durable frontier
+- [x] Sprint 0.5.2.2 step 1, durable: L4 commit independent of L5, commit generations, durable
+      frontier, recovery and failure accounting, with desktop G-OBS-TIME, G-OBS-QUEUE and
+      process-crash evidence; power-loss and Pi gates remain
 - [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test

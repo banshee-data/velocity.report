@@ -184,8 +184,22 @@ filter. The field sits in former padding, so enabling nothing costs nothing. The
 for a full-evidence request. `replayeval.Config.ObservationLogDir` (and
 `velocity lidar pcap-replay --observations`) also writes the records to a VRLOG 1.x observation
 container, typed and checksummed, and readable back bit for bit
-([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)). Its durable
-live writer is phase 2 of the [shared VRLOG plan](../../plans/lidar-vrlog-observation-format-plan.md).
+([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)).
+
+### Capture frontier (opt-in)
+
+When the tap's sink is the durable VRLOG writer, the L4 callback appends each frame and moves on:
+the append means accepted. A committer goroutine closes the batch at 100 ms or the target chunk
+size and publishes it as a commit generation, and only after its last directory sync announces
+the durable frontier. L5 runs after the append and never gates the commit; a test holds L5 inside
+`Update` while the frame it holds is committed. Consumers read committed generations only: a live
+one through the writer's announced frontier (`vrlog.Follow`), an offline one through the chain
+(`vrlog.Open`), and an interrupted capture after `vrlog.Recover`. A commit stall, write error or
+full disk stops admission and leaves a failure marker when the disk allows; frames the writer
+cannot admit in time are explicit gaps. Replays use it through `ObservationLogDir`. The server's
+`--lidar-observation-dir` is off by default: power-loss and target-hardware evidence for a live
+default does not exist yet
+([VRLOG plan, phase 2](../../plans/lidar-vrlog-observation-format-plan.md#delivered-capture-and-durable-tail-phase-2-desktop)).
 
 ### Background settling and the 30-second warmup
 

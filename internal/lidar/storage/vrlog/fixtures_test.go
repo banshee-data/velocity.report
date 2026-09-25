@@ -142,6 +142,8 @@ func createTest(t testing.TB, m Manifest) (*Writer, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Stop the committer of a writer a test left open; a no-op otherwise.
+	t.Cleanup(func() { _ = w.Abandon() })
 	return w, dir
 }
 

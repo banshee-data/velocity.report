@@ -120,8 +120,14 @@ func reportObservations(dir string) error {
 		return fmt.Errorf("verify: %w", err)
 	}
 	verdict := fmt.Sprintf("ok (%s, %d gaps)", r.Profile().Name, report.Gaps)
-	if !report.Closed {
-		verdict = "UNCLOSED: no summary, the capture may have been interrupted"
+	switch report.State {
+	case vrlog.CaptureClosed:
+	case vrlog.CaptureFailed:
+		verdict = fmt.Sprintf("FAILED (%s): %s", report.Failure.Cause, report.Failure.Detail)
+	case vrlog.CaptureIncomplete:
+		verdict = "INCOMPLETE: recovered after an interruption"
+	default:
+		verdict = "OPEN: no terminal generation; still being written, or interrupted (observations recover)"
 	}
 	fmt.Printf("%-38s %-6s %8d %8s %9s %8s %s\n",
 		filepath.Base(dir), fmt.Sprintf("obs-%d", vrlog.FormatMajor), report.Frames, "-", "-", "-", verdict)

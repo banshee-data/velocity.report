@@ -3,8 +3,9 @@
 // Package: velocity.recording.v1
 //
 // Typed payloads for VRLOG 1.x containers: the capture manifest, the L4
-// observation frame and gap records, and the chunk header, seal, index and
-// closing-summary objects. The container's fixed-binary record envelope,
+// observation frame and gap records, the chunk header, seal, index and
+// closing-summary objects, and the commit generations and current-generation
+// pointer that make them durable. The container's fixed-binary record envelope,
 // object preambles and record kinds are specified in
 // data/structures/VRLOG_FORMAT.md, not here: the envelope is deliberately
 // independent of this package so a reader can reject a file before it
@@ -79,6 +80,43 @@ message RecordingManifest {
   // Metadata objects embedded by value, each with its SHA-256, so the
   // manifest reproduces its configuration without an external path.
   repeated MetadataObject metadata = 12;
+  // How accepted evidence becomes durable, declared before any is admitted.
+  // Present exactly when required_features names "commit-generations".
+  CommitPolicy commit_policy = 13;
+}
+
+// CommitPolicy declares the writer's group-commit policy and the crash-loss
+// bound it implies. The root manifest is immutable and written first, so it
+// holds what was declared; each CommitGeneration and the closing summary
+// hold what was measured. Durations are nanoseconds.
+message CommitPolicy {
+  // The open batch is committed when its first record is this old, or when
+  // it holds max_batch_bytes, whichever comes first. Zero only when strict.
+  sfixed64 max_batch_age_nanos = 1;
+  uint64 max_batch_bytes = 2;
+  // Every record is durable before its append returns.
+  bool strict = 3;
+  // A record not durable within max_batch_age + commit_deadline of its
+  // acceptance puts the capture into failure; admission stops.
+  sfixed64 commit_deadline_nanos = 4;
+  // The caller's declared bound on how long a frame waits upstream of the
+  // writer (the bounded ingress queue). Declared, not enforced here.
+  sfixed64 upstream_queue_age_nanos = 5;
+  // How long an append may wait for the committer before the frame is
+  // recorded as an explicit gap instead. Zero: never shed; wait, and fail at
+  // the commit deadline.
+  sfixed64 shed_after_nanos = 6;
+  // Bytes preallocated so a failure marker can still be written on a full
+  // disk. Not a promise that a failed disk can store its own obituary.
+  uint64 failure_reserve_bytes = 7;
+  // The source's highest frame rate, used only to state the frame bound.
+  double max_frame_rate_hz = 8;
+  // Derived from the fields above and stored so an operator need not
+  // recompute them: upstream queue age + batch age + commit deadline; the
+  // bytes in the committing and open batches; frames in the interval.
+  sfixed64 crash_loss_interval_nanos = 9;
+  uint64 crash_loss_bytes = 10;
+  uint64 crash_loss_frames = 11;
 }
 
 // CaptureIdentity names one capture. The UUID is random and allocated before
@@ -412,4 +450,146 @@ message CaptureSummary {
   bytes semantic_sha256 = 8;
   // Sum of the sealed chunk files' sizes.
   uint64 total_chunk_bytes = 9;
+  // Frames the writer could not admit in time under its overload policy,
+  // each replaced by a gap over its sequence. Non-zero means incomplete.
+  uint64 shed_frames = 10;
+  // Commit generations published before the close, and the measured
+  // publication latency (steps 2 to 4 of the protocol) across them, from a
+  // histogram whose buckets are within 10% of each other.
+  uint64 commit_count = 11;
+  sfixed64 commit_p50_nanos = 12;
+  sfixed64 commit_p95_nanos = 13;
+  sfixed64 commit_p99_nanos = 14;
+  sfixed64 commit_max_nanos = 15;
+}
+
+// =============================================================================
+// Commit generations
+// =============================================================================
+
+enum GenerationKind {
+  GENERATION_KIND_UNSPECIFIED = 0;
+  // Generation 0: the container exists and nothing is committed yet.
+  GENERATION_KIND_OPEN = 1;
+  // Commits new chunks.
+  GENERATION_KIND_COMMIT = 2;
+  // Terminal: the writer closed cleanly; commits the last chunk, if any, and
+  // the closing summary.
+  GENERATION_KIND_CLOSE = 3;
+  // Terminal: admission stopped on a capture failure.
+  GENERATION_KIND_FAILURE = 4;
+  // Written only by recovery. It may follow any generation; after a
+  // terminal generation nothing else may.
+  GENERATION_KIND_RECOVERY = 5;
+}
+
+// CommitTrigger says why a batch was closed.
+enum CommitTrigger {
+  COMMIT_TRIGGER_UNSPECIFIED = 0;
+  COMMIT_TRIGGER_BATCH_AGE = 1;
+  COMMIT_TRIGGER_BATCH_BYTES = 2;
+  COMMIT_TRIGGER_STRICT = 3;
+  COMMIT_TRIGGER_CLOSE = 4;
+  COMMIT_TRIGGER_FLUSH = 5;
+}
+
+// CommitGeneration is one immutable step of the commit chain, published by
+// the four-step protocol in VRLOG_FORMAT.md: its chunks and objects are
+// durable before it is written, and it is durable before the current
+// pointer names it. Cumulative fields cover generations 0 to this one.
+message CommitGeneration {
+  uint64 generation = 1;
+  // SHA-256 of the manifest object.
+  bytes manifest_sha256 = 2;
+  // SHA-256 of the previous generation object; empty for generation 0.
+  bytes previous_sha256 = 3;
+  GenerationKind kind = 4;
+  CommitTrigger trigger = 5;
+  // Chunks this generation commits, in ordinal order, continuing the chain.
+  repeated CommittedChunk chunks = 6;
+  // Other immutable objects this generation publishes (the summary).
+  repeated CommittedObject objects = 7;
+  uint64 chunk_count = 8;
+  // chain_i = SHA-256(chain_{i-1} || body_sha256_i), as in CaptureSummary.
+  bytes chunk_chain_sha256 = 9;
+  uint64 record_count = 10;
+  uint64 frame_count = 11;
+  uint64 gap_count = 12;
+  // Committed coverage is source sequences [0, end_sequence); gaps count.
+  uint64 end_sequence = 13;
+  uint64 total_chunk_bytes = 14;
+  uint64 rejected_frames = 15;
+  uint64 shed_frames = 16;
+  // Wall clock when the generation was written (step 3).
+  sfixed64 committed_unix_nanos = 17;
+  // Age of the batch's first record when the batch closed, and how long
+  // step 2 (synchronising and publishing its objects) took. A generation
+  // cannot time its own publication; the summary aggregates that.
+  sfixed64 batch_age_nanos = 18;
+  sfixed64 sync_nanos = 19;
+  CaptureFailure failure = 20;
+  RecoveryRecord recovery = 21;
+}
+
+message CommittedChunk {
+  uint64 ordinal = 1;
+  uint64 chunk_bytes = 2;
+  bytes body_sha256 = 3;
+  // SHA-256 of the index object as published.
+  bytes index_sha256 = 4;
+  uint64 first_sequence = 5;
+  uint64 end_sequence = 6;
+  uint64 record_count = 7;
+}
+
+message CommittedObject {
+  string name = 1;
+  uint64 bytes = 2;
+  bytes sha256 = 3;
+}
+
+// CaptureFailure is the marker a failed writer leaves when it still can.
+// Frames in [committed end, accepted_end_sequence) were accepted and are
+// not in the container; frames after accepted_end_sequence were never
+// admitted.
+message CaptureFailure {
+  // "disk-full", "io-error", "commit-stall" or "stopped" (the owner ended
+  // the capture abnormally, e.g. a replay that failed).
+  string cause = 1;
+  string detail = 2;
+  uint64 accepted_end_sequence = 3;
+  uint64 accepted_record_count = 4;
+  sfixed64 failed_unix_nanos = 5;
+}
+
+// RecoveryRecord explains a generation written by recovery.
+message RecoveryRecord {
+  // The generation the current pointer named, when it could be read.
+  bool pointer_valid = 1;
+  uint64 pointer_generation = 2;
+  string pointer_detail = 3;
+  // Complete generations beyond the pointer, promoted by this record.
+  repeated uint64 promoted_generations = 4;
+  // Container-relative names of uncommitted objects moved under
+  // quarantine/, never read as evidence. At most 256 are listed.
+  repeated string quarantined = 5;
+  uint64 quarantined_count = 6;
+  // No close generation: the capture is incomplete. Without a failure
+  // marker either, how much was accepted after the committed end is unknown.
+  bool session_incomplete = 7;
+  bool tail_extent_unknown = 8;
+  sfixed64 recovered_unix_nanos = 9;
+  string recovered_by = 10;
+}
+
+// CurrentGeneration is the pointer object: the latest generation the writer
+// published. It is replaced atomically and is a hint to the reader, which
+// still validates the chain up to it.
+message CurrentGeneration {
+  uint64 generation = 1;
+  // SHA-256 of that generation's object.
+  bytes generation_sha256 = 2;
+  // Its committed coverage, so damage to the chain can be located.
+  uint64 end_sequence = 3;
+  uint64 record_count = 4;
 }
