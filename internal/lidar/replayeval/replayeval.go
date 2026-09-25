@@ -210,6 +210,10 @@ type Result struct {
 	// across the processed window, warm-up included. It is also written to
 	// replay_manifest.json.
 	TimeDomain l5tracks.TimeDomainStats
+	// Continuity describes the tracker's hypotheses over the scoring window:
+	// what each instant rested on, how tracks ended, and the coast ages
+	// closed and reached. It is also written to replay_manifest.json.
+	Continuity l5tracks.ContinuityStats
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -881,6 +885,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
 	}
 	timeDomain := tracker.TimeDomainStats()
+	continuity := tracker.ContinuityStats()
 	manifest := map[string]interface{}{
 		// source_sha256/source_basename are retained for single-file consumers;
 		// the plural fields carry the complete ordered multi-file provenance.
@@ -904,6 +909,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// included: backward or duplicate frame timestamps, and gaps the
 		// tracker clamped. Descriptive only; see l5tracks.TimeDomainStats.
 		"time_domain": timeDomain,
+		// Continuity diagnostics for the scoring window only: support per
+		// track-instant, expiries by reason, coast age at expiry and at
+		// reacquisition, births and confirmations. Label-free, so a default
+		// replay and an occlusion_continuity one compare on any capture. See
+		// l5tracks.ContinuityStats.
+		"continuity": continuity,
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
@@ -962,6 +973,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}(),
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
+		Continuity:       continuity,
 	}, nil
 }
 
@@ -976,7 +988,24 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
+	trackerConfig.OcclusionContinuity = occlusionContinuityFor(experiments)
 	return trackerConfig
+}
+
+// occlusionContinuityFor switches on the continuity options the experiments
+// name, with l5tracks' starting values. With none named it is the zero
+// value, so the tracker configuration is exactly the shipped one.
+func occlusionContinuityFor(experiments []string) l5tracks.OcclusionContinuityConfig {
+	all := hasExperiment(experiments, ExperimentOcclusionContinuity)
+	oc := l5tracks.DefaultOcclusionContinuity()
+	oc.ExplainAbsence = all || hasExperiment(experiments, ExperimentCoastSupport)
+	oc.CaptureTimeInflation = all || hasExperiment(experiments, ExperimentCoastTimeInflation)
+	oc.ClassCoastBounds = all || hasExperiment(experiments, ExperimentClassCoastBounds)
+	oc.ReacquisitionGuard = all || hasExperiment(experiments, ExperimentReacquisitionGuard)
+	if !oc.ExplainAbsence && !oc.CaptureTimeInflation && !oc.ClassCoastBounds && !oc.ReacquisitionGuard {
+		return l5tracks.OcclusionContinuityConfig{}
+	}
+	return oc
 }
 
 func fileSHA256(path string) (string, error) {

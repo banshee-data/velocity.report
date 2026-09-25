@@ -41,6 +41,31 @@ Prediction:
 
 Implementation applies per-diagonal process noise terms scaled by `dt`, and clamps diagonal covariance growth by `MaxCovarianceDiag`.
 
+### 2.1.1 Coast inflation
+
+A track with no associated cluster in a frame is predicted and then widened. The shipped form adds
+a fixed amount per missed frame, whatever the frame interval:
+
+`P_xx += c,  P_yy += c`, with `c = OcclusionCovInflation` (0.5 m²)
+
+Over an unobserved interval `T` that is `c · n`, where `n` is the number of frames that happened
+to reach the tracker in it: 5 m² per second at 10 Hz, 10 m² at 20 Hz, and 0.5 m² for a 2 s gap
+of empty frames that never reached the tracker at all.
+
+Under the default-off `OcclusionContinuity.CaptureTimeInflation` the widening is charged per
+second of unobserved capture time instead:
+
+`P_xx += r · Δt_u,  P_yy += r · Δt_u`
+
+where `Δt_u` is the capture time the frame added to the track's coast age (the time since its last
+accepted observation) and `r` is the track's class rate, interpolated from `unknown`'s toward its
+class's by classification confidence. Over `T` the added variance is `r · T` however many frames
+arrived. `r = 0` leaves only the filter's own `Q`: pure CV growth. Every starting rate (1 to
+3 m²/s) is below the shipped 5 m²/s at 10 Hz, so at the nominal frame rate the association
+discount this term gives a coasting track (gap analysis S3) is never deeper than the shipped one.
+Both forms are capped by `MaxCovarianceDiag`. See
+[time-domain model](../../docs/lidar/architecture/time-domain-model.md#coast-existence-and-expiry).
+
 ### 2.2 Update model
 
 Observation matrix:
@@ -76,7 +101,11 @@ Each cluster-track candidate gets a squared Mahalanobis cost:
 Candidate is forbidden if any of:
 
 1. Euclidean jump exceeds `MaxPositionJumpMeters`.
-2. Implied speed (`jump/dt`) exceeds `MaxReasonableSpeedMps`.
+2. Implied speed (`jump/dt`) exceeds `MaxReasonableSpeedMps`. `dt` is the frame interval, so at
+   10 Hz a pairing more than 3 m from the prediction is refused. For a track coasting through
+   several frames that is the binding constraint on reacquisition, since its discrepancy accrued
+   over the whole unobserved interval. Under the default-off `ReacquisitionGuard` a reacquiring
+   track divides by its capture-time coast age instead.
 3. `d_M^2 > GatingDistanceSquared`.
 4. Numerical singularity detected.
 
@@ -120,6 +149,13 @@ Rules:
 5. Deleted tracks are purged after grace period.
 
 During occlusion (misses), covariance inflation widens future gating windows for re-association.
+
+Default-off, `OcclusionContinuity.ClassCoastBounds` replaces rule 4 with capture-time coast
+bounds: `T_tentative` for a tentative track; for a confirmed one its class's unexplained
+allowance, or its longer explained allowance while a nearer cluster covers the predicted
+footprint. Every instant and deletion records its support and reason; existence (whether the
+object is seen, and if not why) is held separately from this lifecycle. See Section 2.1.1 and the
+[time-domain model](../../docs/lidar/architecture/time-domain-model.md#coast-existence-and-expiry).
 
 ## 6. Secondary stability metrics
 

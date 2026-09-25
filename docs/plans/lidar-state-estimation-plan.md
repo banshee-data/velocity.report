@@ -3,7 +3,7 @@
 This plan corrects viewpoint-dependent position measurements before extending the motion filter. It
 defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
 
-- **Status:** In progress: heading/evaluation foundations and the Section 5.4 solid-body contract delivered; the corrected measurement that populates it, and the acceptance gates, outstanding
+- **Status:** In progress: heading/evaluation foundations, the Section 5.4 solid-body contract and the Sprint 0.5.2.2 continuity primitives (default-off) delivered; the corrected measurement that populates it, the choice of continuity values, and the acceptance gates, outstanding
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.7, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
@@ -2873,8 +2873,20 @@ architecture; it does not relitigate findings.
       per-track capture-time coast age and last-observed time; default-off capture-time expiry and
       whole-gap prediction; replay pinned invariant to wall-clock pacing on kirk0. See the
       [time-domain model](../lidar/architecture/time-domain-model.md)
-- [ ] Choose capture-time coast bounds (`MaxCoastSecs*`) and test `capture_gap_predict` against
-      held-out occlusion and reacquisition scenes before enabling either
+- [x] Occlusion continuity primitives (Sprint 0.5.2.2, delivery priority 2): existence held
+      separately from observation, a Section 7.3 support token on every instant and history point,
+      expiry reasons, and default-off options for absence explanation, capture-time coast
+      uncertainty, per-class capture-time coast bounds (explained absences allowed longer) and a
+      reacquisition extent/ambiguity guard; 21 ground-truth synthetic scenes for vehicles,
+      cyclists and pedestrians; replay experiments and manifest continuity diagnostics. See
+      [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [ ] Choose the continuity values (class coast bounds and rates, `MaxCoastSecs*`) and test
+      `occlusion_continuity` and `capture_gap_predict` against held-out occlusion and
+      reacquisition scenes on the S2 corpus before enabling any of them
+- [ ] Explain occlusion by static structure: consult the L3 background range at the predicted
+      azimuth, so an object behind a parked vehicle or building is not `missed_unknown`
+- [ ] Carry the support token to VRLOG and the visualiser trail (proto field), so observed and
+      coasted segments render distinctly
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
 - [x] Emit associated raw clusters beside estimates in opt-in diagnostic bundles
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
