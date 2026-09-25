@@ -110,7 +110,9 @@ func (h histogramSpec) empty() Histogram {
 	return out
 }
 
-// add bins one valid instant's value, with its one-sigma reach.
+// add counts one valid instant's time in the bin holding its value, as
+// overlap in every bin its one-sigma interval reaches, and as inside when that
+// interval stays within the one bin.
 func (h histogramSpec) add(hist *Histogram, v SeriesValue, nanos int64) error {
 	if v.Value < 0 {
 		return fmt.Errorf("%s value %.6g is below the first bin", h.id, v.Value)
