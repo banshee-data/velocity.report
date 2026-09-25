@@ -339,6 +339,58 @@ func TestSolidBodyWithoutRetainedPointsStaysOnTheMedoidAndSaysWhy(t *testing.T) 
 	}
 }
 
+func TestABodyCentreWithoutFacesLapsesToTheMedoidAndRecovers(t *testing.T) {
+	// Observed every frame but with nothing the near-edge model can use, a
+	// body-centre solid body coasts for fewer than MaxMisses frames, then its
+	// claim lapses to the medoid; when faces return it is re-referenced.
+	cfg := solidBodyConfig()
+	tracker := NewTracker(cfg)
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	const faceless = 14
+	for _, f := range frames[:faceless] {
+		tracker.Update(f.clusters, f.at)
+	}
+	before, _ := mainTrack(t, tracker).SolidBody()
+	if before.Estimate.Reference != ReferenceBodyCentre {
+		t.Fatalf("setup: reference %s before the faceless run", before.Estimate.Reference)
+	}
+	limit := cfg.MaxMisses
+	for i, f := range frames[faceless : faceless+limit] {
+		for c := range f.clusters {
+			f.clusters[c].RetainedPoints = nil
+		}
+		tracker.Update(f.clusters, f.at)
+		r, _ := mainTrack(t, tracker).SolidBody()
+		if i < limit-1 {
+			if r.Estimate.Reference != ReferenceBodyCentre || r.Estimate.Support.CoastedFrames != i+1 {
+				t.Fatalf("faceless frame %d: reference %s, coasted %d; want a body-centre coast",
+					i, r.Estimate.Reference, r.Estimate.Support.CoastedFrames)
+			}
+			continue
+		}
+		if r.Estimate.Reference != ReferenceClusterMedoid || r.Measurement.FallbackReason != "body_centre_lapsed" ||
+			r.Measurement.Source != MeasurementMedoidV0 {
+			t.Fatalf("after %d faceless frames: reference %s, measurement %+v; want the lapse to the medoid",
+				limit, r.Estimate.Reference, r.Measurement)
+		}
+		cluster := f.clusters[0]
+		if r.Estimate.X != cluster.CentroidX || r.Estimate.Y != cluster.CentroidY {
+			t.Fatalf("lapsed to (%v, %v), not the medoid (%v, %v)", r.Estimate.X, r.Estimate.Y, cluster.CentroidX, cluster.CentroidY)
+		}
+		if r.Covariance[2] != 0 || r.Covariance[8] != 0 {
+			t.Fatalf("lapse kept a position-velocity correlation from before it")
+		}
+		if r.Estimate.Width.Provenance != ProvenanceAccumulated || r.VX == 0 {
+			t.Fatalf("lapse discarded beliefs about the body: width %+v, vx %v", r.Estimate.Width, r.VX)
+		}
+	}
+	tracker.Update(frames[faceless+limit].clusters, frames[faceless+limit].at)
+	after, _ := mainTrack(t, tracker).SolidBody()
+	if after.Estimate.Reference != ReferenceBodyCentre || after.Measurement.Source != MeasurementNearEdgeCandidateV1 {
+		t.Fatalf("faces returned but the body stayed %s via %+v", after.Estimate.Reference, after.Measurement)
+	}
+}
+
 func TestSolidBodyCoastsWhenTheTrackIsUnassociated(t *testing.T) {
 	tracker := NewTracker(solidBodyConfig())
 	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())

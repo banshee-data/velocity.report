@@ -34,6 +34,11 @@ package l5tracks
 //     mitigation for the heading/face circularity. The first near-edge fix
 //     re-references it to the body centre and widens its position covariance
 //     by the medoid's known bias before applying the fix.
+//   - Lapse. A body-centre body that goes MaxMisses consecutive frames
+//     without a usable face is re-seeded at the medoid and referenced to it
+//     again, rather than coasting away from evidence that is still arriving.
+//     On kirk0 a sparse object at 55 m went three seconds faceless while
+//     observed every frame, drifted six metres and then snapped back.
 //
 // Named limitations. The position covariance does not carry the half-extent's
 // uncertainty: an error in the believed width moves the anchor one-for-one and
@@ -410,6 +415,17 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		measured = true
 	}
 
+	if !measured && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
+		// The object is being observed, but not in any way this measurement
+		// model can use, and has been for as long as the tracker lets an
+		// unconfirmed hypothesis go unmeasured. Coasting further would let the
+		// body drift from evidence that is arriving every frame, so the
+		// body-centre claim lapses and the body is re-seeded where the evidence
+		// is, stating the medoid's bias. The next usable face re-references it.
+		t.lapseSolidBodyToMedoid(sb, cluster, prior)
+		m.Source, m.Rank, m.FallbackReason = MeasurementMedoidV0, 2, "body_centre_lapsed"
+		measured = true
+	}
 	if !measured && sb.reference == ReferenceClusterMedoid {
 		// Never re-referenced, so the medoid is still what the state
 		// describes, and the tracked filter's own noise applies to it.
@@ -439,6 +455,32 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	}
 	t.advanceSolidBodyLifecycle(track, class, !measured)
 	t.publishSolidBody(track, class, m)
+}
+
+// solidBodyFacelessLimit is how many consecutive frames a body-centre solid
+// body may go without a usable face before its claim lapses: the tracker's
+// own miss budget for a tentative track, and never less than one.
+func (t *Tracker) solidBodyFacelessLimit() int {
+	return max(1, t.Config.MaxMisses)
+}
+
+// lapseSolidBodyToMedoid re-seeds the solid body's position at the cluster
+// medoid, with the seed's covariance stating the medoid's bias and no
+// position-velocity correlation, and references it to the medoid again.
+// Velocity and every belief outside the dynamic state are kept: they describe
+// the body, not where on it the position refers to.
+func (t *Tracker) lapseSolidBodyToMedoid(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior) {
+	bias := (prior.widthMetres / 2) * (prior.widthMetres / 2)
+	sb.state[0], sb.state[1] = cluster.CentroidX, cluster.CentroidY
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if i < 2 || j < 2 {
+				sb.p[i*4+j] = 0
+			}
+		}
+	}
+	sb.p[0*4+0], sb.p[1*4+1] = bias, bias
+	sb.reference = ReferenceClusterMedoid
 }
 
 // evidenceBackedEdges keeps the faces whose half-extent rests on evidence
