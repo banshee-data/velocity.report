@@ -332,12 +332,18 @@ func TestRunWithoutAnEncounter(t *testing.T) {
 	}
 }
 
+// typstAvailable reports whether typst is embedded or on PATH.
+func typstAvailable() bool {
+	_, err := exec.LookPath("typst")
+	return err == nil || typstbin.Embedded()
+}
+
 // requireTypst skips when typst is neither embedded nor on PATH, as the
-// oracle's compile test does.
+// oracle's compile test does, and never downloads it.
 func requireTypst(t *testing.T) {
 	t.Helper()
 	t.Setenv(typstbin.EnvNoDownload, "1")
-	if _, err := exec.LookPath("typst"); err != nil && !typstbin.Embedded() {
+	if !typstAvailable() {
 		t.Skip("typst not embedded or on PATH; run make install-typst and add bin/ to PATH")
 	}
 }
