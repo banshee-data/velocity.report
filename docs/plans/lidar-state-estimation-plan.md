@@ -91,7 +91,11 @@ Build one compatible path, in this order:
 3. Compare fixed-association RTS with bounded backward reassociation on the same held-out
    episodes. Start from this plan's three-frame lag and measure 0.5, 1 and 2 seconds of capture
    time as experiments. Choose the horizon from position, identity, manoeuvre and latency evidence,
-   not from the proposal's one-second starting suggestion alone.
+   not from the proposal's one-second starting suggestion alone. The
+   [per-frame harness](../lidar/operations/per-frame-evaluation.md) scores two arms on the same
+   frozen held-out episodes (MOTA, identity switches, fragmentation, HOTA, IDF1) and refuses a
+   comparison whose reference, policy, gate or episodes differ; it scores `final` estimates, and
+   anything else only as a declared baseline. The reviewed episodes and final estimates are open.
 4. Publish provisional and final run versions with source references, revision lineage,
    uncertainty and a completeness watermark. Check restart, empty frames and transport gaps.
    Production behaviour consumes one coherent final run after G-UNC-1, G-SMO-1, the VRLOG
@@ -1829,6 +1833,13 @@ tests the implementation against itself.
 
 Partition by time, not by track, so that a scene's background
 state does not leak across partitions.
+
+For annotated evidence the partition is frozen in a split manifest: object-disjoint, as the
+[annotation plan](lidar-point-annotation-and-object-dataset-plan.md) §7 requires, with each
+episode a set of frame intervals. A held-out episode ignores any tuning object that shares its
+frames rather than scoring it. To keep time-disjointness as well, give held-out episodes frame
+intervals no tuning episode uses. Format and refusals:
+[per-frame evaluation](../lidar/operations/per-frame-evaluation.md#held-out-episodes-the-split-manifest).
 
 ### 16.5 Experiment E1: lateral-error validation on the soma static captures
 

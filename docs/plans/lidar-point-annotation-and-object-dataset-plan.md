@@ -261,6 +261,13 @@ For classification experiments, report oracle-mask results separately from predi
 Otherwise good human segmentation can conceal a failing tracker. Missing reference poses mean pose
 error and box IoU are unavailable, not zero. Point membership remains measurable without them.
 
+The frozen form of a partition is a split manifest (`velocity.report/annotation-split` v1, read by
+`annotation.LoadSplitManifest`): the pack digest, object-disjoint splits with a `tuning` or
+`held_out` role, and episodes as frame intervals plus the objects each scores. The per-frame
+evaluator refuses to score a tuning split as held out, and ignores any other object that shares an
+episode's frames. Field table and refusals:
+[per-frame evaluation](../lidar/operations/per-frame-evaluation.md#held-out-episodes-the-split-manifest).
+
 ## 8. Compatibility with SOTracker and D-04
 
 SOTracker starts from a supplied box and scene point clouds, then estimates motion and accumulates
@@ -317,7 +324,9 @@ in one frame by hand took a median of six seconds, which for the 1,954 larger ob
 that pack is three to six hours: the reason the unit of work became the object.
 
 Not delivered: region growth, depth-aware picking, reattachment of labels to regenerated points,
-dataset splits (§7), and pruning of retained revisions, which grow by a full snapshot a save.
+frozen dataset splits (§7; the manifest format, its reader and the evaluator that enforces it are
+delivered, the splits themselves are operator work), and pruning of retained revisions, which grow
+by a full snapshot a save.
 The proposer clusters the pack's points itself instead of reading the run's clusters, because a
 recording keeps cluster boxes and not their membership, and the tracker's identities would bring
 its fragmentation with them.
