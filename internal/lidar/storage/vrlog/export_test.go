@@ -233,3 +233,20 @@ func RewriteIndex(t testing.TB, dir string, ordinal uint64, mutate func(*pb.Chun
 	}
 	ReforgeChain(t, dir)
 }
+
+// CommitStep and its values name the publication steps a test may kill a
+// writer at.
+type CommitStep = commitStep
+
+const (
+	StepSealed              = stepSealed
+	StepGenerationWritten   = stepGenerationWritten
+	StepGenerationPublished = stepGenerationPublished
+	StepPointerDurable      = stepPointerDurable
+)
+
+// KillAt arms a kill of w at step of generation n: the writer stops dead
+// there, as a killed process would.
+func KillAt(w *Writer, step CommitStep, n uint64) {
+	w.hooks.Store(&writerHooks{kill: func(s commitStep, g uint64) bool { return s == step && g == n }})
+}
