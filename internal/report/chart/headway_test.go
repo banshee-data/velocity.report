@@ -48,16 +48,16 @@ func headwayTestData() HeadwayHistogramData {
 	}
 }
 
-// svgElement is one element with its attributes, its text and the classes
+// headwaySVGElement is one element with its attributes, its text and the classes
 // of every group enclosing it.
-type svgElement struct {
+type headwaySVGElement struct {
 	name    string
 	attrs   map[string]string
 	text    string
 	classes []string
 }
 
-func (e svgElement) in(class string) bool {
+func (e headwaySVGElement) in(class string) bool {
 	for _, c := range e.classes {
 		if c == class {
 			return true
@@ -66,15 +66,15 @@ func (e svgElement) in(class string) bool {
 	return false
 }
 
-func (e svgElement) num(t *testing.T, name string) float64 {
+func (e headwaySVGElement) num(t *testing.T, name string) float64 {
 	t.Helper()
 	return parseFloatAttr(t, e.attrs, name)
 }
 
-func parseSVG(t *testing.T, svg []byte) []svgElement {
+func parseHeadwaySVG(t *testing.T, svg []byte) []headwaySVGElement {
 	t.Helper()
 	dec := xml.NewDecoder(bytes.NewReader(svg))
-	var out []svgElement
+	var out []headwaySVGElement
 	var groups []string
 	var open []int // elements open inside the current group, outermost first
 	for {
@@ -89,7 +89,7 @@ func parseSVG(t *testing.T, svg []byte) []svgElement {
 				groups = append(groups, attrs["class"])
 				continue
 			}
-			out = append(out, svgElement{name: x.Name.Local, attrs: attrs, classes: append([]string(nil), groups...)})
+			out = append(out, headwaySVGElement{name: x.Name.Local, attrs: attrs, classes: append([]string(nil), groups...)})
 			open = append(open, len(out)-1)
 		case xml.CharData:
 			// A tspan's text belongs to it and to its line.
@@ -111,8 +111,8 @@ func parseSVG(t *testing.T, svg []byte) []svgElement {
 	return out
 }
 
-func elementsOf(els []svgElement, name, class string) []svgElement {
-	var out []svgElement
+func elementsOf(els []headwaySVGElement, name, class string) []headwaySVGElement {
+	var out []headwaySVGElement
 	for _, e := range els {
 		if e.name == name && (class == "" || e.in(class)) {
 			out = append(out, e)
@@ -123,7 +123,7 @@ func elementsOf(els []svgElement, name, class string) []svgElement {
 
 // texts returns the text of every line, or with a class, of every line or
 // run carrying it or inside a group carrying it.
-func texts(els []svgElement, class string) []string {
+func texts(els []headwaySVGElement, class string) []string {
 	var out []string
 	for _, e := range els {
 		switch {
@@ -153,7 +153,7 @@ func TestRenderHeadwayHistogramDrawsSharesOfAccountedTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	els := parseSVG(t, svg)
+	els := parseHeadwaySVG(t, svg)
 	bars := elementsOf(els, "rect", "headway-bins")
 	if len(bars) != len(data.Bins) {
 		t.Fatalf("%d bin bars, want %d", len(bars), len(data.Bins))
@@ -206,7 +206,7 @@ func TestRenderHeadwayHistogramDrawsBandRulesAtEdges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	els := parseSVG(t, svg)
+	els := parseHeadwaySVG(t, svg)
 	rules := elementsOf(els, "line", "headway-bands")
 	if len(rules) != len(data.Bands) {
 		t.Fatalf("%d band rules, want %d", len(rules), len(data.Bands))
@@ -229,7 +229,7 @@ func TestRenderHeadwayHistogramDrawsBandRulesAtEdges(t *testing.T) {
 	}
 	data.Bands = append(data.Bands, HeadwayBand{Threshold: 1.1, Label: "1.1 s"})
 	svg, _ = RenderHeadwayHistogram(data, DefaultHeadwayHistogramStyle(PaperA4))
-	if got := len(elementsOf(parseSVG(t, svg), "line", "headway-bands")); got != 3 {
+	if got := len(elementsOf(parseHeadwaySVG(t, svg), "line", "headway-bands")); got != 3 {
 		t.Fatalf("a threshold between edges was drawn: %d rules", got)
 	}
 
@@ -254,7 +254,7 @@ func TestRenderHeadwayHistogramDrawsCallerNamesAndStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	els := parseSVG(t, svg)
+	els := parseHeadwaySVG(t, svg)
 	vocab := texts(els, "vocab")
 	want := []string{data.Metric, data.BandBenchmark}
 	for _, x := range data.Excluded {
@@ -340,7 +340,7 @@ func TestRenderHeadwayHistogramRefusesWhatItCannotDraw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	els := parseSVG(t, svg)
+	els := parseHeadwaySVG(t, svg)
 	if status := texts(els, "status"); len(status) != 1 || status[0] != "PROVISIONAL" ||
 		!contains(texts(els, ""), "No following time was accounted in this selection.") ||
 		len(elementsOf(els, "rect", "headway-bins")) != 0 {

@@ -147,8 +147,8 @@ func RenderHeadwayHistogram(data HeadwayHistogramData, style ChartStyle) ([]byte
 	// Header: the metric id, the counts and the shares.
 	c.Text(leftM, 16, data.Metric, fmt.Sprintf(`class="vocab" font-size="%.1f" font-weight="bold"`, style.AxisLabelFontPx+1))
 	summary := fmt.Sprintf("%d encounters, %d in the bins. Share of %s accounted time: %s in the bins, %s beside them, %s predicted-only.",
-		data.Encounters, data.InBins, formatSeconds(data.AccountedNanos), formatShare(share(binned)),
-		formatShare(share(excluded)), formatShare(share(predicted)))
+		data.Encounters, data.InBins, formatSeconds(data.AccountedNanos), formatHeadwayPercent(share(binned)),
+		formatHeadwayPercent(share(excluded)), formatHeadwayPercent(share(predicted)))
 	c.Text(leftM, 31, summary, fmt.Sprintf(`font-size="%.1f"`, style.LegendFontPx))
 	if data.RecordGapNanos > 0 {
 		c.Text(leftM, 43, fmt.Sprintf("Record gaps of %s stand for no time and are not counted.", formatSeconds(data.RecordGapNanos)),
@@ -415,8 +415,8 @@ func formatSeconds(nanos int64) string {
 	return strconv.FormatFloat(float64(nanos)/1e9, 'f', 1, 64) + " s"
 }
 
-// formatShare writes a percentage, to one decimal place below 10 %.
-func formatShare(pct float64) string {
+// formatHeadwayPercent writes a percentage, to one decimal place below 10 %.
+func formatHeadwayPercent(pct float64) string {
 	if pct > 0 && pct < 10 {
 		return strconv.FormatFloat(pct, 'f', 1, 64) + "%"
 	}
