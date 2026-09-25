@@ -217,6 +217,12 @@ func (s *InteractionStore) Get(eventID string) (l8behaviour.FollowingInteraction
 	if err != nil {
 		return l8behaviour.FollowingInteraction{}, err
 	}
+	return decodeInteraction(eventID, event, instants, windows)
+}
+
+// decodeInteraction decodes one interaction's stored payloads, instants in
+// capture order and windows in start order, and validates the result.
+func decodeInteraction(eventID string, event []byte, instants, windows [][]byte) (l8behaviour.FollowingInteraction, error) {
 	var fi l8behaviour.FollowingInteraction
 	if err := json.Unmarshal(event, &fi.Event); err != nil {
 		return l8behaviour.FollowingInteraction{}, fmt.Errorf("decode stored interaction %s: %w", eventID, err)
@@ -239,6 +245,185 @@ func (s *InteractionStore) Get(eventID string) (l8behaviour.FollowingInteraction
 		return l8behaviour.FollowingInteraction{}, fmt.Errorf("stored interaction %s does not validate: %w", eventID, err)
 	}
 	return fi, nil
+}
+
+// --- Capture windows ---------------------------------------------------------
+//
+// A scene records the capture window it shows (lidar_scenes.captured_start_ns
+// and captured_end_ns) but not the analysis source its encounters were
+// written under: the source id is a digest over the replay case, capture
+// paths, capture digests and extractor, none of which a scene stores. These
+// readers find a capture's analyses by time instead. An event belongs to a
+// window when its capture interval overlaps it, so an encounter crossing the
+// window's edge is read whole rather than cut; the caller can see which do by
+// their start and end. Two sources overlapping one window, such as one
+// capture extracted under two tunings, are never merged here: the caller
+// lists them and chooses one.
+
+// InteractionSourceSummary is one source with following events overlapping a
+// capture window.
+type InteractionSourceSummary struct {
+	SourceID string
+	Events   int
+	// FirstUnixNanos and LastUnixNanos are the earliest start and latest end
+	// of those events, which may extend past the window.
+	FirstUnixNanos int64
+	LastUnixNanos  int64
+}
+
+// overlapFilter is the WHERE clause fragment selecting following events whose
+// capture interval overlaps [start, end], both inclusive.
+func overlapFilter(startUnixNanos, endUnixNanos int64) (string, []any, error) {
+	if startUnixNanos <= 0 || endUnixNanos < startUnixNanos {
+		return "", nil, fmt.Errorf("capture window %d to %d is not ordered", startUnixNanos, endUnixNanos)
+	}
+	return `interaction_type = ? AND start_unix_nanos <= ? AND end_unix_nanos >= ?`,
+		[]any{l8behaviour.InteractionFollowing.String(), endUnixNanos, startUnixNanos}, nil
+}
+
+// SourcesOverlapping lists every source with following events overlapping a
+// capture window, by source id.
+func (s *InteractionStore) SourcesOverlapping(startUnixNanos, endUnixNanos int64) ([]InteractionSourceSummary, error) {
+	window, args, err := overlapFilter(startUnixNanos, endUnixNanos)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(`
+		SELECT source_id, COUNT(*), MIN(start_unix_nanos), MAX(end_unix_nanos)
+		  FROM lidar_interaction_events
+		 WHERE `+window+`
+		 GROUP BY source_id
+		 ORDER BY source_id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list interaction sources from %d to %d: %w", startUnixNanos, endUnixNanos, err)
+	}
+	defer rows.Close()
+	var out []InteractionSourceSummary
+	for rows.Next() {
+		var sum InteractionSourceSummary
+		if err := rows.Scan(&sum.SourceID, &sum.Events, &sum.FirstUnixNanos, &sum.LastUnixNanos); err != nil {
+			return nil, fmt.Errorf("scan interaction source: %w", err)
+		}
+		out = append(out, sum)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate interaction sources: %w", err)
+	}
+	return out, nil
+}
+
+// VersionsOverlapping is Versions restricted to a source's following events
+// overlapping a capture window, most recently written first.
+func (s *InteractionStore) VersionsOverlapping(sourceID string, startUnixNanos, endUnixNanos int64) ([]InteractionVersionSummary, error) {
+	window, args, err := overlapFilter(startUnixNanos, endUnixNanos)
+	if err != nil {
+		return nil, err
+	}
+	return s.versions(sourceID, ` AND `+window, args...)
+}
+
+// ListInteractionsOverlapping returns a source's following interactions at
+// exactly one version whose capture interval overlaps a window: each event
+// with its instants and windows, validated, in start then pair order. The
+// three reads share one transaction, so a concurrent write or delete cannot
+// leave an event without its evidence.
+func (s *InteractionStore) ListInteractionsOverlapping(sourceID string, v l8behaviour.InteractionVersion,
+	startUnixNanos, endUnixNanos int64) ([]l8behaviour.FollowingInteraction, error) {
+	where, args, err := versionFilter(v)
+	if err != nil {
+		return nil, err
+	}
+	window, windowArgs, err := overlapFilter(startUnixNanos, endUnixNanos)
+	if err != nil {
+		return nil, err
+	}
+	selected := `FROM lidar_interaction_events WHERE source_id = ? AND ` + where + ` AND ` + window
+	args = append(append([]any{sourceID}, args...), windowArgs...)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin interaction read: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	events, err := readKeyedPayloads(tx, `
+		SELECT event_id, event_json `+selected+`
+		 ORDER BY start_unix_nanos, primary_track_id, secondary_track_id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list interaction events for source %s: %w", sourceID, err)
+	}
+	instants, err := readKeyedPayloads(tx, `
+		SELECT event_id, instant_json FROM lidar_interaction_instants
+		 WHERE event_id IN (SELECT event_id `+selected+`)
+		 ORDER BY event_id, capture_unix_nanos`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list interaction instants for source %s: %w", sourceID, err)
+	}
+	windows, err := readKeyedPayloads(tx, `
+		SELECT event_id, window_json FROM lidar_exposure_windows
+		 WHERE event_id IN (SELECT event_id `+selected+`)
+		 ORDER BY event_id, start_unix_nanos`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list exposure windows for source %s: %w", sourceID, err)
+	}
+
+	byEvent := func(rows []keyedPayload) (map[string][][]byte, error) {
+		out := map[string][][]byte{}
+		for _, r := range rows {
+			if _, ok := events.index[r.key]; !ok {
+				return nil, fmt.Errorf("row belongs to event %s, which the version and window do not select", r.key)
+			}
+			out[r.key] = append(out[r.key], r.payload)
+		}
+		return out, nil
+	}
+	instantsOf, err := byEvent(instants.rows)
+	if err != nil {
+		return nil, err
+	}
+	windowsOf, err := byEvent(windows.rows)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]l8behaviour.FollowingInteraction, 0, len(events.rows))
+	for _, e := range events.rows {
+		fi, err := decodeInteraction(e.key, e.payload, instantsOf[e.key], windowsOf[e.key])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, fi)
+	}
+	return out, nil
+}
+
+type keyedPayload struct {
+	key     string
+	payload []byte
+}
+
+type keyedPayloads struct {
+	rows  []keyedPayload
+	index map[string]int
+}
+
+// readKeyedPayloads reads (key, payload) rows in query order.
+func readKeyedPayloads(q queryer, query string, args ...any) (keyedPayloads, error) {
+	rows, err := q.Query(query, args...)
+	if err != nil {
+		return keyedPayloads{}, err
+	}
+	defer rows.Close()
+	out := keyedPayloads{index: map[string]int{}}
+	for rows.Next() {
+		var key, raw string
+		if err := rows.Scan(&key, &raw); err != nil {
+			return keyedPayloads{}, err
+		}
+		if _, dup := out.index[key]; !dup {
+			out.index[key] = len(out.rows)
+		}
+		out.rows = append(out.rows, keyedPayload{key: key, payload: []byte(raw)})
+	}
+	return out, rows.Err()
 }
 
 // versionFilter is the WHERE clause fragment and arguments selecting exactly
@@ -315,13 +500,20 @@ func (s *InteractionStore) ListWindows(sourceID string, v l8behaviour.Interactio
 // Versions lists the versions stored for a source, most recently written
 // first.
 func (s *InteractionStore) Versions(sourceID string) ([]InteractionVersionSummary, error) {
+	return s.versions(sourceID, "")
+}
+
+// versions lists a source's versions over the events a further WHERE
+// fragment selects, most recently written first.
+func (s *InteractionStore) versions(sourceID, and string, args ...any) ([]InteractionVersionSummary, error) {
 	rows, err := s.db.Query(`
 		SELECT estimate_stage, estimator_id, obs_model_id, method_id, param_hash
 		     , COUNT(*), MAX(inserted_at_ns)
 		  FROM lidar_interaction_events
-		 WHERE source_id = ?
+		 WHERE source_id = ?`+and+`
 		 GROUP BY estimate_stage, estimator_id, obs_model_id, method_id, param_hash
-		 ORDER BY MAX(inserted_at_ns) DESC, estimate_stage, estimator_id, obs_model_id, method_id, param_hash`, sourceID)
+		 ORDER BY MAX(inserted_at_ns) DESC, estimate_stage, estimator_id, obs_model_id, method_id, param_hash`,
+		append([]any{sourceID}, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("list interaction versions for source %s: %w", sourceID, err)
 	}
