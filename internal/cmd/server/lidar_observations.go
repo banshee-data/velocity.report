@@ -57,6 +57,10 @@ type liveObservationCapture struct {
 	logf  func(string, ...any)
 	mu    sync.Mutex
 	ended bool
+	// closing tracks a close started from the L4 callback, which never
+	// waits for it: on a failing disk Close can take up to the commit
+	// deadline. End waits for it.
+	closing sync.WaitGroup
 }
 
 // liveObservationSetup is what the pipeline needs to tap for the capture.
@@ -118,36 +122,46 @@ func (c *liveObservationCapture) ObserveFrame(f l4bobserve.FrameRecord) error {
 		return nil
 	}
 	if !c.live() {
-		c.endLocked("the pipeline left live input")
+		c.endLocked("the pipeline left live input", true)
 		return nil
 	}
 	err := c.writer.AppendFrame(f)
 	var failed *vrlog.CaptureFailedError
 	if errors.As(err, &failed) {
-		c.ended = true
 		c.logf("[observations] live capture failed and stopped admitting frames: %v", failed)
-		_, _ = c.writer.Close()
+		c.endLocked("capture failure", true)
 	}
 	return err
 }
 
-// End closes the capture for a stated reason; it is idempotent.
+// End closes the capture for a stated reason and waits for the close,
+// including one the callback started; it is idempotent.
 func (c *liveObservationCapture) End(reason string) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.endLocked(reason)
+	c.endLocked(reason, false)
+	c.mu.Unlock()
+	c.closing.Wait()
 }
 
-func (c *liveObservationCapture) endLocked(reason string) {
+func (c *liveObservationCapture) endLocked(reason string, async bool) {
 	if c.ended {
 		return
 	}
 	c.ended = true
-	summary, err := c.writer.Close()
-	if err != nil {
-		c.logf("[observations] live capture ended (%s) with an error: %v", reason, err)
+	c.closing.Add(1)
+	finish := func() {
+		defer c.closing.Done()
+		summary, err := c.writer.Close()
+		if err != nil {
+			c.logf("[observations] live capture ended (%s) with an error: %v", reason, err)
+			return
+		}
+		c.logf("[observations] live capture closed (%s): %d frames, %d gaps, %d shed, to sequence %d",
+			reason, summary.Frames, summary.Gaps, summary.ShedFrames, summary.EndSequence)
+	}
+	if async {
+		go finish()
 		return
 	}
-	c.logf("[observations] live capture closed (%s): %d frames, %d gaps, %d shed, to sequence %d",
-		reason, summary.Frames, summary.Gaps, summary.ShedFrames, summary.EndSequence)
+	finish()
 }
