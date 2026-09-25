@@ -70,8 +70,8 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentDensityCap, ExperimentFlipRule,
-		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides}
+	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentDensityCap, ExperimentFixedLagRTS,
+		ExperimentFlipRule, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -100,8 +100,8 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
 		}
 	}
-	// Pipeline and background experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides} {
+	// Pipeline, background and observer experiments must not touch the tracker.
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {
 		if got := trackerConfigFor(l5, "", []string{name}); got != shipped {
 			t.Errorf("%s changed the tracker configuration", name)
 		}

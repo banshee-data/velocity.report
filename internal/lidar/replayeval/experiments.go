@@ -36,6 +36,12 @@ const (
 	// predict across a whole capture-time gap instead of clamping it to
 	// max_predict_dt.
 	ExperimentCaptureGapPredict = "capture_gap_predict"
+	// ExperimentFixedLagRTS attaches the fixed-assignment RTS smoother at the
+	// comparison horizons (three frames; 0.5, 1 and 2 s; the whole track) and
+	// writes refinement_report.json; see refinement.go. It observes the
+	// tracker and changes none of its decisions, but it is hashed like every
+	// experiment, so the online rows of such a run carry their own hash.
+	ExperimentFixedLagRTS = "fixed_lag_rts"
 )
 
 var knownExperiments = map[string]bool{
@@ -46,6 +52,7 @@ var knownExperiments = map[string]bool{
 	ExperimentNoRegionOverrides: true,
 	ExperimentMeasurementTime:   true,
 	ExperimentCaptureGapPredict: true,
+	ExperimentFixedLagRTS:       true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

@@ -70,6 +70,9 @@ type FilterObservation struct {
 	InnovationY          float32
 	NIS                  float32
 	HasInnovation        bool
+	// GeometryCovariance is the cluster-shape covariance the online residual
+	// retains beside the scalar R the gain used (see FilterResidual).
+	GeometryCovariance MeasurementCovariance
 }
 
 // FilterStep is one track's filter record for one Update call.
@@ -244,7 +247,7 @@ func (r *filterStepRecorder) endFrame(tracks map[string]*TrackedObject, nowNanos
 				ClusterID: track.LastClusterID, MeasurementUnixNanos: residual.Measurement.UnixNanos,
 				Source: residual.Measurement.Source, X: residual.Measurement.X, Y: residual.Measurement.Y,
 				InnovationX: residual.InnovationX, InnovationY: residual.InnovationY, NIS: residual.NIS,
-				HasInnovation: true,
+				HasInnovation: true, GeometryCovariance: residual.GeometryCovariance,
 			}
 		case !open && track.StartUnixNanos == nowNanos:
 			// Founded this frame: the state is the measurement, not an update.
