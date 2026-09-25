@@ -815,3 +815,40 @@ func TestExtentBeliefSigmaNarrowsWithSupportAndWidensOnConflict(t *testing.T) {
 		t.Errorf("sigma %v fell below the bin width %v", got, extentBeliefBinMetres)
 	}
 }
+
+func TestPersistedNamesRoundTripAndRefuseTheUnknown(t *testing.T) {
+	for _, p := range []Provenance{ProvenanceNone, ProvenanceClassPrior, ProvenanceAccumulated, ProvenanceObserved} {
+		if got, err := ParseProvenance(p.String()); err != nil || got != p {
+			t.Errorf("provenance %s round-tripped to %s, %v", p, got, err)
+		}
+	}
+	for _, e := range []EstimationState{EstimationInitialising, EstimationGeometryConverging,
+		EstimationEstablished, EstimationTemporarilyDegraded, EstimationModelInvalid} {
+		if got, err := ParseEstimationState(e.String()); err != nil || got != e {
+			t.Errorf("estimation state %s round-tripped to %s, %v", e, got, err)
+		}
+	}
+	for _, m := range []MotionClass{MotionUnknown, MotionRigidVehicle, MotionTwoWheeler, MotionPedestrian} {
+		if got, err := ParseMotionClass(m.String()); err != nil || got != m {
+			t.Errorf("motion class %s round-tripped to %s, %v", m, got, err)
+		}
+	}
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid} {
+		if got, err := ParseReferencePoint(r.String()); err != nil || got != r {
+			t.Errorf("reference %s round-tripped to %s, %v", r, got, err)
+		}
+	}
+	// A zero value is a real state, so an unknown name must never read as one.
+	if _, err := ParseProvenance("measured"); err == nil {
+		t.Error("an unknown provenance was accepted")
+	}
+	if _, err := ParseEstimationState(""); err == nil {
+		t.Error("an empty estimation state was accepted")
+	}
+	if _, err := ParseMotionClass("car"); err == nil {
+		t.Error("a classifier label was accepted as a motion class")
+	}
+	if _, err := ParseReferencePoint("centre"); err == nil {
+		t.Error("an unknown reference point was accepted")
+	}
+}
