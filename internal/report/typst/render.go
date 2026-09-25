@@ -18,6 +18,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,6 +45,30 @@ var (
 	renderAllFonts     = assets.AllFonts
 )
 
+// EntryReport is the radar speed report's entry template, and the default.
+const EntryReport = "report.typ"
+
+// templateSets names, for each entry template a document may compile from,
+// every embedded template that entry needs, itself included. A render
+// materialises only its entry's set, and a source archive ships only that
+// set, so the archive recompiles exactly what was rendered: an import missing
+// from a set fails the render rather than surfacing later as a source ZIP
+// that no longer compiles. The sets are stated rather than derived from the
+// #import lines so a reviewer sees them; a test holds them to those lines.
+var templateSets = map[string][]string{
+	EntryReport: {"report.typ", "preamble.typ", "sections.typ"},
+}
+
+// templateSet returns the files an entry needs, or an error for an entry
+// that is not registered.
+func templateSet(entry string) ([]string, error) {
+	files, ok := templateSets[entry]
+	if !ok {
+		return nil, fmt.Errorf("unknown template entry %q", entry)
+	}
+	return files, nil
+}
+
 // Asset is a binary blob (chart SVG, map SVG, etc.) that the report embeds
 // via #image(). The Name is used as the relative path inside the working
 // directory; the template references it as e.g. `data.charts.timeseries`.
@@ -54,6 +79,10 @@ type Asset struct {
 
 // Options controls a single Render call.
 type Options struct {
+	// Entry is the template the document compiles from, one of the
+	// registered entries; empty means EntryReport.
+	Entry string
+
 	// Data is the structured payload exposed to the template as `data` after
 	// being marshalled to data.json in the working directory. Normally a
 	// ReportData value.
@@ -89,13 +118,20 @@ type Options struct {
 // resulting PDF to out. The working directory used for compilation is removed
 // before Render returns.
 func Render(out io.Writer, opts Options) error {
+	entry := opts.Entry
+	if entry == "" {
+		entry = EntryReport
+	}
+	if _, err := templateSet(entry); err != nil {
+		return err
+	}
 	workDir, err := renderMkdirTemp("", "velocity-report-typst-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
 	defer renderRemoveAll(workDir)
 
-	if err := materialiseTemplates(workDir); err != nil {
+	if err := materialiseTemplates(workDir, entry); err != nil {
 		return err
 	}
 	if err := writeData(workDir, opts.Data); err != nil {
@@ -133,8 +169,9 @@ func Render(out io.Writer, opts Options) error {
 	// path, so relative imports inside the entry file fail. We address this
 	// by feeding a one-line bootstrap on stdin that includes the real entry
 	// via an absolute path rooted at workDir (so `/report.typ` resolves to
-	// workDir/report.typ).
-	bootstrap := []byte(`#include "/report.typ"`)
+	// workDir/report.typ). The entry is a registered set key, never caller
+	// text, so it cannot inject Typst.
+	bootstrap := []byte(`#include "/` + entry + `"`)
 
 	fontPaths := []string{fontDir}
 	if opts.FontDir != "" {
@@ -173,27 +210,27 @@ func Render(out io.Writer, opts Options) error {
 	return nil
 }
 
-// Sources returns the embedded .typ template files keyed by their base name
-// (report.typ, preamble.typ, sections.typ). It is used to assemble the
+// Sources returns the radar report's .typ template files keyed by their base
+// name (report.typ, preamble.typ, sections.typ). It is used to assemble the
 // recompilable source ZIP that ships alongside each generated PDF.
 func Sources() (map[string][]byte, error) {
-	out := map[string][]byte{}
-	err := fs.WalkDir(renderTemplatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		body, rerr := renderTemplatesFS.ReadFile(path)
-		if rerr != nil {
-			return rerr
-		}
-		out[filepath.Base(path)] = body
-		return nil
-	})
+	return SourcesFor(EntryReport)
+}
+
+// SourcesFor returns the template files one entry compiles from, keyed by
+// base name: exactly the set Render materialises for it.
+func SourcesFor(entry string) (map[string][]byte, error) {
+	files, err := templateSet(entry)
 	if err != nil {
-		return nil, fmt.Errorf("read templates: %w", err)
+		return nil, err
+	}
+	out := make(map[string][]byte, len(files))
+	for _, name := range files {
+		body, rerr := renderTemplatesFS.ReadFile("templates/" + name)
+		if rerr != nil {
+			return nil, fmt.Errorf("read templates: %w", rerr)
+		}
+		out[name] = body
 	}
 	return out, nil
 }
@@ -204,27 +241,27 @@ func MarshalData(data any) ([]byte, error) {
 	return json.MarshalIndent(data, "", "  ")
 }
 
-// materialiseTemplates copies the embedded templates/ tree into workDir at
-// the top level (so report.typ ends up at workDir/report.typ).
-func materialiseTemplates(workDir string) error {
-	return fs.WalkDir(renderTemplatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+// materialiseTemplates copies one entry's template set into workDir at the
+// top level (so report.typ ends up at workDir/report.typ).
+func materialiseTemplates(workDir, entry string) error {
+	sources, err := SourcesFor(entry)
+	if err != nil {
+		return err
+	}
+	if err := renderMkdirAll(workDir, 0o755); err != nil {
+		return err
+	}
+	names := make([]string, 0, len(sources))
+	for name := range sources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if err := renderWriteFile(filepath.Join(workDir, name), sources[name], 0o644); err != nil {
 			return err
 		}
-		if d.IsDir() {
-			return nil
-		}
-		rel := strings.TrimPrefix(path, "templates/")
-		dest := filepath.Join(workDir, rel)
-		if err := renderMkdirAll(filepath.Dir(dest), 0o755); err != nil {
-			return err
-		}
-		body, err := renderTemplatesFS.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return renderWriteFile(dest, body, 0o644)
-	})
+	}
+	return nil
 }
 
 // materialiseFonts writes the embedded Atkinson Hyperlegible fonts into
