@@ -18,14 +18,35 @@ const (
 	MinFramePointsForCompletion = 10000
 )
 
-// LiDARFrame represents one complete 360° rotation of LiDAR data
+// LiDARFrame represents one complete 360° rotation of LiDAR data.
+//
+// A frame carries two clocks, and they must not be mixed.
+//
+// StartTimestamp and EndTimestamp are capture time: the earliest and latest
+// point timestamps in the frame, which the L1 parser derived from the packet.
+// On replay that is always the PCAP capture time; live, it is what the
+// parser's TimestampMode produced: host arrival time in the default system
+// mode, the sensor's own clock in native LiDAR mode. The estimator runs on
+// this clock alone: the pipeline passes StartTimestamp to the tracker, so it
+// sets the prediction interval, coast age and expiry, and L3 warm-up and
+// settling durations use it too. Because it is the minimum point timestamp,
+// a clock that steps backwards inside a rotation moves the start to the
+// post-step points.
+//
+// StartWallTime and EndWallTime are the host's wall clock when the frame's
+// first and latest points were ingested. They serve runtime concerns only
+// (ageing out stalled frames in the live builder, and diagnostics), and
+// nothing that estimates motion may read them: replay pacing, machine load and host
+// clock steps all move them without the scene changing.
+//
+// See docs/lidar/architecture/time-domain-model.md.
 type LiDARFrame struct {
 	FrameID        string       // unique identifier for this frame
 	SensorID       string       // which sensor generated this frame
-	StartTimestamp time.Time    // timestamp of first point in frame
-	EndTimestamp   time.Time    // timestamp of last point in frame
-	StartWallTime  time.Time    // wall-clock time when frame started (ingest time)
-	EndWallTime    time.Time    // wall-clock time when last point was ingested
+	StartTimestamp time.Time    // capture time: earliest point timestamp in frame (estimator clock)
+	EndTimestamp   time.Time    // capture time: latest point timestamp in frame
+	StartWallTime  time.Time    // host wall clock when the frame's first point was ingested (runtime only)
+	EndWallTime    time.Time    // host wall clock when the frame's latest point was ingested (runtime only)
 	PolarPoints    []PointPolar // sensor-polar view: all points in polar coordinates
 	Points         []Point      // sensor-Cartesian view: all points in Cartesian coordinates
 	MinAzimuth     float64      // minimum azimuth angle observed
