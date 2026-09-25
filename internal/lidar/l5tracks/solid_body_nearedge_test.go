@@ -602,6 +602,37 @@ func rectangleOutline(length, width float64, perSide int) []l4perception.WorldPo
 	return points
 }
 
+func TestExtentsAreRefusedAlongAnAxisTheCourseContradicts(t *testing.T) {
+	// A 4.5 x 1.8 m body moving along +X. Along a heading 45 degrees off its
+	// course the width span would read the length; that evidence is refused.
+	// Along a heading on its course it is admitted.
+	tracker := NewTracker(solidBodyConfig())
+	cluster := WorldCluster{RetainedPoints: rectangleOutline(4.5, 1.8, 200)}
+	set := EdgeMeasurementSet{Edges: []EdgeMeasurement{{Face: FaceRight}}}
+	for _, c := range []struct {
+		headingRad float32
+		admitted   bool
+	}{{math.Pi / 4, false}, {0.05, true}, {math.Pi + 0.05, true}} {
+		track := &TrackedObject{}
+		track.solidBody = solidBodyTrack{
+			seeded:      true,
+			state:       [4]float32{0, 0, 10, 0},
+			estimation:  EstimationGeometryConverging,
+			orientation: OrientationBelief{PsiRad: c.headingRad, Provenance: ProvenanceObserved},
+		}
+		tracker.admitSolidBodyExtents(track, cluster, set)
+		got := track.solidBody.widthBelief.Support > 0
+		if got != c.admitted {
+			t.Errorf("heading %.2f rad on a +X course: admitted %v, want %v", c.headingRad, got, c.admitted)
+		}
+		if got {
+			if w := track.solidBody.widthBelief.Estimate(); w > 2 {
+				t.Errorf("heading %.2f rad: width %v overstates a 1.8 m body", c.headingRad, w)
+			}
+		}
+	}
+}
+
 func TestMinimumAxisSpanIsATrimmedLowerBound(t *testing.T) {
 	var points []l4perception.WorldPoint
 	for i := 0; i <= 100; i++ {

@@ -26,7 +26,8 @@ package l5tracks
 //     body axis is admitted only as lower-bound evidence, and only on an axis
 //     whose near face was found (Section 9.2.1, "one face only"). The span is
 //     the smallest within the orientation bound of the believed axis, so a
-//     lagging heading cannot inflate it.
+//     lagging heading cannot inflate it, and none is admitted while a moving
+//     body's axis is further than that bound from its course.
 //   - Heading. The tracked heading decision, with its own variance and
 //     direction ambiguity; the near-edge model needs an axis, not a direction.
 //   - Initialisation. The first HitsToConfirm observations update the solid
@@ -604,6 +605,21 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	sb := &track.solidBody
 	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising || track.MergeCandidate {
 		return
+	}
+	// Section 9.2: a span is lower-bound evidence only along believed axes.
+	// Where the body is moving fast enough for its course to mean something,
+	// an axis further from the course than the span search covers is not
+	// believed: an axis swap reads the length as the width, and the
+	// corroborated maximum would keep it for the rest of the track. On kirk0
+	// the tracked heading was over ten degrees off the course on 59% of
+	// moving near-edge frames. The axis is undirected, so the comparison is
+	// folded; for a pedestrian stepping sideways this refuses evidence
+	// rather than admitting it, which is the safe direction.
+	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); speed >= CourseAlignmentMinSpeedMps {
+		course := math.Atan2(float64(sb.state[3]), float64(sb.state[2]))
+		if FoldAxisAngleDeg(float64(sb.orientation.PsiRad)-course) > spanSearchHalfWindowDeg {
+			return
+		}
 	}
 	for _, e := range set.Edges {
 		if e.Face.IsLongitudinal() {
