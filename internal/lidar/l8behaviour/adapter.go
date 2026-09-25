@@ -9,9 +9,11 @@ package l8behaviour
 //     never inferred from memory, only read from a persisted final row, so a
 //     tracker estimate can never pass the production-emission guard by
 //     accident.
-//   - Faces. l5tracks does not yet report which end faces had returns, so no
-//     face is claimed as observed and every endpoint is at best temporally
-//     inferred.
+//   - Faces. SampleFromSolidBody claims no face, so every endpoint is at best
+//     temporally inferred. SampleFromSolidBodyReading claims the end faces a
+//     near-edge fix used, and only on an observed instant with a resolved
+//     heading; a face found but left out of the fix is not claimed, which
+//     errs toward inferred.
 //   - Support. A coasted frame is coasted and a fragmented one is
 //     cluster_split. Occlusion, unexplained misses and field-of-view exits
 //     need scene reasoning the tracker does not do, so they are not claimed.
@@ -205,6 +207,36 @@ func SampleFromSolidBody(
 	// rather than this function quietly downgrading the state.
 	if err := s.Validate(); err != nil {
 		return TrajectorySample{}, fmt.Errorf("solid body does not form a valid sample: %w", err)
+	}
+	return s, nil
+}
+
+// SampleFromSolidBodyReading builds a sample from a solid-body reading: live
+// from TrackedObject.SolidBody, or read back from lidar_track_solid_bodies.
+// The reading carries its own dynamic state, so its covariance agrees with the
+// estimate by construction rather than by two reads landing on one frame. It
+// also names the faces its near-edge fix used, which is what lets an end face
+// be claimed as observed.
+func SampleFromSolidBodyReading(
+	r l5tracks.SolidBodyReading,
+	captureUnixNanos int64,
+	bounds l5tracks.ConvergenceBounds,
+) (TrajectorySample, error) {
+	s, err := SampleFromSolidBody(r.Estimate, DynamicState{VX: r.VX, VY: r.VY, Covariance: r.Covariance}, captureUnixNanos, bounds)
+	if err != nil {
+		return TrajectorySample{}, err
+	}
+	// Front and rear are named along the heading the fix used, so they mean
+	// the leading and trailing faces only once the heading is resolved.
+	if r.Measurement.Source == l5tracks.MeasurementNearEdgeCandidateV1 &&
+		s.Support == SupportObserved && s.Heading.Resolved() {
+		s.Faces = FaceVisibility{
+			FrontObserved: r.Measurement.Faces.Has(l5tracks.FaceFront),
+			RearObserved:  r.Measurement.Faces.Has(l5tracks.FaceRear),
+		}
+		if err := s.Validate(); err != nil {
+			return TrajectorySample{}, fmt.Errorf("solid-body reading does not form a valid sample: %w", err)
+		}
 	}
 	return s, nil
 }
