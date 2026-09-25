@@ -103,6 +103,9 @@ func TestBenchmarkValidation(t *testing.T) {
 		"external sans citation": {Kind: BenchmarkExternalDistribution},
 		"local sans strata":      {Kind: BenchmarkLocalDistribution},
 		"infinite threshold":     {Kind: BenchmarkNoEstablishedThreshold, Threshold: ptr(math.Inf(1))},
+		"no threshold, cited":    {Kind: BenchmarkNoEstablishedThreshold, Citation: "Dingus 2006"},
+		"no threshold, legal":    {Kind: BenchmarkNoEstablishedThreshold, Jurisdiction: "DE", EffectiveFromUnixNanos: 1},
+		"no threshold, strata":   {Kind: BenchmarkNoEstablishedThreshold, Stratification: "site"},
 	} {
 		if err := b.Validate(); err == nil {
 			t.Errorf("%s: want an error", name)
@@ -155,18 +158,34 @@ func TestMeasurementIsValueXorSuppression(t *testing.T) {
 		t.Fatalf("band measurement %+v err %v", band, err)
 	}
 
+	// The registered kind may be attached with its provenance, and a band
+	// may not be relabelled as a research threshold.
+	cited := m
+	cited.Benchmark = &Benchmark{Kind: BenchmarkExternalDistribution, Citation: "highD"}
+	if err := cited.Validate(); err != nil {
+		t.Fatalf("registered benchmark kind rejected: %v", err)
+	}
+	relabelled := band
+	relabelled.Benchmark = &Benchmark{Kind: BenchmarkResearchThreshold, Citation: "driver education", Threshold: ptr(1.5)}
+	if err := relabelled.Validate(); err == nil {
+		t.Fatal("a no_established_threshold band validated as a research threshold")
+	}
+
 	for name, fn := range map[string]func(*Measurement){
-		"value and suppressed":   func(m *Measurement) { m.Suppressed, m.Reason = true, ReasonNotObserved },
-		"value and reason":       func(m *Measurement) { m.Reason = ReasonNotObserved },
-		"neither":                func(m *Measurement) { m.Value = nil },
-		"no uncertainty":         func(m *Measurement) { m.Uncertainty = nil },
-		"bad uncertainty":        func(m *Measurement) { m.Uncertainty = &Uncertainty{} },
-		"NaN value":              func(m *Measurement) { m.Value = ptr(math.NaN()) },
-		"unregistered name":      func(m *Measurement) { m.Name = "track.gap_m" },
-		"wrong unit":             func(m *Measurement) { m.Unit = "ft" },
-		"percentile over 100":    func(m *Measurement) { m.Percentile = ptr(101.0) },
-		"negative opportunity":   func(m *Measurement) { m.OpportunitySeconds = ptr(-1.0) },
-		"bad benchmark":          func(m *Measurement) { m.Benchmark = &Benchmark{Kind: BenchmarkLegal} },
+		"value and suppressed": func(m *Measurement) { m.Suppressed, m.Reason = true, ReasonNotObserved },
+		"value and reason":     func(m *Measurement) { m.Reason = ReasonNotObserved },
+		"neither":              func(m *Measurement) { m.Value = nil },
+		"no uncertainty":       func(m *Measurement) { m.Uncertainty = nil },
+		"bad uncertainty":      func(m *Measurement) { m.Uncertainty = &Uncertainty{} },
+		"NaN value":            func(m *Measurement) { m.Value = ptr(math.NaN()) },
+		"unregistered name":    func(m *Measurement) { m.Name = "track.gap_m" },
+		"wrong unit":           func(m *Measurement) { m.Unit = "ft" },
+		"percentile over 100":  func(m *Measurement) { m.Percentile = ptr(101.0) },
+		"negative opportunity": func(m *Measurement) { m.OpportunitySeconds = ptr(-1.0) },
+		"bad benchmark":        func(m *Measurement) { m.Benchmark = &Benchmark{Kind: BenchmarkLegal} },
+		"relabelled benchmark": func(m *Measurement) {
+			m.Benchmark = &Benchmark{Kind: BenchmarkResearchThreshold, Citation: "FHWA-HRT-08-049"}
+		},
 		"bad provenance":         func(m *Measurement) { m.Provenance = Provenance{} },
 		"suppressed sans reason": func(m *Measurement) { m.Value, m.Uncertainty, m.Suppressed = nil, nil, true },
 		"suppressed with a percentile": func(m *Measurement) {

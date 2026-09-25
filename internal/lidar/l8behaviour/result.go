@@ -191,6 +191,14 @@ func (b Benchmark) Validate() error {
 		return fmt.Errorf("benchmark threshold must be finite")
 	}
 	switch b.Kind {
+	case BenchmarkNoEstablishedThreshold:
+		// The kind asserts that no authority stands behind the value, so a
+		// citation, jurisdiction, effective date or stratification on it
+		// would lend it provenance it does not have. A threshold alone is
+		// allowed: it names the descriptive band, not a standard.
+		if b.Citation != "" || b.Jurisdiction != "" || b.EffectiveFromUnixNanos != 0 || b.Stratification != "" {
+			return fmt.Errorf("no_established_threshold benchmark carries no citation, jurisdiction, effective date or stratification")
+		}
 	case BenchmarkLegal:
 		if b.Jurisdiction == "" || b.EffectiveFromUnixNanos == 0 {
 			return fmt.Errorf("legal benchmark requires a jurisdiction and an effective date")
@@ -389,6 +397,13 @@ func (m Measurement) Validate() error {
 	if m.Benchmark != nil {
 		if err := m.Benchmark.Validate(); err != nil {
 			return fmt.Errorf("measurement %s: %w", m.Name, err)
+		}
+		// The registry fixes each metric's benchmark kind, so a band
+		// labelled no_established_threshold cannot arrive relabelled as a
+		// research threshold, and a metric that declares no benchmark cannot
+		// acquire one.
+		if m.Benchmark.Kind != def.Benchmark {
+			return fmt.Errorf("measurement %s: benchmark %s, registered benchmark %s", m.Name, m.Benchmark.Kind, def.Benchmark)
 		}
 	}
 	if m.Percentile != nil && !(*m.Percentile >= 0 && *m.Percentile <= 100) {
