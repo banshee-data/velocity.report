@@ -66,6 +66,29 @@ func registrySurfaces() []registrySurface {
 			}
 			return encodeAll(t, windows)
 		}},
+		{"api: following distribution, one per version group", func(t *testing.T) [][]byte {
+			groups := map[InteractionVersion][]FollowingInteraction{}
+			for _, fi := range surfaceInteractions(t) {
+				v := fi.Event.Version.InteractionVersion()
+				groups[v] = append(groups[v], fi)
+			}
+			var out []FollowingDistribution
+			for _, g := range groups {
+				d, err := AggregateFollowing(g)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out = append(out, d)
+			}
+			return encodeAll(t, out)
+		}},
+		{"api: encounter summary", func(t *testing.T) [][]byte {
+			var rows []EncounterSummary
+			for _, fi := range surfaceInteractions(t) {
+				rows = append(rows, fi.Event.Summary())
+			}
+			return encodeAll(t, rows)
+		}},
 	}
 }
 
@@ -174,7 +197,7 @@ func TestSurfaceFieldNamesCoverRecordTypes(t *testing.T) {
 			walk(f.Type)
 		}
 	}
-	for _, v := range []any{InteractionEvent{}, InteractionInstant{}, ExposureWindow{}} {
+	for _, v := range []any{InteractionEvent{}, InteractionInstant{}, ExposureWindow{}, FollowingDistribution{}, EncounterSummary{}} {
 		walk(reflect.TypeOf(v))
 	}
 }

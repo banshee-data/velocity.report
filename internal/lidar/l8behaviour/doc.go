@@ -45,8 +45,10 @@
 //     records internal/lidar/storage/sqlite persists (event, instants,
 //     exposure windows), keyed by registry metric id and suppression token,
 //     write-once per version, with observed and predicted-only time kept
-//     apart by basis; and the audit that holds every external surface to
-//     registered names.
+//     apart by basis; the audit that holds every external surface to
+//     registered names; and (distribution.go) one version group's stored
+//     encounters pooled into the time-weighted gap and time-gap distribution
+//     a surface serves, with every excluded second beside it by reason.
 //
 // Production emission is gated. A result may reach a production surface only
 // from a final-stage, established, observed estimate (G-SMO-1, Section 2.1),

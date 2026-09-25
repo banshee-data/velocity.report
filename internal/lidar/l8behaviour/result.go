@@ -360,6 +360,43 @@ func definitionBenchmark(def MetricDefinition) *Benchmark {
 
 // Validate enforces the value-XOR-suppression rule and the field contracts.
 func (m Measurement) Validate() error {
+	if err := m.WithoutProvenance().Validate(); err != nil {
+		return err
+	}
+	if err := m.Provenance.Validate(); err != nil {
+		return fmt.Errorf("measurement %s: %w", m.Name, err)
+	}
+	return nil
+}
+
+// MeasurementValue is a Measurement without its provenance, for a surface
+// that states the provenance once for many values: an API row whose event
+// carries the version and input, or a pooled aggregate that has no single
+// input. It obeys every other Measurement rule.
+type MeasurementValue struct {
+	Name               MetricID          `json:"name"`
+	Unit               string            `json:"unit"`
+	Value              *float64          `json:"value,omitempty"`
+	Uncertainty        *Uncertainty      `json:"uncertainty,omitempty"`
+	Suppressed         bool              `json:"suppressed"`
+	Reason             SuppressionReason `json:"reason,omitempty"`
+	Benchmark          *Benchmark        `json:"benchmark,omitempty"`
+	Percentile         *float64          `json:"percentile,omitempty"`
+	OpportunitySeconds *float64          `json:"opportunity_seconds,omitempty"`
+}
+
+// WithoutProvenance returns the measurement's value, uncertainty,
+// suppression and benchmark, sharing its pointers.
+func (m Measurement) WithoutProvenance() MeasurementValue {
+	return MeasurementValue{
+		Name: m.Name, Unit: m.Unit, Value: m.Value, Uncertainty: m.Uncertainty, Suppressed: m.Suppressed,
+		Reason: m.Reason, Benchmark: m.Benchmark, Percentile: m.Percentile, OpportunitySeconds: m.OpportunitySeconds,
+	}
+}
+
+// Validate enforces the value-XOR-suppression rule and the field contracts
+// of Measurement, apart from provenance.
+func (m MeasurementValue) Validate() error {
 	def, ok := LookupMetric(m.Name)
 	if !ok {
 		return fmt.Errorf("measurement name %q is not a registered metric", m.Name)
@@ -411,9 +448,6 @@ func (m Measurement) Validate() error {
 	}
 	if m.OpportunitySeconds != nil && !finiteNonNegative(*m.OpportunitySeconds) {
 		return fmt.Errorf("measurement %s opportunity must be finite and non-negative", m.Name)
-	}
-	if err := m.Provenance.Validate(); err != nil {
-		return fmt.Errorf("measurement %s: %w", m.Name, err)
 	}
 	return nil
 }
