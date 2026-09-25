@@ -290,6 +290,11 @@ func encodePoints(p Points) ([]byte, error) {
 	return buf, nil
 }
 
+// EncodePoints is the canonical block encoding for one sample, for writers of
+// packs other than Export: synthetic fixtures for evaluators downstream of
+// this package, which cannot otherwise produce a block WritePack accepts.
+func EncodePoints(p Points) ([]byte, error) { return encodePoints(p) }
+
 func decodePoints(b []byte, n int) (Points, error) {
 	if int64(len(b)) != sampleBytes(n) {
 		return Points{}, fmt.Errorf("block is %d bytes, want %d for %d points", len(b), sampleBytes(n), n)
