@@ -145,15 +145,20 @@ type EstimateVersionKey struct {
 }
 
 // ListRevisedEstimates returns one refined version's estimates with their
-// revision records, in creation-sequence and frame order. It is the read path
-// for the refined stages; the older source-wide readers return online rows
-// only, which is all they were written for.
+// residual rows and revision records, in creation-sequence and frame order:
+// each item as InsertRevised wrote it. It is the read path for the refined
+// stages; the older source-wide readers return online rows only, which is all
+// they were written for.
 func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]RevisedStateEstimate, error) {
 	rows, err := s.db.Query(`
 		SELECT e.estimate_id, e.track_id, e.observation_id, e.source_id, e.calibration_id
 		     , e.frame_unix_nanos, e.measurement_unix_nanos, e.estimator_id
 		     , e.observation_model_id, e.param_hash, e.stage, e.measurement_source
 		     , e.creation_sequence, e.x, e.y, e.vx, e.vy, e.covariance_json
+		     , r.observation_id, r.predicted_x, r.predicted_y, r.measurement_x, r.measurement_y
+		     , r.innovation_x, r.innovation_y, r.nis
+		     , r.geometry_cov_xx, r.geometry_cov_xy, r.geometry_cov_yy
+		     , r.disposition, r.reason
 		     , v.revises_estimate_id, v.smoother_id, v.lag, v.lookahead_steps, v.lookahead_secs
 		     , v.released_at_unix_nanos, v.release_reason, v.chain_end_reason, v.flags
 		     , v.previous_x, v.previous_y, v.previous_vx, v.previous_vy
@@ -161,6 +166,7 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 		     , v.evidence_first_frame_unix_nanos, v.evidence_last_frame_unix_nanos
 		     , v.strongest_evidence_observation_id, v.strongest_evidence_nis
 		  FROM lidar_track_estimates e
+		  JOIN lidar_track_residuals r ON r.estimate_id = e.estimate_id
 		  JOIN lidar_track_estimate_revisions v ON v.estimate_id = e.estimate_id
 		 WHERE e.source_id = ? AND e.estimator_id = ? AND e.observation_model_id = ?
 		   AND e.param_hash = ? AND e.stage = ?
@@ -173,7 +179,7 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 	out := []RevisedStateEstimate{}
 	for rows.Next() {
 		var item RevisedStateEstimate
-		e, r := &item.Estimate, &item.Revision
+		e, res, r := &item.Estimate, &item.Residual, &item.Revision
 		var covariance []byte
 		var flags string
 		if err := rows.Scan(
@@ -181,6 +187,10 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 			&e.FrameUnixNanos, &e.MeasurementUnixNanos, &e.EstimatorID,
 			&e.ObservationModelID, &e.ParamHash, &e.Stage, &e.MeasurementSource,
 			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance,
+			&res.ObservationID, &res.PredictedX, &res.PredictedY, &res.MeasurementX, &res.MeasurementY,
+			&res.InnovationX, &res.InnovationY, &res.NIS,
+			&res.GeometryCovXX, &res.GeometryCovXY, &res.GeometryCovYY,
+			&res.Disposition, &res.Reason,
 			&r.RevisesEstimateID, &r.SmootherID, &r.Lag, &r.LookaheadSteps, &r.LookaheadSecs,
 			&r.ReleasedAtUnixNanos, &r.ReleaseReason, &r.ChainEndReason, &flags,
 			&r.PreviousX, &r.PreviousY, &r.PreviousVX, &r.PreviousVY,
@@ -193,7 +203,7 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 		if err := json.Unmarshal(covariance, &e.Covariance); err != nil {
 			return nil, fmt.Errorf("unmarshal estimate covariance %s: %w", e.EstimateID, err)
 		}
-		r.EstimateID = e.EstimateID
+		res.EstimateID, r.EstimateID = e.EstimateID, e.EstimateID
 		if flags != "" {
 			r.Flags = strings.Split(flags, ",")
 		}

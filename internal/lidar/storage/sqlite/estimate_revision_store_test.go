@@ -99,7 +99,8 @@ func TestRevisedEstimatesNeverReplaceOnlineRows(t *testing.T) {
 		t.Fatalf("ListFrameStateEstimatesBySource returned %d rows", len(frames))
 	}
 
-	// The refined read path names its version and returns the audit record.
+	// The refined read path names its version and returns each item as it was
+	// written: estimate, residual and audit record.
 	got, err := store.ListRevisedEstimates(EstimateVersionKey{
 		SourceID: online.SourceID, EstimatorID: fixedLag.Estimate.EstimatorID,
 		ObservationModelID: "medoid_v0", ParamHash: "sha256:lag3f", Stage: EstimateStageFixedLag,
@@ -111,9 +112,11 @@ func TestRevisedEstimatesNeverReplaceOnlineRows(t *testing.T) {
 		t.Fatalf("ListRevisedEstimates returned %d rows", len(got))
 	}
 	want := fixedLag
-	want.Residual = TrackResidual{} // the refined read path does not return residual rows
-	if !reflect.DeepEqual(got[0].Revision, want.Revision) || got[0].Estimate != want.Estimate {
+	if !reflect.DeepEqual(got[0].Revision, want.Revision) || got[0].Estimate != want.Estimate || got[0].Residual != want.Residual {
 		t.Fatalf("round trip differs:\n got %+v\nwant %+v", got[0], want)
+	}
+	if got[0].Residual.Reason == "" || got[0].Residual.EstimateID != want.Estimate.EstimateID {
+		t.Fatalf("refined residual not returned: %+v", got[0].Residual)
 	}
 }
 
