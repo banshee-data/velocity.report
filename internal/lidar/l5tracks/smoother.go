@@ -21,7 +21,7 @@ import (
 // (FilterStep.PredictedSecs) and every other term the filter's stored prior
 // or posterior (see filter_steps.go). Starting the recursion at a later
 // step's posterior x(j|j) gives the fixed-lag estimate x(k|j) exactly: the
-// states before k are not needed. data/maths/tracking-maths.md §12 carries the
+// states before k are not needed. data/maths/tracking-maths.md §11 carries the
 // derivation and the numerical rules below.
 //
 // Principle 0.2 is the design constraint, and it is testable. A state is
@@ -97,10 +97,20 @@ type SmootherLag struct {
 	// Frames counts the track's own subsequent filter steps.
 	Frames int `json:"frames,omitempty"`
 	// Secs is capture time after the state. A state's estimate uses every
-	// step up to exactly Secs later, and is released when a step at or beyond
-	// that time arrives.
+	// step up to Secs later, and is released when a step at or beyond that
+	// time arrives, both within CaptureLagToleranceNanos.
 	Secs float64 `json:"secs,omitempty"`
 }
+
+// CaptureLagToleranceNanos is how close to a capture-time lag a step must be
+// to count as reaching it. A sensor's rotation period wanders about its
+// nominal value, and on kirk0 five frames span 499.8 ms: without a tolerance
+// a 0.5 s lag would wait for a sixth frame, finalising a frame late with the
+// same five steps of evidence, and 0.5 s at 10 Hz would not be the five
+// look-ahead intervals the asynchronous tracking plan defines it as. Five
+// milliseconds is a twentieth of a 10 Hz frame and a tenth of a 20 Hz one,
+// so it can never stand in for a whole frame.
+const CaptureLagToleranceNanos = 5_000_000
 
 // LagFrames is a frame-count lag: the plan's three-frame comparator is
 // LagFrames(3).
@@ -533,9 +543,9 @@ func (s *FixedLagSmoother) releaseReady(out []SmoothedState, w *smootherWindow, 
 		switch {
 		case s.cfg.Lag.Frames > 0 && last >= s.cfg.Lag.Frames:
 			out = s.releaseOldest(out, w, s.cfg.Lag.Frames, ReleaseLag, frameNanos)
-		case s.cfg.Lag.Secs > 0 && newest-oldest >= s.lagNanos:
+		case s.cfg.Lag.Secs > 0 && newest-oldest >= s.lagNanos-CaptureLagToleranceNanos:
 			j := 0
-			for j < last && w.entries[j+1].step.StateUnixNanos-oldest <= s.lagNanos {
+			for j < last && w.entries[j+1].step.StateUnixNanos-oldest <= s.lagNanos+CaptureLagToleranceNanos {
 				j++
 			}
 			out = s.releaseOldest(out, w, j, ReleaseLag, frameNanos)
@@ -605,7 +615,7 @@ func (s *FixedLagSmoother) lagUnmet(w *smootherWindow, k, j int) bool {
 	case s.cfg.Lag.Frames > 0:
 		return j-k < s.cfg.Lag.Frames
 	case s.cfg.Lag.Secs > 0:
-		return w.entries[j].step.StateUnixNanos-w.entries[k].step.StateUnixNanos < s.lagNanos
+		return w.entries[j].step.StateUnixNanos-w.entries[k].step.StateUnixNanos < s.lagNanos-CaptureLagToleranceNanos
 	default:
 		return false
 	}

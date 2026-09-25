@@ -200,7 +200,7 @@ func TestFixedLagConvergesToFullTrackInTheInterior(t *testing.T) {
 			if lag.Frames > 0 && n-1-k < lag.Frames {
 				return k
 			}
-			if lag.Secs > 0 && float64(final[n-1].StateUnixNanos-s.StateUnixNanos)/1e9 < lag.Secs {
+			if lag.Secs > 0 && final[n-1].StateUnixNanos-s.StateUnixNanos < int64(lag.Secs*1e9)-CaptureLagToleranceNanos {
 				return k
 			}
 		}
@@ -1002,5 +1002,37 @@ func TestSmootherConfigValidation(t *testing.T) {
 	}
 	if s := strings.Join([]string{LagFrames(3).String(), LagSeconds(0.5).String(), LagTrackEnd().String()}, ","); s != "3f,0.5s,track" {
 		t.Errorf("lag labels %q", s)
+	}
+}
+
+// TestCaptureTimeLagToleratesPeriodJitter: frames 99.96 ms apart, as kirk0's
+// are, must give a 0.5 s lag its five look-ahead steps and release the state
+// on the fifth, not wait a sixth frame for time the tolerance already covers.
+// A step 10 ms short of the lag is not within tolerance and does not release.
+func TestCaptureTimeLagToleratesPeriodJitter(t *testing.T) {
+	s, _ := NewFixedLagSmoother(SmootherConfig{Lag: LagSeconds(0.5)})
+	step := func(k int, periodNanos int64) FilterStep {
+		st := manualStep(1, 1, float32(k)*0.1, 1, true, k > 0)
+		st.StateUnixNanos = tdAt(1).UnixNano() + int64(k)*periodNanos
+		st.FrameUnixNanos = st.StateUnixNanos
+		return st
+	}
+	var released []SmoothedState
+	for k := 0; k <= 5; k++ {
+		out := s.Observe(FilterFrame{Steps: []FilterStep{step(k, 99_960_000)}})
+		if k < 5 && len(out) != 0 {
+			t.Fatalf("released at step %d, before the lag", k)
+		}
+		released = append(released, out...)
+	}
+	if len(released) != 1 || released[0].LookaheadSteps != 5 || released[0].Release != ReleaseLag {
+		t.Fatalf("after five 99.96 ms frames: %d released, look-ahead %d", len(released), released[0].LookaheadSteps)
+	}
+
+	short, _ := NewFixedLagSmoother(SmootherConfig{Lag: LagSeconds(0.5)})
+	for k := 0; k <= 5; k++ {
+		if out := short.Observe(FilterFrame{Steps: []FilterStep{step(k, 98_000_000)}}); len(out) != 0 {
+			t.Fatalf("released with the newest step 10 ms short of the lag (step %d)", k)
+		}
 	}
 }
