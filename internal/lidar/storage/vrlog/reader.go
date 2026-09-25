@@ -257,11 +257,22 @@ func (r *Reader) Summary() (Summary, bool) {
 	return *r.summary, true
 }
 
-// Status summarises the container.
+// Status summarises the container. It is a copy: changing it, the markers
+// included, does not change what the reader reports next.
 func (r *Reader) Status() Status {
 	s := r.status
 	s.UncommittedTail = append([]string(nil), s.UncommittedTail...)
 	s.Unpromoted = append([]uint64(nil), s.Unpromoted...)
+	if s.Failure != nil {
+		failure := *s.Failure
+		s.Failure = &failure
+	}
+	if s.Recovery != nil {
+		recovery := *s.Recovery
+		recovery.Promoted = append([]uint64(nil), recovery.Promoted...)
+		recovery.Quarantined = append([]string(nil), recovery.Quarantined...)
+		s.Recovery = &recovery
+	}
 	return s
 }
 

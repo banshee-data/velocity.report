@@ -134,8 +134,9 @@ func TestCrashAtEveryPublicationStep(t *testing.T) {
 				t.Fatalf("quarantined %v", report.Quarantined)
 			}
 			assertFrames(t, frames[:want], readAll(t, dir, Options{}))
-			if after := committedDigests(t, dir, 2); !mapsEqual(after, committedBefore) {
-				t.Fatal("recovery rewrote committed objects")
+			if err := sameObjectsExceptQuarantined(committedBefore, committedDigests(t, dir, 2), report.Quarantined,
+				generationObject(report.Generation)); err != nil {
+				t.Fatalf("recovery changed committed objects: %v", err)
 			}
 			r, err = Open(dir, Options{})
 			if err != nil {
@@ -145,6 +146,18 @@ func TestCrashAtEveryPublicationStep(t *testing.T) {
 			if st.State != CaptureIncomplete || !st.TailExtentUnknown || st.Recovery == nil || !st.Recovery.SessionIncomplete ||
 				len(st.UncommittedTail) != 0 || len(st.Unpromoted) != 0 || st.PointerFallback != "" {
 				t.Fatalf("recovered status = %+v, record %+v", st, st.Recovery)
+			}
+			// Status is a copy: changing the returned marker changes nothing.
+			st.Recovery.SessionIncomplete = false
+			if len(st.Recovery.Promoted) > 0 {
+				st.Recovery.Promoted[0] = 99
+			}
+			if len(st.Recovery.Quarantined) > 0 {
+				st.Recovery.Quarantined[0] = "changed"
+			}
+			if fresh := r.Status(); !fresh.Recovery.SessionIncomplete || slices.Contains(fresh.Recovery.Promoted, 99) ||
+				slices.Contains(fresh.Recovery.Quarantined, "changed") {
+				t.Fatalf("Status shares the reader's recovery marker: %+v", fresh.Recovery)
 			}
 			if _, err := r.Verify(); err != nil {
 				t.Fatal(err)
@@ -195,13 +208,32 @@ func committedDigests(t *testing.T, dir string, through uint64) map[string][sha2
 	return out
 }
 
-func mapsEqual(a, b map[string][sha256.Size]byte) bool {
-	for k, v := range a {
-		if w, ok := b[k]; ok && w != v {
-			return false
+// sameObjectsExceptQuarantined requires recovery to leave every object it
+// found byte for byte, except those it names as quarantined, which must be
+// gone from their place, and to add nothing but its own recovery generation.
+func sameObjectsExceptQuarantined(before, after map[string][sha256.Size]byte, quarantined []string, recovery string) error {
+	moved := map[string]bool{}
+	for _, name := range quarantined {
+		moved[name] = true
+	}
+	for name, digest := range before {
+		got, ok := after[name]
+		switch {
+		case moved[name] && ok:
+			return fmt.Errorf("%s is quarantined but still in place", name)
+		case moved[name]:
+		case !ok:
+			return fmt.Errorf("%s was removed", name)
+		case got != digest:
+			return fmt.Errorf("%s was rewritten", name)
 		}
 	}
-	return true
+	for name := range after {
+		if _, ok := before[name]; !ok && name != recovery {
+			return fmt.Errorf("%s appeared", name)
+		}
+	}
+	return nil
 }
 
 // A writer killed with an open batch leaves it as an uncommitted tail, torn
