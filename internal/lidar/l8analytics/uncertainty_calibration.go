@@ -117,8 +117,11 @@ type UncertaintyFitOptions struct {
 	// recorded geometry covariance uses.
 	CoefficientFloorM2   float64 `json:"coefficient_floor_m2"`
 	CoefficientCeilingM2 float64 `json:"coefficient_ceiling_m2"`
-	// BiasFlagRatio flags a stratum whose squared median innovation exceeds
-	// this share of its median squared innovation.
+	// BiasFlagRatio flags a stratum whose squared central innovation exceeds
+	// this share of its typical squared innovation: mean and mean square
+	// under EstimatorMean, median and median square under EstimatorMedian.
+	// Only a stratum with MinStratumSamples is judged; below that the centre
+	// is noise, and a single sample would always be flagged.
 	BiasFlagRatio float64 `json:"bias_flag_ratio"`
 	// Estimator is the statistic a stratum's normalised innovations are
 	// matched on: EstimatorMean or EstimatorMedian. See the package comment.
@@ -768,6 +771,13 @@ func (a axisAccumulator) fit(opts UncertaintyFitOptions) FitStratum {
 	st.CoefficientUsed = st.MeanModelNoise - st.MeanPhysics
 	st.MomentCoefficient = st.InnovationVariance - st.MeanPredicted - st.MeanPhysics
 	st.Coefficient, st.Clamped = matchedCoefficient(a.ys, a.bases, opts)
+	if a.n < opts.MinStratumSamples {
+		return st
+	}
+	if opts.Estimator == EstimatorMean {
+		st.BiasDominated = meanY*meanY > opts.BiasFlagRatio*meanY2
+		return st
+	}
 	squares := make([]float64, len(a.ys))
 	for i, y := range a.ys {
 		squares[i] = y * y

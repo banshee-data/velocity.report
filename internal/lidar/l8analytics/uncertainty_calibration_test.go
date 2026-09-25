@@ -173,6 +173,23 @@ func TestFitRefusesToFoldBiasIntoR(t *testing.T) {
 	if !radial.BiasDominated || !near(radial.MeanInnovation, 0.6, 0.01) {
 		t.Errorf("bias not reported: %+v", radial)
 	}
+
+	// Too few samples to judge: a stratum of one always has its whole
+	// innovation as its centre, and must not be flagged for it. kirk0's first
+	// evidence run flagged 50 of 60 strata this way.
+	few := FitNoiseCoefficients(samples[:DefaultUncertaintyFitOptions(0.05).MinStratumSamples-1], DefaultUncertaintyFitOptions(0.05))
+	for _, s := range few.Strata {
+		if s.BiasDominated {
+			t.Errorf("under-sampled stratum flagged: %+v", s)
+		}
+	}
+	robust := DefaultUncertaintyFitOptions(0.05)
+	robust.Estimator = EstimatorMedian
+	for _, s := range FitNoiseCoefficients(samples, robust).Strata {
+		if s.Axis == "radial" && !s.BiasDominated {
+			t.Errorf("median estimator missed the bias: %+v", s)
+		}
+	}
 }
 
 func TestFitClampsAndRecordsIt(t *testing.T) {
