@@ -60,10 +60,14 @@
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 // tok prints a registry id, token, track id or locator in the mono face,
-// with a break opportunity after each "/", "." and "_" so a long id wraps
-// inside its cell instead of running into the next one. Hyphenation is off:
-// a hyphen inserted into a token would print a name the registry lacks.
-#let tok(s) = text(hyphenate: false, mono(s.replace("/", "/\u{200B}").replace(".", ".\u{200B}").replace("_", "_\u{200B}")))
+// with a break opportunity after each "/", ".", "_" and ":", and after every
+// sixteen hex digits, so a long id or a source digest wraps inside its cell
+// instead of running into the next one. Hyphenation is off: a hyphen
+// inserted into a token would print a name the registry lacks.
+#let tok(s) = text(hyphenate: false, mono(
+  s.replace(regex("[0-9a-f]{16}"), m => m.text + "\u{200B}")
+    .replace("/", "/\u{200B}").replace(".", ".\u{200B}").replace("_", "_\u{200B}").replace(":", ":\u{200B}"),
+))
 
 // A list of strings joined with commas, or "none" for an empty list (an
 // empty array joins to none in Typst).

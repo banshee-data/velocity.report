@@ -270,8 +270,11 @@ func shortDigest(sourceID string) string {
 	return last[:min(12, len(last))]
 }
 
-// describe states what was read and what the rows could and could not
-// support, counted from the samples rather than asserted.
+// describe states what the rows could and could not support, counted from
+// the samples rather than asserted. It names no id: the capture's source
+// already prints the source, estimator, observation model, parameter hash
+// and stage, with break points, where a long hash here would overrun its
+// cell.
 func (r Result) describe() string {
 	var samples, bodyCentre, heading, extents, converging int
 	vehicles := 0
@@ -295,13 +298,10 @@ func (r Result) describe() string {
 			}
 		}
 	}
-	e := r.Estimates
-	return fmt.Sprintf("Persisted %s estimates of %s (estimator %s, observation model %s, parameters %s): "+
-		"%d tracks, %d samples. Samples on a body-centre reference: %d; with a pose the estimator stands behind: %d; "+
-		"with a resolved heading: %d; with length and width beliefs: %d. Tracks classed as rigid vehicles: %d. "+
-		"The analysis parameters are the analytic scenarios' bounds, not calibrated.",
-		e.Stage, e.SourceID, e.EstimatorID, e.ObservationModelID, e.ParamHash, len(r.Trajectories), samples,
-		bodyCentre, converging, heading, extents, vehicles)
+	return fmt.Sprintf("Persisted %s estimates: %d tracks, %d samples. Samples on a body-centre reference: %d; "+
+		"with a pose the estimator stands behind: %d; with a resolved heading: %d; with length and width beliefs: %d. "+
+		"Tracks classed as rigid vehicles: %d. The analysis parameters are the analytic scenarios' bounds, not calibrated.",
+		r.Estimates.Stage, len(r.Trajectories), samples, bodyCentre, converging, heading, extents, vehicles)
 }
 
 // Report builds the provisional report from the run. Field data is never a

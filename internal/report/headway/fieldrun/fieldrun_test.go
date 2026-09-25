@@ -180,7 +180,8 @@ func TestRunOnlineEstimates(t *testing.T) {
 	c := r.Captures[0]
 	if c.ID != "source_abababababab" ||
 		c.Source != "lidar_track_estimates/"+testSource+"/cv_kf_v1/obb_centre_v1/sha256:online/online" ||
-		!strings.Contains(c.Description, "with a resolved heading: 0") || !strings.Contains(c.Description, "rigid vehicles: 0") {
+		!strings.Contains(c.Description, "with a resolved heading: 0") || !strings.Contains(c.Description, "rigid vehicles: 0") ||
+		strings.Contains(c.Description, testSource) || strings.Contains(c.Description, "sha256:") {
 		t.Errorf("capture = %s, %s, %q", c.ID, c.Source, c.Description)
 	}
 	data := reportData(t, res)
