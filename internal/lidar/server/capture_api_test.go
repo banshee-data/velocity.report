@@ -198,6 +198,34 @@ func TestCaptureScanSkipsProbingWhenAsked(t *testing.T) {
 	}
 }
 
+func TestScheduledCaptureScanMarksTheRootRunning(t *testing.T) {
+	dir := t.TempDir()
+	ws := captureAPIServer(t, dir)
+	store, err := ws.captureStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.syncCaptureRoots(); err != nil {
+		t.Fatal(err)
+	}
+	roots, err := store.ListRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, started := scheduledCaptureScans(roots, roots[0].RootID)
+	if !started {
+		t.Fatal("scan was not scheduled")
+	}
+	if len(results) != 1 || results[0].State != captureScanStateRunning {
+		t.Fatalf("scheduled result = %+v, want one running root", results)
+	}
+	markScheduledRoots(roots)
+	if !roots[0].ScanInProgress {
+		t.Error("root does not report its scheduled scan")
+	}
+	clearScheduledRoots(roots, roots[0].RootID)
+}
+
 func TestCaptureScanReportsAnUnreachableVolume(t *testing.T) {
 	// An unmounted external drive must read as unmounted, not as empty.
 	missing := filepath.Join(t.TempDir(), "not-mounted")

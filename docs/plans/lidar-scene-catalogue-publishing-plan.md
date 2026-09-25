@@ -1,8 +1,8 @@
-# Scene catalogue publishing (v0.6.x)
+# Scene catalogue publishing (v0.6.6)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (LiDAR pipeline, database, CLI, CI, web)
-- **Target:** v0.6.x; turn 122 GB of stranded daily-driver captures into a statically served map of San Francisco scenes
+- **Target:** v0.6.6; turn 122 GB of stranded daily-driver captures into a statically served map of San Francisco scenes
 - **Companion plans:** [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) owns the export format; [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md) owns S2 conventions
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md) for all S2 conventions
 
@@ -427,7 +427,7 @@ implementation, so they can start once the spec is written.
 
 **Interfaces owned:** `derived/` layout, `capture_id` derivation, importer CLI.
 **Depends on:** W2 migration for the two capture tables.
-**Milestone:** v0.6.0
+**Milestone:** v0.6.6
 
 ### Workstream 2: Database and migrations (data agent)
 
@@ -449,7 +449,7 @@ implementation, so they can start once the spec is written.
 
 **Interfaces owned:** all schema, all S2 derivation helpers.
 **Depends on:** surveyed coordinates for step 4 only.
-**Milestone:** v0.6.0
+**Milestone:** v0.6.6
 
 ### Workstream 3: Scene export at archive scale (backend agent)
 
@@ -467,7 +467,7 @@ itself is built in Phase 0 and owned by the companion plan.
 
 **Interfaces owned:** batch export, the scorer, the export registry contract.
 **Depends on:** Phase 0 exporter; W2 migrations; W1 for `capture_id`.
-**Milestone:** v0.6.2
+**Milestone:** v0.6.6
 
 ### Workstream 4: Catalogue repository and CI (infra agent)
 
@@ -487,7 +487,7 @@ itself is built in Phase 0 and owned by the companion plan.
 
 **Interfaces owned:** repo layout, CI checks, deploy.
 **Depends on:** W3 step 1 (spec) only.
-**Milestone:** v0.6.1
+**Milestone:** v0.6.6
 
 ### Workstream 5: Map and viewer (frontend agent)
 
@@ -514,7 +514,7 @@ itself is built in Phase 0 and owned by the companion plan.
 
 **Interfaces owned:** viewer, map, `index.db` read schema.
 **Depends on:** W3 step 1 (spec) only; can develop against fixtures.
-**Milestone:** v0.6.2
+**Milestone:** v0.6.6
 
 ## Phasing
 

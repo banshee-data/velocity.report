@@ -257,6 +257,29 @@ struct ObjectOrderTests {
         #expect(session.selectionCount == 18)
     }
 
+    /// Creating a new object is not the same move as switching to an
+    /// existing one: switching discards an unsaved selection, so it is
+    /// refused with one outstanding. Creating one instead hands that
+    /// selection to the new object — nothing is thrown away — so it must not
+    /// be refused, or the operator loses the one way to split a second object
+    /// out of a selection they have not saved yet.
+    @Test func creatingAnObjectIsNeverRefusedByUnsavedChanges() throws {
+        let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let first = session.createObject(objectClass: "car")
+        #expect(session.select(polygon: everything, mode: .replace))
+        #expect(session.navigationGuard() != nil, "the fixture should have dirty membership")
+
+        let second = session.createObject(objectClass: "pedestrian")
+
+        #expect(session.activeObjectID == second.objectID)
+        // The selection moved to the new object rather than being discarded.
+        #expect(session.selectionCount == 18)
+        #expect(session.savedSelection.isEmpty)
+        // The first object is untouched: it never had anything saved to lose.
+        #expect(session.savedSampleCount(objectID: first.objectID) == 0)
+    }
+
     @Test func whatIsAlreadyLabelledIsShownWhileLabellingSomethingElse() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero) + SyntheticPack.wall])
         defer { try? FileManager.default.removeItem(at: dir) }

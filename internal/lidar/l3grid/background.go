@@ -44,6 +44,19 @@ type BackgroundParams struct {
 	// (1%) to 0.02 (2%). If zero, a sensible default (0.01) is used.
 	NoiseRelativeFraction float32
 
+	// DisableRegionOverrides makes every cell use the global
+	// NoiseRelativeFraction, NeighbourConfirmationCount and update fraction
+	// even after regions have been identified (gap analysis B8). With it off,
+	// the shipped behaviour, a settled cell runs at its region's values:
+	// NoiseRelativeFraction x4 for the most stable third of cells, x3 for the
+	// middle third and x8 for the most variable, fixed from the config in
+	// force when settling completed, then persisted and restored. A later
+	// change to the global value never reaches such a cell. Regions are still
+	// identified and persisted with the option on; only their parameter
+	// overrides are ignored. Go-level and default false, so the config
+	// fingerprint does not move.
+	DisableRegionOverrides bool
+
 	// SeedFromFirstObservation, when true, will initialize empty background cells
 	// from the first observation seen for that cell. This is useful for PCAP
 	// replay mode where there is no prior live-warmup data; default: false.
@@ -350,7 +363,7 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 	noiseRel = defaultNoiseRel
 	neighbourConfirm = defaultNeighbourConfirm
 	alpha = defaultAlpha
-	if g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
+	if g.Params.DisableRegionOverrides || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
 		return
 	}
 	regionID := g.RegionMgr.GetRegionForCell(cellIdx)

@@ -33,6 +33,13 @@ BRIDGE_SECONDS = 180
 MIN_SITE = timedelta(minutes=10)
 MARK_TOLERANCE = timedelta(minutes=25)
 
+# The analysis JSON predates explicit tool provenance. These are the builds
+# used for the two preserved analysis populations: the original per-file run
+# and the later continuous re-analysis of 9/1 respectively. Keep the values
+# here until pcap-split records its own build version in segments.json.
+PER_FILE_PCAP_SPLIT_BUILD_VERSION = "0.5.1-pre31"
+CONTINUOUS_PCAP_SPLIT_BUILD_VERSION = "0.5.1-pre32"
+
 
 def parse(ts):
     return datetime.fromisoformat(
@@ -69,11 +76,12 @@ def capture_spans(names, stream_end):
     return spans
 
 
-def load(paths):
+def load(paths, fallback_build_version):
     out = []
     for path in paths:
         with open(path) as fh:
             doc = json.load(fh)
+        pcap_split_build_version = doc.get("build_version") or fallback_build_version
         segments = doc.get("segments", [])
         if not segments:
             continue
@@ -110,6 +118,7 @@ def load(paths):
                     "end_secs": segment["end_secs"],
                     "file": source,
                     "captures": covered,
+                    "pcap_split_build_version": pcap_split_build_version,
                 }
             )
     return sorted(out, key=lambda s: s["start"])
@@ -229,7 +238,8 @@ continuous = [
     for p in sorted(glob.glob(os.path.join(CONTINUOUS, "*", "*segments.json")))
     if day_of(p) in CONTINUOUS_DAYS
 ]
-day_one = stitch(load(continuous), BRIDGE_SECONDS) if continuous else []
+continuous_segments = load(continuous, CONTINUOUS_PCAP_SPLIT_BUILD_VERSION)
+day_one = stitch(continuous_segments, BRIDGE_SECONDS) if continuous else []
 
 # Every other day: the archive's per-file analysis, stitched back together.
 per_file = [
@@ -237,12 +247,13 @@ per_file = [
     for p in sorted(glob.glob(os.path.join(PER_FILE, "*", "segments.json")))
     if not any(f"_{day}" in p for day in CONTINUOUS_DAYS)
 ]
-later = stitch(load(per_file), BRIDGE_SECONDS)
+per_file_segments = load(per_file, PER_FILE_PCAP_SPLIT_BUILD_VERSION)
+later = stitch(per_file_segments, BRIDGE_SECONDS)
 
 sites = sorted(day_one + later, key=lambda s: s["start"])
 
 # Every segment from both analyses, for attributing a site's captures below.
-all_segments = load(continuous) + load(per_file)
+all_segments = continuous_segments + per_file_segments
 
 with open(MARKS) as fh:
     marks = json.load(fh)["marks"]
@@ -292,6 +303,26 @@ for number, site in enumerate(sites, 1):
     if mark:
         used.add(mark["id"])
     minutes = (site["end"] - site["start"]).total_seconds() / 60
+    # Export follows the operator-approved *site* interval, rather than only
+    # classifier-static fragments. A tripod nudge can briefly look like motion
+    # while the sensor remains at the same site; dropping it would make the
+    # released PCAP silently disagree with this index and site-joins.json.
+    export_overrides = [
+        {"from": start.isoformat(), "to": end.isoformat(), "asserted_by": "operator"}
+        for start, end in JOIN_SPANS
+        if site["start"].replace(tzinfo=None) <= end
+        and start <= site["end"].replace(tzinfo=None)
+    ]
+    analysis_build_versions = {
+        segment["pcap_split_build_version"]
+        for segment in all_segments
+        if segment["start"] < site["end"] and site["start"] < segment["end"]
+    }
+    if len(analysis_build_versions) != 1:
+        raise RuntimeError(
+            f"{site['start'].isoformat()}: expected one pcap-split build version, "
+            f"found {sorted(analysis_build_versions)}"
+        )
     index.append(
         {
             # Identity comes from the field mark, which is named for the place
@@ -306,9 +337,20 @@ for number, site in enumerate(sites, 1):
             "site": f"s{number:02d}",
             "day": site["start"].strftime("%Y-%m-%d"),
             "start": site["start"].isoformat(),
+            "end": site["end"].isoformat(),
             "clock": site["start"].strftime("%I:%M").lstrip("0"),
             "minutes": round(minutes, 1),
             "fragments": len(site["parts"]),
+            "static_parts": [
+                {
+                    "start": part["start"].isoformat(),
+                    "end": part["end"].isoformat(),
+                    "captures": part["captures"],
+                }
+                for part in site["parts"]
+            ],
+            "static_export_policy": "all_packets_between_site_bounds",
+            "static_export_overrides": export_overrides,
             # Every capture the site's span touches, not only the ones its
             # static stretches fall in. A site joined across a nudge contains
             # motion segments too, and their captures sit between the static
@@ -327,6 +369,7 @@ for number, site in enumerate(sites, 1):
             "lat": mark["lat"] if mark else None,
             "lon": mark["lon"] if mark else None,
             "position_confidence": mark["confidence"] if mark else "no mark matched",
+            "pcap_split_build_version": analysis_build_versions.pop(),
             # Optional operator-measured angles; see map-marks.json.
             "grid_azimuth_deg": (mark or {}).get("grid_azimuth_deg"),
             "north_azimuth_deg": (mark or {}).get("north_azimuth_deg"),

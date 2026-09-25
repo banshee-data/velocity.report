@@ -1,8 +1,8 @@
-# Archive ingest in Go (v0.6.x)
+# Archive ingest in Go (v0.6.6)
 
 - **Status:** Draft
 - **Layers:** LiDAR pipeline (L1, capture index), CLI, database
-- **Target:** v0.6.x; index the capture archive through the Go capture index, and delete the Python that currently stands between an operator and it
+- **Target:** v0.6.6; index the capture archive through the Go capture index, and delete the Python that currently stands between an operator and it
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns archive-scale publishing; this plan owns getting the archive into the index correctly in the first place
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md) for S2 conventions
 - **Open investigation:** [continuous-classification-brief](continuous-classification-brief.md) — why a continuous run reports more motion than a per-file one, which Workstream 2 waits on
@@ -185,7 +185,7 @@ letting a short period pass as a location worth publishing.
 3. Surface it on `GET /api/lidar/capture/periods` and in the Captures page.
 4. Backfill existing periods by intersection; there are few and they are cheap.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.6
 
 ### Workstream 2: Whole-volume CLI
 
@@ -201,7 +201,7 @@ letting a short period pass as a location worth publishing.
 5. Compare continuous against per-file classification on all three days, scored
    against the field map, before the per-file output stops being an input.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.6
 
 ### Workstream 3: Sites and positions
 
@@ -213,7 +213,7 @@ letting a short period pass as a location worth publishing.
 3. Scene publication reads the site's pose instead of `public_html/scene-sites.json`
    carrying its own copy.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.6
 
 ### Workstream 4: Retire the workarounds
 
@@ -224,7 +224,7 @@ letting a short period pass as a location worth publishing.
    not as an input.
 3. Re-classify 9/2 and 9/3 as continuous streams so all three days are comparable.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.6
 
 ## Phasing
 

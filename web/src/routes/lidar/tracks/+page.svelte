@@ -14,22 +14,19 @@
 	import {
 		createMissedRegion,
 		deleteMissedRegion,
-		getBackgroundGrid,
 		getLabellingProgress,
 		getLidarReplayCases,
 		getLidarRuns,
 		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
-		getTrackObservations,
 		getTrackObservationsRange
 	} from '$lib/api';
-	import MapPane from '$lib/components/lidar/MapPane.svelte';
+	import ScenePane from '$lib/components/lidar/ScenePane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
 	import type {
 		AnalysisRun,
-		BackgroundGrid,
 		LabellingProgress,
 		LidarReplayCase,
 		MissedRegion,
@@ -108,26 +105,17 @@
 	// Data
 	let tracks: Track[] = [];
 	let paginatedTracks: Track[] = []; // Tracks currently visible in the paginated list
-	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
-	let observationsByTrack: Record<string, TrackObservation[]> = {};
-	let selectedTrackObservations: TrackObservation[] = [];
-	let observationsRequestId = 0;
 	// TODO: Add observationsLoading:boolean and observationsError:string|null state variables.
 	// Display loading indicator in TrackList component when observationsLoading is true.
 	// Show error banner above timeline when observationsError is set, with retry button.
 	let foregroundObservations: TrackObservation[] = [];
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
-	let showForeground = true;
 	// Foreground observation viewport tracking (task 6.5).
 	// When selectedTime drifts outside the last-queried window, reload.
 	let fgWindowCentre = 0;
 	const FG_RELOAD_DRIFT_MS = 20_000; // reload when playback drifts >20 s from centre
-	let foregroundOffsetX = 0;
-	let foregroundOffsetY = 0;
-	let foregroundOffset = { x: 0, y: 0 };
-	$: foregroundOffset = { x: foregroundOffsetX, y: foregroundOffsetY };
 
 	// Missed regions state
 	let missedRegions: MissedRegion[] = [];
@@ -158,21 +146,17 @@
 			previousSensorId = sensorId;
 			// Reset state
 			tracks = [];
-			backgroundGrid = null;
 			selectedTrackId = null;
 			selectedSceneId = null;
 			selectedRunId = null;
 			scenes = [];
 			runs = [];
 			runTracks = [];
-			observationsByTrack = {};
-			selectedTrackObservations = [];
 			foregroundObservations = [];
 			missedRegions = [];
 			timeRange = null;
 			// Reload data for new sensor
 			void loadHistoricalData(); // eslint-disable-line svelte/infinite-reactive-loop
-			void loadBackgroundGrid(); // eslint-disable-line svelte/infinite-reactive-loop
 			void loadScenes(); // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
@@ -290,7 +274,6 @@
 		runTracks = [];
 		labellingProgress = null;
 		selectedTrackId = null;
-		selectedTrackObservations = [];
 		missedRegions = [];
 		markMissedMode = false;
 	}
@@ -405,7 +388,6 @@
 
 			selectedRunId = resolvedRun.run_id;
 			selectedTrackId = null;
-			selectedTrackObservations = [];
 			await loadRunTracks();
 			await loadTracksForRunWindow();
 			await loadMissedRegions();
@@ -451,15 +433,6 @@
 			markMissedMode = false;
 			// Reload the default window: tracks may have been scoped to the run's window
 			void loadHistoricalData();
-		}
-	}
-
-	// Load background grid
-	async function loadBackgroundGrid() {
-		try {
-			backgroundGrid = await getBackgroundGrid(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
-		} catch (error) {
-			console.error('Could not load background grid:', error);
 		}
 	}
 
@@ -599,46 +572,6 @@
 		}
 	}
 
-	async function loadObservationsForTrack(trackId: string | null) {
-		if (!trackId) {
-			selectedTrackObservations = [];
-			return;
-		}
-
-		// Concurrent request cancellation pattern: Each new request increments observationsRequestId.
-		// Previous in-flight requests are cancelled by checking if their requestId still matches
-		// the latest observationsRequestId before updating state.
-		const requestId = ++observationsRequestId;
-
-		try {
-			if (!observationsByTrack[trackId]) {
-				const obs = await getTrackObservations(trackId);
-				observationsByTrack = { ...observationsByTrack, [trackId]: obs };
-			}
-
-			// Only update if this request is still the latest
-			if (requestId === observationsRequestId) {
-				selectedTrackObservations = observationsByTrack[trackId] ?? [];
-			}
-		} catch (error) {
-			// Only handle error if this request is still the latest
-			if (requestId === observationsRequestId) {
-				// TODO: Set observationsError to error.message and display as:
-				//   1. Error banner component above timeline with red background
-				//   2. Include "Retry" button that calls loadObservationsForTrack(trackId) again
-				//   3. Include "Dismiss" button that clears the error
-				//   4. Auto-dismiss after 10 seconds
-				// For now, errors are logged to console for debugging.
-				console.error('[LiDAR] Could not load track observations:', error);
-				selectedTrackObservations = [];
-			}
-		}
-		// Note: No finally block - loading state cleanup to be added later.
-		// Trade-off: Users won't see loading indicators for track observations initially.
-		// This is acceptable as the observations load quickly and users have visual feedback
-		// from the track selection itself.
-	}
-
 	async function loadForegroundObservations(startMs?: number, endMs?: number) {
 		if (!timeRange && (!startMs || !endMs)) return;
 
@@ -672,9 +605,10 @@
 		}
 	}
 
-	// Reactive foreground reload when playback drifts outside queried window (task 6.5)
+	// Reactive foreground reload when playback drifts outside queried window
+	// (task 6.5). No longer gated on an overlay toggle: these observations are
+	// what the scene draws, so not loading them would leave it empty.
 	$: if (
-		showForeground &&
 		!foregroundLoading &&
 		fgWindowCentre > 0 &&
 		Math.abs(selectedTime - fgWindowCentre) > FG_RELOAD_DRIFT_MS
@@ -692,11 +626,6 @@
 		if (track) {
 			selectedTime = new Date(track.first_seen).getTime();
 		}
-		if (selectedRunId && !detailedTrackIds.has(trackId)) {
-			selectedTrackObservations = [];
-			return;
-		}
-		loadObservationsForTrack(trackId);
 	}
 
 	// Load missed regions for current run
@@ -764,7 +693,7 @@
 
 	onMount(async () => {
 		console.log('[Page] Component mounted, loading data...');
-		await Promise.all([loadHistoricalData(), loadBackgroundGrid(), loadScenes()]);
+		await Promise.all([loadHistoricalData(), loadScenes()]);
 		mounted = true;
 		await syncSelectionFromUrl(querySceneId, queryRunId);
 	});
@@ -847,41 +776,51 @@
 						class="rounded px-3 py-1.5 text-xs font-medium transition-colors {markMissedMode
 							? 'bg-purple-600 text-white'
 							: 'bg-surface-200 text-surface-content hover:bg-surface-300'}"
-						title="Click on the map to mark areas where objects were missed"
+						title="Click the ground in the scene to mark areas where objects were missed"
 					>
 						{markMissedMode ? 'Stop Marking' : 'Mark Missed'}
 						{#if missedRegions.length > 0}
 							({missedRegions.length})
 						{/if}
 					</button>
+
+					<!-- Regions are deleted from this list rather than from a
+					     hit target in the scene: a ring drawn on the ground is
+					     a poor place to aim a destructive click. -->
+					{#if missedRegions.length > 0}
+						<div class="flex flex-wrap items-center gap-1 text-xs">
+							{#each missedRegions as region (region.region_id)}
+								<span
+									class="bg-surface-200 text-surface-content flex items-center gap-1 rounded px-1.5 py-0.5"
+								>
+									<span class="font-mono">
+										{region.center_x.toFixed(1)}, {region.center_y.toFixed(1)} · {region.radius_m.toFixed(
+											1
+										)} m
+									</span>
+									<button
+										on:click={() => handleDeleteMissedRegion(region.region_id)}
+										class="text-error-500 hover:text-error-400 font-bold"
+										title="Delete this region"
+										aria-label="Delete region at {region.center_x.toFixed(
+											1
+										)}, {region.center_y.toFixed(1)}"
+									>
+										×
+									</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 
-				<!-- Foreground overlay controls -->
+				<!-- Observation load state. The layer toggles that used to live
+				     here are now in the scene pane itself, next to the view
+				     they affect; the manual overlay offset went with the flat
+				     map it existed to align. -->
 				<div class="text-surface-content flex items-center gap-3 text-xs">
-					<label class="flex items-center gap-2">
-						<input type="checkbox" bind:checked={showForeground} class="h-4 w-4" />
-						<span>Foreground overlay</span>
-					</label>
-					<label class="flex items-center gap-1">
-						<span>Offset X</span>
-						<input
-							type="number"
-							step="0.25"
-							bind:value={foregroundOffsetX}
-							class="border-surface-content/30 bg-surface-50 w-20 rounded border px-2 py-1"
-						/>
-					</label>
-					<label class="flex items-center gap-1">
-						<span>Offset Y</span>
-						<input
-							type="number"
-							step="0.25"
-							bind:value={foregroundOffsetY}
-							class="border-surface-content/30 bg-surface-50 w-20 rounded border px-2 py-1"
-						/>
-					</label>
 					{#if foregroundLoading}
-						<span class="text-surface-content/70">Loading…</span>
+						<span class="text-surface-content/70">Loading observations…</span>
 					{:else if foregroundError}
 						<span class="text-error-500">{foregroundError}</span>
 					{/if}
@@ -897,20 +836,18 @@
 			class="border-surface-content/20 bg-surface-300 border-b"
 			style={topPaneHeight !== null ? `height: ${topPaneHeight}px; flex-shrink: 0` : 'flex: 3'}
 		>
-			<MapPane
-				tracks={visibleTracks}
-				{selectedTrackId}
-				{backgroundGrid}
-				currentTime={selectedTime}
-				observations={selectedTrackObservations}
-				foreground={visibleForeground}
-				foregroundEnabled={showForeground}
-				{foregroundOffset}
-				onTrackSelect={handleTrackSelect}
+			<!-- The 3D scene view runs the same three.js player as the public
+			     scenes, driven by a session built over these live
+			     observations rather than a published export. -->
+			<ScenePane
+				observations={visibleForeground}
+				{runTracks}
+				{sensorId}
+				title={selectedSceneId ?? 'Live run'}
 				{missedRegions}
 				{markMissedMode}
+				onTrackSelect={handleTrackSelect}
 				onMapClick={handleMapClick}
-				onDeleteMissedRegion={handleDeleteMissedRegion}
 			/>
 		</div>
 

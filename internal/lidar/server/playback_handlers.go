@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // handlePCAPStart switches the data source to PCAP replay and starts ingestion.
@@ -49,21 +48,27 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile              string   `json:"pcap_file"`
-			PCAPFiles             []string `json:"pcap_files"`
-			AnalysisMode          bool     `json:"analysis_mode"`
-			SpeedMode             string   `json:"speed_mode"`
-			SpeedRatio            float64  `json:"speed_ratio"`
-			StartSeconds          float64  `json:"start_seconds"`
-			DurationSeconds       float64  `json:"duration_seconds"`
-			DebugRingMin          int      `json:"debug_ring_min"`
-			DebugRingMax          int      `json:"debug_ring_max"`
-			DebugAzMin            float32  `json:"debug_az_min"`
-			DebugAzMax            float32  `json:"debug_az_max"`
-			EnableDebug           bool     `json:"enable_debug"`
-			EnablePlots           bool     `json:"enable_plots"`
-			BenchmarkMode         bool     `json:"benchmark_mode"`
-			SettleBeforeRecording bool     `json:"settle_before_recording"`
+			PCAPFile  string   `json:"pcap_file"`
+			PCAPFiles []string `json:"pcap_files"`
+			// A pointer, not a bool: analysisMode above already defaults to true,
+			// and an omitted JSON field decodes to the bool zero value (false),
+			// which would silently overwrite that default on every request that
+			// doesn't mention analysis_mode at all. A nil pointer means "the
+			// client said nothing," which is the only case that should leave the
+			// default alone.
+			AnalysisMode          *bool   `json:"analysis_mode"`
+			SpeedMode             string  `json:"speed_mode"`
+			SpeedRatio            float64 `json:"speed_ratio"`
+			StartSeconds          float64 `json:"start_seconds"`
+			DurationSeconds       float64 `json:"duration_seconds"`
+			DebugRingMin          int     `json:"debug_ring_min"`
+			DebugRingMax          int     `json:"debug_ring_max"`
+			DebugAzMin            float32 `json:"debug_az_min"`
+			DebugAzMax            float32 `json:"debug_az_max"`
+			EnableDebug           bool    `json:"enable_debug"`
+			EnablePlots           bool    `json:"enable_plots"`
+			BenchmarkMode         bool    `json:"benchmark_mode"`
+			SettleBeforeRecording bool    `json:"settle_before_recording"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -77,7 +82,9 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		pcapFile = req.PCAPFile
 		replayFiles = req.PCAPFiles
-		analysisMode = req.AnalysisMode
+		if req.AnalysisMode != nil {
+			analysisMode = *req.AnalysisMode
+		}
 		speedMode = req.SpeedMode
 		if req.SpeedRatio > 0 {
 			speedRatio = req.SpeedRatio
@@ -99,7 +106,13 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pcapFile = r.FormValue("pcap_file")
-		analysisMode = r.FormValue("analysis_mode") == "true" || r.FormValue("analysis_mode") == "1"
+		// Only override the analysisMode default (true) when the form actually
+		// names the field. r.FormValue returns "" for an absent field the same
+		// way it would for an empty one, which would otherwise read as an
+		// explicit false and silently disable analysis mode by default.
+		if r.Form.Has("analysis_mode") {
+			analysisMode = r.FormValue("analysis_mode") == "true" || r.FormValue("analysis_mode") == "1"
+		}
 		speedMode = r.FormValue("speed_mode")
 		if v := r.FormValue("speed_ratio"); v != "" {
 			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
@@ -526,13 +539,20 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseWithSep := baseVRLogDir + string(os.PathSeparator)
-	if cleanedPath != baseVRLogDir && !strings.HasPrefix(cleanedPath, baseWithSep) {
-		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be within the allowed directory")
+	// security.ResolvePathWithinDirectory follows symlinks before checking the
+	// safe-directory boundary, unlike a plain string-prefix check: a symlink
+	// planted inside baseVRLogDir that points outside it would pass a prefix
+	// check on the literal path string while still resolving elsewhere on
+	// disk. The canonical path it returns is what gets loaded and stored below,
+	// not the original string, so validating the resolved target and then
+	// acting on a different unresolved path can't reopen the same gap.
+	canonicalPath, err := security.ResolvePathWithinDirectory(cleanedPath, baseVRLogDir)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("vrlog_path must be within the allowed directory: %v", err))
 		return
 	}
 
-	vrlogPath = cleanedPath
+	vrlogPath = canonicalPath
 
 	frameEncoding, err := ws.onVRLogLoad(vrlogPath)
 	if err != nil {

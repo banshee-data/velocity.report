@@ -1,0 +1,39 @@
+{
+  "_comment": "Pass 7, L3 only. Ten arms sized to one night: measured 2026-09-19 at 163 s for a cold 200 s run with evidence and faster for later configs at the same site, so 10 x 24 is about 9 h. Nothing here touches L4 or L5, and that is the point: OBJECTIVES.md records that the measurement, its covariance and the association cost are all scheduled to change, so a tuned L4/L5 value does not survive the change that is coming. L3 is upstream of all of it. A return the foreground test discards is not recoverable by any downstream fix, so an L3 answer keeps its value across the rework. Settling is gated on warmup_duration_nanos (30 s) and warmup_min_frames (50), not on settling_period (5 m, which is the snapshot interval), so at --warmup 70 region identification has completed before the scored window opens: the region-override and post-settle arms are genuinely exercised rather than null. baseline and baseline_again are the determinism proof and neither can be dropped.",
+
+  "baseline": {},
+  "baseline_again": {},
+
+  "_closeness_curve": "closeness_multiplier scales the per-cell variance term in the foreground test; default 3. Pass 6 found closeness_2 recovered 13 of 16 labelled tracks with 40-80 % more candidates, which is either better recall or more fragments and could not be told apart before the per-frame evaluator existed. Five points (1.5, 2, 2.5, 3 = baseline, 4) make it a curve rather than a direction, so an optimum is distinguishable from monotonic noise.",
+  "closeness_1p5": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 1.5 }
+  },
+  "closeness_2": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 2 },
+    "keep_vrlog": true
+  },
+  "closeness_2p5": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 2.5 }
+  },
+  "closeness_4": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 4 }
+  },
+
+  "_noise_term": "noise_relative is the multiplicative half of the same threshold the closeness multiplier scales; default 0.02. Doubling it separates 'the threshold is too tight' from 'the variance estimate is too small'.",
+  "noise_relative_0p04": {
+    "overrides": { "l3.ema_baseline_v1.noise_relative": 0.04 }
+  },
+
+  "_b8": "The pinned L3 region-override defect: once region identification completes, effectiveCellParams replaces the global noise, neighbour-confirmation and alpha values with per-region ones by variance tercile. no_region_overrides is the default-off switch that holds the globals. The interaction arm asks whether removing the overrides moves the closeness answer, which decides whether the curve above can be read at all while B8 is live.",
+  "no_region_overrides": { "experiments": ["no_region_overrides"] },
+  "no_region_overrides__closeness_2": {
+    "experiments": ["no_region_overrides"],
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 2 }
+  },
+
+  "_post_settle": "post_settle_update_fraction defaults to 0, which freezes the background once settling completes. A tenth of the pre-settle rate asks whether a slowly adapting background beats a frozen one over the scored window, which is a structural question rather than a tuning one.",
+  "post_settle_update_0p002": {
+    "overrides": { "l3.ema_baseline_v1.post_settle_update_fraction": 0.002 },
+    "keep_vrlog": true
+  }
+}

@@ -159,7 +159,10 @@ enum AnnotationGuard: Equatable {
     @Published var selectionMode: SelectionMode = .replace
 
     /// Which selection tool a gesture in the editable view uses.
-    @Published var tool: SelectionTool = .lasso
+    // Sphere by default: it is a brush that follows the cursor as soon as the
+    // views are on screen, where the lasso needs a drag before it does
+    // anything. Most of a session is painting objects with the brush.
+    @Published var tool: SelectionTool = .sphere
     /// The local column lattice. Its ground is estimated once when a pack is
     /// opened and then left alone as samples are stepped through: road users
     /// move on one plane, and a ground that moved between samples would make
@@ -380,7 +383,7 @@ enum AnnotationGuard: Equatable {
             // before means nothing: a centre held in the old view plane would
             // put the operator somewhere arbitrary. Re-frame instead.
             sceneRevision &+= 1
-            fitViews(to: .sample)
+            fitViewsToDefault()
         }
     }
 
@@ -473,7 +476,7 @@ enum AnnotationGuard: Equatable {
         // Once, from the first sample, and not again as samples are stepped
         // through: see columnGrid.
         estimateGround()
-        fitViews(to: .sample)
+        fitViewsToDefault()
         refreshBackground(previousSampleIndex: nil)
         labelableCounts = orderedSamples.map { sample in
             guard let points = try? pack.points(sampleID: sample.sampleID) else { return 0 }
@@ -1066,6 +1069,16 @@ enum AnnotationGuard: Equatable {
             trim = 0
         }
         return fitViews(trim: trim, where: include)
+    }
+
+    /// Frames on the road users, not the whole scan. A stationary LiDAR sees
+    /// 40-80 m of kerbs and building faces as background; fitting on that by
+    /// default puts every object a few pixels across before anyone has
+    /// touched a view. Foreground first, sample as the fallback for a frame
+    /// that happens to have none — the pack itself is never all background,
+    /// but any one sample legitimately can be.
+    @discardableResult func fitViewsToDefault() -> Bool {
+        fitViews(to: .foreground) || fitViews(to: .sample)
     }
 
     private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {

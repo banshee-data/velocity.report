@@ -432,12 +432,12 @@ struct AnnotationPane: View {
             TextField("Subtype (optional)", text: $newObjectSubtype).textFieldStyle(.roundedBorder)
                 .font(.caption)
             Button(session.selectionCount > 0 ? "New object from selection" : "New object") {
-                // Refused with unsaved changes on another object: creating
-                // one makes it the object under edit.
-                guard session.activeObjectID == nil || session.navigationGuard() == nil else {
-                    showDiscardPrompt = true
-                    return
-                }
+                // No guard: createObject carries the live selection onto the
+                // new object rather than discarding it, so there is nothing
+                // an unsaved-changes prompt would protect here. Blocking on
+                // one used to make this the one way to split a second object
+                // out of a selection that was unreachable — the discard
+                // option would have thrown the very selection away.
                 _ = session.createObject(
                     objectClass: newObjectClass,
                     subtype: newObjectSubtype.isEmpty ? nil : newObjectSubtype)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ const (
 	SweepStatusSuspended SweepStatus = "suspended"
 
 	// ObjectiveVersion is the current version of the objective/scoring system
-	ObjectiveVersion = "v1"
+	ObjectiveVersion = "v2-heading-diagnostics"
 )
 
 // ErrSweepAlreadyRunning is returned when a sweep is already in progress.
@@ -87,17 +88,20 @@ type ComboResult struct {
 	Buckets             []string  `json:"buckets"`
 
 	// Track health metrics
-	ActiveTracksMean        float64 `json:"active_tracks_mean"`
-	ActiveTracksStddev      float64 `json:"active_tracks_stddev"`
-	AlignmentDegMean        float64 `json:"alignment_deg_mean"`
-	AlignmentDegStddev      float64 `json:"alignment_deg_stddev"`
-	MisalignmentRatioMean   float64 `json:"misalignment_ratio_mean"`
-	MisalignmentRatioStddev float64 `json:"misalignment_ratio_stddev"`
-	HeadingJitterDegMean    float64 `json:"heading_jitter_deg_mean"`
-	HeadingJitterDegStddev  float64 `json:"heading_jitter_deg_stddev"`
-	SpeedJitterMpsMean      float64 `json:"speed_jitter_mps_mean"`
-	SpeedJitterMpsStddev    float64 `json:"speed_jitter_mps_stddev"`
-	FragmentationRatioMean  float64 `json:"fragmentation_ratio_mean"`
+	ActiveTracksMean         float64  `json:"active_tracks_mean"`
+	ActiveTracksStddev       float64  `json:"active_tracks_stddev"`
+	TrackMetricsSnapshots    int      `json:"track_metrics_snapshots"`
+	CourseAlignmentP50Mean   *float64 `json:"course_alignment_p50_mean,omitempty"`
+	CourseAlignmentSnapshots int      `json:"course_alignment_snapshots"`
+	AlignmentDegMean         float64  `json:"alignment_deg_mean"`
+	AlignmentDegStddev       float64  `json:"alignment_deg_stddev"`
+	MisalignmentRatioMean    float64  `json:"misalignment_ratio_mean"`
+	MisalignmentRatioStddev  float64  `json:"misalignment_ratio_stddev"`
+	HeadingJitterDegMean     float64  `json:"heading_jitter_deg_mean"`
+	HeadingJitterDegStddev   float64  `json:"heading_jitter_deg_stddev"`
+	SpeedJitterMpsMean       float64  `json:"speed_jitter_mps_mean"`
+	SpeedJitterMpsStddev     float64  `json:"speed_jitter_mps_stddev"`
+	FragmentationRatioMean   float64  `json:"fragmentation_ratio_mean"`
 
 	// Scene-level foreground capture metrics
 	ForegroundCaptureMean   float64 `json:"foreground_capture_mean"`
@@ -637,6 +641,27 @@ func (r *Runner) computeComboResult(results []SampleResult, buckets []string) Co
 		atVals[ri] = float64(r.ActiveTracks)
 	}
 	combo.ActiveTracksMean, combo.ActiveTracksStddev = MeanStddev(atVals)
+	// Course means are over eligible snapshots, not independent returns or
+	// track-weighted medians. Missing telemetry must not become perfect alignment.
+	var courseValues []float64
+	var observedTrackCounts []float64
+	for _, r := range results {
+		if r.TrackMetricsAvailable {
+			combo.TrackMetricsSnapshots++
+			observedTrackCounts = append(observedTrackCounts, float64(r.ActiveTracks))
+		}
+		if r.CourseAlignmentSamples > 0 && !math.IsNaN(r.CourseAlignmentP50Deg) && !math.IsInf(r.CourseAlignmentP50Deg, 0) && r.CourseAlignmentP50Deg >= 0 && r.CourseAlignmentP50Deg <= 90 {
+			courseValues = append(courseValues, r.CourseAlignmentP50Deg)
+		}
+	}
+	if len(observedTrackCounts) > 0 {
+		combo.ActiveTracksMean, combo.ActiveTracksStddev = MeanStddev(observedTrackCounts)
+	}
+	combo.CourseAlignmentSnapshots = len(courseValues)
+	if len(courseValues) > 0 {
+		mean, _ := MeanStddev(courseValues)
+		combo.CourseAlignmentP50Mean = &mean
+	}
 
 	// Track health: alignment
 	alignVals := make([]float64, len(results))

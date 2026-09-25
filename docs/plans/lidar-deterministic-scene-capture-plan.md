@@ -1,8 +1,9 @@
 # Deterministic scene capture and review harness
 
 - **Status:** Active; Milestones 1–2 complete, Milestones 3–5 outstanding
+- **Canonical:** [reference-capture.md](../lidar/operations/reference-capture.md)
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
-- **Target:** v0.5.2-v0.6.x; staged delivery across milestones 1–5
+- **Target:** v0.5.2–v0.6.6; staged delivery across milestones 1–5
 - **Backlog:** [Release work items](../BACKLOG.md)
 - **Related:** [Trail and uncertainty visualisation](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [scene health metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [offline analysis tooling](lidar-offline-analysis-tooling-plan.md)
 
@@ -31,14 +32,15 @@ this plan’s working copy contains the required prerequisites.
 | Milestone | Release | Independently useful result                                                                                     |
 | --------- | ------- | --------------------------------------------------------------------------------------------------------------- |
 | 1         | v0.5.2  | Script accepting several coordinate-based views and producing stable stills, with deterministic optional trails |
-| 2         | v0.5.3  | Bullet-time inspection around a frozen target                                                                   |
-| 3         | v0.5.3  | Recorded-frame sequences, contact sheets, and optional animations                                               |
-| 4         | v0.6.x  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
-| 5         | v0.6.x  | CI artefact comparison and a visual-review integration decision                                                 |
+| 2         | v0.5.2  | Bullet-time inspection around a frozen target                                                                   |
+| 3         | v0.5.9  | Recorded-frame sequences, contact sheets, and optional animations                                               |
+| 4         | v0.6.6  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
+| 5         | v0.6.5  | CI artefact comparison and a visual-review integration decision                                                 |
 
 Milestone 1 must be usable by a local or CI agent without waiting for hosted CI
-integration, animation tools, or changes to recording workflows. Milestones 2 and
-3 extend its capture interface. Milestone 5 follows practical use on a known
+integration, animation tools, or changes to recording workflows. Milestone 3 is useful review
+polish, but the delivered still and bullet-time capture are sufficient for the v0.5.2
+headway critical path. Milestone 5 follows practical use on a known
 trail-alignment defect; it does not block the earlier releases.
 
 ## Milestone 1: agent-operated multi-angle stills

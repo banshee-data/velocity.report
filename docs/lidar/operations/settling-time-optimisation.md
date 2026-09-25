@@ -398,7 +398,58 @@ one with moving traffic through the settling window, should be expected to take
 longer and may reach the ceiling — that is what the ceiling is for, and it has
 not yet been observed in the field.
 
+## Offline replay: choose the warm-up per capture
+
+Phase 4 applies to the pipeline's own settling decision, not to the warm-up an
+offline scoring run asks for. Those are separate numbers and the second is
+usually the binding one.
+
+[`lidar-state-estimation-baseline`](../../../cmd/tools/lidar-state-estimation-baseline)
+defaults to `-warmup 70`. That figure is Marina's: its first capture reaches
+the convergence threshold at 56.5 s, and 70 s is a 20% margin on that. It is
+not a general default, and applying it to a short capture discards nearly all
+of it.
+
+Measure the capture before choosing, with `make run-settling-eval PCAP=...`. It
+reports the frame at which the four `settling_*` thresholds are first met and
+recommends a `warmup_min_frames` with a 20% margin.
+
+### Worked example: `kirk0.pcapng`
+
+83.18 s, 832 frames, 10.0 Hz. `run-settling-eval` puts convergence at **frame
+11 — 1.1 s**. Scored frames against the warm-up asked for, each run with
+`--require-settled` so a pass means the pipeline agreed it was settled:
+
+| `-warmup` | Scored frames | Scored seconds | Result                                   |
+| --------: | ------------: | -------------: | ---------------------------------------- |
+|       2 s |             — |              — | refused: 20 frames is under the 50 floor |
+|       6 s |           771 |         77.1 s | settled                                  |
+|      31 s |           521 |         52.1 s | settled                                  |
+|      70 s |          ~130 |          ~13 s | settled (the tool's default)             |
+
+So the floor for this capture is the **50-frame minimum — 5 s at 10 Hz** — and
+not the 30 s ceiling: the convergence thresholds are armed in
+`tuning.defaults.json` and kirk0 meets them almost immediately. A 6 s warm-up
+scores 93% of the capture.
+
+### Two-pass settling is not the answer here, and is not available anyway
+
+A capture too short to settle within itself would need a pre-settled grid from
+a first pass. Two mechanisms exist for that — scene-hash region restoration
+(Phase 2 above) and `BackgroundManager.RestoreSettledSnapshotBySourcePath` for
+an exact source path — but neither is reachable from an offline scoring run:
+[`replayeval`](../../../internal/lidar/replayeval/runtime.go) constructs its
+background manager with a nil store, so there is nothing to persist to or
+restore from, and `RestoreSettledSnapshotBySourcePath` currently has no callers
+at all.
+
+Wiring a store into `replayeval` would also carry a methodological cost worth
+stating: a grid settled on the whole capture has seen the scored window, so the
+run is no longer a claim about what the pipeline would have concluded causally.
+Lowering the warm-up to what the capture actually needs has neither problem.
+
 ## Changelog
 
+- **2026-09-16**: Recorded the offline-replay warm-up guidance and the measured `kirk0` ladder; noted that the two-pass restore paths are unreachable from `replayeval`
 - **2026-08-27**: Phase 4 complete — convergence-based settling termination; `warmup_min_frames` lowered 100 → 50; settling state surfaced on the HTTP API, the gRPC wire, and the visualiser badge
 - **2026-02-05**: Initial design document created

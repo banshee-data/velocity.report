@@ -35,7 +35,7 @@ function fakeCanvas({ width = 600 } = {}) {
     },
     {
       get: (t, k) =>
-        k in t ? t[k] : typeof k === "string" ? t[k] ?? noop : undefined,
+        k in t ? t[k] : typeof k === "string" ? (t[k] ?? noop) : undefined,
       set: (t, k, v) => ((t[k] = v), true),
     },
   );
@@ -94,10 +94,18 @@ describe("timeline strip", () => {
       duration: 5,
     });
     const middle = canvas.clientHeight / 2;
-    const vehicle = canvas.paint.fills.find((fill) => fill.colour === "#f2504b");
-    const walking = canvas.paint.fills.find((fill) => fill.colour === "#10b981");
-    const cycling = canvas.paint.fills.find((fill) => fill.colour === "#6aa9ff");
-    const speed = canvas.paint.strokes.find((stroke) => stroke.colour === "#f2a65a");
+    const vehicle = canvas.paint.fills.find(
+      (fill) => fill.colour === "#f2504b",
+    );
+    const walking = canvas.paint.fills.find(
+      (fill) => fill.colour === "#10b981",
+    );
+    const cycling = canvas.paint.fills.find(
+      (fill) => fill.colour === "#6aa9ff",
+    );
+    const speed = canvas.paint.strokes.find(
+      (stroke) => stroke.colour === "#f2a65a",
+    );
     assert.ok(vehicle.y < middle && vehicle.y + vehicle.height <= middle);
     assert.ok(walking.y >= middle);
     assert.ok(cycling.y >= walking.y + walking.height);

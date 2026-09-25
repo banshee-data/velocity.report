@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -524,10 +525,14 @@ func (m *mockVisualiserPublisher) Publish(frame interface{}) {
 type mockVisualiserAdapter struct {
 	adaptCalls      int
 	adaptEmptyCalls int
+	debugFrames     []*debug.DebugFrame
 }
 
 func (m *mockVisualiserAdapter) AdaptFrame(frame *l2frames.LiDARFrame, foregroundMask []bool, clusters []l4perception.WorldCluster, tracker l5tracks.TrackerInterface, debugFrame interface{}) interface{} {
 	m.adaptCalls++
+	if df, ok := debugFrame.(*debug.DebugFrame); ok && df != nil {
+		m.debugFrames = append(m.debugFrames, df)
+	}
 	return struct{}{}
 }
 
@@ -641,6 +646,9 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 	visPub := &mockVisualiserPublisher{}
 	visAdapter := &mockVisualiserAdapter{}
 	lidarView := &mockLidarViewAdapter{}
+	collector := debug.NewDebugCollector()
+	collector.SetEnabled(true)
+	tracker.DebugCollector = collector
 
 	cfg := &TrackingPipelineConfig{
 		SensorID:            sensorID,
@@ -650,6 +658,7 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 		VisualiserPublisher: visPub,
 		VisualiserAdapter:   visAdapter,
 		LidarViewAdapter:    lidarView,
+		DebugCollector:      collector,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -663,6 +672,17 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 
 	t.Logf("Visualiser: publishCalls=%d, adaptCalls=%d, lidarViewCalls=%d",
 		visPub.publishCalls, visAdapter.adaptCalls, lidarView.calls)
+	if len(visAdapter.debugFrames) == 0 || len(visAdapter.debugFrames) != visAdapter.adaptCalls {
+		t.Fatal("collector not published")
+	}
+	if collector.Emit() != nil {
+		t.Fatal("collector retained a published frame")
+	}
+	for i := 1; i < len(visAdapter.debugFrames); i++ {
+		if visAdapter.debugFrames[i] == visAdapter.debugFrames[i-1] {
+			t.Fatal("collector reused mutable frame")
+		}
+	}
 }
 
 // TestTrackingPipelineConfig_LidarViewOnly tests LidarView-only mode (no gRPC adapter).
@@ -862,6 +882,93 @@ func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
 	if !strings.Contains(diagBuf.String(), "[Pipeline] Throttled") {
 		t.Errorf("expected diagf for throttled frame count; got: %s", diagBuf.String())
 	}
+}
+
+// TestTrackingPipelineConfig_AnalysisModeBypassesThrottle is the end-to-end
+// regression test for the Phase 1 fix: an analysis-mode replay must reach
+// clustering and tracking for every frame, even a burst far exceeding
+// MaxFrameRate, because a throttled frame is recorded as empty and an
+// analysis run/VRLOG consumer cannot tell that apart from "nothing there".
+// updateCountingTracker counts the frames that reached tracking. The tracker's
+// own association metrics pool live tracks only, so they also measure how long
+// a track survives, which depends on the position model rather than on
+// whether the frame got through.
+type updateCountingTracker struct {
+	*l5tracks.Tracker
+	updates int
+}
+
+func (c *updateCountingTracker) Update(clusters []l5tracks.WorldCluster, timestamp time.Time) {
+	c.updates++
+	c.Tracker.Update(clusters, timestamp)
+}
+
+func TestTrackingPipelineConfig_AnalysisModeBypassesThrottle(t *testing.T) {
+	const burstSize = 55
+
+	runBurst := func(t *testing.T, analysisModeActive *atomic.Bool) (diagOutput string, samples int) {
+		var diagBuf bytes.Buffer
+		SetLogWriters(nil, &diagBuf, nil)
+		defer SetLogWriters(nil, nil, nil)
+
+		sensorID := "coverage-analysis-throttle-" + t.Name()
+		bgMgr := makeTestBgManager(t, sensorID)
+		tracker := &updateCountingTracker{Tracker: l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())}
+
+		cfg := &TrackingPipelineConfig{
+			SensorID:          sensorID,
+			BackgroundManager: bgMgr,
+			Tracker:           tracker,
+			MaxFrameRate:      1, // 1 fps -> 1s min interval
+			RemoveGround:      false,
+			// The throttle applies to replays only, so this has to say a
+			// replay is running to reach it at all.
+			ReplayActive:       replayFlag(true),
+			AnalysisModeActive: analysisModeActive,
+		}
+		cb := cfg.NewFrameCallback()
+
+		now := time.Now()
+		for i := 0; i < 5; i++ {
+			cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+		}
+		// A rapid burst, well inside the 1s minimum interval, of a slightly
+		// moving foreground object — the same shape FullPipelineWithDB uses
+		// to confirm tracks, just fast enough to trip the throttle.
+		before := tracker.updates
+		for i := 0; i < burstSize; i++ {
+			ts := now.Add(time.Duration(600+i*5) * time.Millisecond) // 5ms apart = 200fps
+			fgDist := 5.0 + float64(i)*0.02
+			cb(makeForegroundFrame(fmt.Sprintf("fg-rapid-%d", i), ts, 20.0, fgDist))
+		}
+
+		return diagBuf.String(), tracker.updates - before
+	}
+
+	t.Run("without analysis mode, the burst is throttled and barely reaches tracking", func(t *testing.T) {
+		diagOutput, samples := runBurst(t, nil)
+		if !strings.Contains(diagOutput, "[Pipeline] Throttled") {
+			t.Errorf("expected a throttle diagf for this burst; got: %s", diagOutput)
+		}
+		// Not exactly 0: shouldThrottleFrame never throttles the very first
+		// frame after a zero lastProcessed, so one frame gets through
+		// regardless. The rest of the burst must not.
+		if samples >= burstSize/2 {
+			t.Errorf("burst frames tracked = %d, want well under %d: most of the throttled burst reached tracking", samples, burstSize)
+		}
+	})
+
+	t.Run("with analysis mode, the same burst is never throttled and fully reaches tracking", func(t *testing.T) {
+		diagOutput, samples := runBurst(t, replayFlag(true))
+		if strings.Contains(diagOutput, "[Pipeline] Throttled") {
+			t.Errorf("analysis mode must never be throttled; got: %s", diagOutput)
+		}
+		// Every burst frame should reach tracking: allow a little slack for
+		// the pipeline's own warm-up/first-hit bookkeeping.
+		if samples < burstSize-1 {
+			t.Errorf("burst frames tracked = %d, want close to %d: the burst should fully reach clustering/tracking under analysis mode", samples, burstSize)
+		}
+	})
 }
 
 // TestTrackingPipelineConfig_NilMaskEarlyReturn verifies the ops log fires and
@@ -1169,6 +1276,9 @@ func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
 }
 func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
 	return 5 * time.Second
+}
+func (m *mockTrackerCov) GetDeletedTrackRenderFade() time.Duration {
+	return 500 * time.Millisecond
 }
 func (m *mockTrackerCov) UpdateConfig(fn func(*l5tracks.TrackerConfig)) {
 	// no-op in mock

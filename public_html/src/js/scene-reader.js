@@ -334,6 +334,35 @@ export class SceneSession {
     this.duration = 0;
   }
 
+  /**
+   * A session over parts that are already open, for a caller whose frames do
+   * not come from a published export directory.
+   *
+   * The operator tools read live runs out of the database rather than static
+   * chunks, but they want the same playback, seeking and trail reconstruction
+   * the published scenes get. Building the session from parts means that
+   * logic is shared rather than reimplemented against a second clock.
+   *
+   * @param {PartReader[]} parts already-open parts, in display order
+   * @param {{title?: string}} [options]
+   */
+  static fromParts(parts, { title } = {}) {
+    if (!Array.isArray(parts) || parts.length === 0) {
+      throw new SceneError("A session needs at least one part");
+    }
+    const session = new SceneSession("");
+    session.manifest = { site: { title: title ?? "Scene" }, parts: [] };
+    session.parts = parts;
+    session._offsets = [];
+    let acc = 0;
+    for (const part of parts) {
+      session._offsets.push(acc);
+      acc += part.durationSec;
+    }
+    session.duration = acc;
+    return session;
+  }
+
   async open() {
     const manifest = await fetchJSON(this.manifestURL);
     if (!Array.isArray(manifest.parts) || manifest.parts.length === 0) {

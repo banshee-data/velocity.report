@@ -33,6 +33,15 @@ The runtime rejects:
 
 ## Usage
 
+The experimental heading path is selected by `l5.cv_kf_v1.obb_axis_coherence_enabled`
+(or the corresponding `l5.imm_cv_ca_v2` field). It defaults to `false` in all shipped tuning
+files. Existing version-2 files must add this required boolean; the strict loader does not
+silently assume it. Runtime tuning accepts the same field and reports its effective value.
+Switching paths clears the candidate's observed-support reference; use a fresh replay for A/B.
+When enabled, published box dimensions are a conservative envelope of the fresh measured OBB
+at the filtered centre and heading, not a reconstructed vehicle body. See the
+[D2 experiment contract](../docs/plans/lidar-heading-d2-implementation-report.md).
+
 ```bash
 ./velocity-report --enable-lidar
 ./velocity-report --config config/tuning.example.json --enable-lidar
@@ -95,6 +104,7 @@ parity between them.
       "foreground_dbscan_eps": 0.8,
       "foreground_min_cluster_points": 5,
       "foreground_max_input_points": 8000,
+      "max_sample_points": 0,
       "height_band_floor": -2.8,
       "height_band_ceiling": 1.5,
       "remove_ground": true,
@@ -122,6 +132,11 @@ parity between them.
       "min_points_for_pca": 4,
       "obb_heading_smoothing_alpha": 0.08,
       "obb_aspect_ratio_lock_threshold": 0.25,
+      "obb_heading_lock_max_rejections": 5,
+      "obb_axis_coherence_enabled": false,
+      "min_associable_extent_metres": 0.5,
+      "association_extent_cost_weight": 0,
+      "deleted_track_render_fade": "500ms",
       "max_track_history_length": 200,
       "max_speed_history_length": 100,
       "merge_size_ratio": 2.5,
@@ -246,22 +261,33 @@ Maths: [background-grid-settling-maths.md](../data/maths/background-grid-settlin
 Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
 [ground-plane-maths.md](../data/maths/ground-plane-maths.md)
 
-| Path                                            | Type    | Primary consumer                                                        | Notes                                  |
-| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                      |
-| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                        |
-| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                     |
-| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                      |
-| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound.                  |
-| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                  |
-| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.           |
-| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.     |
-| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.     |
-| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio. |
+| Path                                            | Type    | Primary consumer                                                        | Notes                                                                                                          |
+| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                                                                                              |
+| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                                                                                                |
+| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                                                                                             |
+| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                                                                                              |
+| `l4.dbscan_xy_v1.max_sample_points`             | int     | [DBSCANParamsFromTuning](../internal/lidar/l4perception/cluster.go)     | Offline replay evidence cap per cluster, 0–1024; default 0 disables retention. Not yet a live runtime setting. |
+| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound.                                                                                          |
+| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                                                                                          |
+| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.                                                                                   |
+| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.                                                                             |
+| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.                                                                             |
+| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio.                                                                         |
 
 ### L5
 
 Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
+
+The heading experiment's additional keys remain explicit, including disabled candidates:
+
+| Path                                          | Type    | Primary consumer                                                  | Notes                                                    |
+| --------------------------------------------- | ------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `l5.cv_kf_v1.obb_axis_coherence_enabled`      | bool    | [Heading axis](../internal/lidar/l5tracks/heading_axis.go)        | Default-off axial interpretation candidate.              |
+| `l5.cv_kf_v1.obb_heading_lock_max_rejections` | int     | [Heading update](../internal/lidar/l5tracks/tracking_update.go)   | Bounds heading lock rejection streaks.                   |
+| `l5.cv_kf_v1.min_associable_extent_metres`    | float64 | [Association](../internal/lidar/l5tracks/tracking_association.go) | Minimum usable extent for association.                   |
+| `l5.cv_kf_v1.association_extent_cost_weight`  | float64 | [Association](../internal/lidar/l5tracks/tracking_association.go) | Default-zero extent penalty; experimental.               |
+| `l5.cv_kf_v1.deleted_track_render_fade`       | string  | [Tracker config](../internal/lidar/l5tracks/tracking.go)          | Duration for deleted-track rendering, not a measurement. |
 
 | Path                                              | Type    | Primary consumer                                                              | Notes                                                                                        |
 | ------------------------------------------------- | ------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |

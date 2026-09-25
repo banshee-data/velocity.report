@@ -19,12 +19,16 @@ export interface CaptureRoot {
 	last_scan_error?: string;
 	created_at_ns: number;
 	updated_at_ns: number;
+	/** A full probe is running on this server process. */
+	scan_in_progress?: boolean;
 }
 
 /** Scan states a root can report. */
 export const SCAN_NEVER = 'never';
 export const SCAN_OK = 'ok';
 export const SCAN_UNREACHABLE = 'unreachable';
+/** A full probe runs in the background so the browser request can return. */
+export const SCAN_SCANNING = 'scanning';
 export const SCAN_ERROR = 'error';
 
 /** Probe states a capture file can be in. */

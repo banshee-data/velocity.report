@@ -1,6 +1,9 @@
 package l4perception
 
-import "math"
+import (
+	"math"
+	"sort"
+)
 
 // VoxelGrid performs 3D voxel grid downsampling on world-frame points.
 // Each occupied voxel retains a single representative point (the one closest
@@ -67,10 +70,19 @@ func VoxelGrid(points []WorldPoint, leafSize float64) []WorldPoint {
 		}
 	}
 
-	// Collect survivors.
-	result := make([]WorldPoint, 0, len(voxels))
+	// Collect survivors in source-point order. A Go map deliberately has no
+	// stable traversal order; passing its values directly to DBSCAN made its
+	// order-sensitive expansion path vary between otherwise identical replays.
+	// The packet/parser order is stable, and the source index is a natural tie
+	// breaker for equal-distance voxel representatives.
+	indices := make([]int, 0, len(voxels))
 	for _, acc := range voxels {
-		result = append(result, points[acc.bestIdx])
+		indices = append(indices, acc.bestIdx)
+	}
+	sort.Ints(indices)
+	result := make([]WorldPoint, 0, len(indices))
+	for _, index := range indices {
+		result = append(result, points[index])
 	}
 
 	return result

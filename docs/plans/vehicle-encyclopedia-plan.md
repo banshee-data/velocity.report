@@ -2,7 +2,7 @@
 
 - **Status:** Draft, open for investigation. No source verified, no code, no commitment
 - **Layers:** Separate open project; velocity.report consumes an embedded subset
-- **Target:** investigation spikes in v0.6.3; delivery from v1.0
+- **Target:** investigation spikes in v0.6.6; delivery from v1.0
 - **Companion plans:** [scene vehicle identification](scene-vehicle-identification-plan.md), [web scene export](lidar-web-scene-export-plan.md), [scene catalogue publishing](lidar-scene-catalogue-publishing-plan.md)
 - **Canonical:** [Vehicle encyclopedia](../platform/architecture/vehicle-encyclopedia.md) (single source of truth)
 - **Related:** [shape descriptors](lidar-shape-descriptors-plan.md), [TENETS](../../TENETS.md)

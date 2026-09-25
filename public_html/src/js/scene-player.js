@@ -74,6 +74,57 @@ export function sceneTrailPoint(t) {
 }
 
 /**
+ * Pointer position in normalised device coordinates, given the canvas rect.
+ *
+ * Exported and pure because the vertical flip is the easy thing to get
+ * backwards, and getting it backwards silently picks the wrong object rather
+ * than failing.
+ */
+export function pointerToNDC(clientX, clientY, rect) {
+  return {
+    x: ((clientX - rect.left) / rect.width) * 2 - 1,
+    y: -((clientY - rect.top) / rect.height) * 2 + 1,
+  };
+}
+
+/**
+ * A scene-space ground hit back in ENU metres.
+ *
+ * The inverse of the toScene* mapping for the ground plane: scene x is east,
+ * and north is -z, so north comes back as the negated z.
+ */
+export function sceneGroundToENU(hit) {
+  return { x: hit.x, y: -hit.z };
+}
+
+/**
+ * An open ring marking a reviewed region on the ground.
+ *
+ * Open rather than filled: a disc would read as something the sensor saw,
+ * and a region is a review annotation about what it missed.
+ */
+export function buildRegionRing(region, groundY) {
+  const radius = Math.max(0.25, Number(region.radius_m) || 1);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(radius * 0.92, radius, 48),
+    new THREE.MeshBasicMaterial({
+      color: SCENE_COLOURS.missedRegion ?? 0xc084fc,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85,
+    }),
+  );
+  // Flat on the ground, lifted clear of it so it is not z-fighting the grid.
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(
+    toSceneX(Number(region.center_x) || 0),
+    groundY + 0.03,
+    toSceneZ(Number(region.center_y) || 0),
+  );
+  return ring;
+}
+
+/**
  * Distributes a window of historical frames into per-track point lists, one
  * pass over the frames rather than one pass per track. Only the given track
  * ids are collected — trails are drawn only for tracks visible in the
@@ -324,6 +375,12 @@ export async function mountScenePlayer({
   // drone, and the returned session gains a `capture.applyView` for freezing
   // an exact frame, camera and layer set. Absent for the production page.
   capture = false,
+  // An already-open session, for frames that do not come from a published
+  // export directory. The operator tools read live runs from the database
+  // and inject a session over them, so playback, seeking and trail
+  // reconstruction stay this one implementation rather than a second one
+  // written against a different clock.
+  session: injectedSession = null,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -526,7 +583,8 @@ export async function mountScenePlayer({
     onUserInput: () => setFlying(false),
   });
 
-  const session = await new SceneSession(manifestURL).open();
+  const session =
+    injectedSession ?? (await new SceneSession(manifestURL).open());
   const generatorVersions = sceneGeneratorVersions(session.parts);
   if (ui.generatorVersions && generatorVersions.length) {
     const generatorVersion = generatorVersions.join(", ");
@@ -1352,6 +1410,77 @@ export async function mountScenePlayer({
       })),
     };
   }
+
+  // Picking and ground overlays, for the operator tools.
+  //
+  // This lives here rather than in the app because the player owns the
+  // camera and the ENU-to-scene mapping. A caller doing its own projection
+  // would have to restate that convention, and the two would drift the first
+  // time either changed.
+  const raycaster = new THREE.Raycaster();
+  // Generous for points-as-boxes: a click near a small box should still take
+  // it, the way the flat map's selection radius did.
+  raycaster.params.Points.threshold = 0.5;
+  const regionGroup = new THREE.Group();
+  scene.add(regionGroup);
+
+  /** Pointer position in normalised device coordinates for this canvas. */
+  function pointerNDC(clientX, clientY) {
+    const ndc = pointerToNDC(clientX, clientY, canvas.getBoundingClientRect());
+    return new THREE.Vector2(ndc.x, ndc.y);
+  }
+
+  /**
+   * The track whose box is under the pointer, or null.
+   *
+   * Raycasting the boxes rather than projecting centres means a click lands
+   * on what the operator can actually see: a long vehicle is selectable along
+   * its whole length, not only near its centre point.
+   */
+  function trackAt(clientX, clientY) {
+    raycaster.setFromCamera(pointerNDC(clientX, clientY), camera);
+    const meshes = [];
+    const idByMesh = new Map();
+    for (const [id, v] of visuals) {
+      if (!v.fill?.visible) continue;
+      meshes.push(v.fill);
+      idByMesh.set(v.fill, id);
+    }
+    const hits = raycaster.intersectObjects(meshes, false);
+    return hits.length ? (idByMesh.get(hits[0].object) ?? null) : null;
+  }
+
+  /**
+   * Where the pointer meets the ground plane, in ENU metres, or null when the
+   * ray runs parallel to it or points at the sky.
+   */
+  function groundAt(clientX, clientY) {
+    raycaster.setFromCamera(pointerNDC(clientX, clientY), camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -grid.position.y);
+    const hit = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(plane, hit)) return null;
+    return sceneGroundToENU(hit);
+  }
+
+  /**
+   * Draws region markers flat on the ground.
+   *
+   * Regions are a review annotation, not sensor data, so they are drawn as
+   * open rings: a filled disc would read as something the sensor saw.
+   */
+  function setRegions(regions) {
+    for (const child of [...regionGroup.children]) {
+      regionGroup.remove(child);
+      child.geometry?.dispose();
+      child.material?.dispose();
+    }
+    for (const region of regions ?? []) {
+      regionGroup.add(buildRegionRing(region, grid.position.y));
+    }
+    render();
+  }
+
+  session.interaction = { trackAt, groundAt, setRegions };
 
   if (capture) session.capture = { applyView, resolveFrame };
 
