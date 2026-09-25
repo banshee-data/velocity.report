@@ -94,6 +94,10 @@ Posterior:
 
 The implementation rejects updates with near-singular `S` (determinant below threshold).
 
+`R = r·I` with the tuned scalar `r = MeasurementNoise` is the shipped model. The default-off
+adaptive model of Section 12 replaces `R` alone, in the gate, the likelihood cost and the update
+alike.
+
 ## 3. Gating and plausibility
 
 Each cluster-track candidate gets a squared Mahalanobis cost:
@@ -324,7 +328,74 @@ the oldest state is released early as `fixed_lag`. A held step is about 0.45 kB 
 4×4 gain). On the full kirk0 replay the peak across all tracks was 60, 93, 168, 294 and 695 steps
 for three frames, 0.5 s, 1 s, 2 s and the whole track.
 
-## 12. References
+## 12. Adaptive measurement uncertainty
+
+State-estimation plan Phase 3 and Section 8.1, behind `TrackerConfig.AdaptiveMeasurementNoise`
+(experiment `adaptive_uncertainty`). Default off: with it off every output is unchanged.
+
+### 12.1 The model
+
+For a measurement at `m` seen from the sensor at `s`, let `r = |m - s|`, `u = (m - s)/r` the line
+of sight and `v = (-u_y, u_x)` across it. `R` is diagonal in `(u, v)` and rotated into the site
+frame:
+
+`R = σ_rad² u uᵀ + σ_tan² v vᵀ`
+
+`σ_axis² = c_axis(stratum) + φ_axis(r, N, a)`
+
+The physics terms `φ` are Section 8.1's, with the Pandar40P's range accuracy `σ_range = 0.02 m`,
+azimuth step `δ = 0.2°`, cluster point count `N` and folded aspect `a ∈ [0, π/2]` (0 end-on, `π/2`
+broadside) of the sensor under the track's believed heading:
+
+`φ_rad = σ_range² + (r δ tan θ)²`, with `θ = min(a, π/2 - a)`
+
+`φ_tan = (r δ)²/12 + (r δ)²/N`
+
+They are small: at 30 m the whole tangential term is under 0.02 m². The edge-localisation term
+`σ_edge²` needs a truncated-face flag the online measurement lacks, so it is absent rather than
+guessed. The coefficient `c` carries what `φ` does not explain (clustering jitter, visible-surface
+hops) and is looked up per stratum: measurement source × range `{0, 10, 20, 30, 50}` m × support
+`{0, 10, 30, 100}` points × folded aspect `{end-on, oblique, broadside}` × axis. With no fitted
+table every `c` is the scalar `MeasurementNoise`. Below 0.5 m no line of sight exists and `R`
+falls back to `r·I`. The Joseph option uses the full `KRKᵀ` with this `R`.
+
+### 12.2 Pre-gate NIS
+
+Accepted-only NIS is censored by the gate. Inside a calibration window the tracker also evaluates,
+after prediction and before association, every physically plausible pairing, and records the
+eligible ones: a confirmed track whose only plausible cluster is plausible for no other track.
+Eligibility is decided by Euclidean plausibility, never by `S`. For each it records the
+innovation's projections `y_u = uᵀy`, `y_v = vᵀy`, the projected prediction `uᵀHP⁻Hᵀu`, the `R`
+used, `φ` and the joint `d² = yᵀS⁻¹y`, whether the gate forbade it and whether it was assigned. For
+a consistent model `d²/m` has mean 1 and each marginal `y_u²/(uᵀSu)` is chi-squared with one
+degree of freedom.
+
+### 12.3 Calibration
+
+Per stratum and axis the fit finds `c` for which the mean over samples of
+
+`(y_u - ȳ_u)² / (uᵀHP⁻Hᵀu + φ_u + c)`
+
+is 1, by bisection on `[0.0025, 4]` m² (the statistic is non-increasing in `c`). Each sample is
+normalised by its own predicted covariance: the moment estimate `Var(y_u) - mean(uᵀP⁻u) - mean(φ_u)`
+assumes one `S` per stratum and goes wrong when `P⁻` varies, as it does on real replays. Centring
+on `ȳ` means a biased stratum is flagged, not given a wider `R`. Samples from coasting tracks,
+whose `P⁻` carries occlusion inflation, are excluded from the fit. A smaller `R` shrinks the
+filter's own `P`, so the fit is one step of a fixed-point iteration, repeated until each fitted
+coefficient is within 10 % of the one its replay used. Like any innovation-based estimate it
+attributes to `R` whatever `P⁻` does not explain, process-model error included, which is why the
+decision is taken on a held-out partition against the
+[predeclared G-UNC-1 criteria](../../docs/lidar/operations/adaptive-uncertainty-criteria.md).
+
+### 12.4 Gate-rejection evidence
+
+When the gate forbids an eligible pairing, the tracker carries two hypotheses forward: the track's
+own prediction, and the rejected measurement `z` moved at the track's velocity, `z + v·Δt`. The
+first later cluster explained at least twice as well by one of them decides: the rejected path
+continuing is a genuine manoeuvre (persistent), the track's own path continuing is a spurious
+measurement (transient); nothing within three association frames is unresolved.
+
+## 13. References
 
 | Reference                       | BibTeX key        | Relevance                                                                                     |
 | ------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |

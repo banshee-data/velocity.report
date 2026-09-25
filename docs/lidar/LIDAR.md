@@ -24,6 +24,7 @@ file is just the index — start there for any layer detail.
 | Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
 | Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
 | Refinement criteria     | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
+| Uncertainty criteria    | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
 | Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
 | Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
 | Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
