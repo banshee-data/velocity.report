@@ -132,6 +132,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 			0, 0, 0, 1,
 		}
 		track.TrackState = TrackDeleted
+		t.recordExpiry(track, ExpiryNonFinite)
 		return
 	}
 
@@ -274,6 +275,12 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 		}
 	}
 
+	// A coasting track reclaims continuity only for a cluster that fits the
+	// body it believes in, and never on an ambiguous choice. Off by default.
+	if t.Config.OcclusionContinuity.ReacquisitionGuard {
+		t.guardReacquisition(costMatrix, clusters, clusterIdx, trackIDs)
+	}
+
 	// Solve optimal assignment.
 	assign := HungarianAssign(costMatrix)
 
@@ -351,7 +358,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Check if implied velocity would be unreasonable
 	if dt > 0 {
-		impliedSpeed := euclideanDist / dt
+		impliedSpeed := euclideanDist / reacquisitionPlausibilityDt(t.Config.OcclusionContinuity.ReacquisitionGuard, track, dt)
 		if impliedSpeed > t.Config.MaxReasonableSpeedMps {
 			return SingularDistanceRejection
 		}

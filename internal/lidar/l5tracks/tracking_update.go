@@ -96,6 +96,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			0, 0, 0, 1,
 		}
 		track.TrackState = TrackDeleted
+		t.recordExpiry(track, ExpiryNonFinite)
 		return
 	}
 
@@ -125,6 +126,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	if cluster.HeightP95 > track.HeightP95Max {
 		track.HeightP95Max = cluster.HeightP95
 	}
+	t.observeReacquisitionExtent(track, &cluster)
 
 	// Update speed statistics
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
@@ -157,6 +159,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			X:         track.X,
 			Y:         track.Y,
 			Timestamp: measurement.UnixNanos,
+			Support:   SupportObserved,
 		})
 		if hasPrevious {
 			dx := track.X - previousPoint.X
