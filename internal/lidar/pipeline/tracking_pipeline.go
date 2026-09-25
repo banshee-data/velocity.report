@@ -213,6 +213,13 @@ type TrackingPipelineConfig struct {
 	ObservationSourceID      string
 	ObservationCalibrationID string
 
+	// ObservationFrameSink opts into the foreground-complete evidence tap: one
+	// l4bobserve.FrameRecord per frame, built from every L3 foreground return
+	// and DBSCAN's membership, emitted before L5. It needs the same explicit
+	// source and calibration identities as ObservationSink and is independent
+	// of it. Nil (the default) leaves the callback's work unchanged.
+	ObservationFrameSink ObservationFrameSink
+
 	// StateEstimateSink is enabled only for a source with explicit capture and
 	// calibration identities. The live server deliberately leaves it unset
 	// until those identities are provided by the capture/pose owner.
@@ -420,6 +427,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 
+	// One extraction per callback instance: the tap numbers the frames this
+	// callback sees. Nil when no ObservationFrameSink is configured.
+	tap := newObservationFrameTap(cfg)
+
 	// Pipeline performance tracing state.
 	const slowFrameThresholdMs = 50.0  // emit diagf alert when frame exceeds this
 	const healthSummaryInterval = 100  // emit health summary every N processed frames
@@ -447,7 +458,17 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	}
 
 	return func(frame *l2frames.LiDARFrame) {
-		if frame == nil || len(frame.Points) == 0 {
+		if frame == nil {
+			return
+		}
+		// Every frame gets an evidence record when the tap is on, including
+		// those that leave through the early returns below. The explicit finish
+		// after clustering emits it before L5; this deferred one is then a no-op.
+		draft := tap.begin(frame)
+		if draft != nil {
+			defer tap.finish(draft)
+		}
+		if len(frame.Points) == 0 {
 			return
 		}
 
@@ -470,6 +491,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		polar := frame.PolarPoints
 
 		if cfg.BackgroundManager == nil {
+			draft.Fail(l4bobserve.StageL3Foreground, "no background model configured")
 			publishEmptyFrame(frame)
 			return
 		}
@@ -493,11 +515,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMaskAt(polar, frame.StartTimestamp)
 		if err != nil || mask == nil {
 			opsf("Failed to get foreground mask: %v", err)
+			if draft != nil {
+				draft.Fail(l4bobserve.StageL3Foreground, fmt.Sprintf("foreground mask unavailable: %v", err))
+			}
 			publishEmptyFrame(frame)
 			return
 		}
 
 		foregroundPoints := l3grid.ExtractForegroundPoints(polar, mask)
+		tap.foreground(draft, cfg.BackgroundManager, mask, len(foregroundPoints))
 		totalPoints := len(polar)
 
 		// Build downsampled background subset for debug overlay.
@@ -558,6 +584,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// so track ageing on live data runs at the configured rate.
 			//
 			// Still record the frame for deterministic VRLOG mapping.
+			draft.Suppress(l4bobserve.StageL4Transform, "replay frame-rate throttle")
 			publishEmptyFrame(frame)
 			return
 		}
@@ -673,6 +700,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// updated and the foreground mask computed; nothing downstream of L3
 		// runs, which is the whole point of the profile.
 		if !profile.RunsLayer(4) {
+			draft.Suppress(l4bobserve.StageL4Transform, "pipeline profile stops at L3")
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
@@ -685,6 +713,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("transform")
 		}
 		worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, sensorID)
+		// The retained domain is copied here, before the height-band filter
+		// compacts worldPoints in place; the draft also stamps each point's
+		// source ordinal so later stages can be traced back to it.
+		draft.Retain(worldPoints)
 
 		// Stage 2b: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
@@ -716,6 +748,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					ceiling = 4.5
 				}
 				filteredPoints, lowerGroundRejected = (l4perception.SurfaceHeightFilter{Surface: *groundSurface, Floor: floor, Ceiling: ceiling}).Filter(worldPoints)
+				draft.SurfaceFiltered(filteredPoints, lowerGroundRejected)
 			} else {
 				var groundFilter *l4perception.HeightBandFilter
 				if heightBandFloor != 0 || heightBandCeiling != 0 {
@@ -724,6 +757,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					groundFilter = l4perception.DefaultHeightBandFilter()
 				}
 				filteredPoints = groundFilter.FilterVertical(worldPoints)
+				draft.HeightBandFiltered(filteredPoints)
 				proc, kept, below, above := groundFilter.Stats()
 				tracef("Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
 					proc, kept, below, above)
@@ -748,6 +782,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if voxelLeafSize > 0 {
 			before := len(filteredPoints)
 			filteredPoints = l4perception.VoxelGrid(filteredPoints, voxelLeafSize)
+			draft.Voxelled(filteredPoints)
 			tracef("Voxel downsample: %d → %d (leaf=%.3fm)",
 				before, len(filteredPoints), voxelLeafSize)
 		}
@@ -774,10 +809,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		dbscanParams.MaxInputPoints = maxInputPoints
 		dbscanParams.ScaleMinPtsWhenSubsampled = cfg.DensityPreservingCap
 
-		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
+		// Both calls share one implementation; the traced form only returns the
+		// labels DBSCAN already computed, so the tap cannot change the clusters.
+		var clusters []l4perception.WorldCluster
+		var trace l4perception.DBSCANTrace
+		if draft != nil {
+			clusters, trace = l4perception.DBSCANWithTrace(filteredPoints, dbscanParams)
+		} else {
+			clusters = l4perception.DBSCAN(filteredPoints, dbscanParams)
+		}
 		if len(lowerGroundRejected) > 0 {
 			l4perception.MarkGroundClipped(clusters, lowerGroundRejected)
 		}
+		// L4 evidence is complete: emit it before L5 can run or return early.
+		draft.Clustered(trace, clusters)
+		tap.finish(draft)
 		if len(clusters) == 0 {
 			// No clusters, but still record foreground stats (all points are noise)
 			if cfg.Tracker != nil {

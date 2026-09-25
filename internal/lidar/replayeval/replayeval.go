@@ -136,6 +136,15 @@ type Config struct {
 	ReplayCaseID               string
 	ObservationCalibration     l4bobserve.Calibration
 	ObservationMaxSamplePoints int
+	// ObservationFrames opts into the foreground-complete evidence tap. It
+	// receives one l4bobserve.FrameRecord for every frame the pipeline
+	// processes, warm-up included, in sequence order and before L5 runs. Each
+	// record is checked against the stream contract first; an invalid record,
+	// a broken lineage or an error returned here fails the replay. It needs
+	// ReplayCaseID and ObservationCalibration, and is independent of
+	// ObservationDBPath. Records are in memory only: durable binary storage is
+	// a separate writer.
+	ObservationFrames func(l4bobserve.FrameRecord) error
 	// ProfileEvidence includes exact frame-evidence persistence timings in the
 	// returned Result. It is diagnostic-only and does not alter recorded data.
 	ProfileEvidence bool
@@ -171,6 +180,9 @@ type Result struct {
 	SourcePCAP          string
 	SourcePCAPs         []string
 	ObservationSourceID string
+	// ObservationFrames counts foreground-complete records delivered to
+	// Config.ObservationFrames.
+	ObservationFrames   int
 	EvidencePersistence *observationsqlite.FrameEvidenceStats
 	// GroundSurfaceFit is the P11 ground-plane fit reached during this
 	// replay, when Config.UseSurfaceGround was set and the background
@@ -243,6 +255,59 @@ func (s *strictFrameEvidenceSink) RecordFrameEvidenceFailure(err error) {
 	if s.err == nil {
 		s.err = err
 	}
+}
+
+// strictObservationFrameSink checks each foreground-complete record against
+// the stream contract (dense sequence, ordered starts, the profile's per-frame
+// guarantees) before the caller sees it, and retains the first failure,
+// including a lineage break the tap reports, so the replay fails rather than
+// delivering a stream with a silent fault.
+type strictObservationFrameSink struct {
+	deliver func(l4bobserve.FrameRecord) error
+	stream  *l4bobserve.StreamValidator
+	mu      sync.Mutex
+	frames  int
+	err     error
+}
+
+func (s *strictObservationFrameSink) ObserveFrame(record l4bobserve.FrameRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		// The first failure is retained and fails the replay; returning it for
+		// every later frame would only repeat it in the pipeline's log.
+		return nil
+	}
+	if err := s.stream.AddFrame(record); err != nil {
+		s.err = fmt.Errorf("observation frame stream: %w", err)
+		return s.err
+	}
+	if err := s.deliver(record); err != nil {
+		s.err = err
+		return err
+	}
+	s.frames++
+	return nil
+}
+
+func (s *strictObservationFrameSink) RecordObservationFrameFailure(err error) {
+	if err == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err == nil {
+		s.err = err
+	}
+}
+
+func (s *strictObservationFrameSink) result() (int, error) {
+	if s == nil {
+		return 0, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.frames, s.err
 }
 
 func (s *strictObservationSink) Insert(observation l4bobserve.DetectionObservation) error {
@@ -558,17 +623,15 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	var frameEvidenceStore *observationsqlite.FrameEvidenceStore
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
-	if cfg.ObservationDBPath != "" {
+	// Both evidence outputs bind the same explicit identities; neither may
+	// guess a replay case or an identity transform from a sensor label.
+	if cfg.ObservationDBPath != "" || cfg.ObservationFrames != nil {
 		if strings.TrimSpace(cfg.ReplayCaseID) == "" {
-			return nil, fmt.Errorf("ReplayCaseID is required when ObservationDBPath is set")
+			return nil, fmt.Errorf("ReplayCaseID is required when ObservationDBPath or ObservationFrames is set")
 		}
 		if cfg.ObservationCalibration.SensorID != cfg.SensorID {
 			return nil, fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cfg.ObservationCalibration.SensorID, cfg.SensorID)
 		}
-		if cfg.ObservationMaxSamplePoints <= 0 || cfg.ObservationMaxSamplePoints > 1024 {
-			return nil, fmt.Errorf("ObservationMaxSamplePoints must be between 1 and 1024 when ObservationDBPath is set")
-		}
-		maxSamplePoints = cfg.ObservationMaxSamplePoints
 		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
 			ReplayCaseID: cfg.ReplayCaseID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
 			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash,
@@ -580,6 +643,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("derive observation calibration identity: %w", err)
 		}
+	}
+	if cfg.ObservationDBPath != "" {
+		// Only the reduced SQLite records carry a per-cluster sample; the
+		// foreground-complete tap needs none, so it leaves this cap alone.
+		if cfg.ObservationMaxSamplePoints <= 0 || cfg.ObservationMaxSamplePoints > 1024 {
+			return nil, fmt.Errorf("ObservationMaxSamplePoints must be between 1 and 1024 when ObservationDBPath is set")
+		}
+		maxSamplePoints = cfg.ObservationMaxSamplePoints
 		database, err := db.NewDB(cfg.ObservationDBPath)
 		if err != nil {
 			return nil, fmt.Errorf("open observation database: %w", err)
@@ -630,6 +701,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	if frameEvidenceSink != nil {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink
+	}
+	var observationFrameSink *strictObservationFrameSink
+	if cfg.ObservationFrames != nil {
+		observationFrameSink = &strictObservationFrameSink{
+			deliver: cfg.ObservationFrames,
+			stream:  l4bobserve.NewStreamValidator(l4bobserve.ForegroundComplete()),
+		}
+		pipeCfg.ObservationFrameSink = observationFrameSink
 	}
 	var groundSurfaceFit atomic.Pointer[l3grid.RegionalGroundSurface]
 	if cfg.UseSurfaceGround {
@@ -703,6 +782,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if frameEvidenceErr := frameEvidenceSink.Err(); frameEvidenceErr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("store frame evidence: %w", frameEvidenceErr)
 	}
+	observationFrames, observationFrameErr := observationFrameSink.result()
+	if observationFrameErr != nil && replayErr == nil {
+		replayErr = fmt.Errorf("observation frames: %w", observationFrameErr)
+	}
 	if replayErr != nil {
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)
 	}
@@ -739,7 +822,15 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
 		manifest["observation_calibration_id"] = observationCalibrationID
+	}
+	if cfg.ObservationDBPath != "" {
 		manifest["observation_max_sample_points"] = maxSamplePoints
+	}
+	if observationFrameSink != nil {
+		// The records themselves were delivered in memory; the manifest only
+		// declares which profile the caller received and how many frames.
+		manifest["observation_frame_profile"] = string(l4bobserve.ProfileForegroundComplete)
+		manifest["observation_frames"] = observationFrames
 	}
 	manifestJSON, err := runtime.marshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -768,6 +859,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SourcePCAP:          pcapFiles[0],
 		SourcePCAPs:         append([]string(nil), pcapFiles...),
 		ObservationSourceID: observationSourceID,
+		ObservationFrames:   observationFrames,
 		EvidencePersistence: func() *observationsqlite.FrameEvidenceStats {
 			if !cfg.ProfileEvidence || frameEvidenceStore == nil {
 				return nil
