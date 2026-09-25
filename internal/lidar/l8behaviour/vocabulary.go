@@ -269,6 +269,37 @@ func (s SupportState) CountsTowardExposure() bool { return s == SupportObserved 
 // exactly this reason; out_of_fov is explicitly not a failure.
 func (s SupportState) IsDefectSignal() bool { return s == SupportMissedUnknown }
 
+// supportSeverity ranks support states for WorseSupport: less direct evidence
+// about the body is worse, and among absences an unexplained one is worse
+// than an explained one. A present but fragmented body still has returns; a
+// merged one has returns contaminated by another object; an occluded or
+// out-of-view body has none, for a stated reason; a coasted one has none and
+// no recorded reason; a missed one is a defect signal. Declaration order is
+// not this order, and must not be read as it.
+var supportSeverity = [supportStateEnd]int{
+	SupportObserved:         1,
+	SupportClusterSplit:     2,
+	SupportClusterMerged:    3,
+	SupportOccludedInferred: 4,
+	SupportOutOfFOV:         5,
+	SupportCoasted:          6,
+	SupportMissedUnknown:    7,
+}
+
+// WorseSupport returns whichever of two support states rests on weaker
+// evidence, per supportSeverity; an unspecified state never wins. An
+// interaction records the worst support of either party over its interval
+// (Section 10.2) with it.
+func WorseSupport(a, b SupportState) SupportState {
+	if !b.Valid() {
+		return a
+	}
+	if !a.Valid() || supportSeverity[b] > supportSeverity[a] {
+		return b
+	}
+	return a
+}
+
 // --- Estimate stage --------------------------------------------------------
 
 // EstimateStage names which estimator output a state came from, per Section
@@ -759,6 +790,143 @@ func ParseCandidateDisposition(s string) (CandidateDisposition, error) {
 
 // CandidateDispositions lists every disposition.
 func CandidateDispositions() []CandidateDisposition { return candidateDispositions.values() }
+
+// --- Interaction type ------------------------------------------------------
+
+// InteractionType is the kind of pairwise encounter a persisted interaction
+// records (Section 10.2). Each type fixes what its primary and secondary
+// tracks are, and those are geometric roles, never fault.
+//
+// Only the types a method produces are registered. The plan's crossing,
+// merging, overtaking and opposing are reserved until one does, together with
+// the classification posterior Section 7.5 requires before a metric may be
+// computed for them; a token may be added mid-list without migrating stored
+// rows, because only the token is persisted.
+type InteractionType uint8
+
+const (
+	// InteractionUnspecified is the zero value and never valid.
+	InteractionUnspecified InteractionType = iota
+	// InteractionFollowing: a leader/follower encounter on a shared directed
+	// path. The primary track is the follower, the party whose gap to the body
+	// ahead is measured; the secondary is the leader.
+	InteractionFollowing
+	interactionTypeEnd
+)
+
+var interactionTypes = vocabulary[InteractionType]{
+	kind:  "interaction type",
+	names: []string{"", "following"},
+}
+
+func (t InteractionType) String() string { return interactionTypes.name(t) }
+
+// Valid reports whether t is a registered type.
+func (t InteractionType) Valid() bool { return interactionTypes.valid(t) }
+
+// MarshalText writes the registered token and refuses an unspecified type.
+func (t InteractionType) MarshalText() ([]byte, error) { return interactionTypes.marshal(t) }
+
+// UnmarshalText accepts registered tokens only.
+func (t *InteractionType) UnmarshalText(b []byte) error { return interactionTypes.unmarshal(t, b) }
+
+// ParseInteractionType parses a registered token.
+func ParseInteractionType(s string) (InteractionType, error) { return interactionTypes.parse(s) }
+
+// InteractionTypes lists every registered type.
+func InteractionTypes() []InteractionType { return interactionTypes.values() }
+
+// --- Exposure kind and observation basis -----------------------------------
+
+// ExposureKind names the opportunity an exposure window would count toward
+// (Sections 6 and 10.2). As with InteractionType, only produced kinds are
+// registered: the plan's free_flow, yielding_opportunity and overtaking are
+// reserved until a method produces them.
+type ExposureKind uint8
+
+const (
+	// ExposureKindUnspecified is the zero value and never valid.
+	ExposureKindUnspecified ExposureKind = iota
+	// ExposureValidFollowing: time a follower spent behind a leader on a
+	// shared path, the denominator of every following rate.
+	ExposureValidFollowing
+	exposureKindEnd
+)
+
+var exposureKinds = vocabulary[ExposureKind]{
+	kind:  "exposure kind",
+	names: []string{"", "valid_following"},
+}
+
+func (k ExposureKind) String() string { return exposureKinds.name(k) }
+
+// Valid reports whether k is a registered kind.
+func (k ExposureKind) Valid() bool { return exposureKinds.valid(k) }
+
+// MarshalText writes the registered token and refuses an unspecified kind.
+func (k ExposureKind) MarshalText() ([]byte, error) { return exposureKinds.marshal(k) }
+
+// UnmarshalText accepts registered tokens only.
+func (k *ExposureKind) UnmarshalText(b []byte) error { return exposureKinds.unmarshal(k, b) }
+
+// ParseExposureKind parses a registered token.
+func ParseExposureKind(s string) (ExposureKind, error) { return exposureKinds.parse(s) }
+
+// ExposureKinds lists every registered kind.
+func ExposureKinds() []ExposureKind { return exposureKinds.values() }
+
+// ObservationBasis says what an interval of a pairwise encounter rests on:
+// observation of both parties, or prediction for at least one. It is what
+// keeps predicted-only time distinct from observed opportunity in storage
+// (Sections 9.2 and 10.4): an exposure window or an encounter instant carries
+// one, and only observed time may enter a denominator, whatever its kind.
+type ObservationBasis uint8
+
+const (
+	// BasisUnspecified is the zero value and never valid.
+	BasisUnspecified ObservationBasis = iota
+	// BasisObserved: both parties were observed at the instant.
+	BasisObserved
+	// BasisPredictedOnly: at least one party was coasted, occluded, missing
+	// or otherwise not observed, so any value there is a prediction and is
+	// review-only.
+	BasisPredictedOnly
+	observationBasisEnd
+)
+
+var observationBases = vocabulary[ObservationBasis]{
+	kind:  "observation basis",
+	names: []string{"", "observed", "predicted_only"},
+}
+
+func (b ObservationBasis) String() string { return observationBases.name(b) }
+
+// Valid reports whether b is a registered basis.
+func (b ObservationBasis) Valid() bool { return observationBases.valid(b) }
+
+// MarshalText writes the registered token and refuses an unspecified basis.
+func (b ObservationBasis) MarshalText() ([]byte, error) { return observationBases.marshal(b) }
+
+// UnmarshalText accepts registered tokens only.
+func (b *ObservationBasis) UnmarshalText(v []byte) error { return observationBases.unmarshal(b, v) }
+
+// ParseObservationBasis parses a registered token.
+func ParseObservationBasis(s string) (ObservationBasis, error) { return observationBases.parse(s) }
+
+// ObservationBases lists every basis.
+func ObservationBases() []ObservationBasis { return observationBases.values() }
+
+// CountsTowardExposure reports whether time on this basis may enter an
+// exposure or opportunity denominator: observed time only.
+func (b ObservationBasis) CountsTowardExposure() bool { return b == BasisObserved }
+
+// basisOf is the pair basis of two parties' support at one instant.
+func basisOf(follower, leader SupportState) ObservationBasis {
+	if follower == SupportObserved && leader == SupportObserved {
+		return BasisObserved
+	}
+	return BasisPredictedOnly
+}
 
 // --- Uncertainty kind and propagation method -------------------------------
 

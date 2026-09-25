@@ -170,6 +170,11 @@ type EncounterInstant struct {
 	Condition PathCondition     `json:"condition,omitempty"`
 	// Unobserved is true when either party was not observed at the instant.
 	Unobserved bool `json:"unobserved,omitempty"`
+	// FollowerSupport and LeaderSupport are each party's support at the
+	// instant. A leader present without a row there is missed_unknown, as a
+	// missing row is in Trajectory.SupportSeconds.
+	FollowerSupport SupportState `json:"follower_support"`
+	LeaderSupport   SupportState `json:"leader_support"`
 	// Point is the pointwise evaluation, present when this leader was chosen
 	// and had a sample at the instant.
 	Point *FollowingPoint `json:"point,omitempty"`
@@ -221,7 +226,11 @@ type Encounter struct {
 	FirstUnixNanos  int64  `json:"first_unix_nanos"`
 	LastUnixNanos   int64  `json:"last_unix_nanos"`
 	// Stage is the least final of the path and every contributing sample.
-	Stage              EstimateStage       `json:"estimate_stage"`
+	Stage EstimateStage `json:"estimate_stage"`
+	// WorstSupport is the weakest support of either party at any instant
+	// (WorseSupport), and missed_unknown when the follower's record has a gap
+	// in it, which is rows missing outright.
+	WorstSupport       SupportState        `json:"worst_support"`
 	Instants           []EncounterInstant  `json:"instants"`
 	SpatialGapSeries   []SeriesPoint       `json:"spatial_gap_series,omitempty"`
 	NetTimeGapSeries   []SeriesPoint       `json:"net_time_gap_series,omitempty"`
@@ -399,7 +408,11 @@ func analyseFollower(f Trajectory, res LocalPathResult, all []Trajectory, byID m
 			}
 			leader := byID[lid]
 			ls, synced := leader.SampleAt(t)
-			inst.Unobserved = s.Support != SupportObserved || !synced || ls.Support != SupportObserved
+			inst.FollowerSupport, inst.LeaderSupport = s.Support, ls.Support
+			if !synced {
+				inst.LeaderSupport = SupportMissedUnknown
+			}
+			inst.Unobserved = basisOf(inst.FollowerSupport, inst.LeaderSupport) != BasisObserved
 			switch {
 			case dec.LeaderTrackID != lid:
 				inst.Reason, inst.Condition = dec.Reason, dec.Condition
@@ -486,9 +499,11 @@ func buildEncounter(leader, follower Trajectory, path *LocalPath, instants []Enc
 		if synced {
 			e.Stage = min(e.Stage, ls.Stage)
 		}
+		e.WorstSupport = WorseSupport(e.WorstSupport, WorseSupport(inst.FollowerSupport, inst.LeaderSupport))
 		counted := inst.IntervalNanos
 		if inst.RecordGap {
 			e.Accounting.RecordGapNanos += inst.IntervalNanos
+			e.WorstSupport = WorseSupport(e.WorstSupport, SupportMissedUnknown)
 			counted = 0
 		}
 		if inst.Unobserved {

@@ -10,13 +10,13 @@
 // no tailgating score, and the named net-time-gap bands are descriptive bins
 // with no established threshold.
 //
-// The package has six parts.
+// The package has seven parts.
 //
 //   - Vocabularies (vocabulary.go): closed, registered token sets for
 //     suppression reasons, observation support, estimate stage, estimation
 //     lifecycle, endpoint source, motion class, path condition, candidate
-//     disposition and the uncertainty and benchmark kinds. An unset value
-//     refuses to serialise.
+//     disposition, interaction type, exposure kind, observation basis and the
+//     uncertainty and benchmark kinds. An unset value refuses to serialise.
 //   - Results (result.go, metrics.go): Uncertainty with separate scopes,
 //     version and input provenance, Measurement (a value XOR a suppression
 //     reason, never a misleading zero), Outcome (a categorical label that
@@ -41,6 +41,12 @@
 //     against independent references, stratified by class, range, face
 //     aspect and support, under acceptance bounds pinned by hash before
 //     scoring.
+//   - Stored form (interaction.go, surface.go): an encounter as the three
+//     records internal/lidar/storage/sqlite persists (event, instants,
+//     exposure windows), keyed by registry metric id and suppression token,
+//     write-once per version, with observed and predicted-only time kept
+//     apart by basis; and the audit that holds every external surface to
+//     registered names.
 //
 // Production emission is gated. A result may reach a production surface only
 // from a final-stage, established, observed estimate (G-SMO-1, Section 2.1),

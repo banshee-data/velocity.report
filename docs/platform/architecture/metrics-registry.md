@@ -126,6 +126,35 @@ Definitions that every surface must keep:
   [label vocabulary](../../lidar/architecture/label-vocabulary.md#suppression-reasons); a
   suppressed metric has no value at all.
 
+### Following metric surfaces
+
+The surface completeness check for the following family. Persistence is built
+([behaviour plan Section 10.3](../../plans/lidar-behaviour-analytics-plan.md#103-persistence)); the
+API and report are not, and must use the same names. Stored metric values are keyed by id inside
+each row's JSON payload, and no column names a metric. `event_json`, `instant_json` and
+`window_json` are the payloads of `lidar_interaction_events`, `lidar_interaction_instants` and
+`lidar_exposure_windows`.
+
+| Metric ids                                                     | Persistence names                                                                                                                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interaction.following_spatial_gap_m`                          | `instant_json.values.<id>` (value and sigma) on observed instants whose gap is supported                                                                                                                |
+| `interaction.following_net_time_gap_s`                         | `instant_json.values.<id>` (value and sigma) on valid instants only                                                                                                                                     |
+| `interaction.following_valid_time_s`                           | `event_json.measurements.<id>`; its denominator is the sum of `window_json.duration_nanos` where `basis` is `observed` and `kind` is `valid_following`, divided by 10⁹ because the metric is in seconds |
+| `interaction.following_{spatial_gap,net_time_gap}_{min,p50}_*` | `event_json.measurements.<id>`                                                                                                                                                                          |
+| `interaction.following_time_below_{2000,1500,1000}ms_s`        | `event_json.measurements.<id>`; bookkeeping in `event_json.accounting.band_nanos.<id>` and, per observed window, `window_json.band_nanos.<id>`                                                          |
+| `interaction.following_rate_below_{2000,1500,1000}ms_ratio`    | `event_json.measurements.<id>`                                                                                                                                                                          |
+| `interaction.following_predicted_gap_m`                        | `instant_json.values.<id>` on `predicted_only` instants only, with `coast_age_nanos`; never in a measurement, a window or a denominator                                                                 |
+| `interaction.observed_surface_gap_m`                           | Not persisted: the encounter method does not produce it                                                                                                                                                 |
+| Provisional values of a non-final encounter                    | `event_json.provisional.<id>`, present exactly when `estimate_stage` is not `final`                                                                                                                     |
+| Suppression reasons                                            | `reason` on a measurement and an instant, `reasons` on an instant in precedence order, and `event_json.accounting.suppressions.<token>`                                                                 |
+
+Every name a surface emits is checked by `AuditSurfaceJSON` in
+[internal/lidar/l8behaviour/surface.go](../../../internal/lidar/l8behaviour/surface.go): an object
+key must be a registered metric id, a suppression reason token or a structural name from one shared
+list, no key or value may be an alias, and a value claiming the `interaction.` level must be a
+registered id. The persisted payloads and table columns are audited in tests; the API and report
+PRs audit what they serve the same way.
+
 ## Consistency across pipeline strata
 
 | Stratum                   | What Must Stay Consistent                                        | Example Failure                                                                                    |

@@ -94,6 +94,15 @@ func vocabularyCases() []vocabularyCase {
 		{"candidate disposition", int(candidateDispositionEnd), func() []string { return tokensOf(CandidateDispositions()) },
 			parser(ParseCandidateDisposition), DispositionUnspecified, decoder[CandidateDisposition](),
 			func(i int) bool { return CandidateDisposition(i).Valid() }},
+		{"interaction type", int(interactionTypeEnd), func() []string { return tokensOf(InteractionTypes()) },
+			parser(ParseInteractionType), InteractionUnspecified, decoder[InteractionType](),
+			func(i int) bool { return InteractionType(i).Valid() }},
+		{"exposure kind", int(exposureKindEnd), func() []string { return tokensOf(ExposureKinds()) },
+			parser(ParseExposureKind), ExposureKindUnspecified, decoder[ExposureKind](),
+			func(i int) bool { return ExposureKind(i).Valid() }},
+		{"observation basis", int(observationBasisEnd), func() []string { return tokensOf(ObservationBases()) },
+			parser(ParseObservationBasis), BasisUnspecified, decoder[ObservationBasis](),
+			func(i int) bool { return ObservationBasis(i).Valid() }},
 	}
 }
 
@@ -237,6 +246,41 @@ func TestSupportStateExposureRules(t *testing.T) {
 		}
 		if s.IsDefectSignal() != (s == SupportMissedUnknown) {
 			t.Errorf("%s defect signal = %v; only an unexplained miss is one", s, s.IsDefectSignal())
+		}
+	}
+}
+
+// WorseSupport ranks by evidence, not declaration order: a fragmented body
+// still has returns, an explained absence beats an unexplained one, and a
+// missing row is worst of all.
+func TestWorseSupportOrdering(t *testing.T) {
+	want := []SupportState{
+		SupportObserved, SupportClusterSplit, SupportClusterMerged, SupportOccludedInferred,
+		SupportOutOfFOV, SupportCoasted, SupportMissedUnknown,
+	}
+	if len(want) != len(SupportStates()) {
+		t.Fatalf("severity order lists %d states, the vocabulary has %d", len(want), len(SupportStates()))
+	}
+	for i, a := range want {
+		for j, b := range want {
+			worse := want[max(i, j)]
+			if got := WorseSupport(a, b); got != worse {
+				t.Errorf("worse(%s, %s) = %s, want %s", a, b, got, worse)
+			}
+		}
+		if WorseSupport(a, SupportUnspecified) != a || WorseSupport(SupportUnspecified, a) != a {
+			t.Errorf("an unspecified state won against %s", a)
+		}
+	}
+	for _, b := range ObservationBases() {
+		if b.CountsTowardExposure() != (b == BasisObserved) {
+			t.Errorf("basis %s counts toward exposure = %v", b, b.CountsTowardExposure())
+		}
+	}
+	for _, s := range SupportStates() {
+		if basisOf(SupportObserved, s) != basisOf(s, SupportObserved) ||
+			(basisOf(SupportObserved, s) == BasisObserved) != (s == SupportObserved) {
+			t.Errorf("basis with %s is %s", s, basisOf(SupportObserved, s))
 		}
 	}
 }

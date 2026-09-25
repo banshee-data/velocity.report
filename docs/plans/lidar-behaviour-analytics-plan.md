@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/` (see Phases 6A and 6B), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -1060,9 +1060,13 @@ analytics uses `float64`; JSON tags are snake case.
 
 Sprint 0.5.2.3 implements the uncertainty, scope, provenance, measurement, outcome and passage
 identity rows, and the propagation-method and observation-support vocabularies, as Go contracts in
-`internal/lidar/l8behaviour/`. The passage-evidence, interaction and exposure-window rows, and the
-interaction-type and exposure-kind vocabularies, remain proposals. None is storage or API yet.
-Numeric measurements, categorical outcomes, support state, and provenance remain distinct.
+`internal/lidar/l8behaviour/`. The interaction identity/time and results rows and the exposure
+window are implemented for following encounters and persisted (Section 10.3): the interaction type
+and exposure kind vocabularies register only what a method produces (`following`,
+`valid_following`), and an observation basis (`observed`, `predicted_only`) is added so that
+predicted-only time is stored apart from opportunity. The interaction classification and geometry
+rows and the passage-evidence row remain proposals; there is no API yet. Numeric measurements,
+categorical outcomes, support state, and provenance remain distinct.
 
 | Record                     | Fields                                                                                                                  | Contract                                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -1125,6 +1129,40 @@ ambiguous classification suppresses rather than picks the argmax.
 Behaviour output is derived data and must be reproducible from the persisted final estimates. It
 therefore carries `estimator_id` and `param_hash`, and a change to either invalidates the derived
 rows rather than silently mixing versions.
+
+**Status (sprint 0.5.2.3).** `lidar_interaction_events` and `lidar_exposure_windows` are built for
+following encounters, with a third table, `lidar_interaction_instants`, for each encounter's
+per-instant evidence; `lidar_passage_summaries` and the `site_config_periods` columns are not.
+The schema is JSON-first: each row's payload is the `l8behaviour` record, and generated columns
+index the source, interaction type, both track ids, the version and, per instant or window, the
+observation basis.
+
+- **Events.** One row per pairwise encounter per version: the pair in geometric roles (primary is
+  the follower, secondary the leader), the capture interval, the whole version provenance
+  (estimate stage, estimator, observation model, method id with its parameter hash, geometry and
+  estimator parameter hash), input provenance, worst support of either party, the measurements and
+  any review-only provisional block keyed by registry metric id, and the accounting with its
+  suppressions keyed by reason token.
+- **Instants.** Every follower instant of the encounter: role, both parties' support, validity and
+  every reason in precedence order, the leader's trailing and the follower's leading physical
+  endpoint with its source, support, convergence and both extents' provenance, and the supported
+  spatial gap and net time gap with their one-sigma, keyed by metric id. A suppressed value is
+  absent, never zero.
+- **Windows.** Maximal contiguous runs of valid following time and of predicted-only time, with
+  the band time inside each observed run, so a rate over any set of encounters is recomputed from
+  observed windows alone.
+- **Predicted-only time.** An instant or window is `observed` only when both parties were
+  observed. A `predicted_only` instant carries the review-only predicted gap with its coast age and
+  nothing else, is never valid (a schema CHECK refuses it), and its windows never enter a
+  denominator.
+- **Versions.** An event's id digests its source, type, pair and every version axis, so
+  regeneration writes new rows beside the old and never over them. Re-writing identical content is
+  a no-op; different content under an existing id is refused. Readers select exactly one version,
+  and a production reader asks for stage `final`, so fixed-lag rows never reach it. Superseded
+  versions are removed whole.
+- **Consistency.** Records are validated before a write and after a read: the instants must add up
+  to the event's accounting and imply exactly its windows, so a stored summary cannot disagree with
+  the evidence under it.
 
 ### 10.4 First headway report
 
@@ -1328,12 +1366,15 @@ interval coverage, strata by class, range, face aspect and support, bounds pinne
 built and exercised on the scenarios with known perturbations; on a 150 m curve it finds the
 closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
 
-The report oracle is delivered (Section 10.4). Remaining: interaction persistence; a provisional
-run over persisted estimator output (sprint 0.5.2.4); calibration of every fixture-valued bound,
-the speed floor, corridor, grouping bound and common-mode fraction first; a per-follower total of
-valid following time across leaders; and the held-out physical validation run itself, which needs
-independently annotated references, a scoring plan pinned before scoring, and the gates G-GEO-1,
-G-UNC-1 and G-SMO-1.
+Following encounters are persisted (Section 10.3), keyed by registry metric id, with
+predicted-only time stored apart from observed opportunity and every stored name checked against
+the registry. The report oracle is delivered (Section 10.4). Remaining: the API that serves
+persisted encounters; storing the directed path's geometry, which events reference by id only; a
+provisional run over persisted estimator output (sprint 0.5.2.4); calibration of every
+fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction first; a
+per-follower total of valid following time across leaders; and the held-out physical validation
+run itself, which needs independently annotated references, a scoring plan pinned before scoring,
+and the gates G-GEO-1, G-UNC-1 and G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.
