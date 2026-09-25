@@ -229,7 +229,8 @@ proposed, so step through them before reviewing.
 ## What counts
 
 Reference truth is a **reviewed** frame of a **reviewed** object, and nothing else. Saving does
-not review.
+not review. [Per-frame evaluation](per-frame-evaluation.md#the-reference) is where that rule is
+applied: a mask it does not certify becomes an ignore point, neither found nor missed.
 
 - **Review this frame** reviews the saved points on screen. **Review all frames…** reviews every
   saved frame of the object, which is how frames an algorithm filled in become agreed.

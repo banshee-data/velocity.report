@@ -5,7 +5,7 @@ and the kirk0 sweep run from it.
 
 - **Status:** Measured; sweep of 11,861 configs completed 2026-09-22
 - **Layers:** L3 Grid, L4 Perception, offline analysis
-- **Related:** [Point annotation tool](point-annotation-tool.md), [Performance regression testing](performance-regression-testing.md), [Tuning guide](tuning-guide.md)
+- **Related:** [Point annotation tool](point-annotation-tool.md), [Per-frame evaluation](per-frame-evaluation.md), [Performance regression testing](performance-regression-testing.md), [Tuning guide](tuning-guide.md)
 - **Scripts:** [data/explore/annotation-scored-tuning/](../../../data/explore/annotation-scored-tuning/)
 
 ## Why this is different from every sweep before it
@@ -165,8 +165,10 @@ finer ladders that reach past the grid's ends.
 
 **No L5 parameter is in the sweep.** Clusters are L4 output and the dump is
 written before tracking, so no tracker setting can move this score. Tuning L5
-against annotations needs a track dump and a track-level score, which is
-separate work.
+against annotations needs a track dump and a track-level score. The score now
+exists, in Go, with the same footprint gate: [per-frame evaluation](per-frame-evaluation.md)
+reports MOTA, identity switches, fragmentation, HOTA and IDF1 against reviewed,
+held-out episodes of this pack.
 
 `foreground_max_input_points` is held at 30,000 in every run including the
 reference, not the shipped 8,000, so that a loosened foreground is never

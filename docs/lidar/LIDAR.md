@@ -26,6 +26,7 @@ file is just the index — start there for any layer detail.
 | Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
 | Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
 | Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Per-frame evaluation    | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
 | macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
 | Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
 
