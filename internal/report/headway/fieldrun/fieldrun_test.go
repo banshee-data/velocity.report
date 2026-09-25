@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report/chart"
 	"github.com/banshee-data/velocity.report/internal/report/headway"
 	"github.com/banshee-data/velocity.report/internal/report/typst"
+	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 )
 
 var testSource = "source/v1/" + strings.Repeat("ab", 32)
@@ -313,8 +316,69 @@ func TestRunWithoutAnEncounter(t *testing.T) {
 			t.Errorf("follower %s path conditions %v", f.TrackID, f.PathConditions)
 		}
 	}
-	if err := l8behaviour.AuditSurfaceJSON(reportData(t, res)); err != nil {
+	data := reportData(t, res)
+	if err := l8behaviour.AuditSurfaceJSON(data); err != nil {
 		t.Error(err)
+	}
+	// Empty lists, not null: the template reads their length.
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"encounters", "aggregates"} {
+		if string(doc[key]) != "[]" {
+			t.Errorf("data.json %s = %s, want []", key, doc[key])
+		}
+	}
+}
+
+// requireTypst skips when typst is neither embedded nor on PATH, as the
+// oracle's compile test does.
+func requireTypst(t *testing.T) {
+	t.Helper()
+	t.Setenv(typstbin.EnvNoDownload, "1")
+	if _, err := exec.LookPath("typst"); err != nil && !typstbin.Embedded() {
+		t.Skip("typst not embedded or on PATH; run make install-typst and add bin/ to PATH")
+	}
+}
+
+// TestGenerateCompilesFieldReports typesets a field report with an encounter
+// and one without, through the real template: the second must still compile
+// and say that nothing was found.
+func TestGenerateCompilesFieldReports(t *testing.T) {
+	src, err := typst.SourcesFor(typst.EntryHeadway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tpl := string(src[typst.EntryHeadway]); !strings.Contains(tpl, "data.encounters.len() == 0") ||
+		!strings.Contains(tpl, "data.aggregates.len() == 0") {
+		t.Error("headway.typ does not state an empty encounter list")
+	}
+	requireTypst(t)
+	for name, v := range map[string]version{
+		"with an encounter": online,
+		"without one":       {"cv_kf_v1", "medoid_v0", "sha256:medoid", "online", "medoid_v0"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			database := openDB(t)
+			seed(t, database, steadyApproach(), v)
+			r, err := Report(run(t, database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := headway.Generate(r, headway.Options{Paper: chart.PaperA4, OutputDir: t.TempDir()})
+			if err != nil {
+				t.Fatalf("Generate: %v", err)
+			}
+			pdf, err := os.ReadFile(res.PDFPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if filepath.Base(res.PDFPath) != "headway_provisional_report.pdf" || !bytes.HasPrefix(pdf, []byte("%PDF-")) ||
+				!bytes.Contains(pdf, []byte("status:provisional")) {
+				t.Errorf("%s: %d bytes, not a provisional PDF", res.PDFPath, len(pdf))
+			}
+		})
 	}
 }
 

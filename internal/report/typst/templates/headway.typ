@@ -125,6 +125,14 @@
   exposure is supported; every other second of the group's accounted
   encounter time is shown beside it under its reason.
 ]
+#if data.aggregates.len() == 0 {
+  par[
+    #bold[No encounter was found], so there is no version group to pool and
+    no distribution to show. That is a result, not an omission: every
+    track's time as a follower, and why its path was or was not fitted, is
+    listed under Captures.
+  ]
+}
 
 #for a in data.aggregates {
   heading(level: 2)[Version group #a.id]
@@ -194,16 +202,20 @@
   number. Unsupported intervals are listed rather than dropped, and the
   review-only predicted gap is shown apart with its coast age.
 ]
-#data-table(
-  columns: (auto, 1fr, 1.2fr, 1.2fr, auto),
-  aligns: (left, left, left, left, left),
-  header: head[ID][Capture][Leader][Follower][Values read from],
-  body: data.encounters.map(e => (
-    num(e.id), tok(e.capture_id), tok(e.leader.track_id), tok(e.follower.track_id),
-    tok(e.estimate_stage + " / " + e.value_block),
-  )).flatten(),
-  caption: "Encounter index",
-)
+#if data.encounters.len() == 0 {
+  par[#bold[No leader and follower pair was found in any capture.]]
+} else {
+  data-table(
+    columns: (auto, 1fr, 1.2fr, 1.2fr, auto),
+    aligns: (left, left, left, left, left),
+    header: head[ID][Capture][Leader][Follower][Values read from],
+    body: data.encounters.map(e => (
+      num(e.id), tok(e.capture_id), tok(e.leader.track_id), tok(e.follower.track_id),
+      tok(e.estimate_stage + " / " + e.value_block),
+    )).flatten(),
+    caption: "Encounter index",
+  )
+}
 
 #for e in data.encounters {
   pagebreak(weak: true)

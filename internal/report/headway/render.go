@@ -99,8 +99,9 @@ func Assemble(r Report, paper chart.PaperSize) (Report, []typst.Asset, error) {
 
 	// The report is a value, but its slices are shared with the caller's;
 	// copy the two that get chart paths so the caller's report is untouched.
-	r.Encounters = append([]Encounter(nil), r.Encounters...)
-	r.Aggregates = append([]Aggregate(nil), r.Aggregates...)
+	// The copies start empty, not nil, so an empty list is written as one.
+	r.Encounters = append([]Encounter{}, r.Encounters...)
+	r.Aggregates = append([]Aggregate{}, r.Aggregates...)
 
 	var out []typst.Asset
 	for i := range r.Aggregates {
