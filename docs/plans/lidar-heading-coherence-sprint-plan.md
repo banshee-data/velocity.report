@@ -642,6 +642,16 @@ answer is a real trade-off, not a free improvement.
 Artefacts (all four sites × three configs, plus the two Guard 2 runs) are in scratch and not
 committed; no config or code changed.
 
+### 6.3 The shipped D1 changes against main, Columbus Broadway at 0.25x, 2026-09-24
+
+The whole 2,032.9 s capture replayed through the live server once with this branch's defaults and
+once with main's. Heading acceptance rose from 0.605 to 0.789, median course alignment fell from
+51.9° to 24.0°, and the share of tracks ending in an unrecovered lock fell from 0.449 to 0.099.
+Track counts, lifetimes and vehicle speed percentiles agree to within noise. Frames with two
+overlapping boxes rose from 11,843 to 12,849 of 20,599, a proximity signal to check against
+annotated truth before headway pairing relies on it. Full record:
+[Columbus Broadway at 0.25x against main](../lidar/operations/state-estimation-columbus-0p25x-vs-main.md).
+
 ## 7. Risks
 
 | Risk                                                                                                  | Handling                                                                                                                                                            |

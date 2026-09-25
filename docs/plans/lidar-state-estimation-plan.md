@@ -149,7 +149,10 @@ links before retiring any task ledger.
 
 **Branch delivery declaration:** PR #559 delivered heading-stability and evaluation work, a
 bounded SQLite observation store, regional ground-surface work and D2's OBB-centre position input,
-opt-in since its A/B against annotated truth (21.1 D5). Phases 0-2 remain the minimum core of this plan: a lower course-error statistic, an
+opt-in since its A/B against annotated truth (21.1 D5). Replayed against main on Columbus
+Broadway at 0.25x, the branch improves every heading measure and leaves track counts, lifetimes and
+speed percentiles where main has them
+([record](../lidar/operations/state-estimation-columbus-0p25x-vs-main.md)). Phases 0-2 remain the minimum core of this plan: a lower course-error statistic, an
 annotation exporter or a new motion filter does not substitute for the position-measurement
 correction. The near-edge implementation remains
 an offline candidate, not the online Kalman measurement; G-PER-1, G-GEO-1, G-UNC-1 and G-SMO-1
