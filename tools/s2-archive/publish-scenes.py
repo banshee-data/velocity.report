@@ -276,7 +276,13 @@ def carry_over(vrlog, live, assets, site, title):
     if not os.path.exists(clip_manifest):
         return
     with open(clip_manifest) as fh:
-        selection = json.load(fh)["selection"]
+        try:
+            manifest = json.load(fh)
+            selection = manifest["selection"]
+            start_frame = selection["source_start_frame"]
+            frame_count = selection["source_frame_count"]
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise RuntimeError(f"bad clip manifest {clip_manifest}: {error}") from error
     clip = os.path.join(assets, "clip")
     os.makedirs(clip, exist_ok=True)
     export(
@@ -287,9 +293,9 @@ def carry_over(vrlog, live, assets, site, title):
         kind="clip",
         extra=[
             "--start-frame",
-            str(selection["source_start_frame"]),
+            str(start_frame),
             "--frame-count",
-            str(selection["source_frame_count"]),
+            str(frame_count),
             "--max-points",
             str(CLIP_MAX_POINTS),
             "--chunk-seconds",
