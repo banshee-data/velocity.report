@@ -1,10 +1,11 @@
 # TrueNAS `arrow` to VM `bansheeworker`: local shared storage
 
-Status: solved and verified. The VM `bansheeworker` (guest hostname `arrow-worker`) mounts NFS
-exports from the TrueNAS host `arrow`'s pool over a local, Tailscale-independent path, confirmed
-to survive a guest reboot. This document records what was tried, why each attempt failed, the
-confirmed root cause, and the working solution, so a future change to this host does not repeat a
-night's worth of failed attempts and one real outage.
+Status: solved. The VM `bansheeworker` (guest hostname `arrow-worker`) mounts NFS exports from the
+TrueNAS host `arrow`'s pool over a local, Tailscale-independent path. Verified: the guest mount
+survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 6). This
+document records what was tried, why each attempt failed, the confirmed root cause, and the
+working solution, so a future change to this host does not repeat a night's worth of failed
+attempts and one real outage.
 
 ## 1. The problem
 
