@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, and following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3); the held-out validation run and production emission are gated on annotated references and G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -1178,6 +1178,22 @@ Delivery is deliberately staged so report plumbing does not wait for estimator r
    error, gap error, uncertainty coverage, supported opportunity, suppression and failure cases.
    Remove the provisional label only after G-GEO-1, G-UNC-1, G-SMO-1 and the metric gate pass.
 
+**Status (sprint 0.5.2.3).** Stage 1 is delivered. `velocity report headway --oracle` runs every
+frozen encounter scenario through `AnalyseFollowing` and renders the `headway_report_v1` contract
+through Go SVG charts, a Typst template and the PDF and source-archive path the radar report uses;
+see the [headway report oracle](../lidar/operations/headway-report-oracle.md). The status
+(`synthetic_oracle`, `provisional`, or the reserved `promoted`) is a closed vocabulary that refuses
+to serialise unset, is printed on every page and chart, and is tied to the trajectories' source:
+fixture trajectories must be a synthetic oracle, and `promoted` is refused. Rows read a final
+encounter's measurements and a non-final encounter's provisional block, and say which. Encounters
+are pooled only within one version group (stage, estimator, observation model, parameter hash and
+method with its parameter hash), which splits the oracle into two groups because the ambiguous
+scenario has its own grouping bound. The time-weighted net-time-gap distribution shows every
+suppressed second beside the valid time, summing to the accounted time exactly. Golden files pin
+the data and charts, and report-side tests require every printed name to be registered, forbid
+verdict language, and hold every stated scenario value to the printed one. Stages 2 and 3 remain:
+the provisional report needs persisted encounters, and promotion needs the gates above.
+
 The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
 existing class evidence clears the declared applicability gate. It does not wait for the broader
 classifier-feature and scorecard programme. Automatic inclusion of unreviewed uncertain classes
@@ -1352,13 +1368,13 @@ closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
 
 Following encounters are persisted (Section 10.3), keyed by registry metric id, with
 predicted-only time stored apart from observed opportunity and every stored name checked against
-the registry. Remaining: the report oracle; the API that serves persisted encounters; storing the
-directed path's geometry, which events reference by id only; a provisional run over persisted
-estimator output (sprint 0.5.2.4); calibration of every fixture-valued bound, the speed floor,
-corridor, grouping bound and common-mode fraction first; a per-follower total of valid following
-time across leaders; and the held-out physical validation run itself, which needs independently
-annotated references, a scoring plan pinned before scoring, and the gates G-GEO-1, G-UNC-1 and
-G-SMO-1.
+the registry. The report oracle is delivered (Section 10.4). Remaining: the API that serves
+persisted encounters; storing the directed path's geometry, which events reference by id only; a
+provisional run over persisted estimator output (sprint 0.5.2.4); calibration of every
+fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction first; a
+per-follower total of valid following time across leaders; and the held-out physical validation
+run itself, which needs independently annotated references, a scoring plan pinned before scoring,
+and the gates G-GEO-1, G-UNC-1 and G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.

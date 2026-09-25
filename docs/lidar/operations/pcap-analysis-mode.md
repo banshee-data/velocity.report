@@ -18,6 +18,15 @@ and frame counts. Output directories must be empty. Use identical windows and ex
 files in both arms. Point clouds are omitted unless `--include-points` is set. See the
 [heading experiment](../../plans/lidar-heading-d2-implementation-report.md) for evidence limits.
 
+`--observations DIR --replay-case-id ID` also writes every processed frame's L4 evidence,
+warm-up included, to a VRLOG 1.x observation container: the complete L3 foreground in float64,
+cluster membership and explicit empty, unsettled and failed frames
+([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)). The case
+identity is required. Coordinates are sensor-frame, because replay applies no site pose, and
+the manifest says so. `velocity lidar observations verify --require foreground-complete DIR`
+checks a container end to end. `compare A B` confirms two extractions of one source hold the same
+evidence.
+
 The server supports two modes for PCAP replay. Both park on their final
 frame when the selected window ends. While parked, the server listens for live
 packets; a new packet returns the pipeline to live, while a quiet sensor leaves

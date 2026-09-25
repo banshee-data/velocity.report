@@ -132,6 +132,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 			0, 0, 0, 1,
 		}
 		track.TrackState = TrackDeleted
+		t.recordExpiry(track, ExpiryNonFinite)
 		return
 	}
 
@@ -274,6 +275,12 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 		}
 	}
 
+	// A coasting track reclaims continuity only for a cluster that fits the
+	// body it believes in, and never on an ambiguous choice. Off by default.
+	if t.Config.OcclusionContinuity.ReacquisitionGuard {
+		t.guardReacquisition(costMatrix, clusters, clusterIdx, trackIDs)
+	}
+
 	// Solve optimal assignment.
 	assign := HungarianAssign(costMatrix)
 
@@ -302,9 +309,9 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 // A pairing only reaches the cost matrix if |S| >= MinDeterminantThreshold, so
 // ln|S| >= ln(MinDeterminantThreshold) and adding its negation bounds the term
 // below at zero. The offset is the same for every admitted pairing, and the
-// solver pads with hungarianlnf, so it first maximises how many admitted
-// pairings it uses and only then minimises their sum: a uniform shift cannot
-// change which assignment is optimal.
+// solver's objective is lexicographic (see HungarianAssign): it first
+// maximises how many admitted pairings it uses and only then minimises their
+// sum, so a uniform shift cannot change which assignment is optimal.
 var likelihoodCostOffset = float32(-math.Log(MinDeterminantThreshold))
 
 // covarianceCostTerm is what LikelihoodAssociationCost adds to d²: ln|S| for
@@ -351,7 +358,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Check if implied velocity would be unreasonable
 	if dt > 0 {
-		impliedSpeed := euclideanDist / dt
+		impliedSpeed := euclideanDist / reacquisitionPlausibilityDt(t.Config.OcclusionContinuity.ReacquisitionGuard, track, dt)
 		if impliedSpeed > t.Config.MaxReasonableSpeedMps {
 			return SingularDistanceRejection
 		}

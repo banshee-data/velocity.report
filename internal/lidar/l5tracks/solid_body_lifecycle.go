@@ -238,6 +238,7 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		LastObservedUnixNanos: t.LastMeasurementUnixNanos,
 		Support: SupportState{
 			CoastedFrames: t.Misses,
+			Instant:       t.LastSupport,
 		},
 	}
 

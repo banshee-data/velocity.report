@@ -306,6 +306,9 @@ func Main(args []string) int {
 	if len(args) > 0 && args[0] == "pdf" {
 		return runPDF(args[1:], os.Stdout, os.Stderr)
 	}
+	if len(args) > 0 && args[0] == "headway" {
+		return runHeadway(args[1:], os.Stdout, os.Stderr)
+	}
 	if len(args) > 0 && args[0] == "sql" {
 		return runSQL(args[1:], os.Stdout, os.Stderr)
 	}

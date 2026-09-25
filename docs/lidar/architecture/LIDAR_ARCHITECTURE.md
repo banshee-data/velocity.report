@@ -181,8 +181,11 @@ and before L5:
 Lineage is carried by a source ordinal on `l4perception.WorldPoint`, stamped before the first
 filter. The field sits in former padding, so enabling nothing costs nothing. The legacy
 `lidar_observations` JSON records are the `reduced-cluster-sample` profile: readable, but refused
-for a full-evidence request. Durable binary storage of the new records is planned in the
-[shared VRLOG plan](../../plans/lidar-vrlog-observation-format-plan.md).
+for a full-evidence request. `replayeval.Config.ObservationLogDir` (and
+`velocity lidar pcap-replay --observations`) also writes the records to a VRLOG 1.x observation
+container, typed and checksummed, and readable back bit for bit
+([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)). Its durable
+live writer is phase 2 of the [shared VRLOG plan](../../plans/lidar-vrlog-observation-format-plan.md).
 
 ### Background settling and the 30-second warmup
 

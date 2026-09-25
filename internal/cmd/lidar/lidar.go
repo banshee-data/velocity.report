@@ -28,6 +28,8 @@ Commands:
                   Cut a frozen excerpt of a VRLOG into an annotation pack: an
                   immutable point domain that reviewed masks reference, so a
                   reference identity is not itself a tracker output
+  observations    Verify, inspect or compare VRLOG 1.x observation containers
+                  (written by pcap-replay --observations)
 
 Run 'velocity lidar <command> -h' for command flags.`
 
@@ -48,6 +50,8 @@ func Main(args []string) int {
 		return ReplayEvalMain(args[1:])
 	case "annotation-export":
 		return AnnotationExportMain(args[1:])
+	case "observations":
+		return ObservationsMain(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(namespaceUsage)
 		return 0

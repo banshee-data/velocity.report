@@ -197,6 +197,13 @@ type TrackerConfig struct {
 	// moved. Default false.
 	MeasurementTimePrediction bool
 
+	// OcclusionContinuity holds the Sprint 0.5.2.2 continuity options:
+	// absence explanation, capture-time coast uncertainty, per-class
+	// capture-time coast bounds and the reacquisition guard. The zero value
+	// switches every one off; DefaultOcclusionContinuity switches them all
+	// on with starting values. See continuity.go.
+	OcclusionContinuity OcclusionContinuityConfig
+
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
 	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)

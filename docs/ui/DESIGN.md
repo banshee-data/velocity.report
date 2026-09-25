@@ -136,6 +136,23 @@ above 5 mph. It must not derive percentiles from timeline buckets or repeated
 frames from the same track. Percentiles use the radar report's empirical
 nearest-rank method: sort the population and select `ceil(p * n) - 1`.
 
+### 4.4 Following-evidence charts
+
+The headway report's charts ([following.go](../../internal/report/chart/following.go)) show one
+encounter's gap evidence or a time-weighted net-time-gap distribution, not a speed population. Any
+surface that draws them, including the scenes dashboard when it renders the distribution, keeps
+these rules:
+
+| Rule                  | Requirement                                                                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status                | The report status (`SYNTHETIC ORACLE`, `PROVISIONAL`) is drawn on every chart, so a chart lifted out of its report still says what it is                   |
+| Names                 | Metric ids, suppression reasons and visibility tokens are drawn verbatim from the registries; a chart invents no metric name                               |
+| Unsupported intervals | Shaded and labelled with their reason. An observed line breaks across them and is never bridged, which departs from §4.1's continuous-line rule on purpose |
+| Predicted gap         | `review_only`: dashed, grey, hollow markers, one-sigma whiskers and its coast age; never joined to the observed line                                       |
+| Bands                 | Neutral dashed rules labelled with the threshold only. No percentile or alarm colour: the bands are descriptive bins with `no_established_threshold`       |
+| Suppressed share      | Accounted time outside a distribution is drawn as its own column per reason, on the same share axis. It is never dropped and never shown as a zero bar     |
+| Palette               | `ColourFollowing*` in [palette.go](../../internal/report/chart/palette.go); separate from the §3.3 percentile palette                                      |
+
 ## 5. Web UI style system
 
 ### 5.1 One shell, three content widths
