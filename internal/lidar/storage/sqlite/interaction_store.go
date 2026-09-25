@@ -19,8 +19,16 @@ package sqlite
 // version exists to prevent. Readers select one InteractionVersion; there is
 // no query that returns events of two versions.
 //
-// Records are validated before a write and again after a read, so a row
-// edited by hand fails loudly rather than reaching a report.
+// Every interaction is validated as a whole record set before a write: the
+// event, its instants and its windows must agree with one another
+// (l8behaviour.FollowingInteraction.Validate). Reads differ in what they can
+// check. Get and ListInteractionsOverlapping read whole record sets and
+// validate each set the same way, so an instant or window edited by hand
+// fails loudly rather than reaching a report. ListEvents and ListWindows read
+// one table and validate each row on its own: they refuse a malformed row,
+// but not one that disagrees with its rows in another table. A caller that
+// depends on cross-table consistency, such as an aggregate over instants,
+// reads whole record sets.
 
 import (
 	"bytes"
@@ -437,7 +445,8 @@ func versionFilter(v l8behaviour.InteractionVersion) (string, []any, error) {
 }
 
 // ListEvents returns a source's events at exactly one version, in start time
-// then pair order. Instants and windows are not read; Get returns them.
+// then pair order. Instants and windows are not read; Get returns them. Each
+// event is validated on its own, not against its instants.
 func (s *InteractionStore) ListEvents(sourceID string, v l8behaviour.InteractionVersion) ([]l8behaviour.InteractionEvent, error) {
 	where, args, err := versionFilter(v)
 	if err != nil {
@@ -466,6 +475,8 @@ func (s *InteractionStore) ListEvents(sourceID string, v l8behaviour.Interaction
 
 // ListWindows returns a source's exposure windows of one kind and basis at
 // exactly one version, in start order. A denominator reads basis observed.
+// Each window is validated on its own, not against the instants it was cut
+// from.
 func (s *InteractionStore) ListWindows(sourceID string, v l8behaviour.InteractionVersion,
 	kind l8behaviour.ExposureKind, basis l8behaviour.ObservationBasis) ([]l8behaviour.ExposureWindow, error) {
 	where, args, err := versionFilter(v)
