@@ -153,6 +153,27 @@ type TrackerConfig struct {
 	// costs and no history. Default false: the campaign's ground-truth and
 	// label-free harnesses measure it against the shipped behaviour first.
 	CascadedAssociation bool
+	// AdaptiveMeasurementNoise replaces the isotropic MeasurementNoise with
+	// the Phase 3 anisotropic model in adaptive_noise.go: R is diagonal along
+	// and across the sensor's line of sight to the measurement, conditioned on
+	// range, cluster support, the visible-face aspect under the track's
+	// heading and the measurement source, then rotated into the site frame.
+	// It applies alike to the gate, the likelihood cost and the update.
+	// Default false, and not a tuning key, for the fingerprint reason above;
+	// G-UNC-1 decides whether it ships.
+	AdaptiveMeasurementNoise bool
+	// MeasurementNoiseCalibration supplies the fitted per-stratum
+	// coefficients the adaptive model adds to its physics terms. Nil uses the
+	// shipped MeasurementNoise as every stratum's coefficient. It has no
+	// effect unless AdaptiveMeasurementNoise is set. The table is shared, not
+	// copied, when the config is copied, so it must not be mutated after
+	// assignment.
+	MeasurementNoiseCalibration *NoiseCalibration
+	// NoiseSensorX and NoiseSensorY are the sensor origin in the tracker's
+	// frame, which fixes each measurement's line of sight. The pipeline
+	// clusters without a pose, so the tracker frame is the sensor frame and
+	// zero is correct today; a site transform must set them.
+	NoiseSensorX, NoiseSensorY float32
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
