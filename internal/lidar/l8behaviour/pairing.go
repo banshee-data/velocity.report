@@ -163,8 +163,9 @@ type PairingDecision struct {
 
 // Involved lists the established bodies whose encounter with the follower
 // this instant belongs to: the leader; or, when suppressed, every established
-// body competing with the nearest, or else the nearest established body
-// behind an unestablished one. It is sorted by track id.
+// body competing with the nearest, or else, when the nearest body in the
+// corridor is unestablished, the nearest established body beyond it (further
+// ahead along the path). It is sorted by track id.
 func (d PairingDecision) Involved() []string {
 	if d.LeaderTrackID != "" {
 		return []string{d.LeaderTrackID}

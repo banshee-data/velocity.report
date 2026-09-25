@@ -574,3 +574,26 @@ func TestAnalysisParamsValidateAndHash(t *testing.T) {
 		t.Fatalf("hash %q is not stable", good.Hash())
 	}
 }
+
+// The predicted-gap review series reads the measurement it is gated on: its
+// own value and sigma, and nothing for a suppressed or non-sigma measurement.
+func TestSigmaMeasurement(t *testing.T) {
+	m, err := NewMeasurement(MetricFollowingPredictedGap, 7.5, SigmaUncertainty(0.4, MethodLinearised), testProvenance())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, s, ok := sigmaMeasurement(&m); !ok || v != 7.5 || s != 0.4 {
+		t.Fatalf("sigmaMeasurement = %v, %v, %v", v, s, ok)
+	}
+	suppressed, err := NewSuppressedMeasurement(MetricFollowingPredictedGap, ReasonNotObserved, testProvenance())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bounds := m
+	bounds.Uncertainty = &Uncertainty{Kind: UncertaintyBounds, Lower: ptr(7.0)}
+	for name, c := range map[string]*Measurement{"nil": nil, "suppressed": &suppressed, "bounds": &bounds} {
+		if _, _, ok := sigmaMeasurement(c); ok {
+			t.Errorf("%s: want no value", name)
+		}
+	}
+}

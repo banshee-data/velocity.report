@@ -531,9 +531,13 @@ func buildEncounter(leader, follower Trajectory, path *LocalPath, instants []Enc
 			e.SpatialGapSeries = append(e.SpatialGapSeries, gap)
 			in.gap, in.hasGap = gap, true
 		}
-		if pt.PredictedGap != nil && !pt.PredictedGap.Suppressed {
+		// The review series reads the predicted-gap measurement itself, the
+		// contract being checked, rather than the raw gap it happens to be
+		// built from today; a predicted gap without a symmetric sigma is
+		// left out rather than given one.
+		if value, sigma, ok := sigmaMeasurement(pt.PredictedGap); ok {
 			e.PredictedGapSeries = append(e.PredictedGapSeries, PredictedPoint{
-				CaptureUnixNanos: inst.CaptureUnixNanos, ValueM: pt.Gap.ValueM, SigmaM: pt.Gap.SigmaM,
+				CaptureUnixNanos: inst.CaptureUnixNanos, ValueM: value, SigmaM: sigma,
 				CoastAgeNanos: pt.CoastAgeNanos,
 			})
 		}
@@ -620,10 +624,11 @@ func encounterStatistics(in []mcInstant, acc EncounterAccounting, p ExposurePara
 	rng := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 	common, own := math.Sqrt(p.CommonModeFraction), math.Sqrt(1-p.CommonModeFraction)
 	gapBuf, thwBuf := make([]float64, 0, len(gaps)), make([]float64, 0, len(thws))
+	bandNanos := make([]int64, len(bands))
 	for j := 0; j < n; j++ {
 		zc := rng.NormFloat64()
 		gapBuf, thwBuf = gapBuf[:0], thwBuf[:0]
-		bandNanos := make([]int64, len(bands))
+		clear(bandNanos)
 		for _, x := range in {
 			e := common*zc + own*rng.NormFloat64()
 			if x.hasGap {
@@ -790,4 +795,15 @@ func encounterMeasurements(st encounterStats, classReason SuppressionReason, not
 		}
 	}
 	return out, nil
+}
+
+// sigmaMeasurement returns an unsuppressed measurement's value and symmetric
+// sigma, and false for a nil or suppressed measurement or one whose
+// uncertainty is not a sigma.
+func sigmaMeasurement(m *Measurement) (value, sigma float64, ok bool) {
+	if m == nil || m.Suppressed || m.Value == nil || m.Uncertainty == nil ||
+		m.Uncertainty.Kind != UncertaintySigma || m.Uncertainty.Sigma == nil {
+		return 0, 0, false
+	}
+	return *m.Value, *m.Uncertainty.Sigma, true
 }
