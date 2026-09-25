@@ -161,6 +161,61 @@ func TestEndpointSourceIsDerivedNotDeclared(t *testing.T) {
 	}
 }
 
+// ProjectBody records both extents' provenance on every endpoint, and an
+// endpoint whose recorded provenance contradicts its source or convergence
+// does not validate.
+func TestEndpointExtentProvenance(t *testing.T) {
+	path := fixturePathX()
+	s := fixtureCar(fixtureAt(0), 30, 0, 10).followerBody().sample()
+	s.Width.Provenance = ProvenanceObserved
+	body, reason, err := ProjectBody(path, "trk", s)
+	if err != nil || reason != ReasonUnspecified {
+		t.Fatalf("reason %s err %v", reason, err)
+	}
+	for _, e := range []Endpoint{body.Leading, body.Trailing} {
+		if e.LengthProvenance != ProvenanceAccumulated || e.WidthProvenance != ProvenanceObserved {
+			t.Fatalf("%s endpoint provenance %s/%s", e.Extremity, e.LengthProvenance, e.WidthProvenance)
+		}
+	}
+	// A directly observed face can still rest on a prior length.
+	prior := s
+	prior.Length = ExtentBelief{Metres: 4.0, SigmaMetres: 0.5, Provenance: ProvenanceClassPrior}
+	prior.Estimation = EstimationGeometryConverging
+	body, _, err = ProjectBody(path, "trk", prior)
+	if err != nil || body.Leading.Source != EndpointDirectlyObserved || body.Leading.LengthProvenance != ProvenanceClassPrior ||
+		body.Trailing.Source != EndpointPriorDominated {
+		t.Fatalf("leading %+v trailing %+v err %v", body.Leading, body.Trailing, err)
+	}
+
+	l, _ := endpointPair()
+	for name, mutate := range map[string]func(*Endpoint){
+		"one without the other": func(e *Endpoint) { e.LengthProvenance = ProvenanceAccumulated },
+		"inferred from a prior": func(e *Endpoint) {
+			e.LengthProvenance, e.WidthProvenance, e.ExtentConverged = ProvenanceClassPrior, ProvenanceAccumulated, false
+		},
+		"prior-dominated on evidence": func(e *Endpoint) {
+			e.Source, e.ExtentConverged = EndpointPriorDominated, false
+			e.LengthProvenance, e.WidthProvenance = ProvenanceAccumulated, ProvenanceAccumulated
+		},
+		"converged on a prior": func(e *Endpoint) {
+			e.Source = EndpointDirectlyObserved
+			e.LengthProvenance, e.WidthProvenance = ProvenanceClassPrior, ProvenanceAccumulated
+		},
+		"out of range": func(e *Endpoint) { e.LengthProvenance, e.WidthProvenance = 9, ProvenanceAccumulated },
+	} {
+		e := l
+		mutate(&e)
+		if err := e.validate(ExtremityTrailing); err == nil {
+			t.Errorf("%s: endpoint validated", name)
+		}
+	}
+	consistent := l
+	consistent.LengthProvenance, consistent.WidthProvenance = ProvenanceAccumulated, ProvenanceObserved
+	if err := consistent.validate(ExtremityTrailing); err != nil {
+		t.Fatalf("consistent provenance refused: %v", err)
+	}
+}
+
 func endpointPair() (Endpoint, Endpoint) {
 	leader := Endpoint{
 		TrackID: "L", CaptureUnixNanos: 1, Extremity: ExtremityTrailing, ArcM: 30, SigmaM: 0.3,

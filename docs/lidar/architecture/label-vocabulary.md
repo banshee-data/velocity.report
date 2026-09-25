@@ -125,17 +125,19 @@ is last, so a run over non-final estimates still shows the physical reasons bene
 ### Observation support
 
 Every sampled instant carries one support state (Section 7.3). Only observed time enters an
-exposure or opportunity denominator.
+exposure or opportunity denominator. An interaction records the worst support of either party over
+its interval (Section 10.2); worst is ranked by evidence, not by row order: less direct evidence is
+worse, and among absences an unexplained one is worse than an explained one.
 
-| State               | Meaning                                                     | Counts toward exposure           |
-| ------------------- | ----------------------------------------------------------- | -------------------------------- |
-| `observed`          | A detection was associated at this instant                  | Yes                              |
-| `coasted`           | The estimator propagated without a measurement              | No                               |
-| `occluded_inferred` | Missing, and another object's geometry explains the absence | No; recorded as expected-missing |
-| `missed_unknown`    | Missing with no explanation, including gaps in the record   | No; a detector defect signal     |
-| `cluster_merged`    | Present but merged with another object                      | No                               |
-| `cluster_split`     | Present but fragmented across clusters                      | No                               |
-| `out_of_fov`        | Geometrically outside the sensor's coverage                 | No; not a failure                |
+| State               | Meaning                                                     | Counts toward exposure           | Worst-support rank |
+| ------------------- | ----------------------------------------------------------- | -------------------------------- | ------------------ |
+| `observed`          | A detection was associated at this instant                  | Yes                              | 1 (best)           |
+| `coasted`           | The estimator propagated without a measurement              | No                               | 6                  |
+| `occluded_inferred` | Missing, and another object's geometry explains the absence | No; recorded as expected-missing | 4                  |
+| `missed_unknown`    | Missing with no explanation, including gaps in the record   | No; a detector defect signal     | 7 (worst)          |
+| `cluster_merged`    | Present but merged with another object                      | No                               | 3                  |
+| `cluster_split`     | Present but fragmented across clusters                      | No                               | 2                  |
+| `out_of_fov`        | Geometrically outside the sensor's coverage                 | No; not a failure                | 5                  |
 
 ### Estimate stage and estimation state
 
@@ -192,6 +194,21 @@ leader or a suppression can be explained from the record.
 | `behind`           | In the corridor, not ahead of the follower                                    |
 | `outside_corridor` | Laterally outside the corridor, measured from the path or from the follower   |
 | `off_path`         | Does not project onto the path's supported extent                             |
+
+### Interaction type, exposure kind and observation basis
+
+The persisted interaction records (Section 10.3) carry three more vocabularies. Only tokens a
+method produces are registered; the plan's other interaction types (`crossing`, `merging`,
+`overtaking`, `opposing`) and exposure kinds (`free_flow`, `yielding_opportunity`, `overtaking`)
+are reserved until one does, and can be added without migrating stored rows. An interaction's
+primary and secondary tracks are geometric roles fixed by its type, never fault.
+
+| Vocabulary        | Token             | Meaning                                                                         |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------- |
+| Interaction type  | `following`       | Leader/follower on a shared path: primary is the follower, secondary the leader |
+| Exposure kind     | `valid_following` | Time behind a leader on a shared path: every following rate's denominator       |
+| Observation basis | `observed`        | Both parties observed at the instant: the only basis a denominator counts       |
+| Observation basis | `predicted_only`  | A party not observed: any value is a review-only prediction, never opportunity  |
 
 ### Motion class and other tokens
 

@@ -133,6 +133,15 @@ func TestLabelVocabularyRegistersEveryToken(t *testing.T) {
 	for _, d := range CandidateDispositions() {
 		tokens = append(tokens, d)
 	}
+	for _, it := range InteractionTypes() {
+		tokens = append(tokens, it)
+	}
+	for _, k := range ExposureKinds() {
+		tokens = append(tokens, k)
+	}
+	for _, b := range ObservationBases() {
+		tokens = append(tokens, b)
+	}
 	for _, tok := range tokens {
 		if !strings.Contains(section, "`"+tok.String()+"`") {
 			t.Errorf("%T token %s is not registered in %s", tok, tok, labelVocabularyDoc)

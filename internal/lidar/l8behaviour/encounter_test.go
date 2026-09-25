@@ -473,6 +473,38 @@ func TestMissingLeaderRowIsNotObserved(t *testing.T) {
 	}
 }
 
+// TestEncounterWorstSupport: each instant records both parties' support, and
+// the encounter the worst of them, by evidence rather than declaration order.
+func TestEncounterWorstSupport(t *testing.T) {
+	steady := analyse(t, ScenarioSteadyApproach()).Encounters[0]
+	if steady.WorstSupport != SupportObserved {
+		t.Fatalf("steady approach worst support %s", steady.WorstSupport)
+	}
+	for _, inst := range steady.Instants {
+		if inst.FollowerSupport != SupportObserved || inst.LeaderSupport != SupportObserved {
+			t.Fatalf("instant %+v", inst)
+		}
+	}
+	occluded := analyse(t, ScenarioOcclusion()).Encounters[0]
+	if occluded.WorstSupport != SupportCoasted {
+		t.Fatalf("occlusion worst support %s", occluded.WorstSupport)
+	}
+	for _, inst := range occluded.Instants {
+		hidden := inst.CaptureUnixNanos >= fixtureAt(15) && inst.CaptureUnixNanos <= fixtureAt(19)
+		if (inst.FollowerSupport == SupportCoasted) != hidden || inst.LeaderSupport != SupportObserved {
+			t.Errorf("instant %d supports %s/%s", inst.CaptureUnixNanos, inst.FollowerSupport, inst.LeaderSupport)
+		}
+	}
+	// A leader present without a row is an unexplained miss.
+	sc := ScenarioSteadyApproach()
+	l := &sc.Trajectories[1]
+	l.Samples = append(append([]TrajectorySample(nil), l.Samples[:30]...), l.Samples[31:]...)
+	missing := analyse(t, sc).Encounters[0]
+	if missing.WorstSupport != SupportMissedUnknown || missing.Instants[30].LeaderSupport != SupportMissedUnknown {
+		t.Fatalf("missing row: worst %s, instant 30 leader %s", missing.WorstSupport, missing.Instants[30].LeaderSupport)
+	}
+}
+
 // TestUnsupportedClassSuppressesTheEncounter: a cyclist leader is a pair the
 // following metrics are not defined for; the encounter still exists, with its
 // suppression history, but every measurement is class_not_supported.

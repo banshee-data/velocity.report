@@ -60,6 +60,12 @@ type Endpoint struct {
 	// ExtentConverged is true when both extents carrying the endpoint met
 	// their convergence bound. A prior-dominated endpoint never has.
 	ExtentConverged bool `json:"extent_converged"`
+	// LengthProvenance and WidthProvenance are where the two extents carrying
+	// the endpoint came from. Source alone does not say: a directly observed
+	// face is still placed along the path by a length that may be a class
+	// prior. ProjectBody always sets both; a hand-built endpoint may omit them.
+	LengthProvenance BeliefProvenance `json:"length_provenance,omitempty"`
+	WidthProvenance  BeliefProvenance `json:"width_provenance,omitempty"`
 }
 
 func (e Endpoint) validate(want PathExtremity) error {
@@ -80,6 +86,28 @@ func (e Endpoint) validate(want PathExtremity) error {
 	}
 	if e.Source == EndpointDirectlyObserved && e.Support != SupportObserved {
 		return fmt.Errorf("endpoint of %s cannot be directly observed on a %s instant", e.TrackID, e.Support)
+	}
+	return e.validateExtentProvenance()
+}
+
+// validateExtentProvenance checks recorded extent provenance against the
+// endpoint's other labels, so a stored endpoint cannot claim a source or a
+// convergence its extents do not support. Both are recorded or neither is.
+func (e Endpoint) validateExtentProvenance() error {
+	if e.LengthProvenance == ProvenanceUnspecified && e.WidthProvenance == ProvenanceUnspecified {
+		return nil
+	}
+	if !e.LengthProvenance.Valid() || !e.WidthProvenance.Valid() {
+		return fmt.Errorf("endpoint of %s records one extent provenance without the other", e.TrackID)
+	}
+	evidence := e.LengthProvenance.IsEvidence() && e.WidthProvenance.IsEvidence()
+	switch {
+	case e.Source == EndpointTemporallyInferred && !evidence:
+		return fmt.Errorf("endpoint of %s is temporally inferred from a class prior", e.TrackID)
+	case e.Source == EndpointPriorDominated && evidence:
+		return fmt.Errorf("endpoint of %s is prior-dominated with no prior extent", e.TrackID)
+	case e.ExtentConverged && !evidence:
+		return fmt.Errorf("endpoint of %s is converged on a class prior", e.TrackID)
 	}
 	return nil
 }
@@ -161,11 +189,13 @@ func ProjectBody(path PathFrame, trackID string, s TrajectorySample) (BodyOnPath
 	endpoint := func(extremity PathExtremity, arc, dArcDPsi float64, faceSeen bool) Endpoint {
 		return Endpoint{
 			TrackID: trackID, CaptureUnixNanos: s.CaptureUnixNanos, Extremity: extremity,
-			ArcM:            arc,
-			SigmaM:          math.Sqrt(posVar + extentVar + sq(dArcDPsi)*s.Heading.VarianceRad2),
-			Source:          endpointSource(faceSeen, s.Length, s.Width),
-			Support:         s.Support,
-			ExtentConverged: s.Length.Converged && s.Width.Converged,
+			ArcM:             arc,
+			SigmaM:           math.Sqrt(posVar + extentVar + sq(dArcDPsi)*s.Heading.VarianceRad2),
+			Source:           endpointSource(faceSeen, s.Length, s.Width),
+			Support:          s.Support,
+			ExtentConverged:  s.Length.Converged && s.Width.Converged,
+			LengthProvenance: s.Length.Provenance,
+			WidthProvenance:  s.Width.Provenance,
 		}
 	}
 	// Which body face leads along the path depends on which way the body
