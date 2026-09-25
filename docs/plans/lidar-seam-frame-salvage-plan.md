@@ -4,7 +4,7 @@
 - **Layers:** LiDAR pipeline (L2 frame assembly, L3 background, L4/L5 perception and tracking)
 - **Target:** v0.6.8; follows the multi-file replay work in
   [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md) <!-- link-ignore -->
-- **Canonical:** [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
 
 ## Motivation
 

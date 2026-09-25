@@ -7,7 +7,7 @@
   (the design this maps onto code),
   [lidar-analysis-run-infrastructure-plan.md](lidar-analysis-run-infrastructure-plan.md), and the
   point annotation plan, which lands with PR #579
-- **Canonical:** [lidar-worker-pool-and-results-hub-plan.md](lidar-worker-pool-and-results-hub-plan.md)
+- **Canonical:** [analysis-worker.md](../lidar/operations/analysis-worker.md)
 
 ## Motivation
 

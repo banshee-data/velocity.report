@@ -1,6 +1,7 @@
 # S2 geographic indexing plan
 
 - **Status:** Planned; implementation targeted at v2.0
+- **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
 - **Layers:** Storage, filesystem artefacts, replay cases, run records
 - **Style guide:** [geographic-indexing](../lidar/architecture/geographic-indexing.md) is normative for levels, tokens, and displays. This plan does not restate those rules; it applies them
 - **Related:** [pcap-ground-plane-export-tool-plan](pcap-ground-plane-export-tool-plan.md), [pcap-analysis-mode](../lidar/operations/pcap-analysis-mode.md), [VRLOG_FORMAT](../../data/structures/VRLOG_FORMAT.md)

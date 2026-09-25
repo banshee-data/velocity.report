@@ -5,8 +5,7 @@ How to run analysis jobs on another host with `velocity worker`, and drive it wi
 
 - **Status:** Implemented; hub and dashboard to follow
 - **Layers:** L9 Endpoints, offline analysis
-- **Canonical:** [lidar-worker-pool-and-results-hub-plan.md](../../plans/lidar-worker-pool-and-results-hub-plan.md)
-- **Related:** [lidar-job-queue-implementation-plan.md](../../plans/lidar-job-queue-implementation-plan.md)
+- **Active plans:** [lidar-worker-pool-and-results-hub-plan.md](../../plans/lidar-worker-pool-and-results-hub-plan.md), [lidar-job-queue-implementation-plan.md](../../plans/lidar-job-queue-implementation-plan.md)
 
 ## What it is
 

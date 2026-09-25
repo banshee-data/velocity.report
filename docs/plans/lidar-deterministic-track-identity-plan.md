@@ -3,7 +3,7 @@
 - **Status:** Specification; narrower interim fix already shipped (see 0)
 - **Layers:** L5 Tracks, storage, L9 Endpoints, live ingest
 - **Target:** v0.5.4; sequenced after the narrower evidence-oracle fix, before any tooling depends on track_id for cross-run comparison
-- **Canonical:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns L5 track lifecycle; this plan owns only the identity assigned at track birth)
+- **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md) (shared with [lidar-state-estimation-plan](lidar-state-estimation-plan.md), which owns the L5 track lifecycle; this plan owns only the identity assigned at track birth)
 - **Depends on:** Nothing structurally; can proceed independently. Benefits from the evidence-oracle fix in 0 already having exercised the failure mode.
 
 ## 0. What's already shipped, and why it isn't enough on its own
