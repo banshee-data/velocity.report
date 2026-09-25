@@ -153,6 +153,9 @@ type Server struct {
 	onPCAPStopped    func()
 	onPCAPProgress   func(currentPacket, totalPackets uint64)
 	onPCAPTimestamps func(startNs, endNs int64)
+	// onTuningChange runs once a runtime tuning patch has validated and
+	// before any of it is applied; see Config.OnTuningChange.
+	onTuningChange func()
 
 	// Recording lifecycle callbacks
 	onRecordingStart func(runID string) string
@@ -277,6 +280,12 @@ type Config struct {
 	// returns to live mode. Used to notify the visualiser gRPC server.
 	OnPCAPStopped func()
 
+	// OnTuningChange is called when a runtime tuning patch has validated,
+	// before its first value is applied, so anything that has bound evidence
+	// to the current tuning (a live observation capture names its extractor
+	// by it) can end first. Optional.
+	OnTuningChange func()
+
 	// OnPCAPProgress is called periodically during PCAP replay with the
 	// current and total packet counts, enabling progress/seek in the UI.
 	OnPCAPProgress func(currentPacket, totalPackets uint64)
@@ -372,6 +381,7 @@ func NewServer(config Config) *Server {
 		annotationPacksDir: annotationPacksDir,
 		onPCAPStarted:      config.OnPCAPStarted,
 		onPCAPStopped:      config.OnPCAPStopped,
+		onTuningChange:     config.OnTuningChange,
 		onPCAPProgress:     config.OnPCAPProgress,
 		onPCAPTimestamps:   config.OnPCAPTimestamps,
 		onRecordingStart:   config.OnRecordingStart,
