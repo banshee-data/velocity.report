@@ -260,7 +260,7 @@ def replay_stretch(scene):
 def carry_over(vrlog, live, assets, site, title):
     """Keep what a scene has that this script does not make.
 
-    The swap replaces assets/ whole, and two things in it are chosen by hand:
+    The swap replaces assets/ wholesale, and two things in it are chosen by hand:
     vantages.json, the camera positions somebody picked, and a point-cloud
     clip, whose manifest records which 30 seconds were selected and why.
     Dropping them leaves a page asking for a clip that is no longer there.

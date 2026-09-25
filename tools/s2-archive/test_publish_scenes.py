@@ -262,7 +262,7 @@ class ReportStatusTests(unittest.TestCase):
 
 
 class CarryOverTests(unittest.TestCase):
-    """A rebuild replaces assets/ whole; what was chosen by hand must survive it."""
+    """A rebuild replaces assets/ wholesale; what was chosen by hand must survive it."""
 
     def setUp(self):
         held = tempfile.TemporaryDirectory()
