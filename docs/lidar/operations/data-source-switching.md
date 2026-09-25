@@ -185,7 +185,8 @@ outranks it on the badge (see [Visualiser status](#visualiser-status)).
 On the client side, returning to live restarts the gRPC stream, in the same way
 that loading a replay does. A stream that ends clears the connection state, not
 only the replay-finished flag, so a server restart is never shown as connected.
-Views whose availability changes use `.inert` rather than `.disabled()`, because
+Views whose availability changes use `.inert(_ isInert: Bool, hint: String)`
+rather than `.disabled()`, because
 toggling AppKit's enabled state re-entered SwiftUI's view graph and caused
 AttributeGraph cycles. A test fails on any view that disables on changing state.
 
