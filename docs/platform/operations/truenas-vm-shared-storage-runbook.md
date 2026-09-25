@@ -2,7 +2,7 @@
 
 Status: solved. The VM `bansheeworker` (guest hostname `arrow-worker`) mounts NFS exports from the
 TrueNAS host `arrow`'s pool over a local, Tailscale-independent path. Verified: the guest mount
-survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 6). This
+survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 7). This
 document records what was tried, why each attempt failed, the confirmed root cause, and the
 working solution, so a future change to this host does not repeat a night's worth of failed
 attempts and one real outage.
@@ -173,15 +173,46 @@ sudo systemctl daemon-reload
 sudo systemctl restart remote-fs.target
 ```
 
-## 5. Verification
+## 5. Read-only access, and a third share
 
-- `df -h /mnt/captures /mnt/results` shows both exports mounted over `arrow-local` (`10.10.10.1`).
+`captures` was already exported `ro: true` server-side (not just `ro` in the guest's mount
+options, which a client cannot be trusted to enforce on its own) from when the share was first
+created; nothing needed to change there.
+
+A third share, `media` (`/mnt/arrow/media`, a personal media library unrelated to the VM's actual
+work), was added read-only for the guest, following the same shape as `captures`:
+
+- NFS share: path `/mnt/arrow/media`, Read Only ticked, Mapall User/Group set to `banshee`
+  (Shares > UNIX (NFS) Shares > Add), networks `192.168.99.0/24` and `10.10.10.0/24`.
+- Guest fstab: `arrow-local:/mnt/arrow/media /mnt/media nfs
+ro,vers=3,_netdev,x-systemd.automount,timeo=30,retrans=2,noauto 0 0`.
+
+**The mapped user also needs read permission on the actual filesystem**, which the NFS share's
+`ro` flag alone does not grant. `captures` and `results` already had `other: r-x` on every
+directory, which is why `banshee` (mapped via `mapall_user`, not the file owner or in the owning
+group) could read them without any extra step. `media`'s directories were `770`, owned by other
+users, with no such grant, so the guest could see the share existed but got "Permission denied"
+listing anything in it. Fixed via Datasets > `media` > Permissions > Edit: added a `User - banshee:
+Read` NFSv4 ACL entry, applied recursively (TrueNAS's own ACL editor warns recursive apply "can
+make data inaccessible" since it overwrites, not merges, every descendant's existing ACL; this is
+a real risk on a mixed-ownership tree and is worth pausing on for anything larger or less well
+understood than a personal media share). One directory (`video`) was not touched by the recursive
+apply, for no clear reason; found and fixed by re-running the same ACL edit scoped to just that
+path. Check `find <mount> -type d` for `Permission denied` after any similar recursive apply,
+rather than assuming it reached everything.
+
+## 6. Verification
+
+- `df -h /mnt/captures /mnt/results /mnt/media` shows all three exports mounted over `arrow-local`
+  (`10.10.10.1`).
 - A 50 MiB write to `/mnt/results` completed at 603 MB/s, full local virtio-net speed, with no
   tailnet hop.
-- The guest was rebooted; `ens4` and both mounts came back automatically, with no manual steps,
-  confirmed immediately after boot.
+- `touch` inside `/mnt/captures` or `/mnt/media` fails with "Read-only file system"; every file
+  found under `media` (including `video`, once fixed) opens for reading.
+- The guest was rebooted; `ens4` and all three mounts came back automatically, with no manual
+  steps, confirmed immediately after boot.
 
-## 6. Known limitations and possible follow-ups
+## 7. Known limitations and possible follow-ups
 
 - **Host reboot is untested.** The interface and bridge configuration are now genuinely persisted
   in TrueNAS's database, so they are expected to survive a reboot, but this has not been observed
@@ -197,7 +228,7 @@ sudo systemctl restart remote-fs.target
 - **The `bridge_setup()` exception-swallowing defect** in section 3.2 is worth reporting upstream
   with this evidence, independent of anything this deployment does.
 
-## 7. Reference: safe commit procedure
+## 8. Reference: safe commit procedure
 
 Applies to any future change to `eno1`, `br1`, or a new interface on this host.
 
