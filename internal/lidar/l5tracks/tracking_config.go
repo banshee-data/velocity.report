@@ -159,6 +159,44 @@ type TrackerConfig struct {
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 
+	// Capture-time options. Every one is default-off and, like the options
+	// above, deliberately not a tuning key: the shipped estimator's temporal
+	// behaviour is pinned by replay before any of it is tuned. See
+	// time_domain.go for the boundary they sit inside.
+	//
+	// MaxCoastSecsTentative and MaxCoastSecsConfirmed bound how long, in
+	// capture time, a track may go without an accepted observation. Zero
+	// disables the bound, leaving the frame-count rule (MaxMisses,
+	// MaxMissesConfirmed) as the only expiry. The two rules measure different
+	// things: misses count frames that reached the tracker, so a frame that
+	// was throttled, lost in transport or dropped at a capture join extends a
+	// coasting track's life for free; the capture-time bound does not care
+	// how many frames arrived. The bound is checked before association, so an
+	// observation arriving after it has lapsed seeds a new track rather than
+	// reviving a hypothesis nothing supported in the interval.
+	MaxCoastSecsTentative float32
+	MaxCoastSecsConfirmed float32
+
+	// CaptureGapPrediction predicts across the whole capture-time gap
+	// between frames, in steps of at most MaxPredictDt, instead of clamping
+	// the step to MaxPredictDt. The clamp was written for throttle-sized gaps;
+	// across a longer transport gap it predicts a moving object a fraction of
+	// the distance it travelled, so reacquisition compares the returning
+	// cluster against a stale position. Sub-stepping keeps the covariance cap
+	// applying per step exactly as it does frame to frame. Default false.
+	CaptureGapPrediction bool
+
+	// MeasurementTimePrediction predicts each associated track to its
+	// measurement's own acquisition time (WorldCluster.TSUnixNanos) before the
+	// update, instead of treating every cluster as observed at the frame's
+	// start. A rotation takes about 100 ms, so an object near the end of the
+	// sweep is measured up to one frame period after the time the filter
+	// assumes, and near the azimuth wrap that offset changes abruptly between
+	// consecutive frames. This is state-estimation plan question Q3. Gating
+	// and assignment still use the frame-time prediction; only the update is
+	// moved. Default false.
+	MeasurementTimePrediction bool
+
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
 	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)
