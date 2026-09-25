@@ -6,6 +6,15 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 24, 2026 - State estimation: the OBB centre stays opt-in, and the branch against main
+
+- A/B tested D2's OBB-centre measurement against the medoid on kirk0's annotated road users (30 objects, 771 frames). Recall was level, but the OBB centre switched identity 146 times against 92 and fragmented more, so the medoid stays the production measurement and `obb_centre_v1` becomes opt-in (21.1 D5).
+- Fixed the label-free scorecard reading every cluster at its OBB centre whatever position the run tracked, which skewed how it classified track endings for medoid runs.
+- Replayed Columbus Broadway through the live server at 0.25x, once with the branch and once with main: heading acceptance rose from 0.605 to 0.789, median course alignment fell from 51.9° to 24.0°, and tracks, lifetimes and speed percentiles stayed where main has them: [record](lidar/operations/state-estimation-columbus-0p25x-vs-main.md).
+- Found that the branch's server panicked when started outside the repository tree, as on a Pi, because `MustLoadDefaultConfig` looked for the tuning file on disk. Main's #593 embedded fallback resolves it on merge.
+- Moved the 2026-09 campaign's drivers, state and results out of the repository to a backup branch and the LiDAR volume, and recorded pass 7, whose findings existed only in commit messages. Its ground-truth scores are marked unreliable: they matched first-sighting rows.
+- Realigned the branch's plans with the headway-first backlog, retired the schema v2 freeze plan, the branch audit and the D2 readiness review, and cleared the CI failures that had skipped the Go tests since September 17.
+
 ## September 23, 2026 - Route capture, the job runner, and a backlog of design plans land
 
 - Landed a route-capture design for two new moving-sensor rigs, a cargo bike and a backpack pedestrian: four capture regimes, a road model of intersections and segments, distance-band speed aggregates, and a portable-timing appendix establishing that today's point timestamps are not validated acquisition times (#580). Added the LiDAR hardware market-watch page with its selection rule, budget rule, shortlist, and first dated snapshot.
