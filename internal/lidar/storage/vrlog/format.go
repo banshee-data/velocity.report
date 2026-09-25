@@ -13,10 +13,19 @@ import (
 // FrameBundle layout is 0.5 and shares nothing with it on disk. A reader
 // refuses any other major. A minor revision is additive: anything an older
 // reader must not ignore is declared as a manifest required feature instead.
+// Minor 1 adds commit generations and the current-generation pointer, and
+// every 1.1 manifest requires featureCommitGenerations, so a 1.0 reader,
+// which would list sealed chunks without knowing whether they were ever
+// committed, refuses it.
 const (
 	FormatMajor uint16 = 1
-	FormatMinor uint16 = 0
+	FormatMinor uint16 = 1
 )
+
+// featureCommitGenerations is the required feature naming the commit chain:
+// evidence is exactly the chunks the validated generation chain commits,
+// never whatever sealed objects a directory happens to hold.
+const featureCommitGenerations = "commit-generations"
 
 // rootMagic opens every object. The PNG-style bytes catch the usual ways a
 // binary file is damaged in transit: the high-bit byte a 7-bit channel
@@ -28,10 +37,12 @@ var rootMagic = [8]byte{0x89, 'V', 'R', 'L', '\r', '\n', 0x1a, '\n'}
 type objectKind [4]byte
 
 var (
-	objectManifest = objectKind{'M', 'A', 'N', 'I'}
-	objectChunk    = objectKind{'C', 'H', 'N', 'K'}
-	objectIndex    = objectKind{'I', 'N', 'D', 'X'}
-	objectSummary  = objectKind{'S', 'U', 'M', 'M'}
+	objectManifest   = objectKind{'M', 'A', 'N', 'I'}
+	objectChunk      = objectKind{'C', 'H', 'N', 'K'}
+	objectIndex      = objectKind{'I', 'N', 'D', 'X'}
+	objectSummary    = objectKind{'S', 'U', 'M', 'M'}
+	objectGeneration = objectKind{'G', 'E', 'N', 'R'}
+	objectCurrent    = objectKind{'C', 'U', 'R', 'R'}
 )
 
 func (k objectKind) String() string { return string(k[:]) }
@@ -74,6 +85,8 @@ const (
 	RecordChunkSeal   RecordKind = 3
 	RecordChunkIndex  RecordKind = 4
 	RecordSummary     RecordKind = 5
+	RecordGeneration  RecordKind = 6
+	RecordCurrent     RecordKind = 7
 	RecordFrame       RecordKind = 16
 	RecordGap         RecordKind = 17
 
@@ -96,6 +109,10 @@ func (k RecordKind) String() string {
 		return "chunk-index"
 	case RecordSummary:
 		return "summary"
+	case RecordGeneration:
+		return "generation"
+	case RecordCurrent:
+		return "current"
 	case RecordFrame:
 		return "frame"
 	case RecordGap:
@@ -211,17 +228,30 @@ func (e envelope) checkBody(header, payload []byte) error {
 // Object names inside a container directory. The legacy layout's names
 // (header.json, index.bin, frames/) are deliberately absent.
 const (
-	manifestName = "manifest"
-	summaryName  = "summary"
-	chunksDir    = "chunks"
-	chunkSuffix  = ".chunk"
-	indexSuffix  = ".index"
+	manifestName   = "manifest"
+	summaryName    = "summary"
+	chunksDir      = "chunks"
+	chunkSuffix    = ".chunk"
+	indexSuffix    = ".index"
+	generationsDir = "generations"
+	genSuffix      = ".gen"
+	// currentName is the pointer to the latest published generation.
+	currentName = "current"
+	// lockName is held (flock) by the one writer or recovery allowed at a
+	// time. It is never unlinked: a second inode would admit a second writer.
+	lockName = "lock"
+	// reserveName is preallocated space released to write a failure marker.
+	reserveName = "reserve"
+	// quarantineDir receives uncommitted objects that recovery moves aside.
+	quarantineDir = "quarantine"
 	// openSuffix marks an object still being written. It is never read as
-	// evidence; the reader reports it as an unsealed tail.
+	// evidence; the reader reports it as an uncommitted tail.
 	openSuffix = ".open"
 )
 
 func chunkBase(ordinal uint64) string { return fmt.Sprintf("%08d", ordinal) }
+
+func generationObject(n uint64) string { return generationsDir + "/" + chunkBase(n) + genSuffix }
 
 // IsContainer reports whether dir holds a VRLOG 1.x root: a manifest object
 // opening with the root magic. It reads sixteen bytes and trusts nothing
@@ -250,6 +280,11 @@ const (
 	maxSealBytes        = 1024
 	maxIndexBytes       = 4 << 20
 	maxSummaryBytes     = 4 << 10
+	maxGenerationBytes  = 64 << 10
+	maxCurrentBytes     = 256
+	// maxListedQuarantine bounds the names a recovery record lists; the
+	// record also carries the full count.
+	maxListedQuarantine = 256
 	// chunkOverhead reserves room for the preamble, header and seal, so the
 	// writer can promise the chunk bound before it knows the seal's size.
 	chunkOverhead = preambleSize + 2*envelopeSize + maxChunkHeaderBytes + maxSealBytes

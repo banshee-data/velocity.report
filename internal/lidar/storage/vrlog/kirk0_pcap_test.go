@@ -220,8 +220,8 @@ func TestKirk0ObservationContainer(t *testing.T) {
 			vrlog.SwapFiles(t, vrlog.IndexPath(dir, 1), vrlog.IndexPath(dir, 2))
 		}, false, vrlog.CorruptDisagreement, 1},
 		"oversized length": {func(t *testing.T, dir string) {
+			// Re-sealed and re-committed consistently: only the length lies.
 			vrlog.ForgeRecordLength(t, dir, 1, 0, 0xfffffff0)
-			os.Remove(filepath.Join(dir, "summary")) // it would catch the reseal first
 		}, true, vrlog.CorruptLength, 1},
 	} {
 		t.Run(name, func(t *testing.T) {

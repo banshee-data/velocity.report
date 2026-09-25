@@ -110,8 +110,8 @@ func observationsVerify(args []string) int {
 		fmt.Printf("ok   %s: %d frames, %d gaps, sequences [0, %d), %d chunks, %d bytes, %s; semantic %s (%s)\n",
 			dir, report.Frames, report.Gaps, report.EndSequence, report.Chunks, report.ChunkBytes, state,
 			report.Semantic, time.Since(start).Round(time.Millisecond))
-		for _, tail := range report.UnsealedTail {
-			fmt.Printf("     unsealed tail not read: %s\n", tail)
+		for _, tail := range report.UncommittedTail {
+			fmt.Printf("     uncommitted tail not read: %s\n", tail)
 		}
 		if len(report.IndexesRebuilt) > 0 {
 			fmt.Printf("     indexes rebuilt in memory for chunks %v\n", report.IndexesRebuilt)
@@ -207,8 +207,8 @@ func printChunks(r *vrlog.Reader) {
 	}
 	fmt.Printf("\n%d chunks, %d records (%d frames, %d gaps), sequences [0, %d), %d bytes, %s\n",
 		st.Chunks, st.Records, st.Frames, st.Gaps, st.EndSequence, st.ChunkBytes, state)
-	for _, tail := range st.UnsealedTail {
-		fmt.Printf("unsealed tail (not evidence): %s\n", tail)
+	for _, tail := range st.UncommittedTail {
+		fmt.Printf("uncommitted tail (not evidence): %s\n", tail)
 	}
 	fmt.Printf("%-8s %10s %8s %20s  %s\n", "CHUNK", "BYTES", "RECORDS", "SEQUENCES", "FIRST START (UTC)")
 	for _, c := range r.Chunks() {

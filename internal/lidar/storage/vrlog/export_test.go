@@ -122,9 +122,92 @@ func Reseal(t testing.TB, dir string, ordinal uint64, mutate func(body []byte)) 
 	RewriteIndex(t, dir, ordinal, func(*pb.ChunkIndex) {}, ix)
 }
 
-// RewriteIndex re-encodes a chunk's index after mutate, with a valid CRC, so
-// only the mutated values are wrong. from, when non-nil, replaces the stored
-// index before mutate runs.
+// ReforgeChain re-derives the commit chain after chunk and index objects
+// were rewritten: each generation's chunk entries take the objects' new
+// sizes and digests, the cumulative chain and byte count follow, each
+// generation names its rewritten predecessor, the closing summary is made
+// consistent, and the pointer names the new last generation. Only the
+// forged contents then lie, so a test reaches the reader's deeper checks.
+func ReforgeChain(t testing.TB, dir string) {
+	t.Helper()
+	manifest, err := os.ReadFile(filepath.Join(dir, manifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(manifest)
+	var tag [8]byte
+	copy(tag[:], digest[:8])
+	var prev chainState
+	for n := uint64(0); ; n++ {
+		g, _, err := readGeneration(dir, n, tag)
+		if err != nil {
+			if isMissing(err) {
+				break
+			}
+			t.Fatal(err)
+		}
+		chain, total := prev.chain, prev.chunkBytes
+		for _, c := range g.Chunks {
+			data, err := os.ReadFile(IndexPath(dir, c.Ordinal))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var ix pb.ChunkIndex
+			if err := unmarshalOptions.Unmarshal(data[preambleSize+envelopeSize:], &ix); err != nil {
+				t.Fatal(err)
+			}
+			sum := sha256.Sum256(data)
+			c.IndexSha256, c.ChunkBytes, c.BodySha256 = sum[:], ix.ChunkBytes, ix.ChunkBodySha256
+			chain = chainDigest(chain, c.BodySha256)
+			total += c.ChunkBytes
+		}
+		g.ChunkChainSha256, g.TotalChunkBytes = chain[:], total
+		if prev.valid {
+			g.PreviousSha256 = prev.digest[:]
+		}
+		if g.Kind == pb.GenerationKind_GENERATION_KIND_CLOSE {
+			path := filepath.Join(dir, summaryName)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var m pb.CaptureSummary
+			if err := unmarshalOptions.Unmarshal(data[preambleSize+envelopeSize:], &m); err != nil {
+				t.Fatal(err)
+			}
+			m.ChunkChainSha256, m.TotalChunkBytes = chain[:], total
+			payload, err := marshalOptions.Marshal(&m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := appendRecord(appendPreamble(nil, objectSummary), envelope{kind: RecordSummary, tag: tag}, payload)
+			if err := os.WriteFile(path, out, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			sum := sha256.Sum256(out)
+			g.Objects[0].Sha256, g.Objects[0].Bytes = sum[:], uint64(len(out))
+		}
+		data, err := encodeGeneration(tag, g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, generationObject(n)), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		prev = chainAfter(prev, g, sha256.Sum256(data))
+	}
+	pointer, err := encodeCurrent(tag, prev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, currentName), pointer, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// RewriteIndex re-encodes a chunk's index after mutate, with a valid CRC,
+// and re-forges the chain to commit it, so only the mutated values are
+// wrong. from, when non-nil, replaces the stored index before mutate runs.
 func RewriteIndex(t testing.TB, dir string, ordinal uint64, mutate func(*pb.ChunkIndex), from *pb.ChunkIndex) {
 	t.Helper()
 	data, err := os.ReadFile(IndexPath(dir, ordinal))
@@ -148,4 +231,5 @@ func RewriteIndex(t testing.TB, dir string, ordinal uint64, mutate func(*pb.Chun
 	if err := os.WriteFile(IndexPath(dir, ordinal), out, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	ReforgeChain(t, dir)
 }
