@@ -150,3 +150,67 @@ func TestReplayObservationsNeedACaseIdentity(t *testing.T) {
 		t.Fatalf("exited %d, want 2", code)
 	}
 }
+
+// captured runs fn with stdout written to a file and returns what it printed.
+func captured(t *testing.T, fn func() int) (int, string) {
+	t.Helper()
+	f, err := os.Create(filepath.Join(t.TempDir(), "stdout"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut, oldErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = f, f
+	code := fn()
+	os.Stdout, os.Stderr = oldOut, oldErr
+	f.Close()
+	out, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return code, string(out)
+}
+
+// recover makes an interrupted capture consistent once, reports what it
+// did, refuses a container a live writer holds, and says so when there is
+// nothing to do; verify and inspect report the capture's state.
+func TestObservationsRecover(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "open.vrlog")
+	calibration := replayCalibration("cli-test")
+	calibrationID, err := l4bobserve.CalibrationID(calibration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := vrlog.Create(dir, vrlog.Manifest{
+		Capture:     vrlog.CaptureIdentity{SensorID: "cli-test", SourceType: "synthetic"},
+		Extraction:  vrlog.ExtractionIdentity{SourceID: "source/v1/cli-test", CalibrationID: calibrationID, CoordinateFrame: "site/cli-test", ExtractorID: "l4.test/v1"},
+		Calibration: calibration,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := captured(t, func() int { return ObservationsMain([]string{"recover", dir}) }); code != 1 || !strings.Contains(out, "in use") {
+		t.Fatalf("recover beside a live writer exited %d:\n%s", code, out)
+	}
+	if err := w.Abandon(); err != nil {
+		t.Fatal(err)
+	}
+	if code, out := captured(t, func() int { return ObservationsMain([]string{"verify", dir}) }); code != 0 || !strings.Contains(out, "OPEN: no terminal generation") {
+		t.Fatalf("verify of an interrupted capture exited %d:\n%s", code, out)
+	}
+	if code, out := captured(t, func() int { return ObservationsMain([]string{"recover", dir}) }); code != 0 || !strings.Contains(out, "wrote recovery generation 1") {
+		t.Fatalf("recover exited %d:\n%s", code, out)
+	}
+	if code, out := captured(t, func() int { return ObservationsMain([]string{"recover", dir}) }); code != 0 || !strings.Contains(out, "nothing to do") {
+		t.Fatalf("a second recover exited %d:\n%s", code, out)
+	}
+	code, out := captured(t, func() int { return ObservationsMain([]string{"inspect", "--records", "0", dir}) })
+	if code != 0 || !strings.Contains(out, "INCOMPLETE") || !strings.Contains(out, "commit       group commit at 100ms") ||
+		!strings.Contains(out, "not power loss") {
+		t.Fatalf("inspect exited %d:\n%s", code, out)
+	}
+	for _, args := range [][]string{{"recover"}, {"recover", dir, dir}} {
+		if code := silence(t, func() int { return ObservationsMain(args) }); code != 2 {
+			t.Fatalf("%v exited %d", args, code)
+		}
+	}
+}

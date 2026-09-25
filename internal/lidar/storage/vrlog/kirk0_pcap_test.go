@@ -256,19 +256,34 @@ func TestKirk0ObservationContainer(t *testing.T) {
 		float64(memAfter.TotalAlloc-memBefore.TotalAlloc)/n, float64(memAfter.Mallocs-memBefore.Mallocs)/n)
 	t.Logf("process peak RSS %s (the whole test: replay pipeline, three writers and the readers)", peakRSS())
 
+	// The repeat is also a replay that fails part-way: its tap consumer
+	// refuses frame 40. The frames accepted up to then are committed and a
+	// failure generation says why the extraction stopped.
 	t.Run("repeat reproduces the evidence", func(t *testing.T) {
+		const stopAt = 40
 		repeat := kirk0Replay(pcap, filepath.Join(root, "repeat"), 0, 5)
 		repeat.ObservationLogDir = filepath.Join(root, "repeat.vrlog")
-		if _, err := replayeval.Run(repeat); err != nil {
-			t.Fatal(err)
+		repeat.ObservationFrames = func(f l4bobserve.FrameRecord) error {
+			if f.Sequence == stopAt {
+				return errors.New("injected stop")
+			}
+			return nil
+		}
+		if _, err := replayeval.Run(repeat); err == nil || !strings.Contains(err.Error(), "injected stop") {
+			t.Fatalf("a replay whose consumer failed = %v", err)
 		}
 		rr, again := decodeAll(t, repeat.ObservationLogDir, vrlog.Options{})
-		// The last frame of the shorter replay is the partial rotation it
-		// stopped in; every frame before it is the same observation.
-		if len(again) < 40 || len(again) > len(direct) {
+		st := rr.Status()
+		if st.State != vrlog.CaptureFailed || st.Failure.Cause != vrlog.FailureStopped ||
+			!strings.Contains(st.Failure.Detail, "injected stop") || st.Frames != stopAt+1 || st.TailExtentUnknown {
+			t.Fatalf("stopped replay's container = %+v, failure %+v", st, st.Failure)
+		}
+		// Every frame up to the stop is the same observation as the first
+		// replay's; none is the partial rotation a window's end leaves.
+		if len(again) != stopAt+1 || len(again) > len(direct) {
 			t.Fatalf("repeat decoded %d frames", len(again))
 		}
-		for i := range again[:len(again)-1] {
+		for i := range again {
 			if err := l4bobserve.DiffFrames(direct[i], again[i]); err != nil {
 				t.Fatalf("frame %d differs between runs: %v", i, err)
 			}

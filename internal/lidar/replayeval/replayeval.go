@@ -153,13 +153,19 @@ type Config struct {
 	// 1.x observation container at this path, which must not exist: the same
 	// records ObservationFrames receives, warm-up included, and the two
 	// compose. It needs ReplayCaseID and ObservationCalibration. The manifest
-	// embeds the effective tuning, the capture files and the replay window. A
-	// replay that fails leaves the container readable but unclosed, so it
-	// cannot pass for a complete extraction. Empty writes nothing.
+	// embeds the effective tuning, the capture files and the replay window.
+	// Frames are committed by the durable writer as the tap produces them,
+	// independently of L5. A replay that fails commits what was accepted and
+	// ends the container with a failure generation naming why, so it cannot
+	// pass for a complete extraction. Empty writes nothing.
 	ObservationLogDir string
 	// ObservationLogLimits overrides the container's declared limits; the
 	// zero value uses vrlog.DefaultLimits.
 	ObservationLogLimits vrlog.Limits
+	// ObservationLogPolicy overrides the commit policy; zero fields take
+	// vrlog's provisional defaults. A paused PCAP reader can be
+	// backpressured, so ShedAfter is best left zero here.
+	ObservationLogPolicy vrlog.CommitPolicy
 	// ProfileEvidence includes exact frame-evidence persistence timings in the
 	// returned Result. It is diagnostic-only and does not alter recorded data.
 	ProfileEvidence bool
@@ -199,8 +205,12 @@ type Result struct {
 	// Config.ObservationFrames or Config.ObservationLogDir.
 	ObservationFrames int
 	// ObservationLog is the closing summary of the container written to
-	// Config.ObservationLogDir, or nil when none was requested.
+	// Config.ObservationLogDir, or nil when none was requested, and
+	// ObservationLogStats what its writer measured (publication latency,
+	// bytes and files written). The stats vary run to run and are not in
+	// the replay manifest.
 	ObservationLog      *vrlog.Summary
+	ObservationLogStats *vrlog.WriterStats
 	EvidencePersistence *observationsqlite.FrameEvidenceStats
 	// GroundSurfaceFit is the P11 ground-plane fit reached during this
 	// replay, when Config.UseSurfaceGround was set and the background
@@ -734,6 +744,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	var observationFrameSink *strictObservationFrameSink
 	var observationLog *vrlog.Writer
+	observationLogFailure := "replay stopped before the observation log was closed"
 	if wantFrames {
 		if cfg.ObservationLogDir != "" {
 			files := make([]vrlog.CaptureFile, len(pcapFiles))
@@ -754,6 +765,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 				},
 				Calibration: cfg.ObservationCalibration,
 				Limits:      cfg.ObservationLogLimits,
+				Commit:      cfg.ObservationLogPolicy,
 				Provenance: vrlog.Provenance{BuildVersion: version.Version, BuildGitSHA: version.GitSHA, Writer: "replayeval",
 					ParamsHash: paramsHash, ParamsSchemaVersion: schemaVersionOrUnknown(tuningCfg), Experiments: experiments},
 				Metadata: []vrlog.MetadataObject{vrlog.NewMetadataObject("tuning", "application/json", paramsJSON)},
@@ -761,9 +773,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			if err != nil {
 				return nil, fmt.Errorf("create observation log: %w", err)
 			}
-			// A no-op once closed; on any early return the container stays
-			// readable but unclosed.
-			defer observationLog.Abandon()
+			// A no-op once closed. On any early return, what was accepted is
+			// committed and a failure generation records why the replay did
+			// not finish.
+			defer func() { _ = observationLog.Fail(observationLogFailure) }()
 		}
 		deliver := cfg.ObservationFrames
 		if observationLog != nil {
@@ -864,15 +877,18 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		replayErr = fmt.Errorf("observation frames: %w", observationFrameErr)
 	}
 	if replayErr != nil {
+		observationLogFailure = "pcap replay failed: " + replayErr.Error()
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)
 	}
 	var observationLogSummary *vrlog.Summary
+	var observationLogStats *vrlog.WriterStats
 	if observationLog != nil {
 		summary, err := observationLog.Close()
 		if err != nil {
 			return nil, fmt.Errorf("close observation log: %w", err)
 		}
-		observationLogSummary = &summary
+		stats := observationLog.Stats()
+		observationLogSummary, observationLogStats = &summary, &stats
 	}
 	if pub.writeErr != nil {
 		return nil, fmt.Errorf("record frame: %w", pub.writeErr)
@@ -964,6 +980,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		ObservationSourceID: observationSourceID,
 		ObservationFrames:   observationFrames,
 		ObservationLog:      observationLogSummary,
+		ObservationLogStats: observationLogStats,
 		EvidencePersistence: func() *observationsqlite.FrameEvidenceStats {
 			if !cfg.ProfileEvidence || frameEvidenceStore == nil {
 				return nil
