@@ -28,9 +28,10 @@ Sensor facts for the unit in service live in the
 Units that met both the range rule and the budget rule in the latest snapshot, with the used
 asking prices seen. A model appears here only with a listing URL in the log.
 
-| Model           | Range at 10% | Used asking prices seen                | Snapshot   |
-| --------------- | ------------ | -------------------------------------- | ---------- |
+| Model           | Range at 10% | Used asking prices seen                  | Snapshot   |
+| --------------- | ------------ | ---------------------------------------- | ---------- |
 | Hesai Pandar40P | 200 m        | US $149.50 each to US $575, snippet-only | 2026-09-19 |
+
 Meet the range rule but not the budget, watched for price drops: Hesai OT128 and Pandar128E3X,
 Ouster OS2 and OS1 Max, RoboSense Helios-32 and Ruby Plus, Velodyne VLP-32C. Not yet seen in a
 snapshot and added to the search list: Velodyne HDL-32E, RoboSense RS-LiDAR-16 and RS-LiDAR-32,
