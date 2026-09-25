@@ -34,6 +34,9 @@ func TestTrajectorySampleValidate(t *testing.T) {
 			s.Covariance[11], s.Covariance[14] = 0.5, 0.5
 		},
 		"offset on a body-centre reference": func(s *TrajectorySample) { s.AnchorToCentre.LongitudinalM = 1 },
+		"near-face reference without an offset": func(s *TrajectorySample) {
+			s.Reference, s.AnchorToCentre = ReferenceNearFaceCentre, BodyOffset{}
+		},
 		"heading value without provenance": func(s *TrajectorySample) {
 			s.Estimation, s.Faces, s.Heading = EstimationGeometryConverging, FaceVisibility{}, HeadingBelief{Rad: 1}
 		},

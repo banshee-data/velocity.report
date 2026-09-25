@@ -175,6 +175,12 @@ func (s TrajectorySample) Validate() error {
 	if s.Reference != ReferenceNearFaceCentre && (s.AnchorToCentre != BodyOffset{}) {
 		return fmt.Errorf("a %s reference must not carry an anchor offset; only %s does", s.Reference, ReferenceNearFaceCentre)
 	}
+	// The converse: a face centre of a body with extent is never its centre,
+	// so a zero offset on a near-face reference is an offset someone forgot,
+	// and accepting it would project the face as though it were the centre.
+	if s.Reference == ReferenceNearFaceCentre && (s.AnchorToCentre == BodyOffset{}) {
+		return fmt.Errorf("a %s reference requires its anchor-to-centre offset", ReferenceNearFaceCentre)
+	}
 	if err := s.Heading.validate(); err != nil {
 		return err
 	}
