@@ -261,6 +261,77 @@ class ReportStatusTests(unittest.TestCase):
         self.assertIn("1 unresolved", text)
 
 
+class CarryOverTests(unittest.TestCase):
+    """A rebuild replaces assets/ whole; what was chosen by hand must survive it."""
+
+    def setUp(self):
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.live = os.path.join(held.name, "assets")
+        self.assets = os.path.join(held.name, "assets.new")
+        os.makedirs(self.live)
+        os.makedirs(self.assets)
+        patched = mock.patch.object(publish_scenes, "export")
+        self.export = patched.start()
+        self.addCleanup(patched.stop)
+
+    def write(self, relative, content):
+        path = os.path.join(self.live, relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write(content)
+        return content
+
+    def carry_over(self):
+        publish_scenes.carry_over(
+            "run.vrlog", self.live, self.assets, "columbus-broadway", "Columbus"
+        )
+
+    def read(self, relative):
+        with open(os.path.join(self.assets, relative)) as fh:
+            return fh.read()
+
+    def test_a_clip_is_exported_again_over_its_recorded_frames(self):
+        manifest = self.write(
+            "clip/manifest.json",
+            json.dumps(
+                {
+                    "fade_out_seconds": 5,
+                    "selection": {"source_start_frame": 400, "source_frame_count": 301},
+                }
+            ),
+        )
+        self.carry_over()
+        self.export.assert_called_once_with(
+            "run.vrlog",
+            os.path.join(self.assets, "clip", "part-000"),
+            "columbus-broadway",
+            "Columbus",
+            kind="clip",
+            extra=[
+                "--start-frame",
+                "400",
+                "--frame-count",
+                "301",
+                "--max-points",
+                "1200",
+            ],
+        )
+        # The manifest records the selection, so it is kept, not remade.
+        self.assertEqual(self.read("clip/manifest.json"), manifest)
+
+    def test_vantages_are_kept_as_they_are(self):
+        vantages = self.write("vantages.json", '{"vantages": []}\n')
+        self.carry_over()
+        self.assertEqual(self.read("vantages.json"), vantages)
+        self.export.assert_not_called()
+
+    def test_a_scene_without_a_clip_does_not_gain_one(self):
+        self.carry_over()
+        self.export.assert_not_called()
+        self.assertEqual(os.listdir(self.assets), [])
+
+
 class PlanTests(unittest.TestCase):
     def test_an_unknown_site_name_stops_the_run(self):
         with self.assertRaisesRegex(SystemExit, "not in site-index.json"):
