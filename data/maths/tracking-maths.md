@@ -87,9 +87,19 @@ Forbidden costs are represented as a large sentinel (`+inf`) in assignment.
 Build cost matrix `C` with rows = clusters, columns = active tracks.
 
 - `C_ij = d_M^2` if candidate valid,
-- `C_ij = +inf` if gated out.
+- `C_ij = hungarianlnf` (1e18, standing for `+inf`) if gated out.
 
-Solve rectangular assignment by padded square Hungarian (Kuhn-Munkres/JV-style potentials).
+Solve the rectangular assignment with the Hungarian method (Kuhn-Munkres, JV-style shortest
+augmenting paths with dual potentials). The objective is lexicographic: first the most admitted
+pairs, then the least total cost among assignments with that many.
+
+The solver never pads and never lets the sentinel into its arithmetic. It solves on the smaller
+side (transposing when there are more clusters than tracks), and gives each gated-out cell a finite
+penalty larger than any complete assignment of admitted pairs could cost, then drops penalty pairs.
+Adjacent float64 values near 1e18 are 128 apart, so the padded solver, which let the sentinel into
+its potentials, lost every real cost beside it and could follow row order rather than cost: on
+kirk0 it returned a costlier assignment on 6 of 705 association frames. NaN and infinite costs are
+treated as gated out.
 
 This avoids greedy collision artifacts where two clusters compete for one track.
 
@@ -146,7 +156,7 @@ For `C` clusters and `T` tracks:
 
 - prediction/update: `O(T)`
 - cost matrix build: `O(C*T)`
-- Hungarian assignment: `O(max(C,T)^3)`
+- Hungarian assignment: `O(min(C,T)^2 * max(C,T))`
 
 In typical road scenes, assignment cost is acceptable; gating prunes many impossible pairs.
 

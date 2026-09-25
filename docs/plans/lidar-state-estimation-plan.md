@@ -170,6 +170,30 @@ exclude warm-up and retain ended tracks' contributions; schema 1 results below a
 not population-compatible. Empty published frames count as missed opportunities without changing
 the existing tracker lifecycle policy. Accepted-only NIS remains selection-censored.
 
+**Assignment solver correction (gap H1):** every tracker result in this plan measured before the
+exact assignment solver landed ran association through a padded Hungarian solver that let its 1e18
+forbidden sentinel into its arithmetic. It could return a costlier assignment whenever clusters
+outnumbered tracks or some cluster had to go unassigned. The per-frame CLEAR-MOT and HOTA matching
+in `l8analytics` used the same solver, with references on the rows. On kirk0 the fix changed 6 of
+705 association frames and 7 of 60 confirmed tracks, fragmentation moved from 0.428 to 0.424, and
+5–10 m/s mean NIS from 1.25 to 1.11
+([measured outcome](../../data/maths/paper-implementation-gap-analysis.md#measured-outcome-h1)).
+kirk0 is sparse; a busier site, where clusters outnumber tracks more often, may move more. These
+results used the defective solver and should be re-run on macOS, in this order:
+
+1. The D2 A/B against annotated truth (21.1 D5), both its tracking and its per-frame scoring. Both
+   arms shared the solver, so the direction is likelier to hold than the magnitudes, but D5 settles
+   the production measurement and should rest on a corrected run.
+2. The [Phase 0/1 corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
+   through `make evidence-run`. Its schema 2 bands and recorded baseline digests will change.
+3. E1.1 and E1.3 on the three-site corpus and `clar0`: association decides which observations
+   feed each estimate.
+4. The Columbus 0.25x replay against main, only where its absolute numbers are quoted: both arms
+   shared the solver.
+
+The perf gate needs nothing recaptured: the tuning fingerprint and the full-profile work counters
+are unchanged.
+
 Phase 1 has a default-off, bounded `l4bobserve.DetectionObservation` store and a replay path that
 binds ordered PCAP digests, explicit calibration, and extractor revision before writing it. P11 now
 has an opt-in coarse background-surface filter with a flat-band fallback and `GroundClipped` quality
