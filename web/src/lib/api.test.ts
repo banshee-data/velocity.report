@@ -1,7 +1,10 @@
 import {
 	buildComparisonChartPath,
+	buildHeadwayChartPath,
 	buildHistogramChartPath,
+	buildSceneHeadwayPath,
 	buildTimeSeriesChartPath,
+	getSceneHeadway,
 	createSite,
 	deleteReport,
 	deleteSite,
@@ -353,6 +356,63 @@ describe('api', () => {
 			expect(path).toContain('compare_source=radar_data_transits');
 			expect(path).toContain('tz=America%2FLos_Angeles');
 			expect(path).toContain('paper_size=letter');
+		});
+	});
+
+	describe('scene headway', () => {
+		const version = {
+			estimate_stage: 'fixed_lag' as const,
+			estimator_id: 'cv_kf_v1',
+			obs_model_id: 'medoid_v0',
+			method_id: 'following_encounter_v1/abc',
+			param_hash: 'sha256:x'
+		};
+
+		it('builds the headway path with the default selection', () => {
+			expect(buildSceneHeadwayPath('soma1')).toBe('/api/scenes/soma1/headway');
+		});
+
+		it('selects a source and an exact version, stage included', () => {
+			const path = buildSceneHeadwayPath('soma 1', { sourceId: 'source/v1/a', version });
+			expect(path).toContain('/api/scenes/soma%201/headway?');
+			expect(path).toContain('source_id=source%2Fv1%2Fa');
+			expect(path).toContain('stage=fixed_lag');
+			expect(path).toContain('estimator_id=cv_kf_v1');
+			expect(path).toContain('obs_model_id=medoid_v0');
+			expect(path).toContain('method_id=following_encounter_v1%2Fabc');
+			expect(path).toContain('param_hash=sha256%3Ax');
+		});
+
+		it('builds the headway chart path on the histogram endpoint', () => {
+			expect(buildHeadwayChartPath({ sceneId: 'soma1' })).toBe(
+				'/api/charts/histogram?kind=headway&scene=soma1'
+			);
+			const path = buildHeadwayChartPath({
+				sceneId: 'soma1',
+				stage: 'final',
+				metric: 'interaction.following_spatial_gap_m',
+				paperSize: 'a4'
+			});
+			expect(path).toContain('kind=headway');
+			expect(path).toContain('stage=final');
+			expect(path).toContain('metric=interaction.following_spatial_gap_m');
+			expect(path).toContain('paper_size=a4');
+		});
+
+		it('fetches a scene headway', async () => {
+			const body = { scene_id: 'soma1', status: 'provisional', availability: 'no_encounters' };
+			(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => body });
+			await expect(getSceneHeadway('soma1', { stage: 'final' })).resolves.toEqual(body);
+			expect(global.fetch).toHaveBeenCalledWith('/api/scenes/soma1/headway?stage=final');
+		});
+
+		it("surfaces the server's message on a bad selection", async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400,
+				json: async () => ({ error: "Invalid 'stage'; must be one of online, fixed_lag, final" })
+			});
+			await expect(getSceneHeadway('soma1')).rejects.toThrow("Invalid 'stage'");
 		});
 	});
 

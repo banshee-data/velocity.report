@@ -35,29 +35,31 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 
 ## 1. HTTP API endpoints: radar / main server
 
-**Source:** [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go), [internal/api/server.go](../../internal/api/server.go), [internal/api/server_admin.go](../../internal/api/server_admin.go), [internal/api/server_charts.go](../../internal/api/server_charts.go), [internal/api/server_reports.go](../../internal/api/server_reports.go), [internal/api/server_sites.go](../../internal/api/server_sites.go)
+**Source:** [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go), [internal/api/server.go](../../internal/api/server.go), [internal/api/server_admin.go](../../internal/api/server_admin.go), [internal/api/server_charts.go](../../internal/api/server_charts.go), [internal/api/server_scenes_headway.go](../../internal/api/server_scenes_headway.go), [internal/api/server_reports.go](../../internal/api/server_reports.go), [internal/api/server_sites.go](../../internal/api/server_sites.go)
 
-| Folder                             | File                | Endpoint                             | DB  | Web | Mac |
-| ---------------------------------- | ------------------- | ------------------------------------ | --- | --- | --- |
-| [internal/api](../../internal/api) | `server.go`         | `GET /api/events`                    | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server.go`         | `POST /admin/radar/command`          | -   | ✅  | -   |
-| [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/config`                    | -   | ✅  | -   |
-| [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/capabilities`              | -   | ✅  | -   |
-| [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/db_stats`                  | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server.go`         | `GET /api/radar_stats`               | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server.go`         | `POST /api/generate_report`          | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_sites.go`   | `GET/POST /api/sites`                | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_sites.go`   | `GET/PUT/DEL /api/sites/{id}`        | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_sites.go`   | `GET/POST /api/site_config_periods`  | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_sites.go`   | `GET /api/timeline`                  | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_reports.go` | `GET /api/reports`                   | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_reports.go` | `GET /api/reports/site/{siteId}`     | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_reports.go` | `GET/DELETE /api/reports/{id}`       | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_reports.go` | `GET /api/reports/{id}/download/{f}` | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server.go`         | `GET/POST /api/transit_worker`       | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_charts.go`  | `GET /api/charts/timeseries`         | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_charts.go`  | `GET /api/charts/histogram`          | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server_charts.go`  | `GET /api/charts/comparison`         | ✅  | ✅  | -   |
+| Folder                             | File                       | Endpoint                                 | DB  | Web | Mac |
+| ---------------------------------- | -------------------------- | ---------------------------------------- | --- | --- | --- |
+| [internal/api](../../internal/api) | `server.go`                | `GET /api/events`                        | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`                | `POST /admin/radar/command`              | -   | ✅  | -   |
+| [internal/api](../../internal/api) | `server_admin.go`          | `GET /api/config`                        | -   | ✅  | -   |
+| [internal/api](../../internal/api) | `server_admin.go`          | `GET /api/capabilities`                  | -   | ✅  | -   |
+| [internal/api](../../internal/api) | `server_admin.go`          | `GET /api/db_stats`                      | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`                | `GET /api/radar_stats`                   | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`                | `POST /api/generate_report`              | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_sites.go`          | `GET/POST /api/sites`                    | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_sites.go`          | `GET/PUT/DEL /api/sites/{id}`            | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_sites.go`          | `GET/POST /api/site_config_periods`      | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_sites.go`          | `GET /api/timeline`                      | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_reports.go`        | `GET /api/reports`                       | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_reports.go`        | `GET /api/reports/site/{siteId}`         | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_reports.go`        | `GET/DELETE /api/reports/{id}`           | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_reports.go`        | `GET /api/reports/{id}/download/{f}`     | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`                | `GET/POST /api/transit_worker`           | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_charts.go`         | `GET /api/charts/timeseries`             | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_charts.go`         | `GET /api/charts/histogram`              | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_charts_headway.go` | `GET /api/charts/histogram?kind=headway` | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_charts.go`         | `GET /api/charts/comparison`             | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server_scenes_headway.go` | `GET /api/scenes/{id}/headway`           | ✅  | ✅  | -   |
 
 ---
 

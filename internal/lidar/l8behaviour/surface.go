@@ -53,6 +53,11 @@ var surfaceFieldNames = []string{
 	"extent_converged", "length_provenance", "width_provenance",
 	// Exposure windows.
 	"window_id", "counterpart_track_id", "duration_nanos",
+	// Distribution (distribution.go).
+	"events", "exposure_events", "accounted_nanos", "histograms", "bins", "sigma_inside_nanos",
+	"sigma_overlap_nanos", "excluded", "bands", "rate",
+	// Scene headway API envelope (internal/api/server_scenes_headway.go).
+	"scene_id", "status", "availability", "sources", "versions", "distribution", "encounters",
 }
 
 // SurfaceFieldNames returns the structural names a behaviour surface may use,

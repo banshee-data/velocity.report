@@ -292,6 +292,133 @@ func TestInteractionStoreWindowsKeepBasis(t *testing.T) {
 	}
 }
 
+// shifted moves a scenario in capture time, as a later capture of the same
+// road would be.
+func shifted(sc l8behaviour.EncounterScenario, byNanos int64) l8behaviour.EncounterScenario {
+	for i := range sc.Trajectories {
+		for j := range sc.Trajectories[i].Samples {
+			sc.Trajectories[i].Samples[j].CaptureUnixNanos += byNanos
+			sc.Trajectories[i].Samples[j].LastObservedUnixNanos += byNanos
+		}
+	}
+	return sc
+}
+
+// interactionsUnder analyses a scenario and stores it under a named source.
+func interactionsUnder(t *testing.T, sourceID string, sc l8behaviour.EncounterScenario) []l8behaviour.FollowingInteraction {
+	t.Helper()
+	a, err := l8behaviour.AnalyseFollowing(sc.Trajectories, sc.Params)
+	if err != nil {
+		t.Fatalf("%s: analyse: %v", sc.Name, err)
+	}
+	fis, err := l8behaviour.FollowingInteractions(sourceID, a)
+	if err != nil {
+		t.Fatalf("%s: map: %v", sc.Name, err)
+	}
+	return fis
+}
+
+// A capture window finds the sources that analysed it, their versions and
+// their complete records, and nothing captured outside it.
+func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewInteractionStore(db)
+	const sourceA, sourceB = "source/v1/a-window-test", "source/v1/b-window-test"
+	const hour = int64(3600) * 1_000_000_000
+	base := l8behaviour.FixtureBaseUnixNanos
+
+	final := append(append(interactionsUnder(t, sourceA, l8behaviour.ScenarioSteadyApproach()),
+		interactionsUnder(t, sourceA, l8behaviour.ScenarioOcclusion())...),
+		interactionsUnder(t, sourceA, l8behaviour.ScenarioStandstillQueue())...)
+	fixed := interactionsUnder(t, sourceA, fixedLag(l8behaviour.ScenarioSteadyApproach()))
+	ambiguous := interactionsUnder(t, sourceA, l8behaviour.ScenarioAmbiguousThenResolved())
+	later := interactionsUnder(t, sourceA, shifted(l8behaviour.ScenarioCrossing(), hour))
+	other := interactionsUnder(t, sourceB, l8behaviour.ScenarioSteadyApproach())
+	for i, batch := range [][]l8behaviour.FollowingInteraction{final, fixed, ambiguous, later, other} {
+		if err := insertInteractions(db, batch, int64(100+i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	vFinal, vFixed := final[0].Event.Version.InteractionVersion(), fixed[0].Event.Version.InteractionVersion()
+	vAmbiguous := ambiguous[0].Event.Version.InteractionVersion()
+	if later[0].Event.Version.InteractionVersion() != vFinal {
+		t.Fatal("the later capture should share the final version")
+	}
+	start, end := base, base+10*1_000_000_000
+
+	sources, err := store.SourcesOverlapping(start, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 2 || sources[0].SourceID != sourceA || sources[0].Events != 6 || sources[1].SourceID != sourceB ||
+		sources[1].Events != 1 || sources[0].FirstUnixNanos != base || sources[0].LastUnixNanos >= base+hour {
+		t.Fatalf("sources %+v", sources)
+	}
+
+	versions, err := store.VersionsOverlapping(sourceA, start, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[l8behaviour.InteractionVersion]int{}
+	for _, v := range versions {
+		counts[v.Version] = v.Events
+	}
+	if want := map[l8behaviour.InteractionVersion]int{vFinal: 3, vFixed: 1, vAmbiguous: 2}; !reflect.DeepEqual(counts, want) ||
+		versions[0].Version != vAmbiguous {
+		t.Fatalf("versions %+v, want %v newest first", versions, want)
+	}
+
+	got, err := store.ListInteractionsOverlapping(sourceA, vFinal, start, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(final) {
+		t.Fatalf("%d interactions, want the %d in the window and not the later capture", len(got), len(final))
+	}
+	for _, fi := range got {
+		stored, err := store.Get(fi.Event.EventID)
+		if err != nil || !reflect.DeepEqual(fi, stored) {
+			t.Fatalf("%s differs from Get: %v", fi.Event.EventID, err)
+		}
+		if fi.Event.SourceID != sourceA || fi.Event.Version.InteractionVersion() != vFinal {
+			t.Fatalf("%s is from %s at %+v", fi.Event.EventID, fi.Event.SourceID, fi.Event.Version)
+		}
+	}
+	for i := 1; i < len(got); i++ {
+		a, b := got[i-1].Event, got[i].Event
+		if a.StartUnixNanos > b.StartUnixNanos ||
+			(a.StartUnixNanos == b.StartUnixNanos && a.PrimaryTrackID > b.PrimaryTrackID) {
+			t.Fatal("interactions are not in start then pair order")
+		}
+	}
+
+	// The later capture is found by its own window, and a window that only
+	// touches an encounter's last instant still reads it whole.
+	laterOnly, err := store.ListInteractionsOverlapping(sourceA, vFinal, base+hour, base+hour+10*1_000_000_000)
+	if err != nil || len(laterOnly) != 1 || !reflect.DeepEqual(laterOnly[0], later[0]) {
+		t.Fatalf("later window: %d, %v", len(laterOnly), err)
+	}
+	edge := later[0].Event.EndUnixNanos
+	if touching, err := store.ListInteractionsOverlapping(sourceA, vFinal, edge, edge+1); err != nil || len(touching) != 1 {
+		t.Fatalf("touching window: %d, %v", len(touching), err)
+	}
+	if before, err := store.SourcesOverlapping(base-hour, base-1); err != nil || len(before) != 0 {
+		t.Fatalf("window before every capture: %+v, %v", before, err)
+	}
+	if none, err := store.ListInteractionsOverlapping(sourceB, vFixed, start, end); err != nil || len(none) != 0 {
+		t.Fatalf("a version the source lacks: %d, %v", len(none), err)
+	}
+	for _, w := range [][2]int64{{end, start}, {0, end}} {
+		if _, err := store.SourcesOverlapping(w[0], w[1]); err == nil {
+			t.Fatalf("window %v was queried", w)
+		}
+		if _, err := store.ListInteractionsOverlapping(sourceA, vFinal, w[0], w[1]); err == nil {
+			t.Fatalf("window %v was listed", w)
+		}
+	}
+}
+
 // The schema refuses what Validate refuses, for a writer that bypasses the
 // store: a valid predicted-only instant, a window whose duration disagrees
 // with its span, and a key that disagrees with its payload.
