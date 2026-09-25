@@ -84,3 +84,93 @@ When sufficient labelled data exists: uncomment truck/motorcyclist cascade
 rules in `classification.go`, add labels back to `validUserLabels`, restore
 UI entries. No proto or database migration needed: enum values already
 allocated.
+
+## Behaviour analytics vocabularies
+
+Closed vocabularies for behaviour results, per
+[lidar-behaviour-analytics-plan](../../plans/lidar-behaviour-analytics-plan.md) Sections 7 to 10.
+They are defined in
+[internal/lidar/l8behaviour/vocabulary.go](../../../internal/lidar/l8behaviour/vocabulary.go),
+whose tests fail when a token there is missing here. Tokens are the wire format; numeric values are
+not. `unspecified` is never a token: an unset field refuses to serialise rather than defaulting to
+a plausible value. Metric visibility tokens live in the
+[metrics registry](../../platform/architecture/metrics-registry.md).
+
+### Suppression reasons
+
+A suppressed metric carries one of these and no value, never a zero. Rows are in reporting
+precedence: when several apply, the earliest is stored and the rest are retained for review. Stage
+is last, so a run over non-final estimates still shows the physical reasons beneath it.
+
+| Reason                            | Meaning                                                                                        | Source           |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------- |
+| `class_not_supported`             | The metric is not defined for this motion class                                                | 7.2              |
+| `metric_not_observable`           | Structurally unobservable at this sample rate, for example jerk on a short passage             | 7.2              |
+| `interaction_type_uncertain`      | Interaction classification confidence is below the metric's bound                              | 7.2, 7.5         |
+| `model_degraded`                  | The estimator reported `model_invalid` or `temporarily_degraded` for a contributing track      | 7.2              |
+| `insufficient_observation`        | Too few observed frames or too short a passage, or the pose is not yet believed                | 7.2              |
+| `not_observed`                    | A contributing track, or a surface the metric needs, was not directly observed at this instant | 9.1, 9.2         |
+| `no_common_path`                  | The pair does not share the path, lateral corridor or direction the metric assumes             | 7.2              |
+| `ambiguous_leader`                | More than one credible leader, or leader/follower order is not stable                          | 8.3              |
+| `road_geometry_unavailable`       | No road-surface model for the traversed region                                                 | 7.2              |
+| `lane_geometry_unavailable`       | No lane centreline or edges                                                                    | 7.2              |
+| `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates           | 7.2              |
+| `orientation_unresolved`          | The body's front/rear direction is unresolved, so no physical endpoint can be named            | 8.3              |
+| `extent_not_converged`            | A required dimension belief has not met its admissibility count, or is a class prior           | 7.2, 9.1         |
+| `trajectory_uncertainty_too_high` | Propagated uncertainty exceeds the metric's usable bound                                       | 7.2              |
+| `non_positive_gap`                | The endpoint gap is zero or negative; requires overlap/geometry review, not a collision claim  | 8.3              |
+| `below_speed_floor`               | Follower speed below the calibrated floor: net time gap is undefined at rest, not infinite     | 8.3, 9.1         |
+| `estimate_not_final`              | Derived from an online or fixed-lag estimate; production reads final estimates only            | 2, 2.1 (G-SMO-1) |
+
+### Observation support
+
+Every sampled instant carries one support state (Section 7.3). Only observed time enters an
+exposure or opportunity denominator.
+
+| State               | Meaning                                                     | Counts toward exposure           |
+| ------------------- | ----------------------------------------------------------- | -------------------------------- |
+| `observed`          | A detection was associated at this instant                  | Yes                              |
+| `coasted`           | The estimator propagated without a measurement              | No                               |
+| `occluded_inferred` | Missing, and another object's geometry explains the absence | No; recorded as expected-missing |
+| `missed_unknown`    | Missing with no explanation, including gaps in the record   | No; a detector defect signal     |
+| `cluster_merged`    | Present but merged with another object                      | No                               |
+| `cluster_split`     | Present but fragmented across clusters                      | No                               |
+| `out_of_fov`        | Geometrically outside the sensor's coverage                 | No; not a failure                |
+
+### Estimate stage and estimation state
+
+Estimate stage tokens match the persisted `lidar_track_estimates.stage` column: `online`
+(association and the live view), `fixed_lag` (persisted comparison and provisional inspection) and
+`final` (production behaviour and reports). Only `final` may reach a production surface. An
+in-memory tracker estimate maps to `online`, or `fixed_lag` when smoothed; `final` is never
+inferred.
+
+Estimation state tokens are the l5tracks lifecycle's: `initialising`, `geometry_converging`,
+`established`, `temporarily_degraded` and `model_invalid`. Production emission requires
+`established`.
+
+### Endpoint source
+
+Each projected body endpoint records its evidence (Section 8.3). The source is derived from face
+visibility and extent provenance, never declared.
+
+| Source                | Meaning                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `directly_observed`   | Returns from the face carrying the endpoint were associated at this instant          |
+| `temporally_inferred` | The face was not seen now; extent evidence about this object from other frames       |
+| `prior_dominated`     | The face was not seen and the extent is a class prior, not evidence about the object |
+
+### Motion class and other tokens
+
+Motion class tokens are l5tracks': `rigid_vehicle` (car, truck, bus), `two_wheeler` (cyclist,
+motorcyclist), `pedestrian` and `unknown` (dynamic or unclassified). Following metrics apply to
+`rigid_vehicle` pairs only.
+
+| Vocabulary         | Tokens                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Reference point    | `body_centre`, `near_face_centre`, `cluster_medoid`                                                      |
+| Belief provenance  | `class_prior`, `accumulated`, `observed`                                                                 |
+| Path extremity     | `leading`, `trailing`                                                                                    |
+| Uncertainty kind   | `none`, `sigma`, `interval`, `bounds`                                                                    |
+| Propagation method | `analytic`, `linearised`, `sigma_point`, `monte_carlo`                                                   |
+| Benchmark kind     | `legal`, `research_threshold`, `external_distribution`, `local_distribution`, `no_established_threshold` |
