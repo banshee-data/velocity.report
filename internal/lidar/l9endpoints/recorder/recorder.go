@@ -4,6 +4,7 @@ package recorder
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -541,8 +543,20 @@ type Replayer struct {
 	mu sync.Mutex
 }
 
+// ErrObservationContainer is returned by NewReplayer for a VRLOG 1.x
+// observation container, which shares the .vrlog name but not this layout.
+var ErrObservationContainer = errors.New("VRLOG observation container, not a FrameBundle recording")
+
 // NewReplayer opens a log for replay.
 func NewReplayer(basePath string) (*Replayer, error) {
+	// Refuse an observation container by its root before looking for
+	// header.json. Its records are protobuf whose field numbers overlap
+	// FrameBundle's, so the payload probe below could accept one as a frame;
+	// the root magic is the only safe discriminator.
+	if vrlog.IsContainer(basePath) {
+		return nil, fmt.Errorf("%s: %w (container %d.x); inspect it with `velocity lidar observations inspect`",
+			basePath, ErrObservationContainer, vrlog.FormatMajor)
+	}
 	r := &Replayer{
 		basePath:     basePath,
 		currentChunk: -1,
