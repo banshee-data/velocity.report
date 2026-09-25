@@ -398,7 +398,7 @@ func logWriterStats(t *testing.T, name string, s vrlog.WriterStats) {
 func diskUsage(t *testing.T, dir string) (int64, int) {
 	var blocks int64
 	files := 0
-	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -412,6 +412,9 @@ func diskUsage(t *testing.T, dir string) (int64, int) {
 		}
 		return nil
 	})
+	if err != nil {
+		t.Fatalf("measure %s: %v", dir, err)
+	}
 	return blocks, files
 }
 

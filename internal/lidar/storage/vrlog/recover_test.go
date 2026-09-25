@@ -208,6 +208,30 @@ func committedDigests(t *testing.T, dir string, through uint64) map[string][sha2
 	return out
 }
 
+// Recovery quarantines only this format's own debris: a file in the
+// container's root that merely ends in the open suffix is left where it is.
+func TestRecoverLeavesForeignOpenFiles(t *testing.T) {
+	dir, _, _ := killedAt(t, stepSealed)
+	for _, name := range []string{"notes.open", summaryName + openSuffix} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report, err := Recover(dir, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(report.Quarantined, "notes.open") {
+		t.Fatalf("a foreign file was quarantined: %v", report.Quarantined)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "notes.open")); err != nil {
+		t.Fatalf("a foreign file was moved: %v", err)
+	}
+	if !slices.Contains(report.Quarantined, summaryName+openSuffix) {
+		t.Fatalf("the writer's own open summary was not quarantined: %v", report.Quarantined)
+	}
+}
+
 // sameObjectsExceptQuarantined requires recovery to leave every object it
 // found byte for byte, except those it names as quarantined, which must be
 // gone from their place, and to add nothing but its own recovery generation.

@@ -193,7 +193,9 @@ func (r *Reader) uncommittedObjects() ([]string, error) {
 		case name == currentName+openSuffix:
 			// A pointer written but not renamed holds no evidence, and the
 			// next pointer write replaces it.
-		case strings.HasSuffix(name, openSuffix):
+		case name == summaryName+openSuffix || name == manifestName+openSuffix:
+			// Only this format's own root objects: another file that happens
+			// to end in the open suffix is not the writer's debris.
 			out = append(out, name)
 		}
 	}
