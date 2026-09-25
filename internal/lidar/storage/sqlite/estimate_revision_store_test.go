@@ -164,6 +164,58 @@ func TestRevisedEstimateBatchIsAtomic(t *testing.T) {
 	}
 }
 
+// A refined estimate whose ID collides with a stored row of another version
+// is refused inside the transaction, whatever the ID looks like: the online
+// row survives untouched, the batch writes nothing, and one stage cannot
+// replace another either.
+func TestRevisedEstimateCannotReplaceAnotherVersionByID(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+	online, residual, fixedLag := revisionFixture("trk_a", "observation/v1/a", 100, EstimateStageFixedLag, "sha256:lag3f")
+	_, _, other := revisionFixture("trk_a", "observation/v1/b", 200, EstimateStageFixedLag, "sha256:lag3f")
+	if err := store.Insert(online, residual); err != nil {
+		t.Fatal(err)
+	}
+
+	colliding := fixedLag
+	colliding.Estimate.EstimateID = online.EstimateID
+	colliding.Residual.EstimateID = online.EstimateID
+	colliding.Revision.EstimateID = online.EstimateID
+	colliding.Revision.RevisesEstimateID = "estimate/elsewhere"
+	err := store.InsertRevised([]RevisedStateEstimate{other, colliding})
+	if err == nil || !strings.Contains(err.Error(), "another version") {
+		t.Fatalf("a refined estimate reusing the online ID was not refused: %v", err)
+	}
+	var x float32
+	var stage string
+	if err := database.QueryRow(`SELECT x, stage FROM lidar_track_estimates WHERE estimate_id = ?`, online.EstimateID).Scan(&x, &stage); err != nil {
+		t.Fatal(err)
+	}
+	if x != online.X || stage != EstimateStageOnline {
+		t.Fatalf("online row replaced: x=%v stage=%q", x, stage)
+	}
+	for _, table := range []string{"lidar_track_estimates", "lidar_track_residuals"} {
+		var n int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n != 1 {
+			t.Fatalf("%s holds %d rows after a refused batch, want the online row alone", table, n)
+		}
+	}
+
+	// Nor may one refined stage take over another's row.
+	if err := store.InsertRevised([]RevisedStateEstimate{fixedLag}); err != nil {
+		t.Fatal(err)
+	}
+	final := fixedLag
+	final.Estimate.Stage = EstimateStageFinal
+	if err := store.InsertRevised([]RevisedStateEstimate{final}); err == nil {
+		t.Fatal("a final estimate replaced the fixed_lag row under its ID")
+	}
+}
+
 // The evidence oracle must stay reproducible when an observation carries
 // online and refined estimates: rows written in either order give one digest.
 func TestEvidenceOracleOrdersRefinedStagesDeterministically(t *testing.T) {

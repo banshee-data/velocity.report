@@ -1,7 +1,9 @@
 package sqlite
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -80,6 +82,10 @@ func InsertRevisedStateEstimates(db DBClient, batch []RevisedStateEstimate) erro
 	}
 	insertedAt := time.Now().UnixNano()
 	for _, item := range batch {
+		if err := refuseForeignEstimate(tx, item.Estimate); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
 		if err := insertStateEstimate(tx, item.Estimate, item.Residual, insertedAt); err != nil {
 			_ = tx.Rollback()
 			return err
@@ -95,9 +101,34 @@ func InsertRevisedStateEstimates(db DBClient, batch []RevisedStateEstimate) erro
 	return nil
 }
 
-// validateRevisedStateEstimate refuses anything that could overwrite or
-// impersonate an online estimate, or a revision that does not describe the
-// estimate it is attached to.
+// refuseForeignEstimate stops a refined write from replacing a stored row of
+// another version under the same estimate_id. The insert is INSERT OR REPLACE
+// so that a replay can be persisted twice, which would otherwise let a
+// colliding ID swap out an online estimate, or another stage's, without trace.
+// The check is on the stored row, not the ID's shape, so it holds whatever
+// scheme produced the ID.
+func refuseForeignEstimate(tx *sql.Tx, e TrackEstimate) error {
+	var estimatorID, observationModelID, paramHash, stage string
+	err := tx.QueryRow(`SELECT estimator_id, observation_model_id, param_hash, stage
+		  FROM lidar_track_estimates WHERE estimate_id = ?`, e.EstimateID).
+		Scan(&estimatorID, &observationModelID, &paramHash, &stage)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check existing estimate %s: %w", e.EstimateID, err)
+	}
+	if stage != e.Stage || estimatorID != e.EstimatorID || observationModelID != e.ObservationModelID || paramHash != e.ParamHash {
+		return fmt.Errorf("revised estimate %s would replace a stored %s estimate of another version (%s/%s/%s)",
+			e.EstimateID, stage, estimatorID, observationModelID, paramHash)
+	}
+	return nil
+}
+
+// validateRevisedStateEstimate refuses a stage that is not a revision, or a
+// revision that does not describe the estimate it is attached to. That a
+// write cannot replace a stored row of another version, the online estimate
+// included, is checked inside the transaction by refuseForeignEstimate.
 func validateRevisedStateEstimate(item RevisedStateEstimate) error {
 	e, r := item.Estimate, item.Revision
 	if e.Stage != EstimateStageFixedLag && e.Stage != EstimateStageFinal {
