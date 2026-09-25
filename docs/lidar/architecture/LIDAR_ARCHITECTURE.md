@@ -239,6 +239,7 @@ Documentation for the LiDAR subsystem lives under [docs/lidar/](..).
 | [lidar-pipeline-reference.md](lidar-pipeline-reference.md)                                         | Component inventory, data-flow diagram, deployment topology                    |
 | [network-configuration.md](network-configuration.md)                                               | Network interface selection, diagnostics, and hot-reload plan for UDP listener |
 | [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)           | Proposed path for supporting 3–10 LiDAR models with distinct packet formats    |
+| [time-domain-model.md](time-domain-model.md)                                                       | Capture time versus wall time: which clock each quantity uses, replay, gaps    |
 
 #### Historical (completed designs)
 
@@ -368,6 +369,8 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 | Bernardin & Stiefelhagen (2008): CLEAR MOT metrics                        | Standard MOT evaluation metrics (MOTA, MOTP); used in our L8 Analytics run comparisons                                                   |
 
 **Design choice:** Classical Kalman + Hungarian over learned trackers (e.g. transformer-based); deterministic, real-time on Raspberry Pi hardware, and fully interpretable. The architecture supports future drop-in replacement of the tracker implementation without changing layer boundaries.
+
+**Time domain:** L5 takes elapsed time only from capture timestamps, never from the host clock, so a replay reproduces its tracks at any pace. Which clock each quantity uses, and the guarantees each L1 timestamp mode gives, are in the [time-domain model](time-domain-model.md).
 
 ### L3f velocity-coherent foreground (planned)
 
@@ -532,7 +535,7 @@ The radar and LiDAR operate in fundamentally different domains:
 | Spatial resolution   | 0.2° azimuth, 40 elevation rings           | ~20°×24° beam cone, no angular discrimination   |
 | Velocity information | None (derived by L5 track differentiation) | Direct Doppler measurement, beam-aggregate      |
 | Data transport       | UDP packets (L1), frame assembly (L2)      | Serial JSON, separate ingest path               |
-| Clock source         | Sensor PTP/internal                        | Sensor uptime counter                           |
+| Clock source         | Host arrival (default) or sensor clock     | Sensor uptime counter                           |
 | Pipeline             | L1–L6 LiDAR perception pipeline            | `internal/radar/` → `radar_data` table directly |
 
 **Layer tradeoffs with the current sensor footprint (OPS243-A + Pandar40P):**

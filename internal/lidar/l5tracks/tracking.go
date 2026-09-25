@@ -68,6 +68,29 @@ type TrackedObject struct {
 	LastClusterID            int64
 	LastResidual             FilterResidual
 
+	// Capture-time state and coast accounting; see time_domain.go.
+	//
+	// StateUnixNanos is the capture time the Kalman state refers to: the
+	// frame time after each prediction, or the measurement time after a
+	// MeasurementTimePrediction update. When an interval is clamped (to
+	// MaxPredictDt by default, or to the CaptureGapPrediction limit) the
+	// state is re-anchored at the frame time and the unpredicted remainder is
+	// counted in TimeDomainStats, the convention the default clamp has always
+	// followed. LastObservedUnixNanos is the state
+	// time of the last accepted observation. It differs from
+	// LastMeasurementUnixNanos, which is evidence (the acquisition time of
+	// the cluster geometry), while this is the estimator's own clock.
+	//
+	// CoastAgeSecs is how long, in capture time, the track has now gone
+	// without an observation: zero on a frame it is observed. MaxCoastAgeSecs
+	// is the longest unobserved interval it has closed. Unlike Misses and
+	// MaxOcclusionFrames these count elapsed capture time, so frames that
+	// never reached the tracker are not silently forgiven.
+	StateUnixNanos        int64
+	LastObservedUnixNanos int64
+	CoastAgeSecs          float32
+	MaxCoastAgeSecs       float32
+
 	// History of positions
 	History []TrackPoint
 
@@ -187,8 +210,12 @@ type Tracker struct {
 	NextTrackID int64
 	Config      TrackerConfig
 
-	// Last update timestamp for dt computation
+	// Last update timestamp for dt computation: the frame clock, in capture
+	// time. See time_domain.go.
 	LastUpdateNanos int64
+
+	// timeStats records the capture-time stream for diagnostics.
+	timeStats TimeDomainStats
 
 	// Fragmentation counters (reset via ResetFragmentation)
 	TracksCreated   int
@@ -264,6 +291,7 @@ func (t *Tracker) Reset() {
 	t.Tracks = make(map[string]*TrackedObject)
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
+	t.timeStats = TimeDomainStats{}
 	t.lastAssociations = nil
 	t.TotalForegroundPoints = 0
 	t.ClusteredPoints = 0
@@ -289,27 +317,19 @@ func NewTracker(config TrackerConfig) *Tracker {
 
 // Update processes a new frame of clusters and updates tracks.
 // This is the main entry point for the tracking pipeline.
+//
+// timestamp is the frame's capture time, never the host's wall clock: it is
+// the only source of elapsed time the estimator has. See time_domain.go.
 func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	nowNanos := timestamp.UnixNano()
 
-	// Compute dt (time delta since last update)
-	var dt float32
-	if t.LastUpdateNanos > 0 {
-		dt = float32(nowNanos-t.LastUpdateNanos) / 1e9 // Convert to seconds
-	} else {
-		dt = 0.1 // Default 100ms for first frame
-	}
-	// Clamp dt to MaxPredictDt so throttle-induced gaps (e.g. 250 ms at
-	// 12 fps cap) don't create an inflated time step for association gating.
-	// Predict() also clamps independently, but the raw dt flows into
-	// associate() where it affects implied-speed plausibility checks
-	// (task 7.1).
-	if dt > t.Config.MaxPredictDt {
-		dt = t.Config.MaxPredictDt
-	}
+	// Compute dt (time delta since last update). Never negative; a gap beyond
+	// MaxPredictDt is clamped unless CaptureGapPrediction is set, and the
+	// unclamped gap is recorded either way. See frameInterval.
+	dt := t.frameInterval(nowNanos)
 	t.LastUpdateNanos = nowNanos
 
 	if traceLogger != nil {
@@ -319,15 +339,26 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				activeBefore++
 			}
 		}
-		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f",
-			nowNanos, len(clusters), activeBefore, dt)
+		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f gap=%.3f",
+			nowNanos, len(clusters), activeBefore, dt, t.timeStats.LastGapSecs)
 	}
 
-	// Step 1: Predict all active tracks to current time
+	// Step 1: Refresh each active track's capture-time coast age, expire any
+	// that have outlived their capture-time bound (a no-op unless
+	// MaxCoastSecs* is set), and predict the rest to the current time. The
+	// expiry precedes association on purpose: see TrackerConfig.
+	deletedThisFrame := 0
 	for _, track := range t.Tracks {
-		if track.TrackState != TrackDeleted {
-			t.predict(track, dt)
+		if track.TrackState == TrackDeleted {
+			continue
 		}
+		if t.observeCoastAge(track, nowNanos) {
+			t.deleteExpired(track, nowNanos, true)
+			deletedThisFrame++
+			continue
+		}
+		t.predictSpan(track, t.trackInterval(track, dt, nowNanos))
+		track.StateUnixNanos = nowNanos
 	}
 
 	// Step 2: Associate clusters to tracks using gating
@@ -341,7 +372,11 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		if trackID != "" {
 			track := t.Tracks[trackID]
 			t.observeBaselineAssociation(track, true)
+			if t.Config.MeasurementTimePrediction {
+				t.predictToMeasurement(track, clusters[clusterIdx], nowNanos)
+			}
 			t.update(track, clusters[clusterIdx], nowNanos)
+			markObserved(track)
 			track.Hits++
 			track.Misses = 0
 			matchedTracks[trackID] = true
@@ -388,7 +423,6 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// prediction step (already applied above) keeps the position estimate
 	// coasting, and we inflate the covariance to widen the gating gate
 	// so re-association is easier when the object reappears.
-	deletedThisFrame := 0
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
 			t.observeBaselineAssociation(track, false)
@@ -434,8 +468,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			}
 			if track.Misses >= maxMisses {
 				prevState := track.TrackState
-				track.TrackState = TrackDeleted
-				track.EndUnixNanos = nowNanos
+				t.deleteExpired(track, nowNanos, false)
 				deletedThisFrame++
 				diagf("Track deleted after misses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 					track.TrackID, prevState, track.Misses, maxMisses)
@@ -491,6 +524,12 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
 	measurement := t.measurementForCluster(cluster, nowNanos)
+	// The initial state is the measurement itself, so under
+	// MeasurementTimePrediction it refers to the measurement's own time.
+	stateNanos := nowNanos
+	if t.Config.MeasurementTimePrediction && measurement.UnixNanos > 0 {
+		stateNanos = measurement.UnixNanos
+	}
 
 	track := &TrackedObject{
 		TrackID:          trackID,
@@ -517,6 +556,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		Y:                        measurement.Y,
 		LastMeasurementSource:    measurement.Source,
 		LastMeasurementUnixNanos: measurement.UnixNanos,
+		StateUnixNanos:           stateNanos,
+		LastObservedUnixNanos:    stateNanos,
 		// Initialise velocity to zero
 		VX: 0,
 		VY: 0,
@@ -589,11 +630,17 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 // and deletes tracks that exceed their miss budget. This is called on
 // throttled frames where the full Update() is skipped so that tracks are
 // not artificially kept alive by the lack of cluster delivery (task 7.2).
+//
+// timestamp is the skipped frame's capture time. It refreshes coast age and
+// applies the capture-time bound, but it does not move LastUpdateNanos: no
+// prediction happened here, so the next Update must still predict across the
+// whole interval since the last one.
 func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := 0
+	t.timeStats.AdvancedFrames++
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
@@ -602,19 +649,38 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 		t.observeBaselineAssociation(track, false)
 		track.Misses++
 		track.Hits = 0
+		coastExpired := t.observeCoastAge(track, nowNanos)
 
 		maxMisses := t.Config.MaxMisses
 		if track.TrackState == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
 			maxMisses = t.Config.MaxMissesConfirmed
 		}
-		if track.Misses >= maxMisses {
+		switch {
+		case track.Misses >= maxMisses:
 			prevState := track.TrackState
-			track.TrackState = TrackDeleted
-			track.EndUnixNanos = nowNanos
+			t.deleteExpired(track, nowNanos, false)
 			deletedTracks++
 			diagf("Track deleted during AdvanceMisses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 				track.TrackID, prevState, track.Misses, maxMisses)
+		case coastExpired:
+			t.deleteExpired(track, nowNanos, true)
+			deletedTracks++
 		}
 	}
 	tracef("AdvanceMisses complete: ts=%d deleted_tracks=%d", nowNanos, deletedTracks)
+}
+
+// predictToMeasurement moves an associated track's state from the frame time
+// Step 1 predicted it to, forward to its measurement's acquisition time, so
+// the update compares the measurement with the prediction for the instant it
+// was taken (MeasurementTimePrediction, plan question Q3). A cluster without
+// its own timestamp falls back to the frame time, which makes this a no-op.
+func (t *Tracker) predictToMeasurement(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
+	measurement := t.measurementForCluster(cluster, nowNanos)
+	dt := t.stateInterval(track, measurement.UnixNanos)
+	if dt <= 0 {
+		return
+	}
+	t.predictSpan(track, dt)
+	track.StateUnixNanos = measurement.UnixNanos
 }

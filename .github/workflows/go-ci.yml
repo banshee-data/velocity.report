@@ -152,8 +152,12 @@ jobs:
         run: ./scripts/ensure-docs-stub.sh
 
       - name: Run LiDAR tests
+        # replayeval replays kirk0 many times and takes about eight minutes
+        # under -race, so Go's default 10-minute per-package timeout leaves no
+        # room for another replay test. The job's own timeout still bounds the
+        # step; the nightly run of the same suite uses -timeout 50m.
         run: |
-          go test -race -tags=pcap -p 2 -coverprofile=coverage-lidar.out -covermode=atomic \
+          go test -race -tags=pcap -p 2 -timeout 25m -coverprofile=coverage-lidar.out -covermode=atomic \
             ./internal/lidar/... \
             ./internal/cmd/root/... \
             ./internal/cmd/server/... \

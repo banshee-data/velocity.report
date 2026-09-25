@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestNormaliseExperimentsSortsAndDeduplicates(t *testing.T) {
@@ -67,9 +70,43 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentCascade, ExperimentDensityCap, ExperimentFlipRule,
-		ExperimentLikelihoodCost, ExperimentNoRegionOverrides}
+	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentDensityCap, ExperimentFlipRule,
+		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+// Each tracker experiment must reach exactly its own TrackerConfig field, and
+// no experiment must leave the configuration the tuning file describes. The
+// kirk0 A/B shows an option changes a replay; this shows it is the right one.
+func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	shipped := l5tracks.TrackerConfigFromTuning(l5)
+	if got := trackerConfigFor(l5, "", nil); got != shipped {
+		t.Fatalf("no experiments changed the tracker configuration:\n got %+v\nwant %+v", got, shipped)
+	}
+	cases := map[string]func(*l5tracks.TrackerConfig){
+		ExperimentLikelihoodCost:    func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentCascade:           func(c *l5tracks.TrackerConfig) { c.CascadedAssociation = true },
+		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
+		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
+		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
+	}
+	for name, set := range cases {
+		want := shipped
+		set(&want)
+		if got := trackerConfigFor(l5, "", []string{name}); got != want {
+			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
+		}
+	}
+	// Pipeline and background experiments must not touch the tracker.
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides} {
+		if got := trackerConfigFor(l5, "", []string{name}); got != shipped {
+			t.Errorf("%s changed the tracker configuration", name)
+		}
+	}
+	if got := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil); got.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
+		t.Errorf("measurement source mode not applied: %q", got.MeasurementSourceMode)
 	}
 }
