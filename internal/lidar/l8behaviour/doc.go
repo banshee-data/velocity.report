@@ -2,15 +2,15 @@
 // (Analytics): what a behaviour result is, when it may be emitted, and why it
 // was suppressed. It implements the Phase 6A trajectory subset and the Phase
 // 6B following slice of docs/plans/lidar-behaviour-analytics-plan.md: the
-// pointwise equations, the local following path, leader choice and encounter
-// exposure.
+// pointwise equations, the local following path, leader choice, encounter
+// exposure, and a held-out scoring harness.
 //
 // A passage is one road user traversing one site, never a driver. Results are
 // observables with units, uncertainty and provenance, never verdicts: there is
 // no tailgating score, and the named net-time-gap bands are descriptive bins
 // with no established threshold.
 //
-// The package has five parts.
+// The package has six parts.
 //
 //   - Vocabularies (vocabulary.go): closed, registered token sets for
 //     suppression reasons, observation support, estimate stage, estimation
@@ -37,6 +37,10 @@
 //     exposure with valid-time denominators, band durations and rates,
 //     interval uncertainty and suppression counts, run end to end by
 //     AnalyseFollowing over frozen multi-frame scenarios.
+//   - Validation (heldout.go): endpoint, gap and interval-coverage scoring
+//     against independent references, stratified by class, range, face
+//     aspect and support, under acceptance bounds pinned by hash before
+//     scoring.
 //
 // Production emission is gated. A result may reach a production surface only
 // from a final-stage, established, observed estimate (G-SMO-1, Section 2.1),
