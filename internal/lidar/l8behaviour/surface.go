@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 )
@@ -78,6 +79,11 @@ func AuditSurfaceJSON(doc []byte) error {
 	var v any
 	if err := dec.Decode(&v); err != nil {
 		return fmt.Errorf("surface is not JSON: %w", err)
+	}
+	// Decode reads one value; anything after it would go unaudited.
+	var extra any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return errors.New("surface is not a single JSON document: data follows the first value")
 	}
 	a := newSurfaceAuditor()
 	a.walk("$", v)

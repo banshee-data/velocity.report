@@ -97,8 +97,12 @@ func (e Endpoint) validateExtentProvenance() error {
 	if e.LengthProvenance == ProvenanceUnspecified && e.WidthProvenance == ProvenanceUnspecified {
 		return nil
 	}
-	if !e.LengthProvenance.Valid() || !e.WidthProvenance.Valid() {
+	if e.LengthProvenance == ProvenanceUnspecified || e.WidthProvenance == ProvenanceUnspecified {
 		return fmt.Errorf("endpoint of %s records one extent provenance without the other", e.TrackID)
+	}
+	if !e.LengthProvenance.Valid() || !e.WidthProvenance.Valid() {
+		return fmt.Errorf("endpoint of %s has an unknown extent provenance (length %d, width %d)",
+			e.TrackID, e.LengthProvenance, e.WidthProvenance)
 	}
 	evidence := e.LengthProvenance.IsEvidence() && e.WidthProvenance.IsEvidence()
 	switch {

@@ -209,6 +209,16 @@ func TestEndpointExtentProvenance(t *testing.T) {
 			t.Errorf("%s: endpoint validated", name)
 		}
 	}
+	// The message names what is wrong: a missing half, or an unknown token.
+	oneSided, unknown := l, l
+	oneSided.LengthProvenance, oneSided.WidthProvenance = ProvenanceAccumulated, ProvenanceUnspecified
+	unknown.LengthProvenance, unknown.WidthProvenance = 9, ProvenanceAccumulated
+	if err := oneSided.validate(ExtremityTrailing); err == nil || !strings.Contains(err.Error(), "without the other") {
+		t.Errorf("one-sided provenance: %v", err)
+	}
+	if err := unknown.validate(ExtremityTrailing); err == nil || !strings.Contains(err.Error(), "unknown extent provenance") {
+		t.Errorf("unknown provenance: %v", err)
+	}
 	consistent := l
 	consistent.LengthProvenance, consistent.WidthProvenance = ProvenanceAccumulated, ProvenanceObserved
 	if err := consistent.validate(ExtremityTrailing); err != nil {

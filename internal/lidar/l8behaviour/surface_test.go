@@ -191,6 +191,8 @@ func TestAuditSurfaceJSONRejectsInventedNames(t *testing.T) {
 		{`{"name": "time_headway"}`, "value \"time_headway\" is an alias"},
 		{`[{"reason": "not_observed"}, {"suppressions": {"tailgating": {}}}]`, `$[1].suppressions: key "tailgating"`},
 		{`not json`, "not JSON"},
+		{`{"measurements": {}} {"thw": 1}`, "not a single JSON document"},
+		{`{"measurements": {}} trailing`, "not a single JSON document"},
 	} {
 		err := AuditSurfaceJSON([]byte(c.doc))
 		if err == nil || !strings.Contains(err.Error(), c.want) {
@@ -206,5 +208,9 @@ func TestAuditSurfaceJSONRejectsInventedNames(t *testing.T) {
 		` "reason": "not_observed"}}, "accounting": {"suppressions": {"below_speed_floor": {"instants": 1, "nanos": 5}}}}`
 	if err := AuditSurfaceJSON([]byte(ok)); err != nil {
 		t.Fatal(err)
+	}
+	// Trailing whitespace, as an encoder writes it, is still one document.
+	if err := AuditSurfaceJSON([]byte(ok + "\n\t ")); err != nil {
+		t.Fatalf("trailing whitespace refused: %v", err)
 	}
 }
