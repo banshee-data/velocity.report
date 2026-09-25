@@ -600,6 +600,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if hasExperiment(experiments, ExperimentSolidBody) && cfg.ObservationDBPath == "" {
+		// Allowed, because a corpus runner's determinism repeat keeps the
+		// experiment list and drops the database, and the solid body never
+		// changes the tracks the repeat compares. But nothing it computes is
+		// written, so say so rather than let the arm look like it produced
+		// solid bodies.
+		log.Printf("experiment %s without an observation database: solid bodies are computed from the medoid only and not written", ExperimentSolidBody)
+	}
 
 	tuningCfg, err := config.LoadTuningConfigOrEmbedded(cfg.TuningFile, radarassets.TuningDefaults)
 	if err != nil {
@@ -1120,6 +1128,11 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OcclusionContinuity = oc
+	if hasExperiment(experiments, ExperimentSolidBody) {
+		// The replay tracks in the sensor frame (TransformToWorld with no
+		// pose), so the calibrated sensor origin is the frame's origin.
+		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, SensorX: 0, SensorY: 0}
+	}
 	return trackerConfig, nil
 }
 
