@@ -110,12 +110,12 @@ The gate defaults to the D2 A/B's: one metre plus half the reference object's fo
 (`-gate footprint -gate-metres 1`). `-gate fixed -gate-metres 2` gives a fixed gate. HOTA's
 similarity reaches zero at the same gate.
 
-The assignment inside the matcher does not call the L5 Hungarian solver directly. That solver pads
-missing columns and marks forbidden pairs with a 1e18 sentinel, which destroys the precision of real
-costs; measured against brute force it returns a worse assignment for about half of random matrices
-with more rows than columns. The evaluator transposes to keep rows no more than columns and uses a
-finite penalty, and a brute-force test pins it. The tracker's own association still calls the
-solver with clusters as rows.
+The assignment inside the matcher goes through a guard, `l8analytics/assign.go`, that transposes
+to keep rows no more than columns and uses a finite penalty in place of the forbidden-pair sentinel;
+a brute-force test pins it. It was written when the L5 Hungarian solver still padded with a 1e18
+sentinel that destroyed the precision of real costs. The solver itself is now exact (gap analysis
+H1), so the guard is redundant but still correct, and tracker association and the evaluator solve
+the same problem the same way.
 
 ## Refusals
 
@@ -239,5 +239,6 @@ candidate twin.
   an episode that starts before the scored window reads as missed objects.
 - **HOTA ignore absorption** is decided per localisation threshold, not once before the sweep as
   TrackEval's preprocessing does. It affects only hypotheses close to an ignored point.
-- **The tracker's solver.** `l5tracks.HungarianAssign` is inexact for matrices with more rows than
-  columns, and association passes clusters as rows. The evaluator is guarded; the tracker is not.
+- **Results from before the exact solver.** Tracker runs recorded before `l5tracks.HungarianAssign`
+  became exact (gap analysis H1) used a solver that could take a costlier assignment when clusters
+  outnumbered tracks or a gated pair was forced. Score them only against runs from the same build.
