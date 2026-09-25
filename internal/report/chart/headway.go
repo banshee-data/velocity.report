@@ -242,16 +242,18 @@ func RenderHeadwayHistogram(data HeadwayHistogramData, style ChartStyle) ([]byte
 	c.EndGroup()
 
 	// Band rules at bin edges.
-	c.BeginGroup(`class="headway-bands"`)
-	for _, band := range data.Bands {
-		x, ok := headwayEdgeX(data.Bins, band.Threshold, columnX)
-		if !ok {
-			continue
+	if len(data.Bands) > 0 {
+		c.BeginGroup(`class="headway-bands"`)
+		for _, band := range data.Bands {
+			x, ok := headwayEdgeX(data.Bins, band.Threshold, columnX)
+			if !ok {
+				continue
+			}
+			c.Line(x, topM-2, x, bottomM, `stroke="black" stroke-width="0.8" stroke-dasharray="4 3"`)
+			c.Text(x, topM-5, band.Label, fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisTickFontPx))
 		}
-		c.Line(x, topM-2, x, bottomM, `stroke="black" stroke-width="0.8" stroke-dasharray="4 3"`)
-		c.Text(x, topM-5, band.Label, fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisTickFontPx))
+		c.EndGroup()
 	}
-	c.EndGroup()
 
 	// Excluded columns: observed part, then predicted-only part above it.
 	if nExcluded > 0 {

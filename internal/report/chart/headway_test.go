@@ -232,6 +232,14 @@ func TestRenderHeadwayHistogramDrawsBandRulesAtEdges(t *testing.T) {
 	if got := len(elementsOf(parseSVG(t, svg), "line", "headway-bands")); got != 3 {
 		t.Fatalf("a threshold between edges was drawn: %d rules", got)
 	}
+
+	// A metric with no bands (the spatial gap) draws no band group and no
+	// band note.
+	data.Bands, data.Metric, data.Unit = nil, "interaction.following_spatial_gap_m", "m"
+	svg, _ = RenderHeadwayHistogram(data, DefaultHeadwayHistogramStyle(PaperA4))
+	if strings.Contains(string(svg), "headway-bands") || strings.Contains(string(svg), "Band rules") {
+		t.Fatal("a chart without bands drew band rules or their note")
+	}
 }
 
 func equalStrings(a, b []string) bool {
