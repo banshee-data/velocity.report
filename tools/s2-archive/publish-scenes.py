@@ -103,6 +103,11 @@ SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 STRIDE = "2"
 TRANSIENT_FRAMES = 400  # 40 s at 10 Hz, dropped at export not at record
 POLL_SECONDS = 20
+# The per-frame foreground cap and chunk span the published point-cloud clip was
+# made with (docs/plans/lidar-web-scene-export-plan.md, item 5): 10-second chunks
+# keep each request below 1 MiB, where the exporter's default would make one.
+CLIP_MAX_POINTS = 1200
+CLIP_CHUNK_SECONDS = 10
 
 
 def log(message):
@@ -252,6 +257,54 @@ def replay_stretch(scene):
     return vrlog
 
 
+def carry_over(vrlog, live, assets, site, title):
+    """Keep what a scene has that this script does not make.
+
+    The swap replaces assets/ wholesale, and two things in it are chosen by hand:
+    vantages.json, the camera positions somebody picked, and a point-cloud
+    clip, whose manifest records which 30 seconds were selected and why.
+    Dropping them leaves a page asking for a clip that is no longer there.
+    The vantages are copied as they are. The clip is exported again from the
+    new recording over the same source frames, so it stays aligned with the
+    tracks it plays under and names the recording it came from; its manifest,
+    being the record of the selection, is kept as it was.
+    """
+    vantages = os.path.join(live, "vantages.json")
+    if os.path.exists(vantages):
+        shutil.copy2(vantages, os.path.join(assets, "vantages.json"))
+    clip_manifest = os.path.join(live, "clip", "manifest.json")
+    if not os.path.exists(clip_manifest):
+        return
+    with open(clip_manifest) as fh:
+        try:
+            manifest = json.load(fh)
+            selection = manifest["selection"]
+            start_frame = selection["source_start_frame"]
+            frame_count = selection["source_frame_count"]
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise RuntimeError(f"bad clip manifest {clip_manifest}: {error}") from error
+    clip = os.path.join(assets, "clip")
+    os.makedirs(clip, exist_ok=True)
+    export(
+        vrlog,
+        os.path.join(clip, "part-000"),
+        site,
+        title,
+        kind="clip",
+        extra=[
+            "--start-frame",
+            str(start_frame),
+            "--frame-count",
+            str(frame_count),
+            "--max-points",
+            str(CLIP_MAX_POINTS),
+            "--chunk-seconds",
+            str(CLIP_CHUNK_SECONDS),
+        ],
+    )
+    shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+
+
 def build_scene(scene):
     site, title = scene["site"], scene["title"]
     live = os.path.join(SCENES, site, "assets")
@@ -280,6 +333,7 @@ def build_scene(scene):
     for line in summary.splitlines()[1:]:
         log("    " + line.strip())
     export(vrlog, os.path.join(assets, "background"), site, title, kind="background")
+    carry_over(vrlog, live, assets, site, title)
 
     with open(os.path.join(part, "header.json")) as fh:
         duration = float(json.load(fh)["duration_sec"])
