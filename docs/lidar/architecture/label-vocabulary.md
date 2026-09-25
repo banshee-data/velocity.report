@@ -116,7 +116,7 @@ is last, so a run over non-final estimates still shows the physical reasons bene
 | `lane_geometry_unavailable`       | No lane centreline or edges                                                                    | 7.2              |
 | `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates           | 7.2              |
 | `orientation_unresolved`          | The body's front/rear direction is unresolved, so no physical endpoint can be named            | 8.3              |
-| `extent_not_converged`            | A required dimension belief has not met its admissibility count, or is a class prior           | 7.2, 9.1         |
+| `extent_not_converged`            | A required dimension belief is absent, short of its admissibility count, or a class prior      | 7.2, 9.1         |
 | `trajectory_uncertainty_too_high` | Propagated uncertainty exceeds the metric's usable bound                                       | 7.2              |
 | `non_positive_gap`                | The endpoint gap is zero or negative; requires overlap/geometry review, not a collision claim  | 8.3              |
 | `below_speed_floor`               | Follower speed below the calibrated floor: net time gap is undefined at rest, not infinite     | 8.3, 9.1         |
@@ -159,6 +159,39 @@ visibility and extent provenance, never declared.
 | `directly_observed`   | Returns from the face carrying the endpoint were associated at this instant          |
 | `temporally_inferred` | The face was not seen now; extent evidence about this object from other frames       |
 | `prior_dominated`     | The face was not seen and the extent is a class prior, not evidence about the object |
+
+### Path condition
+
+The detail behind a `no_common_path` suppression from the local following path (Section 8.3). The
+first five say why a follower's path was refused, or why another track is not on it; the last two
+say why one follower instant could not be ordered along a path that was built. Rows are in
+reporting precedence.
+
+| Condition              | Meaning                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `weak_support`         | Too little observed, moving evidence to fit a path or to place a track on one          |
+| `direction_reversal`   | Motion both ways along the corridor: a member that reverses, or opposing traffic       |
+| `crossing`             | A body crosses the corridor at an angle no following relation allows                   |
+| `fork_or_merge`        | Tracks share part of the corridor and diverge elsewhere, so the path branches          |
+| `lateral_incompatible` | Tracks that overlap along the path are laterally apart: more than one path             |
+| `outside_extent`       | The follower lies outside its path's supported extent at this instant                  |
+| `unestablished_body`   | The nearest body ahead in the corridor is not on the path, for no more specific reason |
+
+### Candidate disposition
+
+What leader choice decided about each other body present at a follower instant, so a chosen
+leader or a suppression can be explained from the record.
+
+| Disposition        | Meaning                                                                       |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `leader`           | The nearest credible leader, chosen                                           |
+| `competing`        | Ahead in the corridor and not separable from the nearest: `ambiguous_leader`  |
+| `unestablished`    | The nearest body ahead in the corridor, but not on the path: `no_common_path` |
+| `blocked`          | Ahead in the corridor, separably beyond the nearest                           |
+| `beyond_range`     | Ahead in the corridor, beyond the search range                                |
+| `behind`           | In the corridor, not ahead of the follower                                    |
+| `outside_corridor` | Laterally outside the corridor, measured from the path or from the follower   |
+| `off_path`         | Does not project onto the path's supported extent                             |
 
 ### Motion class and other tokens
 

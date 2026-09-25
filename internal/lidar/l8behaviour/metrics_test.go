@@ -7,8 +7,8 @@ import (
 
 func TestFollowingMetricDefinitions(t *testing.T) {
 	defs := FollowingMetrics()
-	if len(defs) != 11 {
-		t.Fatalf("%d following metrics, want 11", len(defs))
+	if len(defs) != 15 {
+		t.Fatalf("%d following metrics, want 15", len(defs))
 	}
 	seen := map[MetricID]bool{}
 	aliases := map[string]MetricID{}

@@ -88,6 +88,12 @@ func vocabularyCases() []vocabularyCase {
 		{"visibility", int(visibilityEnd), func() []string { return tokensOf(Visibilities()) },
 			parser(ParseVisibility), VisibilityUnspecified, decoder[Visibility](),
 			func(i int) bool { return Visibility(i).Valid() }},
+		{"path condition", int(pathConditionEnd), func() []string { return tokensOf(PathConditions()) },
+			parser(ParsePathCondition), PathConditionUnspecified, decoder[PathCondition](),
+			func(i int) bool { return PathCondition(i).Valid() }},
+		{"candidate disposition", int(candidateDispositionEnd), func() []string { return tokensOf(CandidateDispositions()) },
+			parser(ParseCandidateDisposition), DispositionUnspecified, decoder[CandidateDisposition](),
+			func(i int) bool { return CandidateDisposition(i).Valid() }},
 	}
 }
 

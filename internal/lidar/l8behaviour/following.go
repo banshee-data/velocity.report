@@ -28,7 +28,7 @@ package l8behaviour
 //
 // This file stops at one instant. Building the path, choosing the nearest
 // credible leader among candidates and aggregating exposure over an encounter
-// are the next increment, and plug in through PathFrame, EvaluateFollowing and
+// plug in through PathFrame, EvaluateFollowing and
 // FollowingPoint.SupportedOpportunity.
 
 import (
@@ -433,6 +433,12 @@ type FollowingPoint struct {
 	// Gap is present whenever both bodies projected; its value is review
 	// material and is published only through SpatialGap.
 	Gap *GapEstimate `json:"gap,omitempty"`
+	// TimeGap is the net time gap arithmetic whenever Gap is present: a value
+	// when the gap carries no equation-level reason and the follower is at or
+	// above the speed floor, otherwise the reason and no value. Like Gap it is
+	// review material, kept so a provisional encounter can still show its
+	// time gaps; it is published only through NetTimeGap.
+	TimeGap *TimeGapEstimate `json:"time_gap,omitempty"`
 	// Reasons is every reason that applied, in precedence order. SpatialGap
 	// carries the first that concerns it, NetTimeGap the first overall.
 	Reasons    []SuppressionReason `json:"reasons,omitempty"`
@@ -479,11 +485,19 @@ var predictionWanted = map[SuppressionReason]bool{
 // Every reason that applies is collected and reported in the vocabulary's
 // precedence order, so the stored reason is the most fundamental one and a
 // provisional run over non-final estimates still shows the physical reasons
-// beneath estimate_not_final. Inputs that contradict themselves, or a pair
-// from two estimator versions, are errors.
+// beneath estimate_not_final. A path built from non-final estimates makes the
+// pair non-final too. Inputs that contradict themselves, or a pair from two
+// estimator versions, are errors.
 func EvaluateFollowing(path PathFrame, leader, follower Party, params FollowingParams) (FollowingPoint, error) {
 	if err := params.Validate(); err != nil {
 		return FollowingPoint{}, err
+	}
+	if path == nil {
+		return FollowingPoint{}, fmt.Errorf("following evaluation requires a path")
+	}
+	pathStage := path.Stage()
+	if !pathStage.Valid() {
+		return FollowingPoint{}, fmt.Errorf("path %s stage is %s", path.GeometryID(), pathStage)
 	}
 	for _, p := range []Party{leader, follower} {
 		if err := p.Passage.Validate(); err != nil {
@@ -515,6 +529,9 @@ func EvaluateFollowing(path PathFrame, leader, follower Party, params FollowingP
 		return FollowingPoint{}, err
 	}
 	pairReasons.add(classReason)
+	if pathStage != StageFinal {
+		pairReasons.add(ReasonEstimateNotFinal)
+	}
 
 	var bodies [2]*BodyOnPath
 	anyUnobserved := false
@@ -554,6 +571,8 @@ func EvaluateFollowing(path PathFrame, leader, follower Party, params FollowingP
 		if err != nil {
 			return FollowingPoint{}, err
 		}
+		retained := thw
+		pt.TimeGap = &retained
 	}
 	thwReasons := pairReasons
 	thwReasons.add(thw.Reason)
@@ -561,8 +580,9 @@ func EvaluateFollowing(path PathFrame, leader, follower Party, params FollowingP
 
 	prov := Provenance{
 		Version: VersionProvenance{
-			// A pair is only as final as its less final party.
-			EstimateStage: min(leader.Sample.Stage, follower.Sample.Stage),
+			// A pair is only as final as its less final party, or the path
+			// it was measured along.
+			EstimateStage: min(leader.Sample.Stage, follower.Sample.Stage, pathStage),
 			EstimatorID:   follower.Estimate.EstimatorID,
 			ObsModelID:    follower.Estimate.ObsModelID,
 			MethodID:      FollowingMethodID,
