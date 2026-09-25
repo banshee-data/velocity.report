@@ -1,6 +1,7 @@
 # Deterministic scene capture and review harness
 
 - **Status:** Active; Milestones 1–2 complete, Milestones 3–5 outstanding
+- **Canonical:** [reference-capture.md](../lidar/operations/reference-capture.md)
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
 - **Target:** v0.5.2–v0.6.6; staged delivery across milestones 1–5
 - **Backlog:** [Release work items](../BACKLOG.md)

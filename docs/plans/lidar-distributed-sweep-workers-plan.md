@@ -6,7 +6,7 @@
 > its shared-filesystem and permanently reachable-worker assumptions are not the
 > current design.
 
-- **Canonical:** [LiDAR worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md)
+- **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)
 
 Architectural plan for running parameter sweeps across multiple remote worker machines, coordinated by a single driver unit with a job-submission API and shared filesystem access. Workers run as a mode of the same unified binary: not a separate executable.
 

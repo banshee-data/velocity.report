@@ -1,6 +1,7 @@
 # Lossless LiDAR observation persistence batching
 
 - **Status:** Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
+- **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0
 - **Backlog:** [State-estimation evidence sprint](../BACKLOG.md#sprint-0520-trustworthy-replay-evidence)
