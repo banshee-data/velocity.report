@@ -121,3 +121,9 @@ This keeps deployment shape unchanged: no new services, no cloud coordination, n
 1. Should multiple ingest bindings be active simultaneously (multi-sensor on one host), or remain single-active to match current operational model?
 2. Should model catalogue updates be migration-seeded only, or allow import from signed local files?
 3. Which minimum capability contract is required before a model is marked "production-ready" in UI?
+4. How are capture timestamps from several sensors aligned onto one timeline before L7 Scene fuses
+   them? Each sensor's capture clock is independent, and only native sensor time follows the
+   sensor at all; host arrival time carries per-sensor latency. The single-sensor boundary, the
+   per-mode guarantees and the fusion implications are in the
+   [time-domain model](time-domain-model.md). A model's supported timestamp modes belong in its
+   capability metadata for the same reason.

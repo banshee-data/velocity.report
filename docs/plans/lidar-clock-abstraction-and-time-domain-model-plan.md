@@ -1,10 +1,13 @@
 # Clock abstraction adoption and time-domain model
 
-- **Status:** Proposed
+- **Status:** In progress: phases E and F delivered (the estimator time-domain boundary and its
+  replay-equivalence pin; F3 moves with A1). Phases A to C are the v0.5.4 clock abstraction
+  remainder
 - **Layers:** Cross-cutting (L1 Packets, L2 Frames, Pipeline, L9 Endpoints)
-- **Canonical:** [multi-model-ingestion-and-configuration.md](../lidar/architecture/multi-model-ingestion-and-configuration.md)
+- **Canonical:** [time-domain-model.md](../lidar/architecture/time-domain-model.md)
 - **Related:** [`timeutil/clock.go`](../../internal/timeutil/clock.go),
   [`LIDAR_ARCHITECTURE.md`](../lidar/architecture/LIDAR_ARCHITECTURE.md),
+  [`multi-model-ingestion-and-configuration.md`](../lidar/architecture/multi-model-ingestion-and-configuration.md),
   [`go-structured-logging-plan.md`](go-structured-logging-plan.md) (Item 3)
 
 Adopt the existing `timeutil.Clock` interface into the critical-path
@@ -78,6 +81,15 @@ and all timestamps are effectively wall time. Under GPS/PTP modes,
 or in replay, the tracker's `dt` and the pipeline throttle would
 use different time bases.
 
+**Resolution (phases E and F).** The tracker's time base is now
+defined rather than inherited: `l5tracks` takes elapsed time only
+from capture timestamps and a source scan keeps wall-clock reads
+out of it. The throttle stays in the wall domain on purpose: it may
+drop frames, and the tracker then measures the gap in capture time.
+The per-mode guarantees, including where a mode cannot keep the
+frame clock monotonic, are in the
+[time-domain model](../lidar/architecture/time-domain-model.md).
+
 ### F3: frame-rate throttle is wall-time coupled
 
 `pipeline/tracking_pipeline.go:215-219`:
@@ -121,6 +133,28 @@ describes supporting 3–10 LiDAR models with different packet
 formats but does not address cross-sensor timestamp alignment,
 variable spin rates across sensors, or the L7 Scene fusion time
 reference.
+
+### F7: findings from the phase E and F audit
+
+- **Frames without clusters never reach the tracker.** The pipeline
+  returns before `Tracker.Update`, so coasting tracks are neither
+  predicted nor missed across them. Over kirk0 the tracker received
+  706 of 832 frames and saw five gaps over `max_predict_dt`, the
+  longest 2.0 s. The frame-count expiry rule therefore counts frames
+  with clusters, not elapsed time; capture-time coast age does not.
+- **A backwards frame timestamp became a negative `dt`**, running
+  the state backwards and subtracting process noise. Fixed: the
+  interval is zero and the step is counted.
+- **Boot-offset modes wrap every second.** `gps`, `internal` and
+  the PTP enum add the within-second microsecond field to parser
+  boot time; each second boundary steps the frame clock back about
+  0.9 s. The PTP/GPS static fallback to system time never releases,
+  and the server restores `system` mode after any PCAP replay
+  whatever `LIDAR_TIMESTAMP_MODE` selected. Recorded, not changed
+  (item C2).
+- **The paced replay reader skips the packet it forgives on** once
+  more than 30 s behind, a wall-clock-dependent packet loss. Not
+  testable without clock injection; belongs with A4.
 
 ## Decisions
 
@@ -197,7 +231,8 @@ optional type-level enforcement when multi-sensor lands.
 | Clock → Pipeline  | Nil clock → panic       | Default `RealClock{}`  |
 | Clock → FrameBld  | Nil clock → panic       | Default `RealClock{}`  |
 | MockClock.Advance | Forget → test hangs     | Document; use timeouts |
-| Time-domain drift | Tracker dt vs wall time | SystemTime is default  |
+| Time-domain drift | Tracker dt vs wall time | Tracker has no clock   |
+| Clock steps back  | Negative tracker dt     | Zero dt, counted       |
 
 ## Implementation plan
 
@@ -279,32 +314,59 @@ testability benefits justify the review surface.
 
 ### Phase e: formalise time-domain boundary
 
-- [ ] **E1.** Add doc comment block to `LiDARFrame` in
+- [x] **E1.** Add doc comment block to `LiDARFrame` in
       `l2frames/types.go` explaining the two timestamp domains:
       `StartTimestamp/EndTimestamp` (sensor, used for dt and
       Kalman) vs `StartWallTime/EndWallTime` (host, used for rate
-      control and diagnostics).
-- [ ] **E2.** Create
+      control and diagnostics). `LiDARFrame` lives in
+      [l2frames/frame_builder.go](../../internal/lidar/l2frames/frame_builder.go);
+      the comment is there, and calls the first pair capture time
+      rather than sensor time, because on replay and in the default
+      system mode it is not the sensor's clock.
+- [x] **E2.** Create
       `docs/lidar/architecture/time-domain-model.md` explaining the
       sensor-time vs wall-time boundary, when each is appropriate,
       and implications for multi-sensor fusion.
-- [ ] **E3.** Add a note to
+- [x] **E3.** Add a note to
       `multi-model-ingestion-and-configuration.md` referencing the
       time-domain model and identifying cross-sensor timestamp
       alignment as an open question for L7 Scene.
+- [x] **E4.** Hold the boundary in code: nothing in `l5tracks`
+      non-test sources reads the wall clock
+      (`TestL5TracksDoesNotReadTheWallClock`); a backwards frame
+      timestamp predicts across zero instead of a negative interval;
+      unclamped capture gaps, coast age and default-off capture-time
+      expiry, gap prediction and measurement-time prediction are in
+      place. See the time-domain model's option table.
 
 ### Phase f: validate and harden
 
-- [ ] **F1.** Audit all five `TimestampMode` code paths in
+- [x] **F1.** Audit all five `TimestampMode` code paths in
       `extract.go` (lines 460–510). Verify that the `dt` computed
       in the tracker is monotonically increasing for each mode.
-      Add a unit test per mode.
-- [ ] **F2.** Add a regression test: replay a VRLOG file with
+      Add a unit test per mode. Outcome: monotonic, and equal to the
+      sensor's interval, only in `lidar` mode; equal to the capture
+      interval in every mode on replay; host arrival spacing in
+      `system` mode; stepping back about 0.9 s at every second in
+      the boot-offset modes, which the tracker now absorbs.
+      Per-mode tests in
+      [timestamp_mode_test.go](../../internal/lidar/l1packets/parse/timestamp_mode_test.go)
+      and, end to end into the tracker, in
+      [time_domain_chain_test.go](../../internal/lidar/time_domain_chain_test.go).
+- [x] **F2.** Add a regression test: replay a VRLOG file with
       `MockClock`, verify tracker `dt` values match original sensor
       timestamp intervals (not wall-clock replay intervals).
+      Delivered against PCAP rather than VRLOG, because a VRLOG
+      replay re-publishes recorded decisions and never runs the
+      tracker, and without `MockClock`, because the tracker has no
+      clock to inject:
+      `TestReplayIsInvariantToWallClockPacing` replays kirk0 unpaced,
+      at 1x and at 2x and requires identical per-frame tracks and
+      tracking baseline; `TestTrackerIntervalFollowsCaptureTimeOnReplay`
+      shows `dt` is the capture interval.
 - [ ] **F3.** Verify `time.AfterFunc` replacement in
       FrameBuilder does not regress race tests
-      (`toasc_race_test.go`).
+      (`toasc_race_test.go`). Moves with A1.
 
 ## Size estimates
 
