@@ -160,9 +160,14 @@ func captured(t *testing.T, fn func() int) (int, string) {
 	}
 	oldOut, oldErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = f, f
-	code := fn()
-	os.Stdout, os.Stderr = oldOut, oldErr
-	f.Close()
+	code := func() int {
+		// Restore even if fn panics, so a failure stays in its own test.
+		defer func() {
+			os.Stdout, os.Stderr = oldOut, oldErr
+			f.Close()
+		}()
+		return fn()
+	}()
 	out, err := os.ReadFile(f.Name())
 	if err != nil {
 		t.Fatal(err)

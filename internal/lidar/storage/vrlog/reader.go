@@ -400,7 +400,8 @@ func readBounded(path string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file", path)
+		return nil, &CorruptionError{Kind: CorruptStructure, Object: filepath.Base(path), Chunk: -1, Length: -1,
+			Detail: "not a regular file"}
 	}
 	if info.Size() > limit {
 		return nil, &CorruptionError{Kind: CorruptLength, Object: filepath.Base(path), Chunk: -1, Offset: limit, Length: -1,
@@ -634,7 +635,7 @@ func (r *Reader) readSeal(position int, ix *chunkIndex) (*pb.ChunkSeal, error) {
 	object := chunkObject(ordinal)
 	f, err := os.Open(filepath.Join(r.dir, object))
 	if err != nil {
-		return nil, &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
+		return nil, classifyReadError(err, object, int64(ordinal))
 	}
 	defer f.Close()
 	info, err := f.Stat()
@@ -716,12 +717,7 @@ func (r *Reader) readChunkBytes(ordinal, wantBytes uint64) ([]byte, error) {
 	object := chunkObject(ordinal)
 	data, err := readBounded(filepath.Join(r.dir, object), int64(r.manifest.Limits.MaxChunkBytes))
 	if err != nil {
-		var corrupt *CorruptionError
-		if errors.As(err, &corrupt) {
-			corrupt.Object, corrupt.Chunk = object, int64(ordinal)
-			return nil, corrupt
-		}
-		return nil, &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: int64(ordinal), Length: -1, Detail: err.Error()}
+		return nil, classifyReadError(err, object, int64(ordinal))
 	}
 	if wantBytes != 0 && uint64(len(data)) != wantBytes {
 		return nil, &CorruptionError{Kind: CorruptTruncated, Object: object, Chunk: int64(ordinal), Offset: int64(min(uint64(len(data)), wantBytes)), Length: -1,

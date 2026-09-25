@@ -3,7 +3,9 @@ package vrlog
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
@@ -189,11 +191,24 @@ func readCurrent(dir string, tag [8]byte) (*pb.CurrentGeneration, error) {
 // locateObject names the object in a read error. A missing object stays a
 // missing-object corruption the caller can recognise.
 func locateObject(err error, object string) error {
-	if c, ok := err.(*CorruptionError); ok {
-		c.Object = object
-		return c
+	return classifyReadError(err, object, -1)
+}
+
+// classifyReadError sorts an object read's error. Corruption is located on
+// the object; only an object that does not exist is a missing-object
+// corruption, which a chain walk may take as its end. Any other failure (a
+// permission or I/O error) is operational and returned as such, so a reader
+// fails rather than accepting a truncated view of the evidence.
+func classifyReadError(err error, object string, chunk int64) error {
+	var corrupt *CorruptionError
+	if errors.As(err, &corrupt) {
+		corrupt.Object, corrupt.Chunk = object, chunk
+		return corrupt
 	}
-	return &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: -1, Length: -1, Detail: err.Error()}
+	if errors.Is(err, fs.ErrNotExist) {
+		return &CorruptionError{Kind: CorruptMissing, Object: object, Chunk: chunk, Length: -1, Detail: err.Error()}
+	}
+	return fmt.Errorf("read %s: %w", object, err)
 }
 
 // checkGeneration verifies everything a generation promises that does not
