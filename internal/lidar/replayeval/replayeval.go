@@ -262,31 +262,41 @@ func (s *strictFrameEvidenceSink) RecordFrameEvidenceFailure(err error) {
 // guarantees) before the caller sees it, and retains the first failure,
 // including a lineage break the tap reports, so the replay fails rather than
 // delivering a stream with a silent fault.
+//
+// Two locks, because deliver is the caller's code. order serialises
+// ObserveFrame, so validation and delivery stay in sequence order; it guards
+// stream and is held across deliver. mu guards only frames and err and is
+// never held while deliver runs, so a callback that reads the result or
+// reports a failure cannot deadlock against the frame it is handling.
 type strictObservationFrameSink struct {
 	deliver func(l4bobserve.FrameRecord) error
 	stream  *l4bobserve.StreamValidator
+	order   sync.Mutex
 	mu      sync.Mutex
 	frames  int
 	err     error
 }
 
 func (s *strictObservationFrameSink) ObserveFrame(record l4bobserve.FrameRecord) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.err != nil {
+	s.order.Lock()
+	defer s.order.Unlock()
+	if _, err := s.result(); err != nil {
 		// The first failure is retained and fails the replay; returning it for
 		// every later frame would only repeat it in the pipeline's log.
 		return nil
 	}
 	if err := s.stream.AddFrame(record); err != nil {
-		s.err = fmt.Errorf("observation frame stream: %w", err)
-		return s.err
-	}
-	if err := s.deliver(record); err != nil {
-		s.err = err
+		err = fmt.Errorf("observation frame stream: %w", err)
+		s.RecordObservationFrameFailure(err)
 		return err
 	}
+	if err := s.deliver(record); err != nil {
+		s.RecordObservationFrameFailure(err)
+		return err
+	}
+	s.mu.Lock()
 	s.frames++
+	s.mu.Unlock()
 	return nil
 }
 

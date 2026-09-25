@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 )
@@ -61,5 +62,36 @@ func TestStrictObservationFrameSinkRetainsTheFirstFailure(t *testing.T) {
 	}
 	if frames, err := (*strictObservationFrameSink)(nil).result(); frames != 0 || err != nil {
 		t.Fatal("a disabled tap reported a result")
+	}
+}
+
+// deliver is the caller's code, and a callback that reads the sink's result or
+// reports a failure while handling a frame must not deadlock against it.
+func TestStrictObservationFrameSinkCallbackMayReenter(t *testing.T) {
+	var sink *strictObservationFrameSink
+	reported := errors.New("reported from the callback")
+	sink = newStrictFrameSink(func(r l4bobserve.FrameRecord) error {
+		if frames, err := sink.result(); err != nil || frames != int(r.Sequence) {
+			t.Errorf("result inside deliver = %d, %v", frames, err)
+		}
+		if r.Sequence == 1 {
+			sink.RecordObservationFrameFailure(reported)
+		}
+		return nil
+	})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for seq := uint64(0); seq < 3; seq++ {
+			_ = sink.ObserveFrame(emptyObservedFrame(seq))
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("ObserveFrame deadlocked on a callback that re-entered the sink")
+	}
+	if frames, err := sink.result(); frames != 2 || !errors.Is(err, reported) {
+		t.Fatalf("frames=%d err=%v, want 2 delivered then the reported failure retained", frames, err)
 	}
 }
