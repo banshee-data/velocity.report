@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="190.000mm" height="95.000mm" viewBox="0 0 718.1102 359.0551">
+<defs><!-- embedded font elided from the golden file --></defs>
+<g font-family="Atkinson Hyperlegible">
+<text x="46.0000" y="16.0000" class="vocab" font-size="11.0" font-weight="bold">interaction.following_net_time_gap_s</text>
+<text x="46.0000" y="31.0000" font-size="8.5">6 encounters, 6 in the bins. Share of 9.1 s accounted time: 70% in the bins, 30% beside them, 5.5% predicted-only.</text>
+<text x="46.0000" y="43.0000" font-size="8.5">Record gaps of 0.2 s stand for no time and are not counted.</text>
+<g class="status">
+<rect x="613.1102" y="4.0000" width="91.0000" height="18.0000" fill="white" stroke="#b26b00" stroke-width="1.2"/>
+<text x="658.6102" y="17.0000" font-size="10.0" font-weight="bold" text-anchor="middle">PROVISIONAL</text>
+</g>
+<g class="y-axis">
+<line x1="43.0000" y1="259.0551" x2="46.0000" y2="259.0551" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="261.8885" font-size="8.5" text-anchor="end">0%</text>
+<line x1="43.0000" y1="218.8441" x2="46.0000" y2="218.8441" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="221.6774" font-size="8.5" text-anchor="end">5%</text>
+<line x1="43.0000" y1="178.6331" x2="46.0000" y2="178.6331" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="181.4664" font-size="8.5" text-anchor="end">10%</text>
+<line x1="43.0000" y1="138.4220" x2="46.0000" y2="138.4220" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="141.2554" font-size="8.5" text-anchor="end">15%</text>
+<line x1="43.0000" y1="98.2110" x2="46.0000" y2="98.2110" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="101.0444" font-size="8.5" text-anchor="end">20%</text>
+<line x1="43.0000" y1="58.0000" x2="46.0000" y2="58.0000" stroke="black" stroke-width="0.5"/>
+<text x="41.0000" y="60.8333" font-size="8.5" text-anchor="end">25%</text>
+<line x1="46.0000" y1="58.0000" x2="46.0000" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="12.0000" y="158.5276" font-size="8.5" text-anchor="middle" transform="rotate(-90 12.00 158.53)">share of accounted time</text>
+</g>
+<g class="headway-bins">
+<rect x="48.4504" y="259.0551" width="30.1050" height="0.0000" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="83.4563" y="259.0551" width="30.1050" height="0.0000" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="118.4621" y="259.0551" width="30.1050" height="0.0000" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="153.4680" y="188.3544" width="30.1050" height="70.7007" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="188.4739" y="153.0041" width="30.1050" height="106.0511" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="223.4797" y="170.6792" width="30.1050" height="88.3759" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="258.4856" y="135.3289" width="30.1050" height="123.7262" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="293.4915" y="170.6792" width="30.1050" height="88.3759" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="328.4973" y="206.0296" width="30.1050" height="53.0255" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="363.5032" y="232.5424" width="30.1050" height="26.5128" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="398.5090" y="250.2175" width="30.1050" height="8.8376" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="433.5149" y="259.0551" width="30.1050" height="0.0000" fill="#4682b4" fill-opacity="0.8"/>
+<rect x="468.5208" y="259.0551" width="30.1050" height="0.0000" fill="#4682b4" fill-opacity="0.8"/>
+</g>
+<g class="headway-reach">
+<line x1="168.5205" y1="223.7048" x2="168.5205" y2="153.0041" stroke="black" stroke-width="0.9"/>
+<line x1="162.4995" y1="153.0041" x2="174.5415" y2="153.0041" stroke="black" stroke-width="0.9"/>
+<line x1="162.4995" y1="223.7048" x2="174.5415" y2="223.7048" stroke="black" stroke-width="0.9"/>
+<line x1="203.5264" y1="206.0296" x2="203.5264" y2="99.9785" stroke="black" stroke-width="0.9"/>
+<line x1="197.5054" y1="99.9785" x2="209.5474" y2="99.9785" stroke="black" stroke-width="0.9"/>
+<line x1="197.5054" y1="206.0296" x2="209.5474" y2="206.0296" stroke="black" stroke-width="0.9"/>
+<line x1="238.5322" y1="214.8672" x2="238.5322" y2="126.4913" stroke="black" stroke-width="0.9"/>
+<line x1="232.5112" y1="126.4913" x2="244.5533" y2="126.4913" stroke="black" stroke-width="0.9"/>
+<line x1="232.5112" y1="214.8672" x2="244.5533" y2="214.8672" stroke="black" stroke-width="0.9"/>
+<line x1="273.5381" y1="197.1920" x2="273.5381" y2="73.4658" stroke="black" stroke-width="0.9"/>
+<line x1="267.5171" y1="73.4658" x2="279.5591" y2="73.4658" stroke="black" stroke-width="0.9"/>
+<line x1="267.5171" y1="197.1920" x2="279.5591" y2="197.1920" stroke="black" stroke-width="0.9"/>
+<line x1="308.5440" y1="214.8672" x2="308.5440" y2="126.4913" stroke="black" stroke-width="0.9"/>
+<line x1="302.5230" y1="126.4913" x2="314.5650" y2="126.4913" stroke="black" stroke-width="0.9"/>
+<line x1="302.5230" y1="214.8672" x2="314.5650" y2="214.8672" stroke="black" stroke-width="0.9"/>
+<line x1="343.5498" y1="232.5424" x2="343.5498" y2="179.5168" stroke="black" stroke-width="0.9"/>
+<line x1="337.5288" y1="179.5168" x2="349.5708" y2="179.5168" stroke="black" stroke-width="0.9"/>
+<line x1="337.5288" y1="232.5424" x2="349.5708" y2="232.5424" stroke="black" stroke-width="0.9"/>
+<line x1="378.5557" y1="245.7987" x2="378.5557" y2="219.2860" stroke="black" stroke-width="0.9"/>
+<line x1="372.5347" y1="219.2860" x2="384.5767" y2="219.2860" stroke="black" stroke-width="0.9"/>
+<line x1="372.5347" y1="245.7987" x2="384.5767" y2="245.7987" stroke="black" stroke-width="0.9"/>
+<line x1="413.5616" y1="254.6363" x2="413.5616" y2="245.7987" stroke="black" stroke-width="0.9"/>
+<line x1="407.5406" y1="245.7987" x2="419.5826" y2="245.7987" stroke="black" stroke-width="0.9"/>
+<line x1="407.5406" y1="254.6363" x2="419.5826" y2="254.6363" stroke="black" stroke-width="0.9"/>
+</g>
+<g class="x-axis">
+<line x1="46.0000" y1="259.0551" x2="501.0762" y2="259.0551" stroke="black" stroke-width="1"/>
+<line x1="46.0000" y1="259.0551" x2="46.0000" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="46.0000" y="272.5551" font-size="8.5" text-anchor="middle">0</text>
+<line x1="81.0059" y1="259.0551" x2="81.0059" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="81.0059" y="272.5551" font-size="8.5" text-anchor="middle">0.25</text>
+<line x1="116.0117" y1="259.0551" x2="116.0117" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="116.0117" y="272.5551" font-size="8.5" text-anchor="middle">0.5</text>
+<line x1="151.0176" y1="259.0551" x2="151.0176" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="151.0176" y="272.5551" font-size="8.5" text-anchor="middle">0.75</text>
+<line x1="186.0235" y1="259.0551" x2="186.0235" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="186.0235" y="272.5551" font-size="8.5" text-anchor="middle">1</text>
+<line x1="221.0293" y1="259.0551" x2="221.0293" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="221.0293" y="272.5551" font-size="8.5" text-anchor="middle">1.25</text>
+<line x1="256.0352" y1="259.0551" x2="256.0352" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="256.0352" y="272.5551" font-size="8.5" text-anchor="middle">1.5</text>
+<line x1="291.0410" y1="259.0551" x2="291.0410" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="291.0410" y="272.5551" font-size="8.5" text-anchor="middle">1.75</text>
+<line x1="326.0469" y1="259.0551" x2="326.0469" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="326.0469" y="272.5551" font-size="8.5" text-anchor="middle">2</text>
+<line x1="361.0528" y1="259.0551" x2="361.0528" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="361.0528" y="272.5551" font-size="8.5" text-anchor="middle">2.25</text>
+<line x1="396.0586" y1="259.0551" x2="396.0586" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="396.0586" y="272.5551" font-size="8.5" text-anchor="middle">2.5</text>
+<line x1="431.0645" y1="259.0551" x2="431.0645" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="431.0645" y="272.5551" font-size="8.5" text-anchor="middle">2.75</text>
+<line x1="466.0704" y1="259.0551" x2="466.0704" y2="262.0551" stroke="black" stroke-width="0.5"/>
+<text x="466.0704" y="272.5551" font-size="8.5" text-anchor="middle">3+</text>
+<text x="273.5381" y="287.0551" font-size="8.5" text-anchor="middle">value (s); bins include their lower edge</text>
+</g>
+<g class="headway-bands">
+<line x1="326.0469" y1="56.0000" x2="326.0469" y2="259.0551" stroke="black" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="326.0469" y="53.0000" font-size="8.5" text-anchor="middle">2.0 s</text>
+<line x1="256.0352" y1="56.0000" x2="256.0352" y2="259.0551" stroke="black" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="256.0352" y="53.0000" font-size="8.5" text-anchor="middle">1.5 s</text>
+<line x1="186.0235" y1="56.0000" x2="186.0235" y2="259.0551" stroke="black" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text x="186.0235" y="53.0000" font-size="8.5" text-anchor="middle">1.0 s</text>
+</g>
+<g class="headway-excluded">
+<line x1="515.0786" y1="56.0000" x2="515.0786" y2="259.0551" stroke="#8c8c8c" stroke-width="0.6" stroke-dasharray="1 2"/>
+<text x="616.5956" y="53.0000" font-size="8.5" text-anchor="middle">beside the bins</text>
+<rect x="531.5313" y="259.0551" width="30.1050" height="0.0000" fill="#8c8c8c"/>
+<rect x="531.5313" y="241.3799" width="30.1050" height="17.6752" fill="#d4d4d4" stroke="#8c8c8c" stroke-width="0.6" stroke-dasharray="2 2"/>
+<line x1="529.0809" y1="259.0551" x2="564.0868" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="546.5838" y="272.5551" font-size="8.5" text-anchor="middle">1</text>
+<rect x="566.5372" y="259.0551" width="30.1050" height="0.0000" fill="#8c8c8c"/>
+<rect x="566.5372" y="232.5424" width="30.1050" height="26.5128" fill="#d4d4d4" stroke="#8c8c8c" stroke-width="0.6" stroke-dasharray="2 2"/>
+<line x1="564.0868" y1="259.0551" x2="599.0926" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="581.5897" y="272.5551" font-size="8.5" text-anchor="middle">2</text>
+<rect x="601.5431" y="197.1920" width="30.1050" height="61.8631" fill="#8c8c8c"/>
+<line x1="599.0926" y1="259.0551" x2="634.0985" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="616.5956" y="272.5551" font-size="8.5" text-anchor="middle">3</text>
+<rect x="636.5489" y="214.8672" width="30.1050" height="44.1879" fill="#8c8c8c"/>
+<line x1="634.0985" y1="259.0551" x2="669.1044" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="651.6014" y="272.5551" font-size="8.5" text-anchor="middle">4</text>
+<rect x="671.5548" y="170.6792" width="30.1050" height="88.3759" fill="#8c8c8c"/>
+<line x1="669.1044" y1="259.0551" x2="704.1102" y2="259.0551" stroke="black" stroke-width="1"/>
+<text x="686.6073" y="272.5551" font-size="8.5" text-anchor="middle">5</text>
+</g>
+<g class="legend">
+<rect x="46.0000" y="302.0551" width="9.0000" height="8.0000" fill="#4682b4" fill-opacity="0.8"/>
+<text x="59.0000" y="309.0551" font-size="8.5">valid time in the bins</text>
+<line x1="187.2000" y1="301.0551" x2="187.2000" y2="310.0551" stroke="black" stroke-width="0.9"/>
+<text x="196.2000" y="309.0551" font-size="8.5">one-sigma reach of the bin&apos;s time</text>
+<rect x="376.5000" y="302.0551" width="9.0000" height="8.0000" fill="#8c8c8c"/>
+<text x="389.5000" y="309.0551" font-size="8.5">suppressed, both observed</text>
+<rect x="529.0000" y="302.0551" width="9.0000" height="8.0000" fill="#d4d4d4" stroke="#8c8c8c" stroke-width="0.6" stroke-dasharray="2 2"/>
+<text x="542.0000" y="309.0551" font-size="8.5">suppressed, predicted-only</text>
+<text x="46.0000" y="323.0551" font-size="8.5">Band rules are descriptive bins with benchmark kind <tspan class="vocab">no_established_threshold</tspan></text>
+<text x="46.0000" y="337.0551" font-size="8.5">1 <tspan class="vocab">model_degraded</tspan> 0.2 s</text>
+<text x="265.3701" y="337.0551" font-size="8.5">2 <tspan class="vocab">not_observed</tspan> 0.3 s</text>
+<text x="484.7402" y="337.0551" font-size="8.5">3 <tspan class="vocab">no_common_path</tspan> 0.7 s</text>
+<text x="46.0000" y="349.0551" font-size="8.5">4 <tspan class="vocab">extent_not_converged</tspan> 0.5 s</text>
+<text x="265.3701" y="349.0551" font-size="8.5">5 <tspan class="vocab">below_speed_floor</tspan> 1.0 s</text>
+</g>
+</g>
+</svg>
