@@ -622,7 +622,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	// --- L5, L6 ---
-	tracker := l5tracks.NewTracker(trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments))
+	trackerCfg, err := trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments)
+	if err != nil {
+		return nil, err
+	}
+	tracker := l5tracks.NewTracker(trackerCfg)
 	classifier := l6objects.NewTrackClassifierWithMinObservations(
 		tuningCfg.GetMinObservationsForClassification())
 
@@ -1043,7 +1047,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 // trackerConfigFor is the replay's tracker configuration: the tuning file's
 // L5 block, the requested position model, and each tracker experiment
 // switched on by name. Everything else stays at the shipped default.
-func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string) l5tracks.TrackerConfig {
+func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string) (l5tracks.TrackerConfig, error) {
 	trackerConfig := l5tracks.TrackerConfigFromTuning(l5)
 	trackerConfig.MeasurementSourceMode = mode
 	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
@@ -1051,14 +1055,18 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
-	trackerConfig.OcclusionContinuity = occlusionContinuityFor(experiments)
-	return trackerConfig
+	oc, err := occlusionContinuityFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
+	trackerConfig.OcclusionContinuity = oc
+	return trackerConfig, nil
 }
 
 // occlusionContinuityFor switches on the continuity options the experiments
 // name, with l5tracks' starting values. With none named it is the zero
 // value, so the tracker configuration is exactly the shipped one.
-func occlusionContinuityFor(experiments []string) l5tracks.OcclusionContinuityConfig {
+func occlusionContinuityFor(experiments []string) (l5tracks.OcclusionContinuityConfig, error) {
 	all := hasExperiment(experiments, ExperimentOcclusionContinuity)
 	oc := l5tracks.DefaultOcclusionContinuity()
 	oc.ExplainAbsence = all || hasExperiment(experiments, ExperimentCoastSupport)
@@ -1066,9 +1074,15 @@ func occlusionContinuityFor(experiments []string) l5tracks.OcclusionContinuityCo
 	oc.ClassCoastBounds = all || hasExperiment(experiments, ExperimentClassCoastBounds)
 	oc.ReacquisitionGuard = all || hasExperiment(experiments, ExperimentReacquisitionGuard)
 	if !oc.ExplainAbsence && !oc.CaptureTimeInflation && !oc.ClassCoastBounds && !oc.ReacquisitionGuard {
-		return l5tracks.OcclusionContinuityConfig{}
+		return l5tracks.OcclusionContinuityConfig{}, nil
 	}
-	return oc
+	if oc.ExplainAbsence || oc.ClassCoastBounds {
+		return l5tracks.OcclusionContinuityConfig{}, fmt.Errorf(
+			"replay experiments %q require explicit sensor coverage before absence explanation can run",
+			experiments,
+		)
+	}
+	return oc, nil
 }
 
 func fileSHA256(path string) (string, error) {

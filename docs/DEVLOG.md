@@ -10,6 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 - {copilot/review-prs-596-to-609} Fixed `internal/lidar/l1packets/parse` so `TimestampModePTP`, `TimestampModeGPS`, and `TimestampModeInternal` now use the sensor's combined UTC timestamp instead of a boot-time offset. Packet time no longer steps backwards at each second boundary, and the PTP fallback returns to sensor time once timestamps advance again.
 - {copilot/review-prs-596-to-609} Fixed `l2frames.calculateFrameCompleteness` to rebuild the shortest circular interval across wrapped UDP sequence numbers, so a frame spanning `math.MaxUint32` no longer scans almost the whole sequence space or loops forever. Added wrap-specific tests for both the no-gap and missing-packet cases.
+- {copilot/review-prs-596-to-609} Closed the medium follow-ups from the PR-batch review: scene headway now requires full capture-window containment, replay-eval refuses absence-explaining occlusion-continuity experiments until explicit sensor coverage exists, `internal/db` applies connection-scoped SQLite PRAGMAs through the DSN on every pooled connection, and live observation capture drains queued frame callbacks before replay or tuning boundaries close the container.
 
 ## September 25, 2026 - Plan hygiene and the worker's storage path
 

@@ -154,17 +154,20 @@ func seedHeadway(t *testing.T, dbInst *db.DB) headwayFixture {
 			}
 		}
 	}
-	window := func(start int64) (*int64, *int64) {
-		end := start + 10*nanosPerSecondNS
-		return &start, &end
-	}
 	for _, sc := range []struct {
-		id    string
-		start int64
-	}{{"headway-a", base}, {"headway-twin", base + hourNS}, {"headway-empty", base + 24*hourNS}, {"headway-none", 0}} {
+		id         string
+		start, end int64
+	}{
+		{"headway-a", base, base + 10*nanosPerSecondNS},
+		{"headway-twin", base + hourNS, base + hourNS + 10*nanosPerSecondNS},
+		{"headway-empty", base + 24*hourNS, base + 24*hourNS + 10*nanosPerSecondNS},
+		{"headway-partial", f.other[0].Event.EndUnixNanos, f.other[0].Event.EndUnixNanos + 1},
+		{"headway-none", 0, 0},
+	} {
 		scene := &db.Scene{SceneID: sc.id, Title: sc.id}
 		if sc.start > 0 {
-			scene.CapturedStartNs, scene.CapturedEndNs = window(sc.start)
+			start, end := sc.start, sc.end
+			scene.CapturedStartNs, scene.CapturedEndNs = &start, &end
 		}
 		if err := dbInst.CreateScene(context.Background(), scene); err != nil {
 			t.Fatal(err)
@@ -331,7 +334,11 @@ func TestSceneHeadwayDerivesTheSourceFromTheCaptureWindow(t *testing.T) {
 		t.Fatalf("named source: %d %q %s %s", code, resp.Availability, resp.SourceID, resp.Status)
 	}
 
-	for scene, want := range map[string]string{"headway-empty": headwayNoEncounters, "headway-none": headwayNoCaptureWindow} {
+	for scene, want := range map[string]string{
+		"headway-empty":   headwayNoEncounters,
+		"headway-partial": headwayNoEncounters,
+		"headway-none":    headwayNoCaptureWindow,
+	} {
 		code, resp, _ := getHeadway(t, server, scene, nil)
 		if code != http.StatusOK || resp.Availability != want || resp.Distribution != nil ||
 			resp.Encounters == nil || resp.Sources == nil || resp.Versions == nil {

@@ -84,7 +84,11 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	shipped := l5tracks.TrackerConfigFromTuning(l5)
-	if got := trackerConfigFor(l5, "", nil); got != shipped {
+	got, err := trackerConfigFor(l5, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != shipped {
 		t.Fatalf("no experiments changed the tracker configuration:\n got %+v\nwant %+v", got, shipped)
 	}
 	cases := map[string]func(*l5tracks.TrackerConfig){
@@ -93,44 +97,63 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
 		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
-		ExperimentCoastSupport: func(c *l5tracks.TrackerConfig) {
-			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ExplainAbsence = true })
-		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
 		},
-		ExperimentClassCoastBounds: func(c *l5tracks.TrackerConfig) {
-			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ClassCoastBounds = true })
-		},
 		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
-		},
-		ExperimentOcclusionContinuity: func(c *l5tracks.TrackerConfig) {
-			c.OcclusionContinuity = l5tracks.DefaultOcclusionContinuity()
 		},
 	}
 	for name, set := range cases {
 		want := shipped
 		set(&want)
-		if got := trackerConfigFor(l5, "", []string{name}); got != want {
+		got, err := trackerConfigFor(l5, "", []string{name})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got != want {
 			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
 		}
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
 	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {
-		if got := trackerConfigFor(l5, "", []string{name}); got != shipped {
+		got, err := trackerConfigFor(l5, "", []string{name})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got != shipped {
 			t.Errorf("%s changed the tracker configuration", name)
 		}
 	}
-	if got := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil); got.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
+	got, err = trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
 		t.Errorf("measurement source mode not applied: %q", got.MeasurementSourceMode)
 	}
-	// The continuity switches compose: naming all four singly is the bundle.
-	singly := trackerConfigFor(l5, "", []string{ExperimentCoastSupport, ExperimentCoastTimeInflation,
-		ExperimentClassCoastBounds, ExperimentReacquisitionGuard})
-	if bundle := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}); singly != bundle {
-		t.Errorf("the four continuity switches together differ from occlusion_continuity:\n%+v\n%+v",
-			singly.OcclusionContinuity, bundle.OcclusionContinuity)
+	// Absence-explaining continuity experiments must not run until replayeval
+	// can supply explicit sensor coverage.
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentCoastSupport}); err == nil {
+		t.Fatal("coast_support was accepted without explicit coverage")
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentClassCoastBounds}); err == nil {
+		t.Fatal("class_coast_bounds was accepted without explicit coverage")
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}); err == nil {
+		t.Fatal("occlusion_continuity was accepted without explicit coverage")
+	}
+	timeOnly, err := trackerConfigFor(l5, "", []string{ExperimentCoastTimeInflation, ExperimentReacquisitionGuard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := shipped
+	want.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) {
+		o.CaptureTimeInflation = true
+		o.ReacquisitionGuard = true
+	})
+	if timeOnly != want {
+		t.Errorf("time-only continuity options differ:\n got %+v\nwant %+v", timeOnly.OcclusionContinuity, want.OcclusionContinuity)
 	}
 }
 

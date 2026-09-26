@@ -393,14 +393,14 @@ func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 		}
 	}
 
-	// The later capture is found by its own window, and a window that only
-	// touches an encounter's last instant still reads it whole.
+	// The later capture is found by its own window, but partial overlaps are
+	// excluded so the reader never counts time outside the capture window.
 	laterOnly, err := store.ListInteractionsOverlapping(sourceA, vFinal, base+hour, base+hour+10*1_000_000_000)
 	if err != nil || len(laterOnly) != 1 || !reflect.DeepEqual(laterOnly[0], later[0]) {
 		t.Fatalf("later window: %d, %v", len(laterOnly), err)
 	}
 	edge := later[0].Event.EndUnixNanos
-	if touching, err := store.ListInteractionsOverlapping(sourceA, vFinal, edge, edge+1); err != nil || len(touching) != 1 {
+	if touching, err := store.ListInteractionsOverlapping(sourceA, vFinal, edge, edge+1); err != nil || len(touching) != 0 {
 		t.Fatalf("touching window: %d, %v", len(touching), err)
 	}
 	if before, err := store.SourcesOverlapping(base-hour, base-1); err != nil || len(before) != 0 {

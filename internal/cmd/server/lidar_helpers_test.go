@@ -222,6 +222,46 @@ func TestApplyRecordingMetadata_LogsRunConfigLookupError(t *testing.T) {
 	}
 }
 
+type callbackDrainerStub struct {
+	calls int
+}
+
+func (d *callbackDrainerStub) WaitForCallbacks() {
+	d.calls++
+}
+
+type liveObservationEnderStub struct {
+	reasons []string
+}
+
+func (e *liveObservationEnderStub) End(reason string) {
+	e.reasons = append(e.reasons, reason)
+}
+
+func TestCloseLiveObservationBoundaryDrainsBeforeClose(t *testing.T) {
+	drainer := &callbackDrainerStub{}
+	capture := &liveObservationEnderStub{}
+
+	closeLiveObservationBoundary(capture, drainer, "boundary")
+
+	if drainer.calls != 1 {
+		t.Fatalf("WaitForCallbacks called %d times, want 1", drainer.calls)
+	}
+	if len(capture.reasons) != 1 || capture.reasons[0] != "boundary" {
+		t.Fatalf("End reasons = %v", capture.reasons)
+	}
+}
+
+func TestCloseLiveObservationBoundaryAllowsNilDrainer(t *testing.T) {
+	capture := &liveObservationEnderStub{}
+
+	closeLiveObservationBoundary(capture, nil, "boundary")
+
+	if len(capture.reasons) != 1 || capture.reasons[0] != "boundary" {
+		t.Fatalf("End reasons = %v", capture.reasons)
+	}
+}
+
 func TestRecoverOrphanedSweepsOnStart_LogsError(t *testing.T) {
 	var logs bytes.Buffer
 	recoverOrphanedSweepsOnStart(orphanedSweepRecovererStub{err: errors.New("boom")}, log.New(&logs, "", 0))

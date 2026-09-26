@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"path/filepath"
 	"testing"
@@ -84,5 +85,32 @@ func TestLatestMigrationVersionMatchesFreshDatabaseBaseline(t *testing.T) {
 	}
 	if current != latest {
 		t.Errorf("fresh database is at version %d, want the latest migration %d", current, latest)
+	}
+}
+
+func TestNewDBAppliesPragmasToEveryPooledConnection(t *testing.T) {
+	db, cleanup := NewTestDB(t)
+	defer cleanup()
+	db.SetMaxOpenConns(2)
+
+	for i := 0; i < 2; i++ {
+		conn, err := db.Conn(context.Background())
+		if err != nil {
+			t.Fatalf("Conn(%d): %v", i, err)
+		}
+		var foreignKeys, busyTimeout, tempStore int
+		if err := conn.QueryRowContext(context.Background(), "PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
+			t.Fatalf("reading foreign_keys on conn %d: %v", i, err)
+		}
+		if err := conn.QueryRowContext(context.Background(), "PRAGMA busy_timeout").Scan(&busyTimeout); err != nil {
+			t.Fatalf("reading busy_timeout on conn %d: %v", i, err)
+		}
+		if err := conn.QueryRowContext(context.Background(), "PRAGMA temp_store").Scan(&tempStore); err != nil {
+			t.Fatalf("reading temp_store on conn %d: %v", i, err)
+		}
+		_ = conn.Close()
+		if foreignKeys != 1 || busyTimeout != 30000 || tempStore != 2 {
+			t.Fatalf("conn %d pragmas = foreign_keys:%d busy_timeout:%d temp_store:%d", i, foreignKeys, busyTimeout, tempStore)
+		}
 	}
 }
