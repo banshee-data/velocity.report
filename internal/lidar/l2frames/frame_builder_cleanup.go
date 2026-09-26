@@ -390,8 +390,8 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		return seqSpace - uint64(from) + uint64(to)
 	}
 
-	start, end := seqs[0], seqs[len(seqs)-1]
-	expectedCount := uint64(end-start) + 1
+	start := seqs[0]
+	expectedCount := uint64(seqs[len(seqs)-1]-start) + 1
 	if len(seqs) > 1 {
 		var (
 			largestGap uint64
@@ -406,13 +406,11 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 			}
 		}
 		start = seqs[(largestIdx+1)%len(seqs)]
-		end = seqs[largestIdx]
 		expectedCount = seqSpace - largestGap + 1
 	}
 
 	receivedCount := uint64(len(frame.ReceivedPackets))
-	for offset := uint64(0); offset < expectedCount; offset++ {
-		seq := start + uint32(offset)
+	for offset, seq := uint64(0), start; offset < expectedCount; offset, seq = offset+1, seq+1 {
 		frame.ExpectedPackets[seq] = true
 		if !frame.ReceivedPackets[seq] {
 			frame.MissingPackets = append(frame.MissingPackets, seq)
