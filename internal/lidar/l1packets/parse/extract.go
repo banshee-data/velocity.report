@@ -451,6 +451,10 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 	switch p.timestampMode {
 	case TimestampModePTP, TimestampModeGPS:
 		sensorTime := tail.CombinedTimestamp
+		modeLabel := "PTP"
+		if p.timestampMode == TimestampModeGPS {
+			modeLabel = "GPS"
+		}
 		// Check if sensor timestamps are static (not incrementing) - indicates
 		// synchronization issues. Only check once per packet (not per block) to
 		// avoid false positives.
@@ -473,10 +477,10 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 		} else {
 			packetTime = sensorTime
 
-			// Trace logging for PTP timestamps (first few packets and periodic intervals)
+			// Trace logging for sensor UTC timestamps (first few packets and periodic intervals)
 			if p.packetCount < p.debugPackets || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
-				tracef("PTP [pkt %d] - Raw timestamp: %d us, Sensor time: %v, System time: %v",
-					p.packetCount, tail.Timestamp, packetTime, time.Now())
+				tracef("%s [pkt %d] - Raw timestamp: %d us, Sensor time: %v, System time: %v",
+					modeLabel, p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
 		}
 
