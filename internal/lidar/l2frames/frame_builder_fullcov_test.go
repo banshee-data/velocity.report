@@ -297,6 +297,89 @@ func TestCalculateFrameCompleteness_NegativeCoverage(t *testing.T) {
 	}
 }
 
+func TestCalculateFrameCompleteness_SequenceWrap(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-wrap"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			^uint32(1): true,
+			^uint32(0): true,
+			0:          true,
+			1:          true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 0 {
+		t.Fatalf("expected 0 gaps, got %d", frame.PacketGaps)
+	}
+	if len(frame.ExpectedPackets) != 4 {
+		t.Fatalf("expected 4 expected packets, got %d", len(frame.ExpectedPackets))
+	}
+	for _, seq := range []uint32{^uint32(1), ^uint32(0), 0, 1} {
+		if !frame.ExpectedPackets[seq] {
+			t.Fatalf("expected packet %d to be part of the wrapped interval", seq)
+		}
+	}
+}
+
+func TestCalculateFrameCompleteness_SequenceWrapWithGap(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-gap"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			^uint32(1): true,
+			1:          true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 2 {
+		t.Fatalf("expected 2 gaps across the wrap, got %d", frame.PacketGaps)
+	}
+	if len(frame.MissingPackets) != 2 {
+		t.Fatalf("expected 2 missing packets across wrap, got %v", frame.MissingPackets)
+	}
+	got := map[uint32]bool{}
+	for _, seq := range frame.MissingPackets {
+		got[seq] = true
+	}
+	for _, want := range []uint32{^uint32(0), 0} {
+		if !got[want] {
+			t.Fatalf("missing wrapped gap packet %d in %v", want, frame.MissingPackets)
+		}
+	}
+}
+
+func TestCalculateFrameCompleteness_PathologicalSequenceSpanIsBounded(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-bounded"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			0:    true,
+			5000: true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 1 {
+		t.Fatalf("expected the pathological span to be marked incomplete, got %d gaps", frame.PacketGaps)
+	}
+	if frame.CompletenessRatio != 0 {
+		t.Fatalf("expected pathological span completeness to be forced to 0, got %f", frame.CompletenessRatio)
+	}
+	if len(frame.ExpectedPackets) != len(frame.ReceivedPackets) {
+		t.Fatalf("expected only received packets to be retained after bounding, got %d expected vs %d received",
+			len(frame.ExpectedPackets), len(frame.ReceivedPackets))
+	}
+}
+
 // --- cleanupFrames with zero-timestamp frames ---
 
 func TestCleanupFrames_ZeroTimestamp(t *testing.T) {

@@ -66,6 +66,14 @@ type pcapTimestampsSetter interface {
 	SetPCAPTimestamps(int64, int64)
 }
 
+type callbackDrainer interface {
+	WaitForCallbacks()
+}
+
+type liveObservationEnder interface {
+	End(string)
+}
+
 type recordingMetadataSink interface {
 	SetDeterministicConfig(runConfigID, paramSetID, configHash, paramsHash, schemaVersion, paramSetType, buildVersion, buildGitSHA string, executionConfig []byte)
 	SetProvenance(sourceType, pcapPath, tuningHash string, playbackRate float64)
@@ -94,6 +102,16 @@ func isNilHelperTarget(target any) bool {
 	default:
 		return false
 	}
+}
+
+func closeLiveObservationBoundary(capture liveObservationEnder, drainer callbackDrainer, reason string) {
+	if isNilHelperTarget(capture) {
+		return
+	}
+	if !isNilHelperTarget(drainer) {
+		drainer.WaitForCallbacks()
+	}
+	capture.End(reason)
 }
 
 func validateSupportedTuning(tuningCfg *config.TuningConfig) error {

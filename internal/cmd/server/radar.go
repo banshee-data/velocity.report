@@ -765,9 +765,13 @@ func Main(args []string) int {
 		// A new extractor configuration is a new extraction: a live
 		// observation capture's identities no longer describe what follows.
 		endLiveObservationsOnTuning := func() {
-			if liveObservations != nil {
-				liveObservations.End("runtime tuning changed")
-			}
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "runtime tuning changed")
+		}
+
+		onPCAPStarted := pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf)
+		closeLiveObservationsOnReplayStart := func() {
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "the pipeline left live input")
+			onPCAPStarted()
 		}
 
 		// Start lidar webserver for monitoring (moved into internal/api)
@@ -793,7 +797,7 @@ func Main(args []string) int {
 			PlotsBaseDir:       *lidarPlotsDir,
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
-			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
 			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),

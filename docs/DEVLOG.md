@@ -6,11 +6,22 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 26, 2026 - LiDAR clock and sequence-wrap fixes
+
+- {copilot/review-prs-596-to-609} Fixed `internal/lidar/l1packets/parse` so `TimestampModePTP`, `TimestampModeGPS`, and `TimestampModeInternal` now use the sensor's combined UTC timestamp instead of a boot-time offset. Packet time no longer steps backwards at each second boundary, and the PTP fallback returns to sensor time once timestamps advance again.
+- {copilot/review-prs-596-to-609} Fixed `l2frames.calculateFrameCompleteness` to rebuild the shortest circular interval across wrapped UDP sequence numbers, so a frame spanning `math.MaxUint32` no longer scans almost the whole sequence space or loops forever. Added wrap-specific tests for both the no-gap and missing-packet cases.
+- {copilot/review-prs-596-to-609} Closed the medium follow-ups from the PR-batch review: scene headway now requires full capture-window containment, replay-eval refuses absence-explaining occlusion-continuity experiments until explicit sensor coverage exists, `internal/db` applies connection-scoped SQLite PRAGMAs through the DSN on every pooled connection, and live observation capture drains queued frame callbacks before replay or tuning boundaries close the container.
+
 ## September 25, 2026 - Plan hygiene and the worker's storage path
 
 - Cleared thirteen plan-hygiene gate violations and graduated two Complete plans, `lidar-pipeline-state-model-plan.md` and `lidar-visualiser-stream-robustness-plan.md`, to symlinks onto their canonical hub (#594).
 - {claude/truenas-vm-banshee-setup-4ad3fd} Diagnosed why the job runner's worker VM (`bansheeworker`, introduced in #586) could not reach the TrueNAS pool over a local path: its macvtap NIC isolates it from its own host, and every bridge fix stripped the host's own address because that interface had no row in TrueNAS's network database.
 - {claude/truenas-vm-banshee-setup-4ad3fd} Registered the host interface on its own first, then created the isolated bridge with zero outage, attached the VM's second NIC, and repointed its NFS mounts off a dead Tailscale address onto the new local path. Verified end to end, including across a guest reboot, at 603 MB/s.
+- Landed the headway contract stack (#596, #602, #606, #607, and #608): `internal/lidar/l8behaviour/` now defines the vocabulary, path pairing, persistence, report contract, scene API, and dashboard SVG for following metrics. Real scenes still show no interactions until the pipeline writes the persisted headway rows.
+- Landed the capture-time and continuity stack (#597, #600, #603, and #605): tracker prediction, coast age, expiry, smoothing, and assignment now use capture-time-safe rules, exact rectangular assignment, default-off occlusion continuity, and opt-in fixed-lag RTS persistence. The smoother failed G-SMO-1 on kirk0, so every new stage stayed provisional.
+- Landed the held-out per-frame evaluation harness (#598): reviewed references, split manifests, paired-arm comparison, IDF1, and the evaluator-side exact-assignment wrapper now pin how reassociation changes will be scored. The final acceptance run still depends on frozen reviewed splits from the annotation work.
+- Landed the foreground-complete observation log (#599, #604, and #609): lineage-preserving L4 frame records, the VRLOG 1.1 commit chain, recovery, and opt-in live capture through `--lidar-observation-dir`. The live writer remained experimental pending Pi and power-loss evidence.
+- Stopped `TestHesaiLiDAR_PCAPIntegration` holding every decoded frame in memory (#601), cutting the race-run peak from about 13.6 GB to under 1 GB so the LiDAR CI job no longer died by hosted-runner OOM.
 
 ## September 24, 2026 - State estimation: the OBB centre stays opt-in, and the branch against main
 

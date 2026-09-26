@@ -105,14 +105,10 @@ func TestSystemTimeModeIsHostArrivalTime(t *testing.T) {
 	}
 }
 
-// PTP, GPS and internal modes add the microsecond field to the parser's boot
-// time. Inside one second that follows the sensor's interval exactly. The
-// Pandar40P's field is the microsecond part of the UTC second, though, not
-// elapsed time since boot, so at every second boundary the packet time steps
-// back by nearly a second. These modes cannot guarantee a monotonic frame
-// clock; the tracker's backward-timestamp guard is what keeps that from
-// becoming a negative prediction interval.
-func TestBootOffsetModesStepBackAtEverySecond(t *testing.T) {
+// PTP, GPS, and internal modes now follow the sensor's UTC timestamp rather
+// than treating the microsecond field as a boot-time offset. Their packet
+// times therefore stay monotonic across a second boundary.
+func TestSensorTimeModesStayMonotonicAcrossTheSecond(t *testing.T) {
 	for _, mode := range []TimestampMode{TimestampModePTP, TimestampModeGPS, TimestampModeInternal} {
 		parser := NewPandar40PParser(*createTestMockConfig())
 		parser.SetTimestampMode(mode)
@@ -126,18 +122,16 @@ func TestBootOffsetModesStepBackAtEverySecond(t *testing.T) {
 
 		c := packetTime(t, parser, sensorPacket(auditSensorStart))                           // .950
 		d := packetTime(t, parser, sensorPacket(auditSensorStart.Add(100*time.Millisecond))) // next second, .050
-		if got := d.Sub(c); got != -900*time.Millisecond {
-			t.Errorf("mode %d: interval across the second = %v, want the -900ms wrap this mode produces", mode, got)
+		if got := d.Sub(c); got != 100*time.Millisecond {
+			t.Errorf("mode %d: interval across the second = %v, want the sensor's 100ms", mode, got)
 		}
 	}
 }
 
-// PTP and GPS modes fall back to system time once the microsecond field has
-// repeated more than STATIC_TIMESTAMP_THRESHOLD times, and the fallback never
-// ends: the static count is not reset when the field moves again. A stream
-// that stalls once is on host arrival time for the rest of the parser's life,
-// switching time domain mid-stream. This characterises current behaviour.
-func TestPTPStaticFallbackIsPermanent(t *testing.T) {
+// PTP and GPS modes fall back to system time once the sensor timestamp has
+// repeated more than STATIC_TIMESTAMP_THRESHOLD times, but recover back to the
+// sensor clock as soon as the timestamp advances again.
+func TestPTPStaticFallbackResetsWhenTheSensorClockMovesAgain(t *testing.T) {
 	parser := NewPandar40PParser(*createTestMockConfig())
 	parser.SetTimestampMode(TimestampModePTP)
 
@@ -145,10 +139,9 @@ func TestPTPStaticFallbackIsPermanent(t *testing.T) {
 	for i := 0; i < STATIC_TIMESTAMP_THRESHOLD+2; i++ {
 		packetTime(t, parser, stalled)
 	}
-	before := time.Now()
-	resumed := packetTime(t, parser, sensorPacket(auditSensorStart.Add(-400*time.Millisecond)))
-	after := time.Now()
-	if resumed.Before(before) || resumed.After(after) {
-		t.Fatalf("after the field resumed, packet time %v is not host arrival time; the fallback released", resumed)
+	resumedAt := auditSensorStart.Add(600 * time.Millisecond)
+	resumed := packetTime(t, parser, sensorPacket(resumedAt))
+	if !resumed.Equal(resumedAt) {
+		t.Fatalf("after the field resumed, packet time = %v, want the sensor time %v", resumed, resumedAt)
 	}
 }

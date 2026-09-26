@@ -158,29 +158,22 @@ func TestTrackerIntervalFollowsCaptureTimeOnReplay(t *testing.T) {
 	}
 }
 
-// Boot-offset modes follow the sensor inside a second and step back at the
-// second boundary. The stream starts at .780 s, so the third frame spans
-// .980-1.080 s and straddles the wrap. A frame starts at its earliest point
-// timestamp, which is now a post-wrap one: the tracker sees an 0.88 s step
-// back, predicts across zero rather than a negative interval, re-anchors, and
-// then sees 0.08 s (the rotation less the 0.02 s before the wrap) before
-// the sensor's period resumes. Each second boundary therefore costs the
-// estimator 0.12 s of prediction in these modes: measurable, bounded, and not
-// a negative interval.
-func TestBootOffsetModesStepBackAndTheTrackerAbsorbsIt(t *testing.T) {
+// PTP/GPS/Internal modes now use the sensor's combined UTC timestamp, so they
+// follow the LiDAR clock cleanly across a UTC second boundary instead of
+// stepping backwards as the old boot-offset logic did.
+func TestSensorTimestampModesStayMonotonicAcrossTheSecond(t *testing.T) {
 	sensorStart := time.Date(2026, 9, 25, 12, 0, 0, 780_000_000, time.UTC)
-	want := []float64{0.1, 0, 0.08, 0.1, 0.1}
 	for _, mode := range []parse.TimestampMode{parse.TimestampModePTP, parse.TimestampModeGPS, parse.TimestampModeInternal} {
 		gaps, stats := feedTracker(chainFrameStarts(t, mode, 6, sensorStart, 0))
-		if stats.BackwardTimestamps != 1 || math.Abs(stats.MaxBackwardStepSecs-0.88) > 1e-9 {
-			t.Fatalf("mode %d: the wrap at the second boundary was not one 0.88 s backward step: %+v", mode, stats)
+		if stats.BackwardTimestamps != 0 || stats.MaxBackwardStepSecs != 0 {
+			t.Fatalf("mode %d: sensor time stepped backwards across the second boundary: %+v", mode, stats)
 		}
-		if len(gaps) != len(want) {
-			t.Fatalf("mode %d: intervals %v, want %v", mode, gaps, want)
+		if len(gaps) != 5 {
+			t.Fatalf("mode %d: intervals %v, want 5 gaps", mode, gaps)
 		}
-		for i := range want {
-			if math.Abs(gaps[i]-want[i]) > 1e-9 {
-				t.Fatalf("mode %d: intervals %v, want %v", mode, gaps, want)
+		for i, g := range gaps {
+			if math.Abs(g-chainRotation.Seconds()) > 1e-9 {
+				t.Fatalf("mode %d: tracker interval %d = %.9fs, want %v", mode, i, g, chainRotation)
 			}
 		}
 	}

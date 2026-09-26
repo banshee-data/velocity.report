@@ -8,6 +8,8 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	_ "modernc.org/sqlite"
@@ -157,6 +159,28 @@ func applyPragmas(db *sql.DB) error {
 	return nil
 }
 
+func sqlitePragmaDSN(path string) string {
+	base := path
+	switch {
+	case path == ":memory:":
+		base = "file::memory:"
+	case strings.HasPrefix(path, "file:"):
+		base = path
+	default:
+		base = "file:" + filepath.ToSlash(path)
+	}
+	sep := "?"
+	if strings.Contains(base, "?") {
+		sep = "&"
+	}
+	return base + sep +
+		"_pragma=foreign_keys(1)" +
+		"&_pragma=journal_mode(WAL)" +
+		"&_pragma=synchronous(NORMAL)" +
+		"&_pragma=temp_store(MEMORY)" +
+		"&_pragma=busy_timeout(30000)"
+}
+
 // ApplyPragmas applies the canonical SQLite PRAGMA set used by both
 // production code and shared test helpers.
 func ApplyPragmas(db *sql.DB) error {
@@ -170,7 +194,7 @@ func NewDB(path string) (*DB, error) {
 // NewDBWithMigrationCheck opens a database and optionally checks for pending migrations.
 // If checkMigrations is true and migrations are pending, returns an error prompting user to run migrations.
 func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite", sqlitePragmaDSN(path))
 	if err != nil {
 		return nil, err
 	}

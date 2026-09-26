@@ -9,7 +9,7 @@ package api
 // Scene to source. A scene records its capture window, not the analysis
 // source its encounters were stored under (the source id is a digest the
 // scene cannot reproduce), so the source is derived: the sources with
-// following encounters overlapping the scene's capture window. One source is
+// following encounters fully inside the scene's capture window. One source is
 // used as found; several (one capture extracted under two tunings, say) are
 // listed and never merged, and the caller names one with source_id.
 //
@@ -51,8 +51,8 @@ type sceneHeadwayResponse struct {
 	SceneID      string                    `json:"scene_id"`
 	Status       l8behaviour.SurfaceStatus `json:"status"`
 	Availability string                    `json:"availability"`
-	// StartUnixNanos and EndUnixNanos are the scene's capture window; an
-	// encounter row outside it crosses the window's edge and is read whole.
+	// StartUnixNanos and EndUnixNanos are the scene's capture window; served
+	// encounter rows stay wholly inside it.
 	StartUnixNanos *int64 `json:"start_unix_nanos,omitempty"`
 	EndUnixNanos   *int64 `json:"end_unix_nanos,omitempty"`
 	// SourceID is the source the distribution is read from; Sources lists
@@ -139,7 +139,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	resp.StartUnixNanos, resp.EndUnixNanos = &start, &end
 
 	store := sqlite.NewInteractionStore(s.db)
-	sources, err := store.SourcesOverlapping(start, end)
+	sources, err := store.SourcesContainedInWindow(start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -169,7 +169,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 		return resp, nil
 	}
 
-	versions, err := store.VersionsOverlapping(resp.SourceID, start, end)
+	versions, err := store.VersionsContainedInWindow(resp.SourceID, start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -192,7 +192,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	}
 	resp.Version, resp.Status = chosen, l8behaviour.StatusOf(*chosen)
 
-	interactions, err := store.ListInteractionsOverlapping(resp.SourceID, *chosen, start, end)
+	interactions, err := store.ListInteractionsContainedInWindow(resp.SourceID, *chosen, start, end)
 	if err != nil {
 		return resp, err
 	}

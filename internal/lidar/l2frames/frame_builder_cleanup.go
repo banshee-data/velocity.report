@@ -70,6 +70,14 @@ func (fb *FrameBuilder) WaitForCallbacks() {
 	}
 }
 
+func azimuthCoverage(frame *LiDARFrame) float64 {
+	coverage := frame.MaxAzimuth - frame.MinAzimuth
+	if coverage < 0 {
+		coverage += 360.0 // Handle wrap-around
+	}
+	return coverage
+}
+
 // FlushPendingFrames finalises the current partial rotation and buffered
 // completed rotations without closing the builder. It is used at PCAP EOF so
 // a reusable runtime builder can finish one pass before starting the next.
@@ -367,23 +375,82 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		return
 	}
 
-	// Find sequence range for this frame
-	var minSeq, maxSeq uint32 = ^uint32(0), 0
-	for seq := range frame.ReceivedPackets {
-		if seq < minSeq {
-			minSeq = seq
+	// A Pandar40P rotation carries far fewer than this many UDP packets in
+	// practice. If the reconstructed interval is larger, the received set is
+	// pathological (for example disjoint runs from corrupt or hostile input),
+	// and expanding it would turn one bad frame into billions of map writes.
+	const maxExpectedPacketSpan = 4096
+
+	if frame.ExpectedPackets == nil {
+		frame.ExpectedPackets = make(map[uint32]bool, len(frame.ReceivedPackets))
+	} else {
+		for seq := range frame.ExpectedPackets {
+			delete(frame.ExpectedPackets, seq)
 		}
-		if seq > maxSeq {
-			maxSeq = seq
+	}
+	frame.MissingPackets = nil
+
+	seqs := make([]uint32, 0, len(frame.ReceivedPackets))
+	for seq := range frame.ReceivedPackets {
+		seqs = append(seqs, seq)
+	}
+	sort.Slice(seqs, func(i, j int) bool { return seqs[i] < seqs[j] })
+
+	const seqSpace = uint64(1) << 32
+	forwardDistance := func(from, to uint32) uint64 {
+		if to >= from {
+			return uint64(to - from)
+		}
+		return seqSpace - uint64(from) + uint64(to)
+	}
+	start := seqs[0]
+	var expectedCount uint64
+	if len(seqs) == 1 {
+		expectedCount = 1
+	} else {
+		var (
+			largestGap uint64
+			largestIdx int
+		)
+		for i, seq := range seqs {
+			next := seqs[(i+1)%len(seqs)]
+			gap := forwardDistance(seq, next)
+			// Equal-sized arcs are ambiguous in circular sequence space, so pick
+			// the arc whose successor is numerically smallest. That keeps the
+			// reconstructed interval deterministic even on pathological input.
+			if gap > largestGap || (gap == largestGap && next < seqs[(largestIdx+1)%len(seqs)]) {
+				largestGap = gap
+				largestIdx = i
+			}
+		}
+		// The received packet set should be one contiguous interval in the
+		// circular uint32 sequence space. In sorted order, that means the
+		// largest forward gap is the excluded arc outside the frame: on a
+		// non-wrapping interval it is the last->first wrap gap, and on a
+		// wrapping interval it is the interior hole between the two ends.
+		start = seqs[(largestIdx+1)%len(seqs)]
+		expectedCount = seqSpace - largestGap + 1
+		if largestGap == 0 {
+			// With distinct map keys this branch is only reached on defensive
+			// duplicate input, so the received set itself is the whole interval.
+			start = seqs[0]
+			expectedCount = uint64(len(seqs))
 		}
 	}
 
-	// Calculate expected packets in range
-	expectedCount := maxSeq - minSeq + 1
-	receivedCount := uint32(len(frame.ReceivedPackets))
+	if expectedCount > maxExpectedPacketSpan {
+		for seq := range frame.ReceivedPackets {
+			frame.ExpectedPackets[seq] = true
+		}
+		frame.MissingPackets = nil
+		frame.PacketGaps = 1
+		frame.CompletenessRatio = 0
+		frame.AzimuthCoverage = azimuthCoverage(frame)
+		return
+	}
 
-	// Identify missing packets
-	for seq := minSeq; seq <= maxSeq; seq++ {
+	receivedCount := uint64(len(frame.ReceivedPackets))
+	for offset, seq := uint64(0), start; offset < expectedCount; offset, seq = offset+1, uint32(seq+1) {
 		frame.ExpectedPackets[seq] = true
 		if !frame.ReceivedPackets[seq] {
 			frame.MissingPackets = append(frame.MissingPackets, seq)
@@ -392,10 +459,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 
 	frame.PacketGaps = len(frame.MissingPackets)
 	frame.CompletenessRatio = float64(receivedCount) / float64(expectedCount)
-	frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
-	if frame.AzimuthCoverage < 0 {
-		frame.AzimuthCoverage += 360.0 // Handle wrap-around
-	}
+	frame.AzimuthCoverage = azimuthCoverage(frame)
 }
 
 // cleanupFrames periodically checks for frames that should be finalized
