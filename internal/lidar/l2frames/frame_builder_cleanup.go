@@ -430,11 +430,9 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		// wrapping interval it is the interior hole between the two ends.
 		start = seqs[(largestIdx+1)%len(seqs)]
 		expectedCount = seqSpace - largestGap + 1
-		switch largestGap {
-		case 0, 1:
+		if largestGap == 0 {
 			// With distinct map keys this branch is only reached on defensive
-			// duplicate input (gap 0) or a two-packet consecutive run (gap 1),
-			// so the received set itself is the whole interval.
+			// duplicate input, so the received set itself is the whole interval.
 			start = seqs[0]
 			expectedCount = uint64(len(seqs))
 		}
