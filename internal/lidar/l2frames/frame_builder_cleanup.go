@@ -391,7 +391,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 	}
 
 	start := seqs[0]
-	expectedCount := uint64(1)
+	var expectedCount uint64
 	if len(seqs) == 1 {
 		expectedCount = 1
 	} else {
@@ -407,6 +407,11 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 				largestIdx = i
 			}
 		}
+		// The received packet set should be one contiguous interval in the
+		// circular uint32 sequence space. In sorted order, that means the
+		// largest forward gap is the excluded arc outside the frame: on a
+		// non-wrapping interval it is the last->first wrap gap, and on a
+		// wrapping interval it is the interior hole between the two ends.
 		if largestGap <= 1 {
 			expectedCount = uint64(len(seqs))
 		} else {
