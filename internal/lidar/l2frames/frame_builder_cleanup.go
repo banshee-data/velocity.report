@@ -73,7 +73,7 @@ func (fb *FrameBuilder) WaitForCallbacks() {
 func azimuthCoverage(frame *LiDARFrame) float64 {
 	coverage := frame.MaxAzimuth - frame.MinAzimuth
 	if coverage < 0 {
-		coverage += 360.0 // Handle wrap round
+		coverage += 360.0 // Handle wrap-around
 	}
 	return coverage
 }
@@ -432,10 +432,9 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		expectedCount = seqSpace - largestGap + 1
 		switch largestGap {
 		case 0, 1:
-			// With distinct map keys, a largest forward gap of 1 means every
-			// adjacent step is consecutive, so the received set itself is the
-			// whole interval. A gap of 0 cannot arise here in practice, but we
-			// clamp it the same way as a defensive duplicate-input fallback.
+			// With distinct map keys this branch is only reached on defensive
+			// duplicate input (gap 0) or a two-packet consecutive run (gap 1),
+			// so the received set itself is the whole interval.
 			start = seqs[0]
 			expectedCount = uint64(len(seqs))
 		}
