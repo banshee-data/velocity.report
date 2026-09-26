@@ -297,6 +297,55 @@ func TestCalculateFrameCompleteness_NegativeCoverage(t *testing.T) {
 	}
 }
 
+func TestCalculateFrameCompleteness_SequenceWrap(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-wrap"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			^uint32(1): true,
+			^uint32(0): true,
+			0:          true,
+			1:          true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 0 {
+		t.Fatalf("expected 0 gaps, got %d", frame.PacketGaps)
+	}
+	if len(frame.ExpectedPackets) != 4 {
+		t.Fatalf("expected 4 expected packets, got %d", len(frame.ExpectedPackets))
+	}
+	for _, seq := range []uint32{^uint32(1), ^uint32(0), 0, 1} {
+		if !frame.ExpectedPackets[seq] {
+			t.Fatalf("expected packet %d to be part of the wrapped interval", seq)
+		}
+	}
+}
+
+func TestCalculateFrameCompleteness_SequenceWrapWithGap(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-gap"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			^uint32(1): true,
+			1:          true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 2 {
+		t.Fatalf("expected 2 gaps across the wrap, got %d", frame.PacketGaps)
+	}
+	if len(frame.MissingPackets) != 2 || frame.MissingPackets[0] != ^uint32(0) || frame.MissingPackets[1] != 0 {
+		t.Fatalf("unexpected missing packets across wrap: %v", frame.MissingPackets)
+	}
+}
+
 // --- cleanupFrames with zero-timestamp frames ---
 
 func TestCleanupFrames_ZeroTimestamp(t *testing.T) {

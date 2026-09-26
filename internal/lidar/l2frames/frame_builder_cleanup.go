@@ -367,23 +367,52 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		return
 	}
 
-	// Find sequence range for this frame
-	var minSeq, maxSeq uint32 = ^uint32(0), 0
-	for seq := range frame.ReceivedPackets {
-		if seq < minSeq {
-			minSeq = seq
-		}
-		if seq > maxSeq {
-			maxSeq = seq
+	if frame.ExpectedPackets == nil {
+		frame.ExpectedPackets = make(map[uint32]bool, len(frame.ReceivedPackets))
+	} else {
+		for seq := range frame.ExpectedPackets {
+			delete(frame.ExpectedPackets, seq)
 		}
 	}
+	frame.MissingPackets = frame.MissingPackets[:0]
 
-	// Calculate expected packets in range
-	expectedCount := maxSeq - minSeq + 1
-	receivedCount := uint32(len(frame.ReceivedPackets))
+	seqs := make([]uint32, 0, len(frame.ReceivedPackets))
+	for seq := range frame.ReceivedPackets {
+		seqs = append(seqs, seq)
+	}
+	sort.Slice(seqs, func(i, j int) bool { return seqs[i] < seqs[j] })
 
-	// Identify missing packets
-	for seq := minSeq; seq <= maxSeq; seq++ {
+	const seqSpace = uint64(1) << 32
+	forwardDistance := func(from, to uint32) uint64 {
+		if to >= from {
+			return uint64(to - from)
+		}
+		return seqSpace - uint64(from) + uint64(to)
+	}
+
+	start, end := seqs[0], seqs[len(seqs)-1]
+	expectedCount := uint64(end-start) + 1
+	if len(seqs) > 1 {
+		var (
+			largestGap uint64
+			largestIdx int
+		)
+		for i, seq := range seqs {
+			next := seqs[(i+1)%len(seqs)]
+			gap := forwardDistance(seq, next)
+			if gap > largestGap {
+				largestGap = gap
+				largestIdx = i
+			}
+		}
+		start = seqs[(largestIdx+1)%len(seqs)]
+		end = seqs[largestIdx]
+		expectedCount = seqSpace - largestGap + 1
+	}
+
+	receivedCount := uint64(len(frame.ReceivedPackets))
+	for offset := uint64(0); offset < expectedCount; offset++ {
+		seq := start + uint32(offset)
 		frame.ExpectedPackets[seq] = true
 		if !frame.ReceivedPackets[seq] {
 			frame.MissingPackets = append(frame.MissingPackets, seq)

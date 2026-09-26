@@ -6,6 +6,11 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 26, 2026 - LiDAR clock and sequence-wrap fixes
+
+- {copilot/review-prs-596-to-609} Fixed `internal/lidar/l1packets/parse` so `TimestampModePTP`, `TimestampModeGPS`, and `TimestampModeInternal` now use the sensor's combined UTC timestamp instead of a boot-time offset. Packet time no longer steps backwards at each second boundary, and the PTP fallback returns to sensor time once timestamps advance again.
+- {copilot/review-prs-596-to-609} Fixed `l2frames.calculateFrameCompleteness` to rebuild the shortest circular interval across wrapped UDP sequence numbers, so a frame spanning `math.MaxUint32` no longer scans almost the whole sequence space or loops forever. Added wrap-specific tests for both the no-gap and missing-packet cases.
+
 ## September 25, 2026 - Plan hygiene and the worker's storage path
 
 - Cleared thirteen plan-hygiene gate violations and graduated two Complete plans, `lidar-pipeline-state-model-plan.md` and `lidar-visualiser-stream-robustness-plan.md`, to symlinks onto their canonical hub (#594).
