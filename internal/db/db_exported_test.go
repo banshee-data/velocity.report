@@ -108,9 +108,11 @@ func TestNewDBAppliesPragmasToEveryPooledConnection(t *testing.T) {
 		if err := conn.QueryRowContext(context.Background(), "PRAGMA temp_store").Scan(&tempStore); err != nil {
 			t.Fatalf("reading temp_store on conn %d: %v", i, err)
 		}
-		_ = conn.Close()
 		if foreignKeys != 1 || busyTimeout != 30000 || tempStore != 2 {
 			t.Fatalf("conn %d pragmas = foreign_keys:%d busy_timeout:%d temp_store:%d", i, foreignKeys, busyTimeout, tempStore)
+		}
+		if err := conn.Close(); err != nil {
+			t.Fatalf("closing conn %d: %v", i, err)
 		}
 	}
 }
