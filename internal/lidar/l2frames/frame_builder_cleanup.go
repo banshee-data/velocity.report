@@ -70,6 +70,14 @@ func (fb *FrameBuilder) WaitForCallbacks() {
 	}
 }
 
+func azimuthCoverage(frame *LiDARFrame) float64 {
+	coverage := frame.MaxAzimuth - frame.MinAzimuth
+	if coverage < 0 {
+		coverage += 360.0 // Handle wrap-around
+	}
+	return coverage
+}
+
 // FlushPendingFrames finalises the current partial rotation and buffered
 // completed rotations without closing the builder. It is used at PCAP EOF so
 // a reusable runtime builder can finish one pass before starting the next.
@@ -395,14 +403,6 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		}
 		return seqSpace - uint64(from) + uint64(to)
 	}
-	computeAzimuthCoverage := func() float64 {
-		coverage := frame.MaxAzimuth - frame.MinAzimuth
-		if coverage < 0 {
-			coverage += 360.0 // Handle wrap-around
-		}
-		return coverage
-	}
-
 	start := seqs[0]
 	var expectedCount uint64
 	if len(seqs) == 1 {
@@ -428,12 +428,15 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		// largest forward gap is the excluded arc outside the frame: on a
 		// non-wrapping interval it is the last->first wrap gap, and on a
 		// wrapping interval it is the interior hole between the two ends.
-		if largestGap <= 1 {
-			start = seqs[(largestIdx+1)%len(seqs)]
+		start = seqs[(largestIdx+1)%len(seqs)]
+		expectedCount = seqSpace - largestGap + 1
+		switch largestGap {
+		case 0, 1:
+			// With distinct map keys, a largest forward gap of 1 means every
+			// adjacent step is consecutive, so the received set itself is the
+			// whole interval. A gap of 0 cannot arise here in practice, but we
+			// clamp it the same way as a defensive duplicate-input fallback.
 			expectedCount = uint64(len(seqs))
-		} else {
-			start = seqs[(largestIdx+1)%len(seqs)]
-			expectedCount = seqSpace - largestGap + 1
 		}
 	}
 
@@ -444,7 +447,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		frame.MissingPackets = nil
 		frame.PacketGaps = 1
 		frame.CompletenessRatio = 0
-		frame.AzimuthCoverage = computeAzimuthCoverage()
+		frame.AzimuthCoverage = azimuthCoverage(frame)
 		return
 	}
 
@@ -458,7 +461,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 
 	frame.PacketGaps = len(frame.MissingPackets)
 	frame.CompletenessRatio = float64(receivedCount) / float64(expectedCount)
-	frame.AzimuthCoverage = computeAzimuthCoverage()
+	frame.AzimuthCoverage = azimuthCoverage(frame)
 }
 
 // cleanupFrames periodically checks for frames that should be finalized
