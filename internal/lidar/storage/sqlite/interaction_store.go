@@ -22,7 +22,7 @@ package sqlite
 // Every interaction is validated as a whole record set before a write: the
 // event, its instants and its windows must agree with one another
 // (l8behaviour.FollowingInteraction.Validate). Reads differ in what they can
-// check. Get and ListInteractionsOverlapping read whole record sets and
+// check. Get and ListInteractionsContainedInWindow read whole record sets and
 // validate each set the same way, so an instant or window edited by hand
 // fails loudly rather than reaching a report. ListEvents and ListWindows read
 // one table and validate each row on its own: they refuse a malformed row,
@@ -289,9 +289,9 @@ func captureWindowFilter(startUnixNanos, endUnixNanos int64) (string, []any, err
 		[]any{l8behaviour.InteractionFollowing.String(), startUnixNanos, endUnixNanos}, nil
 }
 
-// SourcesOverlapping lists every source with following events inside a
+// SourcesContainedInWindow lists every source with following events inside a
 // capture window, by source id.
-func (s *InteractionStore) SourcesOverlapping(startUnixNanos, endUnixNanos int64) ([]InteractionSourceSummary, error) {
+func (s *InteractionStore) SourcesContainedInWindow(startUnixNanos, endUnixNanos int64) ([]InteractionSourceSummary, error) {
 	window, args, err := captureWindowFilter(startUnixNanos, endUnixNanos)
 	if err != nil {
 		return nil, err
@@ -320,9 +320,9 @@ func (s *InteractionStore) SourcesOverlapping(startUnixNanos, endUnixNanos int64
 	return out, nil
 }
 
-// VersionsOverlapping is Versions restricted to a source's following events
+// VersionsContainedInWindow is Versions restricted to a source's following events
 // inside a capture window, most recently written first.
-func (s *InteractionStore) VersionsOverlapping(sourceID string, startUnixNanos, endUnixNanos int64) ([]InteractionVersionSummary, error) {
+func (s *InteractionStore) VersionsContainedInWindow(sourceID string, startUnixNanos, endUnixNanos int64) ([]InteractionVersionSummary, error) {
 	window, args, err := captureWindowFilter(startUnixNanos, endUnixNanos)
 	if err != nil {
 		return nil, err
@@ -330,12 +330,12 @@ func (s *InteractionStore) VersionsOverlapping(sourceID string, startUnixNanos, 
 	return s.versions(sourceID, ` AND `+window, args...)
 }
 
-// ListInteractionsOverlapping returns a source's following interactions at
+// ListInteractionsContainedInWindow returns a source's following interactions at
 // exactly one version whose capture interval lies wholly inside a window: each event
 // with its instants and windows, validated, in start then pair order. The
 // three reads share one transaction, so a concurrent write or delete cannot
 // leave an event without its evidence.
-func (s *InteractionStore) ListInteractionsOverlapping(sourceID string, v l8behaviour.InteractionVersion,
+func (s *InteractionStore) ListInteractionsContainedInWindow(sourceID string, v l8behaviour.InteractionVersion,
 	startUnixNanos, endUnixNanos int64) ([]l8behaviour.FollowingInteraction, error) {
 	where, args, err := versionFilter(v)
 	if err != nil {

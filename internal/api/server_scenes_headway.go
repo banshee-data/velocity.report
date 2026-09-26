@@ -139,7 +139,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	resp.StartUnixNanos, resp.EndUnixNanos = &start, &end
 
 	store := sqlite.NewInteractionStore(s.db)
-	sources, err := store.SourcesOverlapping(start, end)
+	sources, err := store.SourcesContainedInWindow(start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -169,7 +169,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 		return resp, nil
 	}
 
-	versions, err := store.VersionsOverlapping(resp.SourceID, start, end)
+	versions, err := store.VersionsContainedInWindow(resp.SourceID, start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -192,7 +192,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	}
 	resp.Version, resp.Status = chosen, l8behaviour.StatusOf(*chosen)
 
-	interactions, err := store.ListInteractionsOverlapping(resp.SourceID, *chosen, start, end)
+	interactions, err := store.ListInteractionsContainedInWindow(resp.SourceID, *chosen, start, end)
 	if err != nil {
 		return resp, err
 	}
