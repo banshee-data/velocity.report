@@ -395,6 +395,13 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		}
 		return seqSpace - uint64(from) + uint64(to)
 	}
+	computeAzimuthCoverage := func() float64 {
+		coverage := frame.MaxAzimuth - frame.MinAzimuth
+		if coverage < 0 {
+			coverage += 360.0 // Handle wrap-around
+		}
+		return coverage
+	}
 
 	start := seqs[0]
 	var expectedCount uint64
@@ -408,6 +415,9 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		for i, seq := range seqs {
 			next := seqs[(i+1)%len(seqs)]
 			gap := forwardDistance(seq, next)
+			// Equal-sized arcs are ambiguous in circular sequence space, so pick
+			// the arc whose successor is numerically smallest. That keeps the
+			// reconstructed interval deterministic even on pathological input.
 			if gap > largestGap || (gap == largestGap && next < seqs[(largestIdx+1)%len(seqs)]) {
 				largestGap = gap
 				largestIdx = i
@@ -434,10 +444,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		frame.MissingPackets = nil
 		frame.PacketGaps = 1
 		frame.CompletenessRatio = 0
-		frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
-		if frame.AzimuthCoverage < 0 {
-			frame.AzimuthCoverage += 360.0 // Handle wrap-around
-		}
+		frame.AzimuthCoverage = computeAzimuthCoverage()
 		return
 	}
 
@@ -451,10 +458,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 
 	frame.PacketGaps = len(frame.MissingPackets)
 	frame.CompletenessRatio = float64(receivedCount) / float64(expectedCount)
-	frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
-	if frame.AzimuthCoverage < 0 {
-		frame.AzimuthCoverage += 360.0 // Handle wrap-around
-	}
+	frame.AzimuthCoverage = computeAzimuthCoverage()
 }
 
 // cleanupFrames periodically checks for frames that should be finalized
