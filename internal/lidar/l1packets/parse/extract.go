@@ -468,7 +468,7 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 
 			// Log fallback (first occurrence only to prevent log spam)
 			if p.staticCount == STATIC_TIMESTAMP_THRESHOLD+1 {
-				opsf("PTP static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
+				opsf("Static sensor timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
 			}
 		} else {
 			packetTime = sensorTime

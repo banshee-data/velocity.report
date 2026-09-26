@@ -402,7 +402,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		for i, seq := range seqs {
 			next := seqs[(i+1)%len(seqs)]
 			gap := forwardDistance(seq, next)
-			if gap > largestGap {
+			if gap > largestGap || (gap == largestGap && next < seqs[(largestIdx+1)%len(seqs)]) {
 				largestGap = gap
 				largestIdx = i
 			}
