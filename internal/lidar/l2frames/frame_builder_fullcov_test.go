@@ -341,8 +341,17 @@ func TestCalculateFrameCompleteness_SequenceWrapWithGap(t *testing.T) {
 	if frame.PacketGaps != 2 {
 		t.Fatalf("expected 2 gaps across the wrap, got %d", frame.PacketGaps)
 	}
-	if len(frame.MissingPackets) != 2 || frame.MissingPackets[0] != ^uint32(0) || frame.MissingPackets[1] != 0 {
-		t.Fatalf("unexpected missing packets across wrap: %v", frame.MissingPackets)
+	if len(frame.MissingPackets) != 2 {
+		t.Fatalf("expected 2 missing packets across wrap, got %v", frame.MissingPackets)
+	}
+	got := map[uint32]bool{}
+	for _, seq := range frame.MissingPackets {
+		got[seq] = true
+	}
+	for _, want := range []uint32{^uint32(0), 0} {
+		if !got[want] {
+			t.Fatalf("missing wrapped gap packet %d in %v", want, frame.MissingPackets)
+		}
 	}
 }
 

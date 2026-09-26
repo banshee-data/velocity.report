@@ -413,6 +413,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		// non-wrapping interval it is the last->first wrap gap, and on a
 		// wrapping interval it is the interior hole between the two ends.
 		if largestGap <= 1 {
+			start = seqs[(largestIdx+1)%len(seqs)]
 			expectedCount = uint64(len(seqs))
 		} else {
 			start = seqs[(largestIdx+1)%len(seqs)]
