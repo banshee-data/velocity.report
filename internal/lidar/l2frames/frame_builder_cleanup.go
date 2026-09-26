@@ -73,7 +73,7 @@ func (fb *FrameBuilder) WaitForCallbacks() {
 func azimuthCoverage(frame *LiDARFrame) float64 {
 	coverage := frame.MaxAzimuth - frame.MinAzimuth
 	if coverage < 0 {
-		coverage += 360.0 // Handle wrap-around
+		coverage += 360.0 // Handle wrap round
 	}
 	return coverage
 }
@@ -436,6 +436,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 			// adjacent step is consecutive, so the received set itself is the
 			// whole interval. A gap of 0 cannot arise here in practice, but we
 			// clamp it the same way as a defensive duplicate-input fallback.
+			start = seqs[0]
 			expectedCount = uint64(len(seqs))
 		}
 	}

@@ -1078,7 +1078,7 @@ func occlusionContinuityFor(experiments []string) (l5tracks.OcclusionContinuityC
 	}
 	if oc.ExplainAbsence || oc.ClassCoastBounds {
 		return l5tracks.OcclusionContinuityConfig{}, fmt.Errorf(
-			"replay experiments %q require explicit sensor coverage before absence explanation can run",
+			"replay experiments %q require explicit sensor coverage before absence classification or class-bounded coasting can run",
 			experiments,
 		)
 	}
