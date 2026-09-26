@@ -355,6 +355,31 @@ func TestCalculateFrameCompleteness_SequenceWrapWithGap(t *testing.T) {
 	}
 }
 
+func TestCalculateFrameCompleteness_PathologicalSequenceSpanIsBounded(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "comp-seq-bounded"})
+	defer fb.Close()
+
+	frame := &LiDARFrame{
+		ReceivedPackets: map[uint32]bool{
+			0:    true,
+			5000: true,
+		},
+		ExpectedPackets: map[uint32]bool{},
+	}
+	fb.calculateFrameCompleteness(frame)
+
+	if frame.PacketGaps != 1 {
+		t.Fatalf("expected the pathological span to be marked incomplete, got %d gaps", frame.PacketGaps)
+	}
+	if frame.CompletenessRatio != 0 {
+		t.Fatalf("expected pathological span completeness to be forced to 0, got %f", frame.CompletenessRatio)
+	}
+	if len(frame.ExpectedPackets) != len(frame.ReceivedPackets) {
+		t.Fatalf("expected only received packets to be retained after bounding, got %d expected vs %d received",
+			len(frame.ExpectedPackets), len(frame.ReceivedPackets))
+	}
+}
+
 // --- cleanupFrames with zero-timestamp frames ---
 
 func TestCleanupFrames_ZeroTimestamp(t *testing.T) {

@@ -367,6 +367,12 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		return
 	}
 
+	// A Pandar40P rotation carries far fewer than this many UDP packets in
+	// practice. If the reconstructed interval is larger, the received set is
+	// pathological (for example disjoint runs from corrupt or hostile input),
+	// and expanding it would turn one bad frame into billions of map writes.
+	const maxExpectedPacketSpan = 4096
+
 	if frame.ExpectedPackets == nil {
 		frame.ExpectedPackets = make(map[uint32]bool, len(frame.ReceivedPackets))
 	} else {
@@ -419,6 +425,20 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 			start = seqs[(largestIdx+1)%len(seqs)]
 			expectedCount = seqSpace - largestGap + 1
 		}
+	}
+
+	if expectedCount > maxExpectedPacketSpan {
+		for seq := range frame.ReceivedPackets {
+			frame.ExpectedPackets[seq] = true
+		}
+		frame.MissingPackets = nil
+		frame.PacketGaps = 1
+		frame.CompletenessRatio = 0
+		frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
+		if frame.AzimuthCoverage < 0 {
+			frame.AzimuthCoverage += 360.0 // Handle wrap-around
+		}
+		return
 	}
 
 	receivedCount := uint64(len(frame.ReceivedPackets))
