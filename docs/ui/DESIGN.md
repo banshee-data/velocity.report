@@ -158,6 +158,28 @@ surface that draws either keeps these rules:
 | Palette               | `ColourFollowing*` in [palette.go](../../internal/report/chart/palette.go) for the report; neutral greys and the existing histogram blue for the scene chart, whose status box uses the §3.2 warning amber. Both stay separate from the §3.3 percentile palette |
 | Empty states          | A selection with nothing to draw is a labelled message chart that says why                                                                                                                                                                                      |
 
+### 4.5 Following distance inspection
+
+**Planned for the remaining 0.5.2 sprint; not implemented.** Add a Following distance toggle beside
+Velocity in the native visualiser, with matching encounter/instant inspection on the scene page.
+The [layer contract](../plans/lidar-052-mvp-sprint-plan.md#following-distance-debug-layer) defines
+its data, geometry and acceptance cases.
+
+Draw the selected follower's leading endpoint and its nearest credible leader's trailing endpoint,
+joined along the fitted path and labelled with the supported distance in metres. The label is
+along-path bumper gap; a separately requested shortest surface-separation segment is a distinct
+planar geometry diagnostic. On a curve, never label the chord with the arc's length.
+
+The inspector shows body anchor, extents, heading, endpoint provenance, uncertainty, along-path
+speed, net time gap, support/coast age, candidate decisions, suppression and version. Show stage
+and provisional status independently. Inferred marks are dashed/hollow and labelled; unsupported
+values show their reason rather than zero. No alarm or driver-verdict colour is implied.
+
+Values come from the backend's versioned per-instant analysis, not client-side box arithmetic.
+Selection, frame stepping, seek, source changes and revised history update the line and inspector
+together. The same instant/version must agree with stored data, the API and the report. A missing
+legacy capability is an explicit unavailable state.
+
 ## 5. Web UI style system
 
 ### 5.1 One shell, three content widths

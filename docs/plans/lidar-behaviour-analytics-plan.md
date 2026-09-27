@@ -4,6 +4,13 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
+The [remaining 0.5.2 sprint](lidar-052-mvp-sprint-plan.md) now owns the integration order,
+Following distance debug layer and provisional MVP exit. The
+[merged-batch review](../lidar/operations/0.5.2-sprint-review.md) records the current gaps:
+body-anchor correctness, complete final trajectories, persisted paths, unique follower opportunity,
+scene-window accounting and a real-data producer beyond #614's provisional field run over persisted
+estimates. A final inference stage alone does not qualify a field metric for promotion.
+
 - **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
@@ -1254,9 +1261,11 @@ encounters; the report's provisional slice and field promotion are not.
   not give its interval.
 - **Scene to source.** A scene stores its capture window, not the analysis source. The source id
   digests the replay case, capture paths, capture digests and extractor, none of which a scene
-  keeps. The API therefore reads the sources whose following encounters overlap the scene's
-  window. It lists several, such as one capture extracted under two tunings, rather than merging
-  them. No schema change was needed.
+  keeps. Since #611, the API reads sources with encounters **wholly contained** in the scene's
+  window. It lists several rather than merging them. Boundary-crossing encounters are excluded,
+  not clipped, so this is a distribution of contained encounters, not complete window exposure.
+  Explicit source/run binding and clipped, recomputed window statistics remain in the
+  [sprint plan](lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population).
 - **API and chart.** `GET /api/scenes/<id>/headway` serves the distribution and a summary row per
   encounter; its default is the newest final-stage version, and it never falls back to a less
   final stage. `/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution as SVG
@@ -1265,6 +1274,12 @@ encounters; the report's provisional slice and field promotion are not.
   verdict words.
 
 ## 11. Evaluation datasets
+
+The implemented `ScoreHeldOut` harness pins bounds and a reference-set name, but does not itself
+freeze reference contents, enforce disjoint splits or gate unmatched references and missing strata.
+The [following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
+those checks and independent leader/no-leader truth. Mask centres can support detection/identity
+evaluation; they do not certify the physical ends of partially visible bodies.
 
 What each source can and cannot validate. Claiming validation from a dataset lacking the
 necessary signal is the failure mode to avoid.

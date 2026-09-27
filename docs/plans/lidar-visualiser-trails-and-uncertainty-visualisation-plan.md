@@ -1,13 +1,17 @@
 # Design: ghost trails and velocity uncertainty cones (feature 5)
 
+This plan covers faithful observed and predicted trails, then optional future ghosts and
+uncertainty cones. The [0.5.2 Following distance layer](lidar-052-mvp-sprint-plan.md#following-distance-debug-layer)
+is the immediate measurement-inspection slice, with basic stage, support and seek correctness.
+
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [trails-and-uncertainty.md](../ui/visualiser/trails-and-uncertainty.md)
 
 ## Objective
 
-**Current priority:** v0.5.4 makes trails faithful to the temporal physical estimate, including
-occlusion, before adding decorative prediction overlays. The
+**Current priority:** 0.5.2 requires stage/support/anchor correctness for following-distance review;
+v0.5.4 retains the broader trail and prediction-overlay work. The
 [state-estimation plan](lidar-state-estimation-plan.md) owns body anchors, prediction, uncertainty,
 expiry and reacquisition. The renderer must not repair a wrong track with independent smoothing.
 

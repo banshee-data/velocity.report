@@ -37,7 +37,9 @@ rg 'timeutil\.Clock|MockClock' internal/ --type go -c
 Separately, the pipeline conflates two distinct time domains: sensor
 timestamps from device packets and host wall-clock timestamps: which
 works today with a single Hesai Pandar40P in `TimestampModeSystemTime`,
-but will break under GPS/PTP modes or multi-sensor configurations.
+but needs explicit clock-domain transitions for GPS/PTP fallback and
+multi-sensor configurations. #611 corrected sensor UTC interpretation
+and fallback release; it did not qualify discontinuities between clocks.
 
 ## Findings
 
@@ -68,10 +70,10 @@ decisions, and DB audit fields.
 
 Conflation points:
 
-- `extract.go:226`: `bootTime: time.Now()` initialises
-  device-internal offset from wall clock
-- `extract.go:467,498`: falls back to `packetTime = time.Now()`
-  when sensor timestamp unavailable
+- `resolvePacketTime`: GPS/PTP static fallback uses `time.Now()`;
+  changing sensor time returns to `CombinedTimestamp`, without a
+  monotonicity or clock-epoch check. The earlier boot-offset use was
+  removed in #611.
 - `l5tracks/tracking.go:192`: `dt` computed from
   `timestamp.UnixNano()`, which may be sensor or wall time
   depending on upstream `TimestampMode`
@@ -145,12 +147,11 @@ reference.
 - **A backwards frame timestamp became a negative `dt`**, running
   the state backwards and subtracting process noise. Fixed: the
   interval is zero and the step is counted.
-- **Boot-offset modes wrap every second.** `gps`, `internal` and
-  the PTP enum add the within-second microsecond field to parser
-  boot time; each second boundary steps the frame clock back about
-  0.9 s. The PTP/GPS static fallback to system time never releases,
-  and the server restores `system` mode after any PCAP replay
-  whatever `LIDAR_TIMESTAMP_MODE` selected. Recorded, not changed
+- **Sensor interpretation corrected in #611.** `gps`, `internal`
+  and the PTP enum now use combined UTC time; the static fallback
+  releases when sensor time changes. Clock resets/fallback offsets
+  still need explicit handling, and the server still restores
+  `system` after replay regardless of `LIDAR_TIMESTAMP_MODE`
   (item C2).
 - **The paced replay reader skips the packet it forgives on** once
   more than 30 s behind, a wall-clock-dependent packet loss. Not
@@ -288,9 +289,10 @@ testability benefits justify the review surface.
 
 - [ ] **C1.** `l3grid/`: ~17 background model timestamps
       (audit/diagnostic). Migrate to `Clock.Now()`.
-- [ ] **C2.** `l1packets/parse/extract.go`: boot-time and
-      fallback packet timestamping (4 calls). Requires careful
-      handling of `TimestampMode` interactions.
+- [ ] **C2.** Inject the clock for fallback packet timestamping,
+      preserve configured mode after replay and handle clock-domain
+      discontinuities explicitly. Combined sensor UTC and static-fallback
+      release are delivered in #611; they are not still-open fixes.
 - [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
 - [ ] **C4.** [internal/cmd/server/](../../internal/cmd/server) and [cmd/tools/](../../cmd/tools): startup/CLI
@@ -344,11 +346,11 @@ testability benefits justify the review surface.
 - [x] **F1.** Audit all five `TimestampMode` code paths in
       `extract.go` (lines 460–510). Verify that the `dt` computed
       in the tracker is monotonically increasing for each mode.
-      Add a unit test per mode. Outcome: monotonic, and equal to the
-      sensor's interval, only in `lidar` mode; equal to the capture
-      interval in every mode on replay; host arrival spacing in
-      `system` mode; stepping back about 0.9 s at every second in
-      the boot-offset modes, which the tracker now absorbs.
+      Add a unit test per mode. Updated outcome after #611: ordinary
+      UTC-second rollover follows the sensor interval in `lidar`,
+      `internal`, GPS and PTP; replay follows external capture time in
+      every mode; `system` follows host arrival. Clock resets and
+      fallback/recovery offsets are not a global monotonicity guarantee.
       Per-mode tests in
       [timestamp_mode_test.go](../../internal/lidar/l1packets/parse/timestamp_mode_test.go)
       and, end to end into the tracker, in
