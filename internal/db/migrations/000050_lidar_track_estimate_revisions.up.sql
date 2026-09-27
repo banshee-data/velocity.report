@@ -13,7 +13,7 @@
           estimate_id TEXT PRIMARY KEY
         , revises_estimate_id TEXT NOT NULL
         , smoother_id TEXT NOT NULL
-        , LAG TEXT NOT NULL
+        , "lag" TEXT NOT NULL
         , lookahead_steps INTEGER NOT NULL
         , lookahead_secs REAL NOT NULL
         , released_at_unix_nanos INTEGER NOT NULL
