@@ -54,6 +54,8 @@ CREATE TABLE lidar_capture_files(root_id TEXT,rel_path TEXT,first_packet_ns INTE
 		`INSERT INTO lidar_tracks VALUES('a',10),('b',10)`,
 		`INSERT INTO lidar_run_tracks VALUES('run-a','a',1,0),('run-b','b',0,0)`,
 		`INSERT INTO lidar_track_observations VALUES('a',100,101,1,2,3,4),('b',100,101,5,6,7,8)`,
+		// No position: skipped, never read as an observation at the origin.
+		`INSERT INTO lidar_track_observations VALUES('a',200,201,NULL,2,3,4)`,
 		`INSERT INTO lidar_capture_roots VALUES('root','/captures')`,
 		`INSERT INTO lidar_capture_files VALUES('root','a.pcap',99,200,1,'ok'),('root','b.pcap',99,200,0,'ok')`,
 	} {

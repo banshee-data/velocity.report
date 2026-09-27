@@ -2,19 +2,20 @@ package segments
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math"
 	"path/filepath"
+
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // LoadEstimates reads one source and stage in a read transaction. A source
 // with several estimator versions is refused: mixing arms invents traffic.
-func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
+func LoadEstimates(db *sqlite.SQLDB, source, stage string) ([]Point, string, error) {
 	if stage == "" {
 		stage = "online"
 	}
-	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	tx, err := sqlite.BeginReadOnly(context.Background(), db)
 	if err != nil {
 		return nil, "", err
 	}
@@ -67,15 +68,17 @@ func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
 	points := []Point{}
 	for rows.Next() {
 		var seq, t int64
-		var x, y, vx, vy sql.NullFloat64
+		// A nil pointer is SQL NULL: an estimate without a position or a
+		// velocity cannot be paired, and zero would place it at the origin.
+		var x, y, vx, vy *float64
 		if err = rows.Scan(&seq, &t, &x, &y, &vx, &vy); err != nil {
 			rows.Close()
 			return nil, "", err
 		}
-		if !x.Valid || !y.Valid || !vx.Valid || !vy.Valid || math.IsNaN(x.Float64) || math.IsNaN(y.Float64) || math.IsNaN(vx.Float64) || math.IsNaN(vy.Float64) {
+		if x == nil || y == nil || vx == nil || vy == nil || math.IsNaN(*x) || math.IsNaN(*y) || math.IsNaN(*vx) || math.IsNaN(*vy) {
 			continue
 		}
-		points = append(points, Point{Track: fmt.Sprint(seq), TimeNs: t, X: x.Float64, Y: y.Float64, VX: vx.Float64, VY: vy.Float64})
+		points = append(points, Point{Track: fmt.Sprint(seq), TimeNs: t, X: *x, Y: *y, VX: *vx, VY: *vy})
 	}
 	if err = rows.Err(); err != nil {
 		rows.Close()
@@ -86,7 +89,7 @@ func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
 }
 
 // LoadRun reads the run's own observations, keeping joins scoped by run ID.
-func LoadRun(db *sql.DB, runID string) ([]Point, error) {
+func LoadRun(db *sqlite.SQLDB, runID string) ([]Point, error) {
 	if runID == "" {
 		return nil, fmt.Errorf("run_id is required")
 	}
@@ -98,18 +101,18 @@ func LoadRun(db *sql.DB, runID string) ([]Point, error) {
 	points := []Point{}
 	for rows.Next() {
 		var p Point
-		var x, y, vx, vy sql.NullFloat64
+		var x, y, vx, vy *float64
 		var split, merge int
 		if err = rows.Scan(&p.Track, &p.TimeNs, &x, &y, &vx, &vy, &p.MaxSpeed, &split, &merge); err != nil {
 			return nil, err
 		}
-		if !x.Valid || !y.Valid || !vx.Valid || !vy.Valid {
+		if x == nil || y == nil || vx == nil || vy == nil {
 			continue
 		}
-		p.X = x.Float64
-		p.Y = y.Float64
-		p.VX = vx.Float64
-		p.VY = vy.Float64
+		p.X = *x
+		p.Y = *y
+		p.VX = *vx
+		p.VY = *vy
 		p.SplitFlag = split != 0 || merge != 0
 		points = append(points, p)
 	}
@@ -118,7 +121,7 @@ func LoadRun(db *sql.DB, runID string) ([]Point, error) {
 
 // CapturesForRange returns indexed files with real packet bounds. It does not
 // infer an offset from filenames: an incorrect offset cuts the wrong evidence.
-func CapturesForRange(db *sql.DB, start, end int64) ([]Capture, error) {
+func CapturesForRange(db *sqlite.SQLDB, start, end int64) ([]Capture, error) {
 	rows, err := db.Query(`SELECT r.path,f.rel_path,f.first_packet_ns,f.last_packet_ns FROM lidar_capture_files f JOIN lidar_capture_roots r ON r.root_id=f.root_id WHERE f.present=1 AND f.probe_state='ok' AND f.first_packet_ns<=? AND f.last_packet_ns>=? ORDER BY f.first_packet_ns`, end, start)
 	if err != nil {
 		return nil, err
