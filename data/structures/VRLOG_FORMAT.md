@@ -552,6 +552,14 @@ and the accepted extent. Frames between the committed end and the accepted end w
 and are not in the container; nothing after was admitted. A failed disk may not store its own
 marker. Without one, recovery marks the tail extent unknown.
 
+The stall bound runs from acceptance, not from the start of a sync. It counts the wait for the
+committer to take the batch as well as the synchronisation, so on a loaded host scheduling delay
+alone can exceed a very short commit deadline with a healthy disk. What the failure commits
+depends on where the batch was when the stall was declared. A batch the committer had already
+taken may still complete its publication before the failure generation. A batch still open is
+never committed: its records fall in the accepted extent only, and recovery quarantines its
+file.
+
 No frame that reaches the writer is dropped silently. A frame over a declared limit, or one not
 admitted within the shed wait while a commit is pending, becomes a bounded gap over its sequence
 (`writer-limit: …` or `writer-backlog: …`) and is counted in the account. A replay that fails,

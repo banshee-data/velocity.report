@@ -83,6 +83,9 @@ func TestGroupCommitClosesBatchesByAgeAndBytes(t *testing.T) {
 	m = testManifest(t)
 	m.Commit.MaxBatchAge = time.Hour
 	m.Commit.MaxBatchBytes = 4 << 10
+	// The default deadline is declared; with an hour's batch age nothing
+	// waits near its stall bound.
+	m.Commit.CommitDeadline = 0
 	w, bytesDir := createTest(t, m)
 	for seq := range uint64(8) {
 		if err := w.AppendFrame(synthFrame(seq, 60)); err != nil {
@@ -183,14 +186,26 @@ func TestFrontierIsAnnouncedOnlyAfterEveryStep(t *testing.T) {
 // into failure and stops admission. The stalled commit may still complete;
 // then the failure marker records the committed and accepted extents, and
 // only then is the frontier final.
+//
+// Timing window: the bound runs from acceptance, so this test assumes the
+// committer takes the batch (seals it for publication) within 45 ms of the
+// append, the 5 ms batch age plus the 40 ms deadline. A committer not
+// scheduled by then lets the watchdog declare the stall with the batch still
+// open. The writer rightly never commits that batch, but the committed prefix
+// is then empty and the assertions on the completed commit fail; the test
+// says so by name rather than as a wrong frontier. A longer deadline would
+// buy margin at the cost of test time. See VRLOG_FORMAT.md, "Capture failure
+// and explicit gaps".
 func TestCommitStallFailsTheCapture(t *testing.T) {
 	m := testManifest(t)
 	m.Commit.MaxBatchAge = 5 * time.Millisecond
 	m.Commit.CommitDeadline = 40 * time.Millisecond
 	w, dir := createTest(t, m)
 	release := make(chan struct{})
+	var taken atomic.Bool // the committer took the batch: it reached the batch's sync
 	w.hooks.Store(&writerHooks{sync: func(name string) error {
 		if strings.HasSuffix(name, chunkSuffix+openSuffix) {
+			taken.Store(true)
 			<-release
 		}
 		return nil
@@ -199,6 +214,14 @@ func TestCommitStallFailsTheCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, "the stall to fail the capture", func() bool { return w.Frontier().State == CaptureFailed })
+	// Either the committer took the batch before the stall and is held in its
+	// sync, or it never took it and has written the failure generation.
+	eventually(t, "the committer to reach the held sync or finish", func() bool { return taken.Load() || w.Frontier().Final })
+	if !taken.Load() {
+		t.Fatalf("the stall was declared before the committer took the batch (not scheduled within %s of the append): "+
+			"the timing window in this test's comment, not a writer fault; frontier = %+v",
+			m.Commit.MaxBatchAge+m.Commit.CommitDeadline, w.Frontier())
+	}
 	f := w.Frontier()
 	if f.Failure == nil || f.Failure.Cause != FailureStall || f.Final || f.Records != 0 || f.AcceptedRecords != 1 {
 		t.Fatalf("frontier during the stall = %+v", f)
@@ -346,15 +369,15 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 		}
 	}
 	close(release)
-	// Frame 4 arrives once the backlog has drained: that is what the test
-	// states, and the drain takes as long as the storage does. Appending at
-	// once instead would ask the committer to catch up inside ShedAfter,
-	// which slow storage cannot, and frame 4 would be shed as well.
-	eventually(t, "the committer to drain the backlog", func() bool {
-		w.mu.Lock()
-		defer w.mu.Unlock()
-		return w.committing == nil && w.durable.records == w.accepted.records
-	})
+	// Frame 4 arrives once the backlog, gaps included, is durable: that is
+	// what the test states, and the drain takes as long as the storage does.
+	// Appending at once instead would ask the committer to catch up inside
+	// ShedAfter, which slow storage cannot, and frame 4 would be shed as well.
+	// The wait is on the announced frontier, with the test's patience.
+	f, err := w.WaitFrontier(testContext(t, 30*time.Second), 1)
+	if err != nil || f.State != CaptureOpen || f.Records != 4 || f.AcceptedRecords != 4 {
+		t.Fatalf("frontier after the backlog = %+v, %v", f, err)
+	}
 	if err := w.AppendFrame(synthFrame(4, 10)); err != nil {
 		t.Fatal(err)
 	}

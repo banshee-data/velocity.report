@@ -1092,7 +1092,11 @@ func (w *Writer) oldestUndurableLocked() (time.Time, bool) {
 
 // armWatchdogLocked schedules the stall check for the oldest undurable
 // record. It does not depend on the committer, which may be the thing
-// stalled inside a sync.
+// stalled inside a sync. The bound runs from acceptance, so a committer that
+// has not yet taken the batch (not scheduled, or still publishing the one
+// before) is a stall as much as a slow sync is. A batch still open when the
+// stall is declared is never committed (see nextJobLocked); one already
+// committing may complete before the failure generation.
 func (w *Writer) armWatchdogLocked() {
 	oldest, ok := w.oldestUndurableLocked()
 	if !ok || w.failure != nil {

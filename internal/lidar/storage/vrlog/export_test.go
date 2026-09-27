@@ -14,6 +14,10 @@ import (
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 )
 
+// FixtureCommitDeadline is the fixtures' generous stall bound, for writers
+// the external tests create.
+const FixtureCommitDeadline = testCommitDeadline
+
 // ChunkPath and IndexPath name a chunk's objects.
 func ChunkPath(dir string, ordinal uint64) string { return filepath.Join(dir, chunkObject(ordinal)) }
 func IndexPath(dir string, ordinal uint64) string { return filepath.Join(dir, indexObject(ordinal)) }

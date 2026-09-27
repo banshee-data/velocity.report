@@ -29,6 +29,9 @@ func observationContainer(t *testing.T) string {
 		Capture:     vrlog.CaptureIdentity{SensorID: "s", SourceType: "live"},
 		Extraction:  vrlog.ExtractionIdentity{SourceID: "source/v1/test", CalibrationID: calibrationID, CoordinateFrame: "site/s", ExtractorID: "l4.test/v1"},
 		Calibration: calibration,
+		// A slow commit on a loaded machine must not fail the fixture through
+		// the stall bound, which no test here checks.
+		Commit: vrlog.CommitPolicy{CommitDeadline: time.Minute},
 	})
 	if err != nil {
 		t.Fatal(err)

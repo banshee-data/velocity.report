@@ -73,10 +73,6 @@ func writeTestContainer(t *testing.T, limits Limits) (string, []Record, Summary)
 	t.Helper()
 	m := testManifest(t)
 	m.Limits = limits
-	// A fixture, not a stall test: the longest permitted stall bound, so a
-	// commit slowed by a busy disk cannot fail the write under the default
-	// 2 s bound and take an unrelated reading or recovery test with it.
-	m.Commit.CommitDeadline = maxCommitDeadline
 	w, dir := createTest(t, m)
 	want := testStream().write(t, w)
 	summary, err := w.Close()

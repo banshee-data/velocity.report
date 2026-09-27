@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
@@ -24,6 +25,9 @@ func TestReportVerifiesObservationContainers(t *testing.T) {
 		Capture:     vrlog.CaptureIdentity{SensorID: "s", SourceType: "synthetic"},
 		Extraction:  vrlog.ExtractionIdentity{SourceID: "source/v1/check", CalibrationID: calibrationID, CoordinateFrame: "site/s", ExtractorID: "l4.test/v1"},
 		Calibration: calibration,
+		// A slow commit on a loaded machine must not fail the fixture through
+		// the stall bound, which this test does not check.
+		Commit: vrlog.CommitPolicy{CommitDeadline: time.Minute},
 	})
 	if err != nil {
 		t.Fatal(err)
