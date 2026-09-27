@@ -1,6 +1,7 @@
 package l8behaviour
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -251,5 +252,143 @@ func TestSampleFromTrack(t *testing.T) {
 	// An established claim the extents cannot support is reported.
 	if _, err := SampleFromTrack(track, class, l5tracks.EstimationEstablished, FixtureBaseUnixNanos, l5tracks.DefaultConvergenceBounds()); err == nil {
 		t.Fatal("established with class-prior extents accepted")
+	}
+}
+
+// persistedRow is a lidar_track_estimates row of the replay's online
+// estimator under the OBB-centre model, moving along +x at vx.
+func persistedRow(track string, frame int, x, vx float32) PersistedEstimate {
+	return PersistedEstimate{
+		TrackID: track, SensorID: "sensor_a",
+		FrameUnixNanos: FixtureBaseUnixNanos + int64(frame)*FixtureFramePeriodNanos,
+		EstimatorID:    "cv_kf_v1", ObsModelID: "obb_centre_v1", ParamHash: "sha256:online", Stage: "online",
+		MeasurementSource: "obb_centre_v1", X: x, VX: vx,
+		Covariance: [16]float32{0.04, 0.01, 0, 0, 0.01, 0.04, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0.25},
+	}
+}
+
+// TestTrajectoriesFromEstimates: a row becomes an observed sample at its own
+// frame, with its own stage, a reference from the geometry that entered the
+// filter, a lifecycle from its speed, and no heading, extent or class,
+// because none is persisted.
+func TestTrajectoriesFromEstimates(t *testing.T) {
+	rows := []PersistedEstimate{
+		persistedRow("trk_b", 1, 11, 10), persistedRow("trk_b", 0, 10, 10),
+		persistedRow("trk_a", 0, 0, 0.25), persistedRow("trk_a", 1, 0.025, 0.25),
+	}
+	rows[3].MeasurementSource = "medoid_fallback_v1"
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trajectories) != 2 || trajectories[0].Passage.TrackID != "trk_a" || trajectories[1].Passage.TrackID != "trk_b" {
+		t.Fatalf("trajectories are not one per track in id order: %+v", trajectories)
+	}
+	want := EstimateIdentity{EstimatorID: "cv_kf_v1", ObsModelID: "obb_centre_v1", ParamHash: "sha256:online"}
+	for _, tr := range trajectories {
+		if tr.Estimate != want || tr.Passage.SensorID != "sensor_a" || tr.Passage.MotionClass != MotionUnknown ||
+			tr.Passage.ClassLabel != "" || tr.Passage.ClassConfidence != nil || tr.Passage.SiteID != "" {
+			t.Errorf("%s identity = %+v, %+v", tr.Passage.TrackID, tr.Passage, tr.Estimate)
+		}
+		for i, s := range tr.Samples {
+			if s.CaptureUnixNanos != FixtureBaseUnixNanos+int64(i)*FixtureFramePeriodNanos ||
+				s.LastObservedUnixNanos != s.CaptureUnixNanos || s.Support != SupportObserved || s.Stage != StageOnline {
+				t.Errorf("%s sample %d = %+v", tr.Passage.TrackID, i, s)
+			}
+			if s.Heading.Provenance.Valid() || s.Length.Present() || s.Width.Present() || s.Faces != (FaceVisibility{}) {
+				t.Errorf("%s sample %d claims geometry nothing persisted: %+v", tr.Passage.TrackID, i, s)
+			}
+		}
+	}
+	b := trajectories[1].Samples
+	if b[0].X != 10 || b[1].X != 11 || b[0].Reference != ReferenceBodyCentre || b[0].Estimation != EstimationGeometryConverging {
+		t.Errorf("moving OBB-centre samples = %+v", b)
+	}
+	a := trajectories[0].Samples
+	if a[0].Estimation != EstimationInitialising {
+		t.Errorf("a row below the heading-observability speed is %s, want initialising", a[0].Estimation)
+	}
+	if a[1].Reference != ReferenceClusterMedoid {
+		t.Errorf("a medoid-fallback row refers to %s, want the cluster medoid", a[1].Reference)
+	}
+	if b[0].Covariance[1] != float64(float32(0.01)) || b[0].Covariance[10] != 0.25 {
+		t.Errorf("covariance not carried: %v", b[0].Covariance)
+	}
+}
+
+// TestTrajectoriesFromEstimatesAveragesRoundOff: a float32 filter's
+// covariance pairs that differ in their last places, as kirk0's online rows
+// do, are averaged into one symmetric matrix rather than refused.
+func TestTrajectoriesFromEstimatesAveragesRoundOff(t *testing.T) {
+	rows := []PersistedEstimate{persistedRow("trk_a", 0, 0, 10), persistedRow("trk_a", 1, 1, 10)}
+	// 0.01 and the float32 two units above it: a 2e-9 disagreement.
+	rows[1].Covariance[4] = math.Nextafter32(math.Nextafter32(0.01, 1), 1)
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatalf("round-off refused: %v", err)
+	}
+	c := trajectories[0].Samples[1].Covariance
+	if c[1] != c[4] || c[1] != float64(math.Nextafter32(0.01, 1)) {
+		t.Errorf("pair = %v and %v, want both the float32 between them", c[1], c[4])
+	}
+}
+
+// TestTrajectoriesFromEstimatesReadsRefinedStages: fixed_lag and final rows,
+// written by a smoother over the online filter, are read at their own stage.
+// This is the only path by which a sample is final.
+func TestTrajectoriesFromEstimatesReadsRefinedStages(t *testing.T) {
+	for _, stage := range []EstimateStage{StageFixedLag, StageFinal} {
+		rows := []PersistedEstimate{persistedRow("trk_a", 0, 0, 10), persistedRow("trk_a", 1, 1, 10)}
+		for i := range rows {
+			rows[i].EstimatorID = "cv_kf_v1+" + l5tracks.SmootherID
+			rows[i].Stage = stage.String()
+		}
+		trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+		if err != nil {
+			t.Fatalf("%s: %v", stage, err)
+		}
+		for _, s := range trajectories[0].Samples {
+			if s.Stage != stage || s.StateModel != StateModelCVCartesianV1 {
+				t.Errorf("%s row read as stage %s, model %s", stage, s.Stage, s.StateModel)
+			}
+		}
+	}
+	if out, err := TrajectoriesFromEstimates(nil, l5tracks.DefaultConvergenceBounds()); err != nil || out != nil {
+		t.Errorf("no rows = %v, %v; want nothing and no error", out, err)
+	}
+}
+
+// TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay: an unknown layout,
+// stage or geometry, a mixed version, a missing sensor, a repeated frame and
+// the fixture's identity are errors, never guesses.
+func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
+	for name, mutate := range map[string]func([]PersistedEstimate){
+		"unknown filter":        func(r []PersistedEstimate) { r[0].EstimatorID, r[1].EstimatorID = "imm_cv_ca_v2", "imm_cv_ca_v2" },
+		"unknown stage":         func(r []PersistedEstimate) { r[0].Stage, r[1].Stage = "smoothed", "smoothed" },
+		"unknown geometry":      func(r []PersistedEstimate) { r[1].MeasurementSource = "near_edge_candidate_v1" },
+		"mixed stages":          func(r []PersistedEstimate) { r[1].Stage = "final" },
+		"mixed parameters":      func(r []PersistedEstimate) { r[1].ParamHash = "sha256:other" },
+		"no sensor":             func(r []PersistedEstimate) { r[0].SensorID, r[1].SensorID = "", "" },
+		"two sensors":           func(r []PersistedEstimate) { r[1].SensorID = "sensor_b" },
+		"repeated frame":        func(r []PersistedEstimate) { r[1].FrameUnixNanos = r[0].FrameUnixNanos },
+		"no parameter hash":     func(r []PersistedEstimate) { r[0].ParamHash, r[1].ParamHash = "", "" },
+		"asymmetric covariance": func(r []PersistedEstimate) { r[1].Covariance[4] = 0.02 },
+		"fixture identity": func(r []PersistedEstimate) {
+			for i := range r {
+				f := FixtureEstimate()
+				r[i].EstimatorID, r[i].ObsModelID, r[i].ParamHash = f.EstimatorID, f.ObsModelID, f.ParamHash
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rows := []PersistedEstimate{persistedRow("trk_a", 0, 0, 10), persistedRow("trk_a", 1, 1, 10)}
+			mutate(rows)
+			if _, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds()); err == nil {
+				t.Fatal("want an error")
+			}
+		})
+	}
+	if _, err := PersistedStateModel("cv_kf_v1+" + l5tracks.SmootherID); err != nil {
+		t.Errorf("a smoother over cv_kf_v1 keeps its layout: %v", err)
 	}
 }

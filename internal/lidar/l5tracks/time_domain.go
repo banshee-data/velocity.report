@@ -205,6 +205,11 @@ func (t *Tracker) gapPredictionLimit() float32 {
 // covariance cap and the finite-state guard act per step exactly as they do
 // across the same interval of ordinary frames.
 func (t *Tracker) predictSpan(track *TrackedObject, dt float32) {
+	if t.Config.SolidBody.Enabled {
+		// The solid body is predicted across the same interval by the same
+		// rule, so the two filters differ only in what updates them.
+		t.predictSolidBody(track, dt)
+	}
 	step := t.Config.MaxPredictDt
 	if !t.Config.CaptureGapPrediction || dt <= step || step <= 0 {
 		t.predict(track, dt)

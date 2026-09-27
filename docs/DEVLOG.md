@@ -6,6 +6,15 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 27, 2026 - Solid bodies, adaptive noise, identity options and the provisional headway field run
+
+- {claude/upbeat-galileo-4xbaat} Consolidated the four 0.5.2.x slices left unfinished when the parallel agents stopped into one branch on main, bumped the version to 0.5.1-pre38, and re-ran the Go suite, the kirk0 pcap replays and the race build over the result.
+- {claude/upbeat-galileo-4xbaat} Wired the Section 5.4 solid body: a default-off near-edge shadow estimator that never feeds back into association, course-aligned extent admission, a faceless body-centre lapse to the medoid, and one `lidar_track_solid_bodies` row per point estimate (migration 000052). On kirk0 its body-centre lateral residual is lower than the point estimate's at p95 and higher at p99 and max; with eight moving tracks and no held-out geometry that is wiring evidence, not G-GEO-1.
+- {claude/upbeat-galileo-4xbaat} Landed the Phase 3 adaptive-uncertainty harness behind `-experiment adaptive_uncertainty`, with a per-stratum calibration fit and G-UNC-1 predeclared. On kirk0 the fit lowers R towards a smaller scalar rather than separating the axes and row 2 fails for every arm, which points at the medoid's error shape, the thing Phase 2 changes.
+- {claude/upbeat-galileo-4xbaat} Added the default-off S2 and K4 identity options (`TentativePriority`, `ClassIdentity`, `ContestedRejoin`) with their missing tests, including a scripted K4 scene where a car emerging beside a kerbside pedestrian no longer steals the pedestrian's track (IDF1 0.590 to 0.966).
+- {claude/upbeat-galileo-4xbaat} Ran the headway report over persisted estimates for the first time (`velocity report headway --db`, contract `headway_report_v2`). It finds following pairs on kirk0 and publishes nothing, because a persisted point estimate has no class, heading or extent; the solid-body rows now carry all three and are the next input to read.
+- {claude/upbeat-galileo-4xbaat} Repaired the kirk0 occlusion-continuity smoke run, which #611's coverage refusal broke outside CI's race-only pcap job: it now replays only the coverage-free options and asserts the others are refused.
+
 ## September 26, 2026 - LiDAR clock and sequence-wrap fixes
 
 - {copilot/review-prs-596-to-609} Fixed `internal/lidar/l1packets/parse` so `TimestampModePTP`, `TimestampModeGPS`, and `TimestampModeInternal` now use the sensor's combined UTC timestamp instead of a boot-time offset. Packet time no longer steps backwards at each second boundary, and the PTP fallback returns to sensor time once timestamps advance again.

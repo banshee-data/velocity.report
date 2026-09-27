@@ -24,13 +24,43 @@ type EstimateVersion struct {
 	Tracks             int    `json:"tracks"`
 }
 
+// The two versioned tables a per-frame arm can read. Both share the version
+// key and the columns these queries select, so one query serves each.
+const (
+	pointEstimateTable = "lidar_track_estimates"
+	solidBodyTable     = "lidar_track_solid_bodies"
+)
+
 // ListEstimateVersions returns every distinct version key in the database,
 // sorted by all five fields.
 func (s *StateEstimateStore) ListEstimateVersions() ([]EstimateVersion, error) {
+	return s.listVersions(pointEstimateTable)
+}
+
+// ListSolidBodyVersions is ListEstimateVersions over lidar_track_solid_bodies.
+func (s *StateEstimateStore) ListSolidBodyVersions() ([]EstimateVersion, error) {
+	return s.listVersions(solidBodyTable)
+}
+
+// versionedTable refuses any table but the two constants above. The name is
+// interpolated into SQL, so it is checked here rather than trusted to every
+// caller.
+func versionedTable(table string) error {
+	if table != pointEstimateTable && table != solidBodyTable {
+		return fmt.Errorf("not a versioned estimate table: %q", table)
+	}
+	return nil
+}
+
+// listVersions reads the version keys of one of the two versioned tables.
+func (s *StateEstimateStore) listVersions(table string) ([]EstimateVersion, error) {
+	if err := versionedTable(table); err != nil {
+		return nil, fmt.Errorf("list estimate versions: %w", err)
+	}
 	rows, err := s.db.Query(`
 		SELECT source_id, estimator_id, observation_model_id, param_hash, stage
 		     , COUNT(*), COUNT(DISTINCT track_id)
-		  FROM lidar_track_estimates
+		  FROM ` + table + `
 		 GROUP BY source_id, estimator_id, observation_model_id, param_hash, stage
 		 ORDER BY source_id, estimator_id, observation_model_id, param_hash, stage`)
 	if err != nil {
@@ -64,9 +94,26 @@ type EstimatePosition struct {
 // frame, estimate_id order. The version's counts are ignored; its five
 // identity fields must all match.
 func (s *StateEstimateStore) ListEstimatePositions(v EstimateVersion) ([]EstimatePosition, error) {
+	return s.listPositions(pointEstimateTable, v)
+}
+
+// ListSolidBodyPositions is ListEstimatePositions over
+// lidar_track_solid_bodies: each solid body's position whatever it refers
+// to, the body centre after a near-edge fix and the medoid before one or
+// after a lapse.
+func (s *StateEstimateStore) ListSolidBodyPositions(v EstimateVersion) ([]EstimatePosition, error) {
+	return s.listPositions(solidBodyTable, v)
+}
+
+// listPositions reads one version's positions from one of the two versioned
+// tables.
+func (s *StateEstimateStore) listPositions(table string, v EstimateVersion) ([]EstimatePosition, error) {
+	if err := versionedTable(table); err != nil {
+		return nil, fmt.Errorf("list estimate positions: %w", err)
+	}
 	rows, err := s.db.Query(`
 		SELECT track_id, creation_sequence, frame_unix_nanos, x, y
-		  FROM lidar_track_estimates
+		  FROM `+table+`
 		 WHERE source_id = ? AND estimator_id = ? AND observation_model_id = ?
 		   AND param_hash = ? AND stage = ?
 		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`,

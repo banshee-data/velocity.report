@@ -18,6 +18,11 @@ import (
 // sorted list is folded into the parameter hash and written to the run
 // metadata. An empty list leaves both exactly as they were.
 const (
+	// ExperimentAdaptiveUncertainty: l5tracks.TrackerConfig.AdaptiveMeasurementNoise,
+	// state-estimation plan Phase 3: anisotropic R along and across the line
+	// of sight. Uncalibrated unless Config.UncertaintyCalibrationFile supplies
+	// a fitted table; see G-UNC-1.
+	ExperimentAdaptiveUncertainty = "adaptive_uncertainty"
 	// ExperimentLikelihoodCost: l5tracks.TrackerConfig.LikelihoodAssociationCost (gap analysis S3).
 	ExperimentLikelihoodCost = "likelihood_cost"
 	// ExperimentCascade: l5tracks.TrackerConfig.CascadedAssociation (S2).
@@ -65,9 +70,19 @@ const (
 	// tracker and changes none of its decisions, but it is hashed like every
 	// experiment, so the online rows of such a run carry their own hash.
 	ExperimentFixedLagRTS = "fixed_lag_rts"
+
+	// ExperimentSolidBody: l5tracks.TrackerConfig.SolidBody, the near-edge
+	// solid-body estimate as a shadow of the tracked filter, written to
+	// lidar_track_solid_bodies beside each point estimate. It never changes
+	// the tracks, so its recording and tracking baseline are the default
+	// replay's. It is useful only with ObservationDBPath, which is where its
+	// rows go and what retains the cluster points the near-edge model reads;
+	// without one it runs, says so, and writes nothing.
+	ExperimentSolidBody = "solid_body"
 )
 
 var knownExperiments = map[string]bool{
+	ExperimentAdaptiveUncertainty: true,
 	ExperimentLikelihoodCost:      true,
 	ExperimentCascade:             true,
 	ExperimentDensityCap:          true,
@@ -81,6 +96,7 @@ var knownExperiments = map[string]bool{
 	ExperimentReacquisitionGuard:  true,
 	ExperimentOcclusionContinuity: true,
 	ExperimentFixedLagRTS:         true,
+	ExperimentSolidBody:           true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

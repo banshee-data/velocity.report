@@ -72,6 +72,9 @@ func Build(in Input) (Report, error) {
 			Pointwise: l8behaviour.FollowingMethodID, Exposure: l8behaviour.ExposureMethodID,
 		},
 		Bands: reportBands(),
+		// Empty, not nil: a capture without an encounter is a result, and
+		// data.json says so with a list the template can read, not null.
+		Encounters: []Encounter{},
 	}
 	seen := map[string]bool{}
 	var sources []l8behaviour.Encounter // parallel to r.Encounters

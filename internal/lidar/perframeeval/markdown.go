@@ -39,8 +39,12 @@ func RenderMarkdown(c Comparison) string {
 		if arm.RunID != "" {
 			source = arm.RunID
 		}
+		kind := string(arm.Kind)
+		if arm.Table != "" {
+			kind += " (" + arm.Table + ")"
+		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s | %s | %s | %v | %d |\n",
-			arm.Label, arm.Kind, arm.Database, orDash(source), orDash(arm.EstimatorID),
+			arm.Label, kind, arm.Database, orDash(source), orDash(arm.EstimatorID),
 			orDash(arm.ObservationModelID), orDash(arm.ParamHash), arm.Stage, arm.DeclaredBaseline, arm.Tracks)
 	}
 	b.WriteString("\n")

@@ -44,7 +44,15 @@ type ArmSpec struct {
 	// DeclaredBaseline permits a non-final arm. It is recorded, and the
 	// comparison lists it among its caveats.
 	DeclaredBaseline bool
+	// SolidBodies reads the version from lidar_track_solid_bodies instead of
+	// lidar_track_estimates. The arm is still an estimate arm: both tables are
+	// written by one replay's frame transaction, so a solid-body arm against
+	// a point-estimate arm of that replay differs only in observation model.
+	SolidBodies bool
 }
+
+// solidBodyTable names the table a solid-body arm reads, for its identity.
+const solidBodyTable = "lidar_track_solid_bodies"
 
 // Kind is the arm's source.
 func (s ArmSpec) Kind() ArmKind {
@@ -66,8 +74,11 @@ type ArmIdentity struct {
 	ObservationModelID string `json:"observation_model_id,omitempty"`
 	ParamHash          string `json:"param_hash,omitempty"`
 	RunID              string `json:"run_id,omitempty"`
-	Stage              string `json:"stage"`
-	DeclaredBaseline   bool   `json:"declared_baseline"`
+	// Table is set only for an arm read from somewhere other than
+	// lidar_track_estimates, so every earlier comparison is unchanged.
+	Table            string `json:"table,omitempty"`
+	Stage            string `json:"stage"`
+	DeclaredBaseline bool   `json:"declared_baseline"`
 	// TrackKey says what a hypothesis ID is. Neither is the random track_id:
 	// the matcher breaks ties in sorted ID order, so a random label would let
 	// two replays of the same input report different identity switches.
@@ -91,7 +102,7 @@ func LoadArm(spec ArmSpec) (Hypothesis, error) {
 		return Hypothesis{}, fmt.Errorf("arm %s: no database", spec.Label)
 	}
 	if spec.RunID != "" && (spec.SourceID != "" || spec.EstimatorID != "" || spec.ObservationModelID != "" ||
-		spec.ParamHash != "" || spec.Stage != "") {
+		spec.ParamHash != "" || spec.Stage != "" || spec.SolidBodies) {
 		return Hypothesis{}, fmt.Errorf("arm %s: name an analysis run or an estimate version, not both", spec.Label)
 	}
 	if spec.Stage == "" && spec.RunID == "" {
@@ -122,7 +133,13 @@ func LoadArm(spec ArmSpec) (Hypothesis, error) {
 
 func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error) {
 	store := sqlite.NewStateEstimateStore(database)
-	versions, err := store.ListEstimateVersions()
+	listVersions, listPositions := store.ListEstimateVersions, store.ListEstimatePositions
+	table := ""
+	if spec.SolidBodies {
+		listVersions, listPositions = store.ListSolidBodyVersions, store.ListSolidBodyPositions
+		table = solidBodyTable
+	}
+	versions, err := listVersions()
 	if err != nil {
 		return Hypothesis{}, fmt.Errorf("arm %s: %w", spec.Label, err)
 	}
@@ -130,7 +147,7 @@ func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error)
 	if err != nil {
 		return Hypothesis{}, err
 	}
-	positions, err := store.ListEstimatePositions(version)
+	positions, err := listPositions(version)
 	if err != nil {
 		return Hypothesis{}, fmt.Errorf("arm %s: %w", spec.Label, err)
 	}
@@ -166,7 +183,7 @@ func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error)
 			Label: spec.Label, Kind: ArmEstimates, Database: filepath.Base(spec.DBPath),
 			SourceID: version.SourceID, EstimatorID: version.EstimatorID,
 			ObservationModelID: version.ObservationModelID, ParamHash: version.ParamHash,
-			Stage: version.Stage, DeclaredBaseline: spec.DeclaredBaseline,
+			Table: table, Stage: version.Stage, DeclaredBaseline: spec.DeclaredBaseline,
 			TrackKey: "creation_sequence", Tracks: len(series), Points: len(positions),
 		},
 		Series: series,

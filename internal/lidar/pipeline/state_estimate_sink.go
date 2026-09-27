@@ -19,7 +19,27 @@ func persistOnlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.Tra
 	if err != nil {
 		return err
 	}
-	return cfg.StateEstimateSink.Insert(pair.Estimate, pair.Residual)
+	if err := cfg.StateEstimateSink.Insert(pair.Estimate, pair.Residual); err != nil {
+		return err
+	}
+	if pair.SolidBody == nil {
+		return nil
+	}
+	// A tracker populating solid bodies with a sink that cannot hold them is
+	// a configuration fault, reported rather than resolved by dropping them.
+	sink, ok := cfg.StateEstimateSink.(SolidBodySink)
+	if !ok {
+		return fmt.Errorf("state estimate sink cannot persist the solid-body estimate for track %s", track.TrackID)
+	}
+	return sink.InsertSolidBody(*pair.SolidBody)
+}
+
+// SolidBodySink is the optional extension of StateEstimateSink that writes
+// solid-body estimates; sqlite.StateEstimateStore implements it. The offline
+// frame path writes them through FrameEvidenceSink instead, in the frame's
+// own transaction.
+type SolidBodySink interface {
+	InsertSolidBody(sqlite.TrackSolidBody) error
 }
 
 // onlineEstimateID is the online estimate's key. A refined estimate names the
@@ -47,11 +67,37 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 		ParamHash: cfg.StateParameterHash, Stage: sqlite.EstimateStageOnline, MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
 	}
-	return sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{
+	pair := sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{
 		EstimateID: estimateID, ObservationID: observationID, PredictedX: residual.PredictedX, PredictedY: residual.PredictedY,
 		MeasurementX: residual.Measurement.X, MeasurementY: residual.Measurement.Y,
 		InnovationX: residual.InnovationX, InnovationY: residual.InnovationY, NIS: residual.NIS,
 		GeometryCovXX: residual.GeometryCovariance.XX, GeometryCovXY: residual.GeometryCovariance.XY, GeometryCovYY: residual.GeometryCovariance.YY,
 		Disposition: "accepted", Reason: "association_accepted",
-	}}, nil
+	}}
+	pair.SolidBody = onlineSolidBody(cfg, track, observationID, frameUnixNanos)
+	return pair, nil
+}
+
+// onlineSolidBody files the track's solid body, when the tracker populates
+// one, beside its point estimate: the same observation, estimator, parameter
+// hash and stage, under the near-edge observation model that produced it. Its
+// estimate ID has its own prefix, so the two rows never share a key.
+func onlineSolidBody(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObject, observationID string, frameUnixNanos int64) *sqlite.TrackSolidBody {
+	reading, ok := track.SolidBody()
+	if !ok {
+		return nil
+	}
+	model := string(l5tracks.MeasurementNearEdgeCandidateV1)
+	return &sqlite.TrackSolidBody{
+		EstimateID:     fmt.Sprintf("solid_body/%s/%s/%s/%d", track.TrackID, cfg.StateEstimatorID, model, frameUnixNanos),
+		TrackID:        track.TrackID,
+		ObservationID:  observationID,
+		SourceID:       cfg.ObservationSourceID,
+		CalibrationID:  cfg.ObservationCalibrationID,
+		FrameUnixNanos: frameUnixNanos, MeasurementUnixNanos: track.LastMeasurementUnixNanos,
+		EstimatorID: cfg.StateEstimatorID, ObservationModelID: model,
+		ParamHash: cfg.StateParameterHash, Stage: "online",
+		CreationSequence: track.CreationSequence,
+		Reading:          reading,
+	}
 }

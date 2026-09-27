@@ -198,8 +198,13 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		allClusters[ci] = ci
 	}
 
+	if t.Config.TentativePriority {
+		return t.associateWithTentativePriority(clusters, allClusters, activeTrackIDs, dt)
+	}
+
+	gate := t.Config.GatingDistanceSquared
 	if !t.Config.CascadedAssociation {
-		for ci, trackID := range t.assignClusters(clusters, allClusters, activeTrackIDs, dt) {
+		for ci, trackID := range t.assignClusters(clusters, allClusters, activeTrackIDs, dt, gate) {
 			associations[ci] = trackID
 		}
 		return associations
@@ -216,7 +221,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 			tentative = append(tentative, trackID)
 		}
 	}
-	taken := t.assignClusters(clusters, allClusters, confirmed, dt)
+	taken := t.assignClusters(clusters, allClusters, confirmed, dt, gate)
 	for ci, trackID := range taken {
 		associations[ci] = trackID
 	}
@@ -226,7 +231,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 			remaining = append(remaining, ci)
 		}
 	}
-	for ci, trackID := range t.assignClusters(clusters, remaining, tentative, dt) {
+	for ci, trackID := range t.assignClusters(clusters, remaining, tentative, dt, gate) {
 		associations[ci] = trackID
 	}
 	return associations
@@ -236,8 +241,10 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 // clusterIdx and the given tracks, and returns cluster index -> track ID for
 // every pair the assignment accepted. Gating, the fragment guard and the
 // extent-compatibility term are applied here, so the cascade's stages and
-// the joint assignment share one cost definition.
-func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trackIDs []string, dt float32) map[int]string {
+// the joint assignment share one cost definition. gate is the d² admission
+// threshold for this stage: the configured GatingDistanceSquared everywhere
+// except TentativePriority's first stage.
+func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trackIDs []string, dt float32, gate float32) map[int]string {
 	assigned := map[int]string{}
 	if len(clusterIdx) == 0 || len(trackIDs) == 0 {
 		return assigned
@@ -266,12 +273,18 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 			}
 
 			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
-			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
+			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > gate {
 				costMatrix[row][tj] = float32(hungarianlnf)
+			} else if t.Config.ClassIdentity && classMismatch(track, &clusters[ci]) {
+				// K4: identity does not cross to a body the track's L6
+				// label cannot be. Counted only where the gate admitted the
+				// pairing, so the count is of decisions the option changed.
+				costMatrix[row][tj] = float32(hungarianlnf)
+				t.continuity.ClassIdentityRefusals++
 			} else {
 				// The gate above is always d². Only the cost the solver
 				// minimises changes with the option.
-				costMatrix[row][tj] = dist2 + t.covarianceCostTerm(track) + t.extentCompatibilityCost(track, clusters[ci])
+				costMatrix[row][tj] = dist2 + t.covarianceCostTerm(track, clusters[ci]) + t.extentCompatibilityCost(track, clusters[ci])
 			}
 		}
 	}
@@ -325,7 +338,10 @@ var likelihoodCostOffset = float32(-math.Log(MinDeterminantThreshold))
 // same S and wrong when they do not: a track that has coasted, and has had
 // OcclusionCovInflation added to P, is fewer standard deviations from any
 // cluster than a track updated last frame (gap analysis S3).
-func (t *Tracker) covarianceCostTerm(track *TrackedObject) float32 {
+//
+// Under AdaptiveMeasurementNoise, R depends on the pairing, so S is the one
+// the gate used for this cluster rather than the track's alone.
+func (t *Tracker) covarianceCostTerm(track *TrackedObject, cluster WorldCluster) float32 {
 	if !t.Config.LikelihoodAssociationCost {
 		return 0
 	}
@@ -333,6 +349,11 @@ func (t *Tracker) covarianceCostTerm(track *TrackedObject) float32 {
 	s01 := float64(track.P[0*4+1])
 	s10 := float64(track.P[1*4+0])
 	s11 := float64(track.P[1*4+1] + t.Config.MeasurementNoise)
+	if t.Config.AdaptiveMeasurementNoise {
+		r := t.evaluateNoise(track, cluster, t.measurementForCluster(cluster, t.LastUpdateNanos)).SiteCovariance
+		a00, a01, a10, a11 := adaptiveInnovationCovariance(&track.P, r)
+		s00, s01, s10, s11 = float64(a00), float64(a01), float64(a10), float64(a11)
+	}
 	det := s00*s11 - s01*s10
 	if det < MinDeterminantThreshold {
 		// mahalanobisDistanceSquared has already rejected this pairing; keep
@@ -372,6 +393,9 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	S01 := track.P[0*4+1]
 	S10 := track.P[1*4+0]
 	S11 := track.P[1*4+1] + t.Config.MeasurementNoise
+	if t.Config.AdaptiveMeasurementNoise {
+		S00, S01, S10, S11 = adaptiveInnovationCovariance(&track.P, t.evaluateNoise(track, cluster, measurement).SiteCovariance)
+	}
 
 	// Compute determinant and inverse
 	det := S00*S11 - S01*S10

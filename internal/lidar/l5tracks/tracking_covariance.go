@@ -92,6 +92,25 @@ func josephCovarianceUpdate(p [16]float32, k [8]float32, measurementNoise float3
 	return out
 }
 
+// josephCovarianceUpdateFull is the Joseph form for a full symmetric R, as the
+// adaptive measurement model produces: P' = (I - KH)P(I - KH)ᵀ + KRKᵀ with
+// (KRKᵀ)[i,j] = Σ K[i,a]·R[a,b]·K[j,b]. The isotropic form above is kept
+// separately so the shipped option's arithmetic does not change.
+func josephCovarianceUpdateFull(p [16]float32, k [8]float32, r MeasurementCovariance) [16]float32 {
+	a := identityMinusKH(k)
+	out := multiply4x4(multiply4x4(a, p), transpose4x4(a))
+	for i := 0; i < 4; i++ {
+		ki0, ki1 := k[i*2+0], k[i*2+1]
+		// Row i of K·R.
+		kr0 := ki0*r.XX + ki1*r.XY
+		kr1 := ki0*r.XY + ki1*r.YY
+		for j := 0; j < 4; j++ {
+			out[i*4+j] += kr0*k[j*2+0] + kr1*k[j*2+1]
+		}
+	}
+	return out
+}
+
 // identityMinusKH builds I - KH for the position-only measurement model,
 // where H selects x and y: (KH)[i,j] is K[i,0] for j==0, K[i,1] for j==1, and
 // zero otherwise.

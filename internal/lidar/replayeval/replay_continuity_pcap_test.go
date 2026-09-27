@@ -19,17 +19,18 @@ import (
 )
 
 // The occlusion-continuity harness on kirk0: the in-repo smoke run of what a
-// local agent points at the S2 corpus. Three arms over the short moving
-// window, to keep the race build lean:
+// local agent points at the S2 corpus. Two arms over the short moving window,
+// to keep the race build lean, and the experiments that may not run yet:
 //
 //   - default: the manifest carries a continuity block whose unobserved
 //     instants are all coasted, since nothing classifies them;
-//   - coast_support: absence explanation alone must be diagnostic. The
-//     tracks and the schema-2 baseline are byte-identical to the default's,
-//     and the same unobserved instants are merely split by explanation;
-//   - occlusion_continuity: every option, which must reach the tracker, be
-//     named in the manifest, move the parameter hash, and replace the
-//     frame-count expiry with capture-time bounds.
+//   - coverage_free: the options that need no sensor coverage, capture-time
+//     coast inflation and the reacquisition guard, which must reach the
+//     tracker, be named in the manifest and move the parameter hash;
+//   - coast_support, class_coast_bounds and occlusion_continuity classify an
+//     absence, or bound a coast by one, and so need explicit sensor coverage
+//     to tell a field-of-view exit from an occlusion. Until it is wired in,
+//     the replay refuses them rather than mislabel an exit.
 //
 // Like the time-domain smoke run it asserts no direction for the estimate:
 // one capture is not evidence. The label-free comparison is logged.
@@ -41,8 +42,14 @@ func TestOcclusionContinuityExperimentsOnKirk0(t *testing.T) {
 	}
 	arms := []arm{
 		{"default", nil},
-		{"coast_support", []string{ExperimentCoastSupport}},
-		{"occlusion_continuity", []string{ExperimentOcclusionContinuity}},
+		{"coverage_free", []string{ExperimentCoastTimeInflation, ExperimentReacquisitionGuard}},
+	}
+	for _, needsCoverage := range []string{ExperimentCoastSupport, ExperimentClassCoastBounds, ExperimentOcclusionContinuity} {
+		cfg := kirk0MovingWindow(t, filepath.Join(dir, needsCoverage))
+		cfg.Experiments = []string{needsCoverage}
+		if _, err := Run(cfg); err == nil || !strings.Contains(err.Error(), "require explicit sensor coverage") {
+			t.Fatalf("%s: err %v, want a refusal until sensor coverage is wired in", needsCoverage, err)
+		}
 	}
 	baselines := map[string][]byte{}
 	fingerprints := map[string]string{}
@@ -78,7 +85,7 @@ func TestOcclusionContinuityExperimentsOnKirk0(t *testing.T) {
 		t.Logf("%s: continuity %s", a.name, summary)
 	}
 
-	def, support, all := stats["default"], stats["coast_support"], stats["occlusion_continuity"]
+	def, free := stats["default"], stats["coverage_free"]
 	unexplained := def.SupportInstants
 	if unexplained.Coasted == 0 || def.TracksBorn == 0 {
 		t.Fatalf("default: the window has no coasting to explain: %+v", def)
@@ -86,29 +93,14 @@ func TestOcclusionContinuityExperimentsOnKirk0(t *testing.T) {
 	if unexplained.OccludedInferred+unexplained.MissedUnknown+unexplained.OutOfFOV != 0 {
 		t.Fatalf("default classified an absence with explanation off: %+v", unexplained)
 	}
-
-	if !bytes.Equal(baselines["coast_support"], baselines["default"]) {
-		t.Fatalf("coast_support changed the tracking baseline; explanation must be diagnostic:\n%s\n%s",
-			baselines["default"], baselines["coast_support"])
-	}
-	requireSameDecisions(t, "coast_support",
-		strings.Split(fingerprints["default"], "\n"), strings.Split(fingerprints["coast_support"], "\n"))
-	s := support.SupportInstants
-	if s.Coasted != 0 || s.Observed != unexplained.Observed ||
-		s.OccludedInferred+s.MissedUnknown+s.OutOfFOV != unexplained.Coasted {
-		t.Fatalf("coast_support should split the default's %d coasted instants by explanation: %+v", unexplained.Coasted, s)
-	}
-	if support.ExpiredByReason != def.ExpiredByReason {
-		t.Fatalf("coast_support changed how tracks ended: %+v vs %+v", support.ExpiredByReason, def.ExpiredByReason)
+	if f := free.SupportInstants; f.OccludedInferred+f.MissedUnknown+f.OutOfFOV != 0 {
+		t.Fatalf("coverage_free classified an absence without absence explanation: %+v", f)
 	}
 
-	if hashes["occlusion_continuity"] == hashes["default"] {
-		t.Error("occlusion_continuity: parameter hash equals the default's; the arm is not identifiable")
+	if hashes["coverage_free"] == hashes["default"] {
+		t.Error("coverage_free: parameter hash equals the default's; the arm is not identifiable")
 	}
-	if bytes.Equal(baselines["occlusion_continuity"], baselines["default"]) && fingerprints["occlusion_continuity"] == fingerprints["default"] {
-		t.Error("occlusion_continuity: the recording is identical to the default; the options did not reach the tracker")
-	}
-	if all.ExpiredByReason.Misses != 0 {
-		t.Errorf("occlusion_continuity: %d tracks expired by miss count; capture-time bounds replace it", all.ExpiredByReason.Misses)
+	if bytes.Equal(baselines["coverage_free"], baselines["default"]) && fingerprints["coverage_free"] == fingerprints["default"] {
+		t.Error("coverage_free: the recording is identical to the default; the options did not reach the tracker")
 	}
 }

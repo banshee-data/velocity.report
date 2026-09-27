@@ -80,6 +80,10 @@ type caseSummary struct {
 	// births against confirmations. Compare it between a default run and an
 	// -experiment occlusion_continuity run of the same corpus.
 	Continuity l5tracks.ContinuityStats `json:"continuity"`
+	// UncertaintyReport is the first run's uncertainty_calibration.json,
+	// relative to -out, when -uncertainty-report was passed; identical on
+	// the repeat by check.
+	UncertaintyReport string `json:"uncertainty_report,omitempty"`
 }
 
 func main() {
@@ -108,10 +112,15 @@ func main() {
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
 		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
+		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
+		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
 	)
 	flag.Parse()
 	experiments, err := replayeval.ParseExperiments(*experimentFlag)
 	if err != nil {
+		fatal(err)
+	}
+	if err := validateUncertaintyFlags(*uncertaintyCalFile, experiments); err != nil {
 		fatal(err)
 	}
 	if *sourceManifestOnly && *sourceManifestPath == "" {
@@ -194,6 +203,7 @@ func main() {
 	}
 
 	summaries := make([]caseSummary, 0, len(selected.Cases))
+	var uncertaintyCases []uncertaintyCase
 	for _, resolved := range resolvedCases {
 		selectedCase := resolved.corpusCase
 		paths := resolved.paths
@@ -208,7 +218,7 @@ func main() {
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
 			SurfaceGroundRegionMetres: *surfaceGroundRegion,
 			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
-			Experiments: experiments,
+			Experiments: experiments, UncertaintyReport: *uncertaintyReport, UncertaintyCalibrationFile: *uncertaintyCalFile,
 		}
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
@@ -267,6 +277,15 @@ func main() {
 			}
 			refinementArms = firstResult.Refinement.Arms
 		}
+		if *uncertaintyReport {
+			if err := sameFile(filepath.Join(first.OutDir, "uncertainty_calibration.json"),
+				filepath.Join(repeat.OutDir, "uncertainty_calibration.json")); err != nil {
+				fatal(fmt.Errorf("uncertainty report differs on repeat for %s: %w", selectedCase.ID, err))
+			}
+			uncertaintyCases = append(uncertaintyCases, uncertaintyCase{
+				ID: selectedCase.ID, Report: firstResult.Uncertainty, Samples: firstResult.UncertaintySamples,
+			})
+		}
 		summary := caseSummary{
 			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
@@ -297,7 +316,17 @@ func main() {
 		} else if *surfaceGround {
 			fmt.Printf("%s: -surface-ground set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
 		}
+		if *uncertaintyReport {
+			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
+		}
 		summaries = append(summaries, summary)
+	}
+	if *uncertaintyReport {
+		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases); err != nil {
+			fatal(err)
+		}
+		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
+			filepath.Join(*outDir, pooledUncertaintyFile))
 	}
 	b, err := json.MarshalIndent(struct {
 		SchemaVersion        int           `json:"schema_version"`
@@ -311,6 +340,22 @@ func main() {
 		fatal(err)
 	}
 	fmt.Printf("wrote %d repeat-verified baseline(s) to %s\n", len(summaries), *outDir)
+}
+
+// sameFile reports whether two files hold identical bytes.
+func sameFile(a, b string) error {
+	left, err := os.ReadFile(a)
+	if err != nil {
+		return err
+	}
+	right, err := os.ReadFile(b)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(left, right) {
+		return fmt.Errorf("%s and %s differ", a, b)
+	}
+	return nil
 }
 
 func identityCalibration(sensorID string) l4bobserve.Calibration {

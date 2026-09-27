@@ -399,10 +399,8 @@ func headwayTemplate(t *testing.T) string {
 	return string(src[typst.EntryHeadway])
 }
 
-// verdictPattern is language the report must never use (Sections 1 and
-// 8.3): no verdict, score, category or trait of a road user, in any form,
-// including in negation.
-var verdictPattern = regexp.MustCompile(`(?i)tailgat|aggress|driver|risk|score|verdict|unsafe|danger|violat|offend|propensity|profil`)
+// verdictPattern is the report's forbidden language, VerdictPattern.
+var verdictPattern = VerdictPattern
 
 // TestNoVerdictLanguage scans everything a reader can see: the data, every
 // chart's text, the template and the archive README.
@@ -577,7 +575,7 @@ func TestGenerateWithMockTypst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(pdf, []byte("status:synthetic_oracle")) || !bytes.Contains(pdf, []byte("contract:headway_report_v1")) {
+	if !bytes.Contains(pdf, []byte("status:synthetic_oracle")) || !bytes.Contains(pdf, []byte("contract:"+ContractID)) {
 		t.Error("the PDF metadata does not carry the status and contract")
 	}
 
