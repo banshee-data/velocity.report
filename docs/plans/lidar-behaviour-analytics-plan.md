@@ -8,8 +8,8 @@ The [remaining 0.5.2 sprint](lidar-052-mvp-sprint-plan.md) now owns the integrat
 Following distance debug layer and provisional MVP exit. The
 [merged-batch review](../lidar/operations/0.5.2-sprint-review.md) records the current gaps:
 body-anchor correctness, complete final trajectories, persisted paths, unique follower opportunity,
-scene-window accounting and the missing real-data producer. A final inference stage alone does
-not qualify a field metric for promotion.
+scene-window accounting and a real-data producer beyond #614's provisional field run over persisted
+estimates. A final inference stage alone does not qualify a field metric for promotion.
 
 - **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
