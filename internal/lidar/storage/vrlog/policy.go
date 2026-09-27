@@ -39,7 +39,10 @@ type CommitPolicy struct {
 	Strict bool
 	// CommitDeadline is the stall bound: an accepted record not durable
 	// within MaxBatchAge + CommitDeadline (CommitDeadline alone when strict)
-	// puts the capture into failure, and admission stops.
+	// puts the capture into failure, and admission stops. It runs from
+	// acceptance, so the wait for the committer to take the batch counts as
+	// well as the syncs: on a loaded host, scheduling delay alone can exceed
+	// a very short deadline with a healthy disk.
 	CommitDeadline time.Duration
 	// UpstreamQueueAge is the caller's bound on how long a frame waits before
 	// it reaches the writer. It is declared, not enforced here: the bounded

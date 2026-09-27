@@ -178,6 +178,18 @@ prefix are refused and left untouched; an interrupted recovery completes without
 record. A killed process does not lose data the kernel already holds, so none of this is
 power-loss evidence.
 
+Commit stall and test timing. A sync held past a 40 ms deadline fails the capture with
+`commit-stall` and stops admission; the held commit then completes before the failure
+generation. That test has a timing window. The bound runs from acceptance, so the test assumes
+the committer takes its batch within 45 ms of the append (batch age plus deadline). A committer
+not scheduled by then leaves the batch open, and an open batch is never committed
+([VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md#capture-failure-and-explicit-gaps)).
+The test then fails naming that window rather than as a writer fault. It did not occur in
+2,000 runs under `-race` on a four-core machine at a load average near 10. Every other test in
+the package declares a one-minute deadline through the shared fixture, so scheduler or sync
+delay on a busy machine cannot fail a test through the stall bound. The shed test waits on the
+announced frontier, not on the 20 ms shed wait, before it admits the frame after a backlog.
+
 On kirk0's first ten seconds (101 frames), one replay feeds three writers. A strict writer
 killed while publishing generation 40 recovers to exactly the tap's first 40 frames, bit for
 bit. The replay's own container is committed in generations and decodes equal to the tap. A
