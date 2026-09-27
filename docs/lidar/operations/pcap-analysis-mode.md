@@ -344,12 +344,13 @@ signals:
   the _onset_ of motion: when the platform first moves, the scene shifts and
   foreground spikes.
 
-- **Background-drift ratio ≥ 0.35** (`SensorMovementDriftRatioThreshold`) catches
+- **Background-drift ratio ≥ 0.50** (`SensorMovementDriftRatioThreshold`) catches
   _sustained_ motion. The drift ratio is the fraction of settled cells whose
   range has shifted past `background_drift_threshold_metres` (0.5 m) from its
-  locked baseline. Driving shifts most of the grid at once, so the ratio climbs
-  to 0.4–1.0 and stays there; a parked sensor only shifts the few cells that
-  passing traffic crosses, so it stays near 0.1. Foreground alone goes blind to
+  locked baseline. Driving shifts most of the grid at once, while a parked
+  sensor changes a smaller share. In the Franklin–McAllister capture, the four
+  parked files reached roughly 0.25–0.43 and the neighbouring drives reached
+  roughly 0.75–0.95. Foreground alone goes blind to
   long drives once the per-cell spread saturates and the gate widens; the drift
   ratio does not.
 
@@ -358,9 +359,10 @@ grid moving at once), not **scene activity**. The earlier sustained-motion
 signal — mean per-cell range spread over the noise floor — conflated the two: a
 busy parked scene inflates per-cell spread exactly as driving does, so a sensor
 parked in heavy traffic was mislabelled as moving for its entire stay. Drift
-ratio separates them cleanly: on real captures a busy parked scene stays at
-≤ ~0.23 while driving sits at ≥ ~0.43, so the 0.35 threshold has margin on both
-sides.
+ratio separated them in the original busy-street calibration. The later
+Franklin–McAllister recording showed that 0.35 was too sensitive for another
+parked scene; the default is now 0.50. A custom tuning file can set a different
+threshold for a particular sensor or capture population.
 
 A parked sensor stays below both thresholds — even while its background model is
 still settling at the start of a capture, and even when heavy traffic crosses an
@@ -368,15 +370,20 @@ otherwise static scene. Settled-cell % is exported as diagnostic evidence but
 does not gate the decision. It uses the shared `locked_baseline_threshold`.
 
 The classifier advances warmup and frozen-cell state from PCAP timestamps, not
-wall-clock replay time. Replay mode exposes foreground during warmup but does
-not change any L3 tuning value; consequently `pcap-split` uses the same model
-parameters as live observation and remains deterministic when replay speed
-changes.
+wall-clock replay time. Replay mode exposes foreground during warmup without
+changing L3 tuning values. On a continuous recording, the offline classifier
+refreshes its background every 60 capture seconds: a locked baseline from the
+previous junction otherwise keeps reporting motion for minutes after a stop.
+The 60-second settling hysteresis absorbs short refresh dips during driving;
+the 7-second motion trigger absorbs startup foreground spikes while parked.
+This refresh policy is specific to
+offline motion classification; the per-frame L3 model parameters remain those
+of the selected tuning profile.
 
 **State machine:**
 
 - **Motion → Static:** 60 s sustained stability (configurable via `--settling-sec`)
-- **Static → Motion:** 5 s sustained motion
+- **Static → Motion:** 7 s sustained motion
 - **Intersection bridging:** pauses < 30 s stay classified as motion (`--max-motion-gap-sec`)
 
 ### Split tool CLI

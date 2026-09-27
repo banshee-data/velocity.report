@@ -351,6 +351,18 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 
 // Start starts the gRPC server.
 func (p *Publisher) Start() error {
+	return p.start(nil)
+}
+
+// StartWithService registers the visualiser service before gRPC begins serving.
+// Registering after Start races Serve and is rejected by current gRPC versions.
+func (p *Publisher) StartWithService(service *Server) error {
+	return p.start(func(grpcServer *grpc.Server) {
+		RegisterService(grpcServer, service)
+	})
+}
+
+func (p *Publisher) start(register func(*grpc.Server)) error {
 	if p.running.Load() {
 		return fmt.Errorf("publisher already running")
 	}
@@ -370,7 +382,9 @@ func (p *Publisher) Start() error {
 		grpc.MaxRecvMsgSize(maxMsgSize),
 		grpc.MaxSendMsgSize(maxMsgSize),
 	)
-	// Service registration is done by caller via RegisterService method
+	if register != nil {
+		register(p.server)
+	}
 
 	p.running.Store(true)
 

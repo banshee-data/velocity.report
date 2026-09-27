@@ -54,7 +54,11 @@ type sceneBody struct {
 	// dropout is the chance a frame's cluster falls below the minimum anyway:
 	// the sparse-returns case.
 	dropout float64
-	path    func(t float64) bodyPose
+	// static is a structure the background model has absorbed, such as a
+	// parked van settled into L3 or a wall: it blocks rays and produces no
+	// cluster, so nothing the tracker is given explains what it hides.
+	static bool
+	path   func(t float64) bodyPose
 }
 
 // segment is one piece of a kinematic path: for its duration the body
@@ -115,6 +119,11 @@ const (
 	whyOutOfRange  = "out_of_range"
 	whyAbsent      = "absent"
 	whyPartialView = "partial"
+	// whyBehindStatic: hidden, but only by static bodies, which produce no
+	// cluster the tracker could reason about.
+	whyBehindStatic = "behind_static"
+	// whyBackground: a static body itself, which never produces a cluster.
+	whyBackground = "background"
 )
 
 // bodyView is what the sensor made of one body at one instant.
@@ -187,7 +196,7 @@ func (sc *scene) render(frame int, nowNanos int64, t float64) ([]bodyView, []Wor
 			continue
 		}
 		cosH, sinH := math.Cos(p.heading), math.Sin(p.heading)
-		var visible, total, occluded int
+		var visible, total, occluded, occludedStatic int
 		minA, maxA, minB, maxB := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
 		var sumX, sumY float64
 		for a := 0; a < sceneGridLength; a++ {
@@ -199,15 +208,18 @@ func (sc *scene) render(frame int, nowNanos int64, t float64) ([]bodyView, []Wor
 				if sc.maxRange > 0 && math.Hypot(x, y) > sc.maxRange {
 					continue
 				}
-				hidden := false
+				hidden, byStatic := false, true
 				for j, other := range sc.bodies {
 					if j != i && poses[j].present && segmentHitsBody(x, y, poses[j], other.length, other.width) {
 						hidden = true
-						break
+						byStatic = byStatic && other.static
 					}
 				}
 				if hidden {
 					occluded++
+					if byStatic {
+						occludedStatic++
+					}
 					continue
 				}
 				visible++
@@ -223,7 +235,12 @@ func (sc *scene) render(frame int, nowNanos int64, t float64) ([]bodyView, []Wor
 			scale = 1
 		}
 		count := int(b.points * scale * v.visibleFraction)
+		behindStatic := occluded > 0 && occludedStatic == occluded
 		switch {
+		case b.static:
+			v.why = whyBackground
+		case visible == 0 && behindStatic, count < sceneMinClusterPoints && behindStatic:
+			v.why = whyBehindStatic
 		case visible == 0 && occluded > 0:
 			v.why = whyOccluded
 		case visible == 0:

@@ -200,6 +200,18 @@ var scenarioCases = []scenarioCase{
 		return sceneOf(6, occluderBody(occ), u.body("target", kinematicPath(x0, laneY, 0, u.speed, nil)), distractor),
 			"distractor", (2*occ+u.length-x0)/u.speed + 2.5
 	}},
+	{"static_occluder", identityPhysics, false, func(u roadUser) (*scene, string, float64) {
+		// The full-occlusion geometry, but the occluder has been absorbed into
+		// the background: it hides the road user and produces no cluster. The
+		// honest reading is missed_unknown, with the shorter allowance, until
+		// the background's range image is consulted as well.
+		occ := occluderLength(u, u.speed, u.hideSecs)
+		x0 := startX(u, u.speed, occ)
+		wall := occluderBody(occ)
+		wall.static = true
+		return sceneOf(8, wall, u.body("target", kinematicPath(x0, laneY, 0, u.speed, nil))),
+			"", (2*occ+u.length-x0)/u.speed + 2.5
+	}},
 	{"departure", identityPreserved, false, func(u roadUser) (*scene, string, float64) {
 		// Seen for three seconds, then gone with nothing in front of it: into
 		// a driveway, or simply no longer there.
@@ -237,6 +249,8 @@ func scenarioProblems(c scenarioCase, u roadUser, r sceneRun) []string {
 		problems = append(problems, r.checkFirstExpiry(ExpiryOutOfFOV)...)
 	case "departure":
 		problems = append(problems, r.checkFirstExpiry(ExpiryMissedUnknown)...)
+	case "static_occluder":
+		problems = append(problems, r.checkBehindStaticUnexplained()...)
 	case "full_occlusion", "distractor":
 		problems = append(problems, r.checkReacquiredAfterOcclusion(u)...)
 	}
@@ -392,6 +406,9 @@ func (r sceneRun) checkSupportAgreesWithTruth() (problems []string) {
 			if s.support == SupportOutOfFOV {
 				problems = append(problems, fmt.Sprintf("t=%.1f: an occluded road user inside coverage read as out_of_fov", s.t))
 			}
+		}
+		if s.why == whyBehindStatic && (s.support == SupportOccludedInferred || s.support == SupportOutOfFOV) {
+			problems = append(problems, fmt.Sprintf("t=%.1f: a road user behind a static structure, which no cluster shows, read as %s", s.t, s.support))
 		}
 		if s.why == whyOutOfRange && s.support != SupportOutOfFOV && s.support != SupportMissedUnknown {
 			problems = append(problems, fmt.Sprintf("t=%.1f: a road user out of coverage read as %s", s.t, s.support))
@@ -576,4 +593,24 @@ func formatCoast(s targetSample) string {
 
 func trimFloat(v float64) string {
 	return strconv.FormatFloat(math.Round(v*100)/100, 'f', -1, 64)
+}
+
+// checkBehindStaticUnexplained requires the scene to hide the road user
+// behind the static structure, and every coasting instant there to read
+// missed_unknown: nothing the tracker is given shows the structure.
+func (r sceneRun) checkBehindStaticUnexplained() (problems []string) {
+	var behind int
+	for _, s := range r.samples {
+		if s.why != whyBehindStatic || !s.coasting() {
+			continue
+		}
+		behind++
+		if s.support != SupportMissedUnknown {
+			problems = append(problems, fmt.Sprintf("t=%.1f: behind a static structure read as %s, want missed_unknown", s.t, s.support))
+		}
+	}
+	if behind == 0 {
+		problems = append(problems, "the static structure never hid a coasting road user; the scene does not test it")
+	}
+	return problems
 }

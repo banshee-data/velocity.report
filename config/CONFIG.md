@@ -89,7 +89,7 @@ parity between them.
       "locked_baseline_threshold": 50,
       "locked_baseline_multiplier": 4,
       "sensor_movement_foreground_threshold": 0.2,
-      "sensor_movement_drift_ratio_threshold": 0.35,
+      "sensor_movement_drift_ratio_threshold": 0.5,
       "background_drift_threshold_metres": 0.5,
       "background_drift_ratio_threshold": 0.1,
       "settling_min_coverage": 0.8,

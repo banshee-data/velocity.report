@@ -12,6 +12,7 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 - **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
 - **Capture and worker contracts:** [asynchronous tracking](lidar-cluster-observation-log-and-async-tracking-plan.md) and [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 - **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
+- **Current execution:** [remaining 0.5.2 MVP sprint](lidar-052-mvp-sprint-plan.md), based on the [#596–609/#611 review](../lidar/operations/0.5.2-sprint-review.md)
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 
 > **Scope split.** This plan owns the path from raw points to a trustworthy
@@ -28,6 +29,13 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 > observation coverage and uncertainty.
 
 ## Delivery priorities, September 2026
+
+The September 26 [sprint plan](lidar-052-mvp-sprint-plan.md) gives the remaining implementation
+order and separates a provisional recorded-scene MVP from field promotion. It adds body-anchor
+repair, coverage-qualified replay, complete body persistence, unique follower opportunity and the
+Following distance debug layer. The physical gates below remain unchanged. Live worker scheduling,
+bounded reassociation and hardware capture qualification remain tracked follow-through; a closed
+observation-log reader on the Mac is the first integration target.
 
 The first product outcome is **bumper-to-bumper gap and following exposure from partial
 views**. The shared engineering priority is **stable physical trajectories and trails for
@@ -102,7 +110,8 @@ Build one compatible path, in this order:
    [per-frame harness](../lidar/operations/per-frame-evaluation.md) scores two arms on the same
    frozen held-out episodes (MOTA, identity switches, fragmentation, HOTA, IDF1) and refuses a
    comparison whose reference, policy, gate or episodes differ; it scores `final` estimates, and
-   anything else only as a declared baseline. The reviewed episodes and final estimates are open.
+   anything else only as a declared baseline. #605 now persists final Cartesian estimates;
+   reviewed acceptance and complete final body geometry/support remain open.
 4. Publish provisional and final run versions with source references, revision lineage,
    uncertainty and a completeness watermark. Check restart, empty frames and transport gaps.
    Production behaviour consumes one coherent final run after G-UNC-1, G-SMO-1, the VRLOG
@@ -298,6 +307,12 @@ that event. That is the correct place for a large residual: visible, attributabl
 reportable rather than silently absorbed.
 
 ## 1. Current architecture
+
+Sections 1.1–1.6 retain the original diagnostic snapshot. Subsequent delivery is recorded in
+Phase 0–5 and the [September 26 review](../lidar/operations/0.5.2-sprint-review.md): versioned
+Cartesian estimates, revision audit and immutable observation logs now exist. In particular,
+the older statements that there is no versioning or estimator rerun path no longer describe the
+merged implementation. Complete physical-body publication remains outstanding.
 
 [retired-baseline-note]: ../DEVLOG.md#september-3-2026---perf-gate-rebuilt-a-baseline-that-states-what-it-measured
 
@@ -1348,6 +1363,11 @@ censoring, association, and pose uncertainty are coupled rather than independent
 
 ### 9.3 Decision gate G-GEO-1
 
+The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.
+Refresh the baseline on the corrected solver, pin the population and retain the existing
+improvement, excursion and manoeuvre criteria; any threshold amendment must precede held-out
+scoring and be recorded explicitly.
+
 Centroid filtering is declared insufficient, and the near-edge model
 ships, when on the decision-gate partition:
 
@@ -1894,7 +1914,10 @@ intervals no tuning episode uses. Format and refusals:
 > placements, and the trend survives range stratification in every well-populated cell. The
 > hypothesis in Section 3 is confirmed and Phase 2's premise holds. A fourth, independent placement
 > (`clar0`, 2026-09-17) reproduces both E1.1 and E1.3; a fifth (`kirk0`) ran but is too short
-> (8 accepted tracks) to read either way. E1.2 and E1.4 remain open.
+> (8 accepted tracks) to read either way. E1.2 and E1.4 subsequently ran on Columbus on
+> September 19: residuals are structured and anisotropic, with only three qualifying stationary
+> candidate tracks for E1.4. The experiments are implemented; current-solver replication and
+> held-out physical acceptance remain open.
 > Full record, including a sign bug that initially inverted E1.3's conclusion:
 > [E1 lateral-error record](../lidar/operations/state-estimation-e1-lateral-error.md).
 
@@ -2982,6 +3005,11 @@ architecture; it does not relitigate findings.
       [gap analysis](../../data/maths/paper-implementation-gap-analysis.md#computed-s3)
 - [ ] Add replay experiments for the identity options and compare them, with a measured
       extent-cost weight, against held-out identity switches and fragmentation
+- [x] Declared sensor coverage/origin for replay (S0): `ContinuityCoverage` unlocks
+      `coast_support`, `class_coast_bounds` and `occlusion_continuity`, which stay refused without
+      a valid declaration; kirk0 runs them under a measured envelope, and a static-occluder scene
+      joins the synthetic set. See [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [ ] Declare coverage for each corpus site, from a survey or a measured detection envelope
 - [ ] Choose the continuity values (class coast bounds and rates, `MaxCoastSecs*`) and test
       `occlusion_continuity` and `capture_gap_predict` against held-out occlusion and
       reacquisition scenes on the S2 corpus before enabling any of them

@@ -339,11 +339,18 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 	m.Commit.ShedAfter = 20 * time.Millisecond
 	w, dir := createTest(t, m)
 	release := make(chan struct{})
-	var blocked atomic.Bool
+	var blocked, released atomic.Bool
 	w.hooks.Store(&writerHooks{sync: func(name string) error {
 		if name == chunkObject(0)+openSuffix {
 			blocked.Store(true)
 			<-release
+			released.Store(true)
+		}
+		if released.Load() {
+			// Storage slower than the shed bound, as a full fsync is on
+			// some disks: catching up after the release takes several of
+			// these, so it cannot fit inside ShedAfter.
+			time.Sleep(2 * m.Commit.ShedAfter)
 		}
 		return nil
 	}})
@@ -362,9 +369,11 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 		}
 	}
 	close(release)
-	// The capture continues: once the backlog, gaps included, is durable,
-	// the next frame is admitted. Waiting on the frontier, not on the shed
-	// wait, keeps a slow committer from shedding frame 4 too.
+	// Frame 4 arrives once the backlog, gaps included, is durable: that is
+	// what the test states, and the drain takes as long as the storage does.
+	// Appending at once instead would ask the committer to catch up inside
+	// ShedAfter, which slow storage cannot, and frame 4 would be shed as well.
+	// The wait is on the announced frontier, with the test's patience.
 	f, err := w.WaitFrontier(testContext(t, 30*time.Second), 1)
 	if err != nil || f.State != CaptureOpen || f.Records != 4 || f.AcceptedRecords != 4 {
 		t.Fatalf("frontier after the backlog = %+v, %v", f, err)
