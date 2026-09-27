@@ -73,7 +73,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
-		ExperimentReacquisitionGuard, ExperimentSolidBody}
+		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -121,6 +121,26 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		}
 		if got != want {
 			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
+		}
+	}
+	// The face remedies qualify the solid body, each reaching its own option,
+	// and are refused on their own.
+	for name, set := range map[string]func(*l5tracks.SolidBodyOptions){
+		ExperimentSolidBodyFaceHysteresis: func(o *l5tracks.SolidBodyOptions) { o.FaceHysteresis = true },
+		ExperimentSolidBodyFaceConsider:   func(o *l5tracks.SolidBodyOptions) { o.FaceEntryConsider = true },
+	} {
+		want := shipped
+		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
+		set(&want.SolidBody)
+		got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, name}, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got != want {
+			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
+		}
+		if _, err := trackerConfigFor(l5, "", []string{name}, nil); err == nil {
+			t.Errorf("%s was accepted without %s", name, ExperimentSolidBody)
 		}
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.

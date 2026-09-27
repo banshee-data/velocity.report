@@ -78,3 +78,33 @@ func TestLateralFitPercentilesAreNearestRank(t *testing.T) {
 		}
 	}
 }
+
+func TestLateralFitWindowsNameTheirCentreSample(t *testing.T) {
+	// A hop at sample 7, with a gap before sample 12: the window centred on
+	// the hop is the one that carries it, and indices after the gap still
+	// point into the original series.
+	track := straightPass("hop", 12, 20, 0)
+	track.Points[7].Y += 1
+	for i := 12; i < len(track.Points); i++ {
+		track.Points[i].TimestampNanos += 300_000_000
+	}
+	windows := LateralFitWindows(track.Points)
+	if len(windows) != 8+4 {
+		t.Fatalf("%d windows, want 8 before the gap and 4 after", len(windows))
+	}
+	var worst LateralFitWindow
+	for _, w := range windows {
+		if w.Residual > worst.Residual {
+			worst = w
+		}
+	}
+	if worst.Centre != 7 || math.Abs(worst.Residual-0.8) > 1e-5 {
+		t.Fatalf("worst window %+v, want centre 7 with 0.8 m", worst)
+	}
+	if last := windows[len(windows)-1]; last.Centre != 17 {
+		t.Fatalf("last window centred on %d, want 17", last.Centre)
+	}
+	if s := SummariseLateralFit([]LateralFitTrack{track}); s.Windows != len(windows) || s.MaxMetres != worst.Residual {
+		t.Fatalf("summary %+v disagrees with the windows", s)
+	}
+}

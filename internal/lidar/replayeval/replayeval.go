@@ -1145,10 +1145,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OcclusionContinuity = oc
+	hysteresis := hasExperiment(experiments, ExperimentSolidBodyFaceHysteresis)
+	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		// The replay tracks in the sensor frame (TransformToWorld with no
 		// pose), so the calibrated sensor origin is the frame's origin.
-		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, SensorX: 0, SensorY: 0}
+		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
+			Enabled: true, SensorX: 0, SensorY: 0,
+			FaceHysteresis: hysteresis, FaceEntryConsider: consider,
+		}
+	} else if hysteresis || consider {
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiments %q name a solid-body face remedy without %s, so there is no solid body for it to change",
+			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
 }

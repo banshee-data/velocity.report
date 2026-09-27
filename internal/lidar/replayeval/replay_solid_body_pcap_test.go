@@ -209,3 +209,63 @@ func evidenceQuantile(v []float64, q float64) float64 {
 	sort.Float64s(s)
 	return s[int(q*float64(len(s)-1))]
 }
+
+// TestSolidBodyFaceRemediesOnKirk0 runs the face-transition remedies of the
+// near-edge tracked-state plan's S2.1 beside the plain solid body. Each must
+// leave the tracks alone, as the solid body does; their effect on the anchor
+// is logged for the plan, not asserted, because one capture does not choose a
+// remedy.
+func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	arms := []struct {
+		name        string
+		experiments []string
+	}{
+		{"solid_body", []string{ExperimentSolidBody}},
+		{"t1_hysteresis", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis}},
+		{"t2_consider", []string{ExperimentSolidBody, ExperimentSolidBodyFaceConsider}},
+		{"t1_t2", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFaceConsider}},
+	}
+	var plain solidBodyArm
+	var table strings.Builder
+	fmt.Fprintf(&table, "\n  %-14s %6s %9s %6s  %-17s  %-17s  %s",
+		"arm", "fixes", "face runs", "held", "all p95/p99/max", "face p95/p99/max", "point face p99")
+	for i, a := range arms {
+		arm := runSolidBodyArm(t, dir, a.name, a.experiments)
+		if i == 0 {
+			plain = arm
+		} else {
+			if !bytes.Equal(plain.baseline, arm.baseline) {
+				t.Fatalf("%s changed the tracking baseline", a.name)
+			}
+			if arm.params == plain.params {
+				t.Errorf("%s shares the plain solid body's parameter hash", a.name)
+			}
+			if len(arm.points) != len(plain.points) {
+				t.Fatalf("%s: %d point estimates, %d without the remedy", a.name, len(arm.points), len(plain.points))
+			}
+			for j := range plain.points {
+				if x, y := pointContent(plain.points[j]), pointContent(arm.points[j]); x != y {
+					t.Fatalf("%s: point estimate %d differs:\n%s\n%s", a.name, j, x, y)
+				}
+			}
+		}
+		s, err := SummariseSolidBodies(arm.points, arm.bodies, l5tracks.DefaultConvergenceBounds())
+		if err != nil {
+			t.Fatal(err)
+		}
+		all, face := s.AnchorBodiesCentred, s.AnchorBodiesFaceStable
+		fmt.Fprintf(&table, "\n  %-14s %6d %9d %6d  %.3f/%.3f/%.3f  %.3f/%.3f/%.3f  %.3f",
+			a.name, s.NearEdgeFixes, s.FaceStableRuns, s.Fallbacks["face_hysteresis"],
+			all.P95Metres, all.P99Metres, all.MaxMetres, face.P95Metres, face.P99Metres, face.MaxMetres,
+			s.AnchorPointsFaceStable.P99Metres)
+		if a.name == "t1_t2" {
+			b, err := json.MarshalIndent(s.FaceStableStrata, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("t1_t2 face-stable strata:\n%s", b)
+		}
+	}
+	t.Logf("kirk0 face remedies (solid body lateral residual over body-centre frames, metres):%s", table.String())
+}

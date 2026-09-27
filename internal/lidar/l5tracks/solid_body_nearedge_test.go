@@ -123,13 +123,22 @@ func TestSolidBodyNeverFeedsBackIntoTheTrackedState(t *testing.T) {
 	// recorded field, so a difference between the two estimates is the
 	// observation model's and nothing else's. Checked with the shipped
 	// options and with every continuity option on, since those change how an
-	// unobserved frame is charged.
+	// unobserved frame is charged, and with the face-transition remedies on,
+	// since those keep state of their own.
 	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
 	continuity := DefaultTrackerConfig()
 	continuity.OcclusionContinuity = DefaultOcclusionContinuity()
-	for name, base := range map[string]TrackerConfig{"shipped": DefaultTrackerConfig(), "continuity": continuity} {
+	for name, c := range map[string]struct {
+		base TrackerConfig
+		body SolidBodyOptions
+	}{
+		"shipped":    {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true}},
+		"continuity": {continuity, SolidBodyOptions{Enabled: true}},
+		"remedies":   {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, FaceHysteresis: true, FaceEntryConsider: true}},
+	} {
+		base := c.base
 		withBody := base
-		withBody.SolidBody = SolidBodyOptions{Enabled: true}
+		withBody.SolidBody = c.body
 		off, on := NewTracker(base), NewTracker(withBody)
 		for i, f := range frames {
 			off.Update(f.clusters, f.at)
@@ -679,5 +688,107 @@ func TestMinimumAxisSpanDoesNotOverstateAcrossAHeadingError(t *testing.T) {
 	length, ok := minimumAxisSpan(points, float32(errorRad))
 	if !ok || length > 4.5+1e-6 || length < 4.4 {
 		t.Errorf("length %v (ok %v), want at most and near 4.5", length, ok)
+	}
+}
+
+func TestFaceHysteresisAdmitsAFaceAfterTwoFramesAndDropsItAfterTwoWithout(t *testing.T) {
+	right := EdgeMeasurement{Face: FaceRight}
+	front := EdgeMeasurement{Face: FaceFront}
+	var sb solidBodyTrack
+	steps := []struct {
+		name   string
+		usable []EdgeMeasurement
+		want   VisibleFaces
+	}{
+		{"first sighting waits", []EdgeMeasurement{right}, 0},
+		{"second consecutive admits", []EdgeMeasurement{right}, faceBit(FaceRight)},
+		{"one frame without keeps admission", nil, 0},
+		{"back after one frame is used at once", []EdgeMeasurement{right}, faceBit(FaceRight)},
+		{"a new face waits beside an admitted one", []EdgeMeasurement{right, front}, faceBit(FaceRight)},
+		{"and is admitted on its second frame", []EdgeMeasurement{right, front}, faceBit(FaceRight) | faceBit(FaceFront)},
+		{"first frame without", []EdgeMeasurement{front}, faceBit(FaceFront)},
+		{"second frame without drops it", []EdgeMeasurement{front}, faceBit(FaceFront)},
+		{"so it must qualify again", []EdgeMeasurement{right, front}, faceBit(FaceFront)},
+		{"and does on its second frame", []EdgeMeasurement{right, front}, faceBit(FaceRight) | faceBit(FaceFront)},
+	}
+	for _, step := range steps {
+		var got VisibleFaces
+		for _, e := range sb.admitFaces(step.usable) {
+			got |= faceBit(e.Face)
+		}
+		if got != step.want {
+			t.Fatalf("%s: faces %q, want %q", step.name, got, step.want)
+		}
+	}
+}
+
+// firstFix replays the synthetic pass and returns the main track's reading on
+// its first near-edge fix and the frame index it came on.
+func firstFix(t *testing.T, cfg TrackerConfig, frames []syntheticPassFrame) (int, SolidBodyReading, []SolidBodyReading) {
+	t.Helper()
+	tracker := NewTracker(cfg)
+	var readings []SolidBodyReading
+	fix := -1
+	var at SolidBodyReading
+	for i, f := range frames {
+		tracker.Update(f.clusters, f.at)
+		r, _ := mainTrack(t, tracker).SolidBody()
+		readings = append(readings, r)
+		if fix < 0 && r.Measurement.Source == MeasurementNearEdgeCandidateV1 {
+			fix, at = i, r
+		}
+	}
+	if fix < 0 {
+		t.Fatal("no near-edge fix on the synthetic pass")
+	}
+	return fix, at, readings
+}
+
+func TestFaceHysteresisHoldsTheFirstFixForOneFrame(t *testing.T) {
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	plain, _, _ := firstFix(t, solidBodyConfig(), frames)
+	cfg := solidBodyConfig()
+	cfg.SolidBody.FaceHysteresis = true
+	held, _, readings := firstFix(t, cfg, frames)
+	if held != plain+1 {
+		t.Fatalf("first fix on frame %d with hysteresis, %d without; want exactly one frame later", held, plain)
+	}
+	if got := readings[plain].Measurement.FallbackReason; got != "face_hysteresis" {
+		t.Fatalf("the held frame says %q, want face_hysteresis", got)
+	}
+}
+
+func TestFaceEntryConsiderWeightsOnlyAFaceThatWasNotInThePreviousFix(t *testing.T) {
+	sb := solidBodyTrack{lastFixFaces: faceBit(FaceRight)}
+	length := DimensionBelief{Metres: 4.5, SigmaMetres: 0.4}
+	width := DimensionBelief{Metres: 1.8, SigmaMetres: 0.2}
+	got := sb.entryConsider([]EdgeMeasurement{{Face: FaceRight}, {Face: FaceFront}, {Face: FaceLeft}}, length, width)
+	want := []float64{0, 0.4 * 0.4 / 4, 0.2 * 0.2 / 4}
+	for i := range want {
+		if math.Abs(got[i]-want[i]) > 1e-7 {
+			t.Fatalf("consider %v, want %v: a face already in the fix carries none, and a new one a quarter of its dimension's variance", got, want)
+		}
+	}
+}
+
+func TestFaceEntryConsiderSoftensTheEntryUpdateAndNothingBefore(t *testing.T) {
+	// The first fix enters every face, so with the consider term its
+	// innovation variance is larger and its NIS smaller. Everything before it
+	// is the medoid, which the option does not touch.
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	plainAt, plain, plainReadings := firstFix(t, solidBodyConfig(), frames)
+	cfg := solidBodyConfig()
+	cfg.SolidBody.FaceEntryConsider = true
+	consideredAt, considered, consideredReadings := firstFix(t, cfg, frames)
+	if consideredAt != plainAt {
+		t.Fatalf("first fix moved from frame %d to %d; the consider term must not delay it", plainAt, consideredAt)
+	}
+	for i := 0; i < plainAt; i++ {
+		if !reflect.DeepEqual(plainReadings[i], consideredReadings[i]) {
+			t.Fatalf("frame %d, before any fix, differs with the consider term on", i)
+		}
+	}
+	if !(considered.Measurement.NIS < plain.Measurement.NIS) {
+		t.Fatalf("entry NIS %v with the consider term, %v without; want it smaller", considered.Measurement.NIS, plain.Measurement.NIS)
 	}
 }

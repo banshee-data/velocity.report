@@ -79,6 +79,14 @@ const (
 	// rows go and what retains the cluster points the near-edge model reads;
 	// without one it runs, says so, and writes nothing.
 	ExperimentSolidBody = "solid_body"
+
+	// ExperimentSolidBodyFaceHysteresis and ExperimentSolidBodyFaceConsider
+	// are the near-edge tracked-state plan's face-transition remedies T1 and
+	// T2 on the solid body (SolidBodyOptions.FaceHysteresis and
+	// FaceEntryConsider). Each qualifies solid_body and is refused without it,
+	// so a remedy can never run as an arm that has no solid body to change.
+	ExperimentSolidBodyFaceHysteresis = "solid_body_face_hysteresis"
+	ExperimentSolidBodyFaceConsider   = "solid_body_face_consider"
 )
 
 var knownExperiments = map[string]bool{
@@ -97,6 +105,9 @@ var knownExperiments = map[string]bool{
 	ExperimentOcclusionContinuity: true,
 	ExperimentFixedLagRTS:         true,
 	ExperimentSolidBody:           true,
+
+	ExperimentSolidBodyFaceHysteresis: true,
+	ExperimentSolidBodyFaceConsider:   true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

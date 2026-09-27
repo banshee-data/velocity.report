@@ -1,6 +1,7 @@
 package replayeval
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -137,5 +138,59 @@ func TestSummariseSolidBodiesRefusesMixedVersions(t *testing.T) {
 	s, err := SummariseSolidBodies(points, nil, l5tracks.DefaultConvergenceBounds())
 	if err != nil || s.SolidBodies != 0 || s.FixShare != 0 {
 		t.Fatalf("no solid bodies: %+v, %v", s, err)
+	}
+}
+
+func TestSummariseSolidBodiesStratifiesFaceStableResidualsByHeadingRateAndRange(t *testing.T) {
+	// Track 1's two face-stable runs, frames 3 to 9 and 11 to 19, moved 12 m
+	// out so the first run's windows are inside 20 m and the second's beyond
+	// it. Its heading is steady until frame 14, then turns at 50 degrees per
+	// second.
+	points, bodies := summaryRows()
+	for i := range points {
+		if points[i].CreationSequence == 1 {
+			points[i].X += 12
+		}
+	}
+	const base = int64(1_750_000_000_000_000_000)
+	for i := range bodies {
+		b := &bodies[i]
+		if b.CreationSequence != 1 {
+			continue
+		}
+		b.Reading.Estimate.X += 12
+		f := (b.FrameUnixNanos - base) / 100_000_000
+		psi := 0.0
+		if f > 14 {
+			psi = float64(f-14) * 5 * math.Pi / 180
+		}
+		b.Reading.Estimate.Orientation = l5tracks.OrientationBelief{PsiRad: float32(psi), Provenance: l5tracks.ProvenanceObserved}
+	}
+	s, err := SummariseSolidBodies(points, bodies, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]int{}
+	for _, st := range s.FaceStableStrata {
+		if st.Points.Windows != st.Bodies.Windows {
+			t.Fatalf("%s %s: %d point windows, %d body windows; the same frames must be split the same way",
+				st.Axis, st.Bin, st.Points.Windows, st.Bodies.Windows)
+		}
+		got[st.Axis+"/"+st.Bin] = st.Points.Windows
+	}
+	// Windows centred on 5, 6 and 7 are steady and near; 13 spans frames 11
+	// to 15 (5 degrees in 0.4 s), 14 spans 12 to 16 (10 degrees) and the rest
+	// turn faster still, all beyond 20 m.
+	want := map[string]int{
+		"heading_rate/lt_5_deg_s": 3, "heading_rate/5_to_15_deg_s": 1, "heading_rate/ge_15_deg_s": 4, "heading_rate/unknown": 0,
+		"range/lt_20_m": 3, "range/20_to_40_m": 5, "range/ge_40_m": 0,
+	}
+	for k, n := range want {
+		if got[k] != n {
+			t.Errorf("%s: %d windows, want %d (all %v)", k, got[k], n, got)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("strata %v, want exactly %v", got, want)
 	}
 }

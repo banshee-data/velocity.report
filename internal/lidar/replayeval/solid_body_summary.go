@@ -69,7 +69,114 @@ type SolidBodySummary struct {
 	AnchorPointsFaceStable l8analytics.LateralFitSummary `json:"anchor_point_estimates_face_stable_runs"`
 	AnchorBodiesFaceStable l8analytics.LateralFitSummary `json:"anchor_solid_bodies_face_stable_runs"`
 	FaceStableRuns         int                           `json:"face_stable_runs"`
-	RetainedSamplePoints   int                           `json:"retained_sample_points,omitempty"`
+	// FaceStableStrata splits the face-stable residuals by the centre frame's
+	// heading rate and range, so a tail that face stability does not explain
+	// can be attributed. Both come from the solid body on that frame, for the
+	// point estimate's windows as well, so the two are split by the same
+	// frames.
+	FaceStableStrata     []AnchorStratum `json:"face_stable_strata,omitempty"`
+	RetainedSamplePoints int             `json:"retained_sample_points,omitempty"`
+}
+
+// AnchorStratum is one bin of an anchor comparison: its axis ("heading_rate"
+// or "range"), the bin, and the two estimates' residuals within it.
+type AnchorStratum struct {
+	Axis   string                             `json:"axis"`
+	Bin    string                             `json:"bin"`
+	Points l8analytics.LateralResidualSummary `json:"point_estimates"`
+	Bodies l8analytics.LateralResidualSummary `json:"solid_bodies"`
+}
+
+// Strata bins. Heading rate is the solid body's orientation change across the
+// five-point window, folded as an axis, in degrees per second: the tracked
+// heading's lag on a turn is what tilts a face normal (the state plan's
+// invalidating condition b). Range is the body centre's distance from the
+// sensor, which is the replay frame's origin.
+const (
+	StratumHeadingRate = "heading_rate"
+	StratumRange       = "range"
+)
+
+var (
+	headingRateBins = []string{"lt_5_deg_s", "5_to_15_deg_s", "ge_15_deg_s", "unknown"}
+	rangeBins       = []string{"lt_20_m", "20_to_40_m", "ge_40_m"}
+)
+
+func headingRateBin(degPerSec float64, known bool) string {
+	switch {
+	case !known:
+		return "unknown"
+	case degPerSec < 5:
+		return "lt_5_deg_s"
+	case degPerSec < 15:
+		return "5_to_15_deg_s"
+	default:
+		return "ge_15_deg_s"
+	}
+}
+
+func rangeBin(metres float64) string {
+	switch {
+	case metres < 20:
+		return "lt_20_m"
+	case metres < 40:
+		return "20_to_40_m"
+	default:
+		return "ge_40_m"
+	}
+}
+
+// stratumSample is what a stratum needs to know about one frame.
+type stratumSample struct {
+	psiRad    float32
+	headingOK bool
+	rangeM    float64
+}
+
+// anchorStrata bins the residuals of paired point and body series, whose
+// samples are the same frames, by each window's centre frame.
+func anchorStrata(points, bodies []l8analytics.LateralFitTrack, samples [][]stratumSample) []AnchorStratum {
+	type binKey struct{ axis, bin string }
+	collect := func(tracks []l8analytics.LateralFitTrack) map[binKey][]float64 {
+		out := map[binKey][]float64{}
+		for i, tr := range tracks {
+			if tr.MaxSpeedMps < l8analytics.LateralFitMovingMinSpeedMps {
+				continue
+			}
+			for _, w := range l8analytics.LateralFitWindows(tr.Points) {
+				// A scored window is five consecutive samples, so its ends
+				// are two either side of the centre.
+				first, last := samples[i][w.Centre-2], samples[i][w.Centre+2]
+				dt := float64(tr.Points[w.Centre+2].TimestampNanos-tr.Points[w.Centre-2].TimestampNanos) / 1e9
+				known := first.headingOK && last.headingOK && dt > 0
+				var rate float64
+				if known {
+					rate = l5tracks.FoldAxisAngleDeg(float64(last.psiRad)-float64(first.psiRad)) / dt
+				}
+				hk := binKey{StratumHeadingRate, headingRateBin(rate, known)}
+				rk := binKey{StratumRange, rangeBin(samples[i][w.Centre].rangeM)}
+				out[hk] = append(out[hk], w.Residual)
+				out[rk] = append(out[rk], w.Residual)
+			}
+		}
+		return out
+	}
+	p, b := collect(points), collect(bodies)
+	var out []AnchorStratum
+	for _, axis := range []struct {
+		name string
+		bins []string
+	}{{StratumHeadingRate, headingRateBins}, {StratumRange, rangeBins}} {
+		for _, bin := range axis.bins {
+			k := binKey{axis.name, bin}
+			out = append(out, AnchorStratum{
+				Axis: axis.name, Bin: bin,
+				Points: l8analytics.SummariseLateralResiduals(p[k]),
+				Bodies: l8analytics.SummariseLateralResiduals(b[k]),
+			})
+		}
+	}
+	return out
 }
 
 // SummariseSolidBodies reads one replay's online point estimates and the
@@ -205,6 +312,7 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 		run int
 	}
 	steadyIndex, faceIndex := map[runKey]int{}, map[runKey]int{}
+	var faceSamples [][]stratumSample
 	for _, p := range version {
 		id := strconv.FormatInt(p.CreationSequence, 10)
 		i, ok := allIndex[p.CreationSequence]
@@ -250,7 +358,13 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 			runID := id + ".f" + strconv.Itoa(row.faceRun)
 			pointsFace = append(pointsFace, l8analytics.LateralFitTrack{ID: runID, MaxSpeedMps: maxSpeed[p.CreationSequence]})
 			bodiesFace = append(bodiesFace, l8analytics.LateralFitTrack{ID: runID, MaxSpeedMps: maxSpeed[p.CreationSequence]})
+			faceSamples = append(faceSamples, nil)
 		}
+		faceSamples[f] = append(faceSamples[f], stratumSample{
+			psiRad:    e.Orientation.PsiRad,
+			headingOK: e.Orientation.Provenance != l5tracks.ProvenanceNone,
+			rangeM:    math.Hypot(float64(e.X), float64(e.Y)),
+		})
 		pointsFace[f].Points = append(pointsFace[f].Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: p.X, Y: p.Y})
 		bodiesFace[f].Points = append(bodiesFace[f].Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: e.X, Y: e.Y})
 	}
@@ -263,6 +377,7 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	s.AnchorPointsFaceStable = l8analytics.SummariseLateralFit(pointsFace)
 	s.AnchorBodiesFaceStable = l8analytics.SummariseLateralFit(bodiesFace)
 	s.FaceStableRuns = len(bodiesFace)
+	s.FaceStableStrata = anchorStrata(pointsFace, bodiesFace, faceSamples)
 	return s, nil
 }
 
