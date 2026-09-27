@@ -15,12 +15,11 @@ import (
 // replayForAnalysis feeds the analysis pass, from one capture or from several
 // joined into a continuous stream.
 //
-// Joining matters more than it looks. The background model needs tens of
-// seconds to settle, and a per-file analysis restarts it at every boundary, so
-// the head of each file reports as motion whether or not the sensor moved. Over
-// a rolling capture that manufactures a motion period every five minutes and
-// cuts genuinely static stretches into pieces. Replaying the files as one
-// stream carries the model across the joins and the artefacts go away.
+// Joining matters more than it looks. A per-file analysis restarts the model at
+// every capture boundary and can manufacture a transition while it settles.
+// Replaying a sequence keeps its motion timeline continuous across those joins.
+// MotionClassifier refreshes its baseline on capture time, independently of the
+// file boundaries, so it can recognise a stop after a long drive.
 func replayForAnalysis(cfg SplitConfig, parser network.Parser,
 	frameBuilder network.FrameBuilder, stats network.PacketStatsInterface) error {
 

@@ -22,7 +22,7 @@ make build-velocity
 ./velocity serve --debug
 
 # Enable in-process LiDAR components (UDP listener + forwarder):
-./velocity serve --enable-lidar --lidar-listen :8081
+./velocity serve --enable-lidar
 ```
 
 ## Command-line flags
@@ -42,7 +42,9 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string): HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
+- `--lidar-listen` (string): HTTP listen address for the legacy LiDAR monitor webserver (default: `127.0.0.1:8081`). LiDAR API routes are also registered on the main HTTP server; new clients should use `--listen` (default: `127.0.0.1:8080`).
+- `--lidar-udp-port` (int): UDP port in PCAP captures, also used by the live listener by default (default: `2369`).
+- `--lidar-live-udp-port` (int): Override only the live listener port when an isolated replay server shares a host with another LiDAR server (default: `0`, meaning `--lidar-udp-port`).
 - `--lidar-no-parse` (bool): Disable LiDAR packet parsing (useful when only forwarding packets).
 - `--lidar-forward` (bool): Forward incoming LiDAR packets to another port (useful for LidarView).
 - `--lidar-forward-addr` (string): Forward destination address (default: `localhost`).
@@ -87,7 +89,7 @@ Runtime switching lets you replay captures without special startup flags:
 4. **Switch to PCAP** via the API:
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+   curl -X POST "http://localhost:8080/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
      -d '{"pcap_file": "file.pcap"}'
    ```
@@ -97,7 +99,7 @@ Runtime switching lets you replay captures without special startup flags:
 5. **Switch back to live data** when finished:
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+   curl -X POST "http://localhost:8080/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
    ```
 
 **Security Note**: The `--lidar-pcap-dir` flag restricts file access to prevent path traversal attacks. Only files within the specified directory (or its subdirectories) can be accessed. Attempting to access files outside this directory (e.g., using `../../../etc/passwd`) will be rejected with a 403 Forbidden error.

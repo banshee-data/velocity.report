@@ -213,8 +213,9 @@ func TestKirk0ObservationContainer(t *testing.T) {
 
 	// Encode cost, with no replay around it: the same frames into a fresh
 	// container, in strict mode so every frame is its own generation (what
-	// a 10 Hz live capture at a 100 ms batch age amounts to). Chunking and
-	// identity differ; the evidence does not.
+	// a 10 Hz live capture at a 100 ms batch age amounts to). The default
+	// writer may also seal every frame during a slow replay, so its chunk
+	// count is not a stable point of comparison; the evidence still must match.
 	rewrite := m
 	rewrite.Capture.UUID, rewrite.Capture.CreatedUnixNanos, rewrite.Limits = "", 0, vrlog.Limits{}
 	rewrite.Commit = vrlog.CommitPolicy{Strict: true}
@@ -235,8 +236,14 @@ func TestKirk0ObservationContainer(t *testing.T) {
 	rewritten, err := w.Close()
 	writeElapsed := time.Since(writeStart)
 	runtime.ReadMemStats(&memAfter)
-	if err != nil || rewritten.Semantic != summary.Semantic || rewritten.Chunks == summary.Chunks {
-		t.Fatalf("rewrite = %+v, %v", rewritten, err)
+	if err != nil {
+		t.Fatalf("close strict rewrite: %v", err)
+	}
+	if rewritten.Semantic != summary.Semantic {
+		t.Fatalf("strict rewrite semantic %s, original %s", rewritten.Semantic, summary.Semantic)
+	}
+	if rewritten.Frames != uint64(len(direct)) || rewritten.Chunks != rewritten.Frames || rewritten.Commits != rewritten.Frames {
+		t.Fatalf("strict rewrite should commit one chunk per frame: %+v for %d direct frames", rewritten, len(direct))
 	}
 	n := float64(len(direct))
 	t.Logf("kirk0 [0, 10) s: %d frames (%v), %d retained points (%.0f/frame), %d clusters, %d members",

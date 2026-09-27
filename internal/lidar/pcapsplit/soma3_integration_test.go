@@ -84,7 +84,7 @@ func TestSoma3StaticThenMotion(t *testing.T) {
 
 	// Assert on the post-hysteresis timeline, exactly as the tool builds it. Raw
 	// per-frame motion has occasional single-frame spikes even while parked (a bus
-	// passing close, a brief drift-ratio excursion); the 5 s motion trigger and
+	// passing close, a brief drift-ratio excursion); the 7 s motion trigger and
 	// min-segment merge absorb them, so the parked stretch stays one static segment.
 	periods := BuildTimeline(samples, DefaultSplitConfig().TimelineConfig())
 	if len(periods) == 0 || periods[0].Type != StaticLabel {

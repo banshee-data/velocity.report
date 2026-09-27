@@ -96,6 +96,17 @@ func TestPublisher_StartStop(t *testing.T) {
 	pub.Stop()
 }
 
+func TestPublisher_StartWithServiceRegistersBeforeServe(t *testing.T) {
+	pub := NewPublisher(Config{ListenAddr: "localhost:0"})
+	if err := pub.StartWithService(NewServer(pub)); err != nil {
+		t.Fatal(err)
+	}
+	defer pub.Stop()
+	if _, ok := pub.GRPCServer().GetServiceInfo()[pb.VisualiserService_ServiceDesc.ServiceName]; !ok {
+		t.Fatal("visualiser gRPC service was not registered before serving")
+	}
+}
+
 func TestPublisher_Publish_NotRunning(t *testing.T) {
 	cfg := DefaultConfig()
 	pub := NewPublisher(cfg)
