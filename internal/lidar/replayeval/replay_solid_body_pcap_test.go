@@ -25,7 +25,6 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
-	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -118,44 +117,27 @@ func TestSolidBodyExperimentOnKirk0(t *testing.T) {
 		t.Fatalf("%d solid bodies for %d point estimates; want one beside each", len(solid.bodies), len(solid.points))
 	}
 
-	counts := map[string]int{}
-	for _, sb := range solid.bodies {
-		m := sb.Reading.Measurement
-		e := sb.Reading.Estimate
-		counts["source "+string(m.Source)]++
-		counts["reference "+e.Reference.String()]++
-		counts[fmt.Sprintf("rank %d", m.Rank)]++
-		counts["estimation "+e.Estimation.String()]++
-		if m.FallbackReason != "" {
-			counts["fallback "+m.FallbackReason]++
-		}
-		if m.Source == l5tracks.MeasurementNearEdgeCandidateV1 {
-			counts["faces "+m.Faces.String()]++
-		}
-	}
 	t.Logf("kirk0: %d recorded frames, %d track-frames; %d point estimates, %d solid bodies",
 		solid.result.FramesRecorded, trackFrames, len(solid.points), len(solid.bodies))
-	logCounts(t, counts)
-	if counts["source "+string(l5tracks.MeasurementNearEdgeCandidateV1)] == 0 {
+	// The corpus runner reports the same summary per case.
+	summary, err := SummariseSolidBodies(solid.points, solid.bodies, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("solid-body summary:\n%s", b)
+	if summary.NearEdgeFixes == 0 {
 		t.Fatal("no near-edge fix on kirk0: the solid body never left its medoid seed")
+	}
+	if summary.SolidBodies != len(solid.bodies) || summary.PointEstimates != len(solid.points) {
+		t.Fatalf("summary read %d solid bodies and %d point estimates of %d and %d",
+			summary.SolidBodies, summary.PointEstimates, len(solid.bodies), len(solid.points))
 	}
 
 	logExtentConvergence(t, solid.bodies)
-	logAnchorStability(t, solid.points, solid.bodies)
-}
-
-func logCounts(t *testing.T, counts map[string]int) {
-	t.Helper()
-	keys := make([]string, 0, len(counts))
-	for k := range counts {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var b strings.Builder
-	for _, k := range keys {
-		fmt.Fprintf(&b, "\n  %-40s %d", k, counts[k])
-	}
-	t.Logf("solid-body rows by kind:%s", b.String())
 }
 
 // logExtentConvergence reports, per track, the last width and length belief
@@ -215,70 +197,6 @@ func logExtentConvergence(t *testing.T, bodies []observationsqlite.TrackSolidBod
 		"final width median %.3f m (p10 %.3f, p90 %.3f), final length median %.3f m, rows to width convergence median %.0f%s",
 		len(order), withWidth, converged, bounds.MaxDimensionSigmaMetres, bounds.MinAdmissibleFrames, established,
 		evidenceMedian(widths), evidenceQuantile(widths, 0.1), evidenceQuantile(widths, 0.9), evidenceMedian(lengths), evidenceMedian(rowsToWidth), b.String())
-}
-
-// logAnchorStability scores the point estimates and the body-centre solid
-// bodies by the plan's five-point lateral fit, over exactly the same
-// track-frames, so the comparison is between observation models and nothing
-// else.
-func logAnchorStability(t *testing.T, points []observationsqlite.TrackEstimate, bodies []observationsqlite.TrackSolidBody) {
-	t.Helper()
-	type key struct {
-		seq   int64
-		frame int64
-	}
-	body := map[key]observationsqlite.TrackSolidBody{}
-	for _, sb := range bodies {
-		if sb.Reading.Estimate.Reference == l5tracks.ReferenceBodyCentre {
-			body[key{sb.CreationSequence, sb.FrameUnixNanos}] = sb
-		}
-	}
-	maxSpeed := map[int64]float64{}
-	for _, p := range points {
-		if s := math.Hypot(float64(p.VX), float64(p.VY)); s > maxSpeed[p.CreationSequence] {
-			maxSpeed[p.CreationSequence] = s
-		}
-	}
-	var pointTracks, bodyTracks, allPointTracks []l8analytics.LateralFitTrack
-	index := map[int64]int{}
-	allIndex := map[int64]int{}
-	for _, p := range points {
-		if _, ok := allIndex[p.CreationSequence]; !ok {
-			allIndex[p.CreationSequence] = len(allPointTracks)
-			allPointTracks = append(allPointTracks, l8analytics.LateralFitTrack{ID: fmt.Sprint(p.CreationSequence), MaxSpeedMps: maxSpeed[p.CreationSequence]})
-		}
-		all := &allPointTracks[allIndex[p.CreationSequence]]
-		all.Points = append(all.Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: p.X, Y: p.Y})
-
-		sb, ok := body[key{p.CreationSequence, p.FrameUnixNanos}]
-		if !ok {
-			continue
-		}
-		i, seen := index[p.CreationSequence]
-		if !seen {
-			i = len(pointTracks)
-			index[p.CreationSequence] = i
-			id := fmt.Sprint(p.CreationSequence)
-			pointTracks = append(pointTracks, l8analytics.LateralFitTrack{ID: id, MaxSpeedMps: maxSpeed[p.CreationSequence]})
-			bodyTracks = append(bodyTracks, l8analytics.LateralFitTrack{ID: id, MaxSpeedMps: maxSpeed[p.CreationSequence]})
-		}
-		pointTracks[i].Points = append(pointTracks[i].Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: p.X, Y: p.Y})
-		e := sb.Reading.Estimate
-		bodyTracks[i].Points = append(bodyTracks[i].Points, l8analytics.SeriesPoint{TimestampNanos: sb.FrameUnixNanos, X: e.X, Y: e.Y})
-	}
-	for _, s := range []struct {
-		name string
-		sum  l8analytics.LateralFitSummary
-	}{
-		{"point estimates, all frames", l8analytics.SummariseLateralFit(allPointTracks)},
-		{"point estimates, body-centre frames", l8analytics.SummariseLateralFit(pointTracks)},
-		{"solid bodies, body-centre frames", l8analytics.SummariseLateralFit(bodyTracks)},
-	} {
-		t.Logf("anchor stability, %s: moving tracks %d, scored %d, windows %d; lateral residual p50 %.3f p95 %.3f p99 %.3f max %.3f m; "+
-			"tracks with an excursion above %.1f m: %d (%.1f%%)",
-			s.name, s.sum.MovingTracks, s.sum.ScoredTracks, s.sum.Windows, s.sum.P50Metres, s.sum.P95Metres, s.sum.P99Metres,
-			s.sum.MaxMetres, l8analytics.LateralFitExcursionMetres, s.sum.TracksWithExcursion, 100*s.sum.ExcursionShare)
-	}
 }
 
 func evidenceMedian(v []float64) float64 { return evidenceQuantile(v, 0.5) }
