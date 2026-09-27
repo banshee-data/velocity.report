@@ -174,6 +174,29 @@ type TrackerConfig struct {
 	// clusters without a pose, so the tracker frame is the sensor frame and
 	// zero is correct today; a site transform must set them.
 	NoiseSensorX, NoiseSensorY float32
+
+	// TentativePriority is the gated form of S2's remedy. Confirmed tracks
+	// are matched first, but only to clusters inside their χ²₂ 99% ellipse
+	// (d² ≤ 9.21), the region in which a cluster is statistically theirs;
+	// every track still unmatched, confirmed or tentative, then competes
+	// jointly for what is left under the shipped gate. CascadedAssociation
+	// gives confirmed tracks first choice anywhere inside the shipped gate,
+	// which K10 shows admits almost everything within reach, so a confirmed
+	// track whose own object dropped out takes a newborn's cluster instead of
+	// coasting. This option cannot do that beyond the 99% ellipse. It
+	// supersedes CascadedAssociation when both are set. Default false. See
+	// identity.go.
+	TentativePriority bool
+
+	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
+	// cyclist or motorcyclist with a cluster outside that label's geometric
+	// envelope: larger than anything L6 would accept as the label (gap
+	// analysis K4). Such a cluster is a merge with, or a view of, a larger
+	// body, and identity must not cross to it. A vehicle label carries no
+	// refusal, because a partial view of a vehicle can be any size below it;
+	// the soft extent-compatibility cost (AssociationExtentCostWeight) is
+	// what charges that direction. Default false. See identity.go.
+	ClassIdentity bool
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
