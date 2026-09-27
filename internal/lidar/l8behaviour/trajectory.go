@@ -140,6 +140,12 @@ type TrajectorySample struct {
 	// measurement; equal to CaptureUnixNanos on an observed instant, and the
 	// origin of coast age otherwise.
 	LastObservedUnixNanos int64 `json:"last_observed_unix_nanos"`
+	// AcquisitionUnixNanos is when the geometry behind the latest associated
+	// measurement was acquired: evidence, where LastObservedUnixNanos is the
+	// estimator's clock. The two differ by the intra-frame offset at which
+	// the object was scanned, which can put it after the frame's capture
+	// time. Zero when the source did not record it.
+	AcquisitionUnixNanos int64 `json:"acquisition_unix_nanos,omitempty"`
 }
 
 // covarianceTolerance absorbs rounding in the symmetry and
@@ -205,6 +211,9 @@ func (s TrajectorySample) Validate() error {
 	}
 	if s.Support == SupportObserved && s.LastObservedUnixNanos != s.CaptureUnixNanos {
 		return fmt.Errorf("an observed instant must have been last observed at its own capture time")
+	}
+	if s.AcquisitionUnixNanos < 0 {
+		return fmt.Errorf("sample acquisition time must not be negative")
 	}
 	return nil
 }

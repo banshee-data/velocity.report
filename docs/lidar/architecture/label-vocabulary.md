@@ -218,7 +218,7 @@ motorcyclist), `pedestrian` and `unknown` (dynamic or unclassified). Following m
 
 | Vocabulary         | Tokens                                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------------------------- |
-| Reference point    | `body_centre`, `near_face_centre`, `cluster_medoid`                                                      |
+| Reference point    | `body_centre`, `near_face_centre`, `cluster_medoid`, `visible_obb_centre`                                |
 | Belief provenance  | `class_prior`, `accumulated`, `observed`                                                                 |
 | Path extremity     | `leading`, `trailing`                                                                                    |
 | Uncertainty kind   | `none`, `sigma`, `interval`, `bounds`                                                                    |

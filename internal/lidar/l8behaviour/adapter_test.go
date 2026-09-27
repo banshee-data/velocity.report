@@ -68,6 +68,17 @@ func TestL5VocabularyMappings(t *testing.T) {
 		{l5tracks.SupportState{PointCount: 12, Fragmented: true}, SupportClusterSplit},
 		{l5tracks.SupportState{CoastedFrames: 2}, SupportCoasted},
 		{l5tracks.SupportState{CoastedFrames: 2, Fragmented: true}, SupportCoasted},
+		// An absence keeps the tracker's explanation of it.
+		{l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportOccludedInferred}, SupportOccludedInferred},
+		{l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportMissedUnknown}, SupportMissedUnknown},
+		{l5tracks.SupportState{CoastedFrames: 1, Instant: l5tracks.SupportOutOfFOV}, SupportOutOfFOV},
+		{l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportCoasted}, SupportCoasted},
+		// The coasted count decides observation; a token cannot overrule it
+		// either way, and a token the tracker never claims is not adopted.
+		{l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportObserved}, SupportCoasted},
+		{l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportClusterMerged}, SupportCoasted},
+		{l5tracks.SupportState{PointCount: 80, Instant: l5tracks.SupportOccludedInferred}, SupportObserved},
+		{l5tracks.SupportState{PointCount: 12, Instant: l5tracks.SupportObserved, Fragmented: true}, SupportClusterSplit},
 	} {
 		if got := SupportStateFromL5(c.in); got != c.want {
 			t.Errorf("support %+v -> %s, want %s", c.in, got, c.want)
@@ -228,7 +239,8 @@ func TestSampleFromTrack(t *testing.T) {
 		},
 		OBBHeadingRad:            0,
 		HeadingSource:            l5tracks.HeadingSourceVelocity,
-		LastMeasurementUnixNanos: FixtureBaseUnixNanos,
+		LastMeasurementSource:    l5tracks.MeasurementOBBCentreV1,
+		LastMeasurementUnixNanos: FixtureBaseUnixNanos - 3_000_000,
 	}
 	track.ObservationCount = 4
 	class := l5tracks.MotionClassBelief{Class: l5tracks.MotionRigidVehicle, Posterior: 0.9}
@@ -237,13 +249,33 @@ func TestSampleFromTrack(t *testing.T) {
 		t.Fatal(err)
 	}
 	// No accumulated extent yet: the class prior, marked as such and never
-	// converged, so the projected endpoint is prior-dominated.
+	// converged.
 	if s.Length.Provenance != ProvenanceClassPrior || s.Length.Converged || s.Estimation != EstimationGeometryConverging {
 		t.Fatalf("sample %+v", s)
 	}
-	body, reason, err := ProjectBody(fixturePathX(), track.TrackID, s)
-	if err != nil || reason != ReasonUnspecified || body.Leading.Source != EndpointPriorDominated || body.Leading.ExtentConverged {
-		t.Fatalf("projection %+v reason %s err %v", body.Leading, reason, err)
+	// The measurement's acquisition time survives beside the capture time
+	// the observed instant is stamped with.
+	if s.LastObservedUnixNanos != FixtureBaseUnixNanos || s.AcquisitionUnixNanos != track.LastMeasurementUnixNanos {
+		t.Fatalf("last observed %d, acquired %d", s.LastObservedUnixNanos, s.AcquisitionUnixNanos)
+	}
+	// R1: the tracked position is the centre of the box the frame saw, not
+	// the body centre, so no endpoint is projected from it.
+	if s.Reference != ReferenceVisibleOBBCentre {
+		t.Fatalf("an OBB-centre track refers to %s, want %s", s.Reference, ReferenceVisibleOBBCentre)
+	}
+	if _, reason, err := ProjectBody(fixturePathX(), track.TrackID, s); err != nil || reason != ReasonInsufficientObservation {
+		t.Fatalf("projection from the visible box centre: reason %s err %v", reason, err)
+	}
+	medoid := *track
+	medoid.LastMeasurementSource = l5tracks.MeasurementMedoidV0
+	if m, err := SampleFromTrack(&medoid, class, l5tracks.EstimationGeometryConverging, FixtureBaseUnixNanos, l5tracks.DefaultConvergenceBounds()); err != nil || m.Reference != ReferenceClusterMedoid {
+		t.Fatalf("a medoid track refers to %s (err %v), want %s", m.Reference, err, ReferenceClusterMedoid)
+	}
+	// A track whose measurement source was not recorded names no point.
+	unrecorded := *track
+	unrecorded.LastMeasurementSource = ""
+	if _, err := SampleFromTrack(&unrecorded, class, l5tracks.EstimationGeometryConverging, FixtureBaseUnixNanos, l5tracks.DefaultConvergenceBounds()); err == nil {
+		t.Fatal("a track with no recorded measurement source was given a reference")
 	}
 
 	if _, err := SampleFromTrack(nil, class, l5tracks.EstimationInitialising, FixtureBaseUnixNanos, l5tracks.DefaultConvergenceBounds()); err == nil {
@@ -277,6 +309,7 @@ func TestTrajectoriesFromEstimates(t *testing.T) {
 		persistedRow("trk_a", 0, 0, 0.25), persistedRow("trk_a", 1, 0.025, 0.25),
 	}
 	rows[3].MeasurementSource = "medoid_fallback_v1"
+	rows[0].MeasurementUnixNanos = rows[0].FrameUnixNanos + 4_000_000
 	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +334,13 @@ func TestTrajectoriesFromEstimates(t *testing.T) {
 		}
 	}
 	b := trajectories[1].Samples
-	if b[0].X != 10 || b[1].X != 11 || b[0].Reference != ReferenceBodyCentre || b[0].Estimation != EstimationGeometryConverging {
+	// The acquisition time is the row's, when it recorded one; the frame
+	// time stays the capture and last-observed time.
+	if b[1].AcquisitionUnixNanos != rows[0].MeasurementUnixNanos || b[0].AcquisitionUnixNanos != 0 ||
+		b[1].LastObservedUnixNanos != b[1].CaptureUnixNanos {
+		t.Errorf("acquisition times %d and %d", b[0].AcquisitionUnixNanos, b[1].AcquisitionUnixNanos)
+	}
+	if b[0].X != 10 || b[1].X != 11 || b[0].Reference != ReferenceVisibleOBBCentre || b[0].Estimation != EstimationGeometryConverging {
 		t.Errorf("moving OBB-centre samples = %+v", b)
 	}
 	a := trajectories[0].Samples
@@ -350,6 +389,25 @@ func TestTrajectoriesFromEstimatesReadsRefinedStages(t *testing.T) {
 		for _, s := range trajectories[0].Samples {
 			if s.Stage != stage || s.StateModel != StateModelCVCartesianV1 {
 				t.Errorf("%s row read as stage %s, model %s", stage, s.Stage, s.StateModel)
+			}
+		}
+		// R1: a refined stage revises the state it was given, and no stage
+		// turns the visible box centre or the medoid into a place on the
+		// body, so no endpoint is projected from a final row either.
+		for _, source := range []l5tracks.MeasurementSource{l5tracks.MeasurementOBBCentreV1, l5tracks.MeasurementMedoidV0} {
+			for i := range rows {
+				rows[i].MeasurementSource = string(source)
+			}
+			trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+			if err != nil {
+				t.Fatalf("%s %s: %v", stage, source, err)
+			}
+			s := trajectories[0].Samples[1]
+			if s.Reference.IsPhysical() || s.ProductionReason() != ReasonInsufficientObservation {
+				t.Errorf("a %s %s row refers to %s, production reason %s", stage, source, s.Reference, s.ProductionReason())
+			}
+			if _, reason, err := ProjectBody(fixturePathX(), "trk_a", s); err != nil || reason != ReasonInsufficientObservation {
+				t.Errorf("a %s %s row projected a body: reason %s err %v", stage, source, reason, err)
 			}
 		}
 	}

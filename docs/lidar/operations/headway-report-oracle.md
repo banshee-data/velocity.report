@@ -103,18 +103,25 @@ velocity report headway --db evidence.db --source source/v1/<digest>            
 velocity report headway --db evidence.db --source source/v1/<digest> --stage online
 velocity report headway --db evidence.db --source source/v1/<digest> \
     --stage fixed_lag --param-hash sha256:<hash>              # one fixed_lag horizon of several
+velocity report headway --db evidence.db --source source/v1/<digest> \
+    --solid-bodies --stage online                             # the solid bodies beside the estimates
 ```
 
 `--stage` is `final` (the default, the stage a production reader asks for), `fixed_lag` or
 `online`. When a source holds several versions at the stage, as a `fixed_lag_rts` replay does
 with one `fixed_lag` version per horizon, the run refuses to choose and lists them; name one with
-`--estimator`, `--obs-model` or `--param-hash`. The command prints the status and the run's
-figures before it renders, then writes `headway_provisional_report.pdf` and its source archive.
+`--estimator`, `--obs-model` or `--param-hash`. `--solid-bodies` reads `lidar_track_solid_bodies`
+instead of `lidar_track_estimates`: the near-edge body a `solid_body` replay files beside each
+online estimate, which exists at the `online` stage only. The command prints the status and the
+run's figures before it renders, then writes `headway_provisional_report.pdf` and its source
+archive.
 
 ### What one run does
 
-1. Selects exactly one estimate version for the source at the stage.
-2. Builds one trajectory per track from its rows (`l8behaviour.TrajectoriesFromEstimates`).
+1. Selects exactly one estimate version for the source at the stage, from the point estimates or,
+   with `--solid-bodies`, the solid bodies.
+2. Builds one trajectory per track from its rows (`l8behaviour.TrajectoriesFromEstimates` or
+   `TrajectoriesFromSolidBodies`).
 3. Runs `AnalyseFollowing` under the analytic scenarios' bounds, which are uncalibrated; the
    report prints them and their hash.
 4. Stores every encounter's event, instants and windows in the same database, write-once per
@@ -133,27 +140,58 @@ as observed time: the bounds assume 10 Hz.
 An estimate row carries pose, velocity and covariance, and nothing of the solid body held beside
 them. The adapter claims no more:
 
-| Sample field | Read as                                                                                                               |
-| ------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Reference    | Body centre when an OBB centre entered the filter; cluster medoid, not on the body, under `medoid_v0` or its fallback |
-| Support      | Observed: rows exist only at associated frames of confirmed tracks                                                    |
-| Lifecycle    | `geometry_converging` at or above 0.5 m/s, `initialising` below: no persisted geometry can establish it               |
-| Heading      | None persisted, so front and rear cannot be told apart                                                                |
-| Extents      | None persisted                                                                                                        |
-| Class        | `unknown`: the classifier label is not persisted, and following is defined for rigid vehicles only                    |
-| Stage        | The row's own; the only place a sample is `final`                                                                     |
+| Sample field | Read as                                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| Reference    | `visible_obb_centre` when an OBB centre entered the filter; `cluster_medoid` under `medoid_v0` or its fallback |
+| Support      | Observed: rows exist only at associated frames of confirmed tracks                                             |
+| Lifecycle    | `geometry_converging` at or above 0.5 m/s, `initialising` below: no persisted geometry can establish it        |
+| Heading      | None persisted, so front and rear cannot be told apart                                                         |
+| Extents      | None persisted                                                                                                 |
+| Class        | `unknown`: the classifier label is not persisted, and following is defined for rigid vehicles only             |
+| Stage        | The row's own; the only place a sample is `final`                                                              |
+| Acquisition  | The row's `measurement_unix_nanos`, beside the frame's capture time                                            |
 
-So no endpoint can be projected and no instant is valid following time. Each evaluated instant is
-suppressed first with `class_not_supported`, and the run's figures list every reason that applied,
-not only the first: `orientation_unresolved` at every instant and `extent_not_converged` at most.
-A value appears only once the estimator persists class, heading and extent beliefs with each
-estimate.
+Neither reference is a place on the body: the centre of the box around one frame's returns moves
+with what the sensor saw, and the medoid is a point in the cluster. No stage changes that, so no
+follower's path is fitted from point estimates at any stage, and there is no encounter.
+
+A solid-body row carries the body itself, and its sample says what the reading says:
+
+| Sample field | Read as                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| Reference    | `body_centre` after a near-edge fix; `cluster_medoid` while seeding or after a faceless lapse        |
+| Support      | The tracker's token, including an explained absence; `cluster_split` for a fragmented observed frame |
+| Heading      | The reading's orientation belief and provenance                                                      |
+| Extents      | Length and width beliefs with provenance, converged against the default bounds                       |
+| Faces        | Only the end faces a near-edge fix used, on an observed instant with a resolved heading              |
+| Class        | The latest row's class belief, at its effective class                                                |
+| Stage        | The row's, which must be the reading's own: `online` today                                           |
+| Acquisition  | The measurement's acquisition time, which the reading carries                                        |
+
+The shadow filter updates its covariance in float32 without re-symmetrising it, so each
+off-diagonal pair is averaged when it agrees within round-off, as for a point estimate, and the row
+is refused otherwise.
 
 ### kirk0
 
 The pcap test `TestKirk0ProvisionalHeadway` replays kirk0 (20 s of warm-up, then the remaining
-63 s) into an evidence database with `fixed_lag_rts`, under both measurement models, and runs each
-stage. Every figure below is a result, not a failure:
+63 s) into an evidence database with `fixed_lag_rts`, under both measurement models and with
+`solid_body`, and runs each stage. Every figure below is a result, not a failure. Since #618 a
+point estimate never refers to the body, so neither measurement model fits a path. The second
+table keeps the figures from before #618, when the OBB centre was read as the body centre.
+
+| Input, stage                            | Tracks | Paths fitted | Encounters | Accounted | Valid | Suppressed time by first reason                                                                     |
+| --------------------------------------- | -----: | -----------: | ---------: | --------: | ----: | --------------------------------------------------------------------------------------------------- |
+| `medoid_v0` estimates, online           |     60 |            0 |          0 |       0 s |   0 s | none; every path `weak_support`                                                                     |
+| `obb_centre_v1` estimates, every stage  |     62 |            0 |          0 |       0 s |   0 s | none; every path `weak_support`                                                                     |
+| Solid bodies (`--solid-bodies`), online |     60 |            7 |          3 |     2.6 s |   0 s | `no_common_path` 1.3 s, `not_observed` 0.6 s, `class_not_supported` 0.5 s, `ambiguous_leader` 0.2 s |
+
+On the solid bodies 381 of 1,952 samples are on the body centre and 1,524 have a resolved heading;
+every sample carries length and width beliefs and an acquisition time. All five evaluated instants
+are `class_not_supported`, `insufficient_observation`, `extent_not_converged` and
+`estimate_not_final`: only 3 of the 60 tracks end classed as rigid vehicles.
+
+Before #618 (OBB-centre rows read as body centres):
 
 | Measurement model, stage            | Tracks | Paths fitted | Encounters | Accounted | Valid | Suppressed time by first reason                                                                     |
 | ----------------------------------- | -----: | -----------: | ---------: | --------: | ----: | --------------------------------------------------------------------------------------------------- |
@@ -166,13 +204,13 @@ stage. Every figure below is a result, not a failure:
 | `obb_centre_v1`, final              |     62 |           16 |          4 |     8.3 s |   0 s | `class_not_supported` 5.8 s, `not_observed` 2.3 s, `ambiguous_leader` 0.2 s                         |
 
 Under the production model the persisted pose is a medoid, so no path is fitted and the report
-states that no encounter was found. Under the OBB-centre candidate, pairs are found on fitted
-paths and the same 63 instants are evaluated at every stage; all 63 are `class_not_supported` and
-`orientation_unresolved`, and 79 to 89 % are `extent_not_converged`. Smoothing changes which
-paths fit and which pairs are found, not whether a value can be published. The test also checks,
-at every stage, that valid and suppressed time add up to the accounted time, that the data file
-and every stored row pass the surface audit, that nothing prints verdict language, and that a
-second run stores nothing and builds an identical `data.json`.
+states that no encounter was found. Before #618, under the OBB-centre candidate, pairs were found
+on fitted paths and the same 63 instants were evaluated at every stage; all 63 were
+`class_not_supported` and `orientation_unresolved`, and 79 to 89 % were `extent_not_converged`.
+Smoothing changed which paths fit and which pairs were found, not whether a value could be
+published. The test also checks, at every stage, that valid and suppressed time add up to the
+accounted time, that the data file and every stored row pass the surface audit, that nothing prints
+verdict language, and that a second run stores nothing and builds an identical `data.json`.
 
 ```bash
 go test -tags pcap ./internal/report/headway/fieldrun/ -run Kirk0 -v   # about a minute; needs git lfs pull

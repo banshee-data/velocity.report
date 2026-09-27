@@ -2517,7 +2517,10 @@ moves, only when the believed axis lies within ten degrees of its course. Migrat
 `state_model` to `lidar_track_estimates` and the `lidar_track_solid_bodies` table beside it; the
 pipeline files one solid body per point estimate, offline and through the live sink, and the
 per-frame evaluator scores solid-body estimate versions. The lossless-batch evidence oracle does
-not cover the new table yet.
+not cover the new table yet. Migration 000053 adds each row's support token and fragmented and
+truncated flags, and the provisional headway run reads the table with `--solid-bodies` (#618).
+A tracked position without the solid body now names what entered the filter, `cluster_medoid` or
+`visible_obb_centre`, and is never labelled the body centre.
 
 On the synthetic pass the settled lateral error is 0.032 m against the medoid's 0.604 m. On kirk0,
 label-free, 1,952 solid bodies are filed beside 1,952 point estimates, 826 of them from a near-edge

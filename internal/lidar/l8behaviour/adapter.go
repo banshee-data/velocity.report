@@ -14,19 +14,29 @@ package l8behaviour
 //     near-edge fix used, and only on an observed instant with a resolved
 //     heading; a face found but left out of the fix is not claimed, which
 //     errs toward inferred.
-//   - Support. A coasted frame is coasted and a fragmented one is
-//     cluster_split. Occlusion, unexplained misses and field-of-view exits
-//     need scene reasoning the tracker does not do, so they are not claimed.
-//   - Reference. A near-face-centre reference needs a declared offset to the
-//     body centre, which the solid-body contract does not carry yet, so it is
-//     refused rather than treated as the centre.
+//   - Support. A coasted frame keeps the tracker's explanation of its
+//     absence when it made one (occluded_inferred, missed_unknown or
+//     out_of_fov, under OcclusionContinuityConfig.ExplainAbsence) and is
+//     coasted otherwise. A fragmented observed frame is cluster_split. The
+//     tracker never claims cluster_merged, so neither does this.
+//   - Reference. Named for what the position is: the body centre, the
+//     cluster medoid or the centre of the visible box. Only the first is a
+//     place on the body. A near-face-centre reference needs a declared offset
+//     to the body centre, which the solid-body contract does not carry yet,
+//     so it is refused rather than treated as the centre.
+//   - Acquisition time. The measurement's own acquisition time, which the
+//     solid body carries as LastObservedUnixNanos, is kept as the sample's
+//     AcquisitionUnixNanos; LastObservedUnixNanos becomes the capture time on
+//     an observed instant.
 //
 // Nothing here changes l5tracks behaviour; it only reads its types.
 //
 // A persisted estimate (a lidar_track_estimates row) says less again: pose,
 // velocity and covariance, and nothing of the solid body held beside them.
 // TrajectoriesFromEstimates maps what a row carries and claims nothing it
-// does not; see PersistedEstimate.
+// does not; see PersistedEstimate. A persisted solid body (a
+// lidar_track_solid_bodies row) carries the reading itself, and
+// TrajectoriesFromSolidBodies maps it as a live one; see PersistedSolidBody.
 
 import (
 	"fmt"
@@ -98,18 +108,23 @@ func BeliefProvenanceFromL5(p l5tracks.Provenance) BeliefProvenance {
 	}
 }
 
-// SupportStateFromL5 maps the tracker's frame support. Truncation keeps the
+// SupportStateFromL5 maps the tracker's frame support. Whether the frame was
+// observed is the coasted count's to say; the support token only explains an
+// absence, and is mapped by token, never by number. Truncation keeps the
 // frame observed: the detection is present, only its extent is not admissible
 // as dimension evidence, which the extent belief already accounts for.
 func SupportStateFromL5(s l5tracks.SupportState) SupportState {
-	switch {
-	case !s.IsObserved():
+	if !s.IsObserved() {
+		switch explained, _ := ParseSupportState(s.Instant.String()); explained {
+		case SupportOccludedInferred, SupportMissedUnknown, SupportOutOfFOV:
+			return explained
+		}
 		return SupportCoasted
-	case s.Fragmented:
-		return SupportClusterSplit
-	default:
-		return SupportObserved
 	}
+	if s.Fragmented {
+		return SupportClusterSplit
+	}
+	return SupportObserved
 }
 
 // PassageFromL5 builds a passage's identity and class from the tracker's class
@@ -157,6 +172,8 @@ func SampleFromSolidBody(
 		reference = ReferenceBodyCentre
 	case l5tracks.ReferenceClusterMedoid:
 		reference = ReferenceClusterMedoid
+	case l5tracks.ReferenceVisibleOBBCentre:
+		reference = ReferenceVisibleOBBCentre
 	default:
 		return TrajectorySample{}, fmt.Errorf("solid body reference %s has no declared offset to the body centre", body.Reference)
 	}
@@ -165,7 +182,9 @@ func SampleFromSolidBody(
 		return TrajectorySample{}, err
 	}
 
-	lastObserved := body.LastObservedUnixNanos
+	// The solid body stamps the measurement's own acquisition time.
+	acquired := body.LastObservedUnixNanos
+	lastObserved := acquired
 	support := SupportStateFromL5(body.Support)
 	if support == SupportObserved {
 		// The tracker stamps the measurement's own acquisition time, which
@@ -193,6 +212,7 @@ func SampleFromSolidBody(
 		Stage:                 EstimateStageFromL5(body.Stage),
 		Estimation:            estimation,
 		LastObservedUnixNanos: lastObserved,
+		AcquisitionUnixNanos:  acquired,
 	}
 	if body.Orientation.Provenance != l5tracks.ProvenanceNone {
 		s.Heading = HeadingBelief{
@@ -217,12 +237,28 @@ func SampleFromSolidBody(
 // estimate by construction rather than by two reads landing on one frame. It
 // also names the faces its near-edge fix used, which is what lets an end face
 // be claimed as observed.
+//
+// The shadow filter updates its covariance in float32 without
+// re-symmetrising it, as the tracked filter does, so its off-diagonal pairs
+// differ by round-off; they are averaged as for a persisted point estimate
+// (see PersistedEstimate), and a reading asymmetric beyond round-off is
+// refused.
 func SampleFromSolidBodyReading(
 	r l5tracks.SolidBodyReading,
 	captureUnixNanos int64,
 	bounds l5tracks.ConvergenceBounds,
 ) (TrajectorySample, error) {
-	s, err := SampleFromSolidBody(r.Estimate, DynamicState{VX: r.VX, VY: r.VY, Covariance: r.Covariance}, captureUnixNanos, bounds)
+	block := [4]float32{r.Covariance[0], r.Covariance[1], r.Covariance[4], r.Covariance[5]}
+	if block != r.Estimate.PositionCovariance {
+		return TrajectorySample{}, fmt.Errorf("covariance position block %v disagrees with the solid body's %v", block, r.Estimate.PositionCovariance)
+	}
+	p, err := symmetricCovariance(r.Covariance)
+	if err != nil {
+		return TrajectorySample{}, err
+	}
+	body := r.Estimate
+	body.PositionCovariance = [4]float32{p[0], p[1], p[4], p[5]}
+	s, err := SampleFromSolidBody(body, DynamicState{VX: r.VX, VY: r.VY, Covariance: p}, captureUnixNanos, bounds)
 	if err != nil {
 		return TrajectorySample{}, err
 	}
@@ -289,9 +325,11 @@ func extentFromL5(d l5tracks.DimensionBelief, bounds l5tracks.ConvergenceBounds)
 //   - Stage. The row's own: online, fixed_lag or final. This is the one place
 //     final is read rather than inferred.
 //   - Reference. From the geometry that entered the filter at that frame:
-//     an OBB centre is the body centre, as l5tracks.SolidBodyFromTrack
-//     treats it; a medoid, including the OBB-centre model's medoid fallback,
-//     is a cluster medoid, which is not a place on the body.
+//     an OBB centre is the centre of the visible box and a medoid, including
+//     the OBB-centre model's medoid fallback, is a cluster medoid, as
+//     l5tracks.SolidBodyFromTrack names them. Neither is a place on the
+//     body, whatever the row's stage, so no endpoint is projected from a row.
+//   - Acquisition time. The row's measurement time, when it recorded one.
 //   - Support. Observed: the row exists because a measurement was
 //     associated. A frame with no row is not invented; it is a gap between
 //     samples, which the encounter method holds or counts as a record gap.
@@ -317,8 +355,11 @@ type PersistedEstimate struct {
 	ParamHash         string
 	Stage             string
 	MeasurementSource string
-	X, Y, VX, VY      float32
-	Covariance        [16]float32
+	// MeasurementUnixNanos is the acquisition time of the geometry that
+	// entered the filter; zero when the row did not record it.
+	MeasurementUnixNanos int64
+	X, Y, VX, VY         float32
+	Covariance           [16]float32
 }
 
 // persistedStateModels maps a filter estimator id to its state layout.
@@ -327,7 +368,7 @@ var persistedStateModels = map[string]string{"cv_kf_v1": StateModelCVCartesianV1
 // persistedReferences maps the geometry that entered the filter to the point
 // the filtered pose refers to.
 var persistedReferences = map[string]l5tracks.ReferencePoint{
-	string(l5tracks.MeasurementOBBCentreV1):      l5tracks.ReferenceBodyCentre,
+	string(l5tracks.MeasurementOBBCentreV1):      l5tracks.ReferenceVisibleOBBCentre,
 	string(l5tracks.MeasurementMedoidV0):         l5tracks.ReferenceClusterMedoid,
 	string(l5tracks.MeasurementMedoidFallbackV1): l5tracks.ReferenceClusterMedoid,
 }
@@ -438,10 +479,108 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 		return TrajectorySample{}, current, err
 	}
 	s.Stage = stage
+	s.AcquisitionUnixNanos = r.MeasurementUnixNanos
 	if err := s.Validate(); err != nil {
 		return TrajectorySample{}, current, err
 	}
 	return s, body.Estimation, nil
+}
+
+// PersistedSolidBody is one lidar_track_solid_bodies row as the adapter reads
+// it, with the sensor named by the immutable observation the row links to.
+//
+// Unlike a point-estimate row, it carries the body, so its sample says what
+// SampleFromSolidBodyReading says of the reading: the reference the body
+// named (the centre only after a near-edge fix, the medoid otherwise), the
+// heading and extents with their provenance, the end faces the fix used, the
+// support token and flags, and the measurement's acquisition time. What
+// remains:
+//
+//   - Stage. The row's, which must be the reading's own: a row cannot
+//     acquire a stage its reading does not state, and no stage turns a
+//     medoid into a body centre.
+//   - Class. Each row holds the classifier's decision at its frame; a
+//     passage has one class, so a trajectory takes its latest row's belief,
+//     the decision made with the most evidence, at its effective class.
+//   - Gaps. A row is written only at an associated frame, so a missing frame
+//     is a gap between samples, as for point estimates.
+type PersistedSolidBody struct {
+	TrackID        string
+	SensorID       string
+	FrameUnixNanos int64
+	EstimatorID    string
+	ObsModelID     string
+	ParamHash      string
+	Stage          string
+	Reading        l5tracks.SolidBodyReading
+}
+
+// TrajectoriesFromSolidBodies builds one trajectory per track from one
+// version of persisted solid bodies, sorted by track id, each track's samples
+// in frame order. As for TrajectoriesFromEstimates, every row must carry the
+// same version, and a row that cannot be read as documented on
+// PersistedSolidBody is an error, never a guess.
+func TrajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.ConvergenceBounds) ([]Trajectory, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	first := rows[0]
+	identity := EstimateIdentity{EstimatorID: first.EstimatorID, ObsModelID: first.ObsModelID, ParamHash: first.ParamHash}
+	if err := identity.Validate(); err != nil {
+		return nil, err
+	}
+	if identity == FixtureEstimate() {
+		return nil, fmt.Errorf("a persisted solid body cannot carry the analytic fixture estimator's identity")
+	}
+	stage, err := ParseEstimateStage(first.Stage)
+	if err != nil {
+		return nil, err
+	}
+
+	byTrack := map[string][]PersistedSolidBody{}
+	for _, r := range rows {
+		if r.EstimatorID != first.EstimatorID || r.ObsModelID != first.ObsModelID || r.ParamHash != first.ParamHash ||
+			r.Stage != first.Stage {
+			return nil, fmt.Errorf("solid-body rows mix versions: %s/%s/%s/%s and %s/%s/%s/%s",
+				first.EstimatorID, first.ObsModelID, first.ParamHash, first.Stage,
+				r.EstimatorID, r.ObsModelID, r.ParamHash, r.Stage)
+		}
+		byTrack[r.TrackID] = append(byTrack[r.TrackID], r)
+	}
+	ids := make([]string, 0, len(byTrack))
+	for id := range byTrack {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	out := make([]Trajectory, 0, len(ids))
+	for _, id := range ids {
+		track := byTrack[id]
+		sort.Slice(track, func(i, j int) bool { return track[i].FrameUnixNanos < track[j].FrameUnixNanos })
+		latest := track[len(track)-1]
+		t := Trajectory{
+			Passage:  PassageFromL5(id, "", latest.SensorID, latest.Reading.Estimate.Motion, ""),
+			Estimate: identity,
+		}
+		for _, r := range track {
+			if r.SensorID != t.Passage.SensorID {
+				return nil, fmt.Errorf("track %s is observed by sensors %q and %q", id, t.Passage.SensorID, r.SensorID)
+			}
+			s, err := SampleFromSolidBodyReading(r.Reading, r.FrameUnixNanos, bounds)
+			if err != nil {
+				return nil, fmt.Errorf("track %s at %d: %w", id, r.FrameUnixNanos, err)
+			}
+			if s.Stage != stage {
+				return nil, fmt.Errorf("track %s at %d: a %s reading is filed under stage %s", id, r.FrameUnixNanos, s.Stage, stage)
+			}
+			t.Samples = append(t.Samples, s)
+		}
+		if err := t.Validate(); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, nil
 }
 
 // persistedAsymmetryTolerance bounds how far apart a persisted covariance's
