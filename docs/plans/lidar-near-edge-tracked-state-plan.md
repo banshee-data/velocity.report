@@ -37,12 +37,12 @@ is, with the one that decides identity being the biased one.
 
 S2.0's summary on kirk0 (256 sample points, 1,952 solid bodies beside 1,952 point estimates):
 
-| Rows                            |  Count | Note                                                           |
-| ------------------------------- | -----: | -------------------------------------------------------------- |
-| Near-edge fixes                 |    826 | 42 %; rank 2 on 586 of them                                    |
-| No face reached minimum support |    586 | The sample cap: with 16 points only 381 rows are on the centre |
-| Face found, extent only a prior |    454 | Excluded by Section 8.1 until the extent is evidence-backed    |
-| Initialisation window, lapses   | 53, 33 |                                                                |
+| Rows                            |  Count | Note                                                                             |
+| ------------------------------- | -----: | -------------------------------------------------------------------------------- |
+| Near-edge fixes                 |    826 | 42 %; rank 2 on 586 of them                                                      |
+| No face reached minimum support |    586 | Samples under 122 points (T0); a 16-point cap loses more: 381 rows on the centre |
+| Face found, extent only a prior |    454 | Excluded by Section 8.1 until the extent is evidence-backed                      |
+| Initialisation window, lapses   | 53, 33 |                                                                                  |
 
 Five-point lateral residual over moving tracks, on the frames where the body is on its centre:
 
@@ -59,6 +59,72 @@ mechanism is the one the shadow's own header names: a face constrains the centre
 believed half-extent, whose error is a bias the filter cannot see, so a face appearing or
 disappearing moves the centre by that error. Feeding the tracker before fixing this would carry
 the tail into association and every persisted estimate.
+
+### What T0 shows on three corpus sites
+
+T0 ran the shadow at 256 and 1,024 sample points on the tuning and held-out cases, on the Mac:
+Apple M1 Pro, 25 minutes and 1 GB peak memory per arm for the three cases. The tables and summaries
+are on `claude/upbeat-galileo-4xbaat-s2-t0-results`, under `results/s2-t0/`. Five-point lateral
+residual p99 in metres, at 256 sample points:
+
+| Case                   | Partition | Fix share | Steady → face-stable runs | Body-centre frames: point / body | Face-stable runs: point / body |
+| ---------------------- | --------- | --------: | ------------------------- | -------------------------------- | ------------------------------ |
+| `marina-webster-beach` | Tuning    |      37 % | 573 → 3,604               | 0.194 / 0.231                    | 0.153 / 0.074                  |
+| `columbus-broadway`    | Tuning    |      52 % | 1,817 → 7,774             | 0.254 / 0.388                    | 0.178 / 0.193                  |
+| `embarcadero-folsom`   | Held out  |      55 % | 776 → 4,185               | 0.245 / 0.291                    | 0.210 / 0.182                  |
+
+**The sample cap does not limit the fix rate.** At 1,024 points, these are identical to the 256
+arm:
+
+- fixes, fallbacks and lapses;
+- steady and face-stable run counts;
+- every point-estimate figure.
+
+Only the body moves:
+
+- its p95 and p99 residuals, by under a centimetre;
+- its maximum, by up to 5 cm;
+- one more converged width on embarcadero.
+
+The rule explains why:
+
+- The face plane is the nearest-rank 95th percentile of the member projections along its normal.
+- Every member at or beyond the plane counts as support.
+- So a 256-point sample always has 14 supporting returns, and any sample of 122 or more has at least
+  the 8 required.
+
+Every row without a supported face therefore had fewer than 122 sampled members. Kirk0's 586 such
+rows are small clusters, not the cap. Full member geometry (S2.1) will not raise the fix rate; its
+case is keeping the measurement independent of a persistence setting, which a 16-point cap does
+break.
+
+**Two things limit the fix rate:**
+
+| Case                   | No face with minimum support | Face found, extent only a prior | Tracks whose width converged |
+| ---------------------- | ---------------------------: | ------------------------------: | ---------------------------: |
+| `marina-webster-beach` |                         48 % |                            12 % |                         34 % |
+| `columbus-broadway`    |                         24 % |                            20 % |                         14 % |
+| `embarcadero-folsom`   |                         16 % |                            26 % |                         22 % |
+
+The first two figures in each row are shares of solid-body rows; the third is a share of tracks.
+
+**Face transitions carry the tail on every site, as on kirk0.**
+
+- Over all body-centre frames, the body's p99 is 19 % to 53 % above the point estimate's.
+- Its excursion share is 2 to 3.5 times the point estimate's.
+- Face changes are common: steady runs break into 4 to 6 times as many face-stable runs.
+
+**Within face-stable runs the body wins on two sites of three.**
+
+- At p95 it wins everywhere: 0.036 against 0.091 m, 0.082 against 0.096 m, and 0.079 against
+  0.126 m.
+- At p99 it wins on marina and embarcadero.
+- On columbus-broadway it loses at p99 even within face-stable runs, so there is a second tail that
+  face stability does not explain. Columbus is the busiest site, with 2,671 tracks against 559
+  and 946. Heading lag on turns (see Risks) is the first thing to stratify by.
+
+**The shadow never touched the tracker.** The point estimates are the same in both arms, so they
+double as B0's point figures for these cases.
 
 ## Design
 
@@ -78,8 +144,9 @@ the tail into association and every persisted estimate.
    calibration transform the tracker's frame was built with, never from a default. Without one
    the mode refuses, as the continuity experiments refuse without coverage (#617).
 6. **Full members for measurement, capped samples for persistence.** The tracker measures faces
-   from every member of the associated cluster for the frame it is in; the persisted sample keeps
-   its cap and records it.
+   from every member of the associated cluster for the frame it is in. The persisted sample keeps
+   its cap and records it. The reason is independence from a persistence setting, not fix rate:
+   T0 found a 256-point sample already serves every face that full members would.
 7. **Explicit per-row reference and support.** Every persisted estimate states its reference
    point and support token; no reader infers either.
 
@@ -184,9 +251,16 @@ refuse without an origin. All of it is in the shadow, where G-GEO-1 is attributa
    persisted); `RetainedPoints` stays the capped persistence sample.
 3. `SolidBodyOptions` takes its origin from the sensor geometry declaration or the calibration
    transform, and refuses without one; the manifest and hash record it.
+4. Stratify the face-stable residual by heading rate and range on `columbus-broadway`, where the
+   body loses to the point estimate at p99 even within face-stable runs (T0).
 
-**Exit:** the chosen remedy closes the all-frame p99 to within 25 % of the face-stable p99 on the
-tuning partition; fix rate with full members reported beside the capped arms; refusal tested.
+**Exit:**
+
+- The chosen remedy closes the all-frame p99 to within 25 % of the face-stable p99 on the tuning
+  partition.
+- Columbus's within-run tail has a named cause.
+- Fixes and fallbacks with full members match B1-256.
+- Refusal is tested.
 
 ### S2.2: the tracked near-edge update
 
@@ -218,10 +292,10 @@ oracle coverage; field run over point estimates under `near_edge_track`.
 
 The corpus runs on a machine with the S2 archive mounted, never in CI. Two are set up:
 
-| Host         | Captures (`-pcap-root`, `-pcap-subdir s2`) | Working directory                 | Limits                                                                  |
-| ------------ | ------------------------------------------ | --------------------------------- | ----------------------------------------------------------------------- |
-| arrow-worker | `/mnt/captures/lidar` (NFS, read-only)     | `/srv/banshee/evidence/<run>/`    | 8 cores, 5.8 GB memory, about 17 GB free disk; `/tmp` is a 2.9 GB tmpfs |
-| The Mac      | `/Volumes/lidar/lidar`                     | a local directory off that volume | Apple Silicon; the platform the sprint accepts on                       |
+| Host         | Captures (`-pcap-root`, `-pcap-subdir s2`) | Working directory                | Limits                                                                                                       |
+| ------------ | ------------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| arrow-worker | `/mnt/captures/lidar` (NFS, read-only)     | `/srv/banshee/evidence/<run>/`   | 8 cores, 5.8 GB memory, about 17 GB free disk; `/tmp` is a 2.9 GB tmpfs                                      |
+| The Mac      | `/Volumes/lidar/lidar`                     | `$HOME/<test>/`, off that volume | Apple M1 Pro, 16 GB; the platform the sprint accepts on. T0 took 25 minutes and 1 GB per arm for three cases |
 
 Neither has an annotation pack, so every figure here is label-free. The protocol assumes the
 smaller host:
@@ -232,13 +306,14 @@ smaller host:
   is kept, and a case is re-run if its rows are needed again.
 - The tool's determinism repeat stays on. It replays without the database, so it costs time, not
   disk.
-- Results are committed as JSON to a results branch (`claude/upbeat-galileo-4xbaat-s2-arrow-results`,
-  `results/<test>/`) and pushed, with a markdown table per arm, so they can be read and reviewed
-  away from the machine.
+- Results are committed as JSON, with a markdown table per arm, to a results branch per test under
+  `results/<test>/`, and pushed. They can then be read and reviewed away from the machine.
+- T0's branch is `claude/upbeat-galileo-4xbaat-s2-t0-results`.
 
-Test T0, the first run, is the shadow at 256 and 1,024 sample points on the tuning and held-out
-cases (arms B1-256 and B1-1024 below), before any S2.1 change: it measures how much of the fix
-rate and the face-transition tail is the sample cap on real sites other than kirk0.
+Test T0, the first run, was the shadow at 256 and 1,024 sample points on the tuning and held-out
+cases (arms B1-256 and B1-1024 below), before any S2.1 change. It asked how much of the fix rate
+and the face-transition tail is the sample cap. The answer is none of either; see
+[What T0 shows](#what-t0-shows-on-three-corpus-sites).
 
 | Partition | Cases                                       | Use                                                    |
 | --------- | ------------------------------------------- | ------------------------------------------------------ |
@@ -246,15 +321,16 @@ rate and the face-transition tail is the sample cap on real sites other than kir
 | Held out  | `embarcadero-folsom`                        | Scored once with the frozen choice                     |
 | Screen    | The other 21 sites                          | Label-free regression screen; nothing is tuned on them |
 
-| Arm    | Configuration                                  | Stage |
-| ------ | ---------------------------------------------- | ----- |
-| B0     | Default, `medoid_v0`                           | S2.0  |
-| B1-16  | `solid_body`, 16 sample points                 | S2.0  |
-| B1-256 | `solid_body`, 256 sample points                | S2.0  |
-| B1-F   | `solid_body`, full members                     | S2.1  |
-| B1-T   | `solid_body`, full members, chosen face remedy | S2.1  |
-| S2a    | `near_edge_track`, A2, full members            | S2.2  |
-| S2x    | `near_edge_track`, A1, full members            | S2.3  |
+| Arm     | Configuration                                                   | Stage |
+| ------- | --------------------------------------------------------------- | ----- |
+| B0      | Default, `medoid_v0`                                            | S2.0  |
+| B1-16   | `solid_body`, 16 sample points                                  | S2.0  |
+| B1-256  | `solid_body`, 256 sample points                                 | S2.0  |
+| B1-1024 | `solid_body`, 1,024 sample points; T0: the same fixes as B1-256 | S2.0  |
+| B1-F    | `solid_body`, full members                                      | S2.1  |
+| B1-T    | `solid_body`, full members, chosen face remedy                  | S2.1  |
+| S2a     | `near_edge_track`, A2, full members                             | S2.2  |
+| S2x     | `near_edge_track`, A1, full members                             | S2.3  |
 
 Per case and arm: fix rate, rank mix and fallbacks; lapses and re-references; lateral residual
 p50/p95/p99/max and excursion share over moving tracks (five-point fit), on all body-centre frames,
@@ -283,7 +359,17 @@ reviewed split (S0, still open). Until then S2 stays default-off and provisional
   gate out the right cluster. Mitigation: gate 3, and the loose medoid term across unconstrained
   directions.
 - **Heading lag on turns** tilts the face normal (the state plan's invalidating condition b).
-  Stratify the residual by heading rate before drawing conclusions.
+  Stratify the residual by heading rate before drawing conclusions. It is the first suspect for
+  columbus-broadway's within-run tail.
+- **Gate 2's reach.** On embarcadero-folsom, even the face-stable body p99 (0.175 to 0.182 m) is
+  above half the point estimate's over body-centre frames (0.123 m). So closing the transition
+  tail alone does not pass gate 2; the within-run tail must shrink too. The five-point residual
+  measures lateral jitter about a local fit, not bias: the medoid's bias is smooth and does not
+  show in it, so the gate compares steadiness only.
+- **Fix rate.** On the T0 sites, 37 % to 55 % of rows are fixes. Most of the rest are clusters too
+  small to support a face (under 122 sampled members) or extents that are still priors (width
+  converges on 14 % to 34 % of tracks). S2 changes neither, so a tracked arm still leaves 45 % to
+  63 % of updates to the medoid; extent admission is the lever if that proves to matter.
 - **Rank-one drift** along the unconstrained direction for long lateral-only runs. It is the
   prediction, not a defect, but the report counts rank-one runs and their length.
 - **Cost.** A near-edge measurement per candidate pair. Pairs pass the Euclidean plausibility check
@@ -297,7 +383,8 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 ## Checklist
 
 - [x] S2.0 corpus solid-body block, strata, `-sample-points` and per-case evidence
-- [ ] S2.0 B0 and B1 on arrow-worker, tuning and held-out partitions, then the screen
+- [x] T0: B1-256 and B1-1024 on the tuning and held-out partitions, on the Mac
+- [ ] S2.0 B0 and B1-16 on the tuning and held-out partitions, then the screen
 - [ ] S2.1 face-transition remedy (T1, T2) chosen on the tuning partition
 - [ ] S2.1 full member geometry to the tracker; declared origin with refusal
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
