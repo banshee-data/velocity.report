@@ -6,7 +6,7 @@ The snapshot contains **44 tables and 601 fields** (including generated fields).
 
 ## Status
 
-The review raised nine findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables. The other seven wait on a decision about how long a capture, a session, or a site keeps its identity. None of them is a fault in data today: the [audit](#what-the-audit-found) found no contradiction that a constraint would have refused.
+The review raised ten findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables, and the clip-job half of a seventh. The rest wait on a decision about how long a capture, a session, or a site keeps its identity. None of them is a fault in data today: the [audit](#what-the-audit-found) found no contradiction that a constraint would have refused.
 
 | Finding                                                                                  | Priority | Status                                       |
 | ---------------------------------------------------------------------------------------- | -------- | -------------------------------------------- |
