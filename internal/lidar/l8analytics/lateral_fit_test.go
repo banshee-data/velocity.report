@@ -108,3 +108,19 @@ func TestLateralFitWindowsNameTheirCentreSample(t *testing.T) {
 		t.Fatalf("summary %+v disagrees with the windows", s)
 	}
 }
+
+func TestLateralFitWindowsRestartAfterANonFiniteSample(t *testing.T) {
+	// A NaN at sample 6 ends the run: windows resume only once five finite
+	// samples follow it, centred from sample 9.
+	track := straightPass("nan", 12, 20, 0)
+	track.Points[6].X = float32(math.NaN())
+	windows := LateralFitWindows(track.Points)
+	if len(windows) != 2+9 {
+		t.Fatalf("%d windows, want 2 before the NaN and 9 after", len(windows))
+	}
+	for _, w := range windows {
+		if w.Centre >= 4 && w.Centre <= 8 {
+			t.Fatalf("a window centred on %d spans the NaN", w.Centre)
+		}
+	}
+}

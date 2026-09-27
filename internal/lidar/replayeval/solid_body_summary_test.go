@@ -194,3 +194,25 @@ func TestSummariseSolidBodiesStratifiesFaceStableResidualsByHeadingRateAndRange(
 		t.Errorf("strata %v, want exactly %v", got, want)
 	}
 }
+
+func TestFaceStableStrataLeaveOutTracksThatNeverMoved(t *testing.T) {
+	// The same floor as the anchor fits: a track whose lifetime speed never
+	// reaches it contributes no window to any stratum.
+	points, bodies := summaryRows()
+	for i := range points {
+		points[i].VX = 1
+	}
+	s, err := SummariseSolidBodies(points, bodies, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.FaceStableStrata) == 0 {
+		t.Fatal("no strata reported")
+	}
+	for _, st := range s.FaceStableStrata {
+		if st.Points.Windows != 0 || st.Bodies.Windows != 0 {
+			t.Fatalf("%s %s: %d and %d windows from tracks slower than the moving floor",
+				st.Axis, st.Bin, st.Points.Windows, st.Bodies.Windows)
+		}
+	}
+}
