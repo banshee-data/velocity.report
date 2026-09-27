@@ -228,11 +228,12 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_exposure_windows`         | ?   | ?   | Exposure evidence windows                              |
 | LiDAR  | `lidar_interaction_events`       | ?   | ?   | Following interaction events                           |
 | LiDAR  | `lidar_interaction_instants`     | ?   | ?   | Interaction time samples                               |
+| LiDAR  | `lidar_migration_rejects`        | -   | -   | Rows a migration set aside, kept whole with the reason |
 | LiDAR  | `lidar_observations`             | ?   | ?   | Typed observation evidence                             |
 | LiDAR  | `lidar_replay_case_files`        | ✅  | ?   | Ordered source files for replay cases                  |
 | LiDAR  | `lidar_scenes`                   | ✅  | ?   | Scene player; Mac trace pending                        |
-| LiDAR  | `lidar_segment_clip_jobs`        | ✅  | ?   | Clip job and pack status                               |
-| LiDAR  | `lidar_segment_selections`       | ✅  | ?   | Chosen window and replay case                          |
+| LiDAR  | `lidar_segment_clip_jobs`        | ✅  | -   | Clip job, its segment, and the pack it made            |
+| LiDAR  | `lidar_segment_selections`       | ✅  | -   | Chosen window, its replay case and what chose it       |
 | LiDAR  | `lidar_sites`                    | ✅  | ?   | Scene map; Mac trace pending                           |
 | LiDAR  | `lidar_track_estimate_revisions` | ?   | ?   | Smoother revision evidence                             |
 | LiDAR  | `lidar_track_estimates`          | ?   | ?   | Track state estimates                                  |
@@ -254,7 +255,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 588 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 601 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -658,6 +659,13 @@ The current schema has 588 fields, including generated fields. Newly added rows 
 | `lidar_interaction_instants`     | `basis`                             | TEXT          | ✅  | ?   | ?   |
 | `lidar_interaction_instants`     | `valid`                             | INTEGER       | ✅  | ?   | ?   |
 | `lidar_interaction_instants`     | `reason`                            | TEXT          | ✅  | ?   | ?   |
+| `lidar_migration_rejects`        | `reject_id`                         | INTEGER PK    | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `migration`                         | INTEGER       | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `source_table`                      | TEXT          | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `source_key`                        | TEXT          | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `reason`                            | TEXT          | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `row_json`                          | TEXT          | ✅  | -   | -   |
+| `lidar_migration_rejects`        | `rejected_at_ns`                    | INTEGER       | ✅  | -   | -   |
 | `lidar_observations`             | `observation_id`                    | TEXT PK       | ✅  | ?   | ?   |
 | `lidar_observations`             | `schema_version`                    | INTEGER       | ✅  | ?   | ?   |
 | `lidar_observations`             | `source_id`                         | TEXT          | ✅  | ?   | ?   |
@@ -700,18 +708,24 @@ The current schema has 588 fields, including generated fields. Newly added rows 
 | `lidar_scenes`                   | `published`                         | INTEGER       | ✅  | ?   | ?   |
 | `lidar_scenes`                   | `created_at`                        | INTEGER       | ✅  | ?   | ?   |
 | `lidar_scenes`                   | `updated_at`                        | INTEGER       | ✅  | ?   | ?   |
-| `lidar_segment_clip_jobs`        | `job_id`                            | TEXT PK       | ✅  | ✅  | ?   |
-| `lidar_segment_clip_jobs`        | `segment_id`                        | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_clip_jobs`        | `replay_case_id`                    | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_clip_jobs`        | `pack_dir`                          | TEXT          | ✅  | ✅  | ?   |
-| `lidar_segment_selections`       | `segment_id`                        | TEXT PK       | ✅  | 🔶  | ?   |
-| `lidar_segment_selections`       | `run_id`                            | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_selections`       | `replay_case_id`                    | TEXT          | ✅  | ✅  | ?   |
-| `lidar_segment_selections`       | `role`                              | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_selections`       | `finder`                            | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_selections`       | `parameters_json`                   | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_selections`       | `window_json`                       | TEXT          | ✅  | -   | ?   |
-| `lidar_segment_selections`       | `created_at_ns`                     | INTEGER       | ✅  | -   | ?   |
+| `lidar_segment_clip_jobs`        | `job_id`                            | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_segment_clip_jobs`        | `segment_id`                        | TEXT          | ✅  | -   | -   |
+| `lidar_segment_clip_jobs`        | `pack_dir`                          | TEXT          | ✅  | 🔶  | -   |
+| `lidar_segment_clip_jobs`        | `pack_digest`                       | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `segment_id`                        | TEXT PK       | ✅  | 🔶  | -   |
+| `lidar_segment_selections`       | `run_id`                            | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `replay_case_id`                    | TEXT          | ✅  | ✅  | -   |
+| `lidar_segment_selections`       | `document_version`                  | INTEGER       | ✅  | -   | -   |
+| `lidar_segment_selections`       | `parameters_json`                   | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `window_json`                       | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `source`                            | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `role`                              | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `finder`                            | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `finder_version`                    | INTEGER       | ✅  | -   | -   |
+| `lidar_segment_selections`       | `capture`                           | TEXT          | ✅  | -   | -   |
+| `lidar_segment_selections`       | `window_start_ns`                   | INTEGER       | ✅  | -   | -   |
+| `lidar_segment_selections`       | `window_end_ns`                     | INTEGER       | ✅  | -   | -   |
+| `lidar_segment_selections`       | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
 | `lidar_sites`                    | `site_id`                           | TEXT PK       | ✅  | ?   | ?   |
 | `lidar_sites`                    | `s2_l13_token`                      | TEXT          | ✅  | ?   | ?   |
 | `lidar_sites`                    | `s2_l10_token`                      | TEXT          | ✅  | ?   | ?   |
@@ -848,6 +862,12 @@ The current schema has 588 fields, including generated fields. Newly added rows 
 | `site`                           | `radar_svg_y`                       | REAL          | ✅  | ?   | ?   |
 
 `lidar_segment_selections.segment_id` is 🔶 on Web: the page receives the computed window ID; the stored ID joins selection state to that window, but the handler does not serialise the column itself.
+
+`lidar_segment_clip_jobs.pack_dir` is 🔶 on Web: the column holds a path relative to the annotation packs directory, and the ranking sends the page the absolute path made from it. The page shows the pack it finds in the inventory, which is read from disk.
+
+The segment tables' Mac column is `-`, not `?`: the macOS tool opens a pack directory and reads `segment.json` from it. It calls none of the segment, clip or inventory endpoints.
+
+`lidar_segment_selections` derives `source`, `role`, `finder`, `finder_version`, `capture`, `window_start_ns` and `window_end_ns` from `window_json` as stored generated columns. They are read and indexed, never written.
 
 ---
 
@@ -1129,7 +1149,7 @@ documented in §15. The radar server debug routes are attached via
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
 | HTTP endpoints (LiDAR)  | 100   | 60  | 86  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 43    | -   | 34  | 6   |
+| DB tables               | 44    | -   | 34  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |

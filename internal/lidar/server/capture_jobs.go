@@ -69,6 +69,14 @@ func (ws *Server) StartCaptureJobs(ctx context.Context) error {
 	if err != nil {
 		return nil
 	}
+	// Before any job runs: a clip that finished without a pack link gets its
+	// pack back if it is still on disk. A failure here costs a status, not a
+	// pack, so it is reported and the queue starts regardless.
+	if linked, err := ws.relinkSegmentPacks(); err != nil {
+		opsf("Warning: could not re-link annotation packs to their clip jobs: %v", err)
+	} else if linked > 0 {
+		opsf("Re-linked %d annotation pack(s) to their clip jobs", linked)
+	}
 	ws.captureRunner = &capjobs.Runner{
 		Store:   captureJobStore{store: store},
 		Handler: ws.runCaptureJob,

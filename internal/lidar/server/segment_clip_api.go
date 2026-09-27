@@ -15,8 +15,9 @@ func (ws *Server) handleSceneClip(w http.ResponseWriter, r *http.Request, caseID
 		ws.writeJSONError(w, 501, "annotation packs directory is not configured")
 		return
 	}
-	var segmentID string
-	if err := ws.db.QueryRow(`SELECT segment_id FROM lidar_segment_selections WHERE replay_case_id=?`, caseID).Scan(&segmentID); err != nil {
+	store := sqlite.NewSegmentStore(ws.db)
+	selection, err := store.SelectionForCase(caseID)
+	if err != nil {
 		if errors.Is(err, sqlite.ErrNotFound) {
 			ws.writeJSONError(w, 404, "case has no selected annotation segment")
 		} else {
@@ -24,16 +25,13 @@ func (ws *Server) handleSceneClip(w http.ResponseWriter, r *http.Request, caseID
 		}
 		return
 	}
-	store := sqlite.NewCaptureStore(ws.db)
-	job, err := store.EnqueueJob("vrlog_record", segmentID, "", fmt.Sprintf("clip for %s", caseID))
+	// The job and its link to the segment are written together, so the worker
+	// never claims a clip that does not yet say what it cuts. A second request
+	// while one is queued or running returns that one.
+	job, err := store.EnqueueClip(selection.SegmentID, fmt.Sprintf("clip for %s", caseID))
 	if err != nil {
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	if _, err = ws.db.Exec(`INSERT OR IGNORE INTO lidar_segment_clip_jobs(job_id,segment_id,replay_case_id) VALUES(?,?,?)`, job.JobID, segmentID, caseID); err != nil {
-		_ = store.FinishJob(job.JobID, sqlite.JobFailed, err.Error())
-		ws.writeJSONError(w, 500, err.Error())
-		return
-	}
-	ws.writeJSON(w, 202, map[string]any{"job": job, "segment_id": segmentID})
+	ws.writeJSON(w, 202, map[string]any{"job": job, "segment_id": selection.SegmentID})
 }

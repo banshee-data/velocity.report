@@ -182,7 +182,15 @@ func TestSegmentAPISelectionAndClipQueue(t *testing.T) {
 	if clipAgain.Code != 202 || clipAgain.Body.String() != clip.Body.String() {
 		t.Fatalf("clip dedup: %s vs %s", clip.Body.String(), clipAgain.Body.String())
 	}
-	if _, err := ws.db.Exec(`UPDATE lidar_segment_clip_jobs SET pack_dir=? WHERE segment_id=?`, t.TempDir(), chosen.ID); err != nil {
+	var queued struct {
+		Job struct {
+			ID string `json:"job_id"`
+		} `json:"job"`
+	}
+	if err := json.Unmarshal(clip.Body.Bytes(), &queued); err != nil || queued.Job.ID == "" {
+		t.Fatalf("queued job: %s %v", clip.Body.String(), err)
+	}
+	if err := sqlite.NewSegmentStore(ws.db).LinkPack(queued.Job.ID, "clip-"+queued.Job.ID+"-1/pack", "sha256:"+strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
 	}
 	packed := callSegment(t, ws, "GET", "/api/lidar/segments?run_id=run&finder=following", nil, ws.handleSegments)
@@ -191,6 +199,10 @@ func TestSegmentAPISelectionAndClipQueue(t *testing.T) {
 	}
 	if err := json.Unmarshal(packed.Body.Bytes(), &packedList); err != nil || len(packedList.Windows) != 1 || packedList.Windows[0].Status != "packed" {
 		t.Fatalf("packed status: %+v %v", packedList, err)
+	}
+	// The row holds a relative path; the operator is given one to open.
+	if want := filepath.Join(ws.annotationPacksDir, "clip-"+queued.Job.ID+"-1", "pack"); packedList.Windows[0].PackDir != want {
+		t.Fatalf("pack directory %q, want %q", packedList.Windows[0].PackDir, want)
 	}
 	strip := callSegment(t, ws, "GET", "/api/lidar/segments/strip?run_id=run&finder=following", nil, ws.handleSegmentStrip)
 	if strip.Code != 200 || strip.Header().Get("Content-Type") != "image/svg+xml" {
@@ -343,9 +355,11 @@ func TestClipQueueReportsWriteFailureAndFailsUnlinkedJob(t *testing.T) {
 		if result := queue(t, ws, id); result.Code != 500 {
 			t.Fatalf("unlinked job: %d %s", result.Code, result.Body.String())
 		}
-		var state string
-		if err := ws.db.QueryRow(`SELECT state FROM lidar_capture_jobs WHERE kind='vrlog_record' ORDER BY queued_at_ns DESC LIMIT 1`).Scan(&state); err != nil || state != "failed" {
-			t.Fatalf("orphaned job state %q: %v", state, err)
+		// The job is written with its link or not at all, so there is no
+		// job left for a worker to claim and fail.
+		var jobs int
+		if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_capture_jobs WHERE kind='vrlog_record'`).Scan(&jobs); err != nil || jobs != 0 {
+			t.Fatalf("%d clip job(s) left without a segment: %v", jobs, err)
 		}
 	})
 }
@@ -791,5 +805,22 @@ func TestSegmentsReportAReplayedRunThatCannotBeRead(t *testing.T) {
 	windows, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "following"})
 	if err != nil || len(windows) != 0 {
 		t.Fatalf("run without a series: %+v %v", windows, err)
+	}
+}
+
+// A window whose selection state cannot be read is not offered as a fresh
+// candidate: an operator who chose it again would make a second replay case.
+func TestSegmentsAreNotRankedWhenTheirStateCannotBeRead(t *testing.T) {
+	ws, _ := segmentServer(t)
+	if _, err := ws.db.Exec(`ALTER TABLE lidar_segment_clip_jobs RENAME COLUMN pack_dir TO broken_pack_dir`); err != nil {
+		t.Fatal(err)
+	}
+	windows, _, err := ws.findRunSegments(segmentRequest{RunID: "run"})
+	if err == nil || !strings.Contains(err.Error(), "read segment status") || windows != nil {
+		t.Fatalf("unreadable selection state: %+v %v", windows, err)
+	}
+	response := callSegment(t, ws, "GET", "/api/lidar/segments?run_id=run", nil, ws.handleSegments)
+	if response.Code != 400 || !strings.Contains(response.Body.String(), "read segment status") {
+		t.Fatalf("unreadable selection state: %d %s", response.Code, response.Body.String())
 	}
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -102,20 +102,26 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 	if err != nil {
 		return nil, p, err
 	}
+	store := sqlite.NewSegmentStore(ws.db)
 	for i := range windows {
-		var caseID, jobID, jobState, packDir string
-		err = ws.db.QueryRow(`SELECT s.replay_case_id,COALESCE(j.job_id,''),COALESCE(j.state,''),COALESCE(c.pack_dir,'') FROM lidar_segment_selections s LEFT JOIN lidar_segment_clip_jobs c ON c.segment_id=s.segment_id LEFT JOIN lidar_capture_jobs j ON j.job_id=c.job_id WHERE s.segment_id=? ORDER BY j.queued_at_ns DESC LIMIT 1`, windows[i].ID).Scan(&caseID, &jobID, &jobState, &packDir)
-		if err == nil {
-			windows[i].Status = "case"
-			windows[i].ReplayCaseID = caseID
-			windows[i].JobID = jobID
-			windows[i].PackDir = packDir
-			if jobState == "queued" || jobState == "running" {
-				windows[i].Status = "clipping"
-			}
-			if packDir != "" {
-				windows[i].Status = "packed"
-			}
+		status, err := store.Status(windows[i].ID)
+		if errors.Is(err, sqlite.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			// A window whose state cannot be read must not be offered as a
+			// fresh candidate: choosing it again would make a second case.
+			return nil, p, fmt.Errorf("read segment status: %w", err)
+		}
+		windows[i].Status = "case"
+		windows[i].ReplayCaseID = status.ReplayCaseID
+		windows[i].JobID = status.JobID
+		if status.JobState == sqlite.JobQueued || status.JobState == sqlite.JobRunning {
+			windows[i].Status = "clipping"
+		}
+		if status.PackDir != "" {
+			windows[i].Status = "packed"
+			windows[i].PackDir = ws.segmentPackPath(status.PackDir)
 		}
 	}
 	return windows, p, nil
@@ -337,23 +343,21 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		ws.writeJSONError(w, 400, "segment has no indexed capture offset")
 		return
 	}
+	selections := sqlite.NewSegmentStore(ws.db)
 	if req.Role == "held_out" && req.Finder != "random" {
-		var randomCases int
-		if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_segment_selections WHERE role='held_out' AND finder='random' AND json_extract(window_json,'$.capture')=?`, chosen.Capture).Scan(&randomCases); err != nil {
+		found, err := selections.HasRandomHeldOut(chosen.Capture)
+		if err != nil {
 			ws.writeJSONError(w, 500, err.Error())
 			return
 		}
-		if randomCases == 0 {
+		if !found {
 			ws.writeJSONError(w, 400, "choose a random held-out window from this capture before a traffic window")
 			return
 		}
 	}
 	if chosen.Status != "candidate" {
-		var caseID string
-		if err := ws.db.QueryRow(`SELECT replay_case_id FROM lidar_segment_selections WHERE segment_id=?`, chosen.ID).Scan(&caseID); err == nil {
-			ws.writeJSON(w, 200, map[string]any{"replay_case_id": caseID, "segment": chosen})
-			return
-		}
+		ws.writeJSON(w, 200, map[string]any{"replay_case_id": chosen.ReplayCaseID, "segment": chosen})
+		return
 	}
 	run, err := ops.getRun(req.RunID)
 	if err != nil {
@@ -407,8 +411,7 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 	}
 	paramsJSON, _ := json.Marshal(p)
 	windowJSON, _ := json.Marshal(chosen)
-	_, err = ws.db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,replay_case_id,role,finder,parameters_json,window_json,created_at_ns) VALUES(?,?,?,?,?,?,?,?)`, chosen.ID, req.RunID, scene.ReplayCaseID, chosen.Role, chosen.Finder, string(paramsJSON), string(windowJSON), time.Now().UnixNano())
-	if err != nil {
+	if err = selections.InsertSelection(chosen.ID, req.RunID, scene.ReplayCaseID, paramsJSON, windowJSON); err != nil {
 		_ = store.DeleteScene(scene.ReplayCaseID)
 		ws.writeJSONError(w, 500, err.Error())
 		return

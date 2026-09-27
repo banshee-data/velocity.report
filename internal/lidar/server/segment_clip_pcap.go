@@ -23,6 +23,7 @@ type segmentClipOperations struct {
 	mkdirAll    func(string, os.FileMode) error
 	mkdirTemp   func(string, string) (string, error)
 	removeAll   func(string) error
+	readDir     func(string) ([]os.DirEntry, error)
 	detectPort  func(string) (int, error)
 	run         func(replayeval.Config) (*replayeval.Result, error)
 	readFile    func(string) ([]byte, error)
@@ -31,32 +32,53 @@ type segmentClipOperations struct {
 }
 
 func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report func(capjobs.Progress)) error {
-	return ws.runSegmentClipJobWith(ctx, job, report, segmentClipOperations{os.MkdirAll, os.MkdirTemp, os.RemoveAll, network.DetectUDPPort, replayeval.Run, os.ReadFile, annotation.Export, segments.WriteRecord})
+	return ws.runSegmentClipJobWith(ctx, job, report, segmentClipOperations{os.MkdirAll, os.MkdirTemp, os.RemoveAll, os.ReadDir, network.DetectUDPPort, replayeval.Run, os.ReadFile, annotation.Export, segments.WriteRecord})
+}
+
+// adoptClipPack looks for a pack that an earlier attempt of this job finished
+// and did not record: the process stopped between writing the pack and
+// updating the row. A whole pack is linked; what an attempt left unfinished
+// is removed, because it is this job's own and nothing else names it.
+func (ws *Server) adoptClipPack(store *sqlite.SegmentStore, jobID, segmentID string, ops segmentClipOperations) (string, error) {
+	pack, unfinished, err := ws.findClipPack(jobID, segmentID, ops.readDir)
+	if err != nil {
+		return "", err
+	}
+	for _, attempt := range unfinished {
+		if err := ops.removeAll(attempt); err != nil {
+			return "", err
+		}
+	}
+	if pack == nil {
+		return "", nil
+	}
+	if err := store.LinkPack(jobID, pack.stored, pack.digest); err != nil {
+		return "", err
+	}
+	return pack.dir, nil
 }
 
 func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, report func(capjobs.Progress), ops segmentClipOperations) (err error) {
-	var caseID, segmentID, storedPack string
-	if err := ws.db.QueryRow(`SELECT replay_case_id,segment_id,pack_dir FROM lidar_segment_clip_jobs WHERE job_id=?`, job.JobID).Scan(&caseID, &segmentID, &storedPack); err != nil {
+	clips := sqlite.NewSegmentStore(ws.db)
+	clip, selection, err := clips.ClipJob(job.JobID)
+	if err != nil {
 		return fmt.Errorf("clip job has no selection: %w", err)
 	}
-	if storedPack != "" {
-		if pack, err := annotation.OpenPack(storedPack); err == nil {
-			var rec segments.Record
-			if b, e := os.ReadFile(filepath.Join(storedPack, "segment.json")); e == nil && json.Unmarshal(b, &rec) == nil && rec.Validate() == nil && rec.PackDigest == pack.Manifest.PackDigest && rec.Segment.ID == segmentID {
-				return nil
-			}
+	caseID, segmentID := selection.ReplayCaseID, selection.SegmentID
+	role, finder := selection.Role, selection.Finder
+	if clip.PackDir != "" {
+		// A retry of a job whose pack is recorded, present and the one the
+		// row names has nothing left to do.
+		if digest, whole := segmentPackDigest(ws.segmentPackPath(clip.PackDir), segmentID); whole && digest == clip.PackDigest {
+			return nil
 		}
-	}
-	var role, finder, paramsJSON, windowJSON string
-	if err := ws.db.QueryRow(`SELECT role,finder,parameters_json,window_json FROM lidar_segment_selections WHERE segment_id=? AND replay_case_id=?`, segmentID, caseID).Scan(&role, &finder, &paramsJSON, &windowJSON); err != nil {
-		return err
 	}
 	var params segments.Params
 	var chosen segments.Window
-	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
+	if err := json.Unmarshal([]byte(selection.ParametersJSON), &params); err != nil {
 		return err
 	}
-	if err := json.Unmarshal([]byte(windowJSON), &chosen); err != nil {
+	if err := json.Unmarshal([]byte(selection.WindowJSON), &chosen); err != nil {
 		return err
 	}
 	store := sqlite.NewReplayCaseStore(ws.db)
@@ -93,7 +115,15 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err := ops.mkdirAll(ws.annotationPacksDir, 0755); err != nil {
 		return err
 	}
-	out, err := ops.mkdirTemp(ws.annotationPacksDir, "clip-"+job.JobID+"-")
+	adopted, err := ws.adoptClipPack(clips, job.JobID, segmentID, ops)
+	if err != nil {
+		return fmt.Errorf("recover an earlier attempt: %w", err)
+	}
+	if adopted != "" {
+		report(capjobs.Progress{Current: 3, Total: 3, Detail: "pack ready: " + adopted})
+		return nil
+	}
+	out, err := ops.mkdirTemp(ws.annotationPacksDir, clipAttemptPrefix(job.JobID))
 	if err != nil {
 		return err
 	}
@@ -162,7 +192,11 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err := ops.writeRecord(pack.Dir, record); err != nil {
 		return err
 	}
-	if _, err := ws.db.Exec(`UPDATE lidar_segment_clip_jobs SET pack_dir=? WHERE job_id=?`, pack.Dir, job.JobID); err != nil {
+	stored, err := ws.storedPackDir(pack.Dir)
+	if err != nil {
+		return err
+	}
+	if err := clips.LinkPack(job.JobID, stored, pack.Manifest.PackDigest); err != nil {
 		return err
 	}
 	report(capjobs.Progress{Current: 3, Total: 3, Detail: "pack ready: " + pack.Dir})

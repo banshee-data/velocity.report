@@ -198,6 +198,17 @@
           )
           );
 
+   CREATE TABLE lidar_migration_rejects (
+          reject_id INTEGER PRIMARY KEY
+        , migration INTEGER NOT NULL
+        , source_table TEXT NOT NULL
+        , source_key TEXT NOT NULL
+        , reason TEXT NOT NULL
+        , row_json TEXT NOT NULL
+        , rejected_at_ns INTEGER NOT NULL
+        , CHECK (JSON_VALID(row_json))
+          );
+
    CREATE TABLE lidar_observations (
           observation_id TEXT PRIMARY KEY
         , schema_version INTEGER NOT NULL
@@ -438,26 +449,88 @@
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
           );
 
-   CREATE TABLE lidar_segment_selections (
+   CREATE TABLE IF NOT EXISTS "lidar_segment_selections" (
           segment_id TEXT PRIMARY KEY
-        , run_id TEXT NOT NULL
+        , run_id TEXT
         , replay_case_id TEXT NOT NULL UNIQUE
-        , role TEXT NOT NULL CHECK (role IN ('tuning', 'held_out'))
-        , finder TEXT NOT NULL
+        , document_version INTEGER NOT NULL DEFAULT 1
         , parameters_json TEXT NOT NULL
         , window_json TEXT NOT NULL
+        , source TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.source')) STORED
+        , role TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.role')) STORED
+        , finder TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.finder')) STORED
+        , finder_version INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.version')) STORED
+        , capture TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.capture')) STORED
+        , window_start_ns INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.window_start_unix_nanos')) STORED
+        , window_end_ns INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.window_end_unix_nanos')) STORED
         , created_at_ns INTEGER NOT NULL
+        , CHECK (document_version = 1)
+        , CHECK (
+          JSON_VALID(parameters_json)
+      AND JSON_TYPE(parameters_json) = 'object'
+          )
+        , CHECK (
+          JSON_VALID(window_json)
+      AND JSON_TYPE(window_json) = 'object'
+          )
+        , CHECK (segment_id = JSON_EXTRACT(window_json, '$.id'))
+        , CHECK (
+          run_id IS NULL
+       OR run_id = source
+          )
+        , CHECK (role IN ('tuning', 'held_out'))
+        , CHECK (
+          finder IN (
+          'following'
+        , 'leader_changes'
+        , 'lateral_jump'
+        , 'split_flags'
+        , 'exposure'
+        , 'random'
+          )
+          )
+        , CHECK (
+          role = 'tuning'
+       OR finder IN ('following', 'exposure', 'random')
+          )
+        , CHECK (
+          TYPEOF(finder_version) = 'integer'
+      AND finder_version >= 1
+          )
+        , CHECK (
+          TYPEOF(window_start_ns) = 'integer'
+      AND TYPEOF(window_end_ns) = 'integer'
+      AND window_end_ns > window_start_ns
+          )
+        , CHECK (
+          TYPEOF(capture) = 'text'
+      AND capture != ''
+          )
+        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
           );
 
-   CREATE TABLE lidar_segment_clip_jobs (
+   CREATE TABLE IF NOT EXISTS "lidar_segment_clip_jobs" (
           job_id TEXT PRIMARY KEY
         , segment_id TEXT NOT NULL
-        , replay_case_id TEXT NOT NULL
-        , pack_dir TEXT NOT NULL DEFAULT ''
+        , pack_dir TEXT
+        , pack_digest TEXT
+        , CHECK ((pack_dir IS NULL) = (pack_digest IS NULL))
+        , CHECK (
+          pack_dir IS NULL
+       OR (
+          pack_dir != ''
+      AND SUBSTR(pack_dir, 1, 1) != '/'
+      AND INSTR(pack_dir, '..') = 0
+      AND INSTR(pack_dir, CHAR(92)) = 0
+          )
+          )
+        , CHECK (
+          pack_digest IS NULL
+       OR pack_digest LIKE 'sha256:_%'
+          )
         , FOREIGN KEY (job_id) REFERENCES lidar_capture_jobs (job_id) ON DELETE CASCADE
         , FOREIGN KEY (segment_id) REFERENCES lidar_segment_selections (segment_id) ON DELETE CASCADE
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_sites" (
@@ -1163,6 +1236,14 @@ source_id
 CREATE INDEX idx_lidar_exposure_windows_track ON lidar_exposure_windows (track_id, kind);
 
 CREATE INDEX idx_lidar_track_solid_bodies_observation ON lidar_track_solid_bodies (observation_id, estimator_id, stage);
+
+CREATE INDEX idx_lidar_migration_rejects_source ON lidar_migration_rejects (source_table, source_key);
+
+CREATE INDEX idx_lidar_segment_selections_guard ON lidar_segment_selections (role, finder, capture);
+
+CREATE INDEX idx_lidar_segment_selections_run ON lidar_segment_selections (run_id);
+
+CREATE INDEX idx_lidar_segment_clip_jobs_segment ON lidar_segment_clip_jobs (segment_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (
