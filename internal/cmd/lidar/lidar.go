@@ -28,6 +28,8 @@ Commands:
                   Cut a frozen excerpt of a VRLOG into an annotation pack: an
                   immutable point domain that reviewed masks reference, so a
                   reference identity is not itself a tracker output
+  segments        Rank candidate annotation windows from an evidence DB or run
+  annotation-clip Replay one capture window and cut its annotation pack
   observations    Verify, inspect or compare VRLOG 1.x observation containers
                   (written by pcap-replay --observations)
 
@@ -50,6 +52,10 @@ func Main(args []string) int {
 		return ReplayEvalMain(args[1:])
 	case "annotation-export":
 		return AnnotationExportMain(args[1:])
+	case "segments":
+		return SegmentsMain(args[1:])
+	case "annotation-clip":
+		return AnnotationClipMain(args[1:])
 	case "observations":
 		return ObservationsMain(args[1:])
 	case "help", "-h", "--help":

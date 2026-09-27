@@ -82,6 +82,12 @@ func (ws *Server) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "clip":
+		if r.Method == http.MethodPost {
+			ws.handleSceneClip(w, r, sceneID)
+		} else {
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
 	case "location":
 		// /api/lidar/scenes/{scene_id}/location
 		switch r.Method {

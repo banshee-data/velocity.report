@@ -82,6 +82,8 @@ func (ws *Server) runCaptureJob(ctx context.Context, job capjobs.Job, report fun
 	switch job.Kind {
 	case capjobs.KindMotionPass:
 		return ws.runMotionPass(ctx, job, report)
+	case "vrlog_record":
+		return ws.runSegmentClipJob(ctx, job, report)
 	default:
 		return fmt.Errorf("unknown capture job kind %q", job.Kind)
 	}
