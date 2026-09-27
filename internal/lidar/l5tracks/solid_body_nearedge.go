@@ -77,7 +77,29 @@ type SolidBodyOptions struct {
 	// (l4perception.TransformToWorld with no pose), where the origin is
 	// (0, 0); a caller that tracks in a posed site frame must set it.
 	SensorX, SensorY float32
+	// OriginSource says where SensorX and SensorY came from: a sensor
+	// geometry declaration's id, or the tracking transform the frame was
+	// built with. Empty means the origin was never declared, and the solid
+	// body then makes no near-edge fix and says so on every row: (0, 0) is a
+	// value, not a declaration (the near-edge plan's invariant 5).
+	OriginSource string
+	// FaceHysteresis is remedy T1 of the near-edge tracked-state plan: a face
+	// enters the fix only once it has been usable on faceHysteresisFrames
+	// consecutive frames, and leaves only once it has been unusable for as
+	// many, so a face at the support threshold stops flickering in and out.
+	// Until then the frame is not a fix. Default false.
+	FaceHysteresis bool
+	// FaceEntryConsider is remedy T2: the first update from a face that was
+	// not in the previous fix adds the variance of the half-extent behind it
+	// to that face's measurement noise, once, as a consider term. Later
+	// updates from the same face carry the measurement noise alone, as
+	// Section 8.1 requires. Default false.
+	FaceEntryConsider bool
 }
+
+// faceHysteresisFrames is how many consecutive frames a face must be usable
+// before FaceHysteresis admits it, and unusable before it is dropped.
+const faceHysteresisFrames = 2
 
 // GroundSurfaceClusterMinZ names how GroundZ is resolved here: the associated
 // cluster's lowest return, which is what the OBB's CenterZ records. It is not
@@ -191,6 +213,17 @@ type solidBodyTrack struct {
 
 	lastObservedNanos int64
 	support           SupportState
+
+	// faceRun counts, per face, the consecutive frames it has been usable
+	// (positive) or unusable (negative), capped at faceHysteresisFrames either
+	// way, and admitted is the set FaceHysteresis currently lets into the
+	// fix. Both are maintained only when FaceHysteresis is on.
+	faceRun  [len(allBodyFaces)]int8
+	admitted VisibleFaces
+	// lastFixFaces is the face set of the most recent near-edge fix since the
+	// body was last referenced to the medoid; FaceEntryConsider treats any
+	// other face as entering.
+	lastFixFaces VisibleFaces
 
 	// reading is assembled when the state changes, so the estimate, its
 	// lifecycle decision and its class prior all describe the same instant.
@@ -354,11 +387,18 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	var m SolidBodyMeasurement
 	var edges EdgeMeasurementSet
 	measured := false
+	// facesCounted records whether this frame's usable faces reached the
+	// hysteresis counts; any frame that did not is a frame without them.
+	facesCounted := false
 
-	// Phase 2's mitigation: until HitsToConfirm observations have passed, the
-	// heading that selects a face is itself unconverged, so the medoid is used
-	// and the body stays referenced to it.
+	// An undeclared origin comes first: it is a configuration fault, and
+	// every row says so rather than only those past the initialisation
+	// window. Phase 2's mitigation: until HitsToConfirm observations have
+	// passed, the heading that selects a face is itself unconverged, so the
+	// medoid is used and the body stays referenced to it.
 	switch {
+	case t.Config.SolidBody.OriginSource == "":
+		m.FallbackReason = "missing_calibrated_sensor_origin"
 	case track.ObservationCount <= t.Config.HitsToConfirm:
 		m.FallbackReason = "initialisation_window"
 	case sb.orientation.Provenance == ProvenanceNone:
@@ -368,7 +408,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		width := dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
 		edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
-			Points:           cluster.RetainedPoints,
+			Points:           nearEdgePoints(cluster),
 			SensorX:          t.Config.SolidBody.SensorX,
 			SensorY:          t.Config.SolidBody.SensorY,
 			HeadingRad:       sb.orientation.PsiRad,
@@ -388,6 +428,17 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		// rather than downweighted. It still counts as a seen face for the
 		// extent evidence below, which is how the prior stops being one.
 		usable := evidenceBackedEdges(edges.Edges)
+		inferred := len(usable) < len(edges.Edges)
+		if t.Config.SolidBody.FaceHysteresis {
+			found := len(usable)
+			usable = sb.admitFaces(usable)
+			facesCounted = true
+			if len(usable) == 0 && found > 0 {
+				m.FallbackReason = "face_hysteresis"
+				m.InferredExtent = inferred
+				break
+			}
+		}
 		if len(usable) == 0 {
 			m.FallbackReason = "class_prior_extent"
 			m.InferredExtent = true
@@ -402,18 +453,27 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 			startP[0*4+0] += bias
 			startP[1*4+1] += bias
 		}
-		state, p, nis, faces, ok := t.applyEdgeMeasurements(sb.state, startP, usable)
+		var consider []float64
+		if t.Config.SolidBody.FaceEntryConsider {
+			consider = sb.entryConsider(usable, length, width)
+		}
+		state, p, nis, faces, ok := t.applyEdgeMeasurements(sb.state, startP, usable, consider)
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
 		}
 		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
+		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
 		m.Rank = len(usable)
 		m.Faces = faces
-		m.InferredExtent = len(usable) < len(edges.Edges)
+		m.InferredExtent = inferred
 		m.NIS = nis
 		measured = true
+	}
+
+	if t.Config.SolidBody.FaceHysteresis && !facesCounted {
+		sb.admitFaces(nil)
 	}
 
 	if !measured && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
@@ -482,6 +542,76 @@ func (t *Tracker) lapseSolidBodyToMedoid(sb *solidBodyTrack, cluster WorldCluste
 	}
 	sb.p[0*4+0], sb.p[1*4+1] = bias, bias
 	sb.reference = ReferenceClusterMedoid
+	sb.lastFixFaces = 0
+}
+
+// admitFaces advances FaceHysteresis by one frame in which the given faces
+// were usable, and returns those of them now admitted to the fix. A face
+// unusable this frame is not returned even if admitted: there is nothing of it
+// to measure. Admission is what it keeps, so a face that drops out for a
+// single frame comes straight back, while one that has been gone for
+// faceHysteresisFrames must qualify again.
+func (sb *solidBodyTrack) admitFaces(usable []EdgeMeasurement) []EdgeMeasurement {
+	var seen VisibleFaces
+	for _, e := range usable {
+		seen |= faceBit(e.Face)
+	}
+	for i, f := range allBodyFaces {
+		run := sb.faceRun[i]
+		if seen.Has(f) {
+			run = max(run, 0) + 1
+		} else {
+			run = min(run, 0) - 1
+		}
+		run = max(-faceHysteresisFrames, min(faceHysteresisFrames, run))
+		sb.faceRun[i] = run
+		switch {
+		case run >= faceHysteresisFrames:
+			sb.admitted |= faceBit(f)
+		case run <= -faceHysteresisFrames:
+			sb.admitted &^= faceBit(f)
+		}
+	}
+	out := make([]EdgeMeasurement, 0, len(usable))
+	for _, e := range usable {
+		if sb.admitted.Has(e.Face) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// entryConsider is FaceEntryConsider's extra measurement variance per face:
+// the variance of the half-extent behind a face that was not in the previous
+// fix, and zero for one that was. A face constrains the centre through its
+// plane less the half-extent, so the half-extent's error enters the implied
+// centre one-for-one, and half a dimension has a quarter of its variance.
+func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width DimensionBelief) []float64 {
+	out := make([]float64, len(edges))
+	for i, e := range edges {
+		if sb.lastFixFaces.Has(e.Face) {
+			continue
+		}
+		sigma := float64(width.SigmaMetres)
+		if e.Face.IsLongitudinal() {
+			sigma = float64(length.SigmaMetres)
+		}
+		out[i] = sigma * sigma / 4
+	}
+	return out
+}
+
+// nearEdgePoints is the geometry the near-edge measurement and the extent
+// spans read: the cluster's members when L4 handed them over, and otherwise
+// its retained evidence sample. A sample of 122 or more points supports every
+// face the members would (the face plane is the 95th percentile, so at least
+// 5 % of a sample lies on or beyond it), but a small persistence cap does not,
+// and the live pipeline retains no sample at all.
+func nearEdgePoints(c WorldCluster) []l4perception.WorldPoint {
+	if len(c.Members) > 0 {
+		return c.Members
+	}
+	return c.RetainedPoints
 }
 
 // evidenceBackedEdges keeps the faces whose half-extent rests on evidence
@@ -506,14 +636,18 @@ func evidenceBackedEdges(edges []EdgeMeasurement) []EdgeMeasurement {
 // filters differ in what they measure and not in how much they trust it. The
 // half-extent's error is a bias, not noise: Section 8.1 forbids widening the
 // measurement variance to cover it, and a variance that did would also turn
-// the filter into a smoother that lags a real manoeuvre.
-func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges []EdgeMeasurement) ([4]float32, [16]float32, float32, VisibleFaces, bool) {
+// the filter into a smoother that lags a real manoeuvre. consider, when not
+// nil, adds a one-off variance to each face's noise (FaceEntryConsider).
+func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges []EdgeMeasurement, consider []float64) ([4]float32, [16]float32, float32, VisibleFaces, bool) {
 	var nis float64
 	var faces VisibleFaces
 	next := state
 	nextP := p
-	r := float64(t.Config.MeasurementNoise)
-	for _, e := range edges {
+	for i, e := range edges {
+		r := float64(t.Config.MeasurementNoise)
+		if consider != nil {
+			r += consider[i]
+		}
 		term, ok := scalarPositionUpdate(&next, &nextP,
 			float64(e.NormalX), float64(e.NormalY), float64(e.ImpliedCentreOffset()), r)
 		if !ok {
@@ -623,10 +757,10 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	}
 	for _, e := range set.Edges {
 		if e.Face.IsLongitudinal() {
-			if span, ok := minimumAxisSpan(cluster.RetainedPoints, sb.orientation.PsiRad); ok {
+			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad); ok {
 				sb.lengthBelief.Observe(span)
 			}
-		} else if span, ok := minimumAxisSpan(cluster.RetainedPoints, sb.orientation.PsiRad+math.Pi/2); ok {
+		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad+math.Pi/2); ok {
 			sb.widthBelief.Observe(span)
 		}
 	}
@@ -714,6 +848,10 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	}
 	sb.support.CoastedFrames++
 	sb.support.Instant = track.LastSupport
+	if t.Config.SolidBody.FaceHysteresis {
+		// A coast is a frame on which no face was seen.
+		sb.admitFaces(nil)
+	}
 	class := solidBodyClass(track)
 	t.advanceSolidBodyLifecycle(track, class, true)
 	t.publishSolidBody(track, class, SolidBodyMeasurement{FallbackReason: "no_association"})

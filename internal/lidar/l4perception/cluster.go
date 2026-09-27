@@ -250,6 +250,11 @@ type DBSCANParams struct {
 	// neighbour), which restores the original threshold in expectation.
 	// Default false: measured before it is shipped.
 	ScaleMinPtsWhenSubsampled bool
+	// KeepMembers hands each accepted cluster its members for the frame in
+	// WorldCluster.Members, so a measurement model need not read the capped
+	// evidence sample. They are the members of DBSCAN's input, after any
+	// MaxInputPoints subsampling. Default false.
+	KeepMembers bool
 }
 
 // effectiveMinPts is the core-point threshold that leaves the density
@@ -556,6 +561,11 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params D
 			for i, p := range cluster.RetainedPoints {
 				cluster.SamplePoints[i] = [3]float32{float32(p.X), float32(p.Y), float32(p.Z)}
 			}
+		}
+		if params.KeepMembers {
+			// The bucket is this call's own allocation, so the cluster
+			// owns it without a copy.
+			cluster.Members = clusterPoints
 		}
 		clusters = append(clusters, cluster)
 	}

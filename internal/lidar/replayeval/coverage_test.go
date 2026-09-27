@@ -174,3 +174,29 @@ func TestLoadContinuityCoverageSet(t *testing.T) {
 		}
 	}
 }
+
+// A declaration is also the solid body's sensor origin, and is then applied:
+// hashed, as the continuity experiments' is. Without one the origin is derived
+// from the identity tracking transform and named as such.
+func TestCoverageIsTheSolidBodysDeclaredOrigin(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	cov := testCoverage()
+	got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody}, &cov)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sb := got.SolidBody
+	if !sb.Enabled || sb.SensorX != 1 || sb.SensorY != -2 || sb.OriginSource != "continuity_coverage:"+cov.ID() {
+		t.Fatalf("solid body %+v, want the declaration's origin and id", sb)
+	}
+	derived, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o := derived.SolidBody; o.SensorX != 0 || o.SensorY != 0 || o.OriginSource != OriginTrackingTransformIdentity {
+		t.Fatalf("solid body %+v without a declaration, want the identity transform's origin", o)
+	}
+	if needsCoverage([]string{ExperimentSolidBody}) {
+		t.Fatal("solid_body alone must not require coverage; it derives its origin without one")
+	}
+}

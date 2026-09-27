@@ -28,7 +28,7 @@ func estimateIdentityConfig() *TrackingPipelineConfig {
 func trackedVehicle(t *testing.T, solidBody bool) (*l5tracks.TrackedObject, int64) {
 	t.Helper()
 	cfg := l5tracks.DefaultTrackerConfig()
-	cfg.SolidBody = l5tracks.SolidBodyOptions{Enabled: solidBody}
+	cfg.SolidBody = l5tracks.SolidBodyOptions{Enabled: solidBody, OriginSource: "test: sensor frame"}
 	tracker := l5tracks.NewTracker(cfg)
 	base := time.Unix(1_700_000_000, 0)
 	var at time.Time

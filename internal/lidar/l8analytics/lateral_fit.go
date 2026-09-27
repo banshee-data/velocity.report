@@ -72,56 +72,94 @@ func SummariseLateralFit(tracks []LateralFitTrack) LateralFitSummary {
 			continue
 		}
 		s.MovingTracks++
-		scored, excursion := false, false
-		var window []SeriesPoint
-		for _, p := range track.Points {
-			if !finite32(p.X) || !finite32(p.Y) {
-				window = window[:0]
-				continue
-			}
-			if n := len(window); n > 0 {
-				gap := float64(p.TimestampNanos-window[n-1].TimestampNanos) / 1e9
-				if !(gap > 0 && gap <= LateralFitMaxGapSecs) {
-					window = window[:0]
-				}
-			}
-			window = append(window, p)
-			if len(window) > 5 {
-				copy(window, window[1:])
-				window = window[:5]
-			}
-			if len(window) != 5 {
-				continue
-			}
-			r, ok := fivePointLateralResidual(window)
-			if !ok {
-				continue
-			}
-			scored = true
-			residuals = append(residuals, r)
-			if r > LateralFitExcursionMetres {
+		windows := LateralFitWindows(track.Points)
+		if len(windows) > 0 {
+			s.ScoredTracks++
+		}
+		excursion := false
+		for _, w := range windows {
+			residuals = append(residuals, w.Residual)
+			if w.Residual > LateralFitExcursionMetres {
 				excursion = true
 			}
-		}
-		if scored {
-			s.ScoredTracks++
 		}
 		if excursion {
 			s.TracksWithExcursion++
 		}
 	}
-	s.Windows = len(residuals)
-	if len(residuals) > 0 {
-		sort.Float64s(residuals)
-		s.P50Metres = nearestRank(residuals, 50)
-		s.P95Metres = nearestRank(residuals, 95)
-		s.P99Metres = nearestRank(residuals, 99)
-		s.MaxMetres = residuals[len(residuals)-1]
-	}
+	r := SummariseLateralResiduals(residuals)
+	s.Windows, s.P50Metres, s.P95Metres, s.P99Metres, s.MaxMetres = r.Windows, r.P50Metres, r.P95Metres, r.P99Metres, r.MaxMetres
 	if s.ScoredTracks > 0 {
 		s.ExcursionShare = float64(s.TracksWithExcursion) / float64(s.ScoredTracks)
 	}
 	return s
+}
+
+// LateralFitWindow is one scored five-point window: the index in the series
+// of its centre sample, and that sample's lateral residual.
+type LateralFitWindow struct {
+	Centre   int
+	Residual float64
+}
+
+// LateralFitWindows scores every eligible window of one time-ordered series,
+// whatever its lifetime speed: SummariseLateralFit applies the moving floor.
+// A caller that knows more about each sample than its position can stratify
+// the residuals by the centre sample's attributes.
+func LateralFitWindows(points []SeriesPoint) []LateralFitWindow {
+	var out []LateralFitWindow
+	var window []SeriesPoint
+	var index []int
+	for i, p := range points {
+		if !finite32(p.X) || !finite32(p.Y) {
+			window, index = window[:0], index[:0]
+			continue
+		}
+		if n := len(window); n > 0 {
+			gap := float64(p.TimestampNanos-window[n-1].TimestampNanos) / 1e9
+			if !(gap > 0 && gap <= LateralFitMaxGapSecs) {
+				window, index = window[:0], index[:0]
+			}
+		}
+		window, index = append(window, p), append(index, i)
+		if len(window) > 5 {
+			copy(window, window[1:])
+			copy(index, index[1:])
+			window, index = window[:5], index[:5]
+		}
+		if len(window) != 5 {
+			continue
+		}
+		if r, ok := fivePointLateralResidual(window); ok {
+			out = append(out, LateralFitWindow{Centre: index[2], Residual: r})
+		}
+	}
+	return out
+}
+
+// LateralResidualSummary is the distribution of a set of five-point residuals,
+// by nearest rank, in metres.
+type LateralResidualSummary struct {
+	Windows   int     `json:"windows"`
+	P50Metres float64 `json:"p50_m"`
+	P95Metres float64 `json:"p95_m"`
+	P99Metres float64 `json:"p99_m"`
+	MaxMetres float64 `json:"max_m"`
+}
+
+// SummariseLateralResiduals is the distribution of residuals, which it may
+// reorder; none gives the zero summary.
+func SummariseLateralResiduals(residuals []float64) LateralResidualSummary {
+	r := LateralResidualSummary{Windows: len(residuals)}
+	if len(residuals) == 0 {
+		return r
+	}
+	sort.Float64s(residuals)
+	r.P50Metres = nearestRank(residuals, 50)
+	r.P95Metres = nearestRank(residuals, 95)
+	r.P99Metres = nearestRank(residuals, 99)
+	r.MaxMetres = residuals[len(residuals)-1]
+	return r
 }
 
 // fivePointLateralResidual is the centre point's perpendicular distance from

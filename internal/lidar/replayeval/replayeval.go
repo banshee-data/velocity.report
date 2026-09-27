@@ -702,7 +702,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// by its content address.
 	hashInput := append(append([]byte{}, paramsJSON...), experimentsHashSuffix(experiments)...)
 	hashInput = append(hashInput, calibrationHashSuffix(noiseCalibration)...)
-	coverageApplied := cfg.ContinuityCoverage != nil && needsCoverage(experiments)
+	// A declaration is applied when a continuity experiment classifies by it
+	// or the solid body takes its sensor origin from it.
+	coverageApplied := cfg.ContinuityCoverage != nil &&
+		(needsCoverage(experiments) || hasExperiment(experiments, ExperimentSolidBody))
 	hashInput = append(hashInput, coverageHashSuffix(cfg.ContinuityCoverage, coverageApplied)...)
 	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(hashInput))
 
@@ -794,6 +797,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
 		MaxSamplePoints:           maxSamplePoints,
+		KeepClusterMembers:        hasExperiment(experiments, ExperimentSolidBodyFullMembers),
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
 		StateEstimatorID:          "cv_kf_v1",
@@ -1032,6 +1036,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if noiseCalibration != nil {
 		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
 	}
+	if hasExperiment(experiments, ExperimentSolidBody) {
+		x, y, source := solidBodyOrigin(cfg.ContinuityCoverage)
+		manifest["solid_body_sensor_origin"] = map[string]any{"x_m": x, "y_m": y, "source": source}
+	}
 	if c := cfg.ContinuityCoverage; c != nil {
 		manifest["continuity_coverage"] = c
 		manifest["continuity_coverage_id"] = c.ID()
@@ -1145,12 +1153,36 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OcclusionContinuity = oc
+	hysteresis := hasExperiment(experiments, ExperimentSolidBodyFaceHysteresis)
+	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	if hasExperiment(experiments, ExperimentSolidBody) {
-		// The replay tracks in the sensor frame (TransformToWorld with no
-		// pose), so the calibrated sensor origin is the frame's origin.
-		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, SensorX: 0, SensorY: 0}
+		x, y, source := solidBodyOrigin(coverage)
+		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
+			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
+			FaceHysteresis: hysteresis, FaceEntryConsider: consider,
+		}
+	} else if hysteresis || consider || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
+			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// OriginTrackingTransformIdentity names the solid body's sensor origin when
+// no declaration gives one: the replay tracks in the sensor frame
+// (TransformToWorld with no pose), so the transform is the identity and the
+// origin is exactly (0, 0), derived rather than assumed.
+const OriginTrackingTransformIdentity = "tracking_transform:identity"
+
+// solidBodyOrigin is the solid body's sensor origin and where it came from:
+// a coverage declaration's, which the continuity experiments use too, or the
+// tracking transform's.
+func solidBodyOrigin(coverage *ContinuityCoverage) (float32, float32, string) {
+	if coverage != nil {
+		return coverage.SensorXMetres, coverage.SensorYMetres, "continuity_coverage:" + coverage.ID()
+	}
+	return 0, 0, OriginTrackingTransformIdentity
 }
 
 // occlusionContinuityFor switches on the continuity options the experiments

@@ -190,6 +190,10 @@ partition by the face-stable-versus-all residual gap:
 Neither changes the rank rule or the steady-state R. The gate is the gap closing: all-frame p99
 within 25 % of the face-stable p99 on the held-out case.
 
+S2.1 measured both (see [What S2.1 found](#what-s21-found)). T1 helps but leaves the all-frame
+p99 about 2.5 times the face-stable p99 on every site. T2 changes nothing on kirk0, because the
+half-extent's error is a bias and softening one update only delays it.
+
 ### Seeding and re-reference
 
 A new track is seeded at the medoid with today's covariance and is medoid-referenced. After
@@ -261,6 +265,62 @@ refuse without an origin. All of it is in the shadow, where G-GEO-1 is attributa
 - Columbus's within-run tail has a named cause.
 - Fixes and fallbacks with full members match B1-256.
 - Refusal is tested.
+
+#### What S2.1 found
+
+The code is in replay behind four experiments that qualify `solid_body`:
+
+- `solid_body_face_hysteresis` (T1);
+- `solid_body_face_consider` (T2);
+- `solid_body_full_members`;
+- the sensor origin, which `solid_body` now requires. Without a declaration it is derived from the
+  identity tracking transform and recorded in the manifest.
+
+Test F2 ran on the Mac (Apple M1 Pro, 24 minutes and under 1 GB per arm): the full-member solid
+body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. F1, which
+runs T2 on the tuning partition, finished but its results are not yet published. Solid-body
+lateral residual p99, in metres:
+
+| Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
+| ---------------------- | ------------ | -----: | -----: | -----------------: | ---------------: | --: |
+| kirk0                  | solid body   |    826 |        |              0.364 |            0.083 | 4.4 |
+| kirk0                  | T1           |    697 |        |              0.216 |            0.085 | 2.5 |
+| `marina-webster-beach` | full members | 14,557 |    402 |              0.231 |            0.073 | 3.2 |
+| `marina-webster-beach` | T1, full     | 13,570 |    587 |              0.159 |            0.064 | 2.5 |
+| `columbus-broadway`    | full members | 40,630 |    898 |              0.386 |            0.194 | 2.0 |
+| `columbus-broadway`    | T1, full     | 37,130 |  1,363 |              0.344 |            0.136 | 2.5 |
+
+Against the exit:
+
+- **Remedy: not met.** T1 is the better remedy, but the gap stays near 2.5 on all three sites, far
+  from 1.25. It costs 7 % to 9 % of fixes and adds about half again as many lapses, because a held
+  frame is a faceless one. With T1 the body beats the point estimate over all body-centre frames on
+  marina (0.159 against 0.180 m), not on columbus (0.344 against 0.197 m).
+- **Columbus's within-run tail: named.** It is turning. At 15 degrees per second or more the body's
+  face-stable p99 is 0.369 m against the point estimate's 0.152 m, over 490 of 2,563 windows. Below
+  that the body is level with or better than the point: 0.168 against 0.164 m under 5 degrees per
+  second, and 0.138 against 0.212 m from 5 to 15. Marina shows the same above 15 degrees per
+  second, 0.204 against 0.115 m, on 242 windows. The tracked heading lags a turn, and the face
+  normal and the face choice lag with it: the state plan's invalidating condition b. Range shows
+  no pattern inside 40 m.
+- **Full members: met.** Fixes, every fallback, lapses, converged widths and run counts are
+  identical to T0's 256-point arm on both sites. p95 and p99 move by 2 mm or less.
+- **Refusal: met.** A solid body without a declared origin makes no fix and says
+  `missing_calibrated_sensor_origin` on every row (unit test).
+
+#### Open decision: the next remedy
+
+The two tails may share one cause: at an intersection a vehicle's visible faces change as it
+turns. Options, for a decision before S2.2:
+
+1. **T3, course-aligned faces (proposed).** Above `CourseAlignmentMinSpeedMps`, take the body axis
+   for face choice and face normals from the solid body's own course instead of the tracked
+   heading. Extent admission already refuses spans when the two disagree by more than 10 degrees;
+   on kirk0 that was 59 % of moving near-edge frames. Run T1 with T3 on the tuning partition
+   against the same exit.
+2. **Accept T1 and relax the exit.** Not recommended: gate 2 would still fail on the held-out case.
+3. **A per-face bias state.** Estimate each face's half-extent error rather than hold it fixed. It
+   is closer to Option B (nonlinear state) than to this plan, and is out of scope here.
 
 ### S2.2: the tracked near-edge update
 
@@ -385,8 +445,12 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.0 corpus solid-body block, strata, `-sample-points` and per-case evidence
 - [x] T0: B1-256 and B1-1024 on the tuning and held-out partitions, on the Mac
 - [ ] S2.0 B0 and B1-16 on the tuning and held-out partitions, then the screen
-- [ ] S2.1 face-transition remedy (T1, T2) chosen on the tuning partition
-- [ ] S2.1 full member geometry to the tracker; declared origin with refusal
+- [x] S2.1 T1 and T2 on the solid body; heading-rate and range strata
+- [x] S2.1 full member geometry to the tracker; declared origin with refusal
+- [x] F2: full members, with and without T1, on the tuning partition, on the Mac
+- [ ] F1: T2 on the tuning partition (run, not yet published)
+- [ ] S2.1 face-transition remedy chosen: T1 is the better, and does not meet the exit; next
+      remedy awaits a decision
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
 - [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage
