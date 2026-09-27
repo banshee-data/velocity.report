@@ -75,6 +75,7 @@ func segmentClipTestOperations(t *testing.T) segmentClipOperations {
 	return segmentClipOperations{
 		mkdirAll:   os.MkdirAll,
 		mkdirTemp:  os.MkdirTemp,
+		removeAll:  os.RemoveAll,
 		detectPort: func(string) (int, error) { return 2369, nil },
 		run: func(cfg replayeval.Config) (*replayeval.Result, error) {
 			if !cfg.IncludePoints || !cfg.RequireSettled || cfg.Context == nil {
@@ -161,8 +162,27 @@ func TestSegmentClipJobReportsEveryOutputBoundary(t *testing.T) {
 			if err := ws.runSegmentClipJobWith(ctx, job, func(capjobs.Progress) {}, ops); err == nil {
 				t.Fatal("failed clip boundary was reported as ready")
 			}
+			// A failed attempt holds a recording with points and no job row
+			// names it, so it must not stay on disk.
+			if left := clipAttempts(t, ws); len(left) != 0 {
+				t.Fatalf("failed clip left its output behind: %v", left)
+			}
 		})
 	}
+}
+
+// clipAttempts lists what clip jobs have left in the packs directory.
+func clipAttempts(t *testing.T, ws *Server) []string {
+	t.Helper()
+	entries, err := os.ReadDir(ws.annotationPacksDir)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
 }
 
 func TestSegmentClipJobRejectsMissingOrCorruptSelectionEvidence(t *testing.T) {
@@ -175,6 +195,7 @@ func TestSegmentClipJobRejectsMissingOrCorruptSelectionEvidence(t *testing.T) {
 		{"bad parameters", `UPDATE lidar_segment_selections SET parameters_json='{'`},
 		{"bad window", `UPDATE lidar_segment_selections SET window_json='{'`},
 		{"missing case", `DROP TABLE lidar_replay_cases`},
+		{"unreadable case", `ALTER TABLE lidar_replay_cases RENAME COLUMN description TO broken_description`},
 		{"unreadable case files", `ALTER TABLE lidar_replay_case_files RENAME COLUMN pcap_file TO broken_path`},
 		{"empty case files", `DELETE FROM lidar_replay_case_files; UPDATE lidar_replay_cases SET pcap_file=''`},
 		{"unsafe case file", `UPDATE lidar_replay_case_files SET pcap_file='../outside.pcap'`},
@@ -212,6 +233,9 @@ func TestSegmentClipJobChecksCancellationAndPassesCaseSequence(t *testing.T) {
 	}
 	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
 		t.Fatal(err)
+	}
+	if kept := clipAttempts(t, ws); len(kept) != 1 || !strings.HasPrefix(kept[0], "clip-"+job.JobID+"-") {
+		t.Fatalf("completed clip output was not kept: %v", kept)
 	}
 }
 
@@ -299,5 +323,23 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	// A worker retry must reuse the complete pack instead of creating another.
 	if err := ws.runSegmentClipJob(context.Background(), job, func(capjobs.Progress) {}); err != nil {
 		t.Fatal(err)
+	}
+	// The cancelled attempt's recording is gone and the retry made no second one.
+	if kept := clipAttempts(t, ws); len(kept) != 1 || filepath.Join(ws.annotationPacksDir, kept[0], "pack") != packDir {
+		t.Fatalf("want only the completed attempt, holding %s: %v", packDir, kept)
+	}
+}
+
+func TestCaptureWorkerRunsClipJobs(t *testing.T) {
+	ws, job, _ := selectedSegmentJob(t)
+	job.Kind = "vrlog_record"
+	// The fixture capture is not a recording, so the replay refuses it. What
+	// matters here is that the worker hands the job to the clip executor.
+	err := ws.runCaptureJob(context.Background(), job, func(capjobs.Progress) {})
+	if err == nil || strings.Contains(err.Error(), "unknown capture job kind") {
+		t.Fatalf("clip job was not dispatched to its executor: %v", err)
+	}
+	if left := clipAttempts(t, ws); len(left) != 0 {
+		t.Fatalf("refused clip left its output behind: %v", left)
 	}
 }

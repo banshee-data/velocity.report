@@ -22,6 +22,7 @@ import (
 type segmentClipOperations struct {
 	mkdirAll    func(string, os.FileMode) error
 	mkdirTemp   func(string, string) (string, error)
+	removeAll   func(string) error
 	detectPort  func(string) (int, error)
 	run         func(replayeval.Config) (*replayeval.Result, error)
 	readFile    func(string) ([]byte, error)
@@ -30,10 +31,10 @@ type segmentClipOperations struct {
 }
 
 func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report func(capjobs.Progress)) error {
-	return ws.runSegmentClipJobWith(ctx, job, report, segmentClipOperations{os.MkdirAll, os.MkdirTemp, network.DetectUDPPort, replayeval.Run, os.ReadFile, annotation.Export, segments.WriteRecord})
+	return ws.runSegmentClipJobWith(ctx, job, report, segmentClipOperations{os.MkdirAll, os.MkdirTemp, os.RemoveAll, network.DetectUDPPort, replayeval.Run, os.ReadFile, annotation.Export, segments.WriteRecord})
 }
 
-func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, report func(capjobs.Progress), ops segmentClipOperations) error {
+func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, report func(capjobs.Progress), ops segmentClipOperations) (err error) {
 	var caseID, segmentID, storedPack string
 	if err := ws.db.QueryRow(`SELECT replay_case_id,segment_id,pack_dir FROM lidar_segment_clip_jobs WHERE job_id=?`, job.JobID).Scan(&caseID, &segmentID, &storedPack); err != nil {
 		return fmt.Errorf("clip job has no selection: %w", err)
@@ -96,6 +97,14 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err != nil {
 		return err
 	}
+	// A recording with points is large. An attempt that fails or is cancelled
+	// leaves nothing the job row points at, so nothing would ever reclaim it;
+	// remove it here. A pack exists for the operator only once its job says so.
+	defer func() {
+		if err != nil {
+			_ = ops.removeAll(out)
+		}
+	}()
 	port := ws.udpPort
 	if port == 0 {
 		port, err = ops.detectPort(resolved[0])
