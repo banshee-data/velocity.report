@@ -140,6 +140,11 @@ func caveats(c Comparison) []string {
 			out = append(out, fmt.Sprintf("Arm %s scores %s-stage positions as a declared baseline, not final estimates.",
 				arm.Label, arm.Stage))
 		}
+		if arm.Table == solidBodyTable {
+			out = append(out, fmt.Sprintf("Arm %s scores solid-body positions: the body centre after a near-edge fix, "+
+				"but the medoid inside the initialisation window, after a lapse and while every face's extent was only "+
+				"the class prior. lidar_track_solid_bodies.reference_point says which, row by row.", arm.Label))
+		}
 	}
 	out = append(out, "False positives include hypotheses on returns nobody labelled. They are an upper bound "+
 		"unless every road user in the episodes' frames has a mask; the deltas are sounder than either arm's count.")

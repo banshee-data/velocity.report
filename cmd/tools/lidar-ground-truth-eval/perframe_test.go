@@ -173,6 +173,17 @@ func TestPerFrameRequiresFinalEstimatesUnlessDeclared(t *testing.T) {
 	}
 }
 
+// -b-solid-body points arm B at lidar_track_solid_bodies. The fixture writes
+// none, so the arm is refused with the table's (empty) contents; scoring a
+// populated table is perframeeval's test.
+func TestPerFrameSolidBodyFlagReadsTheSolidBodyTable(t *testing.T) {
+	f := perFrameFixture(t)
+	code, _, stderr := runPerFrameCapture(t, perFrameArgs(f, "-b-solid-body", "-b-stage", "online", "-b-declared-baseline"))
+	if code != 1 || !strings.Contains(stderr, "no estimates at all") {
+		t.Fatalf("exit %d, stderr %q; want arm B refused for an empty solid-body table", code, stderr)
+	}
+}
+
 func TestPerFrameAnalysisRuns(t *testing.T) {
 	f := perFrameFixture(t)
 	args := []string{

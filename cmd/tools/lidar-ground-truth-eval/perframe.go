@@ -20,7 +20,7 @@ import (
 
 type armFlags struct {
 	label, db, source, estimator, model, params, stage, runID *string
-	declaredBaseline                                          *bool
+	declaredBaseline, solidBody                               *bool
 }
 
 func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
@@ -35,6 +35,7 @@ func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
 		stage:            fs.String(name+"-stage", "", "estimate stage (default final; anything else needs "+p+"declared-baseline)"),
 		runID:            fs.String(name+"-run-id", "", "score an analysis run's track positions instead of estimates (needs "+p+"declared-baseline)"),
 		declaredBaseline: fs.Bool(name+"-declared-baseline", false, "score a non-final arm as a declared baseline; recorded in the output"),
+		solidBody:        fs.Bool(name+"-solid-body", false, "read the version from lidar_track_solid_bodies (replay -experiment solid_body) instead of lidar_track_estimates"),
 	}
 }
 
@@ -42,7 +43,7 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 	return perframeeval.ArmSpec{
 		Label: *a.label, DBPath: *a.db, SourceID: *a.source, EstimatorID: *a.estimator,
 		ObservationModelID: *a.model, ParamHash: *a.params, Stage: *a.stage, RunID: *a.runID,
-		DeclaredBaseline: *a.declaredBaseline,
+		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody,
 	}
 }
 
