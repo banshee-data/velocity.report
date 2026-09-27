@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"fmt"
+
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 )
 
