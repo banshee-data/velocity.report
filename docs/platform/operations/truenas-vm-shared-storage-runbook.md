@@ -5,7 +5,8 @@ TrueNAS host `arrow`'s pool over a local, Tailscale-independent path. Verified: 
 survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 7). This
 document records what was tried, why each attempt failed, the confirmed root cause, and the
 working solution, so a future change to this host does not repeat a night's worth of failed
-attempts and one real outage.
+attempts and one real outage. Sections 9 to 11 record three later, unrelated incidents on the same
+host and VM, kept here for the same reason.
 
 ## 1. The problem
 
@@ -211,6 +212,9 @@ rather than assuming it reached everything.
   found under `media` (including `video`, once fixed) opens for reading.
 - The guest was rebooted; `ens4` and all three mounts came back automatically, with no manual
   steps, confirmed immediately after boot.
+- The configuration also survived an unplanned event, a hardware NIC hang on the host (section
+  11): once the VM's network device was rebuilt, `br1`, `eno1`'s DHCP registration, and all three
+  guest mounts came back with no reconfiguration, only the VM restart itself.
 
 ## 7. Known limitations and possible follow-ups
 
@@ -248,3 +252,97 @@ physical console (or IPMI/BMC console) rather than any network-dependent session
 depend on the interface being changed. From there, `ip -br a` and `midclt call
 interface.has_pending_changes` establish the current state before deciding whether to wait for the
 rollback or force it.
+
+## 9. Guest disk pressure: relocating `/home` to `/srv`
+
+The guest's root partition (`/dev/sda2`, 5.9 GiB) filled to 85% (843 MiB free), almost entirely
+from `/home/banshee` (3.2 GiB: Go build cache, capture scratch, git checkouts, dotfile caches).
+Growing the VM's virtual disk in TrueNAS would not have helped: its five partitions already span
+the full 32 GiB end to end, and root is not the last one (`efi` → `root` → `var` → `swap` →
+`srv`), so new space lands after `srv`, unreachable by root without moving the intervening
+partitions live.
+
+`srv` (`/dev/sda5`, 21.8 GiB), a Debian installer default that nothing on this VM actually used,
+sat almost empty. Relocating `/home/banshee` onto it needed no VM downtime and no partition
+surgery:
+
+```bash
+sudo mkdir -p /srv/banshee
+sudo cp -a /home/banshee/. /srv/banshee/
+sudo mv /home/banshee /home/banshee.premove   # kept until verified, then removed
+sudo mkdir /home/banshee
+sudo chown banshee:banshee /home/banshee
+echo "/srv/banshee /home/banshee none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount /home/banshee
+```
+
+Verified before removing the backup: file counts and a checksum sample matched, the relocated git
+checkout's `git status` was clean, and a fresh SSH connection authenticated correctly against the
+bind-mounted `.ssh/authorized_keys`. Root went from 843 MiB to 3.8 GiB free.
+
+**Rule that follows from this**: check the actual partition table before proposing a disk-size
+increase. A virtual disk that already spans its full allocation, with the tight partition not last
+in order, needs partition surgery to grow; an already-provisioned, under-used partition on the same
+disk is often the lower-risk fix.
+
+## 10. VM CPU mode and a native-binary spin bug
+
+Installing `claude-code` (the Claude Code CLI) via the official apt repository succeeded, but
+running `claude` pegged one CPU core at 90 to 99% indefinitely. `strace` showed the main thread
+making essentially no syscalls while spinning; the two idle helper threads were named
+`mi-scavenger` and `Bun Pool 0`/`Bun Pool 1`, identifying the native Linux binary as a Bun build.
+
+Root cause: the VM's CPU Mode was `Custom` with no model selected, which TrueNAS/QEMU renders as
+the generic `QEMU Virtual CPU version 2.5+`, a compatibility model that strips SSE4.2, POPCNT, and
+AVX so a VM can migrate to older physical hosts. This is a known upstream bug
+(`anthropics/claude-code#95566`): the Bun runtime mishandles the missing instructions by spinning
+rather than failing cleanly.
+
+Fix: Virtual Machines > `bansheeworker` > Edit > CPU Mode, changed from `Custom` to `Host
+Passthrough`. This is a single, non-clustered TrueNAS box, so exposing the exact physical CPU
+(`Intel(R) Core(TM) i3-4130T`, which has `sse4_1 sse4_2 popcnt avx avx2`) carries no
+migration-compatibility cost. The change only takes effect on a full stop and start, not a soft
+reboot inside the guest, since the CPU model is fixed at QEMU launch.
+
+**Rule that follows from this**: if a Linux VM's CPU Mode is `Custom` with no model, and a modern
+binary (anything built on Bun, or otherwise doing CPU-feature-gated JIT) hangs or spins instead of
+running, check `lscpu` for missing `sse4_2`/`popcnt`/`avx` before looking anywhere else.
+
+## 11. A hardware NIC hang on `eno1`, and its side effect on the VM's macvtap NIC
+
+Both the host (`192.168.99.8`) and the guest became unreachable: no ping, no HTTP, ARP resolution
+failing outright (`Host is down` / `No route to host`). The physical console showed the actual
+cause, repeating every two seconds:
+
+```text
+e1000e 0000:00:19.0 eno1: Detected Hardware Unit Hang:
+  TDH                  <74>
+  TDT                  <f8>
+  ...
+```
+
+This is an Intel `e1000e` transmit-ring hang: the link/PHY stays up (the switch port kept blinking
+normally), but the driver can no longer transmit, so the host could receive an ARP request but
+never get the reply out. It is a hardware/driver-level fault, unrelated to the
+database-registration and macvtap-exclusivity issues in section 3; it can happen to `eno1`
+independently of anything this runbook's setup did.
+
+Recovery, from the physical console (a network-dependent session is useless while the NIC is
+hung):
+
+```bash
+rmmod e1000e && modprobe e1000e
+ip -br a          # confirm eno1 is UP with 192.168.99.8/24 again
+```
+
+This is not the end of the recovery. Because the VM's primary NIC is a macvtap child of `eno1`
+(section 3.2), destroying and recreating the `eno1` netdevice destroys the macvtap device riding
+on it. TrueNAS still showed the VM as "Running" afterwards, but its network was gone underneath it;
+only a full VM stop and start rebuilt the macvtap against the fresh `eno1` and restored guest
+connectivity. `br1` and the guest's NFS mounts needed no reconfiguration; they came back on their
+own once the VM's network device existed again.
+
+**Rule that follows from this**: after any recovery that recreates `eno1` (driver reload, or a host
+reboot), check the VM's own network before assuming it is fine because TrueNAS shows it running. A
+macvtap-based guest NIC does not survive its underlying physical interface being torn down and
+rebuilt, and needs its own restart.
