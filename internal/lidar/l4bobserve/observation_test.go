@@ -80,3 +80,18 @@ func TestObservationIdentityBoundsAndAbsentOptionalGeometry(t *testing.T) {
 		}
 	}
 }
+
+func TestObservationNeverKeepsClusterMembers(t *testing.T) {
+	// Members are the tracker's per-frame geometry: a record is the capped
+	// sample and nothing more, whatever the cluster it was built from held.
+	r := Record{SchemaVersion: 1, ObservationID: "obs", SourceID: "capture-hash", CalibrationID: "pose-revision", FrameUnixNanos: 100,
+		Cluster: l4perception.WorldCluster{SensorID: "s", FrameID: "site/test", PointsCount: 3,
+			Members: []l4perception.WorldPoint{{X: 1}, {X: 2}, {X: 3}}}}
+	obs, err := New(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := obs.Snapshot().Cluster.Members; got != nil {
+		t.Fatalf("the record kept %d members", len(got))
+	}
+}

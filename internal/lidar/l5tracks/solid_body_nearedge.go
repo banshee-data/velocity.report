@@ -77,6 +77,12 @@ type SolidBodyOptions struct {
 	// (l4perception.TransformToWorld with no pose), where the origin is
 	// (0, 0); a caller that tracks in a posed site frame must set it.
 	SensorX, SensorY float32
+	// OriginSource says where SensorX and SensorY came from: a sensor
+	// geometry declaration's id, or the tracking transform the frame was
+	// built with. Empty means the origin was never declared, and the solid
+	// body then makes no near-edge fix and says so on every row: (0, 0) is a
+	// value, not a declaration (the near-edge plan's invariant 5).
+	OriginSource string
 	// FaceHysteresis is remedy T1 of the near-edge tracked-state plan: a face
 	// enters the fix only once it has been usable on faceHysteresisFrames
 	// consecutive frames, and leaves only once it has been unusable for as
@@ -385,10 +391,14 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	// hysteresis counts; any frame that did not is a frame without them.
 	facesCounted := false
 
-	// Phase 2's mitigation: until HitsToConfirm observations have passed, the
-	// heading that selects a face is itself unconverged, so the medoid is used
-	// and the body stays referenced to it.
+	// An undeclared origin comes first: it is a configuration fault, and
+	// every row says so rather than only those past the initialisation
+	// window. Phase 2's mitigation: until HitsToConfirm observations have
+	// passed, the heading that selects a face is itself unconverged, so the
+	// medoid is used and the body stays referenced to it.
 	switch {
+	case t.Config.SolidBody.OriginSource == "":
+		m.FallbackReason = "missing_calibrated_sensor_origin"
 	case track.ObservationCount <= t.Config.HitsToConfirm:
 		m.FallbackReason = "initialisation_window"
 	case sb.orientation.Provenance == ProvenanceNone:
@@ -398,7 +408,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		width := dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
 		edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
-			Points:           cluster.RetainedPoints,
+			Points:           nearEdgePoints(cluster),
 			SensorX:          t.Config.SolidBody.SensorX,
 			SensorY:          t.Config.SolidBody.SensorY,
 			HeadingRad:       sb.orientation.PsiRad,
@@ -591,6 +601,19 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 	return out
 }
 
+// nearEdgePoints is the geometry the near-edge measurement and the extent
+// spans read: the cluster's members when L4 handed them over, and otherwise
+// its retained evidence sample. A sample of 122 or more points supports every
+// face the members would (the face plane is the 95th percentile, so at least
+// 5 % of a sample lies on or beyond it), but a small persistence cap does not,
+// and the live pipeline retains no sample at all.
+func nearEdgePoints(c WorldCluster) []l4perception.WorldPoint {
+	if len(c.Members) > 0 {
+		return c.Members
+	}
+	return c.RetainedPoints
+}
+
 // evidenceBackedEdges keeps the faces whose half-extent rests on evidence
 // about this object.
 func evidenceBackedEdges(edges []EdgeMeasurement) []EdgeMeasurement {
@@ -734,10 +757,10 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	}
 	for _, e := range set.Edges {
 		if e.Face.IsLongitudinal() {
-			if span, ok := minimumAxisSpan(cluster.RetainedPoints, sb.orientation.PsiRad); ok {
+			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad); ok {
 				sb.lengthBelief.Observe(span)
 			}
-		} else if span, ok := minimumAxisSpan(cluster.RetainedPoints, sb.orientation.PsiRad+math.Pi/2); ok {
+		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad+math.Pi/2); ok {
 			sb.widthBelief.Observe(span)
 		}
 	}

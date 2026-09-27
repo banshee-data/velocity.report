@@ -99,6 +99,12 @@ type WorldCluster struct {
 	// RetainedPoints preserve acquisition times and intensities for observation
 	// research. They are sampled cluster members, not annotation point indices.
 	RetainedPoints []WorldPoint
+	// Members are every point of the cluster, for the frame it was clustered
+	// in, when DBSCANParams.KeepMembers is set: the geometry a measurement
+	// model reads, where RetainedPoints is a capped sample kept as evidence.
+	// In memory only: no record, store or log carries them, and the JSON
+	// encoding the observation store uses for a cluster leaves them out.
+	Members []WorldPoint `json:"-"`
 }
 
 // PointPolar is a backward-compatible alias for the canonical definition in l2frames.

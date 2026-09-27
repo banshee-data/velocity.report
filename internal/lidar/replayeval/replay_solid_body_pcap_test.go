@@ -211,10 +211,10 @@ func evidenceQuantile(v []float64, q float64) float64 {
 }
 
 // TestSolidBodyFaceRemediesOnKirk0 runs the face-transition remedies of the
-// near-edge tracked-state plan's S2.1 beside the plain solid body. Each must
-// leave the tracks alone, as the solid body does; their effect on the anchor
-// is logged for the plan, not asserted, because one capture does not choose a
-// remedy.
+// near-edge tracked-state plan's S2.1, and the solid body measured from full
+// cluster members, beside the plain solid body. Each must leave the tracks
+// alone, as the solid body does; their effect on the anchor is logged for the
+// plan, not asserted, because one capture does not choose a remedy.
 func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 	dir := t.TempDir()
 	arms := []struct {
@@ -225,11 +225,12 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 		{"t1_hysteresis", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis}},
 		{"t2_consider", []string{ExperimentSolidBody, ExperimentSolidBodyFaceConsider}},
 		{"t1_t2", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFaceConsider}},
+		{"full_members", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers}},
 	}
 	var plain solidBodyArm
 	var table strings.Builder
-	fmt.Fprintf(&table, "\n  %-14s %6s %9s %6s  %-17s  %-17s  %s",
-		"arm", "fixes", "face runs", "held", "all p95/p99/max", "face p95/p99/max", "point face p99")
+	fmt.Fprintf(&table, "\n  %-14s %6s %9s %6s %8s  %-17s  %-17s  %s",
+		"arm", "fixes", "face runs", "held", "faceless", "all p95/p99/max", "face p95/p99/max", "point face p99")
 	for i, a := range arms {
 		arm := runSolidBodyArm(t, dir, a.name, a.experiments)
 		if i == 0 {
@@ -255,8 +256,8 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 			t.Fatal(err)
 		}
 		all, face := s.AnchorBodiesCentred, s.AnchorBodiesFaceStable
-		fmt.Fprintf(&table, "\n  %-14s %6d %9d %6d  %.3f/%.3f/%.3f  %.3f/%.3f/%.3f  %.3f",
-			a.name, s.NearEdgeFixes, s.FaceStableRuns, s.Fallbacks["face_hysteresis"],
+		fmt.Fprintf(&table, "\n  %-14s %6d %9d %6d %8d  %.3f/%.3f/%.3f  %.3f/%.3f/%.3f  %.3f",
+			a.name, s.NearEdgeFixes, s.FaceStableRuns, s.Fallbacks["face_hysteresis"], s.Fallbacks["no_face_reached_minimum_support"],
 			all.P95Metres, all.P99Metres, all.MaxMetres, face.P95Metres, face.P99Metres, face.MaxMetres,
 			s.AnchorPointsFaceStable.P99Metres)
 		if a.name == "t1_t2" {

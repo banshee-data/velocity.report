@@ -73,6 +73,9 @@ func (o DetectionObservation) Snapshot() Record { return clone(o.record) }
 func (o DetectionObservation) Profile() Profile { return ReducedClusterSample() }
 
 func clone(r Record) Record {
+	// Members are the tracker's per-frame geometry, never evidence: a record
+	// holds the capped sample only, so it neither keeps nor aliases them.
+	r.Cluster.Members = nil
 	r.Cluster.SamplePoints = slices.Clone(r.Cluster.SamplePoints)
 	r.Cluster.RetainedPoints = slices.Clone(r.Cluster.RetainedPoints)
 	r.Primitives.Planes = slices.Clone(r.Primitives.Planes)

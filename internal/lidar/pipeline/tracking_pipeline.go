@@ -239,6 +239,10 @@ type TrackingPipelineConfig struct {
 	// MaxSamplePoints opts an offline caller into bounded cluster evidence.
 	// Live callers leave this at zero until the target-device budget is measured.
 	MaxSamplePoints int
+	// KeepClusterMembers hands the tracker every cluster member for the frame
+	// (l4perception.DBSCANParams.KeepMembers), for the near-edge measurement.
+	// Nothing records them. Default false.
+	KeepClusterMembers bool
 
 	// MaxFrameRate caps the rate at which frames are fully processed through
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
@@ -426,6 +430,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
+	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
 
 	// One extraction per callback instance: the tap numbers the frames this
 	// callback sees. Nil when no ObservationFrameSink is configured.

@@ -56,9 +56,13 @@ func syntheticPassFrames(t *testing.T, pass l4perception.SyntheticPass) []synthe
 	return out
 }
 
+// syntheticOrigin declares the synthetic pass's sensor origin: the pass is
+// generated in the sensor frame.
+const syntheticOrigin = "test: synthetic pass in the sensor frame"
+
 func solidBodyConfig() TrackerConfig {
 	cfg := DefaultTrackerConfig()
-	cfg.SolidBody = SolidBodyOptions{Enabled: true}
+	cfg.SolidBody = SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}
 	return cfg
 }
 
@@ -132,9 +136,11 @@ func TestSolidBodyNeverFeedsBackIntoTheTrackedState(t *testing.T) {
 		base TrackerConfig
 		body SolidBodyOptions
 	}{
-		"shipped":    {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true}},
-		"continuity": {continuity, SolidBodyOptions{Enabled: true}},
-		"remedies":   {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, FaceHysteresis: true, FaceEntryConsider: true}},
+		"shipped":    {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
+		"continuity": {continuity, SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
+		"remedies": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin,
+			FaceHysteresis: true, FaceEntryConsider: true}},
+		"undeclared": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true}},
 	} {
 		base := c.base
 		withBody := base
@@ -790,5 +796,59 @@ func TestFaceEntryConsiderSoftensTheEntryUpdateAndNothingBefore(t *testing.T) {
 	}
 	if !(considered.Measurement.NIS < plain.Measurement.NIS) {
 		t.Fatalf("entry NIS %v with the consider term, %v without; want it smaller", considered.Measurement.NIS, plain.Measurement.NIS)
+	}
+}
+
+func TestSolidBodyMeasuresFromMembersWhenNoSampleIsRetained(t *testing.T) {
+	// The live pipeline retains no evidence sample. Handed the same points as
+	// members instead, the solid body must measure exactly as it does from
+	// the sample, and prefer the members when it has both.
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	membersOnly := make([]syntheticPassFrame, len(frames))
+	both := make([]syntheticPassFrame, len(frames))
+	for i, f := range frames {
+		membersOnly[i], both[i] = f, f
+		membersOnly[i].clusters = make([]WorldCluster, len(f.clusters))
+		both[i].clusters = make([]WorldCluster, len(f.clusters))
+		for c, cl := range f.clusters {
+			m := cl
+			m.Members, m.RetainedPoints = cl.RetainedPoints, nil
+			membersOnly[i].clusters[c] = m
+			b := cl
+			b.Members = cl.RetainedPoints
+			b.RetainedPoints = cl.RetainedPoints[:1]
+			both[i].clusters[c] = b
+		}
+	}
+	_, _, sample := firstFix(t, solidBodyConfig(), frames)
+	_, _, members := firstFix(t, solidBodyConfig(), membersOnly)
+	_, _, preferred := firstFix(t, solidBodyConfig(), both)
+	if !reflect.DeepEqual(sample, members) {
+		t.Fatal("the solid body measured differently from the same points handed over as members")
+	}
+	if !reflect.DeepEqual(sample, preferred) {
+		t.Fatal("with members and a one-point sample the solid body did not measure from the members")
+	}
+}
+
+func TestSolidBodyWithoutADeclaredOriginMakesNoFixAndSaysWhy(t *testing.T) {
+	// (0, 0) is where the synthetic sensor is, but nothing said so: the
+	// solid body must stay on the medoid and name the missing declaration on
+	// every row, rather than assume the zero value is the sensor.
+	cfg := solidBodyConfig()
+	cfg.SolidBody.OriginSource = ""
+	tracker := NewTracker(cfg)
+	for i, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+		tracker.Update(f.clusters, f.at)
+		r, _ := mainTrack(t, tracker).SolidBody()
+		if i == 0 {
+			continue // the seed row
+		}
+		if r.Measurement.Source == MeasurementNearEdgeCandidateV1 || r.Estimate.Reference != ReferenceClusterMedoid {
+			t.Fatalf("frame %d: near-edge fix or body-centre reference without a declared origin: %+v", i, r.Measurement)
+		}
+		if r.Measurement.FallbackReason != "missing_calibrated_sensor_origin" && r.Measurement.FallbackReason != "no_association" {
+			t.Fatalf("frame %d: fallback %q, want missing_calibrated_sensor_origin", i, r.Measurement.FallbackReason)
+		}
 	}
 }

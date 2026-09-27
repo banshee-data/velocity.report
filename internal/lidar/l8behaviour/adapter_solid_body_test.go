@@ -23,7 +23,7 @@ type passReading struct {
 func synthesisedPassReadings(t *testing.T) []passReading {
 	t.Helper()
 	cfg := l5tracks.DefaultTrackerConfig()
-	cfg.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
+	cfg.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: "test: synthetic pass in the sensor frame"}
 	tracker := l5tracks.NewTracker(cfg)
 	params := l4perception.DefaultDBSCANParams()
 	params.Eps, params.MinPts, params.MaxSamplePoints = 0.6, 5, 512

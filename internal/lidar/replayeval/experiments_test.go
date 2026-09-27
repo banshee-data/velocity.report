@@ -73,7 +73,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
-		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis}
+		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis,
+		ExperimentSolidBodyFullMembers}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -107,9 +108,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
 		},
-		// The replay tracks in the sensor frame, so the origin is the sensor.
+		// The replay tracks in the sensor frame, so the origin is the
+		// sensor, derived from the identity tracking transform.
 		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {
-			c.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
+			c.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
 		},
 	}
 	for name, set := range cases {
@@ -130,7 +132,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyFaceConsider:   func(o *l5tracks.SolidBodyOptions) { o.FaceEntryConsider = true },
 	} {
 		want := shipped
-		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
+		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
 		set(&want.SolidBody)
 		got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, name}, nil)
 		if err != nil {
@@ -142,6 +144,18 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		if _, err := trackerConfigFor(l5, "", []string{name}, nil); err == nil {
 			t.Errorf("%s was accepted without %s", name, ExperimentSolidBody)
 		}
+	}
+	// Full members change what L4 hands over, not the tracker's options, and
+	// are refused without a solid body to read them.
+	withBody, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers}, nil); err != nil || got != withBody {
+		t.Errorf("%s changed the tracker configuration (%v)", ExperimentSolidBodyFullMembers, err)
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyFullMembers}, nil); err == nil {
+		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
 	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {

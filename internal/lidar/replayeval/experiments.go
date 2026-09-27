@@ -87,6 +87,11 @@ const (
 	// so a remedy can never run as an arm that has no solid body to change.
 	ExperimentSolidBodyFaceHysteresis = "solid_body_face_hysteresis"
 	ExperimentSolidBodyFaceConsider   = "solid_body_face_consider"
+	// ExperimentSolidBodyFullMembers hands the tracker every cluster member
+	// for the frame (pipeline KeepClusterMembers), so the solid body measures
+	// faces from the members rather than the retained evidence sample. It
+	// qualifies solid_body like the remedies, and changes no tracked decision.
+	ExperimentSolidBodyFullMembers = "solid_body_full_members"
 )
 
 var knownExperiments = map[string]bool{
@@ -108,6 +113,7 @@ var knownExperiments = map[string]bool{
 
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
+	ExperimentSolidBodyFullMembers:    true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.
