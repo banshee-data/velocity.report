@@ -254,14 +254,36 @@ together than the believed extent are not treated as ambiguous.
 Occlusion is explained from foreground clusters only. A parked vehicle absorbed into the
 background, a building or a pole produces no cluster, so an object behind one reads as
 `missed_unknown`. The sensor origin (`SensorX`, `SensorY`) is zero while the pipeline runs in
-sensor coordinates with a nil pose; a site pose must set it. `SensorCoverage` is unset by default,
-so `out_of_fov` is never claimed until a site configures it.
+sensor coordinates with a nil pose; a site pose must set it. `SensorCoverage`'s zero value covers
+everything, so `out_of_fov` is never claimed until coverage is declared.
+
+Replay therefore refuses `coast_support`, `class_coast_bounds` and `occlusion_continuity` without
+a declared coverage (#611), and runs them with one. A declaration
+([`ContinuityCoverage`](../../../internal/lidar/replayeval/coverage.go)) names its source and gives
+the sensor origin, a range band with a positive maximum, and an azimuth sector (180 for the full
+circle). It is folded into the parameter hash when applied, and the replay manifest records it:
+
+```json
+{
+  "source": "measured: kirk0 online track-range envelope, max 91.7 m",
+  "sensor_x_m": 0,
+  "sensor_y_m": 0,
+  "min_range_m": 0,
+  "max_range_m": 92,
+  "azimuth_centre_deg": 0,
+  "azimuth_half_width_deg": 180
+}
+```
+
+`lidar-refinement-eval -continuity-coverage FILE` takes one declaration;
+`lidar-state-estimation-baseline -continuity-coverage FILE` takes an object from case ID to
+declaration, and a case without an entry is refused if its experiments need one.
 
 ### Synthetic evidence
 
 [continuity_scenario_test.go](../../../internal/lidar/l5tracks/continuity_scenario_test.go)
 generates scenes by ray geometry with known truth: a sensor at the origin, the road user in a lane
-12 m out, and a stationary occluder 6 m out sized to hide it. Seven scenes for each of a car
+12 m out, and a stationary occluder 6 m out sized to hide it. Eight scenes for each of a car
 (10 m/s), cyclist (5 m/s) and pedestrian (1.4 m/s), under `DefaultOcclusionContinuity` with a
 correct L6. Each asserts that support agrees with why the generator produced no cluster (an
 occlusion is never claimed where there was none, and a real one is recognised on at least 80 % of
@@ -279,6 +301,7 @@ tracker's failures.
 | Re-entry              | Expires `out_of_fov` within the unexplained bound; re-enters as a new identity               | New identity                                                           |
 | Distractor            | Identity kept; never mixed with the distractor                                               | Car and pedestrian handed to the distractor's track                    |
 | Departure             | Expires `missed_unknown` within the unexplained bound                                        | Expires by misses                                                      |
+| Static occluder       | The occluder is background and produces no cluster: every hidden instant is `missed_unknown` | Not run                                                                |
 
 An unclassified pedestrian behind the same occluder is let go at `unknown`'s two seconds and seen
 again under a new identity, where a classified one is held. The pedestrian ellipses are loose
@@ -287,11 +310,18 @@ the gate for that.
 
 ### Replay evidence on kirk0
 
-These are the historical #603 measurements, taken before #600's exact-solver rebase. Since #611,
-replay refuses `coast_support`, `class_coast_bounds` and `occlusion_continuity` until explicit
-sensor coverage is wired in. The old PCAP success-path test now fails with hydrated kirk0; see
-the [September 26 review, R3](../operations/0.5.2-sprint-review.md).
-Do not treat the following table as current accepted settings.
+The table below holds the historical #603 measurements, taken before #600's exact-solver rebase
+and before the coverage declaration existed; do not treat it as current accepted settings.
+
+On the current solver, the in-repo smoke run
+([replay_continuity_pcap_test.go](../../../internal/lidar/replayeval/replay_continuity_pcap_test.go))
+replays kirk0's short moving window under a declared full circle to the measured 92 m track
+envelope. `coast_support` splits the default's 1,266 coasted instants into 567
+`occluded_inferred`, 615 `missed_unknown` and 84 `out_of_fov`, with the baseline and every frame's
+decisions byte-identical; `occlusion_continuity` ends no track by miss count. A missing or
+unbounded declaration is refused before any replay. That establishes the input path, not the
+values: the [September 26 review, R3](../operations/0.5.2-sprint-review.md) recorded the refusal
+this resolves.
 
 The whole of kirk0 after a 20 s warm-up (631 recorded frames), each arm the default replay with
 experiments named. Label-free: `ContinuityStats` over the scoring window, and the recording's
@@ -337,10 +367,9 @@ go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR
 ```
 
 Compare each case's `continuity` in `phase0-summary.json`; `reacquisition_guard` and
-`capture_gap_predict` can also be evaluated separately. Resume the three coverage-dependent arms
-only after a calibrated coverage input and corresponding success/refusal tests exist. Judge
-identity against held-out labels before selecting any value. Do not remove #611's refusal merely
-to make `TestOcclusionContinuityExperimentsOnKirk0` green.
+`capture_gap_predict` can also be evaluated separately. The three coverage-dependent arms need a
+declaration per case, from a site survey or a measured detection envelope, with its source
+stated. Judge identity against held-out labels before selecting any value.
 
 ## Measurement time versus frame time (Q3)
 
@@ -400,7 +429,7 @@ is an open question for L7; see
 
 | Item                                                                                                                                                         | Owner                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Supply calibrated coverage/origin to replay, repair the coverage-dependent PCAP test, then choose continuity values against held-out scenes                  | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Declare coverage for each corpus site, then choose continuity values against held-out scenes                                                                 | State-estimation plan, Sprint 0.5.2.2 continuity work |
 | Explain occlusion by static structure from the L3 background range at the predicted azimuth                                                                  | State-estimation plan, Sprint 0.5.2.2 continuity work |
 | Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                                  | Visualiser trails plan; state-estimation plan         |
 | Answer Q3 on the corpus with `-experiment measurement_time`                                                                                                  | State-estimation plan, question Q3                    |
