@@ -1202,7 +1202,8 @@ verdict language, and hold every stated scenario value to the printed one.
 
 **Status (sprint 0.5.2.4).** Stage 2 is delivered;
 `velocity report headway --db <evidence.db> --source <id> [--stage final|fixed_lag|online]` runs
-it (see the [provisional field run](../lidar/operations/headway-report-oracle.md#provisional-field-run)).
+it, and `--solid-bodies` reads the solid bodies instead of the point estimates (see the
+[provisional field run](../lidar/operations/headway-report-oracle.md#provisional-field-run)).
 One run selects exactly one version of the persisted estimates at the requested stage, builds
 trajectories from its rows, runs `AnalyseFollowing` under the scenarios' uncalibrated bounds,
 stores every encounter write-once through the interaction store, and renders the same analysis
@@ -1216,16 +1217,19 @@ surface audit, which renamed the spatial gap series from the alias `gap` to `spa
 
 A persisted estimate carries pose, velocity and covariance and nothing of the solid body, so its
 sample has no heading, extent or class, and follows the reference of the geometry that entered the
-filter. On kirk0 under the production `medoid_v0` model the pose is a cluster medoid, not a place on
-the body: none of 60 follower paths is fitted and there is no encounter. Under the `obb_centre_v1`
-candidate, 13 to 16 of 62 paths are fitted and 4 to 6 encounters are found at each stage, and
-none of their time is valid: all 63 evaluated instants are `class_not_supported` and
-`orientation_unresolved`. That is the missing evidence this stage exists to expose. Stage 3
-remains, and a field value needs class, heading and extent beliefs persisted with each estimate
-before it. Those beliefs now exist beside each online estimate when a replay runs
-`-experiment solid_body` (`lidar_track_solid_bodies`, migration 000052), and
-`SampleFromSolidBodyReading` builds a sample from one; the field run does not read them yet, and
-the refined stages have no solid body.
+filter: a cluster medoid under the production `medoid_v0` model and the centre of the visible box
+(`visible_obb_centre`) under the `obb_centre_v1` candidate. Neither is a place on the body at any
+stage, so on kirk0 no follower path is fitted from point estimates and there is no encounter.
+Before #618 the OBB centre was read as the body centre, and 13 to 16 of 62 paths fitted with none
+of their time valid.
+
+With `--solid-bodies` the run reads `lidar_track_solid_bodies` (migration 000052, with support
+detail from 000053), which a replay under `-experiment solid_body` files beside each online
+estimate: a body-centre reference after a near-edge fix, heading, extents, class and support. On
+kirk0 7 of 60 follower paths fit and 3 encounters are found, 2.6 s accounted and none valid. Only
+3 of 60 tracks end classed as rigid vehicles, and a fifth of samples are on the body centre, so
+class evidence and near-edge coverage are what stand between this and a field value. Stage 3
+remains, and the refined stages have no solid body.
 
 The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
 existing class evidence clears the declared applicability gate. It does not wait for the broader

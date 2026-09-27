@@ -85,7 +85,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	shipped := l5tracks.TrackerConfigFromTuning(l5)
-	got, err := trackerConfigFor(l5, "", nil)
+	got, err := trackerConfigFor(l5, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	for name, set := range cases {
 		want := shipped
 		set(&want)
-		got, err := trackerConfigFor(l5, "", []string{name})
+		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -125,7 +125,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
 	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {
-		got, err := trackerConfigFor(l5, "", []string{name})
+		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -133,7 +133,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 			t.Errorf("%s changed the tracker configuration", name)
 		}
 	}
-	got, err = trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil)
+	got, err = trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,16 +142,16 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	}
 	// Absence-explaining continuity experiments must not run until replayeval
 	// can supply explicit sensor coverage.
-	if _, err := trackerConfigFor(l5, "", []string{ExperimentCoastSupport}); err == nil {
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentCoastSupport}, nil); err == nil {
 		t.Fatal("coast_support was accepted without explicit coverage")
 	}
-	if _, err := trackerConfigFor(l5, "", []string{ExperimentClassCoastBounds}); err == nil {
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentClassCoastBounds}, nil); err == nil {
 		t.Fatal("class_coast_bounds was accepted without explicit coverage")
 	}
-	if _, err := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}); err == nil {
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}, nil); err == nil {
 		t.Fatal("occlusion_continuity was accepted without explicit coverage")
 	}
-	timeOnly, err := trackerConfigFor(l5, "", []string{ExperimentCoastTimeInflation, ExperimentReacquisitionGuard})
+	timeOnly, err := trackerConfigFor(l5, "", []string{ExperimentCoastTimeInflation, ExperimentReacquisitionGuard}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

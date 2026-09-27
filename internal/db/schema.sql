@@ -580,6 +580,9 @@
         , nis REAL NOT NULL
         , fallback_reason TEXT NOT NULL
         , inserted_at_ns INTEGER NOT NULL
+        , support_instant TEXT NOT NULL DEFAULT ''
+        , support_fragmented INTEGER NOT NULL DEFAULT 0
+        , support_truncated INTEGER NOT NULL DEFAULT 0
         , UNIQUE (
           track_id
         , estimator_id

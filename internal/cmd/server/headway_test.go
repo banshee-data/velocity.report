@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
@@ -38,6 +39,7 @@ func TestRunHeadwayRejectsBadArguments(t *testing.T) {
 		{"--bogus"},
 		{"--oracle", "--source", "source/v1/x"},
 		{"--oracle", "--param-hash", "sha256:x"},
+		{"--oracle", "--solid-bodies"},
 		{"--oracle", "--stage", "online"},
 		{"--oracle", "--stage", "final"},
 	} {
@@ -107,7 +109,9 @@ func TestRunHeadwayOracleWritesTheReport(t *testing.T) {
 const headwayTestSource = "source/v1/cafe"
 
 // seedHeadwayEvidence writes the steady-approach scenario's poses as online
-// estimates in a new evidence database, each linked to an observation row.
+// estimates in a new evidence database, each linked to an observation row,
+// and its bodies beside them as online solid bodies: centre-referenced,
+// with the fixture's observed heading, accumulated extents and class.
 func seedHeadwayEvidence(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "evidence.db")
@@ -140,6 +144,30 @@ func seedHeadwayEvidence(t *testing.T) string {
 			}, sqlite.TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}); err != nil {
 				t.Fatal(err)
 			}
+			extent := func(e l8behaviour.ExtentBelief) l5tracks.DimensionBelief {
+				return l5tracks.DimensionBelief{Metres: float32(e.Metres), SigmaMetres: float32(e.SigmaMetres),
+					AdmissibleFrames: e.AdmissibleFrames, Provenance: l5tracks.ProvenanceAccumulated}
+			}
+			if err := sqlite.InsertSolidBody(database, sqlite.TrackSolidBody{
+				EstimateID: "solid_body/" + id, TrackID: tr.Passage.TrackID, ObservationID: obs, SourceID: headwayTestSource,
+				CalibrationID: "calibration/test", FrameUnixNanos: s.CaptureUnixNanos, MeasurementUnixNanos: s.CaptureUnixNanos,
+				EstimatorID: "cv_kf_v1", ObservationModelID: "near_edge_candidate_v1", ParamHash: "sha256:online", Stage: "online",
+				Reading: l5tracks.SolidBodyReading{
+					Estimate: l5tracks.SolidBodyEstimate{
+						StateModel: l5tracks.StateModelCVCartesianV1, Reference: l5tracks.ReferenceBodyCentre,
+						X: float32(s.X), Y: float32(s.Y), PositionCovariance: [4]float32{cov[0], cov[1], cov[4], cov[5]},
+						Orientation: l5tracks.OrientationBelief{PsiRad: float32(s.Heading.Rad), Provenance: l5tracks.ProvenanceObserved},
+						Length:      extent(s.Length), Width: extent(s.Width),
+						Motion:     l5tracks.MotionClassBelief{Class: l5tracks.MotionRigidVehicle, Posterior: 0.9},
+						Estimation: l5tracks.EstimationEstablished, Stage: l5tracks.StageLive,
+						LastObservedUnixNanos: s.CaptureUnixNanos,
+						Support:               l5tracks.SupportState{PointCount: 40, Instant: l5tracks.SupportObserved},
+					},
+					VX: float32(s.VX), VY: float32(s.VY), Covariance: cov,
+				},
+			}); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	return path
@@ -163,14 +191,29 @@ func TestRunHeadwayFieldWritesTheReport(t *testing.T) {
 	evidence := seedHeadwayEvidence(t)
 	out := t.TempDir()
 	var stdout, stderr bytes.Buffer
-	args := []string{"--db", evidence, "--source", headwayTestSource, "--stage", "online", "--output", out}
+
+	// The point estimates refer to the visible box, not the body: no path,
+	// no encounter, and still a report.
+	estimates := []string{"--db", evidence, "--source", headwayTestSource, "--stage", "online", "--output", t.TempDir()}
+	if code := runHeadway(estimates, &stdout, &stderr); code != 0 {
+		t.Fatalf("estimates: exit %d, stderr %q", code, stderr.String())
+	}
+	for _, want := range []string{"Estimates: online cv_kf_v1, obb_centre_v1, sha256:online", "refused weak_support: 2",
+		"Encounters: 0 (0 written, 0 already stored)"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("estimates stdout lacks %q:\n%s", want, stdout.String())
+		}
+	}
+
+	stdout.Reset()
+	args := []string{"--db", evidence, "--source", headwayTestSource, "--solid-bodies", "--stage", "online", "--output", out}
 	if code := runHeadway(args, &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d, stderr %q", code, stderr.String())
 	}
 	got := stdout.String()
 	for _, want := range []string{
-		"Status: PROVISIONAL\n", "Estimates: online cv_kf_v1, obb_centre_v1, sha256:online",
-		"Encounters: 1 (1 written, 0 already stored)", "suppressed class_not_supported",
+		"Status: PROVISIONAL\n", "Solid bodies: online cv_kf_v1, near_edge_candidate_v1, sha256:online (100 rows)",
+		"Encounters: 1 (1 written, 0 already stored)", "estimate_not_final: 50 (100%)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("stdout lacks %q:\n%s", want, got)
@@ -212,7 +255,9 @@ func TestRunHeadwayFieldRefuses(t *testing.T) {
 		want string
 	}{
 		{[]string{"--db", evidence}, 2, headwayTestSource + " (stages: [online])"},
+		{[]string{"--db", evidence, "--solid-bodies"}, 2, headwayTestSource + " (stages: [online])"},
 		{[]string{"--db", evidence, "--source", headwayTestSource}, 1, "holds no final estimates"},
+		{[]string{"--db", evidence, "--source", headwayTestSource, "--solid-bodies"}, 1, "holds no final solid bodies"},
 		{[]string{"--db", evidence, "--source", headwayTestSource, "--stage", "smoothed"}, 2, "want final, fixed_lag or online"},
 	} {
 		stdout.Reset()

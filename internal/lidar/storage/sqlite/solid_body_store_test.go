@@ -105,6 +105,45 @@ func TestSolidBodyRoundTripsThroughItsOwnTable(t *testing.T) {
 	}
 }
 
+// TestSolidBodySupportDetailRoundTrips: an explained absence, a fragmented
+// or truncated cluster, and a row written before the support token was
+// stored (migration 000053), which reads back unrecorded rather than
+// invented. An unknown token is refused.
+func TestSolidBodySupportDetailRoundTrips(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+
+	occluded := testSolidBody("observation/v1/a", 100)
+	occluded.Reading.Estimate.Support = l5tracks.SupportState{CoastedFrames: 2, Instant: l5tracks.SupportOccludedInferred}
+	split := testSolidBody("observation/v1/b", 200)
+	split.Reading.Estimate.Support = l5tracks.SupportState{PointCount: 30, Instant: l5tracks.SupportObserved,
+		Fragmented: true, Truncated: true}
+	legacy := testSolidBody("observation/v1/c", 300)
+	for _, sb := range []TrackSolidBody{occluded, split, legacy} {
+		if err := store.InsertSolidBody(sb); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := store.ListSolidBodiesBySource("source/v1/frame")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || !reflect.DeepEqual(got[0], occluded) || !reflect.DeepEqual(got[1], split) || !reflect.DeepEqual(got[2], legacy) {
+		t.Fatalf("support detail did not round-trip:\n got %+v", got)
+	}
+	if got[2].Reading.Estimate.Support.Instant != l5tracks.SupportUnrecorded {
+		t.Fatalf("an unrecorded token read back as %s", got[2].Reading.Estimate.Support.Instant)
+	}
+
+	if _, err := database.Exec(`UPDATE lidar_track_solid_bodies SET support_instant = 'seen' WHERE estimate_id = ?`, legacy.EstimateID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.ListSolidBodiesBySource("source/v1/frame"); err == nil || !strings.Contains(err.Error(), "support token") {
+		t.Fatalf("an unknown support token: error %v", err)
+	}
+}
+
 func TestSolidBodyStoreRefusesWhatItCouldNotReadBack(t *testing.T) {
 	database, cleanup := setupTestDB(t)
 	defer cleanup()

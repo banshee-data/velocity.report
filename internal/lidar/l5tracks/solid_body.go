@@ -377,6 +377,11 @@ const (
 	// ReferenceClusterMedoid is the initialisation seed: a point in the
 	// observed cluster, carrying the medoid's known bias toward the sensor.
 	ReferenceClusterMedoid
+	// ReferenceVisibleOBBCentre is the centre of the box around the returns
+	// this frame saw: a place on the body only when the whole body was in
+	// view, which nothing here establishes, so it moves with visibility and
+	// is not a physical reference.
+	ReferenceVisibleOBBCentre
 )
 
 // String names a reference point for diagnostics and persisted rows.
@@ -388,6 +393,8 @@ func (r ReferencePoint) String() string {
 		return "near_face_centre"
 	case ReferenceClusterMedoid:
 		return "cluster_medoid"
+	case ReferenceVisibleOBBCentre:
+		return "visible_obb_centre"
 	default:
 		return "unknown"
 	}
@@ -651,7 +658,7 @@ func ParseMotionClass(s string) (MotionClass, error) {
 // ParseReferencePoint reads a reference point written by
 // ReferencePoint.String.
 func ParseReferencePoint(s string) (ReferencePoint, error) {
-	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid} {
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid, ReferenceVisibleOBBCentre} {
 		if r.String() == s {
 			return r, nil
 		}

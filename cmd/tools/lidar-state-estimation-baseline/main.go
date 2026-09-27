@@ -122,6 +122,7 @@ func main() {
 		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
 		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
 		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
+		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
 	)
 	flag.Parse()
 	experiments, err := replayeval.ParseExperiments(*experimentFlag)
@@ -130,6 +131,12 @@ func main() {
 	}
 	if err := validateUncertaintyFlags(*uncertaintyCalFile, experiments); err != nil {
 		fatal(err)
+	}
+	var coverage map[string]replayeval.ContinuityCoverage
+	if *coverageFile != "" {
+		if coverage, err = replayeval.LoadContinuityCoverageSet(*coverageFile); err != nil {
+			fatal(err)
+		}
 	}
 	if *sourceManifestOnly && *sourceManifestPath == "" {
 		fatal(fmt.Errorf("-source-manifest-only requires -source-manifest"))
@@ -230,6 +237,9 @@ func main() {
 			SurfaceGroundRegionMetres: *surfaceGroundRegion,
 			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
 			Experiments: experiments, UncertaintyReport: *uncertaintyReport, UncertaintyCalibrationFile: *uncertaintyCalFile,
+		}
+		if c, ok := coverage[selectedCase.ID]; ok {
+			first.ContinuityCoverage = &c
 		}
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))

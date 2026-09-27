@@ -2517,7 +2517,10 @@ moves, only when the believed axis lies within ten degrees of its course. Migrat
 `state_model` to `lidar_track_estimates` and the `lidar_track_solid_bodies` table beside it; the
 pipeline files one solid body per point estimate, offline and through the live sink, and the
 per-frame evaluator scores solid-body estimate versions. The lossless-batch evidence oracle does
-not cover the new table yet.
+not cover the new table yet. Migration 000053 adds each row's support token and fragmented and
+truncated flags, and the provisional headway run reads the table with `--solid-bodies` (#618).
+A tracked position without the solid body now names what entered the filter, `cluster_medoid` or
+`visible_obb_centre`, and is never labelled the body centre.
 
 On the synthetic pass the settled lateral error is 0.032 m against the medoid's 0.604 m. On kirk0,
 label-free, 1,952 solid bodies are filed beside 1,952 point estimates, 826 of them from a near-edge
@@ -3005,9 +3008,11 @@ architecture; it does not relitigate findings.
       [gap analysis](../../data/maths/paper-implementation-gap-analysis.md#computed-s3)
 - [ ] Add replay experiments for the identity options and compare them, with a measured
       extent-cost weight, against held-out identity switches and fragmentation
-- [ ] Supply explicit sensor coverage/origin to replay so `coast_support`, `class_coast_bounds`
-      and `occlusion_continuity` can run: #611 refuses them until that input exists, and the kirk0
-      continuity smoke run now asserts the refusal (#614)
+- [x] Declared sensor coverage/origin for replay (S0): `ContinuityCoverage` unlocks
+      `coast_support`, `class_coast_bounds` and `occlusion_continuity`, which stay refused without
+      a valid declaration; kirk0 runs them under a measured envelope, and a static-occluder scene
+      joins the synthetic set. See [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [ ] Declare coverage for each corpus site, from a survey or a measured detection envelope
 - [ ] Choose the continuity values (class coast bounds and rates, `MaxCoastSecs*`) and test
       `occlusion_continuity` and `capture_gap_predict` against held-out occlusion and
       reacquisition scenes on the S2 corpus before enabling any of them

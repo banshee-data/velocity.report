@@ -26,10 +26,10 @@ const kirk0 = "../../../lidar/perf/pcap/kirk0.pcapng"
 // replayKirk0 replays kirk0 into a new evidence database: a settled
 // background from the first 20 s, then the remaining 63 s with its
 // immutable observations and online estimates, and the fixed_lag_rts
-// experiment's refined fixed_lag and final rows beside them. No points are
-// recorded and each observation keeps 16 sample points, which keeps the
-// replay's memory small.
-func replayKirk0(t *testing.T, mode l5tracks.MeasurementSource) (sqlite.DBClient, string) {
+// experiment's refined fixed_lag and final rows beside them, with any further
+// experiments named. No points are recorded and each observation keeps 16
+// sample points, which keeps the replay's memory small.
+func replayKirk0(t *testing.T, mode l5tracks.MeasurementSource, experiments ...string) (sqlite.DBClient, string) {
 	t.Helper()
 	pcap, err := filepath.Abs(kirk0)
 	if err != nil {
@@ -47,7 +47,7 @@ func replayKirk0(t *testing.T, mode l5tracks.MeasurementSource) (sqlite.DBClient
 			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}},
 		ObservationMaxSamplePoints: 16,
 		MeasurementSourceMode:      mode,
-		Experiments:                []string{replayeval.ExperimentFixedLagRTS},
+		Experiments:                append([]string{replayeval.ExperimentFixedLagRTS}, experiments...),
 	}
 	result, err := replayeval.Run(cfg)
 	if err != nil {
@@ -134,13 +134,15 @@ func fieldReport(t *testing.T, database sqlite.DBClient, spec Spec) Result {
 	return res
 }
 
-// TestKirk0ProvisionalHeadway takes kirk0 through the whole slice twice.
-// Under the production measurement model the persisted pose is a cluster
-// medoid, not a place on the body, so no follower's path can be fitted and
-// there is no encounter at all. Under the OBB-centre candidate the paths
-// fit and pairs are found, and every instant is suppressed: a persisted row
-// carries no class, heading or extent. Both are results; the test pins what
-// must hold of any result and logs the figures.
+// TestKirk0ProvisionalHeadway takes kirk0 through the whole slice three
+// times. A persisted point estimate refers to the cluster medoid under the
+// production measurement model and to the centre of the visible box under
+// the OBB-centre candidate, at every stage; neither is a place on the body,
+// so no follower's path can be fitted and there is no encounter at all
+// (review R1). The solid bodies filed beside the point estimates carry a
+// body-centre reference after a near-edge fix, with heading, extents and
+// class, and are the input that can place an endpoint. Every outcome is a
+// result; the test pins what must hold of any result and logs the figures.
 func TestKirk0ProvisionalHeadway(t *testing.T) {
 	t.Run("medoid_v0", func(t *testing.T) {
 		database, source := replayKirk0(t, l5tracks.MeasurementMedoidV0)
@@ -157,23 +159,16 @@ func TestKirk0ProvisionalHeadway(t *testing.T) {
 		} {
 			t.Run(spec.Stage.String(), func(t *testing.T) {
 				res := fieldReport(t, database, spec)
-				s := res.Summary()
-				if s.PathsFitted == 0 {
-					t.Error("no follower path was fitted from body-centre rows")
-				}
-				if s.ValidNanos != 0 {
-					t.Errorf("%d ns of valid following time from rows with no class, heading or extent", s.ValidNanos)
-				}
-				if s.Encounters > 0 && s.InstantReasons[l8behaviour.ReasonOrientationUnresolved] != s.EvaluatedInstants {
-					t.Errorf("orientation_unresolved applied at %d of %d evaluated instants, want all",
-						s.InstantReasons[l8behaviour.ReasonOrientationUnresolved], s.EvaluatedInstants)
+				if s := res.Summary(); s.PathsFitted != 0 || s.Encounters != 0 || s.Tracks == 0 {
+					t.Errorf("visible-box-centre rows at %s: %d of %d paths fitted, %d encounters; want none",
+						spec.Stage, s.PathsFitted, s.Tracks, s.Encounters)
 				}
 			})
 		}
 		// Several fixed_lag horizons are stored; the run names one, and each
 		// named horizon is its own interaction version.
 		if _, err := Run(database, Spec{SourceID: source, Stage: l8behaviour.StageFixedLag}); err == nil ||
-			!strings.Contains(err.Error(), "fixed_lag estimate versions") {
+			!strings.Contains(err.Error(), "fixed_lag versions of estimates") {
 			t.Errorf("fixed_lag with several horizons: error %v", err)
 		}
 		versions, err := sqlite.NewStateEstimateStore(database).ListEstimateVersions()
@@ -192,6 +187,32 @@ func TestKirk0ProvisionalHeadway(t *testing.T) {
 		}
 		if horizons != len(replayeval.RefinementHorizons)-1 {
 			t.Errorf("%d fixed_lag versions stored, want every horizon but the track end", horizons)
+		}
+	})
+	t.Run("solid_body", func(t *testing.T) {
+		database, source := replayKirk0(t, "", replayeval.ExperimentSolidBody)
+		res := fieldReport(t, database, Spec{SourceID: source, Stage: l8behaviour.StageOnline, SolidBodies: true})
+		s := res.Summary()
+		if s.Tracks == 0 {
+			t.Fatal("no solid-body trajectories")
+		}
+		var samples, centred, acquired int
+		for _, tr := range res.Trajectories {
+			for _, sample := range tr.Samples {
+				samples++
+				if sample.Reference == l8behaviour.ReferenceBodyCentre {
+					centred++
+				}
+				if sample.AcquisitionUnixNanos > 0 {
+					acquired++
+				}
+			}
+		}
+		if centred == 0 || acquired != samples {
+			t.Errorf("%d of %d samples on the body centre, %d with an acquisition time", centred, samples, acquired)
+		}
+		if s.PathsFitted == 0 {
+			t.Error("no follower path was fitted from the body-centre solid bodies")
 		}
 	})
 }

@@ -187,6 +187,11 @@ type Config struct {
 	// and recorded in the run metadata. Empty leaves the replay exactly as
 	// shipped, hash included.
 	Experiments []string
+	// ContinuityCoverage declares the sensor origin and where it can observe.
+	// The continuity experiments that classify an absence (coast_support,
+	// class_coast_bounds, occlusion_continuity) are refused without it, and
+	// it is folded into the parameter hash only when one of them runs.
+	ContinuityCoverage *ContinuityCoverage
 	// UncertaintyReport writes uncertainty_calibration.json beside the
 	// baseline: pre-gate NIS over the scoring window, G-UNC-1's label-free
 	// checks, the gate-rejection outcomes and a per-stratum fit of the
@@ -580,6 +585,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	} else if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("inspect output directory: %w", err)
 	}
+	if cfg.ContinuityCoverage != nil {
+		if err := cfg.ContinuityCoverage.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.SensorID == "" {
 		cfg.SensorID = "pcap-replay"
 	}
@@ -654,7 +664,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	// --- L5, L6 ---
-	trackerCfg, err := trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments)
+	trackerCfg, err := trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments, cfg.ContinuityCoverage)
 	if err != nil {
 		return nil, err
 	}
@@ -692,6 +702,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// by its content address.
 	hashInput := append(append([]byte{}, paramsJSON...), experimentsHashSuffix(experiments)...)
 	hashInput = append(hashInput, calibrationHashSuffix(noiseCalibration)...)
+	coverageApplied := cfg.ContinuityCoverage != nil && needsCoverage(experiments)
+	hashInput = append(hashInput, coverageHashSuffix(cfg.ContinuityCoverage, coverageApplied)...)
 	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(hashInput))
 
 	rec.SetDeterministicConfig(
@@ -1020,6 +1032,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if noiseCalibration != nil {
 		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
 	}
+	if c := cfg.ContinuityCoverage; c != nil {
+		manifest["continuity_coverage"] = c
+		manifest["continuity_coverage_id"] = c.ID()
+		manifest["continuity_coverage_applied"] = coverageApplied
+	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
 		manifest["observation_calibration_id"] = observationCalibrationID
@@ -1114,7 +1131,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 // trackerConfigFor is the replay's tracker configuration: the tuning file's
 // L5 block, the requested position model, and each tracker experiment
 // switched on by name. Everything else stays at the shipped default.
-func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string) (l5tracks.TrackerConfig, error) {
+func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, experiments []string, coverage *ContinuityCoverage) (l5tracks.TrackerConfig, error) {
 	trackerConfig := l5tracks.TrackerConfigFromTuning(l5)
 	trackerConfig.MeasurementSourceMode = mode
 	trackerConfig.AdaptiveMeasurementNoise = hasExperiment(experiments, ExperimentAdaptiveUncertainty)
@@ -1123,7 +1140,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
-	oc, err := occlusionContinuityFor(experiments)
+	oc, err := occlusionContinuityFor(experiments, coverage)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
@@ -1138,8 +1155,10 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 
 // occlusionContinuityFor switches on the continuity options the experiments
 // name, with l5tracks' starting values. With none named it is the zero
-// value, so the tracker configuration is exactly the shipped one.
-func occlusionContinuityFor(experiments []string) (l5tracks.OcclusionContinuityConfig, error) {
+// value, so the tracker configuration is exactly the shipped one. The
+// options that classify an absence, or bound a coast by one, run only with a
+// valid coverage declaration, which sets the sensor origin and coverage.
+func occlusionContinuityFor(experiments []string, coverage *ContinuityCoverage) (l5tracks.OcclusionContinuityConfig, error) {
 	all := hasExperiment(experiments, ExperimentOcclusionContinuity)
 	oc := l5tracks.DefaultOcclusionContinuity()
 	oc.ExplainAbsence = all || hasExperiment(experiments, ExperimentCoastSupport)
@@ -1150,12 +1169,26 @@ func occlusionContinuityFor(experiments []string) (l5tracks.OcclusionContinuityC
 		return l5tracks.OcclusionContinuityConfig{}, nil
 	}
 	if oc.ExplainAbsence || oc.ClassCoastBounds {
-		return l5tracks.OcclusionContinuityConfig{}, fmt.Errorf(
-			"replay experiments %q require explicit sensor coverage before absence classification or class-bounded coasting can run",
-			experiments,
-		)
+		if coverage == nil {
+			return l5tracks.OcclusionContinuityConfig{}, fmt.Errorf(
+				"replay experiments %q require explicit sensor coverage before absence classification or class-bounded coasting can run: declare it with --continuity-coverage",
+				experiments,
+			)
+		}
+		if err := coverage.Validate(); err != nil {
+			return l5tracks.OcclusionContinuityConfig{}, err
+		}
+		coverage.apply(&oc)
 	}
 	return oc, nil
+}
+
+// needsCoverage reports whether the experiments classify an absence or bound
+// a coast by one, which is what a coverage declaration is for.
+func needsCoverage(experiments []string) bool {
+	return hasExperiment(experiments, ExperimentOcclusionContinuity) ||
+		hasExperiment(experiments, ExperimentCoastSupport) ||
+		hasExperiment(experiments, ExperimentClassCoastBounds)
 }
 
 func fileSHA256(path string) (string, error) {

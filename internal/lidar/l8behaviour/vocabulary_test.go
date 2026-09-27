@@ -305,7 +305,7 @@ func TestSmallVocabularyPredicates(t *testing.T) {
 		}
 	}
 	for _, r := range ReferencePoints() {
-		if r.IsPhysical() == (r == ReferenceClusterMedoid) {
+		if r.IsPhysical() != (r == ReferenceBodyCentre || r == ReferenceNearFaceCentre) {
 			t.Errorf("%s physical = %v", r, r.IsPhysical())
 		}
 	}
