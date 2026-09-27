@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -72,10 +73,19 @@ func (c ContinuityCoverage) Validate() error {
 	return nil
 }
 
-// ID is the declaration's content address, stable across field order.
+// ID is the declaration's content address: a hash of every field in a fixed
+// order, each number in its shortest exact form. It has no failure path, so
+// even a declaration Validate refuses, with a NaN or infinite bound, has an
+// id of its own rather than sharing one with another.
 func (c ContinuityCoverage) ID() string {
-	b, _ := json.Marshal(c)
-	sum := sha256.Sum256(b)
+	number := func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) }
+	canonical := strings.Join([]string{
+		"source=" + strconv.Quote(c.Source),
+		"sensor_x_m=" + number(c.SensorXMetres), "sensor_y_m=" + number(c.SensorYMetres),
+		"min_range_m=" + number(c.MinRangeMetres), "max_range_m=" + number(c.MaxRangeMetres),
+		"azimuth_centre_deg=" + number(c.AzimuthCentreDeg), "azimuth_half_width_deg=" + number(c.AzimuthHalfWidthDeg),
+	}, "\n")
+	sum := sha256.Sum256([]byte(canonical))
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
@@ -91,6 +101,9 @@ func LoadContinuityCoverage(path string) (*ContinuityCoverage, error) {
 	var c ContinuityCoverage
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("parse continuity coverage %s: %w", path, err)
+	}
+	if dec.More() {
+		return nil, fmt.Errorf("parse continuity coverage %s: trailing data after the declaration", path)
 	}
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -131,6 +144,9 @@ func LoadContinuityCoverageSet(path string) (map[string]ContinuityCoverage, erro
 	var set map[string]ContinuityCoverage
 	if err := dec.Decode(&set); err != nil {
 		return nil, fmt.Errorf("parse continuity coverage set %s: %w", path, err)
+	}
+	if dec.More() {
+		return nil, fmt.Errorf("parse continuity coverage set %s: trailing data after the set", path)
 	}
 	if len(set) == 0 {
 		return nil, fmt.Errorf("continuity coverage set %s declares no case", path)

@@ -68,6 +68,12 @@ func TestLoadContinuityCoverage(t *testing.T) {
 	if _, err := LoadContinuityCoverage(filepath.Join(dir, "missing.json")); err == nil {
 		t.Fatal("a missing file was accepted")
 	}
+	// A second object is not a second chance to read the first.
+	if _, err := LoadContinuityCoverage(write("twice.json",
+		`{"source": "survey", "max_range_m": 50, "azimuth_half_width_deg": 180} {"source": "other"}`)); err == nil ||
+		!strings.Contains(err.Error(), "trailing data") {
+		t.Fatalf("trailing data: err %v", err)
+	}
 }
 
 func TestContinuityCoverageIDIsContentAddressed(t *testing.T) {
@@ -78,6 +84,12 @@ func TestContinuityCoverageIDIsContentAddressed(t *testing.T) {
 	b.MaxRangeMetres = 61
 	if a.ID() == b.ID() {
 		t.Fatal("different declarations share an id")
+	}
+	// Declarations Validate refuses still have distinct ids.
+	nan, inf := testCoverage(), testCoverage()
+	nan.MaxRangeMetres, inf.MaxRangeMetres = float32(math.NaN()), float32(math.Inf(1))
+	if nan.ID() == inf.ID() || nan.ID() == a.ID() || nan.ID() != nan.ID() {
+		t.Fatalf("non-finite declarations: ids %s and %s", nan.ID(), inf.ID())
 	}
 }
 
@@ -154,6 +166,8 @@ func TestLoadContinuityCoverageSet(t *testing.T) {
 		"empty.json":   `{}`,
 		"invalid.json": `{"columbus-broadway": {"source": "survey", "azimuth_half_width_deg": 180}}`,
 		"typo.json":    `{"columbus-broadway": {"source": "survey", "max_range": 60, "azimuth_half_width_deg": 180}}`,
+		"twice.json": `{"columbus-broadway": {"source": "survey", "max_range_m": 60, "azimuth_half_width_deg": 180}}
+			{"marina-webster-beach": {"source": "survey"}}`,
 	} {
 		if _, err := LoadContinuityCoverageSet(write(name, body)); err == nil {
 			t.Errorf("%s was accepted", name)
