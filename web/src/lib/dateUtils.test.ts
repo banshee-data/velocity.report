@@ -1,4 +1,4 @@
-import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from './dateUtils';
+import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal, unixNanosToMillis } from './dateUtils';
 
 describe('isoDate', () => {
 	it('returns YYYY-MM-DD format', () => {
@@ -116,5 +116,39 @@ describe('isoStartOfDay / isoEndOfDay', () => {
 		expect(isoStartOfDay(dstDay, 'America/Los_Angeles')).toBe('2026-03-08T08:00:00.000Z');
 		// End of that day is -07:00 (PDT) after the 02:00 transition
 		expect(isoEndOfDay(dstDay, 'America/Los_Angeles')).toBe('2026-03-09T06:59:59.000Z');
+	});
+});
+
+describe('unixNanosToMillis', () => {
+	it('converts a Unix time in nanoseconds to milliseconds', () => {
+		expect(unixNanosToMillis('1788466680500000000')).toBe(1788466680500);
+		expect(unixNanosToMillis('0')).toBe(0);
+	});
+
+	it('agrees exactly with a timestamp the page read from JSON', () => {
+		// A page holds this time as a number, writes it into a link, and
+		// compares the link's value with bounds divided the same way. The two
+		// must be equal, or a time on the first or last frame is refused.
+		for (const digits of ['1788466680512345678', '1788466680000000129', '1788466759999999999']) {
+			const held: number = JSON.parse(`{"t":${digits}}`).t;
+			expect(unixNanosToMillis(String(held))).toBe(held / 1e6);
+			expect(unixNanosToMillis(digits)).toBe(held / 1e6);
+		}
+	});
+
+	it('keeps the order of two times a frame apart', () => {
+		const earlier = unixNanosToMillis('1788466680500000000');
+		const later = unixNanosToMillis('1788466680600000000');
+		expect(earlier).not.toBeNull();
+		expect(later).not.toBeNull();
+		expect((later as number) - (earlier as number)).toBe(100);
+	});
+
+	it('refuses anything that is not a plain run of digits', () => {
+		for (const raw of [null, undefined, '', ' ', 'abc', '-1', '1.5', '1e18', '0x10', '12 ']) {
+			expect(unixNanosToMillis(raw)).toBeNull();
+		}
+		// Twenty digits is past any Unix time this system will see.
+		expect(unixNanosToMillis('10000000000000000000')).toBeNull();
 	});
 });

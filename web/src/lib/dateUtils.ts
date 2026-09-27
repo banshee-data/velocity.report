@@ -106,3 +106,25 @@ export function isoStartOfDay(d: Date, tz: string): string {
 export function isoEndOfDay(d: Date, tz: string): string {
 	return zonedWallTimeToISO(d.getFullYear(), d.getMonth() + 1, d.getDate(), 23, 59, 59, tz);
 }
+
+/**
+ * Convert a decimal Unix-nanosecond string to milliseconds.
+ *
+ * A Unix time in nanoseconds is about 1.8e18, beyond the 2^53 a JavaScript
+ * number holds exactly, so the value is rounded to the nearest 256 ns. That is
+ * deliberate here: JSON.parse applied the same rounding to every timestamp the
+ * pages hold, so a time read back from a link compares equal to the time it
+ * was made from. Dividing the digits exactly would differ from those by a
+ * rounding step, and refuse a time that sits on the first or last frame.
+ *
+ * Anything that is not a plain run of digits is refused rather than read as
+ * zero: `Number(null)` and `Number('')` are both 0, which is a valid time and
+ * the wrong answer.
+ *
+ * @param raw - The nanosecond value as text, e.g. a URL query parameter
+ * @returns Milliseconds since the Unix epoch, or null if `raw` is not a time
+ */
+export function unixNanosToMillis(raw: string | null | undefined): number | null {
+	if (!raw || !/^\d{1,19}$/.test(raw)) return null;
+	return Number(raw) / 1e6;
+}
