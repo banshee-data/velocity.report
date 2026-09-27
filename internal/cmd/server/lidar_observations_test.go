@@ -37,7 +37,13 @@ func TestLiveObservationCaptureEndsAtTheFirstNonLiveFrame(t *testing.T) {
 	var replay atomic.Bool
 	var logged []string
 	logf := func(format string, args ...any) { logged = append(logged, format) }
-	setup, err := startLiveObservationCapture(root, "hesai-live", []byte(`{"version":2}`), liveObservationPolicy(lidarFrameChCapacity),
+	// The live policy's own declarations are checked below; its commit
+	// deadline, the provisional default, is not, and a slow commit on a
+	// loaded machine can exceed it. A generous one keeps the stall bound from
+	// failing the capture.
+	policy := liveObservationPolicy(lidarFrameChCapacity)
+	policy.CommitDeadline = time.Minute
+	setup, err := startLiveObservationCapture(root, "hesai-live", []byte(`{"version":2}`), policy,
 		func() bool { return !replay.Load() }, logf)
 	if err != nil {
 		t.Fatal(err)

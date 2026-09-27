@@ -186,9 +186,11 @@ not scheduled by then leaves the batch open, and an open batch is never committe
 ([VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md#capture-failure-and-explicit-gaps)).
 The test then fails naming that window rather than as a writer fault. It did not occur in
 2,000 runs under `-race` on a four-core machine at a load average near 10. Every other test in
-the package declares a one-minute deadline through the shared fixture, so scheduler or sync
-delay on a busy machine cannot fail a test through the stall bound. The shed test waits on the
-announced frontier, not on the 20 ms shed wait, before it admits the frame after a backlog.
+the package declares a one-minute deadline through the shared fixture, and so do the writers
+other packages' tests create (the pipeline tap, the legacy recorder, the CLI and `vrlog-check`
+fixtures, the live server capture and the kirk0 replays), so scheduler or sync delay on a busy
+machine cannot fail a test through the stall bound. The shed test waits on the announced
+frontier, not on the 20 ms shed wait, before it admits the frame after a backlog.
 
 On kirk0's first ten seconds (101 frames), one replay feeds three writers. A strict writer
 killed while publishing generation 40 recovers to exactly the tap's first 40 frames, bit for

@@ -254,7 +254,9 @@ func TestObservationCommitNeverWaitsForL5(t *testing.T) {
 		Extraction: vrlog.ExtractionIdentity{SourceID: "source/v1/tap-test", CalibrationID: calibrationID,
 			CoordinateFrame: "site/" + sensorID, ExtractorID: "l4.test/tap"},
 		Calibration: calibration,
-		Commit:      vrlog.CommitPolicy{MaxBatchAge: 5 * time.Millisecond},
+		// The stall bound is not what this test checks: a generous deadline
+		// keeps a slow commit on a loaded machine from failing the capture.
+		Commit: vrlog.CommitPolicy{MaxBatchAge: 5 * time.Millisecond, CommitDeadline: time.Minute},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -278,7 +280,9 @@ func TestObservationCommitNeverWaitsForL5(t *testing.T) {
 	if accepted == 0 {
 		t.Fatal("L5 ran before any frame was accepted")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// L5 stays blocked until released, so the wait can be as patient as the
+	// commit deadline: the test is that the commit lands, not how fast.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	f := writer.Frontier()
 	for f.Records < accepted {

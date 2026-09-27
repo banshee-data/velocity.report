@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
@@ -28,6 +29,9 @@ func writeObservationFixture(t *testing.T, dir string, frames int, reason string
 		Capture:     vrlog.CaptureIdentity{SensorID: "cli-test", SourceType: "synthetic"},
 		Extraction:  vrlog.ExtractionIdentity{SourceID: "source/v1/cli-test", CalibrationID: calibrationID, CoordinateFrame: "site/cli-test", ExtractorID: "l4.test/v1"},
 		Calibration: calibration,
+		// A slow commit on a loaded machine must not fail the fixture through
+		// the stall bound, which no test here checks.
+		Commit: vrlog.CommitPolicy{CommitDeadline: time.Minute},
 	})
 	if err != nil {
 		t.Fatal(err)

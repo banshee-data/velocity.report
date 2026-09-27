@@ -42,6 +42,9 @@ func kirk0Replay(pcap, out string, start, duration float64) replayeval.Config {
 		ReplayCaseID: "kirk0-codec",
 		ObservationCalibration: l4bobserve.Calibration{SensorID: "kirk0-codec", FromFrame: "sensor", ToFrame: "site",
 			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}},
+		// Group commit at the default batch age; the stall bound, which no
+		// test here checks, is the fixtures' generous one.
+		ObservationLogPolicy: vrlog.CommitPolicy{CommitDeadline: vrlog.FixtureCommitDeadline},
 	}
 }
 
@@ -217,7 +220,7 @@ func TestKirk0ObservationContainer(t *testing.T) {
 	// identity differ; the evidence does not.
 	rewrite := m
 	rewrite.Capture.UUID, rewrite.Capture.CreatedUnixNanos, rewrite.Limits = "", 0, vrlog.Limits{}
-	rewrite.Commit = vrlog.CommitPolicy{Strict: true}
+	rewrite.Commit = vrlog.CommitPolicy{Strict: true, CommitDeadline: vrlog.FixtureCommitDeadline}
 	var memBefore, memAfter runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&memBefore)
@@ -363,6 +366,11 @@ func TestKirk0ObservationContainer(t *testing.T) {
 // identity is a test label, not a replay's: the frames are what is compared.
 func durableWriter(t *testing.T, dir string, calibration l4bobserve.Calibration, policy vrlog.CommitPolicy) *vrlog.Writer {
 	t.Helper()
+	// A slow commit on a loaded machine must not fail a writer through the
+	// stall bound, which no test here checks.
+	if policy.CommitDeadline == 0 {
+		policy.CommitDeadline = vrlog.FixtureCommitDeadline
+	}
 	calibrationID, err := l4bobserve.CalibrationID(calibration)
 	if err != nil {
 		t.Fatal(err)
