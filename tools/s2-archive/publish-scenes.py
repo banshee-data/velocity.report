@@ -38,6 +38,9 @@ The environment the batch expects, in full:
     REPLAY_SETTLE=0 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
       python3 tools/s2-archive/publish-scenes.py
 
+  LIDAR_API_URL=http://localhost:8081/api/lidar
+      Optional: direct an isolated worktree run to its own LiDAR server.
+
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
 
@@ -77,13 +80,13 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-API = "http://localhost:8080/api/lidar"
+API = os.environ.get("LIDAR_API_URL", "http://localhost:8080/api/lidar").rstrip("/")
 PCAP_SUBDIR = os.environ.get("REPLAY_PCAP_SUBDIR", "s2")
 SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")
 SPEED_RATIO = float(os.environ.get("REPLAY_SPEED_RATIO", "0") or 0)
 SETTLE = os.environ.get("REPLAY_SETTLE", "1") not in ("0", "false", "False")
 SENSOR = "hesai-pandar40p"
-DB = os.path.join(REPO, "sensor_data.db")
+DB = os.environ.get("LIDAR_DB_PATH", os.path.join(REPO, "sensor_data.db"))
 SITE_INDEX = os.path.join(HERE, "site-index.json")
 # The server's safe directory for replay, and the published dataset root that
 # holds the trimmed per-site captures. The corpus has to sit under the safe
@@ -485,6 +488,10 @@ def scenes_from_archive(index, pcap_dir):
             ).total_seconds()
         except (IndexError, ValueError):
             offset = 0.0
+        duration = (
+            datetime.fromisoformat(entry["end"])
+            - datetime.fromisoformat(entry["start"])
+        ).total_seconds()
         files = [
             os.path.join(PCAP_SUBDIR, name) if PCAP_SUBDIR else name
             for name in captures
@@ -502,9 +509,9 @@ def scenes_from_archive(index, pcap_dir):
             {
                 "site": entry["id"],
                 "title": entry["where"] or entry["id"],
-                "minutes": entry["minutes"],
+                "minutes": duration / 60.0,
                 "files": files,
-                "duration": entry["minutes"] * 60,
+                "duration": duration,
                 "start_secs": max(offset, 0.0),
                 "source": "archive",
             }

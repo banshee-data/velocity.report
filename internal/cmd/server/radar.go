@@ -641,13 +641,10 @@ func Main(args []string) int {
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
-				if err := visualiserPublisher.Start(); err != nil {
+				if err := visualiserPublisher.StartWithService(visualiserServer); err != nil {
 					log.Fatalf("Could not start visualiser publisher: %v. Check the gRPC listen address is free and not already in use", err)
 				}
 				defer visualiserPublisher.Stop()
-
-				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
-				l9endpoints.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
 				frameAdapter = l9endpoints.NewFrameAdapter(lidarSensorID)
 

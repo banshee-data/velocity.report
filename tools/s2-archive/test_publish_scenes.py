@@ -32,6 +32,7 @@ def site(site_id, where="Somewhere", captures=("cap_20260901120000_00001.pcap",)
         "site": "s01",
         "where": where,
         "start": "2026-09-01T12:05:00-07:00",
+        "end": "2026-09-01T12:25:00-07:00",
         "minutes": 20.0,
         "captures": list(captures),
     }
@@ -196,6 +197,15 @@ class ScenesFromArchiveTests(unittest.TestCase):
         # The site starts at 12:05 and the capture at 12:00.
         self.assertEqual(scenes[0]["start_secs"], 300.0)
         self.assertEqual(scenes[0]["source"], "archive")
+
+    def test_exact_timestamps_win_over_rounded_index_minutes(self):
+        self.materialise("cap_20260901120000_00001.pcap")
+        entry = site("laguna-eddy")
+        entry["end"] = "2026-09-01T12:25:13.025964-07:00"
+        entry["minutes"] = 20.2
+        scenes, problems = publish_scenes.scenes_from_archive([entry], self.pcap_dir)
+        self.assertEqual(problems, [])
+        self.assertEqual(scenes[0]["duration"], 1213.025964)
 
     def test_an_unstamped_capture_starts_where_the_file_does(self):
         self.materialise("one-off.pcapng")

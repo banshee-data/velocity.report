@@ -14,6 +14,7 @@ everything else here produces or feeds it.
 | `site-index.json`     | The index. Generated — edit `map-marks.json` and rebuild instead.        |
 | `map-marks.json`      | Operator-named positions and optional orientation measurements.          |
 | `site-joins.json`     | Operator assertions that separated static fragments belong to one visit. |
+| `analysis-overrides/` | Checked-in reanalyses of archived capture spans.                         |
 | `build-site-index.py` | Stitches the segment analysis and attaches positions.                    |
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.              |
 | `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
@@ -32,8 +33,8 @@ map reading is known to be wrong, is positioned in
 segments. The multi-file CLI in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) documents how to run a continuous analysis:
 
 > Several `--pcap` flags analyse the captures as one continuous stream, which
-> keeps the background model settled across the file boundaries. Analysing each
-> file separately restarts that model and reports the settling as motion.
+> keeps one motion timeline across the file boundaries. The model refreshes
+> on capture time; separate runs still lose context at each file head.
 
 The archive's original analysis under `s2/analysis/` was run per file, so every
 five-minute boundary interrupts a site: 9/2 and 9/3 arrive as 17 and 19
@@ -51,6 +52,20 @@ continuous analysis used 0.5.1-pre32. Those historical `segments.json` files
 predate embedded build provenance, so the index builder supplies the two known
 versions according to the analysis population. New `pcap-split` output records
 `build_version` directly, and the index builder prefers that value.
+
+When captures are reanalysed, the compact segment report lives in
+`analysis-overrides/` and names every source capture it replaces. The index
+builder uses it in place of those preserved archive analyses. This leaves the
+original NAS results available for comparison and makes an index correction
+reproducible from the repository checkout. Each override records the source
+revision of the classifier that produced it.
+
+The Franklin–McAllister reanalysis covers captures `00008`–`00012`. It finds
+one static period from 10:35:52.823 to 10:56:05.849 PDT (20 minutes 13 seconds).
+The neighbouring captures `00006`–`00007` and the rest of `00012` confirm a
+drive, stop, drive sequence. The original per-file reports incorrectly ended
+the stop during `00010`; the old continuous classifier missed it entirely
+because its locked drive baseline was never refreshed.
 
 ## Which captures a site spans
 
@@ -206,7 +221,7 @@ the batch discover it one refusal at a time.
 
 The scripts read the local archive at `/Volumes/lidar/lidar/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
 
-`build-site-index.py` reads both analysis trees, the field marks, the operator joins, and any locally available scene headers. It writes only `site-index.json`. `deployments.py` prints a filename-based grouping; its eleven-minute grouping threshold is not the production replay continuity policy. The publishing launcher remains with PR #569 because it requires the new multi-file replay API.
+`build-site-index.py` reads both analysis trees, checked-in reanalyses, the field marks, the operator joins, and any locally available scene headers. It writes only `site-index.json`. `deployments.py` prints a filename-based grouping; its eleven-minute grouping threshold is not the production replay continuity policy. The publishing launcher remains with PR #569 because it requires the new multi-file replay API.
 
 ## Scene alignment tools
 

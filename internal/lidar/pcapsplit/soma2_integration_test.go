@@ -49,7 +49,7 @@ func TestSoma2MixedMotion(t *testing.T) {
 	}
 	// The first raw motion sample marks the drive onset at t≈69 s (frame ~422):
 	// the foreground spike catches the first driving frame, then the background
-	// drift ratio climbs past 0.35 and holds for the whole drive. The window
+	// drift ratio climbs past 0.5 and holds for the whole drive. The window
 	// rejects both parked-period false positives (too early) and the
 	// foreground-only regression that only fired ~40 s late once per-cell spread
 	// saturated (too late, near frame 800).
