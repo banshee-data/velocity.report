@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { getLidarRuns } from '$lib/api';
 	import type { AnalysisRun } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
@@ -91,6 +92,14 @@
 		await load();
 	}
 
+	// Replace the row rather than assigning to it. A row is a plain object, so
+	// an assignment to one of its fields redraws nothing: the table would keep
+	// offering "Make case" for a window that already has one.
+	function updateSegment(id: string, changes: Partial<Segment>) {
+		segments = segments.map((entry) => (entry.id === id ? { ...entry, ...changes } : entry));
+		if (selected?.id === id) selected = segments.find((entry) => entry.id === id) ?? null;
+	}
+
 	async function makeCase(segment: Segment) {
 		busy = true;
 		error = '';
@@ -100,8 +109,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ run_id: runID, finder, role })
 			});
-			segment.replay_case_id = result.replay_case_id;
-			segment.status = 'case';
+			updateSegment(segment.id, { replay_case_id: result.replay_case_id, status: 'case' });
 			message = `Replay case ${result.replay_case_id} is ready.`;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not make replay case.';
@@ -119,9 +127,8 @@
 				`/api/lidar/scenes/${encodeURIComponent(segment.replay_case_id)}/clip`,
 				{ method: 'POST' }
 			);
-			segment.job_id = result.job.job_id;
-			segment.status = 'clipping';
-			message = `Clip job ${segment.job_id} queued.`;
+			updateSegment(segment.id, { job_id: result.job.job_id, status: 'clipping' });
+			message = `Clip job ${result.job.job_id} queued.`;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not queue clip.';
 		} finally {
@@ -129,14 +136,13 @@
 		}
 	}
 
-	function previewURL(segment: Segment) {
+	function previewQuery(segment: Segment) {
 		const run = runs.find((item) => item.run_id === runID);
-		const params = new URLSearchParams({
+		return new URLSearchParams({
 			run_id: runID,
 			sensor_id: run?.sensor_id || 'hesai-pandar40p',
 			at_ns: String(segment.peak_timestamp_ns || segment.window_start_unix_nanos)
-		});
-		return `/app/lidar/tracks?${params.toString()}`;
+		}).toString();
 	}
 
 	function captureName(path?: string) {
@@ -172,23 +178,24 @@
 	<div class="flex flex-wrap items-end gap-4">
 		<label class="flex flex-col gap-1"
 			>Run
-			<select class="rounded border p-2" bind:value={runID} onchange={load}>
-				{#each runs as run}<option value={run.run_id}>{run.run_id}</option>{/each}
+			<select class="rounded border p-2" bind:value={runID} on:change={load}>
+				{#each runs as run (run.run_id)}<option value={run.run_id}>{run.run_id}</option>{/each}
 			</select>
 		</label>
 		<label class="flex flex-col gap-1"
 			>Pack role
-			<select class="rounded border p-2" bind:value={role} onchange={changeRole}>
+			<select class="rounded border p-2" bind:value={role} on:change={changeRole}>
 				<option value="tuning">Tuning</option><option value="held_out">Held out</option>
 			</select>
 		</label>
 		<label class="flex flex-col gap-1"
 			>Finder
-			<select class="rounded border p-2" bind:value={finder} onchange={load}>
-				{#each available as entry}<option value={entry.name}>{entry.name}</option>{/each}
+			<select class="rounded border p-2" bind:value={finder} on:change={load}>
+				{#each available as entry (entry.name)}<option value={entry.name}>{entry.name}</option
+					>{/each}
 			</select>
 		</label>
-		<button class="rounded border px-4 py-2" onclick={load} disabled={busy}>Refresh</button>
+		<button class="rounded border px-4 py-2" on:click={load} disabled={busy}>Refresh</button>
 	</div>
 	{#if role === 'held_out'}
 		<p class="rounded bg-amber-100 p-3 text-amber-950">
@@ -233,22 +240,27 @@
 							>{packs.find((pack) => pack.segment_id === segment.id)?.status ?? segment.status}</td
 						>
 						<td class="space-x-2 p-3">
-							<button class="underline" onclick={() => (selected = segment)}>Details</button>
-							{#if role !== 'held_out'}<a class="underline" href={previewURL(segment)}
+							<button class="underline" on:click={() => (selected = segment)}>Details</button>
+							{#if role !== 'held_out'}
+								<!-- The rule accepts only a bare resolve() call; this link adds a query to one. -->
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a class="underline" href={`${resolve('/lidar/tracks')}?${previewQuery(segment)}`}
 									>Preview in scene player</a
-								>{/if}
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
 							{#if !segment.replay_case_id}<button
 									class="underline"
 									disabled={busy || !segment.capture}
-									onclick={() => makeCase(segment)}>Make case</button
+									on:click={() => makeCase(segment)}>Make case</button
 								>{:else if !segment.job_id}<button
 									class="underline"
 									disabled={busy}
-									onclick={() => queueClip(segment)}>Queue clip</button
+									on:click={() => queueClip(segment)}>Queue clip</button
 								>{/if}
 							<button
 								class="underline"
-								onclick={() => {
+								on:click={() => {
 									dismissed = new Set([...dismissed, segment.id]);
 								}}>Hide</button
 							>
