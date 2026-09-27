@@ -14,6 +14,7 @@ older entries stay put, however tempting hindsight may be.
 - {claude/upbeat-galileo-4xbaat} Added the default-off S2 and K4 identity options (`TentativePriority`, `ClassIdentity`, `ContestedRejoin`) with their missing tests, including a scripted K4 scene where a car emerging beside a kerbside pedestrian no longer steals the pedestrian's track (IDF1 0.590 to 0.966).
 - {claude/upbeat-galileo-4xbaat} Ran the headway report over persisted estimates for the first time (`velocity report headway --db`, contract `headway_report_v2`). It finds following pairs on kirk0 and publishes nothing, because a persisted point estimate has no class, heading or extent; the solid-body rows now carry all three and are the next input to read.
 - {claude/upbeat-galileo-4xbaat} Repaired the kirk0 occlusion-continuity smoke run, which #611's coverage refusal broke outside CI's race-only pcap job: it now replays only the coverage-free options and asserts the others are refused.
+- {claude/upbeat-galileo-4xbaat-segment-finder} Added a review queue for choosing what to annotate: `scripts/lidar-following-windows.py` ranks windows by vehicle following and leader changes and places each in its capture file. On kirk0 almost all the following, and a lead car split into three tracks, sit in one nine-second window. Planned the segment finder, one-step clip and persisted proposals around it, with held-out windows chosen by traffic rather than tracker failure (#615).
 
 ## September 26, 2026 - LiDAR clock and sequence-wrap fixes
 
