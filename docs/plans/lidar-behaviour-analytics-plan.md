@@ -1215,7 +1215,10 @@ candidate, 13 to 16 of 62 paths are fitted and 4 to 6 encounters are found at ea
 none of their time is valid: all 63 evaluated instants are `class_not_supported` and
 `orientation_unresolved`. That is the missing evidence this stage exists to expose. Stage 3
 remains, and a field value needs class, heading and extent beliefs persisted with each estimate
-before it.
+before it. Those beliefs now exist beside each online estimate when a replay runs
+`-experiment solid_body` (`lidar_track_solid_bodies`, migration 000052), and
+`SampleFromSolidBodyReading` builds a sample from one; the field run does not read them yet, and
+the refined stages have no solid body.
 
 The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
 existing class evidence clears the declared applicability gate. It does not wait for the broader
@@ -1357,8 +1360,9 @@ version of persisted estimates, online, fixed-lag or the smoother's final rows, 
 from the row, the only place a sample is `final`. A row carries pose, velocity and covariance and
 nothing else, so its samples have no heading, extent or class. Remaining: `PassageSummary`,
 `ExposureWindow` and their migrations, passage speed metrics, a class confidence gate
-(applicability currently gates on motion class alone), and class, heading and extent beliefs
-persisted with each estimate, without which no persisted sample can place a physical endpoint.
+(applicability currently gates on motion class alone), and reading the persisted solid bodies,
+which carry class, heading and extent beliefs beside each online estimate, into the trajectory
+source; without them no persisted sample can place a physical endpoint.
 
 ### Phase 6B: pairwise interactions
 
@@ -1425,8 +1429,9 @@ the registry. The report oracle and the provisional field run over persisted est
 delivered (Section 10.4), and a scene's encounters are pooled into a headway distribution and
 served, with an SVG chart on the scene page (Section 10.4). On kirk0 the field run finds pairs and
 publishes nothing, because persisted estimates carry no class, heading or extent. Remaining:
-storing the directed path's geometry, which events reference by id only; persisting class, heading
-and extent beliefs with each estimate, so a field instant can be evaluated at all; calibration of
+storing the directed path's geometry, which events reference by id only; reading the persisted
+solid bodies' class, heading and extent beliefs into the field run, so a field instant can be
+evaluated at all; calibration of
 every fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction
 first; a per-follower total of valid following time across leaders; and the held-out physical
 validation run itself, which needs independently annotated references, a scoring plan pinned
