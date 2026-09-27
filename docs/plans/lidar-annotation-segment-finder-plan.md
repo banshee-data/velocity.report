@@ -6,9 +6,11 @@ chosen window, and the pack arrives with proposals already made.
 
 - **Status:** Draft; the first finder ships as a script (`scripts/lidar-following-windows.py`)
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients (web and macOS), storage
-- **Target:** v0.5.2 for the finder and the one-step clip, because every 0.5.2 gate waits on
-  reviewed held-out packs and operator hours are the constraint; the web surface can follow in
-  v0.5.3
+- **Target:** v0.5.2 for the finders, the one-step clip, kept proposals and the Svelte segments
+  page, as track T1 of the
+  [0.5.2 sprint plan](https://github.com/banshee-data/velocity.report/pull/612), because every
+  0.5.2 gate waits on reviewed held-out packs and operator hours are the constraint;
+  membership-seeded proposals and the split manifest follow in v0.5.3
 - **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [VRLOG observation format](lidar-vrlog-observation-format-plan.md), [Behaviour analytics](lidar-behaviour-analytics-plan.md)
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 
@@ -89,7 +91,7 @@ kind (`include_points`, `settle_first`) with no executor. The
 | Proposals        | Recomputed per session; dismissals lost; L4 membership never used     | Medium   | v0.5.2       |
 | Selection bias   | Windows chosen for tracker failure would flatter any candidate        | High     | v0.5.2       |
 | Segment to split | Nothing records why a pack was cut or which split it belongs to       | Low      | v0.5.3       |
-| Web surface      | Captures and replay cases exist; no finder, no cut action             | Low      | v0.5.3       |
+| Web surface      | Captures and replay cases exist; no finder, no cut action             | Medium   | v0.5.2       |
 
 ## Design / approach
 
@@ -327,7 +329,8 @@ need one small table if they must be shared between operators.
 2. Pack inventory with review counts from the sidecar
 3. Svelte page with strip, table, preview, actions and held-out guard
 
-**Milestone:** v0.5.3
+**Milestone:** v0.5.2, as T1 of the sprint plan; the preview gains the Following distance layer
+once that sprint step lands
 
 ### Item 7: split manifest from packs
 
