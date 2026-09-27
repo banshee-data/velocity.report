@@ -43,28 +43,6 @@
         , CHECK (state IN ('queued', 'running', 'completed', 'failed', 'cancelled'))
           );
 
-   CREATE TABLE lidar_segment_selections (
-          segment_id TEXT PRIMARY KEY
-        , run_id TEXT NOT NULL
-        , replay_case_id TEXT NOT NULL UNIQUE
-        , role TEXT NOT NULL CHECK (role IN ('tuning', 'held_out'))
-        , finder TEXT NOT NULL
-        , parameters_json TEXT NOT NULL
-        , window_json TEXT NOT NULL
-        , created_at_ns INTEGER NOT NULL
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
-          );
-
-   CREATE TABLE lidar_segment_clip_jobs (
-          job_id TEXT PRIMARY KEY
-        , segment_id TEXT NOT NULL
-        , replay_case_id TEXT NOT NULL
-        , pack_dir TEXT NOT NULL DEFAULT ''
-        , FOREIGN KEY (job_id) REFERENCES lidar_capture_jobs (job_id) ON DELETE CASCADE
-        , FOREIGN KEY (segment_id) REFERENCES lidar_segment_selections (segment_id) ON DELETE CASCADE
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
-          );
-
    CREATE TABLE lidar_capture_roots (
           root_id TEXT PRIMARY KEY
         , path TEXT NOT NULL UNIQUE
@@ -153,6 +131,71 @@
         , noise_points_count INTEGER DEFAULT 0
         , cluster_density REAL
         , aspect_ratio REAL
+          );
+
+   CREATE TABLE lidar_exposure_windows (
+          window_id TEXT PRIMARY KEY
+        , event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
+        , window_json JSON NOT NULL
+        , source_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.source_id')) STORED
+        , kind TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.kind')) STORED
+        , basis TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.basis')) STORED
+        , track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.track_id')) STORED
+        , counterpart_track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.counterpart_track_id')) STORED
+        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.start_unix_nanos')) STORED
+        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.end_unix_nanos')) STORED
+        , duration_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.duration_nanos')) STORED
+        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimate_stage')) STORED
+        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimator_id')) STORED
+        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.obs_model_id')) STORED
+        , method_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.method_id')) STORED
+        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.param_hash')) STORED
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (
+          window_id = JSON_EXTRACT(window_json, '$.window_id')
+      AND event_id = JSON_EXTRACT(window_json, '$.event_id')
+          )
+        , CHECK (
+          duration_nanos > 0
+      AND end_unix_nanos - start_unix_nanos = duration_nanos
+          )
+          );
+
+   CREATE TABLE lidar_interaction_events (
+          event_id TEXT PRIMARY KEY
+        , event_json JSON NOT NULL
+        , source_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.source_id')) STORED
+        , interaction_type TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.interaction_type')) STORED
+        , primary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.primary_track_id')) STORED
+        , secondary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.secondary_track_id')) STORED
+        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.start_unix_nanos')) STORED
+        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.end_unix_nanos')) STORED
+        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimate_stage')) STORED
+        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimator_id')) STORED
+        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.obs_model_id')) STORED
+        , method_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.method_id')) STORED
+        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.param_hash')) STORED
+        , worst_support TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.worst_support')) STORED
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (event_id = JSON_EXTRACT(event_json, '$.event_id'))
+          );
+
+   CREATE TABLE lidar_interaction_instants (
+          event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
+        , capture_unix_nanos INTEGER NOT NULL
+        , instant_json JSON NOT NULL
+        , basis TEXT NOT NULL AS (JSON_EXTRACT(instant_json, '$.basis')) STORED
+        , valid INTEGER NOT NULL AS (JSON_EXTRACT(instant_json, '$.valid')) STORED
+        , reason TEXT AS (JSON_EXTRACT(instant_json, '$.reason')) STORED
+        , PRIMARY KEY (event_id, capture_unix_nanos)
+        , CHECK (
+          event_id = JSON_EXTRACT(instant_json, '$.event_id')
+      AND capture_unix_nanos = JSON_EXTRACT(instant_json, '$.capture_unix_nanos')
+          )
+        , CHECK (
+          basis = 'observed'
+       OR valid = 0
+          )
           );
 
    CREATE TABLE lidar_observations (
@@ -395,6 +438,28 @@
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
           );
 
+   CREATE TABLE lidar_segment_selections (
+          segment_id TEXT PRIMARY KEY
+        , run_id TEXT NOT NULL
+        , replay_case_id TEXT NOT NULL UNIQUE
+        , role TEXT NOT NULL CHECK (role IN ('tuning', 'held_out'))
+        , finder TEXT NOT NULL
+        , parameters_json TEXT NOT NULL
+        , window_json TEXT NOT NULL
+        , created_at_ns INTEGER NOT NULL
+        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_segment_clip_jobs (
+          job_id TEXT PRIMARY KEY
+        , segment_id TEXT NOT NULL
+        , replay_case_id TEXT NOT NULL
+        , pack_dir TEXT NOT NULL DEFAULT ''
+        , FOREIGN KEY (job_id) REFERENCES lidar_capture_jobs (job_id) ON DELETE CASCADE
+        , FOREIGN KEY (segment_id) REFERENCES lidar_segment_selections (segment_id) ON DELETE CASCADE
+        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE IF NOT EXISTS "lidar_sites" (
           site_id TEXT PRIMARY KEY
         , s2_l13_token TEXT NOT NULL
@@ -483,71 +548,6 @@
         , disposition TEXT NOT NULL
         , reason TEXT NOT NULL
         , inserted_at_ns INTEGER NOT NULL
-          );
-
-   CREATE TABLE lidar_interaction_events (
-          event_id TEXT PRIMARY KEY
-        , event_json JSON NOT NULL
-        , source_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.source_id')) STORED
-        , interaction_type TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.interaction_type')) STORED
-        , primary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.primary_track_id')) STORED
-        , secondary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.secondary_track_id')) STORED
-        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.start_unix_nanos')) STORED
-        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.end_unix_nanos')) STORED
-        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimate_stage')) STORED
-        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimator_id')) STORED
-        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.obs_model_id')) STORED
-        , method_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.method_id')) STORED
-        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.param_hash')) STORED
-        , worst_support TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.worst_support')) STORED
-        , inserted_at_ns INTEGER NOT NULL
-        , CHECK (event_id = JSON_EXTRACT(event_json, '$.event_id'))
-          );
-
-   CREATE TABLE lidar_interaction_instants (
-          event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
-        , capture_unix_nanos INTEGER NOT NULL
-        , instant_json JSON NOT NULL
-        , basis TEXT NOT NULL AS (JSON_EXTRACT(instant_json, '$.basis')) STORED
-        , valid INTEGER NOT NULL AS (JSON_EXTRACT(instant_json, '$.valid')) STORED
-        , reason TEXT AS (JSON_EXTRACT(instant_json, '$.reason')) STORED
-        , PRIMARY KEY (event_id, capture_unix_nanos)
-        , CHECK (
-          event_id = JSON_EXTRACT(instant_json, '$.event_id')
-      AND capture_unix_nanos = JSON_EXTRACT(instant_json, '$.capture_unix_nanos')
-          )
-        , CHECK (
-          basis = 'observed'
-       OR valid = 0
-          )
-          );
-
-   CREATE TABLE lidar_exposure_windows (
-          window_id TEXT PRIMARY KEY
-        , event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
-        , window_json JSON NOT NULL
-        , source_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.source_id')) STORED
-        , kind TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.kind')) STORED
-        , basis TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.basis')) STORED
-        , track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.track_id')) STORED
-        , counterpart_track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.counterpart_track_id')) STORED
-        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.start_unix_nanos')) STORED
-        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.end_unix_nanos')) STORED
-        , duration_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.duration_nanos')) STORED
-        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimate_stage')) STORED
-        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimator_id')) STORED
-        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.obs_model_id')) STORED
-        , method_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.method_id')) STORED
-        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.param_hash')) STORED
-        , inserted_at_ns INTEGER NOT NULL
-        , CHECK (
-          window_id = JSON_EXTRACT(window_json, '$.window_id')
-      AND event_id = JSON_EXTRACT(window_json, '$.event_id')
-          )
-        , CHECK (
-          duration_nanos > 0
-      AND end_unix_nanos - start_unix_nanos = duration_nanos
-          )
           );
 
    CREATE TABLE lidar_track_solid_bodies (
