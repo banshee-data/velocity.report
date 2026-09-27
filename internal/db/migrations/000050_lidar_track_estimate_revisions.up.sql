@@ -1,7 +1,7 @@
 -- Migration: revision records for retrospectively refined LiDAR estimates
 -- Date: 2026-09-25
 -- Description: One row per fixed_lag or final estimate in
--- lidar_track_estimates, saying which online estimate it revised, by how much,
+-- lidar_track_estimates, saying which online estimate it revised, by how much
 -- with which look-ahead, and on what evidence (state-estimation plan §10.1 and
 -- G-SMO-1: a revision records its justifying evidence). The previous state is
 -- copied, not only referenced, because online estimates are retained for 7
@@ -13,7 +13,7 @@
           estimate_id TEXT PRIMARY KEY
         , revises_estimate_id TEXT NOT NULL
         , smoother_id TEXT NOT NULL
-        , lag TEXT NOT NULL
+        , LAG TEXT NOT NULL
         , lookahead_steps INTEGER NOT NULL
         , lookahead_secs REAL NOT NULL
         , released_at_unix_nanos INTEGER NOT NULL
