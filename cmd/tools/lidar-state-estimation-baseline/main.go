@@ -463,8 +463,13 @@ func validateEvidenceFlags(samplePoints int, perCase, discard bool, evidenceDir 
 }
 
 // summariseSolidBodies opens a case's evidence database and reads its solid
-// bodies back.
+// bodies back. The database must already exist: db.NewDB would create a
+// fresh one at a wrong path, and its empty tables would read as a replay
+// that filed no solid bodies.
 func summariseSolidBodies(path, sourceID string) (replayeval.SolidBodySummary, error) {
+	if _, err := os.Stat(path); err != nil {
+		return replayeval.SolidBodySummary{}, fmt.Errorf("evidence database: %w", err)
+	}
 	database, err := db.NewDB(path)
 	if err != nil {
 		return replayeval.SolidBodySummary{}, err

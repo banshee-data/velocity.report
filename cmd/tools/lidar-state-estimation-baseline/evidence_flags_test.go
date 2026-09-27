@@ -57,3 +57,15 @@ func TestRemoveDatabaseTakesItsWriteAheadFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A missing evidence database is an error, and is not created: a fresh one
+// would read as a replay that filed no solid bodies.
+func TestSummariseSolidBodiesRefusesAMissingDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing.db")
+	if _, err := summariseSolidBodies(path, "source/v1/x"); err == nil || !strings.Contains(err.Error(), "evidence database") {
+		t.Fatalf("missing database: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("a missing evidence database was created: %v", err)
+	}
+}
