@@ -111,8 +111,10 @@ class ScenesFromCorpusTests(unittest.TestCase):
 
     def test_a_site_becomes_one_file_replayed_whole(self):
         relative = self.materialise("a.pcapng")
+        entry = site("laguna-eddy", where="Laguna at Eddy")
+        entry["end"] = "2026-09-01T12:26:48-07:00"
         scenes, problems = publish_scenes.scenes_from_corpus(
-            [site("laguna-eddy", where="Laguna at Eddy")],
+            [entry],
             {"laguna-eddy": capture("laguna-eddy", relative, seconds=1308.0)},
             self.corpus_dir,
             self.pcap_dir,
@@ -127,13 +129,26 @@ class ScenesFromCorpusTests(unittest.TestCase):
 
     def test_the_manifest_duration_wins_over_the_index_minutes(self):
         relative = self.materialise("a.pcapng")
+        entry = site("laguna-eddy")
+        entry["end"] = "2026-09-01T12:26:48-07:00"
         scenes, _ = publish_scenes.scenes_from_corpus(
-            [site("laguna-eddy")],  # the index says 20.0 minutes
+            [entry],  # rounded index minutes say 20.0; timestamps say 21.8
             {"laguna-eddy": capture("laguna-eddy", relative, seconds=1308.0)},
             self.corpus_dir,
             self.pcap_dir,
         )
         self.assertAlmostEqual(scenes[0]["minutes"], 21.8)
+
+    def test_a_stale_corpus_duration_is_reported(self):
+        relative = self.materialise("a.pcapng")
+        scenes, problems = publish_scenes.scenes_from_corpus(
+            [site("laguna-eddy")],
+            {"laguna-eddy": capture("laguna-eddy", relative, seconds=699.227)},
+            self.corpus_dir,
+            self.pcap_dir,
+        )
+        self.assertEqual(scenes, [])
+        self.assertIn("rebuild the capture and manifest", problems[0])
 
     def test_a_site_missing_from_the_corpus_is_reported_not_skipped(self):
         scenes, problems = publish_scenes.scenes_from_corpus(

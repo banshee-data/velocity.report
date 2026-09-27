@@ -77,6 +77,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -426,7 +427,8 @@ def scenes_from_corpus(index, corpus, corpus_dir, pcap_dir):
     The dataset's captures are already clipped to the site bounds, so there is
     no offset to derive and nothing to join: the scene is the file. Identity —
     the id, the title, the position — still comes from the site index, which is
-    what the map and the scene pages read.
+    what the map and the scene pages read. Refuse a stale corpus entry whose
+    duration no longer agrees with a corrected site interval.
     """
     scenes, problems = [], []
     for entry in index:
@@ -448,6 +450,16 @@ def scenes_from_corpus(index, corpus, corpus_dir, pcap_dir):
         duration = float(published.get("duration_seconds") or 0.0)
         if duration <= 0:
             problems.append(f"{site}: the manifest gives no duration")
+            continue
+        expected = (
+            datetime.fromisoformat(entry["end"])
+            - datetime.fromisoformat(entry["start"])
+        ).total_seconds()
+        if abs(duration - expected) > 1.0:
+            problems.append(
+                f"{site}: corpus duration {duration:.3f}s differs from the "
+                f"site index {expected:.3f}s; rebuild the capture and manifest"
+            )
             continue
         scenes.append(
             {
@@ -471,8 +483,6 @@ def scenes_from_archive(index, pcap_dir):
     prefix its files happen to carry. The prefix named a deployment, not a
     place, and six sites shared one.
     """
-    from datetime import datetime
-
     scenes, problems = [], []
     for entry in index:
         captures = sorted(entry["captures"])
