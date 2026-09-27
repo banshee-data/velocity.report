@@ -55,6 +55,61 @@ func TestFollowingPeakIsTheBusiestPairFrame(t *testing.T) {
 	}
 }
 
+// laneWithLeaderChange is one follower whose nearest leader changes at the
+// given frame, in a lane far enough from the others to pair with nobody else.
+func laneWithLeaderChange(prefix string, y float64, change int) []Point {
+	points := moving(prefix+"-follower", 20, 0, 0)
+	points = append(points, moving(prefix+"-first", change, 10, 0)...)
+	points = append(points, moving(prefix+"-second", 20-change, float64(change)+10, change)...)
+	for i := range points {
+		points[i].Y = y
+	}
+	return points
+}
+
+func TestLeaderChangePeakDoesNotDependOnMapOrder(t *testing.T) {
+	points := append(laneWithLeaderChange("near", 0, 10), laneWithLeaderChange("far", 20, 5)...)
+	earliest := testBase + 5*100_000_000
+	// Go randomises map iteration, so one agreeing read proves nothing.
+	for attempt := 0; attempt < 64; attempt++ {
+		w := rank(t, points, "leader_changes", "tuning")
+		if len(w) != 1 || w[0].LeaderChanges != 2 {
+			t.Fatalf("leader changes: %+v", w)
+		}
+		if w[0].PeakNs != earliest {
+			t.Fatalf("attempt %d: peak %d, want the earliest change %d", attempt, w[0].PeakNs, earliest)
+		}
+	}
+	// Three followers change at the later frame and one at the earlier: the
+	// busiest change frame is the peak, not the first.
+	busy := laneWithLeaderChange("a", 0, 10)
+	busy = append(busy, laneWithLeaderChange("b", 20, 10)...)
+	busy = append(busy, laneWithLeaderChange("c", 40, 10)...)
+	busy = append(busy, laneWithLeaderChange("d", 60, 5)...)
+	for attempt := 0; attempt < 64; attempt++ {
+		w := rank(t, busy, "leader_changes", "tuning")
+		if len(w) != 1 || w[0].LeaderChanges != 4 || w[0].PeakNs != testBase+10*100_000_000 {
+			t.Fatalf("attempt %d: busiest change frame: %+v", attempt, w)
+		}
+	}
+}
+
+func TestFollowingPeakIgnoresLeaderChanges(t *testing.T) {
+	// A third vehicle joins the far lane at frame 12, so that frame has the
+	// most pairs. Leader changes at frames 5 and 10 must not move the peak.
+	points := append(laneWithLeaderChange("near", 0, 10), laneWithLeaderChange("far", 20, 5)...)
+	extra := moving("far-third", 1, 32, 12)
+	extra[0].Y = 20
+	points = append(points, extra...)
+	busiest := testBase + 12*100_000_000
+	for attempt := 0; attempt < 64; attempt++ {
+		w := rank(t, points, "following", "tuning")
+		if len(w) != 1 || w[0].LeaderChanges != 2 || w[0].PeakNs != busiest {
+			t.Fatalf("attempt %d: following peak: %+v", attempt, w)
+		}
+	}
+}
+
 func TestLeaderChangesAndExclusions(t *testing.T) {
 	points := append(moving("f", 20, 0, 0), moving("a", 10, 10, 0)...)
 	points = append(points, moving("b", 10, 20, 10)...)

@@ -262,11 +262,23 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 			}
 		}
 		for _, a := range windows {
+			changesAt := map[int64]int{}
 			for _, frames := range a.nearest {
 				for i := 1; i < len(frames); i++ {
 					if frames[i].leader != frames[i-1].leader {
 						a.w.LeaderChanges++
-						a.w.PeakNs = frames[i].time
+						changesAt[frames[i].time]++
+					}
+				}
+			}
+			if finder == "leader_changes" {
+				// The peak is the frame where most followers change leader,
+				// the earliest of equals. Followers are held in a map, so the
+				// choice must not follow the order they happen to be read in.
+				most := 0
+				for t, changes := range changesAt {
+					if changes > most || (changes == most && t < a.w.PeakNs) {
+						most, a.w.PeakNs = changes, t
 					}
 				}
 			}
