@@ -10,9 +10,11 @@ import importlib.util
 import io
 import json
 import os
+import struct
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -198,10 +200,24 @@ class ScenesFromArchiveTests(unittest.TestCase):
         os.makedirs(os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR))
 
     def materialise(self, *names):
+        ticks = int(
+            datetime.fromisoformat("2026-09-01T12:00:00.500000-07:00").timestamp()
+            * 1_000_000
+        )
+
+        def block(kind, body):
+            length = len(body) + 12
+            return struct.pack("<II", kind, length) + body + struct.pack("<I", length)
+
+        section = block(0x0A0D0D0A, struct.pack("<IHHq", 0x1A2B3C4D, 1, 0, -1))
+        interface = block(1, struct.pack("<HHI", 1, 0, 65535))
+        packet = block(
+            6, struct.pack("<IIIII", 0, ticks >> 32, ticks & 0xFFFFFFFF, 4, 4) + b"data"
+        )
         for name in names:
             path = os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR, name)
             with open(path, "wb") as fh:
-                fh.write(b"\0")
+                fh.write(section + interface + packet)
 
     def test_the_start_offset_comes_from_the_first_capture_stamp(self):
         self.materialise("cap_20260901120000_00001.pcap")
@@ -209,8 +225,8 @@ class ScenesFromArchiveTests(unittest.TestCase):
             [site("laguna-eddy")], self.pcap_dir
         )
         self.assertEqual(problems, [])
-        # The site starts at 12:05 and the capture at 12:00.
-        self.assertEqual(scenes[0]["start_secs"], 300.0)
+        # The capture's first packet is 0.5 s after its rounded filename stamp.
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
         self.assertEqual(scenes[0]["source"], "archive")
 
     def test_exact_timestamps_win_over_rounded_index_minutes(self):
@@ -222,12 +238,25 @@ class ScenesFromArchiveTests(unittest.TestCase):
         self.assertEqual(problems, [])
         self.assertEqual(scenes[0]["duration"], 1213.025964)
 
-    def test_an_unstamped_capture_starts_where_the_file_does(self):
+    def test_an_unstamped_capture_uses_its_first_packet(self):
         self.materialise("one-off.pcapng")
         scenes, _ = publish_scenes.scenes_from_archive(
             [site("laguna-eddy", captures=("one-off.pcapng",))], self.pcap_dir
         )
-        self.assertEqual(scenes[0]["start_secs"], 0.0)
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
+
+    def test_classic_pcap_uses_its_first_packet(self):
+        name = "one-off.pcap"
+        path = os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR, name)
+        seconds = int(datetime.fromisoformat("2026-09-01T12:00:00-07:00").timestamp())
+        with open(path, "wb") as fh:
+            fh.write(b"\xd4\xc3\xb2\xa1" + struct.pack("<HHIIII", 2, 4, 0, 0, 65535, 1))
+            fh.write(struct.pack("<IIII", seconds, 500_000, 4, 4) + b"data")
+        scenes, problems = publish_scenes.scenes_from_archive(
+            [site("laguna-eddy", captures=(name,))], self.pcap_dir
+        )
+        self.assertEqual(problems, [])
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
 
     def test_a_capture_that_is_not_on_disk_is_reported(self):
         scenes, problems = publish_scenes.scenes_from_archive(
