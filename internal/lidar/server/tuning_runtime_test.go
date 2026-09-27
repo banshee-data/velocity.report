@@ -551,3 +551,29 @@ func TestCompactDuration(t *testing.T) {
 		}
 	}
 }
+
+// OnTuningChange runs once per applied patch, after validation and before
+// any value changes, and never for a patch that is refused.
+func TestOnTuningChangeRunsBeforeAValueChanges(t *testing.T) {
+	params := l3grid.DefaultBackgroundConfig().ToBackgroundParams()
+	bm := l3grid.NewBackgroundManager("hook-sensor", 16, 360, params, nil)
+	var calls int
+	var seen float32
+	ws := &Server{sensorID: "hook-sensor", state: PipelineState{Source: SourceModeLive, TotalPasses: 1},
+		onTuningChange: func() { calls++; seen = bm.GetParams().NoiseRelativeFraction }}
+	ws.storeTuningConfig(cloneTuningConfig(cfgpkg.MustLoadDefaultConfig()))
+	before := bm.GetParams().NoiseRelativeFraction
+
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"l3.ema_baseline_v1.noise_relative": -1.0}); err == nil {
+		t.Fatal("an invalid patch was applied")
+	}
+	if calls != 0 {
+		t.Fatal("the hook ran for a refused patch")
+	}
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"l3.ema_baseline_v1.noise_relative": 0.25}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || seen != before || bm.GetParams().NoiseRelativeFraction != 0.25 {
+		t.Fatalf("hook ran %d times and saw %v (before %v)", calls, seen, before)
+	}
+}

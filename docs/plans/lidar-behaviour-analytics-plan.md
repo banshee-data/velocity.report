@@ -4,7 +4,14 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
+The [remaining 0.5.2 sprint](lidar-052-mvp-sprint-plan.md) now owns the integration order,
+Following distance debug layer and provisional MVP exit. The
+[merged-batch review](../lidar/operations/0.5.2-sprint-review.md) records the current gaps:
+body-anchor correctness, complete final trajectories, persisted paths, unique follower opportunity,
+scene-window accounting and a real-data producer beyond #614's provisional field run over persisted
+estimates. A final inference stage alone does not qualify a field metric for promotion.
+
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -362,6 +369,11 @@ rather than invented per metric:
 | `model_degraded`                  | The estimator reported `model_invalid` or `temporarily_degraded` for a contributing track |
 | `extent_not_converged`            | A required dimension belief has not met its admissibility count                           |
 | `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates      |
+
+The canonical list is the precedence-ordered one in
+[label-vocabulary.md](../lidar/architecture/label-vocabulary.md#suppression-reasons). The following
+slice adds six reasons from Sections 2, 8.3, 9.1 and 9.2: `not_observed`, `ambiguous_leader`,
+`orientation_unresolved`, `non_positive_gap`, `below_speed_floor` and `estimate_not_final`.
 
 **A suppressed metric is preferable to false precision**, and a suppression reason is a
 first-class result: it is stored, queryable and reportable. The rate of each
@@ -1053,8 +1065,15 @@ Adapted to repository conventions rather than copied: track identifiers are **st
 (`trk_<uuid>`, per `TrackedObject.TrackID`), not integers; timestamps are `TSUnixNanos int64`;
 analytics uses `float64`; JSON tags are snake case.
 
-The following are proposed field contracts, not implemented storage or API types. Numeric
-measurements, categorical outcomes, support state, and provenance remain distinct.
+Sprint 0.5.2.3 implements the uncertainty, scope, provenance, measurement, outcome and passage
+identity rows, and the propagation-method and observation-support vocabularies, as Go contracts in
+`internal/lidar/l8behaviour/`. The interaction identity/time and results rows and the exposure
+window are implemented for following encounters and persisted (Section 10.3): the interaction type
+and exposure kind vocabularies register only what a method produces (`following`,
+`valid_following`), and an observation basis (`observed`, `predicted_only`) is added so that
+predicted-only time is stored apart from opportunity. The interaction classification and geometry
+rows and the passage-evidence row remain proposals; there is no API yet. Numeric measurements,
+categorical outcomes, support state, and provenance remain distinct.
 
 | Record                     | Fields                                                                                                                  | Contract                                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -1118,6 +1137,40 @@ Behaviour output is derived data and must be reproducible from the persisted fin
 therefore carries `estimator_id` and `param_hash`, and a change to either invalidates the derived
 rows rather than silently mixing versions.
 
+**Status (sprint 0.5.2.3).** `lidar_interaction_events` and `lidar_exposure_windows` are built for
+following encounters, with a third table, `lidar_interaction_instants`, for each encounter's
+per-instant evidence; `lidar_passage_summaries` and the `site_config_periods` columns are not.
+The schema is JSON-first: each row's payload is the `l8behaviour` record, and generated columns
+index the source, interaction type, both track ids, the version and, per instant or window, the
+observation basis.
+
+- **Events.** One row per pairwise encounter per version: the pair in geometric roles (primary is
+  the follower, secondary the leader), the capture interval, the whole version provenance
+  (estimate stage, estimator, observation model, method id with its parameter hash, geometry and
+  estimator parameter hash), input provenance, worst support of either party, the measurements and
+  any review-only provisional block keyed by registry metric id, and the accounting with its
+  suppressions keyed by reason token.
+- **Instants.** Every follower instant of the encounter: role, both parties' support, validity and
+  every reason in precedence order, the leader's trailing and the follower's leading physical
+  endpoint with its source, support, convergence and both extents' provenance, and the supported
+  spatial gap and net time gap with their one-sigma, keyed by metric id. A suppressed value is
+  absent, never zero.
+- **Windows.** Maximal contiguous runs of valid following time and of predicted-only time, with
+  the band time inside each observed run, so a rate over any set of encounters is recomputed from
+  observed windows alone.
+- **Predicted-only time.** An instant or window is `observed` only when both parties were
+  observed. A `predicted_only` instant carries the review-only predicted gap with its coast age and
+  nothing else, is never valid (a schema CHECK refuses it), and its windows never enter a
+  denominator.
+- **Versions.** An event's id digests its source, type, pair and every version axis, so
+  regeneration writes new rows beside the old and never over them. Re-writing identical content is
+  a no-op; different content under an existing id is refused. Readers select exactly one version,
+  and a production reader asks for stage `final`, so fixed-lag rows never reach it. Superseded
+  versions are removed whole.
+- **Consistency.** Records are validated before a write and after a read: the instants must add up
+  to the event's accounting and imply exactly its windows, so a stored summary cannot disagree with
+  the evidence under it.
+
 ### 10.4 First headway report
 
 Delivery is deliberately staged so report plumbing does not wait for estimator research:
@@ -1131,6 +1184,52 @@ Delivery is deliberately staged so report plumbing does not wait for estimator r
 3. **Sprint 0.5.2.4 field promotion:** score held-out annotated following encounters and publish endpoint
    error, gap error, uncertainty coverage, supported opportunity, suppression and failure cases.
    Remove the provisional label only after G-GEO-1, G-UNC-1, G-SMO-1 and the metric gate pass.
+
+**Status (sprint 0.5.2.3).** Stage 1 is delivered. `velocity report headway --oracle` runs every
+frozen encounter scenario through `AnalyseFollowing` and renders the headway report contract
+through Go SVG charts, a Typst template and the PDF and source-archive path the radar report uses;
+see the [headway report oracle](../lidar/operations/headway-report-oracle.md). The status
+(`synthetic_oracle`, `provisional`, or the reserved `promoted`) is a closed vocabulary that refuses
+to serialise unset, is printed on every page and chart, and is tied to the trajectories' source:
+fixture trajectories must be a synthetic oracle, and `promoted` is refused. Rows read a final
+encounter's measurements and a non-final encounter's provisional block, and say which. Encounters
+are pooled only within one version group (stage, estimator, observation model, parameter hash and
+method with its parameter hash), which splits the oracle into two groups because the ambiguous
+scenario has its own grouping bound. The time-weighted net-time-gap distribution shows every
+suppressed second beside the valid time, summing to the accounted time exactly. Golden files pin
+the data and charts, and report-side tests require every printed name to be registered, forbid
+verdict language, and hold every stated scenario value to the printed one.
+
+**Status (sprint 0.5.2.4).** Stage 2 is delivered;
+`velocity report headway --db <evidence.db> --source <id> [--stage final|fixed_lag|online]` runs
+it, and `--solid-bodies` reads the solid bodies instead of the point estimates (see the
+[provisional field run](../lidar/operations/headway-report-oracle.md#provisional-field-run)).
+One run selects exactly one version of the persisted estimates at the requested stage, builds
+trajectories from its rows, runs `AnalyseFollowing` under the scenarios' uncalibrated bounds,
+stores every encounter write-once through the interaction store, and renders the same analysis
+labelled `provisional`. The report is always rebuilt from the persisted estimates, per Section
+10.3's reproducibility rule, and never read back from the stored interactions, which hold neither
+the fitted path nor the follower timelines; the write-once insert and a check that the store holds
+at that version exactly the events the run produced tie the two. A second run writes nothing and
+builds an identical data file. The status refuses `promoted`, and field data cannot be labelled a
+synthetic oracle. The contract is now `headway_report_v2`: its data file passes the registry's
+surface audit, which renamed the spatial gap series from the alias `gap` to `spatial_gap`.
+
+A persisted estimate carries pose, velocity and covariance and nothing of the solid body, so its
+sample has no heading, extent or class, and follows the reference of the geometry that entered the
+filter: a cluster medoid under the production `medoid_v0` model and the centre of the visible box
+(`visible_obb_centre`) under the `obb_centre_v1` candidate. Neither is a place on the body at any
+stage, so on kirk0 no follower path is fitted from point estimates and there is no encounter.
+Before #618 the OBB centre was read as the body centre, and 13 to 16 of 62 paths fitted with none
+of their time valid.
+
+With `--solid-bodies` the run reads `lidar_track_solid_bodies` (migration 000052, with support
+detail from 000053), which a replay under `-experiment solid_body` files beside each online
+estimate: a body-centre reference after a near-edge fix, heading, extents, class and support. On
+kirk0 7 of 60 follower paths fit and 3 encounters are found, 2.6 s accounted and none valid. Only
+3 of 60 tracks end classed as rigid vehicles, and a fifth of samples are on the body centre, so
+class evidence and near-edge coverage are what stand between this and a field value. Stage 3
+remains, and the refined stages have no solid body.
 
 The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
 existing class evidence clears the declared applicability gate. It does not wait for the broader
@@ -1150,7 +1249,41 @@ uncertainty. That series is excluded from exposure and aggregate distributions. 
 remain descriptive bins, not a tailgating verdict or a universal safety standard. Prometheus
 export is not a delivery dependency; canonical registry names across storage, API and report are.
 
+**Status (sprint 0.5.2.4).** The scene distribution and its API are built over persisted
+encounters; the report's provisional slice and field promotion are not.
+
+- **Distribution.** `AggregateFollowing` in
+  [distribution.go](../../internal/lidar/l8behaviour/distribution.go) pools one version group's
+  stored encounters (`following_distribution_v1`). An encounter's values come from its production
+  block when final and its provisional block otherwise. Only encounters whose band exposure is
+  supported fill the time-weighted net time gap (0.25 s bins to 3 s) and spatial gap (2 m bins to
+  40 m) histograms. Every other accounted second stands beside them under its reason, with its
+  predicted-only part, so the bins and the excluded time add up to the accounted denominator.
+- **Uncertainty.** Each bin carries the time wholly inside it at one sigma and the time that
+  reaches it, from the stored per-instant sigma. Per-encounter minimum and median keep their stored
+  Monte Carlo intervals; no pooled minimum or median is derived, because the per-encounter draws do
+  not give its interval.
+- **Scene to source.** A scene stores its capture window, not the analysis source. The source id
+  digests the replay case, capture paths, capture digests and extractor, none of which a scene
+  keeps. Since #611, the API reads sources with encounters **wholly contained** in the scene's
+  window. It lists several rather than merging them. Boundary-crossing encounters are excluded,
+  not clipped, so this is a distribution of contained encounters, not complete window exposure.
+  Explicit source/run binding and clipped, recomputed window statistics remain in the
+  [sprint plan](lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population).
+- **API and chart.** `GET /api/scenes/<id>/headway` serves the distribution and a summary row per
+  encounter; its default is the newest final-stage version, and it never falls back to a less
+  final stage. `/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution as SVG
+  for the scene page (D-11, D-17). Every served payload passes `AuditSurfaceJSON`, carries a
+  status that is `provisional` or `synthetic_oracle` and never promoted, and is tested free of
+  verdict words.
+
 ## 11. Evaluation datasets
+
+The implemented `ScoreHeldOut` harness pins bounds and a reference-set name, but does not itself
+freeze reference contents, enforce disjoint splits or gate unmatched references and missing strata.
+The [following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
+those checks and independent leader/no-leader truth. Mask centres can support detection/identity
+evaluation; they do not certify the physical ends of partially visible bodies.
 
 What each source can and cannot validate. Claiming validation from a dataset lacking the
 necessary signal is the failure mode to avoid.
@@ -1235,6 +1368,21 @@ with a published rate of suppressed metrics per class.
 **Suppression conditions.** Passage shorter than the metric's minimum support; coasted fraction
 above a stated bound; track quality below floor.
 
+**Status (sprint 0.5.2.3).** The contract subset is implemented in `internal/lidar/l8behaviour/`:
+the trajectory sample (pose with 4x4 covariance, heading and extent beliefs with provenance and
+convergence, support state, estimate stage, estimation state), passage identity and class, duration
+by support state, the class-applicability table, the production-emission guard (final, established
+and observed, or review-only with a reason), and the closed vocabularies, whose registry rows are
+enforced by tests. A thin adapter reads `l5tracks.SolidBodyEstimate` and never infers `final`.
+Sprint 0.5.2.4 adds the `final`-stage trajectory source: `TrajectoriesFromEstimates` reads one
+version of persisted estimates, online, fixed-lag or the smoother's final rows, taking the stage
+from the row, the only place a sample is `final`. A row carries pose, velocity and covariance and
+nothing else, so its samples have no heading, extent or class. Remaining: `PassageSummary`,
+`ExposureWindow` and their migrations, passage speed metrics, a class confidence gate
+(applicability currently gates on motion class alone), and reading the persisted solid bodies,
+which carry class, heading and extent beliefs beside each online estimate, into the trajectory
+source; without them no persisted sample can place a physical endpoint.
+
 ### Phase 6B: pairwise interactions
 
 **Goal.** Gap, headway, TTC, DRAC, closest approach, and PET from
@@ -1265,6 +1413,49 @@ crossing interactions; soma for how often both parties are simultaneously observ
 matrix on synthetic data. TTC suppressed below the closing speed floor in at least the fraction the
 uncertainty model predicts. PET uncertainty within the derived bound.
 
+**Status (sprint 0.5.2.3).** The pointwise following slice is implemented: registered metric ids
+(see the [metrics registry](../platform/architecture/metrics-registry.md#following-metrics)),
+physical endpoints projected onto a `PathFrame` with anchor offsets, oblique headings and
+linearised uncertainty, spatial gap, net time gap with its speed floor, the supplemental
+observed-surface gap, the review-only predicted gap, per-instant supported opportunity and
+precedence-ordered suppression.
+Eight frozen analytic fixtures cover known lengths, offset anchors, an oblique heading, partial
+views, standstill, occlusion, an ambiguous pair and a lane-adjacent distractor; their literals were
+computed independently of the package. Standstill is treated as constrained time (Section 6, rule
+2): its spatial gap is valid, but it is not following opportunity.
+
+The encounter slice is implemented on top of it, as versioned methods whose ids and parameters are
+listed in the [pipeline reference](../lidar/architecture/lidar-pipeline-reference.md#behaviour-following-methods).
+The local path (Section 8.3's "deliberately local" path) is fitted per follower over its own
+passage from observed, moving evidence, groups same-path tracks, and refuses weak support, forks,
+merges, crossings, reversals and lateral incompatibility with a registered path condition rather
+than fitting through them. Leader choice takes the nearest credible body and suppresses
+`ambiguous_leader` under a declared separability rule, and `no_common_path` when the nearest body
+is not on the path. Encounter aggregation reports valid following time over observed support,
+time below each band and its rate with a minimum-opportunity rule, the minimum and median of the
+gap and time-gap series with Monte Carlo intervals, unobserved time, a review-only predicted
+series, and suppression counts by reason; a non-final encounter carries its values only in a
+review-labelled block. Ten multi-frame scenarios with hand-computed answers cover the approach
+across all bands, occlusion, standstill, a distractor, an ambiguous pair, a partial view, a fork, a
+reversal, a crossing and sparse support. The held-out scoring harness (endpoint and gap error,
+interval coverage, strata by class, range, face aspect and support, bounds pinned by hash) is
+built and exercised on the scenarios with known perturbations; on a 150 m curve it finds the
+closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
+
+Following encounters are persisted (Section 10.3), keyed by registry metric id, with
+predicted-only time stored apart from observed opportunity and every stored name checked against
+the registry. The report oracle and the provisional field run over persisted estimator output are
+delivered (Section 10.4), and a scene's encounters are pooled into a headway distribution and
+served, with an SVG chart on the scene page (Section 10.4). On kirk0 the field run finds pairs and
+publishes nothing, because persisted estimates carry no class, heading or extent. Remaining:
+storing the directed path's geometry, which events reference by id only; reading the persisted
+solid bodies' class, heading and extent beliefs into the field run, so a field instant can be
+evaluated at all; calibration of
+every fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction
+first; a per-follower total of valid following time across leaders; and the held-out physical
+validation run itself, which needs independently annotated references, a scoring plan pinned
+before scoring, and the gates G-GEO-1, G-UNC-1 and G-SMO-1.
+
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.
 
@@ -1275,7 +1466,9 @@ that make `local_distribution` benchmarks possible.
 
 The minimal directed path used for the v0.5.2 following slice is a Phase 6B dependency and does not wait for
 this phase. Phase 6C owns durable population paths, deviation metrics and stratified distributions,
-not the bounded encounter-local projection needed to order a simple following pair.
+not the bounded encounter-local projection needed to order a simple following pair. That projection
+is implemented as `internal/lidar/l8behaviour/localpath.go`, so this phase's own file keeps the
+name `path.go` free.
 
 **Inputs.** Weeks of Phase 6A output. Still no map.
 

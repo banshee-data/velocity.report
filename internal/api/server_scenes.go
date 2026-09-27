@@ -40,12 +40,22 @@ type sceneRequest struct {
 	Published bool    `json:"published"`
 }
 
-// handleScenes routes scene requests. URL forms are /api/scenes and
-// /api/scenes/<scene-id>.
+// handleScenes routes scene requests. URL forms are /api/scenes,
+// /api/scenes/<scene-id> and /api/scenes/<scene-id>/headway.
 func (s *Server) handleScenes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/scenes"), "/")
+
+	// A scene id cannot contain a slash, so this suffix is never an id.
+	if sceneID, ok := strings.CutSuffix(id, "/headway"); ok && sceneIDPattern.MatchString(sceneID) {
+		if r.Method != http.MethodGet {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+		s.getSceneHeadway(w, r, sceneID)
+		return
+	}
 
 	if id == "" {
 		switch r.Method {

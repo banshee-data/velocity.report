@@ -4,9 +4,9 @@
   "site": "lombard-broderick",
   "title": "Lombard at Broderick",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5802,
-  "start_ns": "1788367141826875330",
-  "duration_sec": 1160.199792,
+  "frame_count": 5811,
+  "start_ns": "1788367141926885330",
+  "duration_sec": 1161.999627,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,8 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "469e38a4e27e838578660bf335d5de04c41e5b7a713cee4bfc53d7fd7d115b10",
-  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
-  "build_version": "0.5.1-pre32",
-  "generated_at": "2026-09-10T08:51:58Z"
+  "source_vrlog_sha256": "7803e1d33a7248936f7083fb879660a20a5483a6d0e4f70d5fbaa2f44585c1f0",
+  "tuning_hash": "sha256:18ee0fff941d2f6c25dbc6fc142db56cec2faa9401afb743fb20fd68b665a509",
+  "build_version": "0.5.1-pre36",
+  "generated_at": "2026-09-25T18:45:10Z"
 }

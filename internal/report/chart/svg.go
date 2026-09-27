@@ -79,6 +79,26 @@ func (c *SVGCanvas) Polyline(points [][2]float64, attrs string) {
 	c.buf.WriteString("/>\n")
 }
 
+// Polygon emits an SVG <polygon> element.
+func (c *SVGCanvas) Polygon(points [][2]float64, attrs string) {
+	if len(points) == 0 {
+		return
+	}
+	c.buf.WriteString(`<polygon points="`)
+	for i, p := range points {
+		if i > 0 {
+			c.buf.WriteByte(' ')
+		}
+		fmt.Fprintf(&c.buf, "%.4f,%.4f", p[0], p[1])
+	}
+	c.buf.WriteByte('"')
+	if attrs != "" {
+		c.buf.WriteByte(' ')
+		c.buf.WriteString(attrs)
+	}
+	c.buf.WriteString("/>\n")
+}
+
 // Circle emits an SVG <circle> element.
 func (c *SVGCanvas) Circle(cx, cy, r float64, attrs string) {
 	fmt.Fprintf(&c.buf,

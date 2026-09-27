@@ -153,11 +153,106 @@ type TrackerConfig struct {
 	// costs and no history. Default false: the campaign's ground-truth and
 	// label-free harnesses measure it against the shipped behaviour first.
 	CascadedAssociation bool
+	// AdaptiveMeasurementNoise replaces the isotropic MeasurementNoise with
+	// the Phase 3 anisotropic model in adaptive_noise.go: R is diagonal along
+	// and across the sensor's line of sight to the measurement, conditioned on
+	// range, cluster support, the visible-face aspect under the track's
+	// heading and the measurement source, then rotated into the site frame.
+	// It applies alike to the gate, the likelihood cost and the update.
+	// Default false, and not a tuning key, for the fingerprint reason above;
+	// G-UNC-1 decides whether it ships.
+	AdaptiveMeasurementNoise bool
+	// MeasurementNoiseCalibration supplies the fitted per-stratum
+	// coefficients the adaptive model adds to its physics terms. Nil uses the
+	// shipped MeasurementNoise as every stratum's coefficient. It has no
+	// effect unless AdaptiveMeasurementNoise is set. The table is shared, not
+	// copied, when the config is copied, so it must not be mutated after
+	// assignment.
+	MeasurementNoiseCalibration *NoiseCalibration
+	// NoiseSensorX and NoiseSensorY are the sensor origin in the tracker's
+	// frame, which fixes each measurement's line of sight. The pipeline
+	// clusters without a pose, so the tracker frame is the sensor frame and
+	// zero is correct today; a site transform must set them.
+	NoiseSensorX, NoiseSensorY float32
+
+	// TentativePriority is the gated form of S2's remedy. Confirmed tracks
+	// are matched first, but only to clusters inside their χ²₂ 99% ellipse
+	// (d² ≤ 9.21), the region in which a cluster is statistically theirs;
+	// every track still unmatched, confirmed or tentative, then competes
+	// jointly for what is left under the shipped gate. CascadedAssociation
+	// gives confirmed tracks first choice anywhere inside the shipped gate,
+	// which K10 shows admits almost everything within reach, so a confirmed
+	// track whose own object dropped out takes a newborn's cluster instead of
+	// coasting. This option cannot do that beyond the 99% ellipse. It
+	// supersedes CascadedAssociation when both are set. Default false. See
+	// identity.go.
+	TentativePriority bool
+
+	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
+	// cyclist or motorcyclist with a cluster outside that label's geometric
+	// envelope: larger than anything L6 would accept as the label (gap
+	// analysis K4). Such a cluster is a merge with, or a view of, a larger
+	// body, and identity must not cross to it. A vehicle label carries no
+	// refusal, because a partial view of a vehicle can be any size below it;
+	// the soft extent-compatibility cost (AssociationExtentCostWeight) is
+	// what charges that direction. Default false. See identity.go.
+	ClassIdentity bool
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
+
+	// Capture-time options. Every one is default-off and, like the options
+	// above, deliberately not a tuning key: the shipped estimator's temporal
+	// behaviour is pinned by replay before any of it is tuned. See
+	// time_domain.go for the boundary they sit inside.
+	//
+	// MaxCoastSecsTentative and MaxCoastSecsConfirmed bound how long, in
+	// capture time, a track may go without an accepted observation. Zero
+	// disables the bound, leaving the frame-count rule (MaxMisses,
+	// MaxMissesConfirmed) as the only expiry. The two rules measure different
+	// things: misses count frames that reached the tracker, so a frame that
+	// was throttled, lost in transport or dropped at a capture join extends a
+	// coasting track's life for free; the capture-time bound does not care
+	// how many frames arrived. The bound is checked before association, so an
+	// observation arriving after it has lapsed seeds a new track rather than
+	// reviving a hypothesis nothing supported in the interval.
+	MaxCoastSecsTentative float32
+	MaxCoastSecsConfirmed float32
+
+	// CaptureGapPrediction predicts across the whole capture-time gap
+	// between frames, in steps of at most MaxPredictDt, instead of clamping
+	// the step to MaxPredictDt. The clamp was written for throttle-sized gaps;
+	// across a longer transport gap it predicts a moving object a fraction of
+	// the distance it travelled, so reacquisition compares the returning
+	// cluster against a stale position. Sub-stepping keeps the covariance cap
+	// applying per step exactly as it does frame to frame. Default false.
+	CaptureGapPrediction bool
+
+	// MeasurementTimePrediction predicts each associated track to its
+	// measurement's own acquisition time (WorldCluster.TSUnixNanos) before the
+	// update, instead of treating every cluster as observed at the frame's
+	// start. A rotation takes about 100 ms, so an object near the end of the
+	// sweep is measured up to one frame period after the time the filter
+	// assumes, and near the azimuth wrap that offset changes abruptly between
+	// consecutive frames. This is state-estimation plan question Q3. Gating
+	// and assignment still use the frame-time prediction; only the update is
+	// moved. Default false.
+	MeasurementTimePrediction bool
+
+	// OcclusionContinuity holds the Sprint 0.5.2.2 continuity options:
+	// absence explanation, capture-time coast uncertainty, per-class
+	// capture-time coast bounds and the reacquisition guard. The zero value
+	// switches every one off; DefaultOcclusionContinuity switches them all
+	// on with starting values. See continuity.go.
+	OcclusionContinuity OcclusionContinuityConfig
+
+	// SolidBody populates a solid-body estimate per track from the near-edge
+	// measurement model, as a shadow of the tracked filter that never feeds
+	// back into association or the tracked state. Default off; see
+	// solid_body_nearedge.go.
+	SolidBody SolidBodyOptions
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)

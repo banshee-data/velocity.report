@@ -89,7 +89,7 @@ type BackgroundParams struct {
 	// SensorMovementDriftRatioThreshold is the fraction of settled cells whose
 	// range has drifted from its locked baseline that indicates sustained sensor
 	// motion (driving). Robust to busy parked scenes, which shift only a small
-	// fraction of cells. Default: 0.35.
+	// fraction of cells. Default: 0.5.
 	SensorMovementDriftRatioThreshold float32
 	// BackgroundDriftThresholdMetres is the drift distance in metres that indicates
 	// a cell has drifted significantly. Default: 0.5m.

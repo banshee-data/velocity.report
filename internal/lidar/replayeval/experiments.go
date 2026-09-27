@@ -18,6 +18,11 @@ import (
 // sorted list is folded into the parameter hash and written to the run
 // metadata. An empty list leaves both exactly as they were.
 const (
+	// ExperimentAdaptiveUncertainty: l5tracks.TrackerConfig.AdaptiveMeasurementNoise,
+	// state-estimation plan Phase 3: anisotropic R along and across the line
+	// of sight. Uncalibrated unless Config.UncertaintyCalibrationFile supplies
+	// a fitted table; see G-UNC-1.
+	ExperimentAdaptiveUncertainty = "adaptive_uncertainty"
 	// ExperimentLikelihoodCost: l5tracks.TrackerConfig.LikelihoodAssociationCost (gap analysis S3).
 	ExperimentLikelihoodCost = "likelihood_cost"
 	// ExperimentCascade: l5tracks.TrackerConfig.CascadedAssociation (S2).
@@ -28,14 +33,70 @@ const (
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
 	ExperimentNoRegionOverrides = "no_region_overrides"
+	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
+	// state-estimation plan question Q3: update each track at its cluster's
+	// own acquisition time rather than the frame start.
+	ExperimentMeasurementTime = "measurement_time"
+	// ExperimentCaptureGapPredict: l5tracks.TrackerConfig.CaptureGapPrediction,
+	// predict across a whole capture-time gap instead of clamping it to
+	// max_predict_dt.
+	ExperimentCaptureGapPredict = "capture_gap_predict"
+
+	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
+	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
+	// can be attributed, and all four together. Every one runs with
+	// l5tracks.DefaultOcclusionContinuity's starting values.
+	//
+	// ExperimentCoastSupport: ExplainAbsence alone. Diagnostic: the tracks
+	// are the default replay's exactly, and only the manifest's continuity
+	// support counts split coasted into occluded_inferred, missed_unknown and
+	// out_of_fov. It is the arm to read the shipped tracker's absences with.
+	ExperimentCoastSupport = "coast_support"
+	// ExperimentCoastTimeInflation: CaptureTimeInflation, uncertainty per
+	// coast second rather than per missed frame.
+	ExperimentCoastTimeInflation = "coast_time_inflation"
+	// ExperimentClassCoastBounds: ClassCoastBounds, per-class capture-time
+	// coast bounds in place of the miss count (implies absence explanation).
+	ExperimentClassCoastBounds = "class_coast_bounds"
+	// ExperimentReacquisitionGuard: ReacquisitionGuard.
+	ExperimentReacquisitionGuard = "reacquisition_guard"
+	// ExperimentOcclusionContinuity: all four. It does not imply
+	// capture_gap_predict; name both for prediction in capture time too.
+	ExperimentOcclusionContinuity = "occlusion_continuity"
+
+	// ExperimentFixedLagRTS attaches the fixed-assignment RTS smoother at the
+	// comparison horizons (three frames; 0.5, 1 and 2 s; the whole track) and
+	// writes refinement_report.json; see refinement.go. It observes the
+	// tracker and changes none of its decisions, but it is hashed like every
+	// experiment, so the online rows of such a run carry their own hash.
+	ExperimentFixedLagRTS = "fixed_lag_rts"
+
+	// ExperimentSolidBody: l5tracks.TrackerConfig.SolidBody, the near-edge
+	// solid-body estimate as a shadow of the tracked filter, written to
+	// lidar_track_solid_bodies beside each point estimate. It never changes
+	// the tracks, so its recording and tracking baseline are the default
+	// replay's. It is useful only with ObservationDBPath, which is where its
+	// rows go and what retains the cluster points the near-edge model reads;
+	// without one it runs, says so, and writes nothing.
+	ExperimentSolidBody = "solid_body"
 )
 
 var knownExperiments = map[string]bool{
-	ExperimentLikelihoodCost:    true,
-	ExperimentCascade:           true,
-	ExperimentDensityCap:        true,
-	ExperimentFlipRule:          true,
-	ExperimentNoRegionOverrides: true,
+	ExperimentAdaptiveUncertainty: true,
+	ExperimentLikelihoodCost:      true,
+	ExperimentCascade:             true,
+	ExperimentDensityCap:          true,
+	ExperimentFlipRule:            true,
+	ExperimentNoRegionOverrides:   true,
+	ExperimentMeasurementTime:     true,
+	ExperimentCaptureGapPredict:   true,
+	ExperimentCoastSupport:        true,
+	ExperimentCoastTimeInflation:  true,
+	ExperimentClassCoastBounds:    true,
+	ExperimentReacquisitionGuard:  true,
+	ExperimentOcclusionContinuity: true,
+	ExperimentFixedLagRTS:         true,
+	ExperimentSolidBody:           true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

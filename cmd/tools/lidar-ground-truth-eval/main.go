@@ -19,6 +19,15 @@
 // read-only (sqlite.OpenReadOnly): this tool only ever reads, never writes,
 // so it's safe to run concurrently against a database another process has
 // open.
+//
+// That default mode matches whole tracks on temporal overlap, which is gap
+// M5: it cannot see state estimates and scores a fragmented track as an
+// undetected one. The perframe subcommand (perframe.go) is the per-frame
+// replacement: it scores two arms against the reviewed, held-out episodes of
+// an annotation pack and reports MOTA, MOTP, identity switches, fragmentation,
+// HOTA and IDF1 paired per episode.
+//
+//	lidar-ground-truth-eval perframe -pack DIR -split-manifest FILE -split NAME -a-db DB -b-db DB ...
 package main
 
 import (
@@ -39,6 +48,9 @@ func main() {
 
 func run(args []string) int {
 	stdout, stderr := os.Stdout, os.Stderr
+	if len(args) > 0 && args[0] == "perframe" {
+		return runPerFrame(args[1:], stdout, stderr)
+	}
 	fs := flag.NewFlagSet("lidar-ground-truth-eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dbPath := fs.String("db", "sensor_data.db", "default AnalysisRunStore SQLite database, used when -reference-db/-candidate-db are omitted")
@@ -50,7 +62,8 @@ func run(args []string) int {
 	outPath := fs.String("output", "", "output JSON path (default: stdout)")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "Usage: lidar-ground-truth-eval -reference-run-id ID -candidate-run-id ID [flags]\n\n")
+		fmt.Fprintf(stderr, "Usage: lidar-ground-truth-eval -reference-run-id ID -candidate-run-id ID [flags]\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval perframe [flags]   (per-frame scoring against annotations; perframe -h)\n\n")
 		fmt.Fprintf(stderr, "Scores one candidate analysis run against one labelled reference run\n")
 		fmt.Fprintf(stderr, "using adapters.EvaluateGroundTruth, and prints the GroundTruthScore as JSON.\n\nOptions:\n")
 		fs.PrintDefaults()

@@ -238,17 +238,11 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		LastObservedUnixNanos: t.LastMeasurementUnixNanos,
 		Support: SupportState{
 			CoastedFrames: t.Misses,
+			Instant:       t.LastSupport,
 		},
 	}
 
-	// The current measurement is an OBB centre, which is a place on the body
-	// rather than a point in the cluster, so the reference is the body centre
-	// once anything has been measured at all.
-	if t.ObservationCount > 0 {
-		e.Reference = ReferenceBodyCentre
-	} else {
-		e.Reference = ReferenceClusterMedoid
-	}
+	e.Reference = trackReference(t)
 
 	e.Length = dimensionFromBelief(t.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 	e.Width = dimensionFromBelief(t.widthBelief, prior.widthMetres, prior.sigmaMetres)
@@ -260,26 +254,57 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		Provenance: ProvenanceClassPrior,
 	}
 
-	// Orientation: the track carries a smoothed heading and the source that
-	// produced it. A held heading is not evidence about this frame, and a
-	// heading that was never resolved against a direction cue stays bimodal.
-	if t.ObservationCount > 0 && !t.HeadingSource.IsLocked() {
-		e.Orientation = OrientationBelief{
-			PsiRad:       t.OBBHeadingRad,
-			VarianceRad2: headingVarianceFromJitter(t),
-			Provenance:   ProvenanceObserved,
-		}
-		switch t.HeadingSource {
-		case HeadingSourceVelocity, HeadingSourceDisplacement:
-			// Resolved against a direction cue, so the ambiguity collapsed.
-			e.Orientation.AmbiguousModeWeight = 0
-		default:
-			// PCA and the axis path recover an axis, not a direction.
-			e.Orientation.AmbiguousModeWeight = 0.5
-		}
+	if o, ok := trackOrientation(t); ok {
+		e.Orientation = o
 	}
 
 	return e
+}
+
+// trackReference is the point a track's filtered position refers to: what
+// the geometry that last entered the filter was. Neither the medoid nor the
+// centre of the visible box is a place on the body; only a body model with a
+// declared offset, such as the near-edge solid body, may claim the centre.
+// A track not yet measured holds its seed, and a source this code does not
+// know names nothing.
+func trackReference(t *TrackedObject) ReferencePoint {
+	if t.ObservationCount <= 0 {
+		return ReferenceClusterMedoid
+	}
+	switch t.LastMeasurementSource {
+	case MeasurementMedoidV0, MeasurementMedoidFallbackV1:
+		return ReferenceClusterMedoid
+	case MeasurementOBBCentreV1:
+		return ReferenceVisibleOBBCentre
+	default:
+		return ReferenceUnknown
+	}
+}
+
+// trackOrientation reads the track's current heading decision as an
+// orientation belief, and false when there is none this frame.
+//
+// The track carries a smoothed heading and the source that produced it. A held
+// heading is not evidence about this frame, and a heading that was never
+// resolved against a direction cue stays bimodal.
+func trackOrientation(t *TrackedObject) (OrientationBelief, bool) {
+	if t.ObservationCount <= 0 || t.HeadingSource.IsLocked() {
+		return OrientationBelief{}, false
+	}
+	o := OrientationBelief{
+		PsiRad:       t.OBBHeadingRad,
+		VarianceRad2: headingVarianceFromJitter(t),
+		Provenance:   ProvenanceObserved,
+	}
+	switch t.HeadingSource {
+	case HeadingSourceVelocity, HeadingSourceDisplacement:
+		// Resolved against a direction cue, so the ambiguity collapsed.
+		o.AmbiguousModeWeight = 0
+	default:
+		// PCA and the axis path recover an axis, not a direction.
+		o.AmbiguousModeWeight = 0.5
+	}
+	return o, true
 }
 
 // dimensionFromBelief converts an accumulated extent belief into a dimension

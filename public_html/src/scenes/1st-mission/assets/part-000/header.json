@@ -4,9 +4,9 @@
   "site": "1st-mission",
   "title": "1st at Mission",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5802,
-  "start_ns": "1788469876000100330",
-  "duration_sec": 1160.152444,
+  "frame_count": 5810,
+  "start_ns": "1788469875300040330",
+  "duration_sec": 1161.752044,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,8 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "73eec1e93d5f12c4d030299fdede9aa00d7e6d85bb650e816cbbbe45c45dca6d",
-  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
-  "build_version": "0.5.1-pre32",
-  "generated_at": "2026-09-10T15:31:42Z"
+  "source_vrlog_sha256": "08c216fda5b117d6b92e5aa9084d68231ce1f41a80059d75e3b4ba88ef2a236c",
+  "tuning_hash": "sha256:18ee0fff941d2f6c25dbc6fc142db56cec2faa9401afb743fb20fd68b665a509",
+  "build_version": "0.5.1-pre36",
+  "generated_at": "2026-09-25T15:42:50Z"
 }

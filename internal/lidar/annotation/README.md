@@ -80,6 +80,20 @@ revision 3; restoring revision 2 then produces revision 4. Neither action change
 or converts an algorithm's proposal into a reviewed label. Ordinary saves clear the restore
 marker. This is revision-level recovery, not the future client's unsaved-stroke undo stack.
 
+## Scoring against the annotations
+
+| Entry point                     | Contract                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `BuildReference`                | One reference point per mask under a recorded policy: position rule, review status, road-user classes, partials |
+| `LoadSplitManifest`             | Read a frozen split; refuse shared objects and episodes that score another partition's objects                  |
+| `SplitManifest.ValidateAgainst` | Bind it to one pack digest, dataset, pinned revision and the objects that revision still carries                |
+| `SplitManifest.SelectEpisodes`  | Return a split's episodes; with held-out scoring requested, refuse a tuning split with `ErrNotHeldOut`          |
+
+Masks a person did not certify become ignore points rather than truth: unreviewed, not a road user,
+not visible, only uncertain returns, or completeness never stated. Rejected and empty masks are
+dropped. The per-frame evaluator that consumes these, and the manifest's field table, are
+documented in [per-frame evaluation](../../../docs/lidar/operations/per-frame-evaluation.md).
+
 ## Remaining reference-loop work
 
 Canonical-index lasso/slab selection, sphere and column brushes, second-view inspection,

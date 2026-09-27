@@ -49,6 +49,41 @@ Packs cut before those were added have neither: generate them again. A re-export
 frames has the same pack digest, so its `annotations.json` and `annotation-revisions/` apply to
 it unchanged.
 
+### Choosing what to cut
+
+An hour of labelling covers tens of seconds of a busy street, so the window matters more than the
+speed. For following and split work, rank the windows of an evidence database first:
+
+```bash
+scripts/lidar-following-windows.py "$LIDAR_EVIDENCE_DIR/<run>/observations/observations.db" \
+  --site-index tools/s2-archive/site-index.json --case embarcadero-folsom
+```
+
+Each row is a 10 s window: the pair-seconds of vehicles following one another, how many pairs
+and distinct leaders, how often a follower's nearest leader changed, the closest gap, and the
+capture file and offset to cut. Many leader changes for few leaders is usually one lead vehicle
+the tracker split, which is exactly what wants a reviewed reference. The ranking is a review
+queue built from tracker output, not a measurement. `--json` keeps it, and refuses to overwrite.
+
+Decide a pack's role before choosing its window. Tuning packs may be chosen for tracker failure.
+Held-out packs, Embarcadero's among them, should be chosen for traffic rather than failure, with
+a random window per capture alongside: a window picked because the baseline failed there
+flatters whatever is compared against it.
+
+Cut the chosen window with points. The warm-up is replayed, unrecorded, immediately before the
+start so the background can settle, and cannot be longer than the offset: a window in a capture's
+first minute gets a shorter warm-up, and a worse-settled background.
+
+```bash
+velocity lidar pcap-replay --pcap "$CAPTURE" --output "$VRLOG_DIR/<case>-annot" \
+  --warmup-seconds 70 --start-seconds <offset> --duration-seconds 20 --include-points
+velocity lidar annotation-export --vrlog "$VRLOG_DIR/<case>-annot" \
+  --output "$LIDAR_ANNOTATION_DIR/<case>-v1" --coverage foreground_only
+```
+
+The [segment finder plan](../../plans/lidar-annotation-segment-finder-plan.md) makes this one
+step, with the finder, the pack and its proposals joined up.
+
 ## The window
 
 | Area                  | What it is                                                                               |
@@ -229,7 +264,8 @@ proposed, so step through them before reviewing.
 ## What counts
 
 Reference truth is a **reviewed** frame of a **reviewed** object, and nothing else. Saving does
-not review.
+not review. [Per-frame evaluation](per-frame-evaluation.md#the-reference) is where that rule is
+applied: a mask it does not certify becomes an ignore point, neither found nor missed.
 
 - **Review this frame** reviews the saved points on screen. **Review all frames…** reviews every
   saved frame of the object, which is how frames an algorithm filled in become agreed.

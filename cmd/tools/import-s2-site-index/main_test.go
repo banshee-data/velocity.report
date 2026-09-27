@@ -61,10 +61,12 @@ func TestPhase01CorpusSitesRemainMultiFileAndSelectable(t *testing.T) {
 		}
 		totalCaptures += len(entry.Captures)
 	}
-	// The corpus covers all 24 S2 archive sites; the committed phase01 baseline
-	// is measured against exactly these 110 captures.
-	if len(wanted) != 24 || totalCaptures != 110 {
-		t.Fatalf("corpus has %d cases and %d captures, want 24 and 110", len(wanted), totalCaptures)
+	// The corpus covers all 24 S2 archive sites and 112 captures. The committed
+	// phase01 baseline was measured on 110: franklin-mcallister grew from
+	// three captures to five when #613 re-split the site, so that case's
+	// baseline predates its current population.
+	if len(wanted) != 24 || totalCaptures != 112 {
+		t.Fatalf("corpus has %d cases and %d captures, want 24 and 112", len(wanted), totalCaptures)
 	}
 	if fmt.Sprint(wanted[:3]) != "[marina-webster-beach columbus-broadway embarcadero-folsom]" {
 		t.Fatalf("corpus no longer leads with the Phase 0/1 test cases: %v", wanted[:3])

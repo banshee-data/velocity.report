@@ -5,11 +5,12 @@ velocity.report system. Each format has a dedicated specification file.
 
 ## Documented formats
 
-| Format            | Document                                         | Layer | Description                                        |
-| ----------------- | ------------------------------------------------ | ----- | -------------------------------------------------- |
-| Hesai UDP packets | [HESAI_PACKET_FORMAT.md](HESAI_PACKET_FORMAT.md) | L1    | Hesai Pandar40P LiDAR UDP payload structure        |
-| VRLOG recording   | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)               | L2–L5 | Directory-based LiDAR frame recording format       |
-| Surface matrix    | [MATRIX.md](MATRIX.md)                           | L4–L8 | Backend-computed data vs web/PDF/macOS consumption |
+| Format             | Document                                                          | Layer | Description                                        |
+| ------------------ | ----------------------------------------------------------------- | ----- | -------------------------------------------------- |
+| Hesai UDP packets  | [HESAI_PACKET_FORMAT.md](HESAI_PACKET_FORMAT.md)                  | L1    | Hesai Pandar40P LiDAR UDP payload structure        |
+| VRLOG recording    | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)                                | L2–L5 | Directory-based LiDAR frame recording format       |
+| VRLOG observations | [VRLOG_FORMAT.md](VRLOG_FORMAT.md#vrlog-1x-observation-container) | L4    | Typed, checksummed L4 evidence container (1.x)     |
+| Surface matrix     | [MATRIX.md](MATRIX.md)                                            | L4–L8 | Backend-computed data vs web/PDF/macOS consumption |
 
 ## Canonical source definitions
 

@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre36
+VERSION := 0.5.1-pre39
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -99,7 +99,7 @@ help:
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
-	@echo "  proto-gen-go         Generate Go protobuf stubs"
+	@echo "  proto-gen-go         Generate Go protobuf stubs (visualiser + recording domain)"
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
@@ -912,6 +912,10 @@ release-mac:
 PROTO_DIR = proto/velocity_visualiser/v1
 PROTO_GO_OUT = internal/lidar/l9endpoints/pb
 PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
+# Recording domain (VRLOG 1.x payloads). Go only: no Swift reader exists yet,
+# and it has no gRPC service, so it needs protoc-gen-go alone.
+PROTO_RECORDING_DIR = proto/velocity_recording/v1
+PROTO_RECORDING_GO_OUT = internal/lidar/recordingpb
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
 
@@ -941,7 +945,10 @@ proto-gen-go:
 	@protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
 	       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
-	@echo "✓ Go stubs generated in $(PROTO_GO_OUT)"
+	@mkdir -p $(PROTO_RECORDING_GO_OUT)
+	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
+	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/recording.proto
+	@echo "✓ Go stubs generated in $(PROTO_GO_OUT) and $(PROTO_RECORDING_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
 proto-gen-swift:
@@ -985,6 +992,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
+	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \

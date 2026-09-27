@@ -57,12 +57,16 @@ func (t *Tracker) observeBaselineAssociation(track *TrackedObject, matched bool)
 
 // BeginTrackingBaseline starts a fresh measurement window without resetting
 // tracks, predictions, background state, or lifetime diagnostic accumulators.
+// The continuity window (ContinuityStats) starts here too, so a replay's
+// support, expiry and reacquisition figures cover its scoring window.
 func (t *Tracker) BeginTrackingBaseline() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.baselineEnabled = true
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
+	t.continuity = ContinuityStats{}
+	t.continuityBornAfter = t.NextTrackID
 }
 
 // RecordBaselineEmptyFrame records an emitted frame with no usable detections.
@@ -84,14 +88,19 @@ func (t *Tracker) RecordBaselineEmptyFrame() {
 
 // GetWindowBaseline includes observations made during the window even if their
 // tracks have subsequently been deleted or pruned. NIS remains accepted-only,
-// not an uncensored calibration sample.
+// not an uncensored calibration sample. The separate pre-gate band set is
+// included only when a calibration window is open.
 func (t *Tracker) GetWindowBaseline() TrackingMetrics {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return TrackingMetrics{
+	m := TrackingMetrics{
 		Residuals:   t.baselineResiduals.Summarise(),
 		Association: t.baselineAssociation.Summarise(),
 	}
+	if t.calibrationEnabled {
+		m.PreGate = t.preGate.Summarise(t.openRejections())
+	}
+	return m
 }
 
 // residualBand returns the band index for a speed.
@@ -293,6 +302,110 @@ func (a AssociationBands) Summarise() []AssociationBandSummary {
 			Missed:        a.Missed[i],
 			Rate:          float64(a.Matched[i]) / float64(total),
 		})
+	}
+	return out
+}
+
+// Pre-gate band set (Phase 3, G-UNC-1).
+//
+// The residual bands above are accepted-only: the innovation gate has already
+// removed the largest innovations before they are recorded, so their NIS is
+// censored and cannot certify a noise model. The pre-gate bands are recorded
+// before the gate, over a population whose membership the gate and the noise
+// model do not decide: a confirmed track's unique physically plausible
+// candidate (see pregate.go). They are a separate, separately named set so the
+// accepted-only baseline keeps its meaning and its bytes.
+//
+// They also carry the gate's rejections of that population, and what became of
+// each: persistent, when later clusters continued the rejected measurement's
+// path rather than the track's prediction (the signature of a genuine turn or
+// brake the constant-velocity model cannot follow); transient, when they
+// continued the track's own prediction (the signature of a spurious
+// measurement); or unresolved within the look-ahead.
+
+// PreGateAccumulator holds one speed band's pre-gate counts and sums.
+type PreGateAccumulator struct {
+	// Candidates counts physically plausible (track, cluster) pairings of
+	// confirmed tracks, eligible or not. The gap between this and Eligible is
+	// the ambiguity the calibration population excludes.
+	Candidates int `json:"candidates"`
+	// Eligible counts unique plausible pairings: the calibration population.
+	Eligible int `json:"eligible"`
+	// NISSum and NISOverThreshold are over Eligible, before the gate.
+	NISSum           float64 `json:"nis_sum"`
+	NISOverThreshold int     `json:"nis_over_threshold"`
+	// Gated counts eligible pairings the innovation gate forbade; Assigned
+	// those the assignment accepted.
+	Gated    int `json:"gated"`
+	Assigned int `json:"assigned"`
+	// Rejections counts gate-rejection events: a gated eligible pairing on a
+	// track with no event already open. RejectedUnassigned is how many of
+	// those left the rejected cluster free to seed a new track.
+	Rejections         int `json:"rejections"`
+	RejectedUnassigned int `json:"rejected_unassigned"`
+	// Outcomes of closed events. See GateRejectionOutcome.
+	RejectionPersistent int `json:"rejection_persistent"`
+	RejectionTransient  int `json:"rejection_transient"`
+	RejectionUnresolved int `json:"rejection_unresolved"`
+}
+
+// PreGateBands is the speed-banded pre-gate set.
+type PreGateBands [ResidualBandCount]PreGateAccumulator
+
+// PreGateBandSummary is one band reduced for a report.
+type PreGateBandSummary struct {
+	SpeedFloorMps float32 `json:"speed_floor_mps"`
+	Candidates    int     `json:"candidates"`
+	Eligible      int     `json:"eligible"`
+	// MeanNIS is over eligible pairings before the gate; a consistent
+	// two-dimensional model holds it near 2.
+	MeanNIS float64 `json:"mean_nis"`
+	// NISExceedanceRatio is the share above the 95% chi-squared bound, near
+	// 0.05 when consistent.
+	NISExceedanceRatio float64 `json:"nis_exceedance_ratio"`
+	// GatedRatio is the share of eligible pairings the gate forbade. Under a
+	// consistent Gaussian model with the shipped gate of 36 it is about 1e-8,
+	// so any appreciable value is a manoeuvre, a spurious measurement or a
+	// failed birth, which the rejection outcomes help separate.
+	GatedRatio          float64 `json:"gated_ratio"`
+	AssignedRatio       float64 `json:"assigned_ratio"`
+	Rejections          int     `json:"rejections"`
+	RejectedUnassigned  int     `json:"rejected_unassigned"`
+	RejectionPersistent int     `json:"rejection_persistent"`
+	RejectionTransient  int     `json:"rejection_transient"`
+	RejectionUnresolved int     `json:"rejection_unresolved"`
+	// RejectionOpen counts events still inside their look-ahead when the
+	// summary was taken.
+	RejectionOpen int `json:"rejection_open"`
+}
+
+// Summarise reduces the bands. open is the count of still-open rejection
+// events per band. Bands with no candidates and no events are omitted.
+func (b PreGateBands) Summarise(open [ResidualBandCount]int) []PreGateBandSummary {
+	out := make([]PreGateBandSummary, 0, ResidualBandCount)
+	for i, acc := range b {
+		if acc.Candidates == 0 && acc.Rejections == 0 && open[i] == 0 {
+			continue
+		}
+		s := PreGateBandSummary{
+			SpeedFloorMps:       ResidualSpeedBands[i],
+			Candidates:          acc.Candidates,
+			Eligible:            acc.Eligible,
+			Rejections:          acc.Rejections,
+			RejectedUnassigned:  acc.RejectedUnassigned,
+			RejectionPersistent: acc.RejectionPersistent,
+			RejectionTransient:  acc.RejectionTransient,
+			RejectionUnresolved: acc.RejectionUnresolved,
+			RejectionOpen:       open[i],
+		}
+		if acc.Eligible > 0 {
+			n := float64(acc.Eligible)
+			s.MeanNIS = acc.NISSum / n
+			s.NISExceedanceRatio = float64(acc.NISOverThreshold) / n
+			s.GatedRatio = float64(acc.Gated) / n
+			s.AssignedRatio = float64(acc.Assigned) / n
+		}
+		out = append(out, s)
 	}
 	return out
 }

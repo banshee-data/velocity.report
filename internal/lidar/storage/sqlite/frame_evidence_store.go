@@ -25,6 +25,13 @@ type FrameEvidenceStore struct {
 	residualStmt    *sql.Stmt
 	statsMu         sync.Mutex
 	stats           FrameEvidenceStats
+
+	// The solid-body statement is prepared on the first frame that carries
+	// one, so a replay without solid bodies prepares exactly what it always
+	// did.
+	solidBodyPrepare sync.Once
+	solidBodyErr     error
+	solidBodyStmt    *sql.Stmt
 }
 
 // FrameEvidenceStats separates SQLite persistence time from the rest of an
@@ -85,11 +92,29 @@ func (s *FrameEvidenceStore) prepareStatements() error {
 	return s.prepareErr
 }
 
+// prepareSolidBodyStatement prepares the solid-body insert once, on first use.
+func (s *FrameEvidenceStore) prepareSolidBodyStatement() error {
+	s.solidBodyPrepare.Do(func() {
+		preparer, ok := s.db.(statementPreparer)
+		if !ok {
+			s.solidBodyErr = fmt.Errorf("prepare solid-body statement: database does not support prepared statements")
+			return
+		}
+		stmt, err := preparer.Prepare(solidBodyInsertSQL)
+		if err != nil {
+			s.solidBodyErr = fmt.Errorf("prepare solid-body insert: %w", err)
+			return
+		}
+		s.solidBodyStmt = stmt
+	})
+	return s.solidBodyErr
+}
+
 // Close releases the store-owned prepared statements before its database is
 // closed. It is safe to call after no frame callbacks remain.
 func (s *FrameEvidenceStore) Close() error {
 	var result error
-	for _, stmt := range []*sql.Stmt{s.residualStmt, s.estimateStmt, s.observationStmt} {
+	for _, stmt := range []*sql.Stmt{s.solidBodyStmt, s.residualStmt, s.estimateStmt, s.observationStmt} {
 		if stmt != nil {
 			if err := stmt.Close(); err != nil && result == nil {
 				result = err
@@ -166,8 +191,22 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 			return fmt.Errorf("insert observation %s: %w", record.ObservationID, err)
 		}
 	}
+	var solidBodyStmt *sql.Stmt
 	for _, pair := range estimates {
 		if err := insertStateEstimateStatements(estimateStmt, residualStmt, pair.Estimate, pair.Residual, insertedAtNanos); err != nil {
+			return err
+		}
+		if pair.SolidBody == nil {
+			continue
+		}
+		if solidBodyStmt == nil {
+			if err := s.prepareSolidBodyStatement(); err != nil {
+				return err
+			}
+			solidBodyStmt = tx.Stmt(s.solidBodyStmt)
+			defer solidBodyStmt.Close()
+		}
+		if err := insertSolidBodyStatement(solidBodyStmt, *pair.SolidBody, insertedAtNanos); err != nil {
 			return err
 		}
 	}
@@ -201,6 +240,17 @@ func insertStateEstimateStatements(estimateStmt, residualStmt statementExecutor,
 	}
 	if _, err := residualStmt.Exec(stateResidualInsertArgs(residual, insertedAtNanos)...); err != nil {
 		return fmt.Errorf("insert track residual %s: %w", residual.EstimateID, err)
+	}
+	return nil
+}
+
+func insertSolidBodyStatement(stmt statementExecutor, sb TrackSolidBody, insertedAtNanos int64) error {
+	covariance, err := marshalSolidBody(sb)
+	if err != nil {
+		return err
+	}
+	if _, err := stmt.Exec(solidBodyInsertArgs(sb, covariance, insertedAtNanos)...); err != nil {
+		return fmt.Errorf("insert solid-body estimate %s: %w", sb.EstimateID, err)
 	}
 	return nil
 }

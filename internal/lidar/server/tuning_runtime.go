@@ -309,6 +309,9 @@ func applyRuntimeTuningPatch(ws *Server, bm *l3grid.BackgroundManager, paths map
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	if ws.onTuningChange != nil {
+		ws.onTuningChange()
+	}
 
 	for _, path := range editablePaths {
 		if err := applyRuntimeTuningPath(ws, bm, cfg, path); err != nil {

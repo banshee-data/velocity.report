@@ -224,7 +224,7 @@ func TestSourcesAndMarshalData(t *testing.T) {
 
 func TestRenderHelperFilesystemErrors(t *testing.T) {
 	templatesDir := t.TempDir()
-	if err := materialiseTemplates(templatesDir); err != nil {
+	if err := materialiseTemplates(templatesDir, EntryReport); err != nil {
 		t.Fatalf("materialiseTemplates: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(templatesDir, "report.typ")); err != nil {
@@ -235,7 +235,7 @@ func TestRenderHelperFilesystemErrors(t *testing.T) {
 	if err := os.WriteFile(blockedTemplates, []byte("x"), 0o644); err != nil {
 		t.Fatalf("write blocked template path: %v", err)
 	}
-	if err := materialiseTemplates(blockedTemplates); err == nil {
+	if err := materialiseTemplates(blockedTemplates, EntryReport); err == nil {
 		t.Fatal("materialiseTemplates should fail when the target root is a file")
 	}
 
@@ -327,7 +327,7 @@ func TestSourcesAndTemplateErrors(t *testing.T) {
 	if _, err := Sources(); err == nil {
 		t.Fatal("Sources should fail when the embedded template tree is unavailable")
 	}
-	if err := materialiseTemplates(t.TempDir()); err == nil {
+	if err := materialiseTemplates(t.TempDir(), EntryReport); err == nil {
 		t.Fatal("materialiseTemplates should fail when the embedded template tree is unavailable")
 	}
 
@@ -336,7 +336,7 @@ func TestSourcesAndTemplateErrors(t *testing.T) {
 	if _, err := Sources(); err == nil {
 		t.Fatal("Sources should fail when template reads fail")
 	}
-	if err := materialiseTemplates(t.TempDir()); err == nil {
+	if err := materialiseTemplates(t.TempDir(), EntryReport); err == nil {
 		t.Fatal("materialiseTemplates should fail when template reads fail")
 	}
 }

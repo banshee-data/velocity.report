@@ -38,6 +38,9 @@ The environment the batch expects, in full:
     REPLAY_SETTLE=0 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
       python3 tools/s2-archive/publish-scenes.py
 
+  LIDAR_API_URL=http://localhost:8080/api/lidar
+      Optional: direct an isolated worktree run to its own LiDAR server.
+
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
 
@@ -55,7 +58,7 @@ Two sources, selected by --source (SCENE_SOURCE):
 
   archive
       The original rolling captures, joined in order and clipped at replay time
-      by a start offset derived from the first capture's filename stamp. This
+      by a start offset measured from the first packet in the first capture. This
       is how the scenes published before the dataset existed were made; keep it
       to reproduce one of those.
 
@@ -70,20 +73,23 @@ import os
 import shutil
 import subprocess
 import sqlite3
+import struct
 import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-API = "http://localhost:8080/api/lidar"
+# LiDAR routes are registered on the main HTTP API; 8081 is the legacy monitor.
+API = os.environ.get("LIDAR_API_URL", "http://localhost:8080/api/lidar").rstrip("/")
 PCAP_SUBDIR = os.environ.get("REPLAY_PCAP_SUBDIR", "s2")
 SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")
 SPEED_RATIO = float(os.environ.get("REPLAY_SPEED_RATIO", "0") or 0)
 SETTLE = os.environ.get("REPLAY_SETTLE", "1") not in ("0", "false", "False")
 SENSOR = "hesai-pandar40p"
-DB = os.path.join(REPO, "sensor_data.db")
+DB = os.environ.get("LIDAR_DB_PATH", os.path.join(REPO, "sensor_data.db"))
 SITE_INDEX = os.path.join(HERE, "site-index.json")
 # The server's safe directory for replay, and the published dataset root that
 # holds the trimmed per-site captures. The corpus has to sit under the safe
@@ -103,6 +109,11 @@ SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 STRIDE = "2"
 TRANSIENT_FRAMES = 400  # 40 s at 10 Hz, dropped at export not at record
 POLL_SECONDS = 20
+# The per-frame foreground cap and chunk span the published point-cloud clip was
+# made with (docs/plans/lidar-web-scene-export-plan.md, item 5): 10-second chunks
+# keep each request below 1 MiB, where the exporter's default would make one.
+CLIP_MAX_POINTS = 1200
+CLIP_CHUNK_SECONDS = 10
 
 
 def log(message):
@@ -252,6 +263,54 @@ def replay_stretch(scene):
     return vrlog
 
 
+def carry_over(vrlog, live, assets, site, title):
+    """Keep what a scene has that this script does not make.
+
+    The swap replaces assets/ wholesale, and two things in it are chosen by hand:
+    vantages.json, the camera positions somebody picked, and a point-cloud
+    clip, whose manifest records which 30 seconds were selected and why.
+    Dropping them leaves a page asking for a clip that is no longer there.
+    The vantages are copied as they are. The clip is exported again from the
+    new recording over the same source frames, so it stays aligned with the
+    tracks it plays under and names the recording it came from; its manifest,
+    being the record of the selection, is kept as it was.
+    """
+    vantages = os.path.join(live, "vantages.json")
+    if os.path.exists(vantages):
+        shutil.copy2(vantages, os.path.join(assets, "vantages.json"))
+    clip_manifest = os.path.join(live, "clip", "manifest.json")
+    if not os.path.exists(clip_manifest):
+        return
+    with open(clip_manifest) as fh:
+        try:
+            manifest = json.load(fh)
+            selection = manifest["selection"]
+            start_frame = selection["source_start_frame"]
+            frame_count = selection["source_frame_count"]
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise RuntimeError(f"bad clip manifest {clip_manifest}: {error}") from error
+    clip = os.path.join(assets, "clip")
+    os.makedirs(clip, exist_ok=True)
+    export(
+        vrlog,
+        os.path.join(clip, "part-000"),
+        site,
+        title,
+        kind="clip",
+        extra=[
+            "--start-frame",
+            str(start_frame),
+            "--frame-count",
+            str(frame_count),
+            "--max-points",
+            str(CLIP_MAX_POINTS),
+            "--chunk-seconds",
+            str(CLIP_CHUNK_SECONDS),
+        ],
+    )
+    shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+
+
 def build_scene(scene):
     site, title = scene["site"], scene["title"]
     live = os.path.join(SCENES, site, "assets")
@@ -280,6 +339,7 @@ def build_scene(scene):
     for line in summary.splitlines()[1:]:
         log("    " + line.strip())
     export(vrlog, os.path.join(assets, "background"), site, title, kind="background")
+    carry_over(vrlog, live, assets, site, title)
 
     with open(os.path.join(part, "header.json")) as fh:
         duration = float(json.load(fh)["duration_sec"])
@@ -338,6 +398,96 @@ def replay_relative(path, pcap_dir):
     return relative
 
 
+def first_packet_time(path):
+    """Read the first packet clock without scanning a rolling capture.
+
+    Rolling files may be PCAPNG despite their .pcap suffix. The filename stamp
+    is only whole seconds, while replay offsets start at the first packet.
+    """
+    classic = {
+        b"\xd4\xc3\xb2\xa1": ("<", 1_000_000),
+        b"\xa1\xb2\xc3\xd4": (">", 1_000_000),
+        b"\x4d\x3c\xb2\xa1": ("<", 1_000_000_000),
+        b"\xa1\xb2\x3c\x4d": (">", 1_000_000_000),
+    }
+
+    def clock(seconds, fraction, units, offset=0):
+        return datetime.fromtimestamp(seconds + offset, timezone.utc) + timedelta(
+            microseconds=round(fraction * 1_000_000 / units)
+        )
+
+    with open(path, "rb") as capture:
+        header = capture.read(12)
+        if len(header) < 12:
+            raise ValueError(f"{path}: capture header is incomplete")
+        if header[:4] in classic:
+            endian, units = classic[header[:4]]
+            capture.seek(24)
+            packet = capture.read(16)
+            if len(packet) < 16:
+                raise ValueError(f"{path}: capture has no packet")
+            seconds, fraction = struct.unpack(endian + "II", packet[:8])
+            return clock(seconds, fraction, units)
+        if header[:4] != b"\x0a\x0d\x0d\x0a":
+            raise ValueError(f"{path}: unsupported capture format")
+        byte_order = {b"\x4d\x3c\x2b\x1a": "<", b"\x1a\x2b\x3c\x4d": ">"}
+        endian = byte_order.get(header[8:12])
+        if endian is None:
+            raise ValueError(f"{path}: invalid PCAPNG byte order")
+        section_length = struct.unpack(endian + "I", header[4:8])[0]
+        if section_length < 28:
+            raise ValueError(f"{path}: invalid PCAPNG section length")
+        capture.seek(section_length)
+        interfaces = []
+        while block := capture.read(8):
+            if len(block) < 8:
+                break
+            kind, length = struct.unpack(endian + "II", block)
+            if length < 12:
+                raise ValueError(f"{path}: invalid PCAPNG block length")
+            if kind == 1:  # Interface Description Block
+                body = capture.read(length - 12)
+                if len(body) != length - 12 or len(body) < 8:
+                    break
+                units, offset = 1_000_000, 0  # PCAPNG defaults to microseconds
+                options = body[8:]
+                cursor = 0
+                while cursor + 4 <= len(options):
+                    code, size = struct.unpack(
+                        endian + "HH", options[cursor : cursor + 4]
+                    )
+                    cursor += 4
+                    value = options[cursor : cursor + size]
+                    if len(value) < size or code == 0:
+                        break
+                    if code == 9 and size == 1:  # if_tsresol
+                        exponent = value[0]
+                        units = (
+                            (2 ** (exponent & 0x7F))
+                            if exponent & 0x80
+                            else (10**exponent)
+                        )
+                    if code == 14 and size == 8:  # if_tsoffset, in seconds
+                        offset = struct.unpack(endian + "q", value)[0]
+                    cursor += (size + 3) & ~3
+                interfaces.append((units, offset))
+                capture.seek(4, 1)  # trailing block length
+            elif kind == 6:  # Enhanced Packet Block
+                body = capture.read(20)
+                if len(body) < 20:
+                    break
+                interface, high, low = struct.unpack(endian + "III", body[:12])
+                if interface >= len(interfaces):
+                    raise ValueError(f"{path}: packet references an absent interface")
+                units, offset = interfaces[interface]
+                ticks = high << 32 | low
+                seconds, fraction = divmod(ticks, units)
+                return clock(seconds, fraction, units, offset)
+            else:
+                capture.seek(length - 8, 1)
+    raise ValueError(f"{path}: capture has no timestamped packet")
+
+
 def load_corpus(corpus_dir):
     """Index the published dataset manifest by site slug.
 
@@ -369,7 +519,8 @@ def scenes_from_corpus(index, corpus, corpus_dir, pcap_dir):
     The dataset's captures are already clipped to the site bounds, so there is
     no offset to derive and nothing to join: the scene is the file. Identity —
     the id, the title, the position — still comes from the site index, which is
-    what the map and the scene pages read.
+    what the map and the scene pages read. Refuse a stale corpus entry whose
+    duration no longer agrees with a corrected site interval.
     """
     scenes, problems = [], []
     for entry in index:
@@ -391,6 +542,16 @@ def scenes_from_corpus(index, corpus, corpus_dir, pcap_dir):
         duration = float(published.get("duration_seconds") or 0.0)
         if duration <= 0:
             problems.append(f"{site}: the manifest gives no duration")
+            continue
+        expected = (
+            datetime.fromisoformat(entry["end"])
+            - datetime.fromisoformat(entry["start"])
+        ).total_seconds()
+        if abs(duration - expected) > 1.0:
+            problems.append(
+                f"{site}: corpus duration {duration:.3f}s differs from the "
+                f"site index {expected:.3f}s; rebuild the capture and manifest"
+            )
             continue
         scenes.append(
             {
@@ -414,23 +575,36 @@ def scenes_from_archive(index, pcap_dir):
     prefix its files happen to carry. The prefix named a deployment, not a
     place, and six sites shared one.
     """
-    from datetime import datetime
-
     scenes, problems = [], []
     for entry in index:
+        if not pcap_dir:
+            problems.append(f"{entry['id']}: --pcap-dir is required for archive replay")
+            continue
         captures = sorted(entry["captures"])
-        # A rolling capture carries its start in its name, and a site usually
-        # begins partway into its first one. A capture named any other way —
-        # a single recording of one junction, kept outside the rolling set —
-        # has no stamp to read, and its site begins where the file does.
-        try:
-            stamp = captures[0].rsplit("_", 2)[-2]
-            offset = (
-                datetime.fromisoformat(entry["start"]).replace(tzinfo=None)
-                - datetime.strptime(stamp, "%Y%m%d%H%M%S")
-            ).total_seconds()
-        except (IndexError, ValueError):
-            offset = 0.0
+        if not captures:
+            problems.append(f"{entry['id']}: the site index names no captures")
+            continue
+        # Replay offsets are measured from the first packet, which can be a
+        # fraction of a second after the rounded timestamp in a filename.
+        offset = 0.0
+        first_path = (
+            os.path.join(pcap_dir, PCAP_SUBDIR, captures[0])
+            if PCAP_SUBDIR
+            else os.path.join(pcap_dir, captures[0])
+        )
+        if os.path.exists(first_path):
+            try:
+                offset = (
+                    datetime.fromisoformat(entry["start"])
+                    - first_packet_time(first_path)
+                ).total_seconds()
+            except ValueError as error:
+                problems.append(f"{entry['id']}: {error}")
+                continue
+        duration = (
+            datetime.fromisoformat(entry["end"])
+            - datetime.fromisoformat(entry["start"])
+        ).total_seconds()
         files = [
             os.path.join(PCAP_SUBDIR, name) if PCAP_SUBDIR else name
             for name in captures
@@ -448,9 +622,9 @@ def scenes_from_archive(index, pcap_dir):
             {
                 "site": entry["id"],
                 "title": entry["where"] or entry["id"],
-                "minutes": entry["minutes"],
+                "minutes": duration / 60.0,
                 "files": files,
-                "duration": entry["minutes"] * 60,
+                "duration": duration,
                 "start_secs": max(offset, 0.0),
                 "source": "archive",
             }

@@ -149,18 +149,19 @@ func installedApplianceLayoutPresent() bool {
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar    = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen    = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
-	lidarUDPPort   = serveFlags.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarUDPRcvBuf = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
-	lidarNoParse   = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarForward   = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort   = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr   = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarFGForward = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
-	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
-	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
-	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar      = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen      = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
+	lidarUDPPort     = serveFlags.Int("lidar-udp-port", 2369, "LiDAR UDP port in PCAP captures and the default live listener port")
+	lidarLiveUDPPort = serveFlags.Int("lidar-live-udp-port", 0, "Override the live LiDAR UDP listener port (0 = use lidar-udp-port)")
+	lidarUDPRcvBuf   = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
+	lidarNoParse     = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarForward     = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort     = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr     = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward   = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort   = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr   = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir     = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Write paths are set independently of --lidar-pcap-dir rather than derived
 	// from it.
 	//
@@ -175,6 +176,11 @@ var (
 	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
 	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	// Off unless set. Experimental: the power-loss and target-hardware
+	// evidence a live default needs does not exist yet (VRLOG plan, G-OBS-CRASH
+	// and G-OBS-PI).
+	lidarObservationDir = serveFlags.String("lidar-observation-dir", "",
+		"Experimental, off when empty: commit the live session's foreground-complete L4 observation frames to a new VRLOG 1.x container in this directory")
 	// Repeatable. Capture roots are the volumes the capture index scans; the
 	// web UI selects among them and cannot add one, which is what keeps the
 	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
@@ -305,6 +311,9 @@ func Main(args []string) int {
 	// don't collide with the server's flags.
 	if len(args) > 0 && args[0] == "pdf" {
 		return runPDF(args[1:], os.Stdout, os.Stderr)
+	}
+	if len(args) > 0 && args[0] == "headway" {
+		return runHeadway(args[1:], os.Stdout, os.Stderr)
 	}
 	if len(args) > 0 && args[0] == "sql" {
 		return runSQL(args[1:], os.Stdout, os.Stderr)
@@ -450,6 +459,9 @@ func Main(args []string) int {
 			*lidarFGFwdPort,
 			log.Fatalf,
 		)
+		if err := validateOptionalLidarPortFlag("--lidar-live-udp-port", *lidarLiveUDPPort); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Compute tuning config hash for VRLOG provenance.
@@ -525,7 +537,11 @@ func Main(args []string) int {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		lidarSensorID := tuningCfg.GetSensor()
-		lidarUDPListenPort := *lidarUDPPort
+		lidarUDPReplayPort := *lidarUDPPort
+		lidarUDPListenPort := lidarUDPReplayPort
+		if *lidarLiveUDPPort != 0 {
+			lidarUDPListenPort = *lidarLiveUDPPort
+		}
 		lidarUDPRcvBuf := *lidarUDPRcvBuf
 		lidarForwardPortCfg := *lidarFwdPort
 		lidarFGForwardPortCfg := *lidarFGFwdPort
@@ -577,6 +593,7 @@ func Main(args []string) int {
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
+		var liveObservations *liveObservationCapture // nil unless --lidar-observation-dir is set
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
@@ -632,13 +649,10 @@ func Main(args []string) int {
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
-				if err := visualiserPublisher.Start(); err != nil {
+				if err := visualiserPublisher.StartWithService(visualiserServer); err != nil {
 					log.Fatalf("Could not start visualiser publisher: %v. Check the gRPC listen address is free and not already in use", err)
 				}
 				defer visualiserPublisher.Stop()
-
-				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
-				l9endpoints.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
 				frameAdapter = l9endpoints.NewFrameAdapter(lidarSensorID)
 
@@ -687,6 +701,26 @@ func Main(args []string) int {
 			// before anyone starts diagnosing the silence.
 			lidarProfile := tuningCfg.Profile()
 			log.Printf("LiDAR pipeline profile: %s (runs L1-L%d)", lidarProfile, lidarProfile.TopLayer())
+			if *lidarObservationDir != "" {
+				tuningJSON, err := json.Marshal(tuningCfg)
+				if err != nil {
+					log.Fatalf("marshal tuning for the observation capture: %v", err)
+				}
+				// ReplayActive is wired after the web server exists; until
+				// then, and whenever it reads false, input is the live sensor.
+				live := func() bool { return pipelineConfig.ReplayActive == nil || !pipelineConfig.ReplayActive.Load() }
+				setup, err := startLiveObservationCapture(*lidarObservationDir, lidarSensorID, tuningJSON,
+					liveObservationPolicy(lidarFrameChCapacity), live, log.Printf)
+				if err != nil {
+					log.Printf("Live observation capture disabled: %v", err)
+				} else {
+					liveObservations = setup.capture
+					pipelineConfig.ObservationFrameSink = setup.capture
+					pipelineConfig.ObservationSourceID = setup.sourceID
+					pipelineConfig.ObservationCalibrationID = setup.calibrationID
+					defer liveObservations.End("server shutting down")
+				}
+			}
 			callback := pipelineConfig.NewFrameCallback()
 
 			frameBuilder = l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
@@ -699,7 +733,7 @@ func Main(args []string) int {
 				CleanupInterval: 250 * time.Millisecond,
 				// Larger callback channel buffer absorbs short processing
 				// stalls during PCAP replay without dropping frames.
-				FrameChCapacity: 32,
+				FrameChCapacity: lidarFrameChCapacity,
 			})
 		}
 
@@ -733,6 +767,18 @@ func Main(args []string) int {
 			UDPPort:        lidarUDPListenPort,
 		}
 
+		// A new extractor configuration is a new extraction: a live
+		// observation capture's identities no longer describe what follows.
+		endLiveObservationsOnTuning := func() {
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "runtime tuning changed")
+		}
+
+		onPCAPStarted := pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf)
+		closeLiveObservationsOnReplayStart := func() {
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "the pipeline left live input")
+			onPCAPStarted()
+		}
+
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
@@ -743,7 +789,7 @@ func Main(args []string) int {
 			ForwardAddr:        *lidarFwdAddr,
 			ForwardPort:        lidarForwardPortCfg,
 			ParsingEnabled:     !*lidarNoParse,
-			UDPPort:            lidarUDPListenPort,
+			UDPPort:            lidarUDPReplayPort,
 			DB:                 lidarDB,
 			SensorID:           lidarSensorID,
 			Parser:             parser,
@@ -756,7 +802,8 @@ func Main(args []string) int {
 			PlotsBaseDir:       *lidarPlotsDir,
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
-			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
+			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
 			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},

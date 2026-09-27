@@ -157,3 +157,36 @@ func TestMotionClassifierCachesGridEvidenceForOneCaptureSecond(t *testing.T) {
 		t.Fatalf("out-of-order capture time did not refresh metrics at %v", classifier.metricsAt)
 	}
 }
+
+func TestMotionClassifierRefreshPreservesGeometry(t *testing.T) {
+	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elevations := make([]float64, gridRings)
+	elevations[1] = 3.5
+	if err := classifier.SetRingElevations(elevations); err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Unix(5_000, 0)
+	if _, err := classifier.Observe(t0, nil); err != nil {
+		t.Fatal(err)
+	}
+	previous := classifier.bg
+
+	refreshAt := t0.Add(motionWindow)
+	evidence, err := classifier.Observe(refreshAt, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if classifier.bg == previous || evidence.Moving {
+		t.Fatalf("refresh should use a fresh stable model: %+v", evidence)
+	}
+	if classifier.bg.GetSourcePath() != "capture.pcapng" || classifier.bg.Grid.RingElevations[1] != 3.5 {
+		t.Fatal("refreshed model lost its source or sensor geometry")
+	}
+	if evidence.DriftRatio != 0 {
+		t.Fatalf("empty fresh model drift ratio = %f, want 0", evidence.DriftRatio)
+	}
+
+}

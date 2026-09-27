@@ -377,6 +377,11 @@ const (
 	// ReferenceClusterMedoid is the initialisation seed: a point in the
 	// observed cluster, carrying the medoid's known bias toward the sensor.
 	ReferenceClusterMedoid
+	// ReferenceVisibleOBBCentre is the centre of the box around the returns
+	// this frame saw: a place on the body only when the whole body was in
+	// view, which nothing here establishes, so it moves with visibility and
+	// is not a physical reference.
+	ReferenceVisibleOBBCentre
 )
 
 // String names a reference point for diagnostics and persisted rows.
@@ -388,6 +393,8 @@ func (r ReferencePoint) String() string {
 		return "near_face_centre"
 	case ReferenceClusterMedoid:
 		return "cluster_medoid"
+	case ReferenceVisibleOBBCentre:
+		return "visible_obb_centre"
 	default:
 		return "unknown"
 	}
@@ -408,6 +415,11 @@ type SupportState struct {
 	// CoastedFrames is how many consecutive frames have had no accepted
 	// measurement. Zero means this frame was observed.
 	CoastedFrames int
+	// Instant is the tracker's support token for this instant, the behaviour
+	// plan's Section 7.3 vocabulary (see ObservationSupport). It carries the
+	// explanation of an absence, which CoastedFrames cannot; zero when the
+	// estimate was not read off a live track.
+	Instant ObservationSupport
 	// Fragmented and Truncated mark evidence that Section 9.2.1 refuses as
 	// dimension evidence: a fragment's extent is meaningless as a dimension,
 	// and a cluster cut off at the field-of-view boundary has an extent that
@@ -604,4 +616,52 @@ func wrapToPi(a float32) float32 {
 // angleDifference is the shortest signed angle from b to a, in [-pi, pi].
 func angleDifference(a, b float32) float32 {
 	return wrapToPi(a - b)
+}
+
+// The Parse functions below read the names the String methods write into
+// persisted rows. Each refuses a name it does not know rather than mapping it
+// to a zero value, because the zero values are real states: a misread row
+// would otherwise come back as "none", "initialising" or "unknown" and pass as
+// a legitimate estimate.
+
+// ParseProvenance reads a provenance written by Provenance.String.
+func ParseProvenance(s string) (Provenance, error) {
+	for _, p := range []Provenance{ProvenanceNone, ProvenanceClassPrior, ProvenanceAccumulated, ProvenanceObserved} {
+		if p.String() == s {
+			return p, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown provenance %q", s)
+}
+
+// ParseEstimationState reads a state written by EstimationState.String.
+func ParseEstimationState(s string) (EstimationState, error) {
+	for _, e := range []EstimationState{EstimationInitialising, EstimationGeometryConverging,
+		EstimationEstablished, EstimationTemporarilyDegraded, EstimationModelInvalid} {
+		if e.String() == s {
+			return e, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown estimation state %q", s)
+}
+
+// ParseMotionClass reads a class written by MotionClass.String.
+func ParseMotionClass(s string) (MotionClass, error) {
+	for _, m := range []MotionClass{MotionUnknown, MotionRigidVehicle, MotionTwoWheeler, MotionPedestrian} {
+		if m.String() == s {
+			return m, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown motion class %q", s)
+}
+
+// ParseReferencePoint reads a reference point written by
+// ReferencePoint.String.
+func ParseReferencePoint(s string) (ReferencePoint, error) {
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid, ReferenceVisibleOBBCentre} {
+		if r.String() == s {
+			return r, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown reference point %q", s)
 }

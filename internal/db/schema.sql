@@ -389,6 +389,31 @@
         , updated_at_ns INTEGER
           );
 
+   CREATE TABLE lidar_track_estimate_revisions (
+          estimate_id TEXT PRIMARY KEY
+        , revises_estimate_id TEXT NOT NULL
+        , smoother_id TEXT NOT NULL
+        , lag TEXT NOT NULL
+        , lookahead_steps INTEGER NOT NULL
+        , lookahead_secs REAL NOT NULL
+        , released_at_unix_nanos INTEGER NOT NULL
+        , release_reason TEXT NOT NULL
+        , chain_end_reason TEXT NOT NULL
+        , flags TEXT NOT NULL
+        , previous_x REAL NOT NULL
+        , previous_y REAL NOT NULL
+        , previous_vx REAL NOT NULL
+        , previous_vy REAL NOT NULL
+        , revision_position_m REAL NOT NULL
+        , revision_velocity_mps REAL NOT NULL
+        , evidence_count INTEGER NOT NULL
+        , evidence_first_frame_unix_nanos INTEGER NOT NULL
+        , evidence_last_frame_unix_nanos INTEGER NOT NULL
+        , strongest_evidence_observation_id TEXT NOT NULL
+        , strongest_evidence_nis REAL NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+          );
+
    CREATE TABLE lidar_track_estimates (
           estimate_id TEXT PRIMARY KEY
         , track_id TEXT NOT NULL
@@ -409,6 +434,7 @@
         , vy REAL NOT NULL
         , covariance_json BLOB NOT NULL
         , inserted_at_ns INTEGER NOT NULL
+        , state_model TEXT NOT NULL DEFAULT 'cv_cartesian_v1'
         , UNIQUE (
           track_id
         , estimator_id
@@ -435,6 +461,137 @@
         , disposition TEXT NOT NULL
         , reason TEXT NOT NULL
         , inserted_at_ns INTEGER NOT NULL
+          );
+
+   CREATE TABLE lidar_interaction_events (
+          event_id TEXT PRIMARY KEY
+        , event_json JSON NOT NULL
+        , source_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.source_id')) STORED
+        , interaction_type TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.interaction_type')) STORED
+        , primary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.primary_track_id')) STORED
+        , secondary_track_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.secondary_track_id')) STORED
+        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.start_unix_nanos')) STORED
+        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(event_json, '$.end_unix_nanos')) STORED
+        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimate_stage')) STORED
+        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.estimator_id')) STORED
+        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.obs_model_id')) STORED
+        , method_id TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.method_id')) STORED
+        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.version.param_hash')) STORED
+        , worst_support TEXT NOT NULL AS (JSON_EXTRACT(event_json, '$.worst_support')) STORED
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (event_id = JSON_EXTRACT(event_json, '$.event_id'))
+          );
+
+   CREATE TABLE lidar_interaction_instants (
+          event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
+        , capture_unix_nanos INTEGER NOT NULL
+        , instant_json JSON NOT NULL
+        , basis TEXT NOT NULL AS (JSON_EXTRACT(instant_json, '$.basis')) STORED
+        , valid INTEGER NOT NULL AS (JSON_EXTRACT(instant_json, '$.valid')) STORED
+        , reason TEXT AS (JSON_EXTRACT(instant_json, '$.reason')) STORED
+        , PRIMARY KEY (event_id, capture_unix_nanos)
+        , CHECK (
+          event_id = JSON_EXTRACT(instant_json, '$.event_id')
+          AND capture_unix_nanos = JSON_EXTRACT(instant_json, '$.capture_unix_nanos')
+          )
+        , CHECK (
+          basis = 'observed'
+          OR valid = 0
+          )
+          );
+
+   CREATE TABLE lidar_exposure_windows (
+          window_id TEXT PRIMARY KEY
+        , event_id TEXT NOT NULL REFERENCES lidar_interaction_events (event_id) ON DELETE CASCADE
+        , window_json JSON NOT NULL
+        , source_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.source_id')) STORED
+        , kind TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.kind')) STORED
+        , basis TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.basis')) STORED
+        , track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.track_id')) STORED
+        , counterpart_track_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.counterpart_track_id')) STORED
+        , start_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.start_unix_nanos')) STORED
+        , end_unix_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.end_unix_nanos')) STORED
+        , duration_nanos INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.duration_nanos')) STORED
+        , estimate_stage TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimate_stage')) STORED
+        , estimator_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.estimator_id')) STORED
+        , obs_model_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.obs_model_id')) STORED
+        , method_id TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.method_id')) STORED
+        , param_hash TEXT NOT NULL AS (JSON_EXTRACT(window_json, '$.version.param_hash')) STORED
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (
+          window_id = JSON_EXTRACT(window_json, '$.window_id')
+          AND event_id = JSON_EXTRACT(window_json, '$.event_id')
+          )
+        , CHECK (
+          duration_nanos > 0
+          AND end_unix_nanos - start_unix_nanos = duration_nanos
+          )
+          );
+
+   CREATE TABLE lidar_track_solid_bodies (
+          estimate_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , creation_sequence INTEGER NOT NULL
+        , observation_id TEXT NOT NULL
+        , source_id TEXT NOT NULL
+        , calibration_id TEXT NOT NULL
+        , frame_unix_nanos INTEGER NOT NULL
+        , measurement_unix_nanos INTEGER NOT NULL
+        , estimator_id TEXT NOT NULL
+        , observation_model_id TEXT NOT NULL
+        , param_hash TEXT NOT NULL
+        , stage TEXT NOT NULL
+        , state_model TEXT NOT NULL
+        , reference_point TEXT NOT NULL
+        , x REAL NOT NULL
+        , y REAL NOT NULL
+        , vx REAL NOT NULL
+        , vy REAL NOT NULL
+        , covariance_json BLOB NOT NULL
+        , heading_rad REAL NOT NULL
+        , heading_variance_rad2 REAL NOT NULL
+        , heading_ambiguous_weight REAL NOT NULL
+        , heading_provenance TEXT NOT NULL
+        , length_m REAL NOT NULL
+        , length_sigma_m REAL NOT NULL
+        , length_frames INTEGER NOT NULL
+        , length_provenance TEXT NOT NULL
+        , width_m REAL NOT NULL
+        , width_sigma_m REAL NOT NULL
+        , width_frames INTEGER NOT NULL
+        , width_provenance TEXT NOT NULL
+        , height_m REAL NOT NULL
+        , height_sigma_m REAL NOT NULL
+        , height_frames INTEGER NOT NULL
+        , height_provenance TEXT NOT NULL
+        , ground_z REAL NOT NULL
+        , ground_surface_model TEXT NOT NULL
+        , motion_class TEXT NOT NULL
+        , motion_posterior REAL NOT NULL
+        , estimation_state TEXT NOT NULL
+        , last_observed_unix_nanos INTEGER NOT NULL
+        , support_points INTEGER NOT NULL
+        , coasted_frames INTEGER NOT NULL
+        , measurement_source TEXT NOT NULL
+        , measurement_rank INTEGER NOT NULL
+        , visible_faces TEXT NOT NULL
+        , inferred_extent INTEGER NOT NULL
+        , aspect_rad REAL
+        , nis REAL NOT NULL
+        , fallback_reason TEXT NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+        , support_instant TEXT NOT NULL DEFAULT ''
+        , support_fragmented INTEGER NOT NULL DEFAULT 0
+        , support_truncated INTEGER NOT NULL DEFAULT 0
+        , UNIQUE (
+          track_id
+        , estimator_id
+        , observation_model_id
+        , param_hash
+        , stage
+        , frame_unix_nanos
+          )
+        , CHECK (measurement_rank BETWEEN 0 AND 2)
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_tracks" (
@@ -950,6 +1107,24 @@ CREATE INDEX idx_lidar_observations_calibration_time ON lidar_observations (cali
 CREATE INDEX idx_lidar_track_estimates_observation ON lidar_track_estimates (observation_id, estimator_id, stage);
 
 CREATE INDEX idx_lidar_track_residuals_observation ON lidar_track_residuals (observation_id, estimate_id);
+
+CREATE INDEX idx_lidar_track_estimate_revisions_revises ON lidar_track_estimate_revisions (revises_estimate_id);
+
+CREATE INDEX idx_lidar_interaction_events_version ON lidar_interaction_events (source_id, estimate_stage, estimator_id, obs_model_id, method_id, param_hash);
+
+CREATE INDEX idx_lidar_interaction_events_primary ON lidar_interaction_events (primary_track_id, interaction_type);
+
+CREATE INDEX idx_lidar_interaction_events_secondary ON lidar_interaction_events (secondary_track_id, interaction_type);
+
+CREATE INDEX idx_lidar_interaction_events_type ON lidar_interaction_events (interaction_type, start_unix_nanos);
+
+CREATE INDEX idx_lidar_exposure_windows_event ON lidar_exposure_windows (event_id, start_unix_nanos);
+
+CREATE INDEX idx_lidar_exposure_windows_version ON lidar_exposure_windows (source_id, kind, basis, estimate_stage, estimator_id, obs_model_id, method_id, param_hash);
+
+CREATE INDEX idx_lidar_exposure_windows_track ON lidar_exposure_windows (track_id, kind);
+
+CREATE INDEX idx_lidar_track_solid_bodies_observation ON lidar_track_solid_bodies (observation_id, estimator_id, stage);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

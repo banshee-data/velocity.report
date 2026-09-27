@@ -4,7 +4,12 @@ This plan brings LiDAR observation capture, annotation packs, and evaluation evi
 VRLOG data model, with binary storage and JSON projections. It defines what geometry must survive,
 when readers may trust it, and how asynchronous estimates and reviewed labels remain distinct.
 
-- **Status:** Proposed design; no format or runtime changes implemented
+- **Status:** In progress: the Sprint 0.5.2.2 domain contract, builder and opt-in pre-L5 tap
+  are delivered, as are delivery phase 1 (typed codec and offline reader, with desktop
+  G-OBS-FID, G-OBS-REP input and G-OBS-COMPAT evidence) and phase 2 on the desktop (commit
+  generations, durable frontier, recovery and failure accounting, with G-OBS-TIME, G-OBS-QUEUE
+  and process-crash evidence). Power-loss G-OBS-CRASH, G-OBS-PI, the worker and every later gate
+  remain outstanding
 - **Layers:** L2 provenance, L3 retention boundary, L4 evidence, L5 estimation, L9 playback
 - **Canonical:** [LiDAR architecture](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Related:** [Asynchronous tracking proposal][async-plan], [state estimation][state-plan],
@@ -81,6 +86,139 @@ Annotation-pack consolidation, web projections, remote transport, compression tu
 default enablement are follow-ons. None may redefine point identity or quietly lower the declared
 accuracy profile. Desktop estimator acceptance does not claim the target-hardware G-OBS-CRASH or
 G-OBS-PI gates have passed.
+
+#### Delivered: domain contract, builder and tap
+
+The first slice defines the contract in memory; nothing is written to disk by it.
+
+| Part                           | Delivered behaviour                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profiles and capabilities      | `l4bobserve` declares `reduced-cluster-sample` (the schema-1 JSON records) and `foreground-complete`. `CapabilitySet.Require` and `Profile.Satisfies` return a typed error naming every missing capability. Legacy records and `ObservationStore.SourceProfile` report the reduced profile, so a request for full evidence fails.                   |
+| Frame and gap records          | `FrameRecord` has a dense source sequence per extraction, capture start and end, and separate completeness, disposition (§3.3) and payload fields. Stage counts keep unknown distinct from zero. `GapRecord` carries sequence or time bounds with certainty. `StreamValidator` enforces dense coverage and ordered starts.                          |
+| Retained domain and membership | Every L3 foreground return, copied before the height filter compacts it: float64 XYZ as L4 computed them, int64 ns time offsets, native intensity, channel, source ordinal, block, and packet sequence when the source numbers packets. Clusters hold sorted unique indices; unassigned points complete an exact partition with a rejection reason. |
+| Acquisition lineage            | A source ordinal is stamped on each `WorldPoint` in former alignment padding, so the struct stays 72 bytes and its JSON is unchanged. It survives the height filter, voxel representatives, the DBSCAN input cap and clustering. `DBSCANWithTrace` exposes the labels DBSCAN already computed.                                                      |
+| Tap and replay                 | `TrackingPipelineConfig.ObservationFrameSink` emits one record per frame before L5, including empty, unsettled, suppressed and failed frames. `replayeval.Config.ObservationFrames` validates the stream and fails the replay on a refused record or broken lineage.                                                                                |
+
+On kirk0's 20-second warm-up plus four-second window, all 241 frames have records in sequence and
+every partition is exact. All 666 cluster summaries equal their legacy observations, and every
+legacy sample point is a member, bit for bit. The schema-2 tracker baseline and the reduced
+evidence oracle are byte-identical with the tap on. Across the whole capture, 832 frames retain
+1,140 points per frame, a 55 KiB payload. The tap's own work is 0.21–0.22 ms, 62 KB and 29
+allocations per frame (`BenchmarkFrameDraftKirk0Scale`). A whole replay with a streaming sink
+allocated 0.09% more; wall time and peak heap stayed within shared-host noise. With the tap off,
+`lidar-bench` on kirk0 matched the base commit: same work, fingerprint and allocation.
+
+#### Delivered: codec and offline reader (phase 1)
+
+The second slice writes those records to disk and reads them back. It is opt-in: nothing writes
+the new layout unless a replay is given `--observations`. The container is specified in
+[VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container).
+
+| Part                     | Delivered behaviour                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Recording-domain schema  | [`velocity.recording.v1`](../../proto/velocity_recording/v1/recording.proto), independent of `FrameBundle`, generated by `make proto-gen-go`. It carries the manifest, the frame and gap records with explicit presence, and the chunk header, seal, index and summary objects. Its evolution rules are in the file.                                                                                         |
+| Container                | New major 1.0: its own root magic and object names, and a 48-byte record envelope with a CRC32C. Whole-frame chunks are sealed with counts, bounds, a SHA-256 and a semantic digest, each with a derived index. A summary chains the chunk digests. Uncompressed. The provisional limits are declared in the manifest and bounded by hard ceilings, and every count is checked before allocation.            |
+| Writer                   | [`storage/vrlog`](../../internal/lidar/storage/vrlog/doc.go) writes the manifest durably first, into a new directory. Records pass the stream validator. An over-limit frame becomes a gap over its sequence, never a truncated frame. Chunks are published by sync-and-rename. `replayeval.Config.ObservationLogDir` and `velocity lidar pcap-replay --observations` use it.                                |
+| Reader                   | It refuses unknown majors, required features, critical record kinds, profiles and schema versions, and applies a caller's capability requirement. It checks each chunk digest before returning a record, and seeks by sequence or by capture time in epoch 0. `Verify` re-derives every index and checks the sealed semantic digests. Located `CorruptionError`s; an index rebuild cannot override a digest. |
+| Semantic digest          | `l4bobserve.semantic/v1` over values: field order, presence, array order and IEEE float bits. A golden value is cross-checked against an independent implementation. `DiffFrames` names the first difference.                                                                                                                                                                                                |
+| Compatibility and checks | The 0.5 replayer refuses a container by its root, before probing payloads. The 1.x reader refuses 0.5 recordings. `velocity lidar observations verify`, `inspect` and `compare`, and `vrlog-check`, give operators the same checks.                                                                                                                                                                          |
+
+Evidence, desktop only. G-OBS-FID: synthetic frames cover coincident points, boundary indices,
+−0, subnormals, NaN payloads, empty frames, every disposition, gaps and all 256 presence
+combinations; NaN and Inf coordinates are refused on both sides of the codec. On kirk0's first ten
+seconds (101 frames: 59 unsettled, 42 observed, 387 clusters), every frame decodes equal to the
+direct tap output, bit for bit, with equal semantic digests. Legacy JSON is compared only
+transitively: the previous slice showed the direct frames match its summaries and samples. G-OBS-REP
+(input): a separate replay reproduces the common prefix exactly under a new capture UUID. Over
+the whole kirk0 capture, two extractions compare identical: 832 frames and one semantic digest.
+G-OBS-COMPAT: 0.5 recordings replay; each reader refuses the other's layout; unknown required
+features and reduced evidence are refused when more is requested; `Verify` requires every stored
+index to equal one rebuilt from its chunk. Bit flips, truncation, reordered or foreign chunks,
+forged lengths, index disagreement and missing chunks are each refused and located.
+
+Whole kirk0: 37.4 MB, about 44 KiB per frame. On the first ten seconds (457 retained points per
+frame) the container averaged 40 bytes per point, near the §6 illustration of 48. Writing,
+including digests and syncs, took 0.22 ms per frame; reading and decoding took 0.10 ms. These are
+shared-host desktop figures, not Pi evidence.
+
+Phase 2 below delivers the L4 commit independent of L5, commit generations, the durable
+frontier, recovery and failure accounting. Its container is 1.1: the phase-1 layout (1.0), which
+recorded no commits, is refused and re-extracted from its PCAP.
+
+#### Delivered: capture and durable tail (phase 2, desktop)
+
+The third slice makes the container durable while it is written. It stays opt-in: a replay
+writes one on request, and the server writes one only when `--lidar-observation-dir` is set.
+
+| Part                 | Delivered behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit chain         | Generation 0 is published before any record is admitted. Each later generation commits one sealed chunk (one batch), names its predecessor's SHA-256 and carries the cumulative account; `current` names the latest. Evidence is exactly what the validated chain commits: the reader no longer lists directories to find chunks. The manifest requires `commit-generations`.                                                                                                                      |
+| Writer and frontier  | The L4 callback appends synchronously; an append means accepted. A committer closes the batch at 100 ms or the target chunk size, or per record in strict mode, publishes it by the four steps of §4.2, and announces the frontier only after the last directory sync. At most two batches are undurable. The immutable root manifest declares the policy and its crash-loss bound; each generation records its measured batch age and sync time, and the closing summary the publication latency. |
+| Readers and cursors  | `vrlog.Follow` reads a live capture through the announced frontier, never the directory. `Open` is read-only: damage in the acknowledged prefix fails with its range, and a torn pointer falls back to the validated chain. Cursors resume exactly; a cursor from another container or an uncommitted generation is refused as stale.                                                                                                                                                              |
+| Failure and overload | Write, sync and rename errors, a full disk and a stall beyond batch age + commit deadline stop admission; a failure generation, written from a released 64 KiB reserve, records the cause and accepted extent. A frame over a limit, or not admitted within the shed wait, becomes an explicit gap. A failed replay commits what was accepted and records why.                                                                                                                                     |
+| Recovery             | `vrlog.Recover` (`velocity lidar observations recover`) promotes published but unacknowledged generations with one recovery record, quarantines uncommitted objects, and marks the session incomplete, its tail unknown unless a failure marker survived. It never rewrites committed evidence, refuses a container a writer holds, and is idempotent.                                                                                                                                             |
+| Pipeline and server  | The pre-L5 tap commits through the writer independently of L5: a test holds L5 inside `Update` while the frame is committed. `replayeval` and `--observations` use the writer. The server flag is off by default; its capture closes at the first replay frame or runtime tuning change, since either changes the extraction.                                                                                                                                                                      |
+
+Evidence, desktop only. G-OBS-TIME: synthetic streams holding empty, partial, unsettled,
+suppressed and failed frames, a gap between received frames, a gap over assigned sequences, a
+writer-limit gap, duplicate capture times and irregular cadence keep their records, seeks and
+semantic digest whether committed as one generation or one per record. The end of capture is
+explicit: closed, failed or incomplete. A clock reset is refused without writing, since epoch
+records do not exist; calibration and pose changes are likewise not yet representable.
+G-OBS-QUEUE: followers reading during commits see only committed whole records, in order, each
+once, across many rotations; a paused follower never holds the writer back; a stalled sync
+holds followers at the frontier; concurrent seeks land on committed records or are refused as
+not committed; stale cursors are refused. All run under `-race`.
+
+G-OBS-CRASH, process-kill paths only: the writer is killed at each of eleven publication steps.
+`Open` then exposes the acknowledged prefix and recovery exactly the durable one, promoting a
+published generation once. Torn, flipped and missing pointers fall back; torn generations beyond
+the pointer are quarantined; damaged, reordered, missing and foreign generations inside the
+prefix are refused and left untouched; an interrupted recovery completes without a second
+record. A killed process does not lose data the kernel already holds, so none of this is
+power-loss evidence.
+
+Commit stall and test timing. A sync held past a 40 ms deadline fails the capture with
+`commit-stall` and stops admission; the held commit then completes before the failure
+generation. That test has a timing window. The bound runs from acceptance, so the test assumes
+the committer takes its batch within 45 ms of the append (batch age plus deadline). A committer
+not scheduled by then leaves the batch open, and an open batch is never committed
+([VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md#capture-failure-and-explicit-gaps)).
+The test then fails naming that window rather than as a writer fault. It did not occur in
+2,000 runs under `-race` on a four-core machine at a load average near 10. Every other test in
+the package declares a one-minute deadline through the shared fixture, and so do the writers
+other packages' tests create (the pipeline tap, the legacy recorder, the CLI and `vrlog-check`
+fixtures, the live server capture and the kirk0 replays), so scheduler or sync delay on a busy
+machine cannot fail a test through the stall bound. The shed test waits on the announced
+frontier, not on the 20 ms shed wait, before it admits the frame after a backlog.
+
+On kirk0's first ten seconds (101 frames), one replay feeds three writers. A strict writer
+killed while publishing generation 40 recovers to exactly the tap's first 40 frames, bit for
+bit. The replay's own container is committed in generations and decodes equal to the tap. A
+repeat replay stopped at frame 40 ends with a `stopped` failure generation, and its 41 frames
+equal the first replay's.
+
+Measured on the shared four-core desktop, not target hardware:
+
+| Writer (101 kirk0 frames, 457 points per frame) | Publish p50 / p95 / max | Step-2 sync p50 / p95 | Logical bytes per payload byte |
+| ----------------------------------------------- | ----------------------- | --------------------- | ------------------------------ |
+| Group commit during the replay, 34–36 batches   | 8–9 / 22–31 / 22–39 ms  | 3–4 / 10–14 ms        | 1.02                           |
+| Strict rewrite, one frame per generation        | 3 / 4–12 / 8–29 ms      | 1.1–1.4 / 2–8 ms      | 1.05                           |
+
+Quantiles come from histogram buckets within 9% of each other. The strict case is what a 10 Hz
+live capture at a 100 ms batch age amounts to: about three new objects and a pointer
+replacement per frame, 1.61 times the chunk bytes at the block level (309 files for 1.87 MB).
+For the warm-up's near-empty frames the per-generation overhead dominates, 9.3 logical bytes per
+payload byte. The writer allocates 35 KB in 173 allocations per frame. The kirk0 test process
+peaked at 165 MB RSS (383 MB under `-race`), mostly the replay pipeline. These costs are inputs
+to the open choice of commit interval, not a decision.
+
+Still outstanding: power-loss G-OBS-CRASH and G-OBS-PI on the target Pi and storage, and any
+live default; a new container at a live source or tuning boundary; the phase 3 worker. Also: a
+gap producer for L2 callback-queue drops, a voxel contributor map, return index for dual-return
+firings, epoch and clock-reset records, failed-frame recoverability, a legacy-JSON transcoder, a
+Swift reader and the JSON projection. Held-out geometry and S2 corpus re-extraction are
+unchanged.
 
 ## 2. What exists and what must change
 
@@ -645,6 +783,18 @@ Set numerical promotion thresholds before experiments; do not select them after 
 - [x] Reconcile the proposed binary capture with unmerged observation-store and async plans.
 - [x] Specify fidelity, timing, durability, revisions, retention, compatibility, and failure gates.
 - [x] Align annotation selections and web projections around one evidence model and point identity.
+- [x] Sprint 0.5.2.2 domain slice: declared profiles with typed capability refusal, frame and gap
+      records with stream validation, the foreground-complete retained domain, exact membership,
+      source-ordinal lineage and an opt-in pre-L5 tap wired into `replayeval`, with kirk0 evidence.
+- [x] Phase 1 codec and offline reader: recording-domain schema, container 1.0 with manifest,
+      checksummed envelope, sealed chunks and index, semantic digest, located corruption, legacy
+      refusal both ways, operator CLI; desktop G-OBS-FID, G-OBS-REP input and G-OBS-COMPAT on
+      synthetic and kirk0 evidence.
+- [x] Phase 2, desktop: L4 commit independent of L5, commit generations, durable frontier,
+      recovery and failure accounting; G-OBS-TIME, G-OBS-QUEUE and process-crash paths on
+      synthetic and kirk0 evidence.
+- [ ] Phase 2, target hardware: power-loss G-OBS-CRASH and G-OBS-PI before any live default.
+- [ ] Gap producer for L2 queue drops, voxel contributor map, dual-return index, epoch records.
 - [ ] Agree implementation owners, acceptance thresholds, and the first deployment's loss budget.
 - [ ] Deliver phases 1–3 with the corresponding fidelity and recovery evidence.
 - [ ] Publish PCAP/direct-L4 comparisons and target Raspberry Pi results.

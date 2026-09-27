@@ -12,6 +12,19 @@ const (
 	ColourSteelBlue = "#4682b4" // Histogram bars
 )
 
+// Following-evidence colours (headway report). These are not the percentile
+// palette: the charts show one pair's evidence or a time-weighted gap
+// distribution, not a speed population, and a band threshold is a
+// descriptive bin rather than an alarm, so nothing here uses the percentile
+// reds. docs/ui/DESIGN.md records the pairing.
+const (
+	ColourFollowingObserved   = "#2d1e2f"       // observed spatial gap: the report's ink
+	ColourFollowingTimeGap    = ColourSteelBlue // net time gap line and distribution bars
+	ColourFollowingPredicted  = "#8a817c"       // review-only predicted gap: dashed, hollow markers
+	ColourFollowingSuppressed = "#d8d3cf"       // suppressed intervals and excluded shares
+	ColourFollowingThreshold  = "#4a4a4a"       // band rules: neutral, dashed
+)
+
 // Palette mirrors the typst prototype's RGBA palette for helpers that emit
 // raw SVG without going through the existing chart style configuration.
 var Palette = struct {

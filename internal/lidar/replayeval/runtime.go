@@ -24,6 +24,12 @@ type replayRuntime struct {
 	marshalIndent func(any, string, string) ([]byte, error)
 	writeFile     func(string, []byte, os.FileMode) error
 	writeBaseline func(string, l5tracks.TrackingMetrics) error
+	// pacedSpeed replays against the wall clock at this multiple of capture
+	// time when positive. Zero, the only production value, reads as fast as
+	// the pipeline accepts packets. It exists so a test can show that pacing,
+	// a wall-clock concern, changes no track; it is not a Config field
+	// because there is no other reason to slow an offline replay down.
+	pacedSpeed float64
 }
 
 func defaultRuntime() replayRuntime {

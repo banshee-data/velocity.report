@@ -280,6 +280,15 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 - [ ] Use this plan as the naming reference for ongoing speed-metric work.
 - [x] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set. Adopted by the LiDAR pipeline state model: the same four tokens are reported by `/api/lidar/data_source`, `/api/lidar/playback/status`, and the gRPC `SourceMode` enum.
 
+### Phase 0.5 - following metric names (v0.5.2)
+
+- [x] Reserve the following-metric ids in the [registry](../platform/architecture/metrics-registry.md#following-metrics) with the full canonical shape, adding the `interaction` level, `instantaneous` estimator, `s` unit, `review_only` visibility and `event_id` forbidden tag.
+- [x] Mirror them in `internal/lidar/l8behaviour/metrics.go`, where a measurement may only use a registered name and unit, and a test fails when the registry and the code disagree.
+- [x] Register the encounter statistics (`interaction.following_{spatial_gap,net_time_gap}_{min,p50}_*`), adding the `raw_min` estimator and the `min` term, and emit them with interval uncertainty from the encounter method.
+- [x] Carry the same ids and suppression reasons through persistence: the following-interaction tables key every stored value by metric id and every suppression by reason token, and `AuditSurfaceJSON` in `internal/lidar/l8behaviour/surface.go` fails a test when a stored name is not registered (see [surfaces](../platform/architecture/metrics-registry.md#following-metric-surfaces)).
+- [x] Carry them through the scene API: `GET /api/scenes/<id>/headway` and its SVG chart serve the distribution and encounter rows keyed by metric id and reason token, and each served body is audited with the same check (see [surfaces](../platform/architecture/metrics-registry.md#following-metric-surfaces)).
+- [ ] Carry them through report output, auditing the report's data file with the same check.
+
 ### Phase 1 - speed naming reset
 
 - [ ] Rename raw public `peak_speed_mps` to `max_speed_mps` on unshipped surfaces.

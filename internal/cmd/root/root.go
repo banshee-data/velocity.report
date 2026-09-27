@@ -50,7 +50,7 @@ Namespaces:
   device    On-device lifecycle: check, upgrade, rollback, backup, status, tailscale
   lidar     LiDAR capture diagnostics: pcap-split, settling-eval
   data      Database operations: migrate, transits, sql
-  report    Generate PDF reports: pdf
+  report    Generate PDF reports: pdf, headway
   scene     Export a recorded VRLOG as static web assets: export
   tune      Parameter tuning: sweep
   worker    Run analysis jobs submitted to this host's API, one at a time
@@ -94,10 +94,10 @@ func Dispatch(prog string, args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: velocity data <migrate|transits|sql> ...")
 		return 2
 	case "report":
-		if len(args) >= 2 && args[1] == "pdf" {
+		if len(args) >= 2 && (args[1] == "pdf" || args[1] == "headway") {
 			return serverMain(args[1:])
 		}
-		fmt.Fprintln(os.Stderr, "usage: velocity report pdf ...")
+		fmt.Fprintln(os.Stderr, "usage: velocity report <pdf|headway> ...")
 		return 2
 	case "scene":
 		return sceneMain(args[1:])

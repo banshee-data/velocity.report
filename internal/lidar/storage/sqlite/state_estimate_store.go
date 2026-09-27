@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // TrackEstimate is a versioned estimator output. Its observation identity is
@@ -47,9 +49,14 @@ type TrackResidual struct {
 
 // FrameStateEstimate is one derived estimate/residual pair. It is the unit
 // that joins an immutable observation to the online tracker output.
+//
+// SolidBody is the same track's solid-body estimate at the same frame, when
+// the tracker populates one. It is written in the same transaction, to its
+// own table; nil writes nothing.
 type FrameStateEstimate struct {
-	Estimate TrackEstimate
-	Residual TrackResidual
+	Estimate  TrackEstimate
+	Residual  TrackResidual
+	SolidBody *TrackSolidBody
 }
 
 // StateEstimateStore owns derived, versioned records. It intentionally has no
@@ -91,10 +98,15 @@ func insertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackRe
 	return nil
 }
 
+// stateEstimateInsertSQL names state_model explicitly rather than leaning on
+// the column default. TrackEstimate's covariance is a [16]float32, so every
+// row it writes is the four-state layout; a writer of another layout needs a
+// type that can hold it, and must name its own.
 const stateEstimateInsertSQL = `INSERT OR REPLACE INTO lidar_track_estimates
 		(estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos,
-		 estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns,
+		 state_model)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 const stateResidualInsertSQL = `INSERT OR REPLACE INTO lidar_track_residuals
 		(estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y,
@@ -107,6 +119,7 @@ func stateEstimateInsertArgs(estimate TrackEstimate, covariance []byte, inserted
 		estimate.FrameUnixNanos, estimate.MeasurementUnixNanos, estimate.EstimatorID, estimate.ObservationModelID,
 		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.CreationSequence,
 		estimate.X, estimate.Y, estimate.VX, estimate.VY, covariance, insertedAtNanos,
+		l5tracks.StateModelCVCartesianV1,
 	}
 }
 
@@ -136,15 +149,23 @@ func validateStateEstimate(estimate TrackEstimate, residual TrackResidual) error
 // Ordering is by CreationSequence rather than TrackID: the latter is a random
 // UUID, deliberately, so it is not reproducible across two replays of the same
 // input, whereas the creation sequence is.
+//
+// Only online estimates are returned. That is every row this reader was
+// written against; a replay that also persists fixed_lag or final stages must
+// not hand its consumers several estimates per frame under one source. Read
+// those with ListRevisedEstimates, which names the version.
+//
+// It decodes each covariance into a 4x4, so a row whose state_model names any
+// other layout is an error rather than a guess from the blob's length.
 func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, error) {
 	rows, err := s.db.Query(`
 		SELECT estimate_id, track_id, observation_id, source_id, calibration_id
 		     , frame_unix_nanos, measurement_unix_nanos, estimator_id
 		     , observation_model_id, param_hash, stage, measurement_source
-		     , creation_sequence, x, y, vx, vy, covariance_json
+		     , creation_sequence, x, y, vx, vy, covariance_json, state_model
 		  FROM lidar_track_estimates
-		 WHERE source_id = ?
-		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID)
+		 WHERE source_id = ? AND stage = ?
+		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID, EstimateStageOnline)
 	if err != nil {
 		return nil, fmt.Errorf("list track estimates for source %s: %w", sourceID, err)
 	}
@@ -154,13 +175,18 @@ func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, err
 	for rows.Next() {
 		var e TrackEstimate
 		var covariance []byte
+		var stateModel string
 		if err := rows.Scan(
 			&e.EstimateID, &e.TrackID, &e.ObservationID, &e.SourceID, &e.CalibrationID,
 			&e.FrameUnixNanos, &e.MeasurementUnixNanos, &e.EstimatorID,
 			&e.ObservationModelID, &e.ParamHash, &e.Stage, &e.MeasurementSource,
-			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance,
+			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance, &stateModel,
 		); err != nil {
 			return nil, fmt.Errorf("scan track estimate: %w", err)
+		}
+		if stateModel != l5tracks.StateModelCVCartesianV1 {
+			return nil, fmt.Errorf("track estimate %s has state model %q; refusing to decode its covariance as %s",
+				e.EstimateID, stateModel, l5tracks.StateModelCVCartesianV1)
 		}
 		if err := json.Unmarshal(covariance, &e.Covariance); err != nil {
 			return nil, fmt.Errorf("unmarshal estimate covariance %s: %w", e.EstimateID, err)

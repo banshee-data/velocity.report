@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
 	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '$lib/api';
+	import SceneHeadway from '$lib/components/SceneHeadway.svelte';
 	import { mdiContentSave, mdiArrowLeft } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -368,5 +369,9 @@
 				<Button type="button" on:click={() => goto(resolve('/scene'))}>Cancel</Button>
 			</div>
 		</form>
+
+		{#if !isNew}
+			<SceneHeadway {sceneId} />
+		{/if}
 	{/if}
 </div>

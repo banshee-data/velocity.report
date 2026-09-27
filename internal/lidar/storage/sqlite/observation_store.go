@@ -112,6 +112,24 @@ func (s *ObservationStore) ListBySource(sourceID string) ([]l4bobserve.Detection
 	return result, nil
 }
 
+// SourceProfile reports the evidence profile of one source's stored records.
+// The table's CHECK constraint admits schema-1 records only, and those are
+// the reduced cluster-sample profile: a capped sample per accepted cluster,
+// with no frame records, gaps, membership or lineage. A caller needing
+// complete foreground evidence calls Satisfies or Require on the result and
+// receives a typed error naming what the stored source lacks, rather than
+// running on a sample. A source with no rows is ErrNotFound.
+func (s *ObservationStore) SourceProfile(sourceID string) (l4bobserve.Profile, error) {
+	var exists bool
+	if err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM lidar_observations WHERE source_id = ?)`, sourceID).Scan(&exists); err != nil {
+		return l4bobserve.Profile{}, fmt.Errorf("read evidence profile for source %s: %w", sourceID, err)
+	}
+	if !exists {
+		return l4bobserve.Profile{}, ErrNotFound
+	}
+	return l4bobserve.ReducedClusterSample(), nil
+}
+
 func decodeObservation(payload []byte) (l4bobserve.DetectionObservation, error) {
 	var record l4bobserve.Record
 	if err := json.Unmarshal(payload, &record); err != nil {

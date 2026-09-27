@@ -10,9 +10,11 @@ import importlib.util
 import io
 import json
 import os
+import struct
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +34,7 @@ def site(site_id, where="Somewhere", captures=("cap_20260901120000_00001.pcap",)
         "site": "s01",
         "where": where,
         "start": "2026-09-01T12:05:00-07:00",
+        "end": "2026-09-01T12:25:00-07:00",
         "minutes": 20.0,
         "captures": list(captures),
     }
@@ -110,8 +113,10 @@ class ScenesFromCorpusTests(unittest.TestCase):
 
     def test_a_site_becomes_one_file_replayed_whole(self):
         relative = self.materialise("a.pcapng")
+        entry = site("laguna-eddy", where="Laguna at Eddy")
+        entry["end"] = "2026-09-01T12:26:48-07:00"
         scenes, problems = publish_scenes.scenes_from_corpus(
-            [site("laguna-eddy", where="Laguna at Eddy")],
+            [entry],
             {"laguna-eddy": capture("laguna-eddy", relative, seconds=1308.0)},
             self.corpus_dir,
             self.pcap_dir,
@@ -126,13 +131,26 @@ class ScenesFromCorpusTests(unittest.TestCase):
 
     def test_the_manifest_duration_wins_over_the_index_minutes(self):
         relative = self.materialise("a.pcapng")
+        entry = site("laguna-eddy")
+        entry["end"] = "2026-09-01T12:26:48-07:00"
         scenes, _ = publish_scenes.scenes_from_corpus(
-            [site("laguna-eddy")],  # the index says 20.0 minutes
+            [entry],  # rounded index minutes say 20.0; timestamps say 21.8
             {"laguna-eddy": capture("laguna-eddy", relative, seconds=1308.0)},
             self.corpus_dir,
             self.pcap_dir,
         )
         self.assertAlmostEqual(scenes[0]["minutes"], 21.8)
+
+    def test_a_stale_corpus_duration_is_reported(self):
+        relative = self.materialise("a.pcapng")
+        scenes, problems = publish_scenes.scenes_from_corpus(
+            [site("laguna-eddy")],
+            {"laguna-eddy": capture("laguna-eddy", relative, seconds=699.227)},
+            self.corpus_dir,
+            self.pcap_dir,
+        )
+        self.assertEqual(scenes, [])
+        self.assertIn("rebuild the capture and manifest", problems[0])
 
     def test_a_site_missing_from_the_corpus_is_reported_not_skipped(self):
         scenes, problems = publish_scenes.scenes_from_corpus(
@@ -182,10 +200,24 @@ class ScenesFromArchiveTests(unittest.TestCase):
         os.makedirs(os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR))
 
     def materialise(self, *names):
+        ticks = int(
+            datetime.fromisoformat("2026-09-01T12:00:00.500000-07:00").timestamp()
+            * 1_000_000
+        )
+
+        def block(kind, body):
+            length = len(body) + 12
+            return struct.pack("<II", kind, length) + body + struct.pack("<I", length)
+
+        section = block(0x0A0D0D0A, struct.pack("<IHHq", 0x1A2B3C4D, 1, 0, -1))
+        interface = block(1, struct.pack("<HHI", 1, 0, 65535))
+        packet = block(
+            6, struct.pack("<IIIII", 0, ticks >> 32, ticks & 0xFFFFFFFF, 4, 4) + b"data"
+        )
         for name in names:
             path = os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR, name)
             with open(path, "wb") as fh:
-                fh.write(b"\0")
+                fh.write(section + interface + packet)
 
     def test_the_start_offset_comes_from_the_first_capture_stamp(self):
         self.materialise("cap_20260901120000_00001.pcap")
@@ -193,16 +225,38 @@ class ScenesFromArchiveTests(unittest.TestCase):
             [site("laguna-eddy")], self.pcap_dir
         )
         self.assertEqual(problems, [])
-        # The site starts at 12:05 and the capture at 12:00.
-        self.assertEqual(scenes[0]["start_secs"], 300.0)
+        # The capture's first packet is 0.5 s after its rounded filename stamp.
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
         self.assertEqual(scenes[0]["source"], "archive")
 
-    def test_an_unstamped_capture_starts_where_the_file_does(self):
+    def test_exact_timestamps_win_over_rounded_index_minutes(self):
+        self.materialise("cap_20260901120000_00001.pcap")
+        entry = site("laguna-eddy")
+        entry["end"] = "2026-09-01T12:25:13.025964-07:00"
+        entry["minutes"] = 20.2
+        scenes, problems = publish_scenes.scenes_from_archive([entry], self.pcap_dir)
+        self.assertEqual(problems, [])
+        self.assertEqual(scenes[0]["duration"], 1213.025964)
+
+    def test_an_unstamped_capture_uses_its_first_packet(self):
         self.materialise("one-off.pcapng")
         scenes, _ = publish_scenes.scenes_from_archive(
             [site("laguna-eddy", captures=("one-off.pcapng",))], self.pcap_dir
         )
-        self.assertEqual(scenes[0]["start_secs"], 0.0)
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
+
+    def test_classic_pcap_uses_its_first_packet(self):
+        name = "one-off.pcap"
+        path = os.path.join(self.pcap_dir, publish_scenes.PCAP_SUBDIR, name)
+        seconds = int(datetime.fromisoformat("2026-09-01T12:00:00-07:00").timestamp())
+        with open(path, "wb") as fh:
+            fh.write(b"\xd4\xc3\xb2\xa1" + struct.pack("<HHIIII", 2, 4, 0, 0, 65535, 1))
+            fh.write(struct.pack("<IIII", seconds, 500_000, 4, 4) + b"data")
+        scenes, problems = publish_scenes.scenes_from_archive(
+            [site("laguna-eddy", captures=(name,))], self.pcap_dir
+        )
+        self.assertEqual(problems, [])
+        self.assertEqual(scenes[0]["start_secs"], 299.5)
 
     def test_a_capture_that_is_not_on_disk_is_reported(self):
         scenes, problems = publish_scenes.scenes_from_archive(
@@ -259,6 +313,79 @@ class ReportStatusTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("UNRESOLVED", text)
         self.assertIn("1 unresolved", text)
+
+
+class CarryOverTests(unittest.TestCase):
+    """A rebuild replaces assets/ wholesale; what was chosen by hand must survive it."""
+
+    def setUp(self):
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.live = os.path.join(held.name, "assets")
+        self.assets = os.path.join(held.name, "assets.new")
+        os.makedirs(self.live)
+        os.makedirs(self.assets)
+        patched = mock.patch.object(publish_scenes, "export")
+        self.export = patched.start()
+        self.addCleanup(patched.stop)
+
+    def write(self, relative, content):
+        path = os.path.join(self.live, relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write(content)
+        return content
+
+    def carry_over(self):
+        publish_scenes.carry_over(
+            "run.vrlog", self.live, self.assets, "columbus-broadway", "Columbus"
+        )
+
+    def read(self, relative):
+        with open(os.path.join(self.assets, relative)) as fh:
+            return fh.read()
+
+    def test_a_clip_is_exported_again_over_its_recorded_frames(self):
+        manifest = self.write(
+            "clip/manifest.json",
+            json.dumps(
+                {
+                    "fade_out_seconds": 5,
+                    "selection": {"source_start_frame": 400, "source_frame_count": 301},
+                }
+            ),
+        )
+        self.carry_over()
+        self.export.assert_called_once_with(
+            "run.vrlog",
+            os.path.join(self.assets, "clip", "part-000"),
+            "columbus-broadway",
+            "Columbus",
+            kind="clip",
+            extra=[
+                "--start-frame",
+                "400",
+                "--frame-count",
+                "301",
+                "--max-points",
+                "1200",
+                "--chunk-seconds",
+                "10",
+            ],
+        )
+        # The manifest records the selection, so it is kept, not remade.
+        self.assertEqual(self.read("clip/manifest.json"), manifest)
+
+    def test_vantages_are_kept_as_they_are(self):
+        vantages = self.write("vantages.json", '{"vantages": []}\n')
+        self.carry_over()
+        self.assertEqual(self.read("vantages.json"), vantages)
+        self.export.assert_not_called()
+
+    def test_a_scene_without_a_clip_does_not_gain_one(self):
+        self.carry_over()
+        self.export.assert_not_called()
+        self.assertEqual(os.listdir(self.assets), [])
 
 
 class PlanTests(unittest.TestCase):

@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestNormaliseExperimentsSortsAndDeduplicates(t *testing.T) {
@@ -67,9 +70,106 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentCascade, ExperimentDensityCap, ExperimentFlipRule,
-		ExperimentLikelihoodCost, ExperimentNoRegionOverrides}
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
+		ExperimentReacquisitionGuard, ExperimentSolidBody}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
+}
+
+// Each tracker experiment must reach exactly its own TrackerConfig field, and
+// no experiment must leave the configuration the tuning file describes. The
+// kirk0 A/B shows an option changes a replay; this shows it is the right one.
+func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	shipped := l5tracks.TrackerConfigFromTuning(l5)
+	got, err := trackerConfigFor(l5, "", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != shipped {
+		t.Fatalf("no experiments changed the tracker configuration:\n got %+v\nwant %+v", got, shipped)
+	}
+	cases := map[string]func(*l5tracks.TrackerConfig){
+		ExperimentAdaptiveUncertainty: func(c *l5tracks.TrackerConfig) {
+			c.AdaptiveMeasurementNoise = true
+		},
+		ExperimentLikelihoodCost:    func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentCascade:           func(c *l5tracks.TrackerConfig) { c.CascadedAssociation = true },
+		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
+		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
+		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
+		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
+		},
+		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
+		},
+		// The replay tracks in the sensor frame, so the origin is the sensor.
+		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {
+			c.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
+		},
+	}
+	for name, set := range cases {
+		want := shipped
+		set(&want)
+		got, err := trackerConfigFor(l5, "", []string{name}, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got != want {
+			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
+		}
+	}
+	// Pipeline, background and observer experiments must not touch the tracker.
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {
+		got, err := trackerConfigFor(l5, "", []string{name}, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got != shipped {
+			t.Errorf("%s changed the tracker configuration", name)
+		}
+	}
+	got, err = trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
+		t.Errorf("measurement source mode not applied: %q", got.MeasurementSourceMode)
+	}
+	// Absence-explaining continuity experiments must not run until replayeval
+	// can supply explicit sensor coverage.
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentCoastSupport}, nil); err == nil {
+		t.Fatal("coast_support was accepted without explicit coverage")
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentClassCoastBounds}, nil); err == nil {
+		t.Fatal("class_coast_bounds was accepted without explicit coverage")
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOcclusionContinuity}, nil); err == nil {
+		t.Fatal("occlusion_continuity was accepted without explicit coverage")
+	}
+	timeOnly, err := trackerConfigFor(l5, "", []string{ExperimentCoastTimeInflation, ExperimentReacquisitionGuard}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := shipped
+	want.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) {
+		o.CaptureTimeInflation = true
+		o.ReacquisitionGuard = true
+	})
+	if timeOnly != want {
+		t.Errorf("time-only continuity options differ:\n got %+v\nwant %+v", timeOnly.OcclusionContinuity, want.OcclusionContinuity)
+	}
+}
+
+// continuityWith is DefaultOcclusionContinuity's starting values with every
+// switch off except those set.
+func continuityWith(set func(*l5tracks.OcclusionContinuityConfig)) l5tracks.OcclusionContinuityConfig {
+	oc := l5tracks.DefaultOcclusionContinuity()
+	oc.ExplainAbsence, oc.CaptureTimeInflation, oc.ClassCoastBounds, oc.ReacquisitionGuard = false, false, false, false
+	set(&oc)
+	return oc
 }

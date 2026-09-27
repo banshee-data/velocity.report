@@ -1,10 +1,6 @@
 package l8analytics
 
-import (
-	"sort"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
-)
+import "sort"
 
 // Per-frame matching and the MOT16 metric family, over the neutral TrackSeries
 // shape (see truth.go).
@@ -17,6 +13,23 @@ import (
 // This adds two things the cherry-picked version does not have: MOT16's
 // fragmentation count, and the ignore rule. ComputeCLEARMOT delegates here, and
 // its imported test asserts the two agree.
+//
+// Ignored points are transparent to identity. MOT16's devkit removes ignored
+// annotations before the CLEAR MOT pass, which drops the previous frame's
+// correspondence for an object that was ignored in it: the next scored frame
+// then re-solves from scratch, and a nearer stray hypothesis can take the
+// object from the one that tracked it through the uncertifiable frames. That
+// is an identity switch the tracker did not earn, caused by the annotation.
+// Here a correspondence is carried across a frame in which its reference is
+// ignored, unless its hypothesis was claimed by a scored match in that frame,
+// so an ignored stretch scores exactly as the same stretch scored and tracked
+// would. The carried correspondence is not applied while the point is
+// ignored: an ignored point never keeps a hypothesis by continuity, so it can
+// never take one from a scored object beside it. An absent reference still drops its correspondence, as MOT16 does:
+// absence is a fact about the object, ignore a fact about the label. A real
+// change of hypothesis across an ignored stretch is still a switch, by MOT16's
+// last-known-assignment rule; that is the reassociation failure this evaluator
+// exists to see. ignore_rules_test.go pins each of these.
 
 // TrackMetrics is the MOT16 family computed from one per-frame matching.
 type TrackMetrics struct {
@@ -53,12 +66,15 @@ type frameMatching struct {
 	referenceCount int
 	hypothesisIn   int
 	ignoredHyp     int
+	// absorbed are the hypotheses removed because they matched an ignored
+	// reference point. The identity metrics exclude exactly these, so every
+	// family scores the same hypothesis population.
+	absorbed map[string]struct{}
 }
 
-// matchFrames applies the MOT16 rule frame by frame. maxDistMetres is the
-// association gate; a pair further apart than that is never matched.
-func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []frameMatching {
-	refIdx, hypIdx := indexSeries(reference), indexSeries(hypothesis)
+// matchFrames applies the MOT16 rule frame by frame. The gate is evaluated per
+// reference point; a pair further apart than it is never matched.
+func matchFrames(refIdx, hypIdx frameIndex, gate MatchGate) []frameMatching {
 	frames := collectFrames(refIdx, hypIdx)
 
 	out := make([]frameMatching, 0, len(frames))
@@ -71,14 +87,18 @@ func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []f
 		usedRef, usedHyp := map[string]struct{}{}, map[string]struct{}{}
 
 		// Step 1: continuity. previous is one-to-one, so iteration order
-		// cannot change the outcome.
+		// cannot change the outcome. An ignored point takes no part: it
+		// competes for a hypothesis only in the optimal assignment below, by
+		// distance, as MOT16's preprocessing matches distractors. Keeping its
+		// hypothesis by continuity would take it from a nearer scored object
+		// and make that object a miss, charging the tracker for the label.
 		for refID, hypID := range previous {
 			r, okR := refFrame[refID]
 			h, okH := hypFrame[hypID]
-			if !okR || !okH {
+			if !okR || !okH || r.ignore {
 				continue
 			}
-			if d := euclid(r.pos, h.pos); d <= maxDistMetres {
+			if d := euclid(r.pos, h.pos); d <= gate.forReference(r) {
 				current[refID] = hypID
 				distances[refID] = d
 				usedRef[refID] = struct{}{}
@@ -91,24 +111,28 @@ func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []f
 		remRef := sortedIDs(refFrame, usedRef)
 		remHyp := sortedIDs(hypFrame, usedHyp)
 		if len(remRef) > 0 && len(remHyp) > 0 {
-			cost := make([][]float32, len(remRef))
+			// Distances are rounded to float32, the precision the solver
+			// works in, so MOTP is unchanged from the solver-direct version
+			// wherever the assignment is.
+			cost := make([][]float64, len(remRef))
+			allowed := make([][]bool, len(remRef))
 			for i, refID := range remRef {
-				cost[i] = make([]float32, len(remHyp))
+				cost[i] = make([]float64, len(remHyp))
+				allowed[i] = make([]bool, len(remHyp))
+				r := refFrame[refID]
+				g := gate.forReference(r)
 				for j, hypID := range remHyp {
-					d := euclid(refFrame[refID].pos, hypFrame[hypID].pos)
-					if d <= maxDistMetres {
-						cost[i][j] = float32(d)
-					} else {
-						cost[i][j] = clearMOTForbidden
-					}
+					d := euclid(r.pos, hypFrame[hypID].pos)
+					cost[i][j] = float64(float32(d))
+					allowed[i][j] = d <= g
 				}
 			}
-			for i, j := range l5tracks.HungarianAssign(cost) {
-				if j < 0 || j >= len(remHyp) || cost[i][j] >= clearMOTForbidden {
-					continue // unassigned, or the solver filled a forbidden cell
+			for i, j := range assignMinCost(cost, allowed) {
+				if j < 0 {
+					continue
 				}
 				current[remRef[i]] = remHyp[j]
-				distances[remRef[i]] = float64(cost[i][j])
+				distances[remRef[i]] = cost[i][j]
 			}
 		}
 
@@ -116,6 +140,7 @@ func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []f
 		// hypothesis that matched an uncertifiable reference point is removed
 		// from the tally entirely rather than counted either way.
 		ignored := 0
+		absorbed := map[string]struct{}{}
 		referenceCount, hypothesisIn := 0, len(hypFrame)
 		presentRefs := make([]string, 0, len(refFrame))
 		for _, refID := range sortedIDs(refFrame, nil) {
@@ -125,8 +150,9 @@ func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []f
 				presentRefs = append(presentRefs, refID)
 				continue
 			}
-			if _, matched := current[refID]; matched {
+			if hypID, matched := current[refID]; matched {
 				ignored++
+				absorbed[hypID] = struct{}{}
 				delete(current, refID)
 				delete(distances, refID)
 			}
@@ -136,17 +162,52 @@ func matchFrames(reference, hypothesis []TrackSeries, maxDistMetres float64) []f
 			timestampNanos: ts, matches: current, distances: distances,
 			presentRefs:    presentRefs,
 			referenceCount: referenceCount, hypothesisIn: hypothesisIn - ignored,
-			ignoredHyp: ignored,
+			ignoredHyp: ignored, absorbed: absorbed,
 		})
-		previous = current
+		previous = carryThroughIgnored(previous, current, refFrame)
 	}
 	return out
 }
 
-// ComputeTrackMetrics evaluates hypothesis tracks against reference tracks.
-func ComputeTrackMetrics(reference, hypothesis []TrackSeries, maxDistMetres float64) TrackMetrics {
-	matchings := matchFrames(reference, hypothesis, maxDistMetres)
+// carryThroughIgnored is the next frame's continuity map: this frame's scored
+// matches, plus the previous correspondence of every reference whose point is
+// ignored this frame, unless a scored match claimed that hypothesis. The
+// result stays one-to-one: previous was, and a carried hypothesis is by
+// construction not a value of current.
+func carryThroughIgnored(previous, current map[string]string, refFrame map[string]seriesEntry) map[string]string {
+	claimed := make(map[string]struct{}, len(current))
+	next := make(map[string]string, len(current))
+	for refID, hypID := range current {
+		claimed[hypID] = struct{}{}
+		next[refID] = hypID
+	}
+	for refID, hypID := range previous {
+		entry, present := refFrame[refID]
+		if !present || !entry.ignore {
+			continue
+		}
+		if _, taken := claimed[hypID]; taken {
+			continue
+		}
+		next[refID] = hypID
+	}
+	return next
+}
 
+// ComputeTrackMetrics evaluates hypothesis tracks against reference tracks
+// with a fixed association gate.
+func ComputeTrackMetrics(reference, hypothesis []TrackSeries, maxDistMetres float64) TrackMetrics {
+	return ComputeTrackMetricsGated(reference, hypothesis, FixedGate(maxDistMetres))
+}
+
+// ComputeTrackMetricsGated evaluates hypothesis tracks against reference
+// tracks under an explicit gate rule.
+func ComputeTrackMetricsGated(reference, hypothesis []TrackSeries, gate MatchGate) TrackMetrics {
+	return tallyTrackMetrics(matchFrames(indexSeries(reference), indexSeries(hypothesis), gate))
+}
+
+// tallyTrackMetrics derives the MOT16 family from one matching pass.
+func tallyTrackMetrics(matchings []frameMatching) TrackMetrics {
 	res := TrackMetrics{NumFrames: len(matchings)}
 	var distanceSum float64
 	lastHyp := map[string]string{}

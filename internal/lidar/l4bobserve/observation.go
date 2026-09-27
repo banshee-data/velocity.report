@@ -1,5 +1,3 @@
-// Package l4bobserve owns track-independent detection evidence. It does not
-// select object faces, correct positions, or assign detections to tracks.
 package l4bobserve
 
 import (
@@ -67,6 +65,12 @@ func New(r Record) (DetectionObservation, error) {
 // Snapshot returns an owned copy suitable for a future write-once store or
 // replay adapter. Mutating that copy cannot revise the original observation.
 func (o DetectionObservation) Snapshot() Record { return clone(o.record) }
+
+// Profile reports what a schema-1 record can support: always the reduced
+// cluster-sample profile. A record carries a capped sample of one cluster, so
+// no reader of it can satisfy a request for complete foreground evidence,
+// however the record is stored or transcoded.
+func (o DetectionObservation) Profile() Profile { return ReducedClusterSample() }
 
 func clone(r Record) Record {
 	r.Cluster.SamplePoints = slices.Clone(r.Cluster.SamplePoints)

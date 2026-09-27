@@ -44,17 +44,37 @@ internal/report/
 ├── chart/                   # SVG chart + site-map renderers
 │   ├── timeseries.go
 │   ├── histogram.go
+│   ├── following.go         # Headway report: distribution and encounter evidence
 │   ├── sitemap.go
 │   ├── osmtiles.go
 │   └── palette.go
+├── headway/                 # Headway report contract, oracle and renderer
 ├── typst/
 │   ├── data.go              # ReportData JSON contract
-│   ├── render.go            # typst compile wrapper
-│   ├── templates/           # Embedded `.typ` templates
+│   ├── render.go            # typst compile wrapper; entry templates and their sets
+│   ├── templates/           # Embedded `.typ` templates (report.typ, headway.typ, shared)
 │   ├── testdata/            # Sample fixture
 │   └── typstbin/            # Typst binary resolution / embedding
 └── archive.go               # Shared packaging helpers
 ```
+
+## Documents
+
+Two documents compile through the same pipeline, each from its own entry
+template. A render materialises, and a source ZIP ships, only the templates its
+entry needs, so each archive recompiles exactly what was rendered.
+
+| Document       | Entry         | Entry point                                  | Data contract                          |
+| -------------- | ------------- | -------------------------------------------- | -------------------------------------- |
+| Radar speed    | `report.typ`  | `velocity report pdf`, HTTP API              | `typst.ReportData`                     |
+| Headway report | `headway.typ` | `velocity report headway --oracle` or `--db` | `headway.Report` (`headway_report_v2`) |
+
+The headway report is the behaviour plan's first headway report (Section 10.4):
+observed following exposure for leader and follower encounters. It is either a
+synthetic oracle, built from analytic trajectories, or a provisional field run
+over one version of an evidence database's persisted estimates; its status is
+printed on every page and chart. See the
+[headway report oracle](../../lidar/operations/headway-report-oracle.md).
 
 ## Report artefacts
 
@@ -108,6 +128,12 @@ Implemented chart surfaces:
 3. **Comparison histogram** — grouped SVG comparison chart.
 4. **Site map** — saved vector SVG from `site.map_svg_data`, generated in the
    web editor only after explicit external map-request confirmation.
+5. **Following distribution** (headway report) — time-weighted net time gap
+   with the band thresholds and every suppressed share beside it.
+6. **Encounter evidence** (headway report) — one pair's spatial gap and net
+   time gap over time, with unsupported intervals shaded and the review-only
+   predicted gap drawn apart; see
+   [DESIGN.md §4.4](../../ui/DESIGN.md#44-following-evidence-charts).
 
 Typst consumes these SVG artefacts directly via `#image()`, so no SVG-to-PDF
 conversion pass is needed.

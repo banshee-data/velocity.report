@@ -3,7 +3,7 @@
 This plan corrects viewpoint-dependent position measurements before extending the motion filter. It
 defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
 
-- **Status:** In progress: heading/evaluation foundations and the Section 5.4 solid-body contract delivered; the corrected measurement that populates it, and the acceptance gates, outstanding
+- **Status:** In progress: heading/evaluation foundations, the Section 5.4 solid-body contract populated from the near-edge measurement and persisted, the Sprint 0.5.2.2 continuity primitives and identity options, and the Phase 3 adaptive-uncertainty harness (all default-off) delivered; the choice of continuity values, and the acceptance gates, outstanding
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.7, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
@@ -12,6 +12,7 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 - **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
 - **Capture and worker contracts:** [asynchronous tracking](lidar-cluster-observation-log-and-async-tracking-plan.md) and [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 - **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
+- **Current execution:** [remaining 0.5.2 MVP sprint](lidar-052-mvp-sprint-plan.md), based on the [#596–609/#611 review](../lidar/operations/0.5.2-sprint-review.md)
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 
 > **Scope split.** This plan owns the path from raw points to a trustworthy
@@ -28,6 +29,13 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 > observation coverage and uncertainty.
 
 ## Delivery priorities, September 2026
+
+The September 26 [sprint plan](lidar-052-mvp-sprint-plan.md) gives the remaining implementation
+order and separates a provisional recorded-scene MVP from field promotion. It adds body-anchor
+repair, coverage-qualified replay, complete body persistence, unique follower opportunity and the
+Following distance debug layer. The physical gates below remain unchanged. Live worker scheduling,
+bounded reassociation and hardware capture qualification remain tracked follow-through; a closed
+observation-log reader on the Mac is the first integration target.
 
 The first product outcome is **bumper-to-bumper gap and following exposure from partial
 views**. The shared engineering priority is **stable physical trajectories and trails for
@@ -84,14 +92,26 @@ Build one compatible path, in this order:
    lineage, profile/capability identity, foreground points and membership. Keep the existing
    capped JSON records readable and labelled as reduced evidence; they cannot satisfy a request
    for the complete accuracy profile. Commit L4 batches independently of L5, then expose only the
-   durable frontier to readers.
+   durable frontier to readers. _Status:_ the in-memory domain, typed capability refusal,
+   source-ordinal lineage and an opt-in pre-L5 tap are delivered with kirk0 evidence
+   ([VRLOG plan](lidar-vrlog-observation-format-plan.md#delivered-domain-contract-builder-and-tap)),
+   as are the typed binary codec and offline reader
+   ([phase 1](lidar-vrlog-observation-format-plan.md#delivered-codec-and-offline-reader-phase-1))
+   and, on the desktop, the L4 commit independent of L5 with a durable frontier and recovery
+   ([phase 2](lidar-vrlog-observation-format-plan.md#delivered-capture-and-durable-tail-phase-2-desktop)).
+   Power-loss and target-hardware evidence, and the worker that reads the frontier, are not.
 2. Run the estimator from that frontier with capture-time prediction, bounded coasting and a
    corrected face-aware measurement. Fix association-cost bias before increasing coast
    uncertainty. Preserve ambiguous assignments and point ownership for later correction.
 3. Compare fixed-association RTS with bounded backward reassociation on the same held-out
    episodes. Start from this plan's three-frame lag and measure 0.5, 1 and 2 seconds of capture
    time as experiments. Choose the horizon from position, identity, manoeuvre and latency evidence,
-   not from the proposal's one-second starting suggestion alone.
+   not from the proposal's one-second starting suggestion alone. The
+   [per-frame harness](../lidar/operations/per-frame-evaluation.md) scores two arms on the same
+   frozen held-out episodes (MOTA, identity switches, fragmentation, HOTA, IDF1) and refuses a
+   comparison whose reference, policy, gate or episodes differ; it scores `final` estimates, and
+   anything else only as a declared baseline. #605 now persists final Cartesian estimates;
+   reviewed acceptance and complete final body geometry/support remain open.
 4. Publish provisional and final run versions with source references, revision lineage,
    uncertainty and a completeness watermark. Check restart, empty frames and transport gaps.
    Production behaviour consumes one coherent final run after G-UNC-1, G-SMO-1, the VRLOG
@@ -165,6 +185,30 @@ Diagnostic bundles retain associated raw cluster boxes beside track estimates. S
 exclude warm-up and retain ended tracks' contributions; schema 1 results below are historical and
 not population-compatible. Empty published frames count as missed opportunities without changing
 the existing tracker lifecycle policy. Accepted-only NIS remains selection-censored.
+
+**Assignment solver correction (gap H1):** every tracker result in this plan measured before the
+exact assignment solver landed ran association through a padded Hungarian solver that let its 1e18
+forbidden sentinel into its arithmetic. It could return a costlier assignment whenever clusters
+outnumbered tracks or some cluster had to go unassigned. The per-frame CLEAR-MOT and HOTA matching
+in `l8analytics` used the same solver, with references on the rows. On kirk0 the fix changed 6 of
+705 association frames and 7 of 60 confirmed tracks, fragmentation moved from 0.428 to 0.424, and
+5–10 m/s mean NIS from 1.25 to 1.11
+([measured outcome](../../data/maths/paper-implementation-gap-analysis.md#measured-outcome-h1)).
+kirk0 is sparse; a busier site, where clusters outnumber tracks more often, may move more. These
+results used the defective solver and should be re-run on macOS, in this order:
+
+1. The D2 A/B against annotated truth (21.1 D5), both its tracking and its per-frame scoring. Both
+   arms shared the solver, so the direction is likelier to hold than the magnitudes, but D5 settles
+   the production measurement and should rest on a corrected run.
+2. The [Phase 0/1 corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
+   through `make evidence-run`. Its schema 2 bands and recorded baseline digests will change.
+3. E1.1 and E1.3 on the three-site corpus and `clar0`: association decides which observations
+   feed each estimate.
+4. The Columbus 0.25x replay against main, only where its absolute numbers are quoted: both arms
+   shared the solver.
+
+The perf gate needs nothing recaptured: the tuning fingerprint and the full-profile work counters
+are unchanged.
 
 Phase 1 has a default-off, bounded `l4bobserve.DetectionObservation` store and a replay path that
 binds ordered PCAP digests, explicit calibration, and extractor revision before writing it. P11 now
@@ -263,6 +307,12 @@ that event. That is the correct place for a large residual: visible, attributabl
 reportable rather than silently absorbed.
 
 ## 1. Current architecture
+
+Sections 1.1–1.6 retain the original diagnostic snapshot. Subsequent delivery is recorded in
+Phase 0–5 and the [September 26 review](../lidar/operations/0.5.2-sprint-review.md): versioned
+Cartesian estimates, revision audit and immutable observation logs now exist. In particular,
+the older statements that there is no versioning or estimator rerun path no longer describe the
+merged implementation. Complete physical-body publication remains outstanding.
 
 [retired-baseline-note]: ../DEVLOG.md#september-3-2026---perf-gate-rebuilt-a-baseline-that-states-what-it-measured
 
@@ -1192,6 +1242,11 @@ calibration, rather than selecting the observations that make a chosen noise mod
 chi-squared check requires the stated Gaussian model and correct measurement association; a pooled
 fit across different measurement dimensions is not that test.
 
+The operational form of every row, the eligible population, the fitting and decision partitions
+and the calibration protocol are pinned in the
+[G-UNC-1 predeclared criteria](../lidar/operations/adaptive-uncertainty-criteria.md), with the
+label-free kirk0 evidence so far. The thresholds above are unchanged there.
+
 ## 9. Geometry matrix
 
 | Strategy                                       | C1   | C3   | C5   | C7   | C9   | C15  | Note                                                                         |
@@ -1308,6 +1363,11 @@ censoring, association, and pose uncertainty are coupled rather than independent
 
 ### 9.3 Decision gate G-GEO-1
 
+The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.
+Refresh the baseline on the corrected solver, pin the population and retain the existing
+improvement, excursion and manoeuvre criteria; any threshold amendment must precede held-out
+scoring and be recorded explicitly.
+
 Centroid filtering is declared insufficient, and the near-edge model
 ships, when on the decision-gate partition:
 
@@ -1381,6 +1441,12 @@ repair an identity switch or an L4 merge, so passing G-SMO-1 does not waive the 
 plan's G-OBS-REV and G-OBS-GEO evidence for the joint worker.
 
 ### 10.2 Decision gate G-SMO-1
+
+**Status: not passed.** The thresholds below, and the identity, manoeuvre and latency criteria for
+choosing a horizon, are pinned before held-out scoring in the
+[retrospective-refinement criteria](../lidar/operations/retrospective-refinement-criteria.md). On evidence so far, criterion 3
+cannot pass at the shipped process noise for horizons of 2 s or more, and criterion 4 fails at
+every horizon on the medoid measurement; see Phase 5.
 
 Fixed-lag smoothing ships when:
 
@@ -1830,6 +1896,13 @@ tests the implementation against itself.
 Partition by time, not by track, so that a scene's background
 state does not leak across partitions.
 
+For annotated evidence the partition is frozen in a split manifest: object-disjoint, as the
+[annotation plan](lidar-point-annotation-and-object-dataset-plan.md) §7 requires, with each
+episode a set of frame intervals. A held-out episode ignores any tuning object that shares its
+frames rather than scoring it. To keep time-disjointness as well, give held-out episodes frame
+intervals no tuning episode uses. Format and refusals:
+[per-frame evaluation](../lidar/operations/per-frame-evaluation.md#held-out-episodes-the-split-manifest).
+
 ### 16.5 Experiment E1: lateral-error validation on the soma static captures
 
 > **Run and confirmed, on the three-site corpus rather than the soma captures.** E1.1 and E1.3
@@ -1841,7 +1914,10 @@ state does not leak across partitions.
 > placements, and the trend survives range stratification in every well-populated cell. The
 > hypothesis in Section 3 is confirmed and Phase 2's premise holds. A fourth, independent placement
 > (`clar0`, 2026-09-17) reproduces both E1.1 and E1.3; a fifth (`kirk0`) ran but is too short
-> (8 accepted tracks) to read either way. E1.2 and E1.4 remain open.
+> (8 accepted tracks) to read either way. E1.2 and E1.4 subsequently ran on Columbus on
+> September 19: residuals are structured and anisotropic, with only three qualifying stationary
+> candidate tracks for E1.4. The experiments are implemented; current-solver replication and
+> held-out physical acceptance remain open.
 > Full record, including a sign bug that initially inverted E1.3's conclusion:
 > [E1 lateral-error record](../lidar/operations/state-estimation-e1-lateral-error.md).
 
@@ -2358,6 +2434,13 @@ byte-identical. The multi-site corpus runner applies the same comparison. This d
 stored observations an alternative tracker input or establish the current Pi timing and one-week
 G-PER-1 collection.
 
+Those JSON records are the `reduced-cluster-sample` profile: a capped sample cannot become complete
+evidence by migration. The accuracy work reads the `foreground-complete` `l4bobserve.FrameRecord`
+instead, from an opt-in tap that precedes L5 and display filtering. It holds one record per
+frame, every L3 foreground return with source-ordinal lineage, and an exact cluster/unassigned
+partition. The shared VRLOG writer commits it durably, independently of L5, when a replay or
+the opt-in live capture asks.
+
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
 `storage/sqlite/observation_store.go`; migration for `lidar_observations`.
@@ -2421,6 +2504,32 @@ frames, and record which measurement was used.
 
 **Acceptance.** G-GEO-1 in full.
 
+**Delivered (default-off, September 2026).** `TrackerConfig.SolidBody` (experiment `solid_body`)
+populates the Section 5.4 solid body as a shadow of the tracked filter: a second four-state CV
+filter with the same transition, noise and coast inflation, updated by one scalar update per
+visible face along its normal from the near-edge measurement, never feeding back, so association
+and the tracked state are unchanged with it on (Section 5.3, Option A). It uses the medoid and a
+medoid reference for the first `HitsToConfirm` observations, as the mitigation above says, then
+re-references to the body centre; a body-centre solid body that goes `MaxMisses` frames without a
+usable face lapses back to the medoid rather than coasting away from arriving evidence. Extents are
+admitted as lower bounds per axis only where that axis's near face was found and, while the body
+moves, only when the believed axis lies within ten degrees of its course. Migration 000052 adds
+`state_model` to `lidar_track_estimates` and the `lidar_track_solid_bodies` table beside it; the
+pipeline files one solid body per point estimate, offline and through the live sink, and the
+per-frame evaluator scores solid-body estimate versions. The lossless-batch evidence oracle does
+not cover the new table yet. Migration 000053 adds each row's support token and fragmented and
+truncated flags, and the provisional headway run reads the table with `--solid-bodies` (#618).
+A tracked position without the solid body now names what entered the filter, `cluster_medoid` or
+`visible_obb_centre`, and is never labelled the body centre.
+
+On the synthetic pass the settled lateral error is 0.032 m against the medoid's 0.604 m. On kirk0,
+label-free, 1,952 solid bodies are filed beside 1,952 point estimates, 826 of them from a near-edge
+fix; over the same body-centre frames of six moving tracks the five-point lateral residual is p50
+0.011, p95 0.071, p99 0.364 and max 0.490 m against the point estimates' 0.013, 0.160, 0.309 and
+0.315 m, with no excursion above 0.5 m in either. Width converged on 9 of 60 tracks and no
+estimate reached `established`. That is wiring evidence, not G-GEO-1: kirk0 has eight moving
+tracks and no held-out geometry.
+
 ### Phase 3: adaptive uncertainty and residual statistics
 
 **Goal.** Stop treating every observation as equally trustworthy, with evidence.
@@ -2436,6 +2545,22 @@ calibration checks as tabulated in Section 8.3.
 ship behind a config flag with the fixed model retained.
 
 **Acceptance.** G-UNC-1.
+
+**Delivered (default-off, September 2026).** The model lives in `l5tracks`, not `l4bobserve`: it
+reads the track's believed heading for aspect and the tracker's measurement source, which the
+evidence layer does not know. `TrackerConfig.AdaptiveMeasurementNoise` (experiment
+`adaptive_uncertainty`) gives R along and across the line of sight, Section 8.1's physics terms plus
+a per-stratum coefficient, in the gate, the likelihood cost and the update; with it off every output
+is byte-identical. A calibration window records eligible pre-gate samples, a separate pre-gate band
+set and a gate-rejection classifier that separates a persistent departure (a genuine turn or brake)
+from a transient one (a spurious measurement). `l8analytics` fits the coefficients per stratum from
+those samples and reports G-UNC-1's label-free rows; the corpus tool pools cases and replays with a
+frozen table. See [tracking maths §12](../../data/maths/tracking-maths.md#12-adaptive-measurement-uncertainty)
+and the [predeclared criteria](../lidar/operations/adaptive-uncertainty-criteria.md). On kirk0 the
+fit lowers R towards a smaller scalar rather than separating the axes, row 2's chi-squared fit
+fails for every arm, and the calibrated arm confirmed slightly fewer tracks: evidence that the
+medoid's error shape, not its scale, is what Phase 2 must fix. The near-edge rank-one measurement,
+and so the one-dimensional stratum, is not online.
 
 ### Phase 4: motion model extension
 
@@ -2462,6 +2587,41 @@ ships first and alone; IMM only behind the deferred gate in 7.3.
 **Goal.** A final trajectory distinct from the live one.
 
 **Files.** New `l5tracks/smoother.go`; `EstimateStage` plumbing; persistence update path.
+
+**Status: fixed-assignment half delivered, offline; G-SMO-1 not passed.** The tracker records each
+track's prior, posterior and applied prediction interval (`l5tracks/filter_steps.go`), off unless
+an offline observer is attached and pinned to leave tracks bit-identical when one is.
+`l5tracks/smoother.go` is a bounded fixed-lag RTS smoother over that record at three frames,
+0.5, 1 and 2 s of capture time (`fixed_lag`) and the whole track (`final`). Every released state
+carries its stage, look-ahead, release reason and a revision record: online versus refined
+position and velocity, the magnitude, and the observations that justified it. Coasted states stay
+unobserved, and a revision without evidence is a counted defect. Migration 000050 adds
+`lidar_track_estimate_revisions`; refined stages are written beside online rows under their own
+estimator ID and parameter hash, never over them. `-experiment fixed_lag_rts` and
+`cmd/tools/lidar-refinement-eval` compare every horizon on one replay, and print the per-frame
+evaluator command for each arm. The maths is in
+[tracking maths §11](../../data/maths/tracking-maths.md#11-retrospective-refinement).
+
+Measured so far, before any held-out scoring:
+
+- The smoother agrees with an independent batch least-squares solve to 3 µm. Fixed-lag converges
+  to full-track RTS in a track's interior and equals it over the tail.
+- At the comparator horizons (three frames, 0.5 s) a synthetic hard brake keeps 97–98 % of its
+  true peak deceleration and a lane change 98–99 % of the course rate the online filter showed.
+- **At the shipped process noise the 2 s and whole-track arms flatten that lane change to 69 % of
+  the online course rate, and the online filter itself keeps only 70 % of the truth.** At
+  3 m²/s³ every horizon keeps at least 85 %. Long horizons need G-UNC-1's noise calibration
+  before criterion 3 can pass; the smoother returns what the model believes.
+- A synthetic impact is identifiable from the stored record and separable from a measurement
+  anomaly (Phase 8's acceptance), for a 6.7 m/s change. At about 10 m/s the shipped gate breaks
+  the track, which no fixed-assignment smoother can see across.
+- On the full kirk0 replay the per-frame largest observed-state revision has p99 0.63 m at every
+  horizon, against criterion 4's 0.3 m. The medoid measurement is still in use.
+
+Remaining: held-out identity and geometry scoring of each arm, the abnormal-motion set, the
+revisable-association arm (after the asynchronous worker), VRLOG persistence of coasted refined
+states, and exposure of the refined stage in the API and the visualiser, whose `Track` message has
+no stage today.
 
 **Tests.** Fixed-lag output converges to full-track RTS in the interior of a track. Manoeuvre
 magnitude preservation on the abnormal set.
@@ -2695,7 +2855,7 @@ appears as a headline metric, only paired with manoeuvre-magnitude preservation,
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Q1  | Does the near-edge measurement win on **real** clusters, or does real-world noise destroy the clean near face that the synthetic model provides? | **Experiment E1, Section 16.5**: the four soma static captures give four sensor placements; four ground-truth-free tests, decisively the aspect-conditioned mean                                                                                                                                                                                                                                                                                                                                | Phase 2. **The single highest-value experiment in this plan**       |
 | Q2  | Why is the association rate only 43.6 % for moving tracks?                                                                                       | Instrument association failures by cause: no cluster produced, cluster outside the gate, cluster lost to a competing track, frame throttled                                                                                                                                                                                                                                                                                                                                                     | Phase 2 scope, and possibly a redirect of the whole increment to L4 |
-| Q3  | How much of the residual is intra-frame timing rather than geometry?                                                                             | Re-run the tracker using `WorldCluster.TSUnixNanos` instead of `frame.StartTimestamp`; measure the residual change, especially near the azimuth wrap                                                                                                                                                                                                                                                                                                                                            | Phase 1; possibly a very cheap partial win                          |
+| Q3  | How much of the residual is intra-frame timing rather than geometry?                                                                             | Re-run the tracker using `WorldCluster.TSUnixNanos` instead of `frame.StartTimestamp`; measure the residual change, especially near the azimuth wrap. **Harness ready:** default-off `MeasurementTimePrediction`, run with `-experiment measurement_time`; see [time-domain model](../lidar/architecture/time-domain-model.md#measurement-time-versus-frame-time-q3). Only a kirk0 smoke run exists; the corpus run is outstanding                                                              | Phase 1; possibly a very cheap partial win                          |
 | Q4  | Is predicted heading reliable enough to select the visible face during track initialisation?                                                     | Measure heading error against synthetic ground truth over the first ten frames of a track                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 2 fallback design                                             |
 | Q5  | What is the real memory cost of point retention on M1 at peak cluster counts? (Pi 4 is a v0.6.7 follow-on measurement, not a Phase 1 blocker)    | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 1                                                             |
 | Q6  | Does the dimension prior converge fast enough to be useful on short tracks?                                                                      | Distribution of frames to reach a stable length estimate, by class and range                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 2                                                             |
@@ -2808,15 +2968,82 @@ architecture; it does not relitigate findings.
 - [x] Phase 0: current M1 per-stage timings published (see corpus baseline above); Pi 4 per-stage timings deferred to v0.6.7 as a target-hardware optimisation pass, not a Phase 0 blocker
 - [x] Phase 0: review and freeze replacement candidates; original 33 IDs are unavailable — [jump-track replacement review](../lidar/operations/lidar-jump-track-replacement-review.md): 27 of 2,136 candidates excluded as a distinct, previously-undocumented association defect (not a jump phenomenon); 33 frozen as the replacement regression set from the remaining 2,109
 - [x] Phase 1 start: bounded offline cluster retention and copy-isolated observation boundary
+- [x] Sprint 0.5.2.2 step 1, domain: `foreground-complete` frame records with membership and
+      lineage, capped JSON records labelled `reduced-cluster-sample` and refused for full-profile
+      requests, and an opt-in pre-L5 tap in `replayeval`
+- [x] Sprint 0.5.2.2 step 1, codec: typed VRLOG 1.x container and offline reader with exact
+      kirk0 round trips, a versioned semantic digest and located corruption
+- [x] Sprint 0.5.2.2 step 1, durable: L4 commit independent of L5, commit generations, durable
+      frontier, recovery and failure accounting, with desktop G-OBS-TIME, G-OBS-QUEUE and
+      process-crash evidence; power-loss and Pi gates remain
 - [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test
 - [ ] Run `velocity lidar settling-eval` on all four soma files and publish
       usable-frame counts before fixing the partition
 - [ ] Write the soma manifest: SHA-256 per file plus split parameters
-- [ ] Experiment Q3, cluster timestamps, cheap and possibly high value
+- [ ] Experiment Q3, cluster timestamps, cheap and possibly high value. The harness is in place
+      (`-experiment measurement_time`); run it across the corpus and compare the moving bands
+- [x] Estimator time-domain boundary (Sprint 0.5.2.2, delivery priority 2 primitives): L5 takes
+      elapsed time only from capture timestamps; backward frame timestamps predict across zero;
+      per-track capture-time coast age and last-observed time; default-off capture-time expiry and
+      whole-gap prediction; replay pinned invariant to wall-clock pacing on kirk0. See the
+      [time-domain model](../lidar/architecture/time-domain-model.md)
+- [x] Occlusion continuity primitives (Sprint 0.5.2.2, delivery priority 2): existence held
+      separately from observation, a Section 7.3 support token on every instant and history point,
+      expiry reasons, and default-off options for absence explanation, capture-time coast
+      uncertainty, per-class capture-time coast bounds (explained absences allowed longer) and a
+      reacquisition extent/ambiguity guard; 21 ground-truth synthetic scenes for vehicles,
+      cyclists and pedestrians; replay experiments and manifest continuity diagnostics. See
+      [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [x] Solid body populated and persisted (Sprint 0.5.2.1, default-off): near-edge shadow
+      estimator, course-aligned extent admission, faceless lapse to the medoid, migration 000052
+      and `lidar_track_solid_bodies`, `-experiment solid_body`, per-frame scoring of solid-body
+      versions, and label-free kirk0 wiring evidence (Phase 2 above)
+- [ ] Cover `lidar_track_solid_bodies` in the lossless-batch evidence oracle, then run G-GEO-1
+      on held-out geometry with the solid body as the candidate arm
+- [x] Identity options (Sprint 0.5.2.2, default-off): `TentativePriority` (S2, confirmed tracks
+      first inside their 99% ellipse), `ClassIdentity` (K4, L6's envelope refuses a merge) and
+      `ContestedRejoin`, with unit tests and a K4 scene scored by the per-frame evaluator. See the
+      [gap analysis](../../data/maths/paper-implementation-gap-analysis.md#computed-s3)
+- [ ] Add replay experiments for the identity options and compare them, with a measured
+      extent-cost weight, against held-out identity switches and fragmentation
+- [x] Declared sensor coverage/origin for replay (S0): `ContinuityCoverage` unlocks
+      `coast_support`, `class_coast_bounds` and `occlusion_continuity`, which stay refused without
+      a valid declaration; kirk0 runs them under a measured envelope, and a static-occluder scene
+      joins the synthetic set. See [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [ ] Declare coverage for each corpus site, from a survey or a measured detection envelope
+- [ ] Choose the continuity values (class coast bounds and rates, `MaxCoastSecs*`) and test
+      `occlusion_continuity` and `capture_gap_predict` against held-out occlusion and
+      reacquisition scenes on the S2 corpus before enabling any of them
+- [ ] Explain occlusion by static structure: consult the L3 background range at the predicted
+      azimuth, so an object behind a parked vehicle or building is not `missed_unknown`
+- [ ] Carry the support token to VRLOG and the visualiser trail (proto field), so observed and
+      coasted segments render distinctly
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
 - [x] Emit associated raw clusters beside estimates in opt-in diagnostic bundles
+- [x] Phase 5 fixed-assignment refinement (Sprint 0.5.2.2): filter-step record, bounded fixed-lag
+      RTS at three frames, 0.5, 1 and 2 s and the whole track, revision audit, refined-stage
+      persistence (migration 000050), one-replay comparison (`-experiment fixed_lag_rts`,
+      `lidar-refinement-eval`), and G-SMO-1 and horizon criteria predeclared in the
+      [retrospective-refinement criteria](../lidar/operations/retrospective-refinement-criteria.md)
+- [ ] G-SMO-1 and horizon choice: score every refined arm against held-out reviewed episodes with
+      `lidar-ground-truth-eval perframe`, then apply the predeclared selection rule
+- [ ] G-SMO-1 criterion 3: build the abnormal-motion set, and calibrate process noise under G-UNC-1
+      before a horizon of 2 s or more can preserve manoeuvres
+- [x] Phase 3 harness (Sprint 0.5.2.2, default-off): anisotropic line-of-sight R by range, support,
+      aspect and source (`-experiment adaptive_uncertainty`); eligible pre-gate NIS and a separate
+      pre-gate band set; gate-rejection manoeuvre evidence on synthetic scenes; per-stratum
+      calibration fit and report; corpus pooling and frozen-table replay; G-UNC-1 predeclared in the
+      [adaptive-uncertainty criteria](../lidar/operations/adaptive-uncertainty-criteria.md) with
+      label-free kirk0 evidence
+- [ ] G-UNC-1: fit on the marina and columbus cases, score embarcadero once with the frozen table,
+      build the labelled manoeuvre scorer over `uncertainty_samples.jsonl`, and re-run the 5-frame
+      occlusion recovery with the frozen table
+- [ ] Revisable-association arm: alternative assignments, point ownership and shape belief inside
+      the window, on the asynchronous worker's immutable input, through the same smoother and report
+- [ ] Persist coasted refined states in the VRLOG trajectory record, and expose refined stages in
+      the API and the visualiser
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
 - [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
 - [x] Implement D2: association, initialisation, and the CV update use a valid OBB centre;

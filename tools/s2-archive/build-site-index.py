@@ -2,11 +2,11 @@
 """Build the complete site index across all three recording days.
 
 Two sources, because the days were analysed differently. 9/1 was analysed here
-as one continuous stream, which keeps the background model settled across file
-boundaries and so reports each site as one segment. 9/2 and 9/3 carry the
-archive's original per-file analysis, where every file restarts that model and
-its settling is reported as motion — so their static periods arrive in pieces
-and are stitched back together, bridging motion shorter than BRIDGE_SECONDS.
+as one continuous stream and reports each site as one segment. 9/2 and 9/3
+mainly carry the archive's original per-file analysis, where every file restarts
+the model and its static periods arrive in pieces. Checked-in reanalyses replace
+individual source reports when available; the remaining fragments are stitched
+back together, bridging motion shorter than BRIDGE_SECONDS.
 
 Positions come from the field map and are matched to a site by day and clock
 time. A site whose mark could not be read keeps no position rather than an
@@ -25,6 +25,7 @@ PACIFIC = timezone(timedelta(hours=-7))
 HERE = os.path.dirname(os.path.abspath(__file__))
 PER_FILE = "/Volumes/lidar/lidar/s2/analysis"
 CONTINUOUS = "/Volumes/lidar/lidar/s2/analysis-continuous"
+REANALYSED = os.path.join(HERE, "analysis-overrides")
 MARKS = os.path.join(HERE, "map-marks.json")
 JOINS = os.path.join(HERE, "site-joins.json")
 OUT = os.path.join(HERE, "site-index.json")
@@ -122,6 +123,24 @@ def load(paths, fallback_build_version):
                 }
             )
     return sorted(out, key=lambda s: s["start"])
+
+
+def reanalyses():
+    """Find checked-in reports and the original captures they supersede."""
+    reports = sorted(glob.glob(os.path.join(REANALYSED, "*.json")))
+    replaced = set()
+    for path in reports:
+        with open(path) as fh:
+            doc = json.load(fh)
+        sources = doc.get("config", {}).get("pcap_files") or [doc["input_file"]]
+        if not doc.get("segments"):
+            raise RuntimeError(f"{path}: reanalysis has no segments")
+        for source in sources:
+            capture = os.path.splitext(os.path.basename(source))[0]
+            if capture in replaced:
+                raise RuntimeError(f"{path}: duplicate reanalysis of {capture}")
+            replaced.add(capture)
+    return reports, replaced
 
 
 # A motion segment starting within this many seconds of its capture's first
@@ -242,12 +261,18 @@ continuous_segments = load(continuous, CONTINUOUS_PCAP_SPLIT_BUILD_VERSION)
 day_one = stitch(continuous_segments, BRIDGE_SECONDS) if continuous else []
 
 # Every other day: the archive's per-file analysis, stitched back together.
+replacement_reports, replaced_captures = reanalyses()
 per_file = [
     p
     for p in sorted(glob.glob(os.path.join(PER_FILE, "*", "segments.json")))
     if not any(f"_{day}" in p for day in CONTINUOUS_DAYS)
+    and os.path.basename(os.path.dirname(p)) not in replaced_captures
 ]
-per_file_segments = load(per_file, PER_FILE_PCAP_SPLIT_BUILD_VERSION)
+per_file_segments = sorted(
+    load(per_file, PER_FILE_PCAP_SPLIT_BUILD_VERSION)
+    + load(replacement_reports, PER_FILE_PCAP_SPLIT_BUILD_VERSION),
+    key=lambda s: s["start"],
+)
 later = stitch(per_file_segments, BRIDGE_SECONDS)
 
 sites = sorted(day_one + later, key=lambda s: s["start"])

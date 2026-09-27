@@ -2,6 +2,11 @@
 
 Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and the metrics-first data science boundaries around tuning and future classification work.
 
+For the remaining 0.5.2 integration, use the
+[physical-estimation and following MVP sprint](../../plans/lidar-052-mvp-sprint-plan.md).
+The [merged-batch review](../operations/0.5.2-sprint-review.md) distinguishes delivered components
+from the missing physical-body producer, field acceptance and Following distance debug layer.
+
 ---
 
 ## Current data flow
@@ -38,6 +43,48 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Ground Removal        | [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)                 | ✅ Complete |
 | OBB Estimation        | [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                       | ✅ Complete |
 | Debug Collector       | [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go)                         | ✅ Complete |
+| Behaviour Following   | [internal/lidar/l8behaviour/doc.go](../../../internal/lidar/l8behaviour/doc.go)                         | Gated       |
+| Headway Report        | [internal/report/headway/doc.go](../../../internal/report/headway/doc.go)                               | Provisional |
+
+Behaviour following carries the following-metric contracts and equations, the local following
+path, leader choice, encounter exposure and a held-out scoring harness, validated on analytic
+scenarios only. Encounters persist to `lidar_interaction_events`, `lidar_interaction_instants` and
+`lidar_exposure_windows` through
+[interaction_store.go](../../../internal/lidar/storage/sqlite/interaction_store.go), write-once
+per version. The headway report contract (`headway_report_v2`) is built, with a synthetic oracle
+rendered from the analytic scenarios and a provisional field run over persisted estimates, each
+labelled as such; see the [headway report oracle](../operations/headway-report-oracle.md). The
+field run finds pairs on real captures but publishes no value, because persisted estimates carry
+no class, heading or extent. A scene's encounters are pooled into a provisional headway
+distribution ([distribution.go](../../../internal/lidar/l8behaviour/distribution.go)) and served
+at `GET /api/scenes/<id>/headway`, with its SVG at `/api/charts/histogram?kind=headway`.
+Production emission waits for G-SMO-1 and the held-out metric gate; see the
+[behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md).
+
+### Behaviour following methods
+
+Each method id versions its rules and the meaning of its parameters; a change to either moves the
+id. No parameter has a default: the caller states every bound, and the bounds enter the geometry
+id or the encounter's recorded method id. The analytic scenarios' values are in
+`EncounterScenarioParams`; they are fixture values, not calibrated ones.
+
+| Method id                       | Decides                                                                                                                                                                                                                              | Parameters                                                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `following_pointwise_v1`        | Bumper endpoints, spatial gap and net time gap at one instant, with linearised sigma and precedence-ordered suppression                                                                                                              | `speed_floor_mps`, `corridor_half_width_m`, `max_relative_heading_rad`                                                                                                         |
+| `following_local_path_v1`       | One follower's directed centreline over its own passage, from observed moving evidence; its group of same-path tracks; refusal with a path condition for weak support, reversal, crossing, fork or merge, or lateral incompatibility | `knot_spacing_m`, `group_lateral_m`, `max_tangent_rad`, `min_speed_mps`, `min_track_evidence`, `min_overlap_knots`, `min_samples_per_knot`, `max_bridge_knots`, `min_extent_m` |
+| `following_pairing_v1`          | The nearest credible leader at each follower instant, `ambiguous_leader` when a second body is not separable, `no_common_path` when the nearest body is not on the path, and a disposition for every other body                      | `max_leader_range_m`, `separation_sigmas`, `unresolved_separation_m`, and the corridor half-width                                                                              |
+| `following_sync_frame_exact_v1` | Pairs are evaluated on samples at the follower's exact capture time; a leader without a row there is interpolated for ordering and accounted as `not_observed`                                                                       | none                                                                                                                                                                           |
+| `following_exposure_v1`         | Encounter accounting, valid following time, band durations and rates, minimum and median with Monte Carlo intervals, and the minimum-opportunity, class and stage guards                                                             | `min_opportunity_seconds`, `max_interval_nanos`, `interval_coverage`, `monte_carlo_samples`, `common_mode_fraction`                                                            |
+| `following_encounter_v1`        | The composition of the five above, recorded on every encounter measurement with the parameters' hash appended                                                                                                                        | all of the above                                                                                                                                                               |
+| `following_heldout_scoring_v1`  | Endpoint, gap and interval-coverage scoring against independent references, stratified by class, range, face aspect and support, against bounds pinned by hash before scoring                                                        | `nominal_coverage`, `range_edges_m`, `aspect_edges_rad`, and the acceptance bounds                                                                                             |
+
+The separability rule, in full: a body further ahead competes with the nearest unless its trailing
+extreme clears the nearest's leading extreme by more than `separation_sigmas` combined one-sigmas,
+or, when either extreme cannot be projected, unless the centres are more than
+`unresolved_separation_m` apart. A candidate must lie within the corridor half-width of both the
+path and the follower. The Monte Carlo interval draws each instant's error as
+`sqrt(rho) z_common + sqrt(1 - rho) z_instant` times its one-sigma, with `rho` the common-mode
+fraction, from a seed derived from the method, parameters, geometry and pair.
 
 ## Production deployment architecture (phase 4.3)
 

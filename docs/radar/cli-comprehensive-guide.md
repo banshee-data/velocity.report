@@ -138,6 +138,16 @@ forwards `velocity data …` and `velocity report …` here):
   package). Read-only is enforced (`mode=ro`); `--read-only=false` is rejected.
   Defaults: `--limit 100`, `--db-path` resolves the runtime database.
 - `velocity report pdf --config report.json --db sensor_data.db --output ./reports` - Generate a PDF report
+- `velocity report headway --oracle --output ./reports [--paper letter|a4]` - Generate the synthetic
+  headway report oracle (see [headway report oracle](../lidar/operations/headway-report-oracle.md))
+- `velocity report headway --db evidence.db --source <id> [--solid-bodies] [--stage final|fixed_lag|online]` -
+  Run the provisional headway report over one version of an evidence database's persisted
+  estimates; stores the derived encounters in that database, write-once, and labels every page
+  `PROVISIONAL`. `--stage` defaults to `final`; `--estimator`, `--obs-model` and `--param-hash`
+  pick one version when the stage holds several; `--solid-bodies` reads the persisted solid bodies
+  instead of the point estimates; `--output` and `--paper` are as for `--oracle`.
+  Without `--source` it lists the database's sources (see
+  [provisional field run](../lidar/operations/headway-report-oracle.md#provisional-field-run))
 - `velocity version` - Print version information
 
 #### HTTP endpoints served

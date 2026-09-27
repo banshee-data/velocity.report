@@ -1,6 +1,7 @@
 package l4perception
 
 import (
+	"math"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -9,10 +10,40 @@ import (
 // WorldPoint represents a point in Cartesian world coordinates (site frame).
 // This is the canonical definition; internal/lidar aliases it for backward compatibility.
 type WorldPoint struct {
-	X, Y, Z   float64   // World frame position (meters)
-	Intensity uint8     // Laser return intensity
-	Timestamp time.Time // Acquisition time
-	SensorID  string    // Source sensor
+	X, Y, Z   float64 // World frame position (meters)
+	Intensity uint8   // Laser return intensity
+	// sourceOrdinal is acquisition lineage for an opt-in evidence tap: one plus
+	// the return's index in its L2 frame, or zero when nothing stamped it. It
+	// travels with the value through every copy, filter, voxel representative
+	// and DBSCAN subsample, which is what lets the tap account for each return
+	// without a parallel index array per stage. It is unexported, so JSON
+	// records built from WorldPoint are unchanged, and it occupies alignment
+	// padding after Intensity, so the struct is no larger.
+	sourceOrdinal uint32
+	Timestamp     time.Time // Acquisition time
+	SensorID      string    // Source sensor
+}
+
+// SourceOrdinal reports the return's index in its L2 frame's point list when
+// an evidence tap stamped it. Ordinal zero is a real return, so absence is
+// reported by ok rather than encoded as a value.
+func (p WorldPoint) SourceOrdinal() (ordinal int, ok bool) {
+	if p.sourceOrdinal == 0 {
+		return 0, false
+	}
+	return int(p.sourceOrdinal - 1), true
+}
+
+// SetSourceOrdinal stamps acquisition lineage onto the point. An ordinal that
+// cannot be represented clears the lineage and returns false; the tap then
+// reports lost lineage instead of attributing the return to another ordinal.
+func (p *WorldPoint) SetSourceOrdinal(ordinal int) bool {
+	if ordinal < 0 || uint64(ordinal) >= math.MaxUint32 {
+		p.sourceOrdinal = 0
+		return false
+	}
+	p.sourceOrdinal = uint32(ordinal) + 1
+	return true
 }
 
 // FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".

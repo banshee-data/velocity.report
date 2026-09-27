@@ -300,9 +300,39 @@ func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
 // applied to bound worst-case runtime. MaxInputPoints <= 0 disables
 // the cap (default behaviour for backward compatibility).
 func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
+	clusters, _ := dbscan(points, params)
+	return clusters
+}
+
+// DBSCANTrace is the per-point outcome DBSCAN computes anyway and normally
+// discards. An evidence tap needs it to account for every input return:
+// which ones the input cap left out, which were noise, and which belonged to
+// a cluster that the size and aspect filters then rejected.
+type DBSCANTrace struct {
+	// InputPoints is the number of points DBSCAN was given.
+	InputPoints int
+	// Processed is the point set actually clustered: the input itself, or its
+	// content-seeded subsample when the input exceeded MaxInputPoints. It is
+	// DBSCAN's working storage; callers must treat it as read-only.
+	Processed []WorldPoint
+	// Labels has one entry per Processed point: -1 for noise, otherwise the
+	// positive DBSCAN label. A label equals WorldCluster.ClusterID when that
+	// cluster survived the diameter and aspect filters; a positive label with
+	// no surviving cluster was rejected by them.
+	Labels []int
+}
+
+// DBSCANWithTrace returns exactly what DBSCAN returns, plus the trace. Both
+// entry points share one implementation, so enabling a tap cannot change the
+// clusters; the trace only exposes slices the algorithm already allocated.
+func DBSCANWithTrace(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTrace) {
+	return dbscan(points, params)
+}
+
+func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTrace) {
 	if len(points) == 0 {
 		tracef("DBSCAN skipped: points=0")
-		return nil
+		return nil, DBSCANTrace{}
 	}
 
 	inputPoints := len(points)
@@ -356,7 +386,7 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 		tracef("DBSCAN complete: input_points=%d processed_points=%d raw_clusters=%d accepted_clusters=%d noise_points=%d",
 			inputPoints, len(points), clusterID, len(clusters), noisePoints)
 	}
-	return clusters
+	return clusters, DBSCANTrace{InputPoints: inputPoints, Processed: points, Labels: labels}
 }
 
 // uniformSubsample returns a random subset of n points from the input

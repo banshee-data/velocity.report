@@ -8,6 +8,7 @@ import (
 
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
+	t.filterSteps.notePrior(track)
 	track.LastResidual.Valid = false
 	measurement := t.measurementForCluster(cluster, nowNanos)
 	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
@@ -31,6 +32,13 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	S01 := track.P[0*4+1]
 	S10 := track.P[1*4+0]
 	S11 := track.P[1*4+1] + t.Config.MeasurementNoise
+	// The adaptive model replaces R only; the isotropic lines above are the
+	// shipped arithmetic and stay exactly as they were.
+	var adaptiveR MeasurementCovariance
+	if t.Config.AdaptiveMeasurementNoise {
+		adaptiveR = t.evaluateNoise(track, cluster, measurement).SiteCovariance
+		S00, S01, S10, S11 = adaptiveInnovationCovariance(&track.P, adaptiveR)
+	}
 
 	// Compute S inverse
 	det := S00*S11 - S01*S10
@@ -76,7 +84,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Update covariance. The shipped form is P' = (I - K*H) * P; the Joseph
 	// stabilised form is algebraically identical at the optimal gain but keeps
 	// P symmetric under float error. See tracking_covariance.go.
-	if t.Config.JosephCovarianceUpdate {
+	if t.Config.JosephCovarianceUpdate && t.Config.AdaptiveMeasurementNoise {
+		track.P = josephCovarianceUpdateFull(track.P, K, adaptiveR)
+	} else if t.Config.JosephCovarianceUpdate {
 		track.P = josephCovarianceUpdate(track.P, K, t.Config.MeasurementNoise)
 	} else {
 		track.P = naiveCovarianceUpdate(track.P, K)
@@ -96,6 +106,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			0, 0, 0, 1,
 		}
 		track.TrackState = TrackDeleted
+		t.recordExpiry(track, ExpiryNonFinite)
 		return
 	}
 
@@ -125,6 +136,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	if cluster.HeightP95 > track.HeightP95Max {
 		track.HeightP95Max = cluster.HeightP95
 	}
+	t.observeReacquisitionExtent(track, &cluster)
 
 	// Update speed statistics
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
@@ -157,6 +169,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			X:         track.X,
 			Y:         track.Y,
 			Timestamp: measurement.UnixNanos,
+			Support:   SupportObserved,
 		})
 		if hasPrevious {
 			dx := track.X - previousPoint.X

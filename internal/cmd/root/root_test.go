@@ -122,6 +122,7 @@ func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
 		{[]string{"data", "transits", "list"}, 10, "server", []string{"transits", "list"}},
 		{[]string{"data", "sql", "SELECT 1"}, 10, "server", []string{"sql", "SELECT 1"}},
 		{[]string{"report", "pdf", "--version"}, 10, "server", []string{"pdf", "--version"}},
+		{[]string{"report", "headway", "--oracle"}, 10, "server", []string{"headway", "--oracle"}},
 		{[]string{"tune", "sweep", "--dry-run"}, 12, "tune", []string{"--dry-run"}},
 		{[]string{"lidar", "pcap-split", "-pcap", "x.pcap"}, 13, "lidar", []string{"pcap-split", "-pcap", "x.pcap"}},
 	}
