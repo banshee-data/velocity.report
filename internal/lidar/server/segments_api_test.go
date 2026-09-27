@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -676,5 +678,118 @@ func TestSegmentCaptureOutsideTheSafeDirectoryIsRefused(t *testing.T) {
 	ws.pcapSafeDir = "relative-safe-directory"
 	if resolved, err := ws.resolveSegmentCapture("/absolute/capture.pcap"); err == nil {
 		t.Fatalf("absolute capture resolved against a relative safe directory: %q", resolved)
+	}
+}
+
+// replayedRun adds a run as an analysis replay leaves it: track summaries
+// and a recording, and nothing in the observation table.
+func replayedRun(t *testing.T, ws *Server, runID string) string {
+	t.Helper()
+	safe, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.vrlogSafeDir = safe
+	recording := filepath.Join(safe, runID)
+	rec, err := recorder.NewRecorder(recording, "sensor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		ts := segmentTestTime + int64(i)*100_000_000
+		tracks := []l9endpoints.Track{
+			{TrackID: runID + "-follower", State: l9endpoints.TrackStateConfirmed, X: float32(i), VX: 10, MaxSpeedMps: 10},
+			{TrackID: runID + "-leader", State: l9endpoints.TrackStateConfirmed, X: float32(i) + 10, VX: 10, MaxSpeedMps: 10},
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{FrameID: uint64(i), TimestampNanos: ts, SensorID: "sensor", Tracks: &l9endpoints.TrackSet{TimestampNanos: ts, Tracks: tracks}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatal(err)
+	}
+	capture := filepath.Join(ws.pcapSafeDir, "capture.pcap")
+	if _, err := ws.db.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,2,'pcap',?,'sensor','completed',0,0,0,0,0,0,?)`, runID, capture, recording); err != nil {
+		t.Fatal(err)
+	}
+	for _, track := range []struct {
+		id    string
+		split int
+	}{{runID + "-follower", 0}, {runID + "-leader", 1}} {
+		if _, err := ws.db.Exec(`INSERT INTO lidar_run_tracks(run_id,track_id,sensor_id,track_state,start_unix_nanos,is_split_candidate) VALUES(?,?,'sensor','confirmed',?,?)`, runID, track.id, segmentTestTime, track.split); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return recording
+}
+
+func TestSegmentsReadAReplayedRunFromItsRecording(t *testing.T) {
+	ws, capture := segmentServer(t)
+	replayedRun(t, ws, "replayed")
+	var stored int
+	if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_track_observations o JOIN lidar_run_tracks r ON r.track_id=o.track_id WHERE r.run_id='replayed'`).Scan(&stored); err != nil || stored != 0 {
+		t.Fatalf("fixture must store no observations for the replayed run: %d %v", stored, err)
+	}
+	following, _, err := ws.findRunSegments(segmentRequest{RunID: "replayed", Finder: "following"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(following) != 1 || following[0].PairFrames != 5 || following[0].Capture != capture || following[0].Source != "replayed" {
+		t.Fatalf("replayed run was not ranked from its recording: %+v", following)
+	}
+	// The marks are on the run's track summaries, which a replay does write.
+	flagged, _, err := ws.findRunSegments(segmentRequest{RunID: "replayed", Finder: "split_flags"})
+	if err != nil || len(flagged) != 1 || flagged[0].Events != 5 || len(flagged[0].TrackIDs) != 1 || flagged[0].TrackIDs[0] != "replayed-leader" {
+		t.Fatalf("split marks of a replayed run: %+v %v", flagged, err)
+	}
+	// The whole flow works from the recording: the window can be chosen.
+	response := callSegment(t, ws, "POST", "/api/lidar/segments/"+following[0].ID+"/case", map[string]any{"run_id": "replayed", "finder": "following"}, ws.handleSegmentByID)
+	if response.Code != 201 {
+		t.Fatalf("case from a replayed run: %d %s", response.Code, response.Body.String())
+	}
+	// A run that stored its observations is still read from them.
+	live, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "following"})
+	if err != nil || len(live) != 1 || live[0].PairFrames != 5 {
+		t.Fatalf("run with stored observations: %+v %v", live, err)
+	}
+}
+
+func TestSegmentsReportAReplayedRunThatCannotBeRead(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		edit func(*testing.T, *Server, string)
+		want string
+	}{
+		{"recording removed", func(t *testing.T, _ *Server, recording string) {
+			if err := os.RemoveAll(recording); err != nil {
+				t.Fatal(err)
+			}
+		}, "recording could not be read"},
+		{"recording outside the read boundary", func(t *testing.T, ws *Server, _ string) {
+			elsewhere, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws.vrlogSafeDir = elsewhere
+		}, "not within the allowed directory"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, _ := segmentServer(t)
+			recording := replayedRun(t, ws, "replayed")
+			tc.edit(t, ws, recording)
+			response := callSegment(t, ws, "GET", "/api/lidar/segments?run_id=replayed&finder=following", nil, ws.handleSegments)
+			if response.Code != 400 || !strings.Contains(response.Body.String(), tc.want) {
+				t.Fatalf("unreadable replayed run: %d %s", response.Code, response.Body.String())
+			}
+		})
+	}
+	// A run with neither observations nor a recording has nothing to rank.
+	ws, _ := segmentServer(t)
+	if _, err := ws.db.Exec(`DELETE FROM lidar_track_observations`); err != nil {
+		t.Fatal(err)
+	}
+	windows, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "following"})
+	if err != nil || len(windows) != 0 {
+		t.Fatalf("run without a series: %+v %v", windows, err)
 	}
 }

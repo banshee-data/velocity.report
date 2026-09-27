@@ -13,6 +13,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 type segmentRequest struct {
@@ -79,7 +80,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 	if err != nil {
 		return nil, p, fmt.Errorf("run not found: %w", err)
 	}
-	points, err := segments.LoadRun(ws.db.DB, req.RunID)
+	points, err := ws.loadRunSeries(run)
 	if err != nil {
 		return nil, p, err
 	}
@@ -118,6 +119,28 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		}
 	}
 	return windows, p, nil
+}
+
+// loadRunSeries reads where a run's tracks were. A live run stores its
+// observations; an analysis replay does not write to that table and keeps its
+// tracks in the run's recording, so a run without observations is read from
+// there. A run with neither has nothing to rank, which is not an error.
+func (ws *Server) loadRunSeries(run *sqlite.AnalysisRun) ([]segments.Point, error) {
+	points, err := segments.LoadRun(ws.db.DB, run.RunID)
+	if err != nil || len(points) > 0 || run.VRLogPath == "" {
+		return points, err
+	}
+	// The path comes from the run record, so it is held to the same read
+	// boundary as a replay of that recording.
+	recording, err := security.ResolvePathWithinDirectory(run.VRLogPath, ws.vrlogSafeDir)
+	if err != nil {
+		return nil, fmt.Errorf("run's recording is not within the allowed directory: %w", err)
+	}
+	points, err = segments.LoadRunRecording(ws.db.DB, run.RunID, recording)
+	if err != nil {
+		return nil, fmt.Errorf("run has no stored observations and its recording could not be read: %w", err)
+	}
+	return points, nil
 }
 
 // Restrict the time index to the run's own source files. Two sensors can

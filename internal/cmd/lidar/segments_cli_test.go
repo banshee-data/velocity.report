@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -285,6 +287,75 @@ func TestNamespaceReachesSegmentCommands(t *testing.T) {
 		}
 		if code := silence(t, func() int { return Main([]string{command, "-nope"}) }); code != 2 {
 			t.Errorf("Main(%s -nope) = %d, want 2", command, code)
+		}
+	}
+}
+
+// A replayed run keeps its tracks in its recording and stores no
+// observations, so the command must read the recording to rank it.
+func TestSegmentsCLIReadsAReplayedRunFromItsRecording(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "run.db")
+	recording := filepath.Join(dir, "recording")
+	const base int64 = 1788466680 * 1_000_000_000
+	rec, err := recorder.NewRecorder(recording, "sensor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		ts := base + int64(i)*100_000_000
+		tracks := []l9endpoints.Track{
+			{TrackID: "follower", State: l9endpoints.TrackStateConfirmed, X: float32(i), VX: 10, MaxSpeedMps: 10},
+			{TrackID: "leader", State: l9endpoints.TrackStateConfirmed, X: float32(i) + 10, VX: 10, MaxSpeedMps: 10},
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{FrameID: uint64(i), TimestampNanos: ts, SensorID: "sensor", Tracks: &l9endpoints.TrackSet{TimestampNanos: ts, Tracks: tracks}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatal(err)
+	}
+	database, err := coredb.NewDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	insertRun := func(id, vrlog string) {
+		t.Helper()
+		if _, err := database.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,1,'pcap','/captures/a.pcap','sensor','completed',0,0,0,0,0,0,?)`, id, vrlog); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insertRun("replayed", recording)
+	insertRun("lost", filepath.Join(dir, "absent"))
+	insertRun("bare", "")
+	if _, err := database.Exec(`INSERT INTO lidar_run_tracks(run_id,track_id,sensor_id,track_state,start_unix_nanos,is_split_candidate) VALUES('replayed','leader','sensor','confirmed',?,1)`, base); err != nil {
+		t.Fatal(err)
+	}
+	report := func(args ...string) []segments.Window {
+		t.Helper()
+		b := captureCommandJSON(t, func() int { return SegmentsMain(append([]string{"--db", path}, args...)) })
+		var out struct {
+			Windows []segments.Window `json:"windows"`
+		}
+		if err := json.Unmarshal(b, &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.Windows
+	}
+	if windows := report("--run", "replayed", "--finder", "following"); len(windows) != 1 || windows[0].PairFrames != 5 || windows[0].Source != "replayed" {
+		t.Fatalf("replayed run was not ranked from its recording: %+v", windows)
+	}
+	if windows := report("--run", "replayed", "--finder", "split_flags"); len(windows) != 1 || windows[0].Events != 5 {
+		t.Fatalf("split marks of a replayed run: %+v", windows)
+	}
+	// Nothing stored and nothing recorded is an empty ranking, not a fault.
+	if windows := report("--run", "bare", "--finder", "following"); len(windows) != 0 {
+		t.Fatalf("run without a series: %+v", windows)
+	}
+	for name, run := range map[string]string{"recording removed": "lost", "unknown run": "missing"} {
+		if code := silence(t, func() int { return SegmentsMain([]string{"--db", path, "--run", run, "--finder", "following"}) }); code != 1 {
+			t.Errorf("%s: exit %d, want 1", name, code)
 		}
 	}
 }

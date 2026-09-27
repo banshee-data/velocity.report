@@ -59,7 +59,7 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 	var src string
 	if *run != "" {
 		src = *run
-		pts, err = segments.LoadRun(db, *run)
+		pts, err = loadRunSeries(db, *run)
 	} else {
 		pts, src, err = segments.LoadEstimates(db, *source, *stage)
 	}
@@ -134,4 +134,25 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 		return 1
 	}
 	return 0
+}
+
+// loadRunSeries reads a run's stored observations, or its recording when it
+// stored none: an analysis replay keeps its tracks in the recording only.
+func loadRunSeries(db *sqlite.SQLDB, runID string) ([]segments.Point, error) {
+	pts, err := segments.LoadRun(db, runID)
+	if err != nil || len(pts) > 0 {
+		return pts, err
+	}
+	record, err := sqlite.NewAnalysisRunStore(db).GetRun(runID)
+	if err != nil {
+		return nil, fmt.Errorf("run: %w", err)
+	}
+	if record.VRLogPath == "" {
+		return pts, nil
+	}
+	pts, err = segments.LoadRunRecording(db, runID, record.VRLogPath)
+	if err != nil {
+		return nil, fmt.Errorf("run has no stored observations and its recording could not be read: %w", err)
+	}
+	return pts, nil
 }
