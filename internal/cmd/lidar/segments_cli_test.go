@@ -277,3 +277,14 @@ func TestSegmentsCLIPlacesRandomWindowFromCaptureWithoutAnIndex(t *testing.T) {
 		t.Fatalf("unindexed capture placement: %+v", report.Windows)
 	}
 }
+
+func TestNamespaceReachesSegmentCommands(t *testing.T) {
+	for _, command := range []string{"segments", "annotation-clip"} {
+		if code := silence(t, func() int { return Main([]string{command, "-h"}) }); code != 0 {
+			t.Errorf("Main(%s -h) = %d, want 0", command, code)
+		}
+		if code := silence(t, func() int { return Main([]string{command, "-nope"}) }); code != 2 {
+			t.Errorf("Main(%s -nope) = %d, want 2", command, code)
+		}
+	}
+}

@@ -213,3 +213,36 @@ func TestSaveIsCanonicalAndStable(t *testing.T) {
 		t.Fatalf("masks not canonical: %+v", first.Masks)
 	}
 }
+
+// A dismissal names one entry of an immutable proposal layer. An empty or
+// repeated name cannot say which suggestion the operator rejected.
+func TestDismissedProposalsAreNamedOnce(t *testing.T) {
+	p := synthPack(t)
+	s := NewSidecar(p)
+	s.DismissedProposals = []string{"cluster_chain@1/3", "persistent_voxels@1/7"}
+	if err := s.Validate(p); err != nil {
+		t.Fatalf("distinct dismissals were refused: %v", err)
+	}
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	reloaded, err := LoadSidecar(p)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(reloaded.DismissedProposals) != 2 || reloaded.DismissedProposals[0] != "cluster_chain@1/3" {
+		t.Fatalf("dismissals did not survive a save: %v", reloaded.DismissedProposals)
+	}
+	for name, dismissed := range map[string][]string{
+		"empty":    {"cluster_chain@1/3", ""},
+		"repeated": {"cluster_chain@1/3", "cluster_chain@1/3"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := NewSidecar(p)
+			s.DismissedProposals = dismissed
+			if err := s.Validate(p); err == nil {
+				t.Fatalf("accepted dismissals %q", dismissed)
+			}
+		})
+	}
+}
