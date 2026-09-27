@@ -326,6 +326,10 @@
 			tracks = Array.isArray(history.tracks) ? history.tracks : [];
 			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 };
 			selectedTime = runStartNs / 1e6;
+			const requestedNs = Number($page.url.searchParams.get('at_ns'));
+			if (Number.isFinite(requestedNs) && requestedNs >= runStartNs && requestedNs <= runEndNs) {
+				selectedTime = requestedNs / 1e6;
+			}
 			loadForegroundObservations(timeRange.start, timeRange.end);
 		} catch (error) {
 			console.error('[TrackHistory] Could not load tracks for run window:', error);
