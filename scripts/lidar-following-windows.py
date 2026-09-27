@@ -106,6 +106,7 @@ def rank_windows(estimates, window_seconds=10, **pairing):
         out.append(
             {
                 "window_start_unix_nanos": key * width,
+                "pair_frames": w["frames"],
                 "pair_seconds": round(w["frames"] * period, 2),
                 "pairs": len(w["pairs"]),
                 "followers": len(w["followers"]),
@@ -116,7 +117,9 @@ def rank_windows(estimates, window_seconds=10, **pairing):
                 "leader_seqs": sorted(w["leaders"]),
             }
         )
-    out.sort(key=lambda w: (-w["pair_seconds"], w["window_start_unix_nanos"]))
+    # Rank on the exact frame count: pair_seconds is rounded for reading, and
+    # at a high frame rate two counts can round to the same value.
+    out.sort(key=lambda w: (-w["pair_frames"], w["window_start_unix_nanos"]))
     return out, period
 
 

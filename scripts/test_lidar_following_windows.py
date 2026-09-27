@@ -111,6 +111,21 @@ class FollowingWindowsTest(unittest.TestCase):
             [w["window_start_unix_nanos"] for w in ranked], [BASE + 10 * 10**9, BASE]
         )
 
+    def test_ranking_uses_exact_counts_not_rounded_seconds(self):
+        # At 250 Hz, 2 and 3 pair-frames both round to 0.01 pair-seconds.
+        # The later window has more following and must still rank first.
+        fast = 4_000_000
+        rows = []
+        for start, frames in ((0, 2), (10 * 10**9, 3)):
+            for f in range(frames):
+                t = BASE + start + f * fast
+                rows.append((1, t, 0.0, 0.0, 10.0, 0.0, "online", "s"))
+                rows.append((2, t, 10.0, 0.0, 10.0, 0.0, "online", "s"))
+        ranked, period = self.ranked(rows)
+        self.assertAlmostEqual(period, 0.004)
+        self.assertEqual([w["pair_seconds"] for w in ranked], [0.01, 0.01])
+        self.assertEqual([w["pair_frames"] for w in ranked], [3, 2])
+
     def test_several_sources_need_one_named(self):
         conn = estimate_db(moving(1, 5, 0, source="a") + moving(2, 5, 0, source="b"))
         with self.assertRaises(SystemExit) as refused:
