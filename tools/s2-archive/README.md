@@ -66,6 +66,12 @@ The neighbouring captures `00006`–`00007` and the rest of `00012` confirm a
 drive, stop, drive sequence. The original per-file reports incorrectly ended
 the stop during `00010`; the old continuous classifier missed it entirely
 because its locked drive baseline was never refreshed.
+With the revised classifier, separate runs label `00008`–`00011` entirely
+static. `00012` alone still starts as motion: only 11 seconds of that file are
+parked, shorter than the 60-second settling requirement. Analysing the five
+files continuously carries the parked state across that boundary and places
+the departure at 10:56:05.849 PDT. This is why the checked-in reanalysis is a
+continuous one rather than a collection of corrected per-file reports.
 
 ## Which captures a site spans
 
