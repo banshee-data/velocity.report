@@ -83,6 +83,9 @@ func TestGroupCommitClosesBatchesByAgeAndBytes(t *testing.T) {
 	m = testManifest(t)
 	m.Commit.MaxBatchAge = time.Hour
 	m.Commit.MaxBatchBytes = 4 << 10
+	// The default deadline is declared; with an hour's batch age nothing
+	// waits near its stall bound.
+	m.Commit.CommitDeadline = 0
 	w, bytesDir := createTest(t, m)
 	for seq := range uint64(8) {
 		if err := w.AppendFrame(synthFrame(seq, 60)); err != nil {
@@ -339,6 +342,13 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 		}
 	}
 	close(release)
+	// The capture continues: once the backlog, gaps included, is durable,
+	// the next frame is admitted. Waiting on the frontier, not on the shed
+	// wait, keeps a slow committer from shedding frame 4 too.
+	f, err := w.WaitFrontier(testContext(t, 30*time.Second), 1)
+	if err != nil || f.State != CaptureOpen || f.Records != 4 || f.AcceptedRecords != 4 {
+		t.Fatalf("frontier after the backlog = %+v, %v", f, err)
+	}
 	if err := w.AppendFrame(synthFrame(4, 10)); err != nil {
 		t.Fatal(err)
 	}

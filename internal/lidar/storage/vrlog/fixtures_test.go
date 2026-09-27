@@ -8,11 +8,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 )
 
 const testFrameStart = int64(1_700_000_000_000_000_000)
+
+// testCommitDeadline is the fixtures' stall bound. The provisional default
+// is a production bound; on a loaded test machine a commit's syncs can
+// outlast it with nothing wrong, and the stall would fail a test about
+// something else. A test of the bound declares its own.
+const testCommitDeadline = time.Minute
 
 // testManifest is a manifest whose identities recompute: a replayed source
 // and an identity calibration.
@@ -36,6 +43,7 @@ func testManifest(t testing.TB) Manifest {
 		Calibration: calibration,
 		Provenance:  Provenance{Writer: "vrlog-test", ParamsHash: "sha256:test"},
 		Metadata:    []MetadataObject{NewMetadataObject("tuning", "application/json", []byte(`{"l4":{}}`))},
+		Commit:      CommitPolicy{CommitDeadline: testCommitDeadline},
 	}
 }
 
