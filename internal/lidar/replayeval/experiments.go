@@ -87,6 +87,10 @@ const (
 	// so a remedy can never run as an arm that has no solid body to change.
 	ExperimentSolidBodyFaceHysteresis = "solid_body_face_hysteresis"
 	ExperimentSolidBodyFaceConsider   = "solid_body_face_consider"
+	// ExperimentSolidBodyCourseFaces is remedy T3
+	// (SolidBodyOptions.CourseAlignedFaces): faces and spans along the solid
+	// body's own course while it moves, not the lagging tracked heading.
+	ExperimentSolidBodyCourseFaces = "solid_body_course_faces"
 	// ExperimentSolidBodyFullMembers hands the tracker every cluster member
 	// for the frame (pipeline KeepClusterMembers), so the solid body measures
 	// faces from the members rather than the retained evidence sample. It
@@ -113,6 +117,7 @@ var knownExperiments = map[string]bool{
 
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
+	ExperimentSolidBodyCourseFaces:    true,
 	ExperimentSolidBodyFullMembers:    true,
 }
 
