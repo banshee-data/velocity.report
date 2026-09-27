@@ -171,7 +171,3 @@ func nearestRank(sorted []float64, p float64) float64 {
 	}
 	return sorted[idx]
 }
-
-func finite32(v float32) bool {
-	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
-}
