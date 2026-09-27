@@ -141,7 +141,7 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 		fmt.Fprintln(stderr, "error: --source is required with --db")
 		versions, err := fieldrun.ListVersions(sqlite.NewStateEstimateStore(database), spec.SolidBodies)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: list estimate versions: %v\n", err)
+			fmt.Fprintf(stderr, "error: list %s versions: %v\n", headwayRowsNoun(spec.SolidBodies), err)
 			return headway.Report{}, 1
 		}
 		stages := map[string]map[string]bool{}
