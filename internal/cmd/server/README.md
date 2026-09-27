@@ -22,7 +22,7 @@ make build-velocity
 ./velocity serve --debug
 
 # Enable in-process LiDAR components (UDP listener + forwarder):
-./velocity serve --enable-lidar --lidar-listen :8081
+./velocity serve --enable-lidar
 ```
 
 ## Command-line flags
@@ -89,7 +89,7 @@ Runtime switching lets you replay captures without special startup flags:
 4. **Switch to PCAP** via the API:
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+   curl -X POST "http://localhost:8080/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
      -d '{"pcap_file": "file.pcap"}'
    ```
@@ -99,7 +99,7 @@ Runtime switching lets you replay captures without special startup flags:
 5. **Switch back to live data** when finished:
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+   curl -X POST "http://localhost:8080/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
    ```
 
 **Security Note**: The `--lidar-pcap-dir` flag restricts file access to prevent path traversal attacks. Only files within the specified directory (or its subdirectories) can be accessed. Attempting to access files outside this directory (e.g., using `../../../etc/passwd`) will be rejected with a 403 Forbidden error.
