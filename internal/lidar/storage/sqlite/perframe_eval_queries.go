@@ -42,9 +42,21 @@ func (s *StateEstimateStore) ListSolidBodyVersions() ([]EstimateVersion, error) 
 	return s.listVersions(solidBodyTable)
 }
 
-// listVersions reads the version keys of one of the two versioned tables. The
-// table is one of the constants above, never caller input.
+// versionedTable refuses any table but the two constants above. The name is
+// interpolated into SQL, so it is checked here rather than trusted to every
+// caller.
+func versionedTable(table string) error {
+	if table != pointEstimateTable && table != solidBodyTable {
+		return fmt.Errorf("not a versioned estimate table: %q", table)
+	}
+	return nil
+}
+
+// listVersions reads the version keys of one of the two versioned tables.
 func (s *StateEstimateStore) listVersions(table string) ([]EstimateVersion, error) {
+	if err := versionedTable(table); err != nil {
+		return nil, fmt.Errorf("list estimate versions: %w", err)
+	}
 	rows, err := s.db.Query(`
 		SELECT source_id, estimator_id, observation_model_id, param_hash, stage
 		     , COUNT(*), COUNT(DISTINCT track_id)
@@ -94,8 +106,11 @@ func (s *StateEstimateStore) ListSolidBodyPositions(v EstimateVersion) ([]Estima
 }
 
 // listPositions reads one version's positions from one of the two versioned
-// tables. The table is one of the constants above, never caller input.
+// tables.
 func (s *StateEstimateStore) listPositions(table string, v EstimateVersion) ([]EstimatePosition, error) {
+	if err := versionedTable(table); err != nil {
+		return nil, fmt.Errorf("list estimate positions: %w", err)
+	}
 	rows, err := s.db.Query(`
 		SELECT track_id, creation_sequence, frame_unix_nanos, x, y
 		  FROM `+table+`

@@ -119,3 +119,28 @@ func TestPerFrameRunTrackPositions(t *testing.T) {
 		t.Fatalf("positions %q, want %q", got, want)
 	}
 }
+
+// The table name is interpolated into SQL, so the shared helpers refuse
+// anything but the two versioned tables before a query is built.
+func TestPerFrameQueriesRefuseAnUnknownTable(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+
+	for _, table := range []string{"lidar_observations", "lidar_track_estimates; DROP TABLE lidar_track_estimates", ""} {
+		if _, err := store.listVersions(table); err == nil {
+			t.Errorf("listVersions(%q) succeeded", table)
+		}
+		if _, err := store.listPositions(table, EstimateVersion{}); err == nil {
+			t.Errorf("listPositions(%q) succeeded", table)
+		}
+	}
+	for _, table := range []string{pointEstimateTable, solidBodyTable} {
+		if _, err := store.listVersions(table); err != nil {
+			t.Errorf("listVersions(%q): %v", table, err)
+		}
+		if _, err := store.listPositions(table, EstimateVersion{}); err != nil {
+			t.Errorf("listPositions(%q): %v", table, err)
+		}
+	}
+}
