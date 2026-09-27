@@ -2,6 +2,11 @@
 
 Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and the metrics-first data science boundaries around tuning and future classification work.
 
+For the remaining 0.5.2 integration, use the
+[physical-estimation and following MVP sprint](../../plans/lidar-052-mvp-sprint-plan.md).
+The [merged-batch review](../operations/0.5.2-sprint-review.md) distinguishes delivered components
+from the missing physical-body producer, field acceptance and Following distance debug layer.
+
 ---
 
 ## Current data flow

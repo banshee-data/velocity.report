@@ -42,33 +42,34 @@ channel's firetime offset. The table is the audit of `resolvePacketTime` (plan i
 tests named in the last column pin each row, packet by packet and end to end through the real
 frame builder into the tracker.
 
-| Source and mode                   | Packet time                                                                                             | Tracker interval                                                                                                     | Tests                                                                                                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| PCAP replay, any mode             | The packet's capture timestamp                                                                          | The capture interval: host reception spacing at capture, not the sensor clock                                        | `TestCaptureTimeOverridesEveryMode`, `TestTrackerIntervalFollowsCaptureTimeOnReplay`                   |
-| Live, `system` (the default)      | Host `time.Now()` during parsing                                                                        | Arrival spacing, including socket, queue and parser latency; moves with any host clock step                          | `TestSystemTimeModeIsHostArrivalTime`, `TestTrackerIntervalIsHostArrivalInSystemTimeMode`              |
-| Live, `lidar` (native)            | Sensor `DateTime` plus the microsecond field                                                            | The sensor's interval exactly, monotonic across UTC seconds                                                          | `TestLiDARModeFollowsTheSensorClockAcrossTheSecond`, `TestTrackerIntervalFollowsSensorTimeInLiDARMode` |
-| Live, `gps`, `internal`, PTP enum | Parser boot time plus the microsecond field                                                             | The sensor's interval inside one second; at each second boundary a step back of about 0.9 s, then one short interval | `TestBootOffsetModesStepBackAtEverySecond`, `TestBootOffsetModesStepBackAndTheTrackerAbsorbsIt`        |
-| Live, PTP or GPS, field stalled   | Host `time.Now()` once the field has repeated more than 10 times, and for the rest of the parser's life | Switches from sensor-derived to arrival spacing mid-stream                                                           | `TestPTPStaticFallbackIsPermanent`                                                                     |
+| Source and mode                   | Packet time                                                                                              | Tracker interval                                                                                                | Tests                                                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| PCAP replay, any mode             | The packet's capture timestamp                                                                           | The capture interval: host reception spacing at capture, not the sensor clock                                   | `TestCaptureTimeOverridesEveryMode`, `TestTrackerIntervalFollowsCaptureTimeOnReplay`                      |
+| Live, `system` (the default)      | Host `time.Now()` during parsing                                                                         | Arrival spacing, including socket, queue and parser latency; moves with any host clock step                     | `TestSystemTimeModeIsHostArrivalTime`, `TestTrackerIntervalIsHostArrivalInSystemTimeMode`                 |
+| Live, `lidar` (native)            | Sensor `DateTime` plus the microsecond field                                                             | The sensor's interval exactly, monotonic across UTC seconds                                                     | `TestLiDARModeFollowsTheSensorClockAcrossTheSecond`, `TestTrackerIntervalFollowsSensorTimeInLiDARMode`    |
+| Live, `gps`, `internal`, PTP enum | Sensor `DateTime` plus microsecond field (`CombinedTimestamp`), corrected in #611                        | Ordinary UTC-second rollover preserves sensor intervals; resets and clock-domain changes are not made monotonic | `TestSensorTimeModesStayMonotonicAcrossTheSecond`, `TestSensorTimestampModesStayMonotonicAcrossTheSecond` |
+| Live, PTP or GPS, field stalled   | Host `time.Now()` after more than 10 repeats; returns to sensor time when the combined timestamp changes | Switches clock domains on fallback and recovery; the offset can produce a discontinuity                         | `TestPTPStaticFallbackResetsWhenTheSensorClockMovesAgain`                                                 |
 
 Consequences:
 
-- **Only `lidar` mode follows the sensor clock.** Live runs in the default `system` mode are not
-  temporally reproducible: arrival jitter enters every prediction interval.
+- **Sensor modes now use combined UTC time.** `lidar`, `internal`, GPS and the PTP enum follow
+  sensor time, except during GPS/PTP fallback. Live runs in the default `system` mode retain
+  arrival jitter in every prediction interval.
 - **Replay reproduces the capture, not the sensor.** A PCAP's timestamps are the capturing host's
   reception times, and they take precedence over every mode. Selecting `lidar` mode for a replay,
   as the server and `lidar-bench` do, changes nothing while the reader supplies capture times.
-- **The boot-offset modes cannot guarantee a monotonic clock.** The Pandar40P microsecond field is
-  the fraction of the UTC second, not time since boot. With a stream starting at .780 s the frame
-  straddling the second steps back 0.88 s; the tracker predicts across zero, re-anchors, and sees
-  0.08 s before the 0.1 s period resumes. Each second boundary costs between one and two
-  rotations of prediction, depending on where the wrap falls in the frame: 0.12 s here.
-- **The PTP and GPS static fallback latches.** Its counter never resets, so a stream that stalls
-  once stays on host arrival time.
+- **The old boot-offset and latched-fallback defects were fixed in #611.** The within-second
+  microsecond field is no longer treated as time since boot, and the static counter resets when
+  sensor time changes. A changed but earlier timestamp also resets it; the parser does not
+  guarantee a monotonic emitted timeline across sensor resets or host/sensor offsets. Explicit
+  clock-discontinuity handling remains required before those intervals can support a metric.
 - `LIDAR_TIMESTAMP_MODE` accepts `system`, `gps`, `internal` and `lidar`; there is no `ptp` value.
   After a PCAP replay the server restores its shared parser to `system`, whatever the variable
   selected.
 
-The last three are recorded rather than changed here; see [what remains](#what-remains).
+Replay-mode restoration and clock-discontinuity handling remain open; see
+[what remains](#what-remains). PCAP tests exercise external capture timestamps, so they do not
+validate live fallback/recovery offsets.
 
 ## Which quantities use which clock
 
@@ -286,6 +287,12 @@ the gate for that.
 
 ### Replay evidence on kirk0
 
+These are the historical #603 measurements, taken before #600's exact-solver rebase. Since #611,
+replay refuses `coast_support`, `class_coast_bounds` and `occlusion_continuity` until explicit
+sensor coverage is wired in. The old PCAP success-path test now fails with hydrated kirk0; see
+the [September 26 review, R3](../operations/0.5.2-sprint-review.md).
+Do not treat the following table as current accepted settings.
+
 The whole of kirk0 after a 20 s warm-up (631 recorded frames), each arm the default replay with
 experiments named. Label-free: `ContinuityStats` over the scoring window, and the recording's
 confirmed tracks. The default arm is byte-identical to the base branch, and `coast_support` to the
@@ -319,19 +326,21 @@ Reading it:
   with shorter lives and fewer reacquisitions, fit less identity mixing and more fragmentation
   of real objects equally. One capture without labels cannot separate them.
 
-To compare on the S2 corpus (put `-out` on a different device from the captures):
+The non-coverage experiment can still be compared on the S2 corpus (put `-out` on a different
+device from the captures):
 
 ```bash
 go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR_PCAP_DIR" \
   -out /tmp/continuity-default
 go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline -pcap-root "$LIDAR_PCAP_DIR" \
-  -out /tmp/continuity-option -experiment occlusion_continuity
+  -out /tmp/continuity-inflation -experiment coast_time_inflation
 ```
 
-Compare each case's `continuity` in `phase0-summary.json`, then attribute with the single
-switches (`coast_support`, `coast_time_inflation`, `class_coast_bounds`, `reacquisition_guard`)
-and with `occlusion_continuity,capture_gap_predict`. Judge identity against labelled tracks before
-any value is chosen. The in-repo smoke run is `TestOcclusionContinuityExperimentsOnKirk0`.
+Compare each case's `continuity` in `phase0-summary.json`; `reacquisition_guard` and
+`capture_gap_predict` can also be evaluated separately. Resume the three coverage-dependent arms
+only after a calibrated coverage input and corresponding success/refusal tests exist. Judge
+identity against held-out labels before selecting any value. Do not remove #611's refusal merely
+to make `TestOcclusionContinuityExperimentsOnKirk0` green.
 
 ## Measurement time versus frame time (Q3)
 
@@ -389,12 +398,12 @@ is an open question for L7; see
 
 ## What remains
 
-| Item                                                                                                                                              | Owner                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Choose the continuity values (class bounds and rates, `MaxCoastSecs*`) from held-out occlusion scenes, comparing `occlusion_continuity` on S2     | State-estimation plan, Sprint 0.5.2.2 continuity work |
-| Explain occlusion by static structure from the L3 background range at the predicted azimuth                                                       | State-estimation plan, Sprint 0.5.2.2 continuity work |
-| Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                       | Visualiser trails plan; state-estimation plan         |
-| Answer Q3 on the corpus with `-experiment measurement_time`                                                                                       | State-estimation plan, question Q3                    |
-| Measure `capture_gap_predict` on reacquisition across gaps                                                                                        | State-estimation plan, Sprint 0.5.2.2                 |
-| Inject `timeutil.Clock` into the throttle, replay pacing and cleanup; stop the paced reader skipping the packet it forgives on                    | Clock plan, phases A and B (v0.5.4 remainder)         |
-| Boot-offset modes: treat the microsecond field as the fraction of a second, release the static fallback, restore the configured mode after replay | Clock plan, item C2                                   |
+| Item                                                                                                                                                         | Owner                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Supply calibrated coverage/origin to replay, repair the coverage-dependent PCAP test, then choose continuity values against held-out scenes                  | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Explain occlusion by static structure from the L3 background range at the predicted azimuth                                                                  | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                                  | Visualiser trails plan; state-estimation plan         |
+| Answer Q3 on the corpus with `-experiment measurement_time`                                                                                                  | State-estimation plan, question Q3                    |
+| Measure `capture_gap_predict` on reacquisition across gaps                                                                                                   | State-estimation plan, Sprint 0.5.2.2                 |
+| Inject `timeutil.Clock` into the throttle, replay pacing and cleanup; stop the paced reader skipping the packet it forgives on                               | Clock plan, phases A and B (v0.5.4 remainder)         |
+| Restore configured mode after replay; declare clock discontinuities and test host/sensor fallback offsets. Combined UTC and fallback release shipped in #611 | Clock plan, item C2                                   |

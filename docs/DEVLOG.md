@@ -15,6 +15,15 @@ older entries stay put, however tempting hindsight may be.
 - {claude/upbeat-galileo-4xbaat} Ran the headway report over persisted estimates for the first time (`velocity report headway --db`, contract `headway_report_v2`). It finds following pairs on kirk0 and publishes nothing, because a persisted point estimate has no class, heading or extent; the solid-body rows now carry all three and are the next input to read.
 - {claude/upbeat-galileo-4xbaat} Repaired the kirk0 occlusion-continuity smoke run, which #611's coverage refusal broke outside CI's race-only pcap job: it now replays only the coverage-free options and asserts the others are refused.
 
+## September 26, 2026 - State-estimation and following MVP review
+
+- Reviewed merged #596–609 and #611 against their descriptions and current call sites, keeping implementation, local evidence and physical acceptance separate: [review](lidar/operations/0.5.2-sprint-review.md). This pass changes documentation only.
+- Recorded the body adapter's medoid-as-centre defect, loss of detailed support, incomplete final body persistence, coverage-dependent replay/test mismatch, omitted scene-boundary encounters, and the distinction between pair totals and unique follower opportunity. Added missing reference-completeness checks to the promotion plan.
+- Replayed the existing kirk0 capture on #611 with the opt-in RTS comparison. Every horizon still fails the revision bound: per-frame maximum revision p99 is 0.629 m against <0.3 m; final Cartesian rows exist, but the physical body and field gates remain open.
+- Recorded passing focused estimator, metric, storage, parser, report and pipeline checks alongside the real failures: the continuity PCAP test now hits #611's coverage refusal, and the VRLOG shed test failed all ten isolated repetitions. Socket sandbox restrictions and the unhydrated 20 Hz capture are separate validation limits.
+- Planned the remaining 0.5.2 sprint around a provisional recorded-scene MVP and a separate qualified field exit. The new Following distance layer sits beside velocity vectors and exposes endpoints, uncertainty, speed, support, candidate decisions and suppression from the same version as the report; general trail embellishments remain later work.
+- Corrected stale E1.2/E1.4 status, scene-containment semantics and sensor-clock/continuity instructions without rewriting the dated experiment or earlier DEVLOG records. Pi/power-loss and independent live-worker work remain tracked, with an offline Mac integration path first.
+
 ## September 26, 2026 - LiDAR clock and sequence-wrap fixes
 
 - {copilot/review-prs-596-to-609} Fixed `internal/lidar/l1packets/parse` so `TimestampModePTP`, `TimestampModeGPS`, and `TimestampModeInternal` now use the sensor's combined UTC timestamp instead of a boot-time offset. Packet time no longer steps backwards at each second boundary, and the PTP fallback returns to sensor time once timestamps advance again.
