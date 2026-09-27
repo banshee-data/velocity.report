@@ -1,11 +1,12 @@
 # Headway report oracle
 
-How to generate the synthetic headway report, what it shows, and what it does not claim.
+How to generate the headway report, as a synthetic oracle or as a provisional field run over
+persisted estimates, what each shows, and what neither claims.
 
-- **Status:** Synthetic oracle implemented (sprint 0.5.2.3); the provisional report over persisted encounters and field promotion are not built
+- **Status:** Synthetic oracle (sprint 0.5.2.3) and provisional field run (sprint 0.5.2.4) implemented; field promotion is not built
 - **Layers:** L8 Analytics, L9 Endpoints (PDF report)
-- **Related:** [Behaviour analytics plan, Section 10.4](../../plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [Following metrics](../../platform/architecture/metrics-registry.md#following-metrics), [Label vocabulary](../architecture/label-vocabulary.md), [PDF reporting](../../platform/operations/pdf-reporting.md), [Following-evidence charts](../../ui/DESIGN.md#44-following-evidence-charts)
-- **Code:** [headway](../../../internal/report/headway/doc.go), [following charts](../../../internal/report/chart/following.go), [headway.typ](../../../internal/report/typst/templates/headway.typ), [CLI](../../../internal/cmd/server/headway.go)
+- **Related:** [Behaviour analytics plan, Section 10.4](../../plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [Following metrics](../../platform/architecture/metrics-registry.md#following-metrics), [Label vocabulary](../architecture/label-vocabulary.md), [PDF reporting](../../platform/operations/pdf-reporting.md), [Following-evidence charts](../../ui/DESIGN.md#44-following-evidence-charts), [Refinement criteria](retrospective-refinement-criteria.md)
+- **Code:** [headway](../../../internal/report/headway/doc.go), [field run](../../../internal/report/headway/fieldrun/fieldrun.go), [persisted-estimate adapter](../../../internal/lidar/l8behaviour/adapter.go), [following charts](../../../internal/report/chart/following.go), [headway.typ](../../../internal/report/typst/templates/headway.typ), [CLI](../../../internal/cmd/server/headway.go)
 
 ## Generate it
 
@@ -20,8 +21,8 @@ Typst is embedded in release builds; for development, `make install-typst` and a
 
 The command prints the status, then writes `headway_synthetic_oracle_report.pdf` and
 `headway_synthetic_oracle_report_sources.zip`. The archive recompiles on its own with
-`typst compile --font-path fonts headway.typ`. Without `--oracle` the command exits 2: nothing but
-the oracle exists yet.
+`typst compile --font-path fonts headway.typ`. Exactly one of `--oracle` and `--db` must be
+given; the second is the [provisional field run](#provisional-field-run).
 
 ## What it is
 
@@ -79,18 +80,115 @@ last-bit drift a fused multiply-add can put into a Monte Carlo draw on arm64. Wi
 `PATH`, `TestGenerateCompilesThePDF` compiles the PDF and recompiles its archive; without it, the
 test is skipped and the packaging is still exercised through a stand-in `typst`.
 
+## Provisional field run
+
+The second stage of Section 10.4: persisted estimator output through local path pairing,
+interaction persistence and the same renderer, with every page and chart labelled `PROVISIONAL`.
+It proves the integration and shows what evidence is missing; it claims no physical accuracy.
+
+### Input: an evidence database
+
+The run reads `lidar_track_estimates` from an evidence database: the offline SQLite file a replay
+writes when `replayeval.Config.ObservationDBPath` is set, with each estimate linked to its
+immutable observation in `lidar_observations`. The state-estimation baseline tool writes one with
+`-evidence-dir` (or `-observations-db`), and `-experiment fixed_lag_rts` adds the refined
+`fixed_lag` and `final` rows beside the online ones. `velocity lidar pcap-replay --observations`
+writes an observation VRLOG, not an evidence database, and the server writes no estimates at all.
+
+### Run it
+
+```bash
+velocity report headway --db evidence.db                      # lists sources and their stages
+velocity report headway --db evidence.db --source source/v1/<digest>                  # stage final
+velocity report headway --db evidence.db --source source/v1/<digest> --stage online
+velocity report headway --db evidence.db --source source/v1/<digest> \
+    --stage fixed_lag --param-hash sha256:<hash>              # one fixed_lag horizon of several
+```
+
+`--stage` is `final` (the default, the stage a production reader asks for), `fixed_lag` or
+`online`. When a source holds several versions at the stage, as a `fixed_lag_rts` replay does
+with one `fixed_lag` version per horizon, the run refuses to choose and lists them; name one with
+`--estimator`, `--obs-model` or `--param-hash`. The command prints the status and the run's
+figures before it renders, then writes `headway_provisional_report.pdf` and its source archive.
+
+### What one run does
+
+1. Selects exactly one estimate version for the source at the stage.
+2. Builds one trajectory per track from its rows (`l8behaviour.TrajectoriesFromEstimates`).
+3. Runs `AnalyseFollowing` under the analytic scenarios' bounds, which are uncalibrated; the
+   report prints them and their hash.
+4. Stores every encounter's event, instants and windows in the same database, write-once per
+   version, then requires the store to hold at that version exactly the events this run produced.
+   A second run of the same version writes nothing; a method changed without a version change
+   fails here, and `InteractionStore.DeleteVersion` clears the stale version.
+5. Builds the report from the same trajectories and analysis with status `provisional`. The report
+   is always rebuilt from the persisted estimates, which are canonical, and never read back from
+   the stored interactions, which hold neither the fitted path nor each follower's timeline.
+
+It refuses a capture whose frame period would let the 150 ms record-gap bound hold a missing row
+as observed time: the bounds assume 10 Hz.
+
+### What a persisted row supports
+
+An estimate row carries pose, velocity and covariance, and nothing of the solid body held beside
+them. The adapter claims no more:
+
+| Sample field | Read as                                                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Reference    | Body centre when an OBB centre entered the filter; cluster medoid, not on the body, under `medoid_v0` or its fallback |
+| Support      | Observed: rows exist only at associated frames of confirmed tracks                                                    |
+| Lifecycle    | `geometry_converging` at or above 0.5 m/s, `initialising` below: no persisted geometry can establish it               |
+| Heading      | None persisted, so front and rear cannot be told apart                                                                |
+| Extents      | None persisted                                                                                                        |
+| Class        | `unknown`: the classifier label is not persisted, and following is defined for rigid vehicles only                    |
+| Stage        | The row's own; the only place a sample is `final`                                                                     |
+
+So no endpoint can be projected and no instant is valid following time. Each evaluated instant is
+suppressed first with `class_not_supported`, and the run's figures list every reason that applied,
+not only the first: `orientation_unresolved` at every instant and `extent_not_converged` at most.
+A value appears only once the estimator persists class, heading and extent beliefs with each
+estimate.
+
+### kirk0
+
+The pcap test `TestKirk0ProvisionalHeadway` replays kirk0 (20 s of warm-up, then the remaining
+63 s) into an evidence database with `fixed_lag_rts`, under both measurement models, and runs each
+stage. Every figure below is a result, not a failure:
+
+| Measurement model, stage            | Tracks | Paths fitted | Encounters | Accounted | Valid | Suppressed time by first reason                                                                     |
+| ----------------------------------- | -----: | -----------: | ---------: | --------: | ----: | --------------------------------------------------------------------------------------------------- |
+| `medoid_v0` (production), online    |     60 |            0 |          0 |       0 s |   0 s | none; every path `weak_support`                                                                     |
+| `obb_centre_v1`, online             |     62 |           15 |          6 |    13.8 s |   0 s | `class_not_supported` 5.8 s, `ambiguous_leader` 4.3 s, `not_observed` 2.3 s, `no_common_path` 1.4 s |
+| `obb_centre_v1`, fixed_lag 3 frames |     62 |           14 |          6 |    12.2 s |   0 s | `class_not_supported` 5.8 s, `no_common_path` 3.9 s, `not_observed` 2.2 s, `ambiguous_leader` 0.3 s |
+| `obb_centre_v1`, fixed_lag 0.5 s    |     62 |           13 |          4 |     8.0 s |   0 s | `class_not_supported` 5.8 s, `not_observed` 2.0 s, `ambiguous_leader` 0.2 s                         |
+| `obb_centre_v1`, fixed_lag 1 s      |     62 |           14 |          4 |     8.1 s |   0 s | `class_not_supported` 5.8 s, `not_observed` 2.1 s, `ambiguous_leader` 0.2 s                         |
+| `obb_centre_v1`, fixed_lag 2 s      |     62 |           15 |          4 |     8.1 s |   0 s | `class_not_supported` 5.8 s, `not_observed` 2.1 s, `ambiguous_leader` 0.2 s                         |
+| `obb_centre_v1`, final              |     62 |           16 |          4 |     8.3 s |   0 s | `class_not_supported` 5.8 s, `not_observed` 2.3 s, `ambiguous_leader` 0.2 s                         |
+
+Under the production model the persisted pose is a medoid, so no path is fitted and the report
+states that no encounter was found. Under the OBB-centre candidate, pairs are found on fitted
+paths and the same 63 instants are evaluated at every stage; all 63 are `class_not_supported` and
+`orientation_unresolved`, and 79 to 89 % are `extent_not_converged`. Smoothing changes which
+paths fit and which pairs are found, not whether a value can be published. The test also checks,
+at every stage, that valid and suppressed time add up to the accounted time, that the data file
+and every stored row pass the surface audit, that nothing prints verdict language, and that a
+second run stores nothing and builds an identical `data.json`.
+
+```bash
+go test -tags pcap ./internal/report/headway/fieldrun/ -run Kirk0 -v   # about a minute; needs git lfs pull
+```
+
 ## What it does not claim
 
-- No physical accuracy. The trajectories are analytic; no sensor data is read.
+- No physical accuracy. The oracle's trajectories are analytic and read no sensor data; a
+  provisional report reads sensor data and has not passed the promotion gates.
 - No threshold. The bands are descriptive bins with `no_established_threshold`, not a safety
   standard.
 - Nothing about any road user beyond the observed passage pair.
 
 ## Next stages
 
-1. **Provisional (sprint 0.5.2.4).** Persisted encounters feed `headway.Build` with the
-   `provisional` status. The contract already reads an encounter's review-labelled provisional
-   block when its estimates are not final, records which block it read, and never pools final and
-   non-final values.
+1. **Evidence the provisional run lacks.** Class, heading and extent beliefs persisted with each
+   estimate, so the adapter can project endpoints; until then every field instant is suppressed.
 2. **Field promotion.** After the held-out validation run and G-GEO-1, G-UNC-1, G-SMO-1 and the
    metric gate. `promoted` is refused until a build can assert them.

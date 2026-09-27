@@ -28,6 +28,10 @@ type TrackingMetrics struct {
 	// anywhere a person would notice.
 	Residuals   []ResidualBandSummary    `json:"residual_bands,omitempty"`
 	Association []AssociationBandSummary `json:"association_bands,omitempty"`
+	// PreGate is the pre-gate band set (residuals.go, pregate.go): NIS over
+	// eligible pairings before the innovation gate, and what became of the
+	// gate's rejections. Populated only inside a calibration window.
+	PreGate []PreGateBandSummary `json:"pre_gate_bands,omitempty"`
 
 	// Heading jitter: RMS raw-to-smoothed OBB innovations on accepted updates.
 	// This is not published output-step jitter and differs between heading paths.

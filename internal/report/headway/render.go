@@ -31,7 +31,7 @@ recompile the PDF is included.
 
 - ` + "`headway.typ`" + ` — Typst entry point (imports preamble.typ and sections.typ)
 - ` + "`preamble.typ`, `sections.typ`" + ` — shared layout, fonts and table helpers
-- ` + "`data.json`" + ` — the report contract (headway_report_v1): every value,
+- ` + "`data.json`" + ` — the report contract (headway_report_v2): every value,
   suppression, provenance field and printed string the PDF shows
 - ` + "`charts/*.svg`" + ` — one chart per version group and per encounter
 - ` + "`fonts/`" + ` — Atkinson Hyperlegible font files used by the report
@@ -99,8 +99,9 @@ func Assemble(r Report, paper chart.PaperSize) (Report, []typst.Asset, error) {
 
 	// The report is a value, but its slices are shared with the caller's;
 	// copy the two that get chart paths so the caller's report is untouched.
-	r.Encounters = append([]Encounter(nil), r.Encounters...)
-	r.Aggregates = append([]Aggregate(nil), r.Aggregates...)
+	// The copies start empty, not nil, so an empty list is written as one.
+	r.Encounters = append([]Encounter{}, r.Encounters...)
+	r.Aggregates = append([]Aggregate{}, r.Aggregates...)
 
 	var out []typst.Asset
 	for i := range r.Aggregates {

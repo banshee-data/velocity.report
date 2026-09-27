@@ -261,26 +261,37 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		Provenance: ProvenanceClassPrior,
 	}
 
-	// Orientation: the track carries a smoothed heading and the source that
-	// produced it. A held heading is not evidence about this frame, and a
-	// heading that was never resolved against a direction cue stays bimodal.
-	if t.ObservationCount > 0 && !t.HeadingSource.IsLocked() {
-		e.Orientation = OrientationBelief{
-			PsiRad:       t.OBBHeadingRad,
-			VarianceRad2: headingVarianceFromJitter(t),
-			Provenance:   ProvenanceObserved,
-		}
-		switch t.HeadingSource {
-		case HeadingSourceVelocity, HeadingSourceDisplacement:
-			// Resolved against a direction cue, so the ambiguity collapsed.
-			e.Orientation.AmbiguousModeWeight = 0
-		default:
-			// PCA and the axis path recover an axis, not a direction.
-			e.Orientation.AmbiguousModeWeight = 0.5
-		}
+	if o, ok := trackOrientation(t); ok {
+		e.Orientation = o
 	}
 
 	return e
+}
+
+// trackOrientation reads the track's current heading decision as an
+// orientation belief, and false when there is none this frame.
+//
+// The track carries a smoothed heading and the source that produced it. A held
+// heading is not evidence about this frame, and a heading that was never
+// resolved against a direction cue stays bimodal.
+func trackOrientation(t *TrackedObject) (OrientationBelief, bool) {
+	if t.ObservationCount <= 0 || t.HeadingSource.IsLocked() {
+		return OrientationBelief{}, false
+	}
+	o := OrientationBelief{
+		PsiRad:       t.OBBHeadingRad,
+		VarianceRad2: headingVarianceFromJitter(t),
+		Provenance:   ProvenanceObserved,
+	}
+	switch t.HeadingSource {
+	case HeadingSourceVelocity, HeadingSourceDisplacement:
+		// Resolved against a direction cue, so the ambiguity collapsed.
+		o.AmbiguousModeWeight = 0
+	default:
+		// PCA and the axis path recover an axis, not a direction.
+		o.AmbiguousModeWeight = 0.5
+	}
+	return o, true
 }
 
 // dimensionFromBelief converts an accumulated extent belief into a dimension

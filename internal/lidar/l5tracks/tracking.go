@@ -133,6 +133,11 @@ type TrackedObject struct {
 	// see reacquisitionBelief.
 	reacquisitionExtent extentBelief
 
+	// solidBody is the near-edge solid-body estimate, populated only under
+	// TrackerConfig.SolidBody and read through SolidBody(). It is a value, so
+	// a snapshot copy of the track is an independent copy of it.
+	solidBody solidBodyTrack
+
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
 
@@ -273,6 +278,16 @@ type Tracker struct {
 	baselineResiduals   ResidualBands
 	baselineAssociation AssociationBands
 
+	// Calibration window: pre-gate samples, the pre-gate band set and open
+	// gate-rejection events (pregate.go). Off unless
+	// BeginUncertaintyCalibration opened it; read-only with respect to tracks.
+	calibrationEnabled        bool
+	preGate                   PreGateBands
+	uncertaintySamples        []UncertaintySample
+	uncertaintySamplesDropped int
+	uncertaintySampleCap      int
+	pendingRejections         map[string]*pendingGateRejection
+
 	mu sync.RWMutex
 }
 
@@ -293,11 +308,20 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	previousAxisMode := t.Config.OBBAxisCoherenceEnabled
+	previousSolidBody := t.Config.SolidBody
 	fn(&t.Config)
 	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
 		for _, track := range t.Tracks {
 			track.lengthBelief, track.widthBelief = extentBelief{}, extentBelief{}
 			track.AxisScoreGap, track.AxisAbstentionRun = 0, 0
+		}
+	}
+	if previousSolidBody != t.Config.SolidBody {
+		// A solid body built under other options, or no longer maintained,
+		// would be read as current. Each track reseeds at its next
+		// observation if the option is still on.
+		for _, track := range t.Tracks {
+			track.solidBody = solidBodyTrack{}
 		}
 	}
 }
@@ -332,6 +356,11 @@ func (t *Tracker) Reset() {
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
 	t.filterSteps.endAll(ChainEndReset)
+	t.calibrationEnabled = false
+	t.preGate = PreGateBands{}
+	t.uncertaintySamples = nil
+	t.uncertaintySamplesDropped = 0
+	t.pendingRejections = nil
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -400,9 +429,19 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		track.StateUnixNanos = nowNanos
 	}
 
-	// Step 2: Associate clusters to tracks using gating
+	// Step 2: Associate clusters to tracks using gating. Inside a calibration
+	// window the pairings are also evaluated before the gate, from the same
+	// predicted state, and resolved against the assignment; neither step
+	// writes to a track.
+	var preGate *preGateFrame
+	if t.calibrationEnabled {
+		preGate = t.observePreGate(clusters, dt)
+	}
 	associations := t.associate(clusters, dt)
 	t.lastAssociations = associations
+	if preGate != nil {
+		t.resolvePreGate(preGate, associations)
+	}
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
@@ -455,6 +494,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		track.SplitCandidate = ratio < splitSizeRatio
 	}
 
+	// Step 3c: Update each matched track's solid body (default off). It runs
+	// after 3b so this frame's merge flag can refuse this frame's extents, and
+	// it reads the tracked state without writing it.
+	if t.Config.SolidBody.Enabled {
+		for clusterIdx, trackID := range associations {
+			if trackID != "" {
+				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
+			}
+		}
+	}
+
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
 	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
 	// than tentative tracks (MaxMisses). During occlusion the Kalman
@@ -478,7 +528,10 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 			// Inflate covariance during occlusion so the gating
 			// ellipse grows and re-association becomes easier.
-			t.inflateCoastCovariance(track)
+			inflation := t.inflateCoastCovariance(track)
+			if t.Config.SolidBody.Enabled {
+				t.coastSolidBody(track, inflation)
+			}
 
 			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -642,6 +695,9 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	} else {
 		track.HeadingEpisodes.Observe(track.HeadingSource, nowNanos)
 	}
+	if t.Config.SolidBody.Enabled {
+		t.seedSolidBody(track, cluster)
+	}
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)
@@ -698,6 +754,12 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 		t.observeBaselineAssociation(track, false)
 		track.Misses++
 		track.Hits = 0
+		if t.Config.SolidBody.Enabled && track.solidBody.seeded {
+			// No prediction and no evidence here, as for the tracked state:
+			// only the count of unmeasured frames moves.
+			track.solidBody.support.CoastedFrames++
+			track.solidBody.support.Instant = SupportCoasted
+		}
 		coastExpired := t.observeCoastAge(track, nowNanos)
 
 		maxMisses := t.Config.MaxMisses

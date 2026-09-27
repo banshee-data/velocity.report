@@ -58,6 +58,37 @@ var surfaceFieldNames = []string{
 	"sigma_overlap_nanos", "excluded", "bands", "rate",
 	// Scene headway API envelope (internal/api/server_scenes_headway.go).
 	"scene_id", "status", "availability", "sources", "versions", "distribution", "encounters",
+
+	// The headway report's data file (internal/report/headway, the
+	// headway_report_v2 contract), audited by that package's tests. Report
+	// identity, scope and method versions.
+	"contract", "status_label", "status_note", "title", "paper", "statements", "methods",
+	"encounter", "local_path", "pairing", "sync", "pointwise", "exposure",
+	// Named bands, and every *_display string: the text the PDF prints.
+	"seconds", "display", "duration_metric", "duration_benchmark", "rate_metric", "rate_benchmark",
+	"duration_display", "uncertainty_display", "opportunity_display", "valid_display", "range_display",
+	"gap_display", "offset_display", "sigma_max_display", "coast_age_display", "record_gap_display",
+	// Captures, their tracks as followers, and the analysis parameters they
+	// were analysed with (FollowingAnalysisParams).
+	"captures", "id", "description", "estimate", "params", "params_hash", "first_utc", "last_utc",
+	"followers", "path_conditions", "leader_nanos", "leader_display", "free_flow_nanos", "free_flow_display",
+	"path", "following", "knot_spacing_m", "group_lateral_m", "max_tangent_rad", "min_speed_mps",
+	"min_track_evidence", "min_overlap_knots", "min_samples_per_knot", "max_bridge_knots", "min_extent_m",
+	"speed_floor_mps", "corridor_half_width_m", "max_relative_heading_rad", "max_leader_range_m",
+	"separation_sigmas", "unresolved_separation_m", "min_opportunity_seconds", "max_interval_nanos",
+	"interval_coverage", "monte_carlo_samples", "common_mode_fraction",
+	// Encounter rows: the pair, the path, the values and where time went.
+	"capture_id", "leader", "follower", "locator", "site_id", "sensor_id", "motion_class",
+	"class_label", "length_m", "length_display", "knots", "bridged_knots", "member_track_ids", "value_block",
+	"metric", "estimator", "visibility", "accounted_display", "unobserved_nanos",
+	"unobserved_display", "endpoints", "leader_trailing_sources", "follower_leading_sources", "at_minimum_gap",
+	"offset_nanos", "unsupported", "start_nanos", "end_nanos", "predicted", "coast_age_min_nanos",
+	"coast_age_max_nanos", "series", "spatial_gap", "net_time_gap", "value_m", "chart",
+	// Aggregates over one version group.
+	"aggregates", "encounter_ids", "metrics", "supported", "min", "p50", "max", "min_display", "p50_display",
+	"max_display", "below_nanos", "below_display", "rate_value", "rate_reason", "rate_display",
+	"histogram", "bin_millis", "max_millis", "denominator_nanos", "denominator_display",
+	"lower_millis", "upper_millis", "label", "share", "share_display",
 }
 
 // SurfaceFieldNames returns the structural names a behaviour surface may use,

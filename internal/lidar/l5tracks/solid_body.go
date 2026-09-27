@@ -610,3 +610,51 @@ func wrapToPi(a float32) float32 {
 func angleDifference(a, b float32) float32 {
 	return wrapToPi(a - b)
 }
+
+// The Parse functions below read the names the String methods write into
+// persisted rows. Each refuses a name it does not know rather than mapping it
+// to a zero value, because the zero values are real states: a misread row
+// would otherwise come back as "none", "initialising" or "unknown" and pass as
+// a legitimate estimate.
+
+// ParseProvenance reads a provenance written by Provenance.String.
+func ParseProvenance(s string) (Provenance, error) {
+	for _, p := range []Provenance{ProvenanceNone, ProvenanceClassPrior, ProvenanceAccumulated, ProvenanceObserved} {
+		if p.String() == s {
+			return p, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown provenance %q", s)
+}
+
+// ParseEstimationState reads a state written by EstimationState.String.
+func ParseEstimationState(s string) (EstimationState, error) {
+	for _, e := range []EstimationState{EstimationInitialising, EstimationGeometryConverging,
+		EstimationEstablished, EstimationTemporarilyDegraded, EstimationModelInvalid} {
+		if e.String() == s {
+			return e, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown estimation state %q", s)
+}
+
+// ParseMotionClass reads a class written by MotionClass.String.
+func ParseMotionClass(s string) (MotionClass, error) {
+	for _, m := range []MotionClass{MotionUnknown, MotionRigidVehicle, MotionTwoWheeler, MotionPedestrian} {
+		if m.String() == s {
+			return m, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown motion class %q", s)
+}
+
+// ParseReferencePoint reads a reference point written by
+// ReferencePoint.String.
+func ParseReferencePoint(s string) (ReferencePoint, error) {
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid} {
+		if r.String() == s {
+			return r, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown reference point %q", s)
+}

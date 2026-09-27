@@ -70,9 +70,10 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds, ExperimentCoastSupport,
-		ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule, ExperimentLikelihoodCost,
-		ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity, ExperimentReacquisitionGuard}
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
+		ExperimentReacquisitionGuard, ExperimentSolidBody}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -92,6 +93,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Fatalf("no experiments changed the tracker configuration:\n got %+v\nwant %+v", got, shipped)
 	}
 	cases := map[string]func(*l5tracks.TrackerConfig){
+		ExperimentAdaptiveUncertainty: func(c *l5tracks.TrackerConfig) {
+			c.AdaptiveMeasurementNoise = true
+		},
 		ExperimentLikelihoodCost:    func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
 		ExperimentCascade:           func(c *l5tracks.TrackerConfig) { c.CascadedAssociation = true },
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
@@ -102,6 +106,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		},
 		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
+		},
+		// The replay tracks in the sensor frame, so the origin is the sensor.
+		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {
+			c.SolidBody = l5tracks.SolidBodyOptions{Enabled: true}
 		},
 	}
 	for name, set := range cases {

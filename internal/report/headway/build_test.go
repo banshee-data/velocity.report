@@ -229,6 +229,17 @@ func TestValidateCatchesTampering(t *testing.T) {
 	}
 }
 
+// TestValidateStatesExpectedThenGotValueBlock: a stage/value-block mismatch
+// names the block the stage requires first and the block found second.
+func TestValidateStatesExpectedThenGotValueBlock(t *testing.T) {
+	r := oracleReport(t)
+	r.Encounters[0].ValueBlock = ValueBlockProvisional
+	err := r.Validate()
+	if err == nil || !strings.Contains(err.Error(), "a final encounter must read measurements, got provisional") {
+		t.Errorf("error = %v, want the expected block then the one found", err)
+	}
+}
+
 func TestHistogramBinIsHalfOpen(t *testing.T) {
 	for v, want := range map[float64]int{
 		0: 0, 0.2499: 0, 0.25: 1, 0.775: 3, 0.9999: 3, 1.0: 4, 1.4999999: 5, 1.5: 6, 1.9999: 7, 2.0: 8,

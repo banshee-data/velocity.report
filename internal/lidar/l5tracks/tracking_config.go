@@ -153,6 +153,50 @@ type TrackerConfig struct {
 	// costs and no history. Default false: the campaign's ground-truth and
 	// label-free harnesses measure it against the shipped behaviour first.
 	CascadedAssociation bool
+	// AdaptiveMeasurementNoise replaces the isotropic MeasurementNoise with
+	// the Phase 3 anisotropic model in adaptive_noise.go: R is diagonal along
+	// and across the sensor's line of sight to the measurement, conditioned on
+	// range, cluster support, the visible-face aspect under the track's
+	// heading and the measurement source, then rotated into the site frame.
+	// It applies alike to the gate, the likelihood cost and the update.
+	// Default false, and not a tuning key, for the fingerprint reason above;
+	// G-UNC-1 decides whether it ships.
+	AdaptiveMeasurementNoise bool
+	// MeasurementNoiseCalibration supplies the fitted per-stratum
+	// coefficients the adaptive model adds to its physics terms. Nil uses the
+	// shipped MeasurementNoise as every stratum's coefficient. It has no
+	// effect unless AdaptiveMeasurementNoise is set. The table is shared, not
+	// copied, when the config is copied, so it must not be mutated after
+	// assignment.
+	MeasurementNoiseCalibration *NoiseCalibration
+	// NoiseSensorX and NoiseSensorY are the sensor origin in the tracker's
+	// frame, which fixes each measurement's line of sight. The pipeline
+	// clusters without a pose, so the tracker frame is the sensor frame and
+	// zero is correct today; a site transform must set them.
+	NoiseSensorX, NoiseSensorY float32
+
+	// TentativePriority is the gated form of S2's remedy. Confirmed tracks
+	// are matched first, but only to clusters inside their χ²₂ 99% ellipse
+	// (d² ≤ 9.21), the region in which a cluster is statistically theirs;
+	// every track still unmatched, confirmed or tentative, then competes
+	// jointly for what is left under the shipped gate. CascadedAssociation
+	// gives confirmed tracks first choice anywhere inside the shipped gate,
+	// which K10 shows admits almost everything within reach, so a confirmed
+	// track whose own object dropped out takes a newborn's cluster instead of
+	// coasting. This option cannot do that beyond the 99% ellipse. It
+	// supersedes CascadedAssociation when both are set. Default false. See
+	// identity.go.
+	TentativePriority bool
+
+	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
+	// cyclist or motorcyclist with a cluster outside that label's geometric
+	// envelope: larger than anything L6 would accept as the label (gap
+	// analysis K4). Such a cluster is a merge with, or a view of, a larger
+	// body, and identity must not cross to it. A vehicle label carries no
+	// refusal, because a partial view of a vehicle can be any size below it;
+	// the soft extent-compatibility cost (AssociationExtentCostWeight) is
+	// what charges that direction. Default false. See identity.go.
+	ClassIdentity bool
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
@@ -203,6 +247,12 @@ type TrackerConfig struct {
 	// switches every one off; DefaultOcclusionContinuity switches them all
 	// on with starting values. See continuity.go.
 	OcclusionContinuity OcclusionContinuityConfig
+
+	// SolidBody populates a solid-body estimate per track from the near-edge
+	// measurement model, as a shadow of the tracked filter that never feeds
+	// back into association or the tracked state. Default off; see
+	// solid_body_nearedge.go.
+	SolidBody SolidBodyOptions
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)

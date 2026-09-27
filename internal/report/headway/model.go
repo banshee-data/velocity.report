@@ -1,6 +1,6 @@
 package headway
 
-// The headway report contract, headway_report_v1. It is the report's
+// The headway report contract, headway_report_v2. It is the report's
 // data.json and the whole input of its charts and Typst template, so a
 // reviewer holding the source ZIP holds everything the PDF shows.
 //
@@ -15,12 +15,18 @@ package headway
 //   - Every *_display string is the exact text the PDF prints. The template
 //     formats nothing itself, so the golden data.json shows the report's
 //     words and numbers as a reader sees them.
+//   - Every JSON key is a registered metric id, suppression reason or
+//     structural name (l8behaviour.AuditSurfaceJSON), and none is a metric
+//     alias: the spatial gap series is spatial_gap, never gap.
 
 import "github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 
 // ContractID versions this contract: its shape, the value-block rule, the
 // aggregation rules and the display formats. Change it when any changes.
-const ContractID = "headway_report_v1"
+//
+// v2 renamed the spatial gap series key from gap, a registered alias of
+// interaction.following_spatial_gap_m, to spatial_gap.
+const ContractID = "headway_report_v2"
 
 // Title is the report's name, from the plan's naming rule (Section 8.3): an
 // observed following exposure for encounters at one site.
@@ -297,7 +303,7 @@ type PredictedInterval struct {
 // Series holds the encounter's series for its chart. Gap and NetTimeGap are
 // the supported instants only; Predicted is review-only.
 type Series struct {
-	Gap        []SeriesPoint    `json:"gap"`
+	Gap        []SeriesPoint    `json:"spatial_gap"`
 	NetTimeGap []SeriesPoint    `json:"net_time_gap"`
 	Predicted  []PredictedPoint `json:"predicted"`
 }

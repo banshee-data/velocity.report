@@ -296,6 +296,17 @@ type OcclusionContinuityConfig struct {
 	// guardReacquisition.
 	ReacquisitionGuard bool
 
+	// ContestedRejoin extends the guard's ambiguity rule from rival
+	// reacquisitions to every live track: a reacquiring track may take a
+	// cluster only if its cost beats the best live (not reacquiring) track's
+	// by the ambiguity margin. Otherwise the rejoin is contested and refused,
+	// the track goes on coasting, and the live track keeps its object. It
+	// needs ReacquisitionGuard and does nothing without it. It is not part
+	// of DefaultOcclusionContinuity: it is identity work, measured with the
+	// Sprint 0.5.2.2 reacquisition and identity options, not with the
+	// continuity values.
+	ContestedRejoin bool
+
 	// SensorX and SensorY are the sensor origin in the tracker's world frame,
 	// for occlusion geometry and coverage. Zero is correct while the pipeline
 	// runs in sensor coordinates with a nil pose, as it does today; a site
@@ -426,8 +437,9 @@ func (t *Tracker) classCoastExpired(track *TrackedObject, support ObservationSup
 // frame interval. Under CaptureTimeInflation the track's class rate is
 // charged for the capture time this frame added to its coast age, so the
 // same unobserved second costs the same whether one frame reached the tracker
-// in it or ten. Both are capped at MaxCovarianceDiag.
-func (t *Tracker) inflateCoastCovariance(track *TrackedObject) {
+// in it or ten. Both are capped at MaxCovarianceDiag. It returns the variance
+// it added before the cap, so a shadow estimator can be charged the same.
+func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	var add float32
 	if t.Config.OcclusionContinuity.CaptureTimeInflation {
 		elapsed := track.CoastAgeSecs - track.inflatedCoastSecs
@@ -450,6 +462,7 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) {
 			track.P[1*4+1] = t.Config.MaxCovarianceDiag
 		}
 	}
+	return add
 }
 
 // Absence-explanation geometry. Heuristics, stated as such.
@@ -684,6 +697,10 @@ func reacquisitionVerdict(track *TrackedObject, c *WorldCluster) int {
 	return reacquisitionFits
 }
 
+// costCell addresses one pairing in an assignment stage's cost matrix: row is
+// the cluster's row, col the track's column.
+type costCell struct{ row, col int }
+
 // guardReacquisition applies ReacquisitionGuard to one assignment stage's
 // cost matrix, forbidding pairings in place. A track is reacquiring when it
 // missed at least the previous frame.
@@ -701,6 +718,10 @@ func reacquisitionVerdict(track *TrackedObject, c *WorldCluster) int {
 // the continuity side only. It never makes a pairing cheaper, so it cannot
 // deepen the coasting-track discount of gap S3, and it does not attempt S3's
 // remedy.
+//
+// With ContestedRejoin, live tracks count as rivals too: a pairing a live
+// track contests is forbidden before either ambiguity rule runs. See
+// refuseContestedRejoins.
 func (t *Tracker) guardReacquisition(costMatrix [][]float32, clusters []WorldCluster, clusterIdx []int, trackIDs []string) {
 	forbidden := float32(hungarianlnf)
 	reacquiring := make([]bool, len(trackIDs))
@@ -726,10 +747,16 @@ func (t *Tracker) guardReacquisition(costMatrix [][]float32, clusters []WorldClu
 		}
 	}
 
+	// A cluster a live track explains at least as well is not a rejoin
+	// candidate, so it must not make a rejoin look ambiguous either: filter
+	// contested pairings out before the ambiguity rules read the matrix.
+	if t.Config.OcclusionContinuity.ContestedRejoin {
+		t.refuseContestedRejoins(costMatrix, clusterIdx, reacquiring)
+	}
+
 	// Decide both directions against the same matrix, then forbid, so the
 	// outcome does not depend on which direction is checked first.
-	type pairing struct{ row, col int }
-	var refuse []pairing
+	var refuse []costCell
 	for tj := range trackIDs {
 		if !reacquiring[tj] {
 			continue
@@ -758,7 +785,7 @@ func (t *Tracker) guardReacquisition(costMatrix [][]float32, clusters []WorldClu
 		}
 		t.continuity.ReacquisitionsAmbiguous++
 		for row := range clusterIdx {
-			refuse = append(refuse, pairing{row, tj})
+			refuse = append(refuse, costCell{row, tj})
 		}
 	}
 	for row := range clusterIdx {
@@ -777,7 +804,62 @@ func (t *Tracker) guardReacquisition(costMatrix [][]float32, clusters []WorldClu
 		}
 		t.continuity.ReacquisitionsAmbiguous++
 		for _, tj := range cols {
-			refuse = append(refuse, pairing{row, tj})
+			refuse = append(refuse, costCell{row, tj})
+		}
+	}
+	for _, p := range refuse {
+		costMatrix[p.row][p.col] = forbidden
+	}
+}
+
+// refuseContestedRejoins is ContestedRejoin's pass over one stage's cost
+// matrix, run after the geometry check and before the ambiguity rules. A
+// cluster that some live track (one observed last frame) can take is
+// contested for every reacquiring track whose cost does not beat the best
+// live track's by reacquisitionAmbiguityMargin, and each such pairing is
+// forbidden. Every decision is read from the matrix as it stood on entry, so
+// the answer does not depend on the order clusters or tracks are visited.
+//
+// The rule is one-sided on purpose. A live track has evidence from last
+// frame; a reacquiring track has a prediction that has gone unconfirmed. When
+// they explain a cluster about equally, giving it to the reacquiring track is
+// a guess that can hand a live object's identity to a hypothesis that may no
+// longer exist, while leaving it with the live track at worst lets the
+// hypothesis lapse. That is the direction continuity.go chooses for every
+// doubt.
+//
+// Running before the ambiguity rules matters. Without it, a live neighbour's
+// cluster is one of a reacquiring track's two candidates, the track-side rule
+// finds them too close to call, and the track is refused its own object as
+// well, so a rejoin the neighbour's evidence had already settled becomes a
+// new identity.
+//
+// Under the shipped d² cost a coasting track's inflated covariance discounts
+// its bid (gap analysis S3), so it can beat a live track by the margin
+// without explaining the cluster any better. Read this option alongside
+// LikelihoodAssociationCost, which removes that discount.
+func (t *Tracker) refuseContestedRejoins(costMatrix [][]float32, clusterIdx []int, reacquiring []bool) {
+	forbidden := float32(hungarianlnf)
+	var refuse []costCell
+	for row := range clusterIdx {
+		bestLive := forbidden
+		for tj, r := range reacquiring {
+			if !r && costMatrix[row][tj] < bestLive {
+				bestLive = costMatrix[row][tj]
+			}
+		}
+		if bestLive >= forbidden {
+			continue
+		}
+		contested := false
+		for tj, r := range reacquiring {
+			if r && costMatrix[row][tj] < forbidden && costMatrix[row][tj] > bestLive-reacquisitionAmbiguityMargin {
+				refuse = append(refuse, costCell{row, tj})
+				contested = true
+			}
+		}
+		if contested {
+			t.continuity.ReacquisitionsContested++
 		}
 	}
 	for _, p := range refuse {
@@ -898,6 +980,15 @@ type ContinuityStats struct {
 	ReacquisitionsRefusedLarger  int64 `json:"reacquisitions_refused_larger"`
 	ReacquisitionsRefusedSmaller int64 `json:"reacquisitions_refused_smaller"`
 	ReacquisitionsAmbiguous      int64 `json:"reacquisitions_ambiguous"`
+
+	// The identity options' refusals. Both are zero, and omitted from JSON,
+	// with the options off, so a shipped replay's manifest is unchanged.
+	// ReacquisitionsContested counts clusters for which ContestedRejoin
+	// refused one or more reacquiring pairings in favour of a live track.
+	// ClassIdentityRefusals counts pairings ClassIdentity forbade that the
+	// gate and the guards would otherwise have admitted.
+	ReacquisitionsContested int64 `json:"reacquisitions_contested,omitempty"`
+	ClassIdentityRefusals   int64 `json:"class_identity_refusals,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.
