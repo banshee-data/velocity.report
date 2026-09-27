@@ -432,6 +432,51 @@ func recordedClip(t *testing.T) (ws *Server, job capjobs.Job, pack, stored, dige
 	return ws, job, pack, stored, digest
 }
 
+// Before a retry adopted what an earlier attempt had finished, it cut the pack
+// again, so a job can have two whole packs on disk and a person's review in
+// either. A retry links one and removes neither.
+func TestClipRetryNeverRemovesAWholePack(t *testing.T) {
+	ws, job, _ := selectedSegmentJob(t)
+	ws.udpPort = 2369
+	store := sqlite.NewSegmentStore(ws.db)
+	clip, _, err := store.ClipJob(job.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, _ := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "1")
+	reviewed, digest := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "2")
+	review := filepath.Join(reviewed, "annotations.json")
+	if err := os.WriteFile(review, []byte(`{"objects":[]}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	unfinished := filepath.Join(ws.annotationPacksDir, clipAttemptPrefix(job.JobID)+"3")
+	if err := os.MkdirAll(unfinished, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ops := segmentClipTestOperations(t)
+	neverReplays(t, &ops)
+	removed := []string{}
+	ops.removeAll = func(dir string) error {
+		removed = append(removed, dir)
+		return os.RemoveAll(dir)
+	}
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 || removed[0] != unfinished {
+		t.Fatalf("removed %v, want only the attempt that left no pack", removed)
+	}
+	for _, kept := range []string{filepath.Join(plain, "manifest.json"), filepath.Join(reviewed, "manifest.json"), review} {
+		if _, err := os.Stat(kept); err != nil {
+			t.Fatalf("a whole pack or its review was removed: %v", err)
+		}
+	}
+	clip, _, err = store.ClipJob(job.JobID)
+	if err != nil || ws.segmentPackPath(clip.PackDir) != reviewed || clip.PackDigest != digest {
+		t.Fatalf("linked pack: %+v %v, want the reviewed one %s", clip, err, reviewed)
+	}
+}
+
 func TestClipRetryCutsAgainWhenItsRecordedPackIsGone(t *testing.T) {
 	ws, job, pack, stored, _ := recordedClip(t)
 	if err := os.RemoveAll(filepath.Dir(pack)); err != nil {

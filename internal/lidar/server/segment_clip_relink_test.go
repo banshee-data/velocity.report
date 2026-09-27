@@ -217,13 +217,47 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 		jobID, segmentID := queuedClip(t, ws)
 		finishClip(t, ws, jobID)
 		first, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
-		writeClipAttempt(t, ws, jobID, segmentID, "2")
+		second, _ := writeClipAttempt(t, ws, jobID, segmentID, "2")
+		pack, unfinished, err := ws.findClipPack(jobID, segmentID, os.ReadDir)
+		if err != nil || pack == nil || pack.dir != first {
+			t.Fatalf("the first whole pack in name order is the one chosen: %+v %v", pack, err)
+		}
+		// Nothing that is reported as unfinished may be a whole pack: the
+		// worker removes what is reported.
+		if len(unfinished) != 0 {
+			t.Fatalf("a whole pack was reported for removal: %v", unfinished)
+		}
+		// An operator has worked in the second. That is the one to keep
+		// linked, whatever its name.
+		if err := os.WriteFile(filepath.Join(second, "annotations.json"), []byte(`{}`), 0644); err != nil {
+			t.Fatal(err)
+		}
 		if linked, err := ws.relinkSegmentPacks(); err != nil || linked != 1 {
 			t.Fatalf("two attempts: %d %v", linked, err)
 		}
 		clip, _, err := sqlite.NewSegmentStore(ws.db).ClipJob(jobID)
-		if err != nil || ws.segmentPackPath(clip.PackDir) != first {
-			t.Fatalf("the first whole pack in name order is the one linked: %+v %v", clip, err)
+		if err != nil || ws.segmentPackPath(clip.PackDir) != second {
+			t.Fatalf("the pack that holds a review is the one linked: %+v %v, want %s", clip, err, second)
+		}
+		for _, dir := range []string{first, second} {
+			if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err != nil {
+				t.Fatalf("a whole pack was disturbed: %v", err)
+			}
+		}
+	})
+	t.Run("two reviewed packs", func(t *testing.T) {
+		ws, _ := segmentServer(t)
+		jobID, segmentID := queuedClip(t, ws)
+		first, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
+		second, _ := writeClipAttempt(t, ws, jobID, segmentID, "2")
+		for _, dir := range []string{first, second} {
+			if err := os.WriteFile(filepath.Join(dir, "annotations.json"), []byte(`{}`), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		pack, unfinished, err := ws.findClipPack(jobID, segmentID, os.ReadDir)
+		if err != nil || pack == nil || pack.dir != first || len(unfinished) != 0 {
+			t.Fatalf("among reviewed packs the first in name order is chosen: %+v %v %v", pack, unfinished, err)
 		}
 	})
 	t.Run("not configured", func(t *testing.T) {

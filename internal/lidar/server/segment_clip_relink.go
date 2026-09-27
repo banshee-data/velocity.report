@@ -63,6 +63,13 @@ type clipPack struct {
 // annotation packs directory, and the attempts that left none. An attempt is
 // a directory of the packs directory, so its pack's stored name is known
 // without asking where the packs directory is.
+//
+// A job can have left more than one whole pack: before a retry adopted what
+// an earlier attempt had finished, it cut the pack again. The one an operator
+// has worked in is the one to keep linked, so a pack that holds annotations
+// is chosen before one that holds none, and the first in name order among
+// equals. A whole pack is never reported as unfinished, whether it was chosen
+// or not: what is reported is removed, and a pack may hold a person's review.
 func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]os.DirEntry, error)) (found *clipPack, unfinished []string, err error) {
 	entries, err := readDir(ws.annotationPacksDir)
 	if os.IsNotExist(err) {
@@ -71,6 +78,7 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 	if err != nil {
 		return nil, nil, err
 	}
+	reviewed := false
 	for _, entry := range entries {
 		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), clipAttemptPrefix(jobID)) {
 			continue
@@ -78,11 +86,16 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 		attempt := filepath.Join(ws.annotationPacksDir, entry.Name())
 		dir := filepath.Join(attempt, "pack")
 		digest, whole := segmentPackDigest(dir, segmentID)
-		if !whole || found != nil {
+		if !whole {
 			unfinished = append(unfinished, attempt)
 			continue
 		}
-		found = &clipPack{stored: entry.Name() + "/pack", dir: dir, digest: digest}
+		_, statErr := os.Stat(filepath.Join(dir, "annotations.json"))
+		holdsReview := statErr == nil
+		if found == nil || (holdsReview && !reviewed) {
+			found = &clipPack{stored: entry.Name() + "/pack", dir: dir, digest: digest}
+			reviewed = holdsReview
+		}
 	}
 	return found, unfinished, nil
 }
