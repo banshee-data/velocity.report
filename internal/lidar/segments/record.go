@@ -36,10 +36,30 @@ func (r Record) Validate() error {
 	if r.Segment.Finder != "" && r.Segment.Finder != r.Finder {
 		return fmt.Errorf("finder mismatch")
 	}
-	return r.Parameters.Validate()
+	if err := r.Parameters.Validate(); err != nil {
+		return err
+	}
+	if r.Finder != "manual" && (r.Segment.Version != r.FinderVersion || r.Segment.Source == "" ||
+		r.Segment.Role != r.Role || r.Segment.ID != identityAtVersion(r.FinderVersion, r.Finder, r.Segment.Source, r.Role, r.Parameters, r.Segment.StartNs) ||
+		r.Segment.EndNs-r.Segment.StartNs != int64(r.Parameters.WindowSeconds*1e9)) {
+		return fmt.Errorf("segment identity or parameters do not match")
+	}
+	return nil
+}
+
+type recordOutput interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
 }
 
 func WriteRecord(packDir string, r Record) error {
+	return writeRecordWithOpen(packDir, r, func(path string) (recordOutput, error) {
+		return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	})
+}
+
+func writeRecordWithOpen(packDir string, r Record, open func(string) (recordOutput, error)) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
@@ -47,13 +67,27 @@ func WriteRecord(packDir string, r Record) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(filepath.Join(packDir, "segment.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	path := filepath.Join(packDir, "segment.json")
+	f, err := open(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	complete := false
+	defer func() {
+		_ = f.Close()
+		if !complete {
+			_ = os.Remove(path)
+		}
+	}()
 	if _, err = f.Write(append(b, '\n')); err != nil {
 		return err
 	}
-	return f.Sync()
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	complete = true
+	return nil
 }

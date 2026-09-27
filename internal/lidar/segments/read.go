@@ -1,6 +1,7 @@
 package segments
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math"
@@ -13,7 +14,7 @@ func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
 	if stage == "" {
 		stage = "online"
 	}
-	tx, err := db.BeginTx(nil, &sql.TxOptions{ReadOnly: true})
+	tx, err := db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, "", err
 	}
@@ -63,12 +64,12 @@ func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	defer rows.Close()
 	points := []Point{}
 	for rows.Next() {
 		var seq, t int64
 		var x, y, vx, vy sql.NullFloat64
 		if err = rows.Scan(&seq, &t, &x, &y, &vx, &vy); err != nil {
+			rows.Close()
 			return nil, "", err
 		}
 		if !x.Valid || !y.Valid || !vx.Valid || !vy.Valid || math.IsNaN(x.Float64) || math.IsNaN(y.Float64) || math.IsNaN(vx.Float64) || math.IsNaN(vy.Float64) {
@@ -77,8 +78,10 @@ func LoadEstimates(db *sql.DB, source, stage string) ([]Point, string, error) {
 		points = append(points, Point{Track: fmt.Sprint(seq), TimeNs: t, X: x.Float64, Y: y.Float64, VX: vx.Float64, VY: vy.Float64})
 	}
 	if err = rows.Err(); err != nil {
+		rows.Close()
 		return nil, "", err
 	}
+	rows.Close()
 	return points, source, tx.Commit()
 }
 

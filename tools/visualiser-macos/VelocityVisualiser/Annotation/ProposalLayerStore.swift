@@ -148,11 +148,15 @@ struct ProposalLayerStore {
             FileManager.default.fileExists(atPath: canonical.path)
             ? directory.appendingPathComponent("\(algorithm)@1-\(UUID().uuidString).json")
             : canonical
-        let fd = Darwin.open(path.path, O_WRONLY | O_CREAT | O_EXCL, 0o644)
+        let temporary = directory.appendingPathComponent(".writing-\(UUID().uuidString)")
+        let fd = Darwin.open(temporary.path, O_WRONLY | O_CREAT | O_EXCL, 0o644)
         guard fd >= 0 else {
             throw AnnotationPackError.malformed("could not create proposal layer")
         }
-        defer { Darwin.close(fd) }
+        defer {
+            Darwin.close(fd)
+            try? FileManager.default.removeItem(at: temporary)
+        }
         try data.withUnsafeBytes { raw in
             guard let base = raw.baseAddress else { return }
             var offset = 0
@@ -166,6 +170,11 @@ struct ProposalLayerStore {
         }
         guard Darwin.fsync(fd) == 0 else {
             throw AnnotationPackError.malformed("could not sync proposal layer")
+        }
+        // Linking a complete temporary file makes the layer appear at once.
+        // A crash during writing leaves only a hidden file, never half a layer.
+        guard Darwin.link(temporary.path, path.path) == 0 else {
+            throw AnnotationPackError.malformed("could not publish proposal layer")
         }
     }
 }

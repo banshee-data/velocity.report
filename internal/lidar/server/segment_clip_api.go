@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -16,14 +17,14 @@ func (ws *Server) handleSceneClip(w http.ResponseWriter, r *http.Request, caseID
 	}
 	var segmentID string
 	if err := ws.db.QueryRow(`SELECT segment_id FROM lidar_segment_selections WHERE replay_case_id=?`, caseID).Scan(&segmentID); err != nil {
-		ws.writeJSONError(w, 404, "case has no selected annotation segment")
+		if errors.Is(err, sqlite.ErrNotFound) {
+			ws.writeJSONError(w, 404, "case has no selected annotation segment")
+		} else {
+			ws.writeJSONError(w, 500, err.Error())
+		}
 		return
 	}
-	store, err := ws.captureStore()
-	if err != nil {
-		ws.writeJSONError(w, 503, err.Error())
-		return
-	}
+	store := sqlite.NewCaptureStore(ws.db)
 	job, err := store.EnqueueJob("vrlog_record", segmentID, "", fmt.Sprintf("clip for %s", caseID))
 	if err != nil {
 		ws.writeJSONError(w, 500, err.Error())

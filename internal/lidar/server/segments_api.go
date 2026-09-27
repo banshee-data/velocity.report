@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -83,17 +84,15 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		return nil, p, err
 	}
 	captures := []segments.Capture{}
-	if len(points) > 0 {
-		lo, hi := points[0].TimeNs, points[0].TimeNs
-		for _, pt := range points {
-			if pt.TimeNs < lo {
-				lo = pt.TimeNs
-			}
-			if pt.TimeNs > hi {
-				hi = pt.TimeNs
-			}
+	if req.Finder == "random" {
+		// A random held-out window must be drawn from the capture timeline,
+		// including spans for which the tracker produced no observations.
+		captures, err = ws.capturesForRun(run, 0, 1<<63-1)
+		if err != nil {
+			return nil, p, err
 		}
-		captures, err = ws.capturesForRun(run, lo, hi)
+	} else if len(points) > 0 {
+		captures, err = ws.capturesForRun(run, points[0].TimeNs, points[len(points)-1].TimeNs)
 		if err != nil {
 			return nil, p, err
 		}
@@ -186,6 +185,10 @@ func (ws *Server) handleSegments(w http.ResponseWriter, r *http.Request) {
 
 // A compact per-capture score strip. It contains no labels or truth state.
 func (ws *Server) handleSegmentStrip(w http.ResponseWriter, r *http.Request) {
+	ws.handleSegmentStripWith(w, r, ws.findRunSegments)
+}
+
+func (ws *Server) handleSegmentStripWith(w http.ResponseWriter, r *http.Request, find func(segmentRequest) ([]segments.Window, segments.Params, error)) {
 	if r.Method != http.MethodGet {
 		ws.writeJSONError(w, 405, "method not allowed")
 		return
@@ -195,11 +198,17 @@ func (ws *Server) handleSegmentStrip(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	windows, _, err := ws.findRunSegments(req)
+	windows, _, err := find(req)
 	if err != nil {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
+	if err := writeSegmentStrip(w, windows); err != nil {
+		ws.writeJSONError(w, 413, err.Error())
+	}
+}
+
+func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window) error {
 	byCapture := map[string][]segments.Window{}
 	names := []string{}
 	maxScore := 0.0
@@ -217,33 +226,36 @@ func (ws *Server) handleSegmentStrip(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(names) > 100 || len(windows) > 10000 {
-		ws.writeJSONError(w, 413, "too many windows for strip")
-		return
+		return fmt.Errorf("too many windows for strip")
 	}
+	sort.Strings(names)
 	width := 800
 	height := 24 + len(names)*32
 	w.Header().Set("Content-Type", "image/svg+xml")
 	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" role="img"><title>Segment scores per capture</title><rect width="100%%" height="100%%" fill="#101827"/>`, width, height)
 	for row, name := range names {
 		cells := byCapture[name]
+		sort.Slice(cells, func(i, j int) bool { return cells[i].StartNs < cells[j].StartNs })
+		first, last := cells[0].StartNs, cells[len(cells)-1].StartNs
 		label := filepath.Base(name)
 		if len(label) > 32 {
 			label = label[:29] + "..."
 		}
 		fmt.Fprintf(w, `<text x="8" y="%d" fill="white" font-size="11">%s</text>`, row*32+20, xmlEscape(label))
-		for col, s := range cells {
+		for _, s := range cells {
 			alpha := 0.2
 			if maxScore > 0 {
 				alpha = 0.2 + 0.8*math.Sqrt(s.Score/maxScore)
 			}
-			x := 210 + col*10
-			if x > width-10 {
-				break
+			x := 210
+			if last > first {
+				x += int(float64(s.StartNs-first) / float64(last-first) * float64(width-220))
 			}
-			fmt.Fprintf(w, `<rect x="%d" y="%d" width="8" height="18" fill="#36c9b0" opacity="%.3f"><title>%.2f at %d</title></rect>`, x, row*32+5, alpha, s.Score, s.StartNs)
+			fmt.Fprintf(w, `<rect x="%d" y="%d" width="3" height="18" fill="#36c9b0" opacity="%.3f"><title>%.2f at %d</title></rect>`, x, row*32+5, alpha, s.Score, s.StartNs)
 		}
 	}
 	fmt.Fprint(w, "</svg>")
+	return nil
 }
 
 func xmlEscape(s string) string {
@@ -252,6 +264,16 @@ func xmlEscape(s string) string {
 }
 
 func (ws *Server) handleSegmentByID(w http.ResponseWriter, r *http.Request) {
+	ws.handleSegmentByIDWith(w, r, segmentCaseOperations{sqlite.NewAnalysisRunStore(ws.db).GetRun, ws.capturesForRun, ws.resolveSegmentCapture})
+}
+
+type segmentCaseOperations struct {
+	getRun   func(string) (*sqlite.AnalysisRun, error)
+	captures func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error)
+	resolve  func(string) (string, error)
+}
+
+func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, ops segmentCaseOperations) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/lidar/segments/")
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] != "case" || r.Method != http.MethodPost {
@@ -286,6 +308,17 @@ func (ws *Server) handleSegmentByID(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, 400, "segment has no indexed capture offset")
 		return
 	}
+	if req.Role == "held_out" && req.Finder != "random" {
+		var randomCases int
+		if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_segment_selections WHERE role='held_out' AND finder='random' AND json_extract(window_json,'$.capture')=?`, chosen.Capture).Scan(&randomCases); err != nil {
+			ws.writeJSONError(w, 500, err.Error())
+			return
+		}
+		if randomCases == 0 {
+			ws.writeJSONError(w, 400, "choose a random held-out window from this capture before a traffic window")
+			return
+		}
+	}
 	if chosen.Status != "candidate" {
 		var caseID string
 		if err := ws.db.QueryRow(`SELECT replay_case_id FROM lidar_segment_selections WHERE segment_id=?`, chosen.ID).Scan(&caseID); err == nil {
@@ -293,19 +326,23 @@ func (ws *Server) handleSegmentByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	run, err := sqlite.NewAnalysisRunStore(ws.db).GetRun(req.RunID)
+	run, err := ops.getRun(req.RunID)
 	if err != nil {
 		ws.writeJSONError(w, 404, "run not found")
 		return
 	}
-	captures, err := ws.capturesForRun(run, chosen.StartNs, chosen.EndNs-1)
+	captures, err := ops.captures(run, chosen.StartNs, chosen.EndNs-1)
 	if err != nil || len(captures) == 0 {
 		ws.writeJSONError(w, 400, "segment has no indexed capture sequence")
 		return
 	}
+	if captures[0].FirstNs > chosen.StartNs || captures[len(captures)-1].LastNs < chosen.EndNs-1 {
+		ws.writeJSONError(w, 400, "indexed captures do not cover the whole segment")
+		return
+	}
 	paths := make([]string, 0, len(captures))
 	for _, c := range captures {
-		if _, err = ws.resolveSegmentCapture(c.Path); err != nil {
+		if _, err = ops.resolve(c.Path); err != nil {
 			ws.writeJSONError(w, 400, err.Error())
 			return
 		}

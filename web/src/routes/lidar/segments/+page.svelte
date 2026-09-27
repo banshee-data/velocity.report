@@ -192,8 +192,8 @@
 	</div>
 	{#if role === 'held_out'}
 		<p class="rounded bg-amber-100 p-3 text-amber-950">
-			Held-out windows use traffic or seeded random selection. Tracker previews are hidden for blind
-			review.
+			Choose a random window from each capture first, then add traffic windows. Tracker previews are
+			hidden for blind review.
 		</p>
 	{/if}
 	{#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
@@ -250,7 +250,7 @@
 								class="underline"
 								onclick={() => {
 									dismissed = new Set([...dismissed, segment.id]);
-								}}>Dismiss</button
+								}}>Hide</button
 							>
 						</td>
 					</tr>

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -18,7 +19,21 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
+type segmentClipOperations struct {
+	mkdirAll    func(string, os.FileMode) error
+	mkdirTemp   func(string, string) (string, error)
+	detectPort  func(string) (int, error)
+	run         func(replayeval.Config) (*replayeval.Result, error)
+	readFile    func(string) ([]byte, error)
+	export      func(annotation.ExportConfig) (*annotation.Pack, error)
+	writeRecord func(string, segments.Record) error
+}
+
 func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report func(capjobs.Progress)) error {
+	return ws.runSegmentClipJobWith(ctx, job, report, segmentClipOperations{os.MkdirAll, os.MkdirTemp, network.DetectUDPPort, replayeval.Run, os.ReadFile, annotation.Export, segments.WriteRecord})
+}
+
+func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, report func(capjobs.Progress), ops segmentClipOperations) error {
 	var caseID, segmentID, storedPack string
 	if err := ws.db.QueryRow(`SELECT replay_case_id,segment_id,pack_dir FROM lidar_segment_clip_jobs WHERE job_id=?`, job.JobID).Scan(&caseID, &segmentID, &storedPack); err != nil {
 		return fmt.Errorf("clip job has no selection: %w", err)
@@ -26,7 +41,7 @@ func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report
 	if storedPack != "" {
 		if pack, err := annotation.OpenPack(storedPack); err == nil {
 			var rec segments.Record
-			if b, e := os.ReadFile(filepath.Join(storedPack, "segment.json")); e == nil && json.Unmarshal(b, &rec) == nil && rec.PackDigest == pack.Manifest.PackDigest {
+			if b, e := os.ReadFile(filepath.Join(storedPack, "segment.json")); e == nil && json.Unmarshal(b, &rec) == nil && rec.Validate() == nil && rec.PackDigest == pack.Manifest.PackDigest && rec.Segment.ID == segmentID {
 				return nil
 			}
 		}
@@ -63,24 +78,32 @@ func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report
 		}
 		resolved = append(resolved, path)
 	}
+	if chosen.ID != segmentID || chosen.ID != segments.Identity(finder, chosen.Source, role, params, chosen.StartNs) ||
+		chosen.Finder != finder || chosen.Role != role ||
+		filepath.Clean(chosen.Capture) != filepath.Clean(resolved[0]) ||
+		scene.PCAPStartSecs == nil || scene.PCAPDurationSecs == nil ||
+		math.Abs(*scene.PCAPStartSecs-chosen.OffsetSeconds) > 0.11 ||
+		math.Abs(*scene.PCAPDurationSecs-float64(chosen.EndNs-chosen.StartNs)/1e9) > 0.11 {
+		return fmt.Errorf("replay case has drifted from its selected segment")
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(ws.annotationPacksDir, 0755); err != nil {
+	if err := ops.mkdirAll(ws.annotationPacksDir, 0755); err != nil {
 		return err
 	}
-	out, err := os.MkdirTemp(ws.annotationPacksDir, "clip-"+job.JobID+"-")
+	out, err := ops.mkdirTemp(ws.annotationPacksDir, "clip-"+job.JobID+"-")
 	if err != nil {
 		return err
 	}
 	port := ws.udpPort
 	if port == 0 {
-		port, err = network.DetectUDPPort(resolved[0])
+		port, err = ops.detectPort(resolved[0])
 		if err != nil {
 			return err
 		}
 	}
-	cfg := replayeval.Config{OutDir: filepath.Join(out, "vrlog"), TuningFile: config.DefaultConfigPath, SensorID: scene.SensorID, UDPPort: port, IncludePoints: true, RequireSettled: true, ProgressEvery: 200}
+	cfg := replayeval.Config{Context: ctx, OutDir: filepath.Join(out, "vrlog"), TuningFile: config.DefaultConfigPath, SensorID: scene.SensorID, UDPPort: port, IncludePoints: true, RequireSettled: true, ProgressEvery: 200}
 	if len(resolved) == 1 {
 		cfg.PCAPFile = resolved[0]
 	} else {
@@ -97,14 +120,14 @@ func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report
 		cfg.WarmupSeconds = 35
 	}
 	report(capjobs.Progress{Current: 0, Total: 3, Detail: "replaying capture with points"})
-	result, err := replayeval.Run(cfg)
+	result, err := ops.run(cfg)
 	if err != nil {
 		return fmt.Errorf("replay: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	b, err := os.ReadFile(filepath.Join(result.VRLOGPath, "replay_manifest.json"))
+	b, err := ops.readFile(filepath.Join(result.VRLOGPath, "replay_manifest.json"))
 	if err != nil {
 		return err
 	}
@@ -119,7 +142,7 @@ func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report
 		return fmt.Errorf("replay manifest has no scoring bounds")
 	}
 	report(capjobs.Progress{Current: 1, Total: 3, Detail: "exporting annotation pack"})
-	pack, err := annotation.Export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(out, "pack"), StartNs: manifest.ScoringStartNs, EndNs: manifest.ScoringStartNs + int64(manifest.ScoringDurationSeconds*1e9), MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "publisher records foreground points and periodic background snapshots"})
+	pack, err := ops.export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(out, "pack"), StartNs: manifest.ScoringStartNs, EndNs: manifest.ScoringStartNs + int64(manifest.ScoringDurationSeconds*1e9), MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "publisher records foreground points and periodic background snapshots"})
 	if err != nil {
 		return fmt.Errorf("export: %w", err)
 	}
@@ -127,7 +150,7 @@ func (ws *Server) runSegmentClipJob(ctx context.Context, job capjobs.Job, report
 		return err
 	}
 	record := segments.Record{Schema: "velocity.report/annotation-segment", SchemaVersion: 1, PackDigest: pack.Manifest.PackDigest, Role: role, Finder: finder, FinderVersion: chosen.Version, Parameters: params, Segment: chosen}
-	if err := segments.WriteRecord(pack.Dir, record); err != nil {
+	if err := ops.writeRecord(pack.Dir, record); err != nil {
 		return err
 	}
 	if _, err := ws.db.Exec(`UPDATE lidar_segment_clip_jobs SET pack_dir=? WHERE job_id=?`, pack.Dir, job.JobID); err != nil {

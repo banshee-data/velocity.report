@@ -298,6 +298,7 @@ enum AnnotationGuard: Equatable {
 
     /// Objects the proposer found and nobody has graded yet, largest first.
     @Published private(set) var proposals: [ObjectProposal] = [] { didSet { sceneRevision &+= 1 } }
+    private var nextProposalID = 0
     /// Set while the proposer runs: the frame it has reached.
     @Published private(set) var proposalProgress: Int?
     /// The proposal being looked at. Its returns are drawn in every frame it
@@ -500,6 +501,7 @@ enum AnnotationGuard: Equatable {
         }
         refreshFrameProgress()
         let loaded = try ProposalLayerStore(pack: pack).load()
+        nextProposalID = (loaded.map(\.id).max() ?? -1) + 1
         let dismissed = Set(sidecar.dismissedProposals ?? [])
         let labelled = Dictionary(grouping: sidecar.masks, by: \.sampleID).mapValues {
             Set($0.flatMap(\.pointIndices))
@@ -1700,7 +1702,7 @@ enum AnnotationGuard: Equatable {
         }
         // Ids carry on from the ones already listed, so a proposal an operator
         // has been calling "14" stays 14 for as long as the window is open.
-        let firstID = (proposals.map(\.id).max() ?? -1) + 1
+        let firstID = nextProposalID
         let moving = proposer.finish(firstID: firstID)
         let fixed = patches.finish(
             firstID: firstID + moving.count, bandFloor: Float(heightBand.floorM))
@@ -1712,6 +1714,7 @@ enum AnnotationGuard: Equatable {
             lastError = "Could not keep proposal layers: \(error)"
             return
         }
+        nextProposalID = firstID + moving.count + fixed.count
         proposals += moving + fixed
         sessionLogger.info(
             "Proposed \(moving.count) moving and \(fixed.count) fixed objects, "
@@ -1735,10 +1738,8 @@ enum AnnotationGuard: Equatable {
         if let indices = proposal.frames[sampleIndex] { fitViews(toIndices: Set(indices)) }
     }
 
-    /// Drops a proposal from the list, and remembers what it covered so that
-    /// proposing again does not hand it straight back. Dismissals last as long
-    /// as the window is open: they are the operator's judgement about a
-    /// suggestion, not a label, and nothing in the pack records them.
+    /// Drops a proposal from the list and keeps its dismissal in the sidecar,
+    /// so opening the pack or proposing again does not bring it back.
     func dismissProposal(_ id: Int) {
         guard let proposal = proposals.first(where: { $0.id == id }) else { return }
         var edited = document

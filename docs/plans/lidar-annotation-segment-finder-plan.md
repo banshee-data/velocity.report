@@ -4,7 +4,8 @@ This plan turns "which minute should I label?" from a hand query into a tool: fi
 windows of a run or evidence database, one action cuts a clip and an annotation pack from a
 chosen window, and the pack arrives with proposals already made.
 
-- **Status:** Draft; the first finder ships as a script (`scripts/lidar-following-windows.py`)
+- **Status:** The v0.5.2 finder, clip, proposal-layer and Segments-page flow is implemented;
+  membership-seeded proposals and the split manifest remain planned for v0.5.3
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients (web and macOS), storage
 - **Target:** v0.5.2 for the finders, the one-step clip, kept proposals and the Svelte segments
   page, as track T1 of the
@@ -34,7 +35,7 @@ nearest leaders change 33 times, most likely because the car at the head of the 
 as three tracks. Those nine seconds are the most valuable in the capture for the tailgating work
 and the split problem at once, and nothing pointed at them.
 
-## Current state
+## Baseline before the v0.5.2 implementation
 
 **Finding windows.** Two scripts, no product surface:
 
@@ -367,14 +368,14 @@ once that sprint step lands
 ### Complete
 
 - [x] Following-window review queue script with synthetic tests, verified on kirk0
+- [x] Go finders and `velocity lidar segments` (`M`)
+- [x] `velocity lidar annotation-clip` and `segment.json` (`S`)
+- [x] Persisted proposal layers, macOS autogeneration on open, kept dismissals (`M`)
+- [x] Segments API and `/app/lidar/segments` (`M`)
 
 ### Outstanding
 
-- [ ] Go finders and `velocity lidar segments` (`M`)
-- [ ] `velocity lidar annotation-clip` and `segment.json` (`S`)
-- [ ] Persisted proposal layers, macOS autogeneration on open, kept dismissals (`M`)
 - [ ] Membership-seeded proposals from VRLOG 1.x (`M`)
-- [ ] Segments API and `/app/lidar/segments` (`M`)
 - [ ] Split manifest from pack roles (`S`)
 
 ### Deferred

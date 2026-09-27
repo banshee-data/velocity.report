@@ -85,6 +85,8 @@ func readPackListing(dir string) packListing {
 			item.Error = "segment: " + err.Error()
 		} else if record.PackDigest != manifest.PackDigest {
 			item.Error = "segment pack digest mismatch"
+		} else if err := record.Validate(); err != nil {
+			item.Error = "segment: " + err.Error()
 		} else {
 			item.Role = record.Role
 			item.SegmentID = record.Segment.ID

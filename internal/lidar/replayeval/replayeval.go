@@ -86,6 +86,9 @@ func offlineFrameBuilderConfig(sensorID string, callback func(*l2frames.LiDARFra
 
 // Config holds the parameters for an offline perception replay.
 type Config struct {
+	// Context stops packet replay when an owning job is cancelled. A nil
+	// context keeps the standalone command's background behaviour.
+	Context context.Context
 	// PCAPFile is the capture to replay. It remains available for callers with
 	// one file; PCAPFiles is the ordered multi-file form.
 	PCAPFile string
@@ -942,7 +945,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Unpaced unless a test asks otherwise. Pacing is a wall-clock concern
 	// and must not change a single track; the replay-equivalence test sets
 	// runtime.pacedSpeed to prove it.
-	_, replayErr := network.ReadPCAPSequence(context.Background(), steps, network.SequenceReplayConfig{
+	replayContext := cfg.Context
+	if replayContext == nil {
+		replayContext = context.Background()
+	}
+	_, replayErr := network.ReadPCAPSequence(replayContext, steps, network.SequenceReplayConfig{
 		UDPPort: cfg.UDPPort, Parser: parser, FrameBuilder: fb,
 		Paced: network.RealtimeReplayConfig{SpeedMultiplier: runtime.pacedSpeed},
 	})

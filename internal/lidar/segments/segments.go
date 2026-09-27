@@ -44,7 +44,7 @@ type Params struct {
 func DefaultParams() Params { return Params{10, 3, 20, 3, 40, 2.5, 0.5, 0.3, 1} }
 
 func (p Params) Validate() error {
-	if !finite(p.WindowSeconds) || p.WindowSeconds <= 0 || p.WindowSeconds > 3600 ||
+	if !finite(p.WindowSeconds) || p.WindowSeconds < 0.1 || p.WindowSeconds > 3600 ||
 		!finite(p.MinSpeed) || p.MinSpeed < 0 || !finite(p.MaxHeadingDeg) || p.MaxHeadingDeg < 0 || p.MaxHeadingDeg > 180 ||
 		!finite(p.MinGap) || p.MinGap < 0 || !finite(p.MaxGap) || p.MaxGap < p.MinGap ||
 		!finite(p.MaxLateral) || p.MaxLateral < 0 || !finite(p.JumpThreshold) || p.JumpThreshold < 0 ||
@@ -85,6 +85,24 @@ type Window struct {
 	PackDir       string   `json:"pack_dir,omitempty"`
 }
 
+// Identity binds a window to its source, role, finder and exact parameters.
+func Identity(finder, source, role string, p Params, startNs int64) string {
+	return identityAtVersion(Version, finder, source, role, p, startNs)
+}
+
+func identityAtVersion(version int, finder, source, role string, p Params, startNs int64) string {
+	b, _ := json.Marshal(struct {
+		Finder  string
+		Version int
+		Source  string
+		Role    string
+		Params  Params
+		StartNs int64
+	}{finder, version, source, role, p, startNs})
+	sum := sha256.Sum256(b)
+	return "seg-" + hex.EncodeToString(sum[:12])
+}
+
 type FinderInfo struct {
 	Name    string `json:"name"`
 	Version int    `json:"version"`
@@ -96,6 +114,9 @@ func Finders() []FinderInfo {
 }
 
 func Allowed(finder, role string) bool {
+	if role != "tuning" && role != "held_out" {
+		return false
+	}
 	if role == "held_out" && finder != "following" && finder != "exposure" && finder != "random" {
 		return false
 	}
@@ -118,6 +139,8 @@ type accumulator struct {
 	nearest                    map[string][]pairFrame
 	lastSeen                   map[string]int64
 	maxEvent                   float64
+	framePairCounts            map[int64]int
+	peakPairCount              int
 }
 type pairFrame struct {
 	time   int64
@@ -126,7 +149,7 @@ type pairFrame struct {
 }
 
 func newAccumulator(start, width int64) *accumulator {
-	return &accumulator{w: Window{StartNs: start, EndNs: start + width, Status: "candidate"}, pairs: map[string]bool{}, followers: map[string]bool{}, leaders: map[string]bool{}, tracks: map[string]bool{}, nearest: map[string][]pairFrame{}, lastSeen: map[string]int64{}}
+	return &accumulator{w: Window{StartNs: start, EndNs: start + width, Status: "candidate"}, pairs: map[string]bool{}, followers: map[string]bool{}, leaders: map[string]bool{}, tracks: map[string]bool{}, nearest: map[string][]pairFrame{}, lastSeen: map[string]int64{}, framePairCounts: map[int64]int{}}
 }
 
 // Find computes a complete window ranking. Every result has a stable identity
@@ -141,10 +164,10 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 	if source == "" {
 		return nil, fmt.Errorf("source is required")
 	}
-	width := int64(p.WindowSeconds * 1e9)
-	if width <= 0 {
-		return nil, fmt.Errorf("window width is too small")
+	if finder == "random" && role == "held_out" && len(captures) == 0 {
+		return nil, fmt.Errorf("held-out random selection requires indexed captures")
 	}
+	width := int64(p.WindowSeconds * 1e9)
 	points = slices.Clone(points)
 	sort.Slice(points, func(i, j int) bool {
 		if points[i].TimeNs != points[j].TimeNs {
@@ -213,6 +236,11 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 					}
 					a := get(t)
 					a.w.PairFrames++
+					a.framePairCounts[t]++
+					if a.framePairCounts[t] > a.peakPairCount {
+						a.peakPairCount = a.framePairCounts[t]
+						a.w.PeakNs = t
+					}
 					a.pairs[f.Track+"\x00"+l.Track] = true
 					a.followers[f.Track] = true
 					a.leaders[l.Track] = true
@@ -284,6 +312,18 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 				a.w.Score = math.Max(a.w.Score, residual)
 			}
 		}
+	} else if finder == "random" && len(captures) > 0 {
+		// Draw one uniformly seeded candidate per capture from all time
+		// windows, including quiet road. A tracker failure or even a vehicle's
+		// presence must not decide whether random held-out evidence can enter.
+		for _, c := range captures {
+			if c.LastNs <= c.FirstNs || (c.LastNs-c.FirstNs)/width > 100000 {
+				return nil, fmt.Errorf("capture %q has invalid or excessive random windows", c.Path)
+			}
+			for start := c.FirstNs + 35_000_000_000; start+width <= c.LastNs; start += width {
+				windows[start] = newAccumulator(start, width)
+			}
+		}
 	} else if finder == "exposure" || finder == "random" || finder == "split_flags" {
 		for _, t := range frameTimes {
 			for _, pt := range byTime[t] {
@@ -323,7 +363,7 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 			rng := rand.New(rand.NewSource(p.RandomSeed ^ w.StartNs))
 			w.Score = rng.Float64()
 		}
-		if (finder == "leader_changes" && w.LeaderChanges == 0) || (finder == "exposure" && w.Events == 0) || (finder == "random" && w.Events == 0) {
+		if (finder == "leader_changes" && w.LeaderChanges == 0) || (finder == "exposure" && w.Events == 0) || (finder == "random" && len(captures) == 0 && w.Events == 0) {
 			continue
 		}
 		for _, c := range captures {
@@ -333,16 +373,7 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 				break
 			}
 		}
-		b, _ := json.Marshal(struct {
-			Finder  string
-			Version int
-			Source  string
-			Role    string
-			Params  Params
-			StartNs int64
-		}{finder, Version, source, role, p, w.StartNs})
-		sum := sha256.Sum256(b)
-		w.ID = "seg-" + hex.EncodeToString(sum[:12])
+		w.ID = Identity(finder, source, role, p, w.StartNs)
 		result = append(result, w)
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -351,6 +382,17 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 		}
 		return result[i].StartNs < result[j].StartNs
 	})
+	if finder == "random" && len(captures) > 0 {
+		one := make([]Window, 0, len(captures))
+		seen := map[string]bool{}
+		for _, w := range result {
+			if !seen[w.Capture] {
+				one = append(one, w)
+				seen[w.Capture] = true
+			}
+		}
+		result = one
+	}
 	return result, nil
 }
 
