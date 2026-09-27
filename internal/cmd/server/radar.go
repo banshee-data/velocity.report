@@ -459,6 +459,9 @@ func Main(args []string) int {
 			*lidarFGFwdPort,
 			log.Fatalf,
 		)
+		if err := validateOptionalLidarPortFlag("--lidar-live-udp-port", *lidarLiveUDPPort); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Compute tuning config hash for VRLOG provenance.
