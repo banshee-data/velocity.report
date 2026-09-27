@@ -214,22 +214,31 @@ A1 behind a second experiment, run once on the tuning partition to show what A2 
 Per-row reference and support columns; smoother chain breaks and refined solid-body rows;
 oracle coverage; field run over point estimates under `near_edge_track`.
 
-## Evaluation on arrow-worker
+## Evaluation
 
-arrow-worker is the bridge worker with every S2 archive capture mounted read-only at
-`/mnt/captures/lidar/s2` (`-pcap-root /mnt/captures/lidar -pcap-subdir s2`). It has 8 cores,
-5.8 GB of memory and about 17 GB of free local disk, and no annotation pack. That shapes the
-protocol:
+The corpus runs on a machine with the S2 archive mounted, never in CI. Two are set up:
 
-- Cases run one at a time. Outputs and evidence go to `/srv/banshee/evidence/<run>/<arm>/`, off
-  the NFS capture mount and never in `/tmp` (a 2.9 GB tmpfs).
+| Host         | Captures (`-pcap-root`, `-pcap-subdir s2`) | Working directory                 | Limits                                                                  |
+| ------------ | ------------------------------------------ | --------------------------------- | ----------------------------------------------------------------------- |
+| arrow-worker | `/mnt/captures/lidar` (NFS, read-only)     | `/srv/banshee/evidence/<run>/`    | 8 cores, 5.8 GB memory, about 17 GB free disk; `/tmp` is a 2.9 GB tmpfs |
+| The Mac      | `/Volumes/lidar/lidar`                     | a local directory off that volume | Apple Silicon; the platform the sprint accepts on                       |
+
+Neither has an annotation pack, so every figure here is label-free. The protocol assumes the
+smaller host:
+
+- Cases run one at a time. Outputs and evidence go to a working directory off the capture volume.
 - An evidence database is summarised into the case summary (S2.0) and then deleted. kirk0's 63
   scored seconds wrote 60 MB, so a whole corpus arm would need about 28 GB; the summaries are what
   is kept, and a case is re-run if its rows are needed again.
 - The tool's determinism repeat stays on. It replays without the database, so it costs time, not
   disk.
-- Results are committed as JSON to a results branch and pushed, with a markdown table per arm, so
-  they can be read and reviewed away from the machine.
+- Results are committed as JSON to a results branch (`claude/upbeat-galileo-4xbaat-s2-arrow-results`,
+  `results/<test>/`) and pushed, with a markdown table per arm, so they can be read and reviewed
+  away from the machine.
+
+Test T0, the first run, is the shadow at 256 and 1,024 sample points on the tuning and held-out
+cases (arms B1-256 and B1-1024 below), before any S2.1 change: it measures how much of the fix
+rate and the face-transition tail is the sample cap on real sites other than kirk0.
 
 | Partition | Cases                                       | Use                                                    |
 | --------- | ------------------------------------------- | ------------------------------------------------------ |
