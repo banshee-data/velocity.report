@@ -56,11 +56,19 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if *oracle {
-		for _, f := range []string{"source", "estimator", "obs-model", "param-hash"} {
-			if v := fs.Lookup(f).Value.String(); v != "" {
-				fmt.Fprintf(stderr, "error: --%s applies to --db, not --oracle\n", f)
-				return 2
+		// Any --db-only flag given explicitly is refused, --stage included,
+		// though its default is not empty: the oracle would ignore it.
+		dbOnly := map[string]bool{"source": true, "stage": true, "estimator": true, "obs-model": true, "param-hash": true}
+		var misplaced []string
+		fs.Visit(func(f *flag.Flag) {
+			if dbOnly[f.Name] {
+				misplaced = append(misplaced, f.Name)
 			}
+		})
+		if len(misplaced) > 0 {
+			sort.Strings(misplaced)
+			fmt.Fprintf(stderr, "error: --%s applies to --db, not --oracle\n", misplaced[0])
+			return 2
 		}
 	}
 	size := chart.PaperSize(*paper)

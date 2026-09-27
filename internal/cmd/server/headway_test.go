@@ -38,6 +38,8 @@ func TestRunHeadwayRejectsBadArguments(t *testing.T) {
 		{"--bogus"},
 		{"--oracle", "--source", "source/v1/x"},
 		{"--oracle", "--param-hash", "sha256:x"},
+		{"--oracle", "--stage", "online"},
+		{"--oracle", "--stage", "final"},
 	} {
 		var stdout, stderr bytes.Buffer
 		if code := runHeadway(args, &stdout, &stderr); code != 2 {
