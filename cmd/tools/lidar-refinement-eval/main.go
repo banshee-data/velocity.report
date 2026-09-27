@@ -43,6 +43,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	evidenceDB := fs.String("evidence-db", "", "new SQLite database for observations, online and refined estimates; enables per-frame scoring")
 	caseID := fs.String("case", "", "replay case ID for the evidence source identity (required with -evidence-db)")
 	samplePoints := fs.Int("sample-points", 64, "retained points per stored observation (1-1024) with -evidence-db")
+	coverageFile := fs.String("continuity-coverage", "", "sensor coverage declaration (JSON) for the experiments that classify absences")
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: lidar-refinement-eval -pcap FILE -out DIR [-evidence-db DB -case ID] [flags]\n\n")
 		fmt.Fprintf(stderr, "Replays a capture once and compares the online estimate with fixed-assignment RTS at\n")
@@ -73,6 +74,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		PCAPFile: *pcap, OutDir: *outDir, TuningFile: *tuning, SensorID: *sensor, UDPPort: *port,
 		StartSeconds: *start, WarmupSeconds: *warmup, DurationSeconds: *duration,
 		Experiments: append(names, replayeval.ExperimentFixedLagRTS),
+	}
+	if *coverageFile != "" {
+		if cfg.ContinuityCoverage, err = replayeval.LoadContinuityCoverage(*coverageFile); err != nil {
+			fmt.Fprintf(stderr, "lidar-refinement-eval: %v\n", err)
+			return 2
+		}
 	}
 	if *evidenceDB != "" {
 		cfg.ObservationDBPath = *evidenceDB

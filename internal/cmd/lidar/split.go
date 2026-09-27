@@ -54,8 +54,8 @@ func SplitMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-split --pcap capture.pcapng --settling-sec 30 --export-json --export-metrics\n")
 		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-split --pcap roll_00002.pcap --pcap roll_00003.pcap --dry-run\n")
 		fmt.Fprintf(os.Stderr, "\nSeveral --pcap flags analyse the captures as one continuous stream, which\n")
-		fmt.Fprintf(os.Stderr, "keeps the background model settled across the file boundaries. Analysing\n")
-		fmt.Fprintf(os.Stderr, "each file separately restarts that model and reports the settling as motion.\n")
+		fmt.Fprintf(os.Stderr, "keeps one motion timeline across the file boundaries. The model refreshes\n")
+		fmt.Fprintf(os.Stderr, "on capture time; separate runs still lose context at each file head.\n")
 	}
 
 	if err := fs.Parse(args); err != nil {

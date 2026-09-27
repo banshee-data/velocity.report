@@ -30,12 +30,12 @@ const (
 	// DefaultSettlingSec is the sustained stability required to declare static.
 	DefaultSettlingSec = 60.0
 	// DefaultMotionTriggerSec is the sustained motion required to declare motion.
-	DefaultMotionTriggerSec = 5.0
+	DefaultMotionTriggerSec = 7.0
 )
 
 // FrameSample is a single per-frame motion observation. Moving is the raw
-// detector result for that frame (e.g. BackgroundManager.CheckForSensorMovement);
-// hysteresis is applied later by BuildTimeline, not by the caller.
+// detector result; hysteresis is applied later by BuildTimeline, not by the
+// caller.
 type FrameSample struct {
 	// T is the capture timestamp of the frame.
 	T time.Time

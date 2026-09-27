@@ -3008,9 +3008,11 @@ architecture; it does not relitigate findings.
       [gap analysis](../../data/maths/paper-implementation-gap-analysis.md#computed-s3)
 - [ ] Add replay experiments for the identity options and compare them, with a measured
       extent-cost weight, against held-out identity switches and fragmentation
-- [ ] Supply explicit sensor coverage/origin to replay so `coast_support`, `class_coast_bounds`
-      and `occlusion_continuity` can run: #611 refuses them until that input exists, and the kirk0
-      continuity smoke run now asserts the refusal (#614)
+- [x] Declared sensor coverage/origin for replay (S0): `ContinuityCoverage` unlocks
+      `coast_support`, `class_coast_bounds` and `occlusion_continuity`, which stay refused without
+      a valid declaration; kirk0 runs them under a measured envelope, and a static-occluder scene
+      joins the synthetic set. See [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry)
+- [ ] Declare coverage for each corpus site, from a survey or a measured detection envelope
 - [ ] Choose the continuity values (class coast bounds and rates, `MaxCoastSecs*`) and test
       `occlusion_continuity` and `capture_gap_predict` against held-out occlusion and
       reacquisition scenes on the S2 corpus before enabling any of them

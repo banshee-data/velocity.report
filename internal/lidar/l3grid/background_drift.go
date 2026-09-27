@@ -12,7 +12,7 @@ import (
 // M3.5: Split Streaming Support
 // =============================================================================
 
-const defaultSensorMovementDriftRatioThreshold = 0.35
+const defaultSensorMovementDriftRatioThreshold = 0.5
 
 // SensorMotionEvidence is the raw, per-frame evidence used to classify sensor
 // ego-motion. Timeline hysteresis belongs to callers such as pcap-split.
