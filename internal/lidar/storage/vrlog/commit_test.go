@@ -316,11 +316,18 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 	m.Commit.ShedAfter = 20 * time.Millisecond
 	w, dir := createTest(t, m)
 	release := make(chan struct{})
-	var blocked atomic.Bool
+	var blocked, released atomic.Bool
 	w.hooks.Store(&writerHooks{sync: func(name string) error {
 		if name == chunkObject(0)+openSuffix {
 			blocked.Store(true)
 			<-release
+			released.Store(true)
+		}
+		if released.Load() {
+			// Storage slower than the shed bound, as a full fsync is on
+			// some disks: catching up after the release takes several of
+			// these, so it cannot fit inside ShedAfter.
+			time.Sleep(2 * m.Commit.ShedAfter)
 		}
 		return nil
 	}})
@@ -339,6 +346,15 @@ func TestShedFramesBecomeExplicitGaps(t *testing.T) {
 		}
 	}
 	close(release)
+	// Frame 4 arrives once the backlog has drained: that is what the test
+	// states, and the drain takes as long as the storage does. Appending at
+	// once instead would ask the committer to catch up inside ShedAfter,
+	// which slow storage cannot, and frame 4 would be shed as well.
+	eventually(t, "the committer to drain the backlog", func() bool {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return w.committing == nil && w.durable.records == w.accepted.records
+	})
 	if err := w.AppendFrame(synthFrame(4, 10)); err != nil {
 		t.Fatal(err)
 	}
