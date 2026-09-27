@@ -58,6 +58,10 @@ run's tracks. **Make case** fixes the capture and offset; **Queue clip** replays
 exports the annotation pack. The page reads review counts from `annotations.json`. Labels and
 review decisions still belong in the macOS window.
 
+A run is ranked from wherever it kept its tracks. A live run stores track observations. A replayed
+run does not, because a replay must not add to the live track store, so it is ranked from its own
+recording. A run with neither has nothing to rank, and only the random finder offers it a window.
+
 For an evidence database, the Go finder produces a JSON report. Give it the capture path
 when selecting at random, so an empty stretch remains eligible even if the tracker saw nothing:
 

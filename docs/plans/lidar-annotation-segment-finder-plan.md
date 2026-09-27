@@ -119,8 +119,9 @@ write layers into the pack. Review stays in the macOS tool.
 
 One Go package, `internal/lidar/segments`, with a small interface: a name, a version, its
 parameters, and a function from a time-ordered series of `(identity, t, x, y, vx, vy)` to scored
-windows. The series comes from `lidar_track_estimates` in an evidence database or from
-`lidar_track_observations` for a server run, so the same finder serves both.
+windows. The series comes from `lidar_track_estimates` in an evidence database, or from a server
+run: its `lidar_track_observations` if it stored any, and otherwise its VRLOG recording, because
+an analysis replay writes no observations. The same finder serves all three.
 
 | Finder              | Scores                                                          | Source                          |
 | ------------------- | --------------------------------------------------------------- | ------------------------------- |
@@ -276,7 +277,7 @@ need one small table if they must be shared between operators.
 
 **Steps:**
 
-1. Series readers for `lidar_track_estimates` and `lidar_track_observations`
+1. Series readers for `lidar_track_estimates`, `lidar_track_observations` and a run's recording
 2. Port `following` and `leader_changes`; parity with the script's JSON on kirk0
 3. Port `lateral_jump`; parity with `lidar-jump-candidates.py`
 4. `split_flags` and `exposure`; place windows through the replay case's capture files
