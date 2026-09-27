@@ -900,7 +900,7 @@
     "lat": 37.7798,
     "lon": -122.4218,
     "position_confidence": "high",
-    "pcap_split_build_version": "dev",
+    "pcap_split_build_version": "0.5.1-pre36",
     "grid_azimuth_deg": 4,
     "north_azimuth_deg": 192,
     "published_as": "franklin-mcallister"

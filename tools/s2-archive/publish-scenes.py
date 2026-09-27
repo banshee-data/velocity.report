@@ -38,7 +38,7 @@ The environment the batch expects, in full:
     REPLAY_SETTLE=0 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
       python3 tools/s2-archive/publish-scenes.py
 
-  LIDAR_API_URL=http://localhost:8081/api/lidar
+  LIDAR_API_URL=http://localhost:8080/api/lidar
       Optional: direct an isolated worktree run to its own LiDAR server.
 
 A scene is built beside the published one and swapped in only when whole, so a
@@ -82,6 +82,7 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
+# LiDAR routes are registered on the main HTTP API; 8081 is the legacy monitor.
 API = os.environ.get("LIDAR_API_URL", "http://localhost:8080/api/lidar").rstrip("/")
 PCAP_SUBDIR = os.environ.get("REPLAY_PCAP_SUBDIR", "s2")
 SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")

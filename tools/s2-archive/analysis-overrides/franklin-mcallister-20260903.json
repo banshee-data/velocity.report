@@ -1,6 +1,6 @@
 {
-  "build_version": "dev",
-  "source_revision": "75de994f58f104934dfccd0769e3d22f67fd9621",
+  "build_version": "0.5.1-pre36",
+  "source_revision": "bf506c696fe01c7c99366de1dd8a6a7f1da4349a",
   "input_file": "s2_sf_6_20260903103552_00008.pcap",
   "config": {
     "pcap_files": [

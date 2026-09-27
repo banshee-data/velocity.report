@@ -42,7 +42,9 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string): HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
+- `--lidar-listen` (string): HTTP listen address for the legacy LiDAR monitor webserver (default: `127.0.0.1:8081`). LiDAR API routes are also registered on the main HTTP server; new clients should use `--listen` (default: `127.0.0.1:8080`).
+- `--lidar-udp-port` (int): UDP port in PCAP captures, also used by the live listener by default (default: `2369`).
+- `--lidar-live-udp-port` (int): Override only the live listener port when an isolated replay server shares a host with another LiDAR server (default: `0`, meaning `--lidar-udp-port`).
 - `--lidar-no-parse` (bool): Disable LiDAR packet parsing (useful when only forwarding packets).
 - `--lidar-forward` (bool): Forward incoming LiDAR packets to another port (useful for LidarView).
 - `--lidar-forward-addr` (string): Forward destination address (default: `localhost`).
