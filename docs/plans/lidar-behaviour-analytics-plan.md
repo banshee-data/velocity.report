@@ -4,7 +4,7 @@ This plan defines explainable road-user measurements and their suppression
 rules. Methods may be developed against reference trajectories now; production
 results wait for validated final estimates.
 
-- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page (Section 10.4); the held-out validation run and production emission are gated on annotated references and G-SMO-1
+- **Status:** Specification; sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
@@ -1179,7 +1179,7 @@ Delivery is deliberately staged so report plumbing does not wait for estimator r
    Remove the provisional label only after G-GEO-1, G-UNC-1, G-SMO-1 and the metric gate pass.
 
 **Status (sprint 0.5.2.3).** Stage 1 is delivered. `velocity report headway --oracle` runs every
-frozen encounter scenario through `AnalyseFollowing` and renders the `headway_report_v1` contract
+frozen encounter scenario through `AnalyseFollowing` and renders the headway report contract
 through Go SVG charts, a Typst template and the PDF and source-archive path the radar report uses;
 see the [headway report oracle](../lidar/operations/headway-report-oracle.md). The status
 (`synthetic_oracle`, `provisional`, or the reserved `promoted`) is a closed vocabulary that refuses
@@ -1191,8 +1191,31 @@ method with its parameter hash), which splits the oracle into two groups because
 scenario has its own grouping bound. The time-weighted net-time-gap distribution shows every
 suppressed second beside the valid time, summing to the accounted time exactly. Golden files pin
 the data and charts, and report-side tests require every printed name to be registered, forbid
-verdict language, and hold every stated scenario value to the printed one. Stages 2 and 3 remain:
-the provisional report needs persisted encounters, and promotion needs the gates above.
+verdict language, and hold every stated scenario value to the printed one.
+
+**Status (sprint 0.5.2.4).** Stage 2 is delivered;
+`velocity report headway --db <evidence.db> --source <id> [--stage final|fixed_lag|online]` runs
+it (see the [provisional field run](../lidar/operations/headway-report-oracle.md#provisional-field-run)).
+One run selects exactly one version of the persisted estimates at the requested stage, builds
+trajectories from its rows, runs `AnalyseFollowing` under the scenarios' uncalibrated bounds,
+stores every encounter write-once through the interaction store, and renders the same analysis
+labelled `provisional`. The report is always rebuilt from the persisted estimates, per Section
+10.3's reproducibility rule, and never read back from the stored interactions, which hold neither
+the fitted path nor the follower timelines; the write-once insert and a check that the store holds
+at that version exactly the events the run produced tie the two. A second run writes nothing and
+builds an identical data file. The status refuses `promoted`, and field data cannot be labelled a
+synthetic oracle. The contract is now `headway_report_v2`: its data file passes the registry's
+surface audit, which renamed the spatial gap series from the alias `gap` to `spatial_gap`.
+
+A persisted estimate carries pose, velocity and covariance and nothing of the solid body, so its
+sample has no heading, extent or class, and follows the reference of the geometry that entered the
+filter. On kirk0 under the production `medoid_v0` model the pose is a cluster medoid, not a place on
+the body: none of 60 follower paths is fitted and there is no encounter. Under the `obb_centre_v1`
+candidate, 13 to 16 of 62 paths are fitted and 4 to 6 encounters are found at each stage, and
+none of their time is valid: all 63 evaluated instants are `class_not_supported` and
+`orientation_unresolved`. That is the missing evidence this stage exists to expose. Stage 3
+remains, and a field value needs class, heading and extent beliefs persisted with each estimate
+before it.
 
 The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
 existing class evidence clears the declared applicability gate. It does not wait for the broader
@@ -1329,9 +1352,13 @@ convergence, support state, estimate stage, estimation state), passage identity 
 by support state, the class-applicability table, the production-emission guard (final, established
 and observed, or review-only with a reason), and the closed vocabularies, whose registry rows are
 enforced by tests. A thin adapter reads `l5tracks.SolidBodyEstimate` and never infers `final`.
-Remaining: `PassageSummary`, `ExposureWindow` and their migrations, passage speed metrics, a class
-confidence gate (applicability currently gates on motion class alone), and a `final`-stage
-trajectory source, which waits for the state-estimation smoother.
+Sprint 0.5.2.4 adds the `final`-stage trajectory source: `TrajectoriesFromEstimates` reads one
+version of persisted estimates, online, fixed-lag or the smoother's final rows, taking the stage
+from the row, the only place a sample is `final`. A row carries pose, velocity and covariance and
+nothing else, so its samples have no heading, extent or class. Remaining: `PassageSummary`,
+`ExposureWindow` and their migrations, passage speed metrics, a class confidence gate
+(applicability currently gates on motion class alone), and class, heading and extent beliefs
+persisted with each estimate, without which no persisted sample can place a physical endpoint.
 
 ### Phase 6B: pairwise interactions
 
@@ -1394,14 +1421,16 @@ closed-form endpoint overstating the gap by about 2 cm, well inside its sigma.
 
 Following encounters are persisted (Section 10.3), keyed by registry metric id, with
 predicted-only time stored apart from observed opportunity and every stored name checked against
-the registry. The report oracle is delivered (Section 10.4), and a scene's encounters are pooled
-into a headway distribution and served, with an SVG chart on the scene page (Section 10.4).
-Remaining: storing the directed path's geometry, which events reference by id only; a provisional
-run over persisted estimator output (sprint 0.5.2.4); calibration of every fixture-valued bound,
-the speed floor, corridor, grouping bound and common-mode fraction first; a per-follower total of
-valid following time across leaders; and the held-out physical validation run itself, which needs
-independently annotated references, a scoring plan pinned before scoring, and the gates G-GEO-1,
-G-UNC-1 and G-SMO-1.
+the registry. The report oracle and the provisional field run over persisted estimator output are
+delivered (Section 10.4), and a scene's encounters are pooled into a headway distribution and
+served, with an SVG chart on the scene page (Section 10.4). On kirk0 the field run finds pairs and
+publishes nothing, because persisted estimates carry no class, heading or extent. Remaining:
+storing the directed path's geometry, which events reference by id only; persisting class, heading
+and extent beliefs with each estimate, so a field instant can be evaluated at all; calibration of
+every fixture-valued bound, the speed floor, corridor, grouping bound and common-mode fraction
+first; a per-follower total of valid following time across leaders; and the held-out physical
+validation run itself, which needs independently annotated references, a scoring plan pinned
+before scoring, and the gates G-GEO-1, G-UNC-1 and G-SMO-1.
 
 **Suppression conditions.** Either party coasting; either party's extent belief
 unconverged; closing speed below `3 σ_Δv`.

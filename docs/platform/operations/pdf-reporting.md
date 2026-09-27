@@ -64,15 +64,16 @@ Two documents compile through the same pipeline, each from its own entry
 template. A render materialises, and a source ZIP ships, only the templates its
 entry needs, so each archive recompiles exactly what was rendered.
 
-| Document       | Entry         | Entry point                        | Data contract                          |
-| -------------- | ------------- | ---------------------------------- | -------------------------------------- |
-| Radar speed    | `report.typ`  | `velocity report pdf`, HTTP API    | `typst.ReportData`                     |
-| Headway report | `headway.typ` | `velocity report headway --oracle` | `headway.Report` (`headway_report_v1`) |
+| Document       | Entry         | Entry point                                  | Data contract                          |
+| -------------- | ------------- | -------------------------------------------- | -------------------------------------- |
+| Radar speed    | `report.typ`  | `velocity report pdf`, HTTP API              | `typst.ReportData`                     |
+| Headway report | `headway.typ` | `velocity report headway --oracle` or `--db` | `headway.Report` (`headway_report_v2`) |
 
 The headway report is the behaviour plan's first headway report (Section 10.4):
-observed following exposure for leader and follower encounters. It reads no
-database yet; only its synthetic oracle, built from analytic trajectories and
-labelled as such on every page and chart, exists. See the
+observed following exposure for leader and follower encounters. It is either a
+synthetic oracle, built from analytic trajectories, or a provisional field run
+over one version of an evidence database's persisted estimates; its status is
+printed on every page and chart. See the
 [headway report oracle](../../lidar/operations/headway-report-oracle.md).
 
 ## Report artefacts

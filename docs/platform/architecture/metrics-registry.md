@@ -128,9 +128,10 @@ Definitions that every surface must keep:
 
 ### Following metric surfaces
 
-The surface completeness check for the following family. Persistence and the scene API are built
-([behaviour plan Sections 10.3 and 10.4](../../plans/lidar-behaviour-analytics-plan.md#103-persistence));
-the report is not, and must use the same names. Stored metric values are keyed by id inside
+The surface completeness check for the following family. Persistence, the scene API and the
+headway report's data file (`headway_report_v2`) are built
+([behaviour plan Sections 10.3 and 10.4](../../plans/lidar-behaviour-analytics-plan.md#103-persistence)),
+and all use the same names. Stored metric values are keyed by id inside
 each row's JSON payload, and no column names a metric. `event_json`, `instant_json` and
 `window_json` are the payloads of `lidar_interaction_events`, `lidar_interaction_instants` and
 `lidar_exposure_windows`.
@@ -152,8 +153,10 @@ Every name a surface emits is checked by `AuditSurfaceJSON` in
 [internal/lidar/l8behaviour/surface.go](../../../internal/lidar/l8behaviour/surface.go): an object
 key must be a registered metric id, a suppression reason token or a structural name from one shared
 list, no key or value may be an alias, and a value claiming the `interaction.` level must be a
-registered id. The persisted payloads, table columns and scene API responses are audited in tests;
-the report PR audits what it serves the same way.
+registered id. The persisted payloads, table columns and scene API responses are audited in
+tests, and so is the report's `data.json`, both as rendered and by a walk over every field its
+contract can write; the report's structural names sit in their own section of the shared list.
+Contract v2 renamed the report's spatial gap series from `gap`, an alias, to `spatial_gap`.
 
 The scene API, `GET /api/scenes/<id>/headway`, serves one version group's distribution under
 `distribution` and one row per encounter under `encounters`
