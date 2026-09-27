@@ -1,0 +1,103 @@
+wrote immutable source manifest /Users/david/s2-t0/sp1024/source-manifest.json (sha256:7b474c51199488f5226813bbd0e3b3f91aa5ced3e65ade2bc3eac599dde0c718)
+marina-webster-beach: first run across 4 capture(s)
+2026/09/27 08:00:11 ran database initialisation script
+2026/09/27 08:00:11 [migrate] 1/u original_schema (866.5µs)
+2026/09/27 08:00:11 [migrate] 2/u json_and_write_timestamp (1.939042ms)
+2026/09/27 08:00:11 [migrate] 3/u rename_tables (2.258167ms)
+2026/09/27 08:00:11 [migrate] 4/u create_lidar_bg_snapshot (3.059334ms)
+2026/09/27 08:00:11 [migrate] 5/u create_radar_data_transits (2.549792ms)
+2026/09/27 08:00:11 [migrate] 6/u create_radar_transit_links (3.388542ms)
+2026/09/27 08:00:11 [migrate] 7/u create_site_table (2.878792ms)
+2026/09/27 08:00:11 [migrate] 8/u create_site_reports (3.716291ms)
+2026/09/27 08:00:11 [migrate] 9/u add_velocity_report_prefix (3.769667ms)
+2026/09/27 08:00:11 [migrate] 10/u create_lidar_tracks (4.106792ms)
+2026/09/27 08:00:11 [migrate] 11/u create_lidar_analysis_runs (4.524584ms)
+2026/09/27 08:00:11 [migrate] 12/u add_track_quality_metrics (5.972042ms)
+2026/09/27 08:00:11 [migrate] 13/u create_site_config_periods (5.325125ms)
+2026/09/27 08:00:11 [migrate] 14/u remove_site_config_fields (5.32175ms)
+2026/09/27 08:00:11 [migrate] 15/u add_site_map_fields (6.910791ms)
+2026/09/27 08:00:11 [migrate] 16/u lidar_labels (6.95825ms)
+2026/09/27 08:00:11 [migrate] 17/u create_lidar_bg_regions (6.994917ms)
+2026/09/27 08:00:11 [migrate] 18/u add_quality_label (7.230917ms)
+2026/09/27 08:00:11 [migrate] 19/u add_lidar_labels_scene_source (7.777333ms)
+2026/09/27 08:00:11 [migrate] 20/u create_lidar_scenes (7.875875ms)
+2026/09/27 08:00:11 [migrate] 21/u create_lidar_missed_regions (7.66925ms)
+2026/09/27 08:00:11 [migrate] 22/u create_lidar_sweeps (7.462166ms)
+2026/09/27 08:00:11 [migrate] 23/u add_vrlog_path (5.489041ms)
+2026/09/27 08:00:11 [migrate] 24/u add_sweep_metadata (7.443333ms)
+2026/09/27 08:00:11 [migrate] 25/u add_label_source (6.7765ms)
+2026/09/27 08:00:11 [migrate] 26/u update_label_taxonomy (5.204542ms)
+2026/09/27 08:00:11 [migrate] 27/u add_sweep_checkpoint (6.388584ms)
+2026/09/27 08:00:11 [migrate] 28/u create_lidar_evaluations (6.370875ms)
+2026/09/27 08:00:11 [migrate] 29/u expand_label_vocabulary (6.023ms)
+2026/09/27 08:00:11 [migrate] 30/u schema_simplification (25.261375ms)
+2026/09/27 08:00:11 [migrate] 31/u table_naming (38.59975ms)
+2026/09/27 08:00:11 [migrate] 32/u create_lidar_all_tracks_view (38.649834ms)
+2026/09/27 08:00:11 [migrate] 33/u replay_annotations_and_eval_integrity (40.784833ms)
+2026/09/27 08:00:11 [migrate] 34/u schema_hardening_pre_v050 (54.1245ms)
+2026/09/27 08:00:11 [migrate] 35/u lidar_immutable_run_config (55.206792ms)
+2026/09/27 08:00:11 [migrate] 36/u drop_legacy_params_json (60.843875ms)
+2026/09/27 08:00:11 [migrate] 37/u seed_config_period_pi_day (61.869334ms)
+2026/09/27 08:00:11 [migrate] 38/u create_radar_serial_config (60.734459ms)
+2026/09/27 08:00:11 [migrate] 39/u create_lidar_scenes (60.87175ms)
+2026/09/27 08:00:11 [migrate] 40/u add_scene_vantages (61.384666ms)
+2026/09/27 08:00:11 [migrate] 41/u drop_scene_vantages (44.111208ms)
+2026/09/27 08:00:11 [migrate] 42/u create_lidar_capture_index (30.999375ms)
+2026/09/27 08:00:11 [migrate] 43/u create_lidar_capture_jobs (31.217917ms)
+2026/09/27 08:00:11 [migrate] 44/u replay_case_files (30.323834ms)
+2026/09/27 08:00:11 [migrate] 45/u replay_case_geography (20.839542ms)
+2026/09/27 08:00:11 [migrate] 46/u lidar_sites (18.449417ms)
+2026/09/27 08:00:11 [migrate] 47/u lidar_observations (13.884875ms)
+2026/09/27 08:00:11 [migrate] 48/u lidar_track_estimates (12.921042ms)
+2026/09/27 08:00:11 [migrate] 49/u lidar_track_residuals (12.838333ms)
+2026/09/27 08:00:11 [migrate] 50/u lidar_track_estimate_revisions (12.71075ms)
+2026/09/27 08:00:11 [migrate] 51/u lidar_interaction_persistence (12.742042ms)
+2026/09/27 08:00:11 [migrate] 52/u lidar_track_solid_bodies (11.121708ms)
+2026/09/27 08:00:11 [migrate] 53/u lidar_solid_body_support (13.213375ms)
+2026/09/27 08:00:11 Database baselined at version 53
+2026/09/27 08:00:11 replaying 4 capture file(s) (port 2369) through the perception pipeline
+marina-webster-beach: repeat run
+2026/09/27 08:02:07 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/27 08:02:07 replaying 4 capture file(s) (port 2369) through the perception pipeline
+marina-webster-beach: capture time frames=11446 backward=0 duplicate=0 clamped_gaps=17 max_gap=4.200s
+marina-webster-beach: continuity born=1800 confirmed=519 reacquired=4358 expired misses=1808 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+marina-webster-beach: solid bodies=39399 near_edge_fixes=14557 (36.9%) lapses=402; lateral p99 point estimates 0.194 m, solid bodies 0.231 m over 3984 body-centre windows
+columbus-broadway: first run across 7 capture(s)
+2026/09/27 08:05:19 ran database initialisation script
+2026/09/27 08:05:19 Database baselined at version 53
+2026/09/27 08:05:19 replaying 7 capture file(s) (port 2369) through the perception pipeline
+columbus-broadway: repeat run
+2026/09/27 08:12:05 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/27 08:12:05 replaying 7 capture file(s) (port 2369) through the perception pipeline
+columbus-broadway: capture time frames=20308 backward=0 duplicate=0 clamped_gaps=45 max_gap=5.900s
+columbus-broadway: continuity born=7500 confirmed=2459 reacquired=9882 expired misses=7496 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+columbus-broadway: solid bodies=77949 near_edge_fixes=40630 (52.1%) lapses=898; lateral p99 point estimates 0.254 m, solid bodies 0.386 m over 4092 body-centre windows
+embarcadero-folsom: first run across 5 capture(s)
+2026/09/27 08:17:30 ran database initialisation script
+2026/09/27 08:17:30 Database baselined at version 53
+2026/09/27 08:17:30 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-folsom: repeat run
+2026/09/27 08:20:23 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/27 08:20:23 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-folsom: capture time frames=11851 backward=0 duplicate=0 clamped_gaps=13 max_gap=2.701s
+embarcadero-folsom: continuity born=1869 confirmed=809 reacquired=3395 expired misses=1876 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+embarcadero-folsom: solid bodies=42953 near_edge_fixes=23663 (55.1%) lapses=495; lateral p99 point estimates 0.245 m, solid bodies 0.291 m over 2464 body-centre windows
+wrote 3 repeat-verified baseline(s) to /Users/david/s2-t0/sp1024/out
+     1584.92 real      2319.32 user       248.64 sys
+           961544192  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              832466  page reclaims
+                1883  page faults
+                   0  swaps
+                  15  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+             1244725  signals received
+             1784046  voluntary context switches
+            47335251  involuntary context switches
+      27117666947269  instructions retired
+       7748181248113  cycles elapsed
+          1093275264  peak memory footprint
