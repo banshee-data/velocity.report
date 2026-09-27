@@ -285,6 +285,12 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		ws.writeJSONError(w, 400, "invalid request JSON")
 		return
 	}
+	// Apply the defaults here as well as in findRunSegments, which works on a
+	// copy: the held-out guard and the stored row must name the finder and role
+	// that ranked the window, or the clip job refuses the selection as drifted.
+	if req.Finder == "" {
+		req.Finder = "following"
+	}
 	if req.Role == "" {
 		req.Role = "tuning"
 	}
@@ -378,7 +384,7 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 	}
 	paramsJSON, _ := json.Marshal(p)
 	windowJSON, _ := json.Marshal(chosen)
-	_, err = ws.db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,replay_case_id,role,finder,parameters_json,window_json,created_at_ns) VALUES(?,?,?,?,?,?,?,?)`, chosen.ID, req.RunID, scene.ReplayCaseID, req.Role, req.Finder, string(paramsJSON), string(windowJSON), time.Now().UnixNano())
+	_, err = ws.db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,replay_case_id,role,finder,parameters_json,window_json,created_at_ns) VALUES(?,?,?,?,?,?,?,?)`, chosen.ID, req.RunID, scene.ReplayCaseID, chosen.Role, chosen.Finder, string(paramsJSON), string(windowJSON), time.Now().UnixNano())
 	if err != nil {
 		_ = store.DeleteScene(scene.ReplayCaseID)
 		ws.writeJSONError(w, 500, err.Error())

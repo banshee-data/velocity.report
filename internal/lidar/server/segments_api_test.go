@@ -471,6 +471,31 @@ func TestSegmentCaseRejectsMalformedRequestsAndUnplacedWindows(t *testing.T) {
 	}
 }
 
+func TestSegmentCaseStoresTheFinderAndRoleThatRankedTheWindow(t *testing.T) {
+	ws, _ := segmentServer(t)
+	chosen := firstFollowingSegment(t, ws, "tuning")
+	// Neither finder nor role is sent: both defaults must reach the stored row,
+	// or the clip job later refuses the selection as drifted.
+	response := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run"}, ws.handleSegmentByID)
+	if response.Code != 201 {
+		t.Fatalf("default finder and role: %d %s", response.Code, response.Body.String())
+	}
+	var finder, role, windowJSON string
+	if err := ws.db.QueryRow(`SELECT finder,role,window_json FROM lidar_segment_selections WHERE segment_id=?`, chosen.ID).Scan(&finder, &role, &windowJSON); err != nil {
+		t.Fatal(err)
+	}
+	var stored segments.Window
+	if err := json.Unmarshal([]byte(windowJSON), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if finder != "following" || role != "tuning" || stored.Finder != finder || stored.Role != role {
+		t.Fatalf("stored finder %q role %q, window finder %q role %q", finder, role, stored.Finder, stored.Role)
+	}
+	if stored.ID != segments.Identity(finder, stored.Source, role, segments.DefaultParams(), stored.StartNs) {
+		t.Fatalf("stored selection cannot reproduce its own identity: %+v", stored)
+	}
+}
+
 func TestSegmentCaseReportsDatabaseWriteFailures(t *testing.T) {
 	for _, tc := range []struct {
 		name, sql, role string
@@ -597,5 +622,59 @@ func TestSegmentStripEndpointRejectsExcessWindows(t *testing.T) {
 	})
 	if w.Code != 413 {
 		t.Fatalf("oversized strip status: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSceneClipRouteQueuesOnlyOnPost(t *testing.T) {
+	ws, _ := segmentServer(t)
+	chosen := firstFollowingSegment(t, ws, "tuning")
+	created := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run"}, ws.handleSegmentByID)
+	var selected struct {
+		ReplayCaseID string `json:"replay_case_id"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &selected); err != nil || selected.ReplayCaseID == "" {
+		t.Fatalf("case: %d %s", created.Code, created.Body.String())
+	}
+	path := "/api/lidar/scenes/" + selected.ReplayCaseID + "/clip"
+	if response := callSegment(t, ws, "GET", path, nil, ws.handleSceneByID); response.Code != 405 {
+		t.Fatalf("clip by GET: %d %s", response.Code, response.Body.String())
+	}
+	response := callSegment(t, ws, "POST", path, nil, ws.handleSceneByID)
+	if response.Code != 202 {
+		t.Fatalf("clip by POST: %d %s", response.Code, response.Body.String())
+	}
+	var queued struct {
+		SegmentID string `json:"segment_id"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &queued); err != nil || queued.SegmentID != chosen.ID {
+		t.Fatalf("queued clip names segment %q, want %q: %v", queued.SegmentID, chosen.ID, err)
+	}
+}
+
+func TestSegmentCaptureOutsideTheSafeDirectoryIsRefused(t *testing.T) {
+	ws, _ := segmentServer(t)
+	chosen := firstFollowingSegment(t, ws, "tuning")
+	// A capture path that cannot be expressed under the safe directory must
+	// stop the case, even if the index and the resolver both accepted it.
+	ops := segmentCaseOperations{
+		getRun: sqlite.NewAnalysisRunStore(ws.db).GetRun,
+		captures: func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error) {
+			return []segments.Capture{{Path: "relative.pcap", FirstNs: chosen.StartNs, LastNs: chosen.EndNs}}, nil
+		},
+		resolve: func(path string) (string, error) { return path, nil },
+	}
+	response := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run"}, func(w http.ResponseWriter, r *http.Request) {
+		ws.handleSegmentByIDWith(w, r, ops)
+	})
+	if response.Code != 400 {
+		t.Fatalf("capture outside the safe directory: %d %s", response.Code, response.Body.String())
+	}
+	var cases int
+	if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_cases`).Scan(&cases); err != nil || cases != 0 {
+		t.Fatalf("refused capture still made %d replay cases: %v", cases, err)
+	}
+	ws.pcapSafeDir = "relative-safe-directory"
+	if resolved, err := ws.resolveSegmentCapture("/absolute/capture.pcap"); err == nil {
+		t.Fatalf("absolute capture resolved against a relative safe directory: %q", resolved)
 	}
 }
