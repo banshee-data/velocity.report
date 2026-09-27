@@ -749,6 +749,10 @@ func TestSolidBodyFromTrackAcceptsADisambiguatedHeading(t *testing.T) {
 		e := SolidBodyFromTrack(tr, MotionClassBelief{Class: MotionRigidVehicle, Posterior: 0.9},
 			DefaultConvergenceBounds())
 		e.Estimation = EstimationEstablished
+		// The heading is what this test is about: a tracked position is no
+		// place on the body, so the centre is supplied here as a body model
+		// with a declared offset would supply it.
+		e.Reference = ReferenceBodyCentre
 
 		if !e.Orientation.IsResolved() {
 			t.Errorf("%v heading was not treated as resolved", source)
@@ -850,5 +854,51 @@ func TestPersistedNamesRoundTripAndRefuseTheUnknown(t *testing.T) {
 	}
 	if _, err := ParseReferencePoint("centre"); err == nil {
 		t.Error("an unknown reference point was accepted")
+	}
+}
+
+// R1 of the 0.5.2 review: a tracked position is named for the geometry that
+// entered the filter, never the body centre. The medoid and the centre of the
+// visible box are not places on the body, so no surface is projected from
+// either, however well the heading and extents are known.
+func TestSolidBodyFromTrackNamesTheGeometryItWasFed(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		observations int
+		source       MeasurementSource
+		want         ReferencePoint
+	}{
+		{"not yet measured", 0, "", ReferenceClusterMedoid},
+		{"medoid", 5, MeasurementMedoidV0, ReferenceClusterMedoid},
+		{"medoid fallback", 5, MeasurementMedoidFallbackV1, ReferenceClusterMedoid},
+		{"visible box centre", 5, MeasurementOBBCentreV1, ReferenceVisibleOBBCentre},
+		{"unrecorded source", 5, "", ReferenceUnknown},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			tr := &TrackedObject{X: 1, Y: 1, VX: 10, OBBHeadingRad: 0.05,
+				P: [16]float32{0.04, 0, 0, 0, 0, 0.04, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+			tr.ObservationCount = c.observations
+			tr.LastMeasurementSource = c.source
+			tr.HeadingSource = HeadingSourceVelocity
+			tr.HeadingJitterCount, tr.HeadingJitterSumSq = 20, 0.02
+			for i := 0; i < 5; i++ {
+				tr.lengthBelief.Observe(4.4)
+				tr.widthBelief.Observe(1.8)
+			}
+			e := SolidBodyFromTrack(tr, MotionClassBelief{Class: MotionRigidVehicle, Posterior: 0.9}, DefaultConvergenceBounds())
+			e.Estimation = EstimationEstablished
+			if e.Reference != c.want {
+				t.Fatalf("reference = %s, want %s", e.Reference, c.want)
+			}
+			if e.Reference.IsPhysical() {
+				t.Fatalf("%s is treated as a place on the body", e.Reference)
+			}
+			if _, ok := e.ProjectSurface(SurfaceFront); ok {
+				t.Fatalf("a front surface was projected from %s", e.Reference)
+			}
+		})
+	}
+	if r, err := ParseReferencePoint(ReferenceVisibleOBBCentre.String()); err != nil || r != ReferenceVisibleOBBCentre {
+		t.Fatalf("visible_obb_centre does not round-trip: %v, %v", r, err)
 	}
 }

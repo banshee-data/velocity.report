@@ -20,13 +20,16 @@ import (
 // modes.
 //
 //	velocity report headway --oracle [--output DIR] [--paper letter|a4]
-//	velocity report headway --db EVIDENCE.db --source ID [--stage final|fixed_lag|online]
+//	velocity report headway --db EVIDENCE.db --source ID [--solid-bodies] [--stage final|fixed_lag|online]
 //	    [--estimator ID] [--obs-model ID] [--param-hash HASH] [--output DIR] [--paper letter|a4]
 //
 // --oracle renders the synthetic oracle from the analytic encounter
 // scenarios. --db runs the provisional field slice over one version of the
 // persisted estimates in an evidence database: it stores the encounters it
 // derives there, write-once, and renders the report labelled provisional.
+// --solid-bodies reads the persisted solid bodies instead of the point
+// estimates: a point estimate refers to the medoid or the visible box, never
+// the body, so only solid bodies can place an endpoint.
 func runHeadway(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("velocity report headway", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -35,6 +38,7 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 	dbPath := fs.String("db", "", "Evidence database holding persisted estimates; the provisional field report "+
 		"(its derived encounters are stored in it)")
 	source := fs.String("source", "", "With --db: the estimates' source id (source/v1/...)")
+	solidBodies := fs.Bool("solid-bodies", false, "With --db: read lidar_track_solid_bodies instead of lidar_track_estimates")
 	stage := fs.String("stage", l8behaviour.StageFinal.String(), "With --db: estimate stage, final, fixed_lag or online")
 	estimator := fs.String("estimator", "", "With --db: estimator id, when the source holds several versions at the stage")
 	obsModel := fs.String("obs-model", "", "With --db: observation model id, when the source holds several versions at the stage")
@@ -58,7 +62,8 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 	if *oracle {
 		// Any --db-only flag given explicitly is refused, --stage included,
 		// though its default is not empty: the oracle would ignore it.
-		dbOnly := map[string]bool{"source": true, "stage": true, "estimator": true, "obs-model": true, "param-hash": true}
+		dbOnly := map[string]bool{"source": true, "solid-bodies": true, "stage": true, "estimator": true, "obs-model": true,
+			"param-hash": true}
 		var misplaced []string
 		fs.Visit(func(f *flag.Flag) {
 			if dbOnly[f.Name] {
@@ -89,7 +94,8 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	} else {
-		spec := fieldrun.Spec{SourceID: *source, EstimatorID: *estimator, ObsModelID: *obsModel, ParamHash: *paramHash}
+		spec := fieldrun.Spec{SourceID: *source, SolidBodies: *solidBodies, EstimatorID: *estimator, ObsModelID: *obsModel,
+			ParamHash: *paramHash}
 		if spec.Stage, err = l8behaviour.ParseEstimateStage(*stage); err != nil {
 			fmt.Fprintf(stderr, "error: --stage: %v; want final, fixed_lag or online\n", err)
 			return 2
@@ -133,7 +139,7 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 
 	if spec.SourceID == "" {
 		fmt.Fprintln(stderr, "error: --source is required with --db")
-		versions, err := sqlite.NewStateEstimateStore(database).ListEstimateVersions()
+		versions, err := fieldrun.ListVersions(sqlite.NewStateEstimateStore(database), spec.SolidBodies)
 		if err != nil {
 			fmt.Fprintf(stderr, "error: list estimate versions: %v\n", err)
 			return headway.Report{}, 1
@@ -146,7 +152,7 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 			stages[v.SourceID][v.Stage] = true
 		}
 		if len(stages) == 0 {
-			fmt.Fprintf(stderr, "%s holds no persisted estimates\n", path)
+			fmt.Fprintf(stderr, "%s holds no persisted %s\n", path, headwayRowsNoun(spec.SolidBodies))
 		}
 		sources := make([]string, 0, len(stages))
 		for s := range stages {
@@ -177,9 +183,20 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 	}
 	fmt.Fprintf(stdout, "Status: %s\n", r.StatusLabel)
 	e := run.Estimates
-	fmt.Fprintf(stdout, "Estimates: %s %s, %s, %s (%d rows)\n", e.Stage, e.EstimatorID, e.ObservationModelID, e.ParamHash, e.Estimates)
+	label := "Estimates"
+	if run.SolidBodies {
+		label = "Solid bodies"
+	}
+	fmt.Fprintf(stdout, "%s: %s %s, %s, %s (%d rows)\n", label, e.Stage, e.EstimatorID, e.ObservationModelID, e.ParamHash, e.Estimates)
 	for _, line := range run.Summary().Lines() {
 		fmt.Fprintln(stdout, line)
 	}
 	return r, 0
+}
+
+func headwayRowsNoun(solidBodies bool) string {
+	if solidBodies {
+		return "solid bodies"
+	}
+	return "estimates"
 }

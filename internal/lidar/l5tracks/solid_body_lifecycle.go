@@ -242,14 +242,7 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		},
 	}
 
-	// The current measurement is an OBB centre, which is a place on the body
-	// rather than a point in the cluster, so the reference is the body centre
-	// once anything has been measured at all.
-	if t.ObservationCount > 0 {
-		e.Reference = ReferenceBodyCentre
-	} else {
-		e.Reference = ReferenceClusterMedoid
-	}
+	e.Reference = trackReference(t)
 
 	e.Length = dimensionFromBelief(t.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 	e.Width = dimensionFromBelief(t.widthBelief, prior.widthMetres, prior.sigmaMetres)
@@ -266,6 +259,26 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 	}
 
 	return e
+}
+
+// trackReference is the point a track's filtered position refers to: what
+// the geometry that last entered the filter was. Neither the medoid nor the
+// centre of the visible box is a place on the body; only a body model with a
+// declared offset, such as the near-edge solid body, may claim the centre.
+// A track not yet measured holds its seed, and a source this code does not
+// know names nothing.
+func trackReference(t *TrackedObject) ReferencePoint {
+	if t.ObservationCount <= 0 {
+		return ReferenceClusterMedoid
+	}
+	switch t.LastMeasurementSource {
+	case MeasurementMedoidV0, MeasurementMedoidFallbackV1:
+		return ReferenceClusterMedoid
+	case MeasurementOBBCentreV1:
+		return ReferenceVisibleOBBCentre
+	default:
+		return ReferenceUnknown
+	}
 }
 
 // trackOrientation reads the track's current heading decision as an

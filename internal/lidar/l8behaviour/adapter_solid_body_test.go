@@ -1,6 +1,7 @@
 package l8behaviour
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -131,5 +132,131 @@ func TestSampleFromSolidBodyReadingRefusesADisagreeingCovariance(t *testing.T) {
 	pr.reading.Covariance[0] += 1
 	if _, err := SampleFromSolidBodyReading(pr.reading, pr.capture, l5tracks.DefaultConvergenceBounds()); err == nil {
 		t.Fatal("a reading whose covariance disagrees with its estimate was accepted")
+	}
+}
+
+// persistedPass files the synthetic pass's readings as one online version of
+// lidar_track_solid_bodies rows, as the online sink writes them.
+func persistedPass(t *testing.T) []PersistedSolidBody {
+	t.Helper()
+	var rows []PersistedSolidBody
+	for _, pr := range synthesisedPassReadings(t) {
+		rows = append(rows, PersistedSolidBody{
+			TrackID: "trk_pass", SensorID: "sensor_a", FrameUnixNanos: pr.capture,
+			EstimatorID: "cv_kf_v1", ObsModelID: string(l5tracks.MeasurementNearEdgeCandidateV1),
+			ParamHash: "sha256:online", Stage: "online", Reading: pr.reading,
+		})
+	}
+	return rows
+}
+
+// TestTrajectoriesFromSolidBodies: persisted readings become the samples a
+// live reading does, with the class from the latest row, the reference each
+// row named, and each measurement's acquisition time.
+func TestTrajectoriesFromSolidBodies(t *testing.T) {
+	rows := persistedPass(t)
+	// Out of order, as a query need not return them.
+	rows[0], rows[len(rows)-1] = rows[len(rows)-1], rows[0]
+	trajectories, err := TrajectoriesFromSolidBodies(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trajectories) != 1 || len(trajectories[0].Samples) != len(rows) {
+		t.Fatalf("%d trajectories", len(trajectories))
+	}
+	tr := trajectories[0]
+	want := EstimateIdentity{EstimatorID: "cv_kf_v1", ObsModelID: "near_edge_candidate_v1", ParamHash: "sha256:online"}
+	if tr.Estimate != want || tr.Passage.SensorID != "sensor_a" || tr.Passage.MotionClass != MotionRigidVehicle ||
+		tr.Passage.ClassConfidence == nil {
+		t.Fatalf("passage %+v, estimate %+v", tr.Passage, tr.Estimate)
+	}
+	centred := 0
+	for i, s := range tr.Samples {
+		if i > 0 && s.CaptureUnixNanos <= tr.Samples[i-1].CaptureUnixNanos {
+			t.Fatal("samples are not in frame order")
+		}
+		if s.Stage != StageOnline || s.Support != SupportObserved || s.LastObservedUnixNanos != s.CaptureUnixNanos {
+			t.Fatalf("sample %d: %+v", i, s)
+		}
+		if s.AcquisitionUnixNanos <= 0 {
+			t.Fatalf("sample %d lost its acquisition time", i)
+		}
+		switch s.Reference {
+		case ReferenceBodyCentre:
+			centred++
+		case ReferenceClusterMedoid:
+			if s.Faces != (FaceVisibility{}) {
+				t.Fatalf("sample %d claims a face from the medoid", i)
+			}
+		default:
+			t.Fatalf("sample %d refers to %s", i, s.Reference)
+		}
+	}
+	if centred == 0 {
+		t.Fatal("no near-edge fix placed the body centre")
+	}
+	if out, err := TrajectoriesFromSolidBodies(nil, l5tracks.DefaultConvergenceBounds()); err != nil || out != nil {
+		t.Errorf("no rows = %v, %v; want nothing and no error", out, err)
+	}
+}
+
+// TestTrajectoriesFromSolidBodiesRefusesWhatARowCannotSay: a mixed version,
+// a stage its reading does not state, an unknown stage, two sensors, the
+// fixture's identity and a reading that is not a sample are errors.
+func TestTrajectoriesFromSolidBodiesRefusesWhatARowCannotSay(t *testing.T) {
+	for name, mutate := range map[string]func([]PersistedSolidBody){
+		"mixed parameters": func(r []PersistedSolidBody) { r[1].ParamHash = "sha256:other" },
+		"relabelled final": func(r []PersistedSolidBody) {
+			for i := range r {
+				r[i].Stage = "final"
+			}
+		},
+		"unknown stage": func(r []PersistedSolidBody) {
+			for i := range r {
+				r[i].Stage = "smoothed"
+			}
+		},
+		"two sensors":       func(r []PersistedSolidBody) { r[len(r)-1].SensorID = "sensor_b" },
+		"no parameter hash": func(r []PersistedSolidBody) { r[0].ParamHash = "" },
+		"fixture identity": func(r []PersistedSolidBody) {
+			for i := range r {
+				f := FixtureEstimate()
+				r[i].EstimatorID, r[i].ObsModelID, r[i].ParamHash = f.EstimatorID, f.ObsModelID, f.ParamHash
+			}
+		},
+		"unknown reference": func(r []PersistedSolidBody) { r[1].Reading.Estimate.Reference = l5tracks.ReferenceUnknown },
+		"repeated frame":    func(r []PersistedSolidBody) { r[1].FrameUnixNanos = r[0].FrameUnixNanos },
+	} {
+		t.Run(name, func(t *testing.T) {
+			rows := persistedPass(t)
+			mutate(rows)
+			if _, err := TrajectoriesFromSolidBodies(rows, l5tracks.DefaultConvergenceBounds()); err == nil {
+				t.Fatal("want an error")
+			}
+		})
+	}
+}
+
+// TestSampleFromSolidBodyReadingAveragesRoundOff: the shadow filter's float32
+// covariance, whose pairs differ in their last places as kirk0's persisted
+// solid bodies do, is averaged into one symmetric matrix; a pair further
+// apart than round-off is refused.
+func TestSampleFromSolidBodyReadingAveragesRoundOff(t *testing.T) {
+	pr := synthesisedPassReadings(t)[0]
+	r := pr.reading
+	r.Covariance[1] = 0.01
+	r.Covariance[4] = math.Nextafter32(math.Nextafter32(0.01, 1), 1)
+	r.Estimate.PositionCovariance = [4]float32{r.Covariance[0], r.Covariance[1], r.Covariance[4], r.Covariance[5]}
+	s, err := SampleFromSolidBodyReading(r, pr.capture, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatalf("round-off refused: %v", err)
+	}
+	if s.Covariance[1] != s.Covariance[4] || s.Covariance[1] != float64(math.Nextafter32(0.01, 1)) {
+		t.Errorf("pair = %v and %v, want both the float32 between them", s.Covariance[1], s.Covariance[4])
+	}
+	r.Covariance[4] = 0.02
+	r.Estimate.PositionCovariance[2] = 0.02
+	if _, err := SampleFromSolidBodyReading(r, pr.capture, l5tracks.DefaultConvergenceBounds()); err == nil {
+		t.Error("an asymmetric covariance was accepted")
 	}
 }

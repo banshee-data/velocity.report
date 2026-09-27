@@ -84,10 +84,10 @@ const solidBodyInsertSQL = `INSERT OR REPLACE INTO lidar_track_solid_bodies
 		 width_m, width_sigma_m, width_frames, width_provenance,
 		 height_m, height_sigma_m, height_frames, height_provenance,
 		 ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state,
-		 last_observed_unix_nanos, support_points, coasted_frames,
+		 last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated,
 		 measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason, inserted_at_ns)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func solidBodyInsertArgs(sb TrackSolidBody, covariance []byte, insertedAtNanos int64) []any {
 	e := sb.Reading.Estimate
@@ -106,6 +106,7 @@ func solidBodyInsertArgs(sb TrackSolidBody, covariance []byte, insertedAtNanos i
 		e.Height.Metres, e.Height.SigmaMetres, e.Height.AdmissibleFrames, e.Height.Provenance.String(),
 		e.GroundZ, e.GroundSurfaceModel, e.Motion.Class.String(), e.Motion.Posterior, e.Estimation.String(),
 		e.LastObservedUnixNanos, e.Support.PointCount, e.Support.CoastedFrames,
+		e.Support.Instant.String(), e.Support.Fragmented, e.Support.Truncated,
 		string(m.Source), m.Rank, m.Faces.String(), m.InferredExtent, aspect, m.NIS, m.FallbackReason, insertedAtNanos,
 	}
 }
@@ -151,8 +152,18 @@ func (s *StateEstimateStore) InsertSolidBody(sb TrackSolidBody) error {
 // estimate_id. A row whose state_model this store does not know is an error,
 // never decoded by guessing.
 func (s *StateEstimateStore) ListSolidBodiesBySource(sourceID string) ([]TrackSolidBody, error) {
-	rows, err := s.db.Query(`
-		SELECT estimate_id, track_id, creation_sequence, observation_id, source_id, calibration_id
+	rows, err := s.db.Query(`SELECT `+solidBodyColumns+`
+		  FROM lidar_track_solid_bodies
+		 WHERE source_id = ?
+		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("list solid-body estimates for source %s: %w", sourceID, err)
+	}
+	return scanSolidBodies(rows)
+}
+
+// solidBodyColumns is the column list scanSolidBody reads, in its order.
+const solidBodyColumns = `estimate_id, track_id, creation_sequence, observation_id, source_id, calibration_id
 		     , frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage
 		     , state_model, reference_point, x, y, vx, vy, covariance_json
 		     , heading_rad, heading_variance_rad2, heading_ambiguous_weight, heading_provenance
@@ -160,16 +171,11 @@ func (s *StateEstimateStore) ListSolidBodiesBySource(sourceID string) ([]TrackSo
 		     , width_m, width_sigma_m, width_frames, width_provenance
 		     , height_m, height_sigma_m, height_frames, height_provenance
 		     , ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state
-		     , last_observed_unix_nanos, support_points, coasted_frames
-		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason
-		  FROM lidar_track_solid_bodies
-		 WHERE source_id = ?
-		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID)
-	if err != nil {
-		return nil, fmt.Errorf("list solid-body estimates for source %s: %w", sourceID, err)
-	}
-	defer rows.Close()
+		     , last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated
+		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason`
 
+func scanSolidBodies(rows *sql.Rows) ([]TrackSolidBody, error) {
+	defer rows.Close()
 	out := []TrackSolidBody{}
 	for rows.Next() {
 		sb, err := scanSolidBody(rows)
@@ -184,24 +190,26 @@ func (s *StateEstimateStore) ListSolidBodiesBySource(sourceID string) ([]TrackSo
 	return out, nil
 }
 
-// scanSolidBody reads one row in ListSolidBodiesBySource's column order.
-func scanSolidBody(rows *sql.Rows) (TrackSolidBody, error) {
+// scanSolidBody reads one row of solidBodyColumns, then any extra columns
+// the query selected after them into extra.
+func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 	var (
 		sb                                                         TrackSolidBody
 		covariance                                                 []byte
 		reference, headingProv, lengthProv, widthProv, heightProv  string
 		motionClass, estimation, measurementSource, faces          string
+		supportInstant                                             string
 		aspect                                                     sql.NullFloat64
 		lengthFrames, widthFrames, heightFrames, supportPoints     int
 		coasted, rank                                              int
-		inferred                                                   bool
+		inferred, fragmented, truncated                            bool
 		e                                                          = &sb.Reading.Estimate
 		m                                                          = &sb.Reading.Measurement
 		x, y, vx, vy, psi, psiVar, ambiguity, groundZ, posterior   float64
 		lengthM, lengthSigma, widthM, widthSigma, heightM, heightS float64
 		nis                                                        float64
 	)
-	if err := rows.Scan(
+	dest := []any{
 		&sb.EstimateID, &sb.TrackID, &sb.CreationSequence, &sb.ObservationID, &sb.SourceID, &sb.CalibrationID,
 		&sb.FrameUnixNanos, &sb.MeasurementUnixNanos, &sb.EstimatorID, &sb.ObservationModelID, &sb.ParamHash, &sb.Stage,
 		&e.StateModel, &reference, &x, &y, &vx, &vy, &covariance,
@@ -210,9 +218,10 @@ func scanSolidBody(rows *sql.Rows) (TrackSolidBody, error) {
 		&widthM, &widthSigma, &widthFrames, &widthProv,
 		&heightM, &heightS, &heightFrames, &heightProv,
 		&groundZ, &e.GroundSurfaceModel, &motionClass, &posterior, &estimation,
-		&e.LastObservedUnixNanos, &supportPoints, &coasted,
+		&e.LastObservedUnixNanos, &supportPoints, &coasted, &supportInstant, &fragmented, &truncated,
 		&measurementSource, &rank, &faces, &inferred, &aspect, &nis, &m.FallbackReason,
-	); err != nil {
+	}
+	if err := rows.Scan(append(dest, extra...)...); err != nil {
 		return sb, fmt.Errorf("scan solid-body estimate: %w", err)
 	}
 	if !knownStateModel(e.StateModel) {
@@ -272,7 +281,16 @@ func scanSolidBody(rows *sql.Rows) (TrackSolidBody, error) {
 	e.Height = l5tracks.DimensionBelief{Metres: float32(heightM), SigmaMetres: float32(heightS), AdmissibleFrames: heightFrames, Provenance: e.Height.Provenance}
 	e.GroundZ = float32(groundZ)
 	e.Motion.Posterior = float32(posterior)
-	e.Support = l5tracks.SupportState{PointCount: supportPoints, CoastedFrames: coasted}
+	e.Support = l5tracks.SupportState{PointCount: supportPoints, CoastedFrames: coasted, Fragmented: fragmented, Truncated: truncated}
+	// A row written before migration 000053 recorded no token; it reads back
+	// unrecorded rather than as whatever its coasted count suggests.
+	if supportInstant != "" {
+		instant, ok := l5tracks.ParseObservationSupport(supportInstant)
+		if !ok {
+			return fail("support token", fmt.Errorf("unknown token %q", supportInstant))
+		}
+		e.Support.Instant = instant
+	}
 	m.Source = l5tracks.MeasurementSource(measurementSource)
 	m.Rank = rank
 	m.InferredExtent = inferred

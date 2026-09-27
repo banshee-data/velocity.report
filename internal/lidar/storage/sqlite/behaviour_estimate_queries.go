@@ -8,8 +8,9 @@ import (
 
 // Read path for behaviour analysis over persisted estimates (the provisional
 // headway run, internal/report/headway/fieldrun): one exact version of
-// lidar_track_estimates, any stage, with the sensor each row was observed by.
-// Version selection is ListEstimateVersions'; this reads what was selected.
+// lidar_track_estimates or lidar_track_solid_bodies, any stage, with the
+// sensor each row was observed by. Version selection is ListEstimateVersions'
+// or ListSolidBodyVersions'; this reads what was selected.
 
 // EstimateWithSensor is a persisted estimate and the sensor that observed
 // it, read through the immutable observation the estimate names.
@@ -64,6 +65,47 @@ func (s *StateEstimateStore) ListVersionEstimates(key EstimateVersionKey) ([]Est
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate estimates: %w", err)
+	}
+	return out, nil
+}
+
+// SolidBodyWithSensor is a persisted solid body and the sensor that observed
+// it, read through the immutable observation the row names.
+type SolidBodyWithSensor struct {
+	TrackSolidBody
+	SensorID string
+}
+
+// ListVersionSolidBodies returns one version's solid bodies in track and
+// frame order, each with the sensor_id of the lidar_observations row it links
+// to. As for ListVersionEstimates, a row whose observation is not stored is an
+// error rather than a row with an empty sensor.
+func (s *StateEstimateStore) ListVersionSolidBodies(key EstimateVersionKey) ([]SolidBodyWithSensor, error) {
+	rows, err := s.db.Query(`SELECT `+solidBodyColumns+`
+		     , (SELECT o.sensor_id FROM lidar_observations o WHERE o.observation_id = b.observation_id)
+		  FROM lidar_track_solid_bodies b
+		 WHERE source_id = ? AND estimator_id = ? AND observation_model_id = ?
+		   AND param_hash = ? AND stage = ?
+		 ORDER BY track_id, frame_unix_nanos, estimate_id`,
+		key.SourceID, key.EstimatorID, key.ObservationModelID, key.ParamHash, key.Stage)
+	if err != nil {
+		return nil, fmt.Errorf("list solid bodies %s/%s/%s: %w", key.SourceID, key.EstimatorID, key.Stage, err)
+	}
+	defer rows.Close()
+	out := []SolidBodyWithSensor{}
+	for rows.Next() {
+		var sensor sql.NullString
+		sb, err := scanSolidBody(rows, &sensor)
+		if err != nil {
+			return nil, err
+		}
+		if !sensor.Valid || sensor.String == "" {
+			return nil, fmt.Errorf("solid body %s names observation %s, which is not stored", sb.EstimateID, sb.ObservationID)
+		}
+		out = append(out, SolidBodyWithSensor{TrackSolidBody: sb, SensorID: sensor.String})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate solid bodies: %w", err)
 	}
 	return out, nil
 }

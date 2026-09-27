@@ -533,12 +533,17 @@ const (
 	// observed cluster. It is not a place on the body and no endpoint may be
 	// projected from it.
 	ReferenceClusterMedoid
+	// ReferenceVisibleOBBCentre is the centre of the box around the returns
+	// one frame saw. It is the body centre only when the whole body was in
+	// view, which nothing establishes, so it moves with visibility and no
+	// endpoint may be projected from it either.
+	ReferenceVisibleOBBCentre
 	referencePointEnd
 )
 
 var referencePoints = vocabulary[ReferencePoint]{
 	kind:  "reference point",
-	names: []string{"", "body_centre", "near_face_centre", "cluster_medoid"},
+	names: []string{"", "body_centre", "near_face_centre", "cluster_medoid", "visible_obb_centre"},
 }
 
 func (r ReferencePoint) String() string { return referencePoints.name(r) }
@@ -558,7 +563,9 @@ func ParseReferencePoint(s string) (ReferencePoint, error) { return referencePoi
 // ReferencePoints lists every reference point.
 func ReferencePoints() []ReferencePoint { return referencePoints.values() }
 
-// IsPhysical reports whether the reference denotes a place on the body.
+// IsPhysical reports whether the reference denotes a place on the body. The
+// medoid and the visible box centre are what the sensor happened to see; no
+// stage, smoother or estimation state turns either into one.
 func (r ReferencePoint) IsPhysical() bool {
 	return r == ReferenceBodyCentre || r == ReferenceNearFaceCentre
 }

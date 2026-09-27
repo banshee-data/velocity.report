@@ -65,6 +65,7 @@ func TestTrajectorySampleValidate(t *testing.T) {
 		},
 		"observed after capture":          func(s *TrajectorySample) { s.LastObservedUnixNanos = s.CaptureUnixNanos + 1 },
 		"never observed":                  func(s *TrajectorySample) { s.LastObservedUnixNanos = 0 },
+		"negative acquisition time":       func(s *TrajectorySample) { s.AcquisitionUnixNanos = -1 },
 		"observed instant seen earlier":   func(s *TrajectorySample) { s.LastObservedUnixNanos = s.CaptureUnixNanos - 1 },
 		"medoid reference with an offset": func(s *TrajectorySample) { s.Reference, s.AnchorToCentre.LateralM = ReferenceClusterMedoid, 1 },
 	} {

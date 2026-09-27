@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -77,5 +78,61 @@ func TestListVersionEstimates(t *testing.T) {
 	key.Stage = "final"
 	if _, err := store.ListVersionEstimates(key); err == nil || !strings.Contains(err.Error(), "not stored") {
 		t.Errorf("an estimate without its observation: error %v", err)
+	}
+}
+
+// TestListVersionSolidBodies reads exactly one version of solid bodies, in
+// track and frame order, with each row's observing sensor and its support
+// detail, and refuses a row whose observation is missing.
+func TestListVersionSolidBodies(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+	for _, track := range []string{"trk_b", "trk_a"} {
+		for _, frame := range []int64{200, 100} {
+			obs := fmt.Sprintf("observation/%d/%s", frame, track)
+			insertBareObservation(t, database, obs, "source/v1/frame", "sensor_a", frame)
+			for _, hash := range []string{"p1", "p2"} {
+				sb := testSolidBody(obs, frame)
+				sb.TrackID, sb.ParamHash = track, hash
+				sb.EstimateID = fmt.Sprintf("solid_body/%s/%s/%d", track, hash, frame)
+				if err := store.InsertSolidBody(sb); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	key := EstimateVersionKey{SourceID: "source/v1/frame", EstimatorID: "cv_kf_v1",
+		ObservationModelID: "near_edge_candidate_v1", ParamHash: "p1", Stage: "online"}
+	got, err := store.ListVersionSolidBodies(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, r := range got {
+		order = append(order, fmt.Sprintf("%s@%d", r.TrackID, r.FrameUnixNanos))
+		want := testSolidBody(r.ObservationID, r.FrameUnixNanos)
+		want.TrackID, want.EstimateID, want.ParamHash = r.TrackID, r.EstimateID, "p1"
+		if r.SensorID != "sensor_a" || !reflect.DeepEqual(r.TrackSolidBody, want) {
+			t.Errorf("row %s = %+v", r.EstimateID, r)
+		}
+	}
+	if strings.Join(order, " ") != "trk_a@100 trk_a@200 trk_b@100 trk_b@200" {
+		t.Errorf("order = %v", order)
+	}
+
+	key.Stage = "fixed_lag"
+	if none, err := store.ListVersionSolidBodies(key); err != nil || len(none) != 0 {
+		t.Errorf("an absent version = %d rows, %v", len(none), err)
+	}
+
+	orphan := testSolidBody("observation/missing", 300)
+	orphan.ParamHash = "p1"
+	if err := store.InsertSolidBody(orphan); err != nil {
+		t.Fatal(err)
+	}
+	key.Stage = "online"
+	if _, err := store.ListVersionSolidBodies(key); err == nil || !strings.Contains(err.Error(), "not stored") {
+		t.Errorf("a solid body without its observation: error %v", err)
 	}
 }
