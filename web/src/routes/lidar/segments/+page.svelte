@@ -1,10 +1,18 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { getLidarRuns } from '$lib/api';
+	import {
+		keepSelector,
+		requirementText,
+		scoreText,
+		segmentDetail,
+		segmentQuery,
+		selectorGroups,
+		type SegmentSelector
+	} from '$lib/segments';
 	import type { AnalysisRun } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 
-	type Finder = { name: string; version: number; held_out: boolean };
 	type Segment = {
 		id: string;
 		finder: string;
@@ -38,8 +46,11 @@
 	let runs: AnalysisRun[] = [];
 	let runID = '';
 	let role = 'tuning';
-	let finder = 'following';
-	let finders: Finder[] = [];
+	let selectorID = 'following';
+	let selectors: SegmentSelector[] = [];
+	// The digest of the selector the table was ranked with, sent with a case
+	// so that the server refuses it if the selector has changed since.
+	let rankedDigest = '';
 	let segments: Segment[] = [];
 	let packs: Pack[] = [];
 	let dismissed = new Set<string>();
@@ -49,12 +60,13 @@
 	let message = '';
 	let stripURL = '';
 
-	$: available = finders.filter((entry) => role !== 'held_out' || entry.held_out);
+	$: groups = selectorGroups(selectors, role);
+	$: chosen = selectors.find((entry) => entry.id === selectorID);
 	$: visible = segments.filter((entry) => !dismissed.has(entry.id));
 	$: selectedPack = packs.find((pack) => pack.segment_id === selected?.id);
 
 	function query() {
-		return new URLSearchParams({ run_id: runID, finder, role }).toString();
+		return segmentQuery(runID, selectorID, role);
 	}
 
 	async function api(path: string, init?: RequestInit) {
@@ -76,6 +88,7 @@
 				api('/api/annotations/packs').catch(() => ({ packs: [] }))
 			]);
 			segments = ranking.windows || [];
+			rankedDigest = ranking.selector?.digest ?? '';
 			packs = inventory.packs || [];
 			stripURL = `/api/lidar/segments/strip?${query()}`;
 			selected = segments.find((item) => item.id === selected?.id) ?? null;
@@ -87,8 +100,7 @@
 	}
 
 	async function changeRole() {
-		if (!available.some((entry) => entry.name === finder))
-			finder = available[0]?.name ?? 'following';
+		selectorID = keepSelector(selectorID, selectorGroups(selectors, role));
 		await load();
 	}
 
@@ -107,7 +119,12 @@
 			const result = await api(`/api/lidar/segments/${encodeURIComponent(segment.id)}/case`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ run_id: runID, finder, role })
+				body: JSON.stringify({
+					run_id: runID,
+					selector: selectorID,
+					role,
+					selector_digest: rankedDigest
+				})
 			});
 			updateSegment(segment.id, { replay_case_id: result.replay_case_id, status: 'case' });
 			message = `Replay case ${result.replay_case_id} is ready.`;
@@ -153,14 +170,14 @@
 		try {
 			const [listed, catalogue] = await Promise.all([
 				getLidarRuns(),
-				api('/api/lidar/segments/finders')
+				api('/api/lidar/segments/selectors')
 			]);
 			runs = listed;
-			finders = catalogue.finders;
+			selectors = catalogue.selectors || [];
 			runID = runs[0]?.run_id ?? '';
 			await load();
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'Could not load segment finder.';
+			error = cause instanceof Error ? cause.message : 'Could not load segment selectors.';
 		}
 	});
 </script>
@@ -189,14 +206,26 @@
 			</select>
 		</label>
 		<label class="flex flex-col gap-1"
-			>Finder
-			<select class="rounded border p-2" bind:value={finder} on:change={load}>
-				{#each available as entry (entry.name)}<option value={entry.name}>{entry.name}</option
-					>{/each}
+			>Selector
+			<select class="rounded border p-2" bind:value={selectorID} on:change={load}>
+				{#each groups as group (group.category)}
+					<optgroup label={group.category}>
+						{#each group.selectors as entry (entry.id)}<option value={entry.id}
+								>{entry.label}</option
+							>{/each}
+					</optgroup>
+				{/each}
 			</select>
 		</label>
 		<button class="rounded border px-4 py-2" on:click={load} disabled={busy}>Refresh</button>
 	</div>
+	{#if chosen}
+		<p class="text-surface-content/70">
+			{chosen.description} Ranked by {scoreText(chosen)}{#if chosen.require.length}; requires {requirementText(
+					chosen
+				)}{/if}.
+		</p>
+	{/if}
 	{#if role === 'held_out'}
 		<p class="rounded bg-amber-100 p-3 text-amber-950">
 			Choose a random window from each capture first, then add traffic windows. Tracker previews are
@@ -231,11 +260,7 @@
 								@ {segment.offset_seconds?.toFixed(1)} s{/if}</td
 						>
 						<td class="p-3">{segment.score.toFixed(2)}</td>
-						<td class="p-3"
-							>{#if finder === 'following' || finder === 'leader_changes'}{segment.pair_seconds ??
-									0} pair-s · {segment.pairs ?? 0} pairs · {segment.leaders ?? 0} leaders · {segment.leader_changes ??
-									0} changes · {segment.closest_gap_m ?? 0} m{:else}{segment.events ?? 0} observations{/if}</td
-						>
+						<td class="p-3">{segmentDetail(segment, segment.finder)}</td>
 						<td class="p-3"
 							>{packs.find((pack) => pack.segment_id === segment.id)?.status ?? segment.status}</td
 						>
@@ -269,7 +294,7 @@
 				{/each}
 			</tbody>
 		</table>
-		{#if !busy && !visible.length}<p class="p-4">No windows for this run and finder.</p>{/if}
+		{#if !busy && !visible.length}<p class="p-4">No windows for this run and selector.</p>{/if}
 	</div>
 
 	{#if selected}
