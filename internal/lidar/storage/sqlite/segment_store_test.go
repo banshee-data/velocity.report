@@ -377,6 +377,13 @@ func TestPackLinkRules(t *testing.T) {
 		"backslash":          {`clip-1\pack`, segmentStoreDigest},
 		"unnamed digest":     {"clip-1/pack", "0123456789abcdef"},
 		"empty digest value": {"clip-1/pack", "sha256:"},
+		// A pack digest is sha256: and 64 lower-case hex digits, as the
+		// exporter writes it; anything else is not a digest of a pack.
+		"short digest":      {"clip-1/pack", segmentStoreDigest[:70]},
+		"long digest":       {"clip-1/pack", segmentStoreDigest + "0"},
+		"upper-case digest": {"clip-1/pack", strings.ToUpper(segmentStoreDigest[:7]) + segmentStoreDigest[7:]},
+		"upper-case hex":    {"clip-1/pack", "sha256:" + strings.ToUpper(segmentStoreDigest[7:])},
+		"non-hex digest":    {"clip-1/pack", "sha256:" + strings.Repeat("g", 64)},
 	} {
 		if err := store.LinkPack(job.JobID, pack[0], pack[1]); err == nil {
 			t.Fatalf("%s was accepted", name)

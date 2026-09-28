@@ -37,7 +37,10 @@ PRAGMA foreign_keys = OFF;
         , reason TEXT NOT NULL
         , row_json TEXT NOT NULL
         , rejected_at_ns INTEGER NOT NULL
-        , CHECK (JSON_VALID(row_json))
+        , CHECK (
+          JSON_VALID(row_json)
+      AND JSON_TYPE(row_json) = 'object'
+          )
           );
 
 CREATE INDEX IF NOT EXISTS idx_lidar_migration_rejects_source ON lidar_migration_rejects (source_table, source_key);
@@ -247,7 +250,11 @@ LEFT JOIN lidar_segment_selection_verdicts v ON v.segment_id = j.segment_id
           )
         , CHECK (
           pack_digest IS NULL
-       OR pack_digest LIKE 'sha256:_%'
+       OR (
+          LENGTH(pack_digest) = 71
+      AND SUBSTR(pack_digest, 1, 7) = 'sha256:'
+      AND SUBSTR(pack_digest, 8) NOT GLOB '*[^0-9a-f]*'
+          )
           )
         , FOREIGN KEY (job_id) REFERENCES lidar_capture_jobs (job_id) ON DELETE CASCADE
         , FOREIGN KEY (segment_id) REFERENCES lidar_segment_selections (segment_id) ON DELETE CASCADE

@@ -379,4 +379,11 @@ func TestMigration055OnAnEmptyDatabase(t *testing.T) {
 	if strings.Join(indexes, ",") != "idx_lidar_segment_clip_jobs_segment,idx_lidar_segment_selections_guard,idx_lidar_segment_selections_run" {
 		t.Fatalf("indexes: %v", indexes)
 	}
+	// A row set aside is kept whole, as the JSON object of its columns.
+	for row, accepted := range map[string]bool{`{"segment_id":"seg-1"}`: true, `["seg-1"]`: false, `"seg-1"`: false, `{`: false} {
+		_, err := db.Exec(`INSERT INTO lidar_migration_rejects(migration,source_table,source_key,reason,row_json,rejected_at_ns) VALUES(55,'t','k','r',?,1)`, row)
+		if (err == nil) != accepted {
+			t.Fatalf("row_json %s: accepted %t, want %t (%v)", row, err == nil, accepted, err)
+		}
+	}
 }
