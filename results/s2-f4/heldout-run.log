@@ -1,0 +1,83 @@
+wrote immutable source manifest /Users/david/s2-f4/heldout/source-manifest.json (sha256:fffb1aa93e8de7cfa1e15a2011827d1f1c655bc698f1cc09c3ba6246f09279cd)
+embarcadero-folsom: first run across 5 capture(s)
+2026/09/27 21:43:30 ran database initialisation script
+2026/09/27 21:43:30 [migrate] 1/u original_schema (218.583µs)
+2026/09/27 21:43:30 [migrate] 2/u json_and_write_timestamp (2.243083ms)
+2026/09/27 21:43:30 [migrate] 3/u rename_tables (2.401416ms)
+2026/09/27 21:43:30 [migrate] 4/u create_lidar_bg_snapshot (2.50075ms)
+2026/09/27 21:43:30 [migrate] 5/u create_radar_data_transits (3.623125ms)
+2026/09/27 21:43:30 [migrate] 6/u create_radar_transit_links (3.700083ms)
+2026/09/27 21:43:30 [migrate] 7/u create_site_table (3.882ms)
+2026/09/27 21:43:30 [migrate] 8/u create_site_reports (4.065166ms)
+2026/09/27 21:43:30 [migrate] 9/u add_velocity_report_prefix (4.11375ms)
+2026/09/27 21:43:30 [migrate] 10/u create_lidar_tracks (4.455833ms)
+2026/09/27 21:43:30 [migrate] 11/u create_lidar_analysis_runs (4.992084ms)
+2026/09/27 21:43:30 [migrate] 12/u add_track_quality_metrics (6.1435ms)
+2026/09/27 21:43:30 [migrate] 13/u create_site_config_periods (5.481334ms)
+2026/09/27 21:43:30 [migrate] 14/u remove_site_config_fields (5.445042ms)
+2026/09/27 21:43:30 [migrate] 15/u add_site_map_fields (6.921041ms)
+2026/09/27 21:43:30 [migrate] 16/u lidar_labels (6.937083ms)
+2026/09/27 21:43:30 [migrate] 17/u create_lidar_bg_regions (6.960042ms)
+2026/09/27 21:43:30 [migrate] 18/u add_quality_label (7.154917ms)
+2026/09/27 21:43:30 [migrate] 19/u add_lidar_labels_scene_source (7.652375ms)
+2026/09/27 21:43:30 [migrate] 20/u create_lidar_scenes (7.734292ms)
+2026/09/27 21:43:30 [migrate] 21/u create_lidar_missed_regions (7.504ms)
+2026/09/27 21:43:30 [migrate] 22/u create_lidar_sweeps (7.169125ms)
+2026/09/27 21:43:30 [migrate] 23/u add_vrlog_path (5.1615ms)
+2026/09/27 21:43:30 [migrate] 24/u add_sweep_metadata (7.075583ms)
+2026/09/27 21:43:30 [migrate] 25/u add_label_source (6.409125ms)
+2026/09/27 21:43:30 [migrate] 26/u update_label_taxonomy (4.948458ms)
+2026/09/27 21:43:30 [migrate] 27/u add_sweep_checkpoint (6.138292ms)
+2026/09/27 21:43:30 [migrate] 28/u create_lidar_evaluations (6.131792ms)
+2026/09/27 21:43:30 [migrate] 29/u expand_label_vocabulary (5.84575ms)
+2026/09/27 21:43:30 [migrate] 30/u schema_simplification (26.121709ms)
+2026/09/27 21:43:30 [migrate] 31/u table_naming (40.050917ms)
+2026/09/27 21:43:30 [migrate] 32/u create_lidar_all_tracks_view (40.075458ms)
+2026/09/27 21:43:30 [migrate] 33/u replay_annotations_and_eval_integrity (41.637959ms)
+2026/09/27 21:43:30 [migrate] 34/u schema_hardening_pre_v050 (55.034792ms)
+2026/09/27 21:43:30 [migrate] 35/u lidar_immutable_run_config (56.323958ms)
+2026/09/27 21:43:30 [migrate] 36/u drop_legacy_params_json (62.050833ms)
+2026/09/27 21:43:30 [migrate] 37/u seed_config_period_pi_day (62.95ms)
+2026/09/27 21:43:30 [migrate] 38/u create_radar_serial_config (61.790833ms)
+2026/09/27 21:43:30 [migrate] 39/u create_lidar_scenes (61.913ms)
+2026/09/27 21:43:30 [migrate] 40/u add_scene_vantages (62.409ms)
+2026/09/27 21:43:30 [migrate] 41/u drop_scene_vantages (43.946167ms)
+2026/09/27 21:43:30 [migrate] 42/u create_lidar_capture_index (30.401958ms)
+2026/09/27 21:43:30 [migrate] 43/u create_lidar_capture_jobs (30.5975ms)
+2026/09/27 21:43:30 [migrate] 44/u replay_case_files (30.388ms)
+2026/09/27 21:43:30 [migrate] 45/u replay_case_geography (21.083708ms)
+2026/09/27 21:43:30 [migrate] 46/u lidar_sites (18.458542ms)
+2026/09/27 21:43:30 [migrate] 47/u lidar_observations (13.902417ms)
+2026/09/27 21:43:30 [migrate] 48/u lidar_track_estimates (13.092416ms)
+2026/09/27 21:43:30 [migrate] 49/u lidar_track_residuals (13.024667ms)
+2026/09/27 21:43:30 [migrate] 50/u lidar_track_estimate_revisions (12.921208ms)
+2026/09/27 21:43:30 [migrate] 51/u lidar_interaction_persistence (12.969916ms)
+2026/09/27 21:43:30 [migrate] 52/u lidar_track_solid_bodies (11.446125ms)
+2026/09/27 21:43:30 [migrate] 53/u lidar_solid_body_support (13.520833ms)
+2026/09/27 21:43:30 Database baselined at version 53
+2026/09/27 21:43:30 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-folsom: repeat run
+2026/09/27 21:47:36 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/27 21:47:36 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-folsom: capture time frames=11851 backward=0 duplicate=0 clamped_gaps=13 max_gap=2.701s
+embarcadero-folsom: continuity born=1869 confirmed=809 reacquired=3395 expired misses=1876 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+embarcadero-folsom: solid bodies=42953 near_edge_fixes=24886 (57.9%) lapses=923; lateral p99 point estimates 0.204 m, solid bodies 0.229 m over 4067 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Users/david/s2-f4/heldout/out
+      693.89 real       607.20 user        98.30 sys
+           954155008  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             1489981  page reclaims
+                1916  page faults
+                   0  swaps
+                   7  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+              286458  signals received
+              795678  voluntary context switches
+            10801289  involuntary context switches
+       7022786005316  instructions retired
+       2094722767640  cycles elapsed
+           962104768  peak memory footprint
