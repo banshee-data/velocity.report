@@ -16,3 +16,16 @@ func loadSegmentSelectors(path string) (*segments.Catalogue, error) {
 	}
 	return segments.LoadSelectors(path)
 }
+
+// mustLoadSegmentSelectors loads the catalogue for the server, or stops it:
+// ranking with some other catalogue than the one named would be worse than
+// not starting. It says where the catalogue came from, and its digest.
+func mustLoadSegmentSelectors(path string, fatalf, logf logfFunc) *segments.Catalogue {
+	selectors, err := loadSegmentSelectors(path)
+	if err != nil {
+		fatalf("Failed to load segment selectors: %v", err)
+		return nil
+	}
+	logf("Loaded %d segment selectors from %s (%s)", len(selectors.Selectors), selectors.Source, selectors.Digest)
+	return selectors
+}

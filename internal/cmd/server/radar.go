@@ -455,11 +455,7 @@ func Main(args []string) int {
 		log.Fatalf("Failed to load tuning config from %s: %v. Check the file exists and is valid JSON", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration (config=%s)", *configFile)
-	selectors, err := loadSegmentSelectors(*lidarSegmentSelectors)
-	if err != nil {
-		log.Fatalf("Failed to load segment selectors: %v", err)
-	}
-	log.Printf("Loaded %d segment selectors from %s (%s)", len(selectors.Selectors), selectors.Source, selectors.Digest)
+	selectors := mustLoadSegmentSelectors(*lidarSegmentSelectors, log.Fatalf, log.Printf)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
 	if *enableLidar {
 		ensureValidLidarNetworkingFlags(
