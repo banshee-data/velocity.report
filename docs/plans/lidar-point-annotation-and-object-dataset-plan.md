@@ -4,20 +4,25 @@ This plan lets a person mark the returns belonging to one physical object and fo
 identity through a recording. It separates human evidence from tracker output so a split track
 does not split the reference vehicle as well.
 
-- **Status:** Revision-safe backend and macOS annotation client implemented, with proposal, propagation and review; reviewed dataset and its acceptance open
+- **Status:** Membership backend and macOS client implemented, with proposal, propagation and review; physical pose authoring/scoring planned for 0.5.2.0; reviewed dataset and acceptance open
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, L10 Clients, offline analysis
 - **Related:** [Shape descriptors](lidar-shape-descriptors-plan.md), [Test corpus](lidar-test-corpus-plan.md), [Labelling and QC](lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 
 ## 1. Outcome and boundaries
 
-**Current delivery:** The v0.5.2 pilot supplies independent evidence for temporal body extent and
-identity, then the held-out references that sprints 0.5.2.2 and 0.5.2.4 validate occlusion
-continuity and the tailgating report against. Review complete
-physical-object episodes, not isolated tracker IDs. Record observable yaw and front/rear extent
-bounds separately from point membership; unknown or prior-only bumpers remain labelled as such.
-Include vehicle, pedestrian and cyclist occlusions in the broader corpus; the rigid-vehicle demo
-alone does not validate those classes. Use separate reference pairs for gap acceptance.
+**Current delivery:** The Annotation window supplies membership, class, and physical-object
+identity references. Optional pose storage exists, but the client does not author physical boxes
+and the current reference builder scores mask-derived positions. The
+[physical reference workflow](lidar-physical-reference-review-plan.md) adds pose/extent authoring,
+independent import, and physical scoring in Sprint 0.5.2.0, before those references can qualify
+occlusion continuity or the tailgating report.
+
+Review complete physical-object episodes, not isolated tracker IDs. The planned geometry review
+records observable yaw and front/rear extent bounds separately from membership; unknown or
+prior-only bumpers retain that status. Include vehicle, pedestrian, and cyclist occlusions in the
+broader corpus; the rigid-vehicle demo alone does not validate those classes. Use separate
+independent reference pairs for gap acceptance.
 
 The operator can pause a VRLOG-derived point cloud, select returns, assign a physical
 object identity, correct the selection in another view, and save a reviewed annotation.
@@ -57,10 +62,12 @@ redo, a second view for the contamination check, operator provenance collection,
 dirty-navigation protection. Selection is through-slab, not hidden-surface picking; a radius
 brush, depth-aware picking and reviewed propagation (section 5.2) remain future work.
 
-What remains is operator work rather than engineering: reviewed masks across a site's keyframes,
-and the frozen object-disjoint dataset splits derived from them. Requirements below are acceptance
-contracts unless explicitly covered by tested implementation; automatic proposals remain
-unreviewed after restore.
+Membership review across a site's keyframes is operator work that can begin now. Physical
+reference authoring and evaluator integration remain engineering work under the
+[0.5.2.0 reference plan](lidar-physical-reference-review-plan.md); the geometry/pair review and
+frozen object-disjoint splits follow that delivery. Requirements below are acceptance contracts
+unless explicitly covered by tested implementation; automatic proposals remain unreviewed after
+restore. Reviewing a mask does not certify a physical pose.
 
 The current label APIs annotate run tracks and replay time spans. Migration
 `000033_replay_annotations_and_eval_integrity.up.sql` provides replay annotations independent of an
@@ -169,6 +176,12 @@ platform subtype; its operator label is not a geometric feature or proof of iden
 Point masks describe visible returns. Physical boxes include inferred unseen extent and therefore
 carry a separate confidence and annotation source. Do not derive a supposedly exact full vehicle
 box from the minimum and maximum of a partial mask.
+
+The optional Go/Swift pose record is storage groundwork, not a delivered box editor or a physical
+accuracy scorer. The
+[reference contract](lidar-physical-reference-review-plan.md#reference-contract) adds component
+error bounds and observed/inferred/unknown status: a confidence scalar cannot substitute for those
+quantities.
 
 Optional part masks can label an observed body side, cab, cargo body, or roof within the
 object. They inherit the same point references and review rules. Body-front/rear labels remain
@@ -297,6 +310,8 @@ replaceable and must not define annotation truth.
 - Reference identities survive a predicted split, merge, and fresh pipeline run.
 - Test-set masks and future poses cannot reach unassisted tracking or model fitting.
 - Sparse/foreground-only sources retain their limitations through every export.
+- Physical references have their own reviewed provenance and component bounds; pose/box scores
+  remain unavailable until authoring/import and the physical scorer are delivered and truth exists.
 
 ## 10. Delivery record
 

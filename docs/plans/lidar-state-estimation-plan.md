@@ -37,6 +37,14 @@ Following distance debug layer. The physical gates below remain unchanged. Live 
 bounded reassociation and hardware capture qualification remain tracked follow-through; a closed
 observation-log reader on the Mac is the first integration target.
 
+Sprint 0.5.2.0 also needs the
+[physical reference authoring and scoring workflow](lidar-physical-reference-review-plan.md).
+The current annotation client reviews membership and identity, but cannot author an independent
+physical box; its optional pose schema is only storage groundwork. Deliver the editor/import and
+physical scorer before the operator geometry/pair pass. This blocks physical qualification, while
+provisional tracker development and label-free comparisons can continue. The gates below retain
+their existing thresholds and require independently supported truth.
+
 The first product outcome is **bumper-to-bumper gap and following exposure from partial
 views**. The shared engineering priority is **stable physical trajectories and trails for
 vehicles, pedestrians and cyclists, including bounded estimates through occlusion**.

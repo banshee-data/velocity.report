@@ -21,6 +21,24 @@ pack there are about 43 clusters a frame and 8,600 object-frames, and labelling 
 took about six seconds each. So the tool proposes, carries and lets you review in bulk, and
 painting by hand is for fixing what those get wrong.
 
+### What review records today
+
+Open a pack, correct which returns belong to each object, separate chains that join different
+cars, and join fragments of the same car across frames. Review the object and its masks. These
+actions establish membership, class, and identity independently of the tracker's account.
+
+The current window has no physical-box editor: it cannot record an independent expected body
+centre, yaw, full dimensions, or bumper endpoints. Its rectangle selects points; it does not
+declare a car's physical box. Optional pose fields in the sidecar do not supply that interface,
+and the present reference scorer uses a visible-mask position rather than a physical centre.
+
+Physical geometry review needs the planned
+[0.5.2.0 reference workflow](../../plans/lidar-physical-reference-review-plan.md). It will provide
+keyframe pose/extent authoring or independent import, uncertainty and unknown components, separate
+review, and comparison against tracker output. Until then, completing this point-review flow
+cannot close the physical box or bumper-gap accuracy gates. An unseen bumper remains unknown
+unless independent evidence supports it.
+
 ## Words
 
 The window uses the main view's words where it means the same thing.

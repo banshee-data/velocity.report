@@ -6,6 +6,11 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 28, 2026 - Physical reference tooling joins Sprint 0.5.2.0
+
+- {codex/docs-physical-reference-0520} Added the physical reference authoring/scoring dependency to Sprint 0.5.2.0. The Annotation window reviews point membership, class, and identity; optional pose storage does not provide a box editor, and the current reference builder uses visible-mask positions. Planned independent keyframe pose/extent references, component bounds and unknown geometry, separate review, and evaluator/inspector comparisons before the operator geometry and following-pair pass.
+- {codex/docs-physical-reference-0520} Aligned the annotation guide, dataset plan, state-estimation priorities, and MVP sprint plan with that boundary. Mask review can begin now and provisional integration can continue; completing the mask queue does not close the physical gates. This update changes documentation only and retains the existing acceptance thresholds.
+
 ## September 27, 2026 - Solid bodies, adaptive noise, identity options and the provisional headway field run
 
 - {dd/lidar/annotation-segment-finder} Built the segment finder that the review queue script planned: Go finders for following, leader changes, lateral jumps, split flags, exposure and capture-random windows, `velocity lidar segments` and `velocity lidar annotation-clip`, a clip job on the capture queue, proposal layers and dismissals that survive a restart in the macOS tool, and a Segments page. A held-out window may only be chosen by traffic or at random, and a capture's random window comes first (#622).
