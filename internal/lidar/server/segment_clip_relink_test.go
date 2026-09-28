@@ -280,6 +280,36 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 	})
 }
 
+// However many clips wait for their packs, the packs directory is listed once.
+func TestRelinkListsThePacksDirectoryOnce(t *testing.T) {
+	ws, _ := segmentServer(t)
+	jobID, segmentID := queuedClip(t, ws)
+	for clip := 0; clip < 3; clip++ {
+		if clip > 0 {
+			// Each earlier clip has finished, so the segment is queued again.
+			job, err := sqlite.NewSegmentStore(ws.db).EnqueueClip(segmentID, "clip again")
+			if err != nil {
+				t.Fatal(err)
+			}
+			jobID = job.JobID
+		}
+		writeClipAttempt(t, ws, jobID, segmentID, "1")
+		finishClip(t, ws, jobID)
+	}
+	listings := 0
+	counted := func(dir string) ([]os.DirEntry, error) {
+		listings++
+		return os.ReadDir(dir)
+	}
+	if linked, err := ws.relinkSegmentPacksWith(counted); err != nil || linked != 3 || listings != 1 {
+		t.Fatalf("linked %d with %d listings: %v", linked, listings, err)
+	}
+	// With nothing left to link, the directory is not listed at all.
+	if linked, err := ws.relinkSegmentPacksWith(counted); err != nil || linked != 0 || listings != 1 {
+		t.Fatalf("second pass linked %d with %d listings: %v", linked, listings, err)
+	}
+}
+
 func TestRelinkReportsWhatItCouldNotRead(t *testing.T) {
 	t.Run("clip jobs", func(t *testing.T) {
 		ws, _ := segmentServer(t)
@@ -386,5 +416,10 @@ func TestFindClipPackReportsAnUnreadableDirectory(t *testing.T) {
 	failure := errors.New("directory could not be read")
 	if _, _, err := ws.findClipPack("job-1", "seg-1", func(string) ([]os.DirEntry, error) { return nil, failure }); !errors.Is(err, failure) {
 		t.Fatalf("unreadable directory: %v", err)
+	}
+	// A packs directory that is not there holds no pack, which is not an error.
+	pack, unfinished, err := ws.findClipPack("job-1", "seg-1", func(string) ([]os.DirEntry, error) { return nil, os.ErrNotExist })
+	if pack != nil || unfinished != nil || err != nil {
+		t.Fatalf("missing directory: %+v %v %v", pack, unfinished, err)
 	}
 }

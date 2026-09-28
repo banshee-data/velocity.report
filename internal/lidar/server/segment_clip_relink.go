@@ -108,20 +108,32 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 // It only reads. An attempt that left no whole pack is not removed here; the
 // job that made it removes it if it runs again.
 func (ws *Server) relinkSegmentPacks() (int, error) {
+	return ws.relinkSegmentPacksWith(os.ReadDir)
+}
+
+func (ws *Server) relinkSegmentPacksWith(readDir func(string) ([]os.DirEntry, error)) (int, error) {
 	if ws.db == nil || ws.annotationPacksDir == "" {
 		return 0, nil
 	}
 	store := sqlite.NewSegmentStore(ws.db)
 	jobs, err := store.UnlinkedFinishedClips()
+	if err != nil || len(jobs) == 0 {
+		return 0, err
+	}
+	// The packs directory is listed once for the pass, not once for each job:
+	// migration 000055 clears every link, so a server can start with many.
+	entries, err := readDir(ws.annotationPacksDir)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
 	if err != nil {
 		return 0, err
 	}
+	listed := func(string) ([]os.DirEntry, error) { return entries, nil }
 	linked := 0
 	for _, job := range jobs {
-		pack, _, err := ws.findClipPack(job.JobID, job.SegmentID, os.ReadDir)
-		if err != nil {
-			return linked, err
-		}
+		// The listing is already read, so looking in it cannot fail.
+		pack, _, _ := ws.findClipPack(job.JobID, job.SegmentID, listed)
 		if pack == nil {
 			continue
 		}
