@@ -242,6 +242,9 @@ func TestTheDigestNamesWhatTheSelectorDoes(t *testing.T) {
 	if renamed.Digest() != digest {
 		t.Fatal("a new label moved the digest")
 	}
+	if recorded := (Selector{ID: "x"}).Provenance(); recorded.Require == nil {
+		t.Fatal("a selector with no requirements must record them as an empty list, not as null")
+	}
 	unrequired := base
 	unrequired.Require = nil
 	if empty := (Selector{ID: "x", Require: []Requirement{}}); empty.Digest() != (Selector{ID: "x"}).Digest() {

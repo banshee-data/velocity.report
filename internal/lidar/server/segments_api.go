@@ -59,13 +59,37 @@ func querySegmentRequest(r *http.Request) (segmentRequest, error) {
 	return req, nil
 }
 
-func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segments.Params, error) {
-	p := segments.DefaultParams()
-	if req.Parameters != nil {
-		p = *req.Parameters
+// selectorCatalogue is the catalogue the server was started with, or the
+// default one.
+func (ws *Server) selectorCatalogue() (*segments.Catalogue, error) {
+	if ws.segmentSelectors != nil {
+		return ws.segmentSelectors, nil
 	}
+	return segments.DefaultCatalogue()
+}
+
+// requestSelector is the selector a request ranks with, at the parameters it
+// gives. A finder's name is the id of its standard selector.
+func (ws *Server) requestSelector(req segmentRequest) (segments.Selector, error) {
+	catalogue, err := ws.selectorCatalogue()
+	if err != nil {
+		return segments.Selector{}, fmt.Errorf("segment selectors: %w", err)
+	}
+	sel, ok := catalogue.Selector(req.Finder)
+	if !ok {
+		return segments.Selector{}, fmt.Errorf("unknown finder %q", req.Finder)
+	}
+	if req.Parameters != nil {
+		sel.Parameters = *req.Parameters
+	}
+	return sel, nil
+}
+
+// findRunSegments ranks a run's windows, and returns them with the selector
+// that ranked them as it ran.
+func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segments.Selector, error) {
 	if req.RunID == "" {
-		return nil, p, fmt.Errorf("run_id is required")
+		return nil, segments.Selector{}, fmt.Errorf("run_id is required")
 	}
 	if req.Finder == "" {
 		req.Finder = "following"
@@ -73,34 +97,38 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 	if req.Role == "" {
 		req.Role = "tuning"
 	}
-	if !segments.Allowed(req.Finder, req.Role) {
-		return nil, p, fmt.Errorf("finder %q cannot choose a %s window", req.Finder, req.Role)
+	sel, err := ws.requestSelector(req)
+	if err != nil {
+		return nil, sel, err
+	}
+	if !segments.Allowed(sel.Finder, req.Role) {
+		return nil, sel, fmt.Errorf("finder %q cannot choose a %s window", sel.Finder, req.Role)
 	}
 	run, err := sqlite.NewAnalysisRunStore(ws.db).GetRun(req.RunID)
 	if err != nil {
-		return nil, p, fmt.Errorf("run not found: %w", err)
+		return nil, sel, fmt.Errorf("run not found: %w", err)
 	}
 	points, err := ws.loadRunSeries(run)
 	if err != nil {
-		return nil, p, err
+		return nil, sel, err
 	}
 	captures := []segments.Capture{}
-	if req.Finder == "random" {
+	if sel.Finder == "random" {
 		// A random held-out window must be drawn from the capture timeline,
 		// including spans for which the tracker produced no observations.
 		captures, err = ws.capturesForRun(run, 0, 1<<63-1)
 		if err != nil {
-			return nil, p, err
+			return nil, sel, err
 		}
 	} else if len(points) > 0 {
 		captures, err = ws.capturesForRun(run, points[0].TimeNs, points[len(points)-1].TimeNs)
 		if err != nil {
-			return nil, p, err
+			return nil, sel, err
 		}
 	}
-	windows, err := segments.Find(points, req.Finder, req.RunID, req.Role, p, captures)
+	windows, err := segments.Rank(points, sel, req.RunID, req.Role, captures)
 	if err != nil {
-		return nil, p, err
+		return nil, sel, err
 	}
 	store := sqlite.NewSegmentStore(ws.db)
 	for i := range windows {
@@ -111,7 +139,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		if err != nil {
 			// A window whose state cannot be read must not be offered as a
 			// fresh candidate: choosing it again would make a second case.
-			return nil, p, fmt.Errorf("read segment status: %w", err)
+			return nil, sel, fmt.Errorf("read segment status: %w", err)
 		}
 		windows[i].Status = "case"
 		windows[i].ReplayCaseID = status.ReplayCaseID
@@ -124,7 +152,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 			windows[i].PackDir = ws.segmentPackPath(status.PackDir)
 		}
 	}
-	return windows, p, nil
+	return windows, sel, nil
 }
 
 // loadRunSeries reads where a run's tracks were. A live run stores its
@@ -204,12 +232,12 @@ func (ws *Server) handleSegments(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	windows, p, err := ws.findRunSegments(req)
+	windows, sel, err := ws.findRunSegments(req)
 	if err != nil {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	ws.writeJSON(w, 200, map[string]any{"windows": windows, "count": len(windows), "parameters": p, "run_id": req.RunID, "finder": req.Finder, "role": req.Role})
+	ws.writeJSON(w, 200, map[string]any{"windows": windows, "count": len(windows), "parameters": sel.Parameters, "run_id": req.RunID, "finder": req.Finder, "role": req.Role})
 }
 
 // A compact per-capture score strip. It contains no labels or truth state.
@@ -217,7 +245,7 @@ func (ws *Server) handleSegmentStrip(w http.ResponseWriter, r *http.Request) {
 	ws.handleSegmentStripWith(w, r, ws.findRunSegments)
 }
 
-func (ws *Server) handleSegmentStripWith(w http.ResponseWriter, r *http.Request, find func(segmentRequest) ([]segments.Window, segments.Params, error)) {
+func (ws *Server) handleSegmentStripWith(w http.ResponseWriter, r *http.Request, find func(segmentRequest) ([]segments.Window, segments.Selector, error)) {
 	if r.Method != http.MethodGet {
 		ws.writeJSONError(w, 405, "method not allowed")
 		return
@@ -323,7 +351,7 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 	if req.Role == "" {
 		req.Role = "tuning"
 	}
-	windows, p, err := ws.findRunSegments(req)
+	windows, sel, err := ws.findRunSegments(req)
 	if err != nil {
 		ws.writeJSONError(w, 400, err.Error())
 		return
@@ -344,7 +372,7 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	selections := sqlite.NewSegmentStore(ws.db)
-	if req.Role == "held_out" && req.Finder != "random" {
+	if req.Role == "held_out" && sel.Finder != "random" {
 		found, err := selections.HasRandomHeldOut(chosen.Capture)
 		if err != nil {
 			ws.writeJSONError(w, 500, err.Error())
@@ -409,9 +437,10 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	paramsJSON, _ := json.Marshal(p)
+	paramsJSON, _ := json.Marshal(sel.Parameters)
 	windowJSON, _ := json.Marshal(chosen)
-	if err = selections.InsertSelection(chosen.ID, req.RunID, scene.ReplayCaseID, paramsJSON, windowJSON); err != nil {
+	selectorJSON, _ := json.Marshal(sel.Provenance())
+	if err = selections.InsertSelection(chosen.ID, req.RunID, scene.ReplayCaseID, paramsJSON, windowJSON, selectorJSON); err != nil {
 		_ = store.DeleteScene(scene.ReplayCaseID)
 		ws.writeJSONError(w, 500, err.Error())
 		return

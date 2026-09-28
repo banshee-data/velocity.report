@@ -260,6 +260,30 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 			t.Fatalf("among reviewed packs the first in name order is chosen: %+v %v %v", pack, unfinished, err)
 		}
 	})
+	// A pack whose record this build does not read is not whole, and would be
+	// removed as an unfinished attempt. One that a person has worked in is
+	// left where it is: neither linked nor removed.
+	t.Run("a reviewed pack whose record does not read", func(t *testing.T) {
+		ws, _ := segmentServer(t)
+		jobID, segmentID := queuedClip(t, ws)
+		reviewed, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
+		abandoned, _ := writeClipAttempt(t, ws, jobID, segmentID, "2")
+		for _, dir := range []string{reviewed, abandoned} {
+			if err := os.WriteFile(filepath.Join(dir, "segment.json"), []byte(`{"schema":"from a later build"}`), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(reviewed, "annotations.json"), []byte(`{}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		pack, unfinished, err := ws.findClipPack(jobID, segmentID, os.ReadDir)
+		if err != nil || pack != nil {
+			t.Fatalf("a pack whose record does not read was linked: %+v %v", pack, err)
+		}
+		if len(unfinished) != 1 || unfinished[0] != filepath.Dir(abandoned) {
+			t.Fatalf("reported for removal: %v, want only the attempt nobody worked in", unfinished)
+		}
+	})
 	t.Run("not configured", func(t *testing.T) {
 		ws, _ := segmentServer(t)
 		jobID, segmentID := queuedClip(t, ws)

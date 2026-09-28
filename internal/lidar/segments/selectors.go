@@ -122,6 +122,46 @@ func (s Selector) Digest() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// SelectorProvenance is what a chosen window keeps of the selector that chose
+// it: the definition as it ran, which the file may no longer say by the time
+// anyone asks. HeldOutEligible is the code's verdict at the time.
+type SelectorProvenance struct {
+	ID              string        `json:"id"`
+	Label           string        `json:"label"`
+	Digest          string        `json:"digest"`
+	HeldOutEligible bool          `json:"held_out_eligible"`
+	Finder          string        `json:"finder"`
+	Parameters      Params        `json:"parameters"`
+	Score           Score         `json:"score"`
+	Require         []Requirement `json:"require"`
+}
+
+// Provenance records the selector as it runs.
+func (s Selector) Provenance() SelectorProvenance {
+	require := s.Require
+	if require == nil {
+		require = []Requirement{}
+	}
+	return SelectorProvenance{s.ID, s.Label, s.Digest(), s.HeldOut(), s.Finder, s.Parameters, s.Score, require}
+}
+
+// check reads a recorded selector for its form and for agreement with the
+// window it chose. It never consults the selector file or today's rules: a
+// pack that stops validating is taken for an unfinished attempt and removed,
+// so what validates must not change when policy does.
+func (p SelectorProvenance) check(finder, role string, params Params) error {
+	if !selectorID.MatchString(p.ID) || !strings.HasPrefix(p.Digest, "sha256:") || len(p.Digest) != 71 {
+		return fmt.Errorf("invalid selector record")
+	}
+	if p.Finder != finder || p.Parameters != params {
+		return fmt.Errorf("selector %q ran another finder or other parameters", p.ID)
+	}
+	if role == "held_out" && !p.HeldOutEligible {
+		return fmt.Errorf("selector %q could not choose a held_out window", p.ID)
+	}
+	return nil
+}
+
 func (s Selector) validate() error {
 	if !selectorID.MatchString(s.ID) {
 		return fmt.Errorf("id %q must be lower case letters, digits and underscores, starting with a letter", s.ID)

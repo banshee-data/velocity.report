@@ -33,7 +33,10 @@ type SegmentSelection struct {
 	WindowEndNs    int64
 	ParametersJSON string
 	WindowJSON     string
-	CreatedAtNs    int64
+	// SelectorJSON is the selector that chose the window, as it ran. It is
+	// empty for a window chosen before selectors existed.
+	SelectorJSON string
+	CreatedAtNs  int64
 }
 
 // SegmentClipJob links a queued clip to the segment it cuts and, once it has
@@ -69,28 +72,31 @@ func NewSegmentStore(db DBClient) *SegmentStore {
 }
 
 const segmentSelectionColumns = `segment_id, COALESCE(run_id, ''), source, replay_case_id, role, finder,
-	finder_version, capture, window_start_ns, window_end_ns, parameters_json, window_json, created_at_ns`
+	finder_version, capture, window_start_ns, window_end_ns, parameters_json, window_json,
+	COALESCE(selector_json, ''), created_at_ns`
 
 func scanSegmentSelection(row jobRow) (SegmentSelection, error) {
 	var s SegmentSelection
 	err := row.Scan(&s.SegmentID, &s.RunID, &s.Source, &s.ReplayCaseID, &s.Role, &s.Finder,
 		&s.FinderVersion, &s.Capture, &s.WindowStartNs, &s.WindowEndNs, &s.ParametersJSON,
-		&s.WindowJSON, &s.CreatedAtNs)
+		&s.WindowJSON, &s.SelectorJSON, &s.CreatedAtNs)
 	return s, err
 }
 
-// InsertSelection records a chosen window against its replay case. The
-// database refuses a document that is not valid JSON, that names another
-// segment or source, or whose role and finder may not go together.
-func (s *SegmentStore) InsertSelection(segmentID, runID, replayCaseID string, parametersJSON, windowJSON []byte) error {
+// InsertSelection records a chosen window against its replay case, with the
+// selector that chose it. The database refuses a document that is not valid
+// JSON, that names another segment or source, whose role and finder may not
+// go together, or whose selector ran another finder or could not choose a
+// held-out window.
+func (s *SegmentStore) InsertSelection(segmentID, runID, replayCaseID string, parametersJSON, windowJSON, selectorJSON []byte) error {
 	if segmentID == "" || runID == "" || replayCaseID == "" {
 		return fmt.Errorf("segment, run and replay case are required")
 	}
 	if _, err := s.db.Exec(`
 		INSERT INTO lidar_segment_selections
-			(segment_id, run_id, replay_case_id, parameters_json, window_json, created_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?)`,
-		segmentID, runID, replayCaseID, string(parametersJSON), string(windowJSON),
+			(segment_id, run_id, replay_case_id, parameters_json, window_json, selector_json, created_at_ns)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		segmentID, runID, replayCaseID, string(parametersJSON), string(windowJSON), string(selectorJSON),
 		time.Now().UnixNano()); err != nil {
 		return fmt.Errorf("record segment selection: %w", err)
 	}

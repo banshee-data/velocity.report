@@ -255,7 +255,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 601 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 602 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -726,6 +726,7 @@ The current schema has 601 fields, including generated fields. Newly added rows 
 | `lidar_segment_selections`       | `window_start_ns`                   | INTEGER       | ✅  | -   | -   |
 | `lidar_segment_selections`       | `window_end_ns`                     | INTEGER       | ✅  | -   | -   |
 | `lidar_segment_selections`       | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
+| `lidar_segment_selections`       | `selector_json`                     | TEXT          | ✅  | -   | -   |
 | `lidar_sites`                    | `site_id`                           | TEXT PK       | ✅  | ?   | ?   |
 | `lidar_sites`                    | `s2_l13_token`                      | TEXT          | ✅  | ?   | ?   |
 | `lidar_sites`                    | `s2_l10_token`                      | TEXT          | ✅  | ?   | ?   |
@@ -867,7 +868,7 @@ The current schema has 601 fields, including generated fields. Newly added rows 
 
 The segment tables' Mac column is `-`, not `?`: the macOS tool opens a pack directory and reads `segment.json` from it. It calls none of the segment, clip or inventory endpoints.
 
-`lidar_segment_selections` derives `source`, `role`, `finder`, `finder_version`, `capture`, `window_start_ns` and `window_end_ns` from `window_json` as stored generated columns. They are read and indexed, never written.
+`lidar_segment_selections` derives `source`, `role`, `finder`, `finder_version`, `capture`, `window_start_ns` and `window_end_ns` from `window_json` as stored generated columns. They are read and indexed, never written. `selector_json` records the selector that chose the window, as it ran; a trigger requires it on every new row, and it is null only for windows chosen before migration 000056.
 
 ---
 

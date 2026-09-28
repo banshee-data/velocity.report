@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -510,6 +511,55 @@ func TestSegmentCaseStoresTheFinderAndRoleThatRankedTheWindow(t *testing.T) {
 	if stored.ID != segments.Identity(finder, stored.Source, role, segments.DefaultParams(), stored.StartNs) {
 		t.Fatalf("stored selection cannot reproduce its own identity: %+v", stored)
 	}
+	// The row names the selector that ranked the window, as it ran.
+	selection, err := sqlite.NewSegmentStore(ws.db).Selection(chosen.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var chosenBy segments.SelectorProvenance
+	if err := json.Unmarshal([]byte(selection.SelectorJSON), &chosenBy); err != nil {
+		t.Fatal(err)
+	}
+	catalogue, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	following, _ := catalogue.Selector("following")
+	if !reflect.DeepEqual(chosenBy, following.Provenance()) {
+		t.Fatalf("stored selector %+v, want %+v", chosenBy, following.Provenance())
+	}
+}
+
+// The server ranks with the catalogue it was given, and says so when it has
+// none to rank with.
+func TestSegmentsRankWithTheServersCatalogue(t *testing.T) {
+	ws, _ := segmentServer(t)
+	catalogue, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The catalogue a server was started with may lack what the default has.
+	given := *catalogue
+	given.Selectors = nil
+	for _, s := range catalogue.Selectors {
+		if s.ID != "split_flags" {
+			given.Selectors = append(given.Selectors, s)
+		}
+	}
+	ws.segmentSelectors = &given
+	if _, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "split_flags"}); err == nil || !strings.Contains(err.Error(), `unknown finder "split_flags"`) {
+		t.Fatalf("a selector the server's catalogue does not have: %v", err)
+	}
+	if windows, sel, err := ws.findRunSegments(segmentRequest{RunID: "run"}); err != nil || len(windows) != 1 || sel.ID != "following" {
+		t.Fatalf("the server's catalogue: %+v %+v %v", windows, sel, err)
+	}
+	// With no catalogue given, and none to be found or embedded, nothing is
+	// ranked rather than something ranked some other way.
+	ws.segmentSelectors = nil
+	t.Chdir(t.TempDir())
+	if _, _, err := ws.findRunSegments(segmentRequest{RunID: "run"}); err == nil || !strings.Contains(err.Error(), "segment selectors") {
+		t.Fatalf("no catalogue: %v", err)
+	}
 }
 
 func TestSegmentCaseReportsDatabaseWriteFailures(t *testing.T) {
@@ -633,8 +683,8 @@ func TestSegmentStripEndpointRejectsExcessWindows(t *testing.T) {
 	}
 	req := httptest.NewRequest("GET", "/api/lidar/segments/strip?run_id=run", nil)
 	w := httptest.NewRecorder()
-	ws.handleSegmentStripWith(w, req, func(segmentRequest) ([]segments.Window, segments.Params, error) {
-		return windows, segments.DefaultParams(), nil
+	ws.handleSegmentStripWith(w, req, func(segmentRequest) ([]segments.Window, segments.Selector, error) {
+		return windows, segments.Selector{}, nil
 	})
 	if w.Code != 413 {
 		t.Fatalf("oversized strip status: %d %s", w.Code, w.Body.String())
