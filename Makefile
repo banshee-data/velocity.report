@@ -200,6 +200,7 @@ help:
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
+	@echo "  selectors-validate   Validate a segment selector file (SELECTORS=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
@@ -2010,9 +2011,10 @@ fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
-.PHONY: config-migrate config-validate
+.PHONY: config-migrate config-validate selectors-validate
 
 TUNING_CONFIG ?= config/tuning.defaults.json
+SELECTORS ?= config/segment-selectors.defaults.json
 
 config-migrate:
 	@if [ -z "$(IN)" ]; then \
@@ -2023,6 +2025,9 @@ config-migrate:
 
 config-validate:
 	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(TUNING_CONFIG)"
+
+selectors-validate:
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --selectors "$(SELECTORS)"
 
 check-config-order:
 	@./scripts/config-order-sync \

@@ -17,10 +17,34 @@ import (
 )
 
 type segmentRequest struct {
-	RunID      string           `json:"run_id"`
-	Finder     string           `json:"finder"`
-	Role       string           `json:"role"`
+	RunID string `json:"run_id"`
+	// Selector names the selector to rank with. Finder names a finder's
+	// standard selector, as it did before selectors existed.
+	Selector string `json:"selector"`
+	Finder   string `json:"finder"`
+	Role     string `json:"role"`
+	// Parameters replaces the selector's own, for a tuning window only: a
+	// held-out window is chosen at its selector's own parameters.
 	Parameters *segments.Params `json:"parameters,omitempty"`
+	// SelectorDigest is the digest of the selector the page ranked with. A
+	// case is refused when the selector has changed since.
+	SelectorDigest string `json:"selector_digest,omitempty"`
+	// windowSeconds and seed are a query's overrides of single parameters.
+	windowSeconds *float64
+	seed          *int64
+}
+
+// selectorID is the selector a request names, following's by default.
+func (req segmentRequest) selectorID() (string, error) {
+	switch {
+	case req.Selector != "" && req.Finder != "":
+		return "", fmt.Errorf("name a selector or a finder, not both")
+	case req.Selector != "":
+		return req.Selector, nil
+	case req.Finder != "":
+		return req.Finder, nil
+	}
+	return "following", nil
 }
 
 func (ws *Server) handleSegmentFinders(w http.ResponseWriter, r *http.Request) {
@@ -31,31 +55,42 @@ func (ws *Server) handleSegmentFinders(w http.ResponseWriter, r *http.Request) {
 	ws.writeJSON(w, 200, map[string]any{"finders": segments.Finders(), "defaults": segments.DefaultParams()})
 }
 
+// handleSegmentSelectors lists the selectors the server ranks with, in the
+// file's order, with each one's digest and whether it may choose held-out
+// windows.
+func (ws *Server) handleSegmentSelectors(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, 405, "method not allowed")
+		return
+	}
+	catalogue, err := ws.selectorCatalogue()
+	if err != nil {
+		ws.writeJSONError(w, 500, err.Error())
+		return
+	}
+	ws.writeJSON(w, 200, map[string]any{"version": catalogue.Version, "digest": catalogue.Digest, "source": catalogue.Source, "selectors": catalogue.Listing()})
+}
+
 func querySegmentRequest(r *http.Request) (segmentRequest, error) {
 	q := r.URL.Query()
-	req := segmentRequest{RunID: q.Get("run_id"), Finder: q.Get("finder"), Role: q.Get("role")}
-	if req.Finder == "" {
-		req.Finder = "following"
-	}
+	req := segmentRequest{RunID: q.Get("run_id"), Selector: q.Get("selector"), Finder: q.Get("finder"), Role: q.Get("role")}
 	if req.Role == "" {
 		req.Role = "tuning"
 	}
-	p := segments.DefaultParams()
 	if raw := q.Get("window_seconds"); raw != "" {
 		v, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
 			return req, err
 		}
-		p.WindowSeconds = v
+		req.windowSeconds = &v
 	}
 	if raw := q.Get("seed"); raw != "" {
 		v, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
 			return req, err
 		}
-		p.RandomSeed = v
+		req.seed = &v
 	}
-	req.Parameters = &p
 	return req, nil
 }
 
@@ -71,16 +106,31 @@ func (ws *Server) selectorCatalogue() (*segments.Catalogue, error) {
 // requestSelector is the selector a request ranks with, at the parameters it
 // gives. A finder's name is the id of its standard selector.
 func (ws *Server) requestSelector(req segmentRequest) (segments.Selector, error) {
+	id, err := req.selectorID()
+	if err != nil {
+		return segments.Selector{}, err
+	}
 	catalogue, err := ws.selectorCatalogue()
 	if err != nil {
 		return segments.Selector{}, fmt.Errorf("segment selectors: %w", err)
 	}
-	sel, ok := catalogue.Selector(req.Finder)
+	sel, ok := catalogue.Selector(id)
 	if !ok {
-		return segments.Selector{}, fmt.Errorf("unknown finder %q", req.Finder)
+		return segments.Selector{}, fmt.Errorf("unknown selector %q", id)
+	}
+	// A caller's parameters could steer even a traffic measure towards
+	// tracker failure, so a held-out window takes none.
+	if req.Role == "held_out" && (req.Parameters != nil || req.windowSeconds != nil || req.seed != nil) {
+		return segments.Selector{}, fmt.Errorf("a held-out window is chosen at its selector's own parameters")
 	}
 	if req.Parameters != nil {
 		sel.Parameters = *req.Parameters
+	}
+	if req.windowSeconds != nil {
+		sel.Parameters.WindowSeconds = *req.windowSeconds
+	}
+	if req.seed != nil {
+		sel.Parameters.RandomSeed = *req.seed
 	}
 	return sel, nil
 }
@@ -90,9 +140,6 @@ func (ws *Server) requestSelector(req segmentRequest) (segments.Selector, error)
 func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segments.Selector, error) {
 	if req.RunID == "" {
 		return nil, segments.Selector{}, fmt.Errorf("run_id is required")
-	}
-	if req.Finder == "" {
-		req.Finder = "following"
 	}
 	if req.Role == "" {
 		req.Role = "tuning"
@@ -237,7 +284,8 @@ func (ws *Server) handleSegments(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	ws.writeJSON(w, 200, map[string]any{"windows": windows, "count": len(windows), "parameters": sel.Parameters, "run_id": req.RunID, "finder": req.Finder, "role": req.Role})
+	ws.writeJSON(w, 200, map[string]any{"windows": windows, "count": len(windows), "parameters": sel.Parameters, "run_id": req.RunID,
+		"finder": sel.Finder, "selector": sel.Provenance(), "role": req.Role})
 }
 
 // A compact per-capture score strip. It contains no labels or truth state.
@@ -255,17 +303,20 @@ func (ws *Server) handleSegmentStripWith(w http.ResponseWriter, r *http.Request,
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	windows, _, err := find(req)
+	windows, sel, err := find(req)
 	if err != nil {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	if err := writeSegmentStrip(w, windows); err != nil {
+	if err := writeSegmentStrip(w, windows, sel.Score.Order == "ascending"); err != nil {
 		ws.writeJSONError(w, 413, err.Error())
 	}
 }
 
-func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window) error {
+// writeSegmentStrip shades each window by its score, brightest for the best
+// whichever way the selector ranks: a selector that puts the smallest first
+// shades the smallest brightest.
+func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascending bool) error {
 	byCapture := map[string][]segments.Window{}
 	names := []string{}
 	maxScore := 0.0
@@ -302,7 +353,11 @@ func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window) error {
 		for _, s := range cells {
 			alpha := 0.2
 			if maxScore > 0 {
-				alpha = 0.2 + 0.8*math.Sqrt(s.Score/maxScore)
+				share := s.Score / maxScore
+				if ascending {
+					share = 1 - share
+				}
+				alpha = 0.2 + 0.8*math.Sqrt(share)
 			}
 			x := 210
 			if last > first {
@@ -342,18 +397,23 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		ws.writeJSONError(w, 400, "invalid request JSON")
 		return
 	}
-	// Apply the defaults here as well as in findRunSegments, which works on a
-	// copy: the held-out guard and the stored row must name the finder and role
-	// that ranked the window, or the clip job refuses the selection as drifted.
-	if req.Finder == "" {
-		req.Finder = "following"
-	}
+	// Apply the default here as well as in findRunSegments, which works on a
+	// copy: the held-out guard and the stored row must name the role that
+	// ranked the window, or the clip job refuses the selection as drifted.
+	// The finder and parameters come back with the selector that ranked it.
 	if req.Role == "" {
 		req.Role = "tuning"
 	}
 	windows, sel, err := ws.findRunSegments(req)
 	if err != nil {
 		ws.writeJSONError(w, 400, err.Error())
+		return
+	}
+	// The page ranked with the selector it names. If the selector has
+	// changed since, the window on the page is not the one that would be
+	// stored.
+	if req.SelectorDigest != "" && req.SelectorDigest != sel.Digest() {
+		ws.writeJSONError(w, 409, "the selector has changed since this window was ranked: refresh the ranking")
 		return
 	}
 	var chosen *segments.Window

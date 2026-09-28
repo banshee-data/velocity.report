@@ -271,6 +271,9 @@ type Config struct {
 	// either way it went.
 	AnnotationPacksDir string
 	TuningConfig       *cfgpkg.TuningConfig
+	// SegmentSelectors is the catalogue the segments API ranks with, read
+	// once at startup. Nil reads the default one.
+	SegmentSelectors *segments.Catalogue
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -384,6 +387,7 @@ func NewServer(config Config) *Server {
 		latestFgCounts:     make(map[string]int),
 		plotsBaseDir:       config.PlotsBaseDir,
 		annotationPacksDir: annotationPacksDir,
+		segmentSelectors:   config.SegmentSelectors,
 		onPCAPStarted:      config.OnPCAPStarted,
 		onPCAPStopped:      config.OnPCAPStopped,
 		onTuningChange:     config.OnTuningChange,

@@ -274,6 +274,12 @@ func TestSegmentEndpointsRejectInvalidQueriesAndMethods(t *testing.T) {
 	}{
 		{"finders", "GET", "/api/lidar/segments/finders", ws.handleSegmentFinders, 200},
 		{"finders method", "POST", "/api/lidar/segments/finders", ws.handleSegmentFinders, 405},
+		{"selectors", "GET", "/api/lidar/segments/selectors", ws.handleSegmentSelectors, 200},
+		{"selectors method", "POST", "/api/lidar/segments/selectors", ws.handleSegmentSelectors, 405},
+		{"selector and finder", "GET", "/api/lidar/segments?run_id=run&selector=following&finder=following", ws.handleSegments, 400},
+		{"unknown selector", "GET", "/api/lidar/segments?run_id=run&selector=tailgating", ws.handleSegments, 400},
+		{"held-out width", "GET", "/api/lidar/segments?run_id=run&role=held_out&window_seconds=20", ws.handleSegments, 400},
+		{"held-out seed", "GET", "/api/lidar/segments/strip?run_id=run&role=held_out&finder=random&seed=2", ws.handleSegmentStrip, 400},
 		{"list method", "POST", "/api/lidar/segments?run_id=run", ws.handleSegments, 405},
 		{"missing run", "GET", "/api/lidar/segments", ws.handleSegments, 400},
 		{"unknown run", "GET", "/api/lidar/segments?run_id=missing", ws.handleSegments, 400},
@@ -367,8 +373,11 @@ func TestClipQueueReportsWriteFailureAndFailsUnlinkedJob(t *testing.T) {
 
 func TestSegmentRequestDefaultsAndEvidenceFailures(t *testing.T) {
 	req, err := querySegmentRequest(httptest.NewRequest("GET", "/api/lidar/segments?run_id=run&seed=17&window_seconds=5", nil))
-	if err != nil || req.Finder != "following" || req.Role != "tuning" || req.Parameters.RandomSeed != 17 || req.Parameters.WindowSeconds != 5 {
+	if err != nil || req.Role != "tuning" || req.seed == nil || *req.seed != 17 || req.windowSeconds == nil || *req.windowSeconds != 5 {
 		t.Fatalf("defaults and parameters: %+v %v", req, err)
+	}
+	if id, err := req.selectorID(); err != nil || id != "following" {
+		t.Fatalf("default selector: %q %v", id, err)
 	}
 	if _, err := querySegmentRequest(httptest.NewRequest("GET", "/api/lidar/segments?window_seconds=oops", nil)); err == nil {
 		t.Fatal("invalid width accepted")
@@ -432,7 +441,7 @@ func TestSegmentStripPlotsTimeAndBoundsOutput(t *testing.T) {
 	name := "/captures/" + strings.Repeat("long-name-", 5) + ".pcap"
 	windows := []segments.Window{{Capture: name, StartNs: 20, Score: 4}, {Capture: name, StartNs: 10, Score: 1}, {StartNs: 30, Score: 0}}
 	w := httptest.NewRecorder()
-	if err := writeSegmentStrip(w, windows); err != nil {
+	if err := writeSegmentStrip(w, windows, false); err != nil {
 		t.Fatal(err)
 	}
 	svg := w.Body.String()
@@ -444,7 +453,7 @@ func TestSegmentStripPlotsTimeAndBoundsOutput(t *testing.T) {
 		tooMany[i].Capture = fmt.Sprintf("capture-%d.pcap", i)
 	}
 	w = httptest.NewRecorder()
-	if err := writeSegmentStrip(w, tooMany); err == nil || w.Body.Len() != 0 {
+	if err := writeSegmentStrip(w, tooMany, false); err == nil || w.Body.Len() != 0 {
 		t.Fatalf("oversized strip was rendered: %v", err)
 	}
 }
@@ -547,7 +556,7 @@ func TestSegmentsRankWithTheServersCatalogue(t *testing.T) {
 		}
 	}
 	ws.segmentSelectors = &given
-	if _, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "split_flags"}); err == nil || !strings.Contains(err.Error(), `unknown finder "split_flags"`) {
+	if _, _, err := ws.findRunSegments(segmentRequest{RunID: "run", Finder: "split_flags"}); err == nil || !strings.Contains(err.Error(), `unknown selector "split_flags"`) {
 		t.Fatalf("a selector the server's catalogue does not have: %v", err)
 	}
 	if windows, sel, err := ws.findRunSegments(segmentRequest{RunID: "run"}); err != nil || len(windows) != 1 || sel.ID != "following" {
@@ -872,5 +881,124 @@ func TestSegmentsAreNotRankedWhenTheirStateCannotBeRead(t *testing.T) {
 	response := callSegment(t, ws, "GET", "/api/lidar/segments?run_id=run", nil, ws.handleSegments)
 	if response.Code != 400 || !strings.Contains(response.Body.String(), "read segment status") {
 		t.Fatalf("unreadable selection state: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// The API lists the selectors it ranks with, and ranks with the one a request
+// names, at the parameters it gives for a tuning window.
+func TestSegmentsAPIRanksWithSelectors(t *testing.T) {
+	ws, _ := segmentServer(t)
+	listed := callSegment(t, ws, "GET", "/api/lidar/segments/selectors", nil, ws.handleSegmentSelectors)
+	var catalogue struct {
+		Version   int                       `json:"version"`
+		Digest    string                    `json:"digest"`
+		Source    string                    `json:"source"`
+		Selectors []segments.ListedSelector `json:"selectors"`
+	}
+	if err := json.Unmarshal(listed.Body.Bytes(), &catalogue); err != nil || listed.Code != 200 || catalogue.Version != 1 ||
+		!strings.HasPrefix(catalogue.Digest, "sha256:") || len(catalogue.Selectors) != 7 {
+		t.Fatalf("selectors: %d %+v %v", listed.Code, catalogue, err)
+	}
+	var closer segments.ListedSelector
+	for _, s := range catalogue.Selectors {
+		if s.ID == "close_following" {
+			closer = s
+		}
+	}
+	if closer.Label != "Close following" || closer.Category != "Traffic" || closer.HeldOut || closer.Digest != closer.Selector.Digest() {
+		t.Fatalf("closer following as listed: %+v", closer)
+	}
+
+	var ranking struct {
+		Finder     string                      `json:"finder"`
+		Parameters segments.Params             `json:"parameters"`
+		Selector   segments.SelectorProvenance `json:"selector"`
+		Windows    []segments.Window           `json:"windows"`
+	}
+	read := func(path string) {
+		t.Helper()
+		response := callSegment(t, ws, "GET", path, nil, ws.handleSegments)
+		if response.Code != 200 {
+			t.Fatalf("%s: %d %s", path, response.Code, response.Body.String())
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &ranking); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The fixture's pair follows at 10 m for half a second: closer following
+	// asks for two seconds of it, so it offers nothing.
+	read("/api/lidar/segments?run_id=run&selector=close_following")
+	if ranking.Finder != "following" || ranking.Selector.ID != "close_following" || ranking.Selector.Digest != closer.Digest || len(ranking.Windows) != 0 {
+		t.Fatalf("closer following: %+v", ranking)
+	}
+	// A tuning window may be ranked at other parameters; the selector then
+	// records the ones that ran.
+	read("/api/lidar/segments?run_id=run&selector=following&window_seconds=5")
+	if ranking.Parameters.WindowSeconds != 5 || ranking.Selector.Parameters.WindowSeconds != 5 || ranking.Selector.HeldOutEligible || len(ranking.Windows) != 1 {
+		t.Fatalf("following at 5 s: %+v", ranking)
+	}
+	read("/api/lidar/segments?run_id=run&finder=random&seed=7")
+	if ranking.Parameters.RandomSeed != 7 || ranking.Selector.Parameters.RandomSeed != 7 || ranking.Selector.HeldOutEligible {
+		t.Fatalf("random with another seed: %+v", ranking)
+	}
+	// finder= still names a finder's standard selector.
+	read("/api/lidar/segments?run_id=run&finder=exposure")
+	if ranking.Selector.ID != "exposure" || ranking.Finder != "exposure" {
+		t.Fatalf("finder alias: %+v", ranking)
+	}
+	// A held-out case takes no parameters from its request.
+	chosen := firstFollowingSegment(t, ws, "held_out")
+	response := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case",
+		map[string]any{"run_id": "run", "role": "held_out", "parameters": segments.DefaultParams()}, ws.handleSegmentByID)
+	if response.Code != 400 || !strings.Contains(response.Body.String(), "own parameters") {
+		t.Fatalf("held-out case with parameters: %d %s", response.Code, response.Body.String())
+	}
+	// With no catalogue given, and none to be found or embedded, there is no
+	// list to serve.
+	t.Chdir(t.TempDir())
+	if response := callSegment(t, ws, "GET", "/api/lidar/segments/selectors", nil, ws.handleSegmentSelectors); response.Code != 500 {
+		t.Fatalf("no catalogue: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// A case is made only under the selector the page ranked with.
+func TestSegmentCaseRefusesAChangedSelector(t *testing.T) {
+	ws, _ := segmentServer(t)
+	chosen := firstFollowingSegment(t, ws, "tuning")
+	catalogue, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	following, _ := catalogue.Selector("following")
+	path := "/api/lidar/segments/" + chosen.ID + "/case"
+	stale := callSegment(t, ws, "POST", path, map[string]any{"run_id": "run", "selector": "following", "selector_digest": "sha256:" + strings.Repeat("0", 64)}, ws.handleSegmentByID)
+	if stale.Code != 409 {
+		t.Fatalf("a changed selector: %d %s", stale.Code, stale.Body.String())
+	}
+	current := callSegment(t, ws, "POST", path, map[string]any{"run_id": "run", "selector": "following", "selector_digest": following.Digest()}, ws.handleSegmentByID)
+	if current.Code != 201 {
+		t.Fatalf("the selector the page ranked with: %d %s", current.Code, current.Body.String())
+	}
+}
+
+// Whichever way a selector ranks, its best window is shaded brightest.
+func TestSegmentStripShadesTheBestWindowBrightest(t *testing.T) {
+	windows := []segments.Window{{Capture: "a.pcap", StartNs: 1, Score: 10}, {Capture: "a.pcap", StartNs: 2, Score: 2}}
+	opacity := func(ascending bool) []string {
+		w := httptest.NewRecorder()
+		if err := writeSegmentStrip(w, windows, ascending); err != nil {
+			t.Fatal(err)
+		}
+		found := []string{}
+		for _, part := range strings.Split(w.Body.String(), `opacity="`)[1:] {
+			found = append(found, part[:strings.Index(part, `"`)])
+		}
+		return found
+	}
+	if got := opacity(false); len(got) != 2 || got[0] != "1.000" || got[0] <= got[1] {
+		t.Fatalf("largest first: %v", got)
+	}
+	if got := opacity(true); len(got) != 2 || got[0] != "0.200" || got[1] <= got[0] {
+		t.Fatalf("smallest first: %v", got)
 	}
 }

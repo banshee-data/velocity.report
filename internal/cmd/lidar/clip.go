@@ -65,10 +65,11 @@ func annotationClipMain(args []string, ops clipOperations) int {
 		}
 	}
 	var chosen segments.Window
+	var chosenBy *segments.SelectorProvenance
 	selectionParams := segments.DefaultParams()
 	if *selection != "" {
 		var err error
-		chosen, selectionParams, err = readClipSelection(*selection, *segmentID, *role)
+		chosen, selectionParams, chosenBy, err = readClipSelection(*selection, *segmentID, *role)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "annotation-clip: selection: %v\n", err)
 			return 2
@@ -139,7 +140,7 @@ func annotationClipMain(args []string, ops clipOperations) int {
 	if *selection == "" {
 		chosen = segments.Window{Finder: "manual", Version: 1, Source: strings.Join(files, ","), StartNs: manifest.ScoringStartNs, EndNs: end, PeakNs: manifest.ScoringStartNs, Status: "packed"}
 	}
-	r := segments.Record{Schema: "velocity.report/annotation-segment", SchemaVersion: 1, PackDigest: pack.Manifest.PackDigest, Role: *role, Finder: chosen.Finder, FinderVersion: chosen.Version, Parameters: selectionParams, Segment: chosen}
+	r := segments.Record{Schema: "velocity.report/annotation-segment", SchemaVersion: 1, PackDigest: pack.Manifest.PackDigest, Role: *role, Finder: chosen.Finder, FinderVersion: chosen.Version, Parameters: selectionParams, Segment: chosen, Selector: chosenBy}
 	if err = ops.writeRecord(pack.Dir, r); err != nil {
 		fmt.Fprintf(os.Stderr, "annotation-clip: segment record: %v\n", err)
 		return 1
@@ -150,39 +151,51 @@ func annotationClipMain(args []string, ops clipOperations) int {
 
 func finiteClip(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 
-func readClipSelection(path, id, role string) (segments.Window, segments.Params, error) {
+// readClipSelection reads the window a segments report chose, its
+// parameters, and the selector that chose it. A report written before
+// selectors existed names none.
+func readClipSelection(path, id, role string) (segments.Window, segments.Params, *segments.SelectorProvenance, error) {
 	var report struct {
-		Schema     string            `json:"schema"`
-		Source     string            `json:"source"`
-		Finder     string            `json:"finder"`
-		Version    int               `json:"version"`
-		Role       string            `json:"role"`
-		Parameters segments.Params   `json:"parameters"`
-		Windows    []segments.Window `json:"windows"`
+		Schema     string                       `json:"schema"`
+		Source     string                       `json:"source"`
+		Finder     string                       `json:"finder"`
+		Version    int                          `json:"version"`
+		Role       string                       `json:"role"`
+		Parameters segments.Params              `json:"parameters"`
+		Selector   *segments.SelectorProvenance `json:"selector"`
+		Windows    []segments.Window            `json:"windows"`
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return segments.Window{}, segments.Params{}, err
+		return segments.Window{}, segments.Params{}, nil, err
 	}
 	if err := json.Unmarshal(b, &report); err != nil {
-		return segments.Window{}, segments.Params{}, err
+		return segments.Window{}, segments.Params{}, nil, err
 	}
 	if report.Schema != "velocity.report/segments" || report.Version != segments.Version || report.Role != role || !segments.Allowed(report.Finder, role) {
-		return segments.Window{}, segments.Params{}, fmt.Errorf("report version, finder or role is invalid")
+		return segments.Window{}, segments.Params{}, nil, fmt.Errorf("report version, finder or role is invalid")
 	}
 	if err := report.Parameters.Validate(); err != nil {
-		return segments.Window{}, segments.Params{}, err
+		return segments.Window{}, segments.Params{}, nil, err
+	}
+	// A held-out window is chosen at its selector's own parameters, which for
+	// every selector that may choose one are the defaults.
+	if role == "held_out" && (report.Parameters != segments.DefaultParams() || (report.Selector != nil && !report.Selector.HeldOutEligible)) {
+		return segments.Window{}, segments.Params{}, nil, fmt.Errorf("a held-out window must be chosen by a standard selector at its own parameters")
+	}
+	if report.Selector != nil && (report.Selector.Finder != report.Finder || report.Selector.Parameters != report.Parameters) {
+		return segments.Window{}, segments.Params{}, nil, fmt.Errorf("the report's selector ran another finder or other parameters")
 	}
 	if id == "" && len(report.Windows) != 1 {
-		return segments.Window{}, segments.Params{}, fmt.Errorf("--segment-id is required when the report has %d windows", len(report.Windows))
+		return segments.Window{}, segments.Params{}, nil, fmt.Errorf("--segment-id is required when the report has %d windows", len(report.Windows))
 	}
 	for _, window := range report.Windows {
 		if id == "" || id == window.ID {
 			if window.ID != segments.Identity(report.Finder, report.Source, report.Role, report.Parameters, window.StartNs) || window.Finder != report.Finder || window.Version != report.Version || window.Source != report.Source || window.Role != report.Role || window.EndNs-window.StartNs != int64(report.Parameters.WindowSeconds*1e9) || window.Capture == "" {
-				return segments.Window{}, segments.Params{}, fmt.Errorf("selected window does not match report or lacks an indexed capture")
+				return segments.Window{}, segments.Params{}, nil, fmt.Errorf("selected window does not match report or lacks an indexed capture")
 			}
-			return window, report.Parameters, nil
+			return window, report.Parameters, report.Selector, nil
 		}
 	}
-	return segments.Window{}, segments.Params{}, fmt.Errorf("segment %q is not in report", id)
+	return segments.Window{}, segments.Params{}, nil, fmt.Errorf("segment %q is not in report", id)
 }

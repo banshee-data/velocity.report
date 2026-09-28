@@ -79,6 +79,11 @@ func TestTheShippedSelectorFileParses(t *testing.T) {
 	if _, ok := c.Selector("tailgating"); ok {
 		t.Fatal("found a selector the file does not define")
 	}
+	listing := c.Listing()
+	if len(listing) != len(c.Selectors) || listing[1].ID != "close_following" || listing[1].HeldOut ||
+		listing[1].Digest != c.Selectors[1].Digest() || !listing[0].HeldOut {
+		t.Fatalf("listing: %+v", listing[:2])
+	}
 	closer := selectorFrom(t, c, "close_following")
 	p := DefaultParams()
 	p.MaxGap = 15

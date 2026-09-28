@@ -26,27 +26,70 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 	source := fs.String("source", "", "Estimate source ID")
 	stage := fs.String("stage", "online", "Estimate stage")
 	capture := fs.String("capture", "", "Capture path for placement (required for random evidence selection)")
-	finder := fs.String("finder", "following", "following, leader_changes, lateral_jump, split_flags, exposure, random")
+	selectorsPath := fs.String("selectors", "", "Selector file (default "+segments.DefaultSelectorsPath+", else the copy built into the binary)")
+	selectorID := fs.String("selector", "", "Selector to rank with, from --list-selectors (default following)")
+	finder := fs.String("finder", "", "A finder's standard selector, instead of --selector: following, leader_changes, lateral_jump, split_flags, exposure, random")
+	listSelectors := fs.Bool("list-selectors", false, "Print the selectors and exit")
 	role := fs.String("role", "tuning", "tuning or held_out")
 	top := fs.Int("top", 15, "Maximum windows to print (0 = all)")
-	p := segments.DefaultParams()
-	fs.Float64Var(&p.WindowSeconds, "window-seconds", p.WindowSeconds, "Window width")
-	fs.Float64Var(&p.MinSpeed, "min-speed", p.MinSpeed, "Minimum speed in m/s")
-	fs.Float64Var(&p.MaxHeadingDeg, "max-heading-deg", p.MaxHeadingDeg, "Maximum heading difference")
-	fs.Float64Var(&p.MinGap, "min-gap", p.MinGap, "Minimum following gap")
-	fs.Float64Var(&p.MaxGap, "max-gap", p.MaxGap, "Maximum following gap")
-	fs.Float64Var(&p.MaxLateral, "max-lateral", p.MaxLateral, "Maximum lateral separation")
-	fs.Float64Var(&p.JumpThreshold, "jump-threshold", p.JumpThreshold, "Lateral residual threshold")
-	fs.Float64Var(&p.JumpMaxGapSeconds, "jump-max-gap", p.JumpMaxGapSeconds, "Maximum gap within five-point fit")
-	fs.Int64Var(&p.RandomSeed, "seed", p.RandomSeed, "Reproducible random seed")
+	// Each parameter flag, when given, replaces the selector's own value.
+	given := segments.DefaultParams()
+	fs.Float64Var(&given.WindowSeconds, "window-seconds", given.WindowSeconds, "Window width")
+	fs.Float64Var(&given.MinSpeed, "min-speed", given.MinSpeed, "Minimum speed in m/s")
+	fs.Float64Var(&given.MaxHeadingDeg, "max-heading-deg", given.MaxHeadingDeg, "Maximum heading difference")
+	fs.Float64Var(&given.MinGap, "min-gap", given.MinGap, "Minimum following gap")
+	fs.Float64Var(&given.MaxGap, "max-gap", given.MaxGap, "Maximum following gap")
+	fs.Float64Var(&given.MaxLateral, "max-lateral", given.MaxLateral, "Maximum lateral separation")
+	fs.Float64Var(&given.JumpThreshold, "jump-threshold", given.JumpThreshold, "Lateral residual threshold")
+	fs.Float64Var(&given.JumpMaxGapSeconds, "jump-max-gap", given.JumpMaxGapSeconds, "Maximum gap within five-point fit")
+	fs.Int64Var(&given.RandomSeed, "seed", given.RandomSeed, "Reproducible random seed")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
 		}
 		return 2
 	}
-	if *dbPath == "" || *top < 0 || (*run != "" && *source != "") {
-		fmt.Fprintln(os.Stderr, "segments: --db is required; --run and --source are alternatives; --top must be nonnegative")
+	catalogue, err := loadSelectorCatalogue(*selectorsPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "segments: %v\n", err)
+		return 2
+	}
+	if *listSelectors {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(map[string]any{"version": catalogue.Version, "digest": catalogue.Digest, "source": catalogue.Source, "selectors": catalogue.Listing()}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if *dbPath == "" || *top < 0 || (*run != "" && *source != "") || (*selectorID != "" && *finder != "") {
+		fmt.Fprintln(os.Stderr, "segments: --db is required; --run and --source are alternatives, as are --selector and --finder; --top must be nonnegative")
+		return 2
+	}
+	id := *selectorID
+	if id == "" {
+		id = *finder
+	}
+	if id == "" {
+		id = "following"
+	}
+	sel, ok := catalogue.Selector(id)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "segments: unknown selector %q (see --list-selectors)\n", id)
+		return 2
+	}
+	overridden := false
+	fs.Visit(func(f *flag.Flag) {
+		if apply, ok := parameterFlags[f.Name]; ok {
+			apply(&sel.Parameters, given)
+			overridden = true
+		}
+	})
+	// A caller's parameters could steer even a traffic measure towards
+	// tracker failure, so a held-out window takes none.
+	if overridden && *role == "held_out" {
+		fmt.Fprintln(os.Stderr, "segments: a held-out window is chosen at its selector's own parameters; drop the parameter flags")
 		return 2
 	}
 	db, err := open(*dbPath)
@@ -68,7 +111,7 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 		return 1
 	}
 	var captures []segments.Capture
-	if *finder == "random" || *capture != "" {
+	if sel.Finder == "random" || *capture != "" {
 		path := *capture
 		if path == "" && *run != "" {
 			record, recordErr := sqlite.NewAnalysisRunStore(db).GetRun(*run)
@@ -110,7 +153,7 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 			return 1
 		}
 	}
-	windows, err := segments.Find(pts, *finder, src, *role, p, captures)
+	windows, err := segments.Rank(pts, sel, src, *role, captures)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "segments: %v\n", err)
 		return 2
@@ -119,14 +162,15 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 		windows = windows[:*top]
 	}
 	report := struct {
-		Schema     string            `json:"schema"`
-		Source     string            `json:"source"`
-		Finder     string            `json:"finder"`
-		Version    int               `json:"version"`
-		Role       string            `json:"role"`
-		Parameters segments.Params   `json:"parameters"`
-		Windows    []segments.Window `json:"windows"`
-	}{"velocity.report/segments", src, *finder, segments.Version, *role, p, windows}
+		Schema     string                      `json:"schema"`
+		Source     string                      `json:"source"`
+		Finder     string                      `json:"finder"`
+		Version    int                         `json:"version"`
+		Role       string                      `json:"role"`
+		Parameters segments.Params             `json:"parameters"`
+		Selector   segments.SelectorProvenance `json:"selector"`
+		Windows    []segments.Window           `json:"windows"`
+	}{"velocity.report/segments", src, sel.Finder, segments.Version, *role, sel.Parameters, sel.Provenance(), windows}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err = enc.Encode(report); err != nil {
@@ -134,6 +178,28 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 		return 1
 	}
 	return 0
+}
+
+// parameterFlags copies one parameter flag's value onto a selector's
+// parameters.
+var parameterFlags = map[string]func(p *segments.Params, given segments.Params){
+	"window-seconds":  func(p *segments.Params, given segments.Params) { p.WindowSeconds = given.WindowSeconds },
+	"min-speed":       func(p *segments.Params, given segments.Params) { p.MinSpeed = given.MinSpeed },
+	"max-heading-deg": func(p *segments.Params, given segments.Params) { p.MaxHeadingDeg = given.MaxHeadingDeg },
+	"min-gap":         func(p *segments.Params, given segments.Params) { p.MinGap = given.MinGap },
+	"max-gap":         func(p *segments.Params, given segments.Params) { p.MaxGap = given.MaxGap },
+	"max-lateral":     func(p *segments.Params, given segments.Params) { p.MaxLateral = given.MaxLateral },
+	"jump-threshold":  func(p *segments.Params, given segments.Params) { p.JumpThreshold = given.JumpThreshold },
+	"jump-max-gap":    func(p *segments.Params, given segments.Params) { p.JumpMaxGapSeconds = given.JumpMaxGapSeconds },
+	"seed":            func(p *segments.Params, given segments.Params) { p.RandomSeed = given.RandomSeed },
+}
+
+// loadSelectorCatalogue reads the selector file named, or the default one.
+func loadSelectorCatalogue(path string) (*segments.Catalogue, error) {
+	if path == "" {
+		return segments.DefaultCatalogue()
+	}
+	return segments.LoadSelectors(path)
 }
 
 // loadRunSeries reads a run's stored observations, or its recording when it

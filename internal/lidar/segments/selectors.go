@@ -232,6 +232,24 @@ func (c *Catalogue) Selector(id string) (Selector, bool) {
 	return Selector{}, false
 }
 
+// ListedSelector is a selector as the API and the segments command list it:
+// with its digest, and whether it may choose held-out windows.
+type ListedSelector struct {
+	Selector
+	Digest  string `json:"digest"`
+	HeldOut bool   `json:"held_out"`
+}
+
+// Listing is the catalogue's selectors, in the file's order, as they are
+// listed.
+func (c *Catalogue) Listing() []ListedSelector {
+	out := make([]ListedSelector, 0, len(c.Selectors))
+	for _, s := range c.Selectors {
+		out = append(out, ListedSelector{s, s.Digest(), s.HeldOut()})
+	}
+	return out
+}
+
 // ForRole returns the selectors that may choose a window for the role, in
 // the order the file gives them.
 func (c *Catalogue) ForRole(role string) []Selector {
