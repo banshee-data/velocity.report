@@ -224,11 +224,9 @@ rather than assuming it reached everything.
 - **Tailscale remains installed and running on the guest** (not the host). It is no longer needed
   for this mount; removing it, or leaving it for other uses, is a separate decision.
 - **The "proper" `br0`-with-`eno1`-member layout** (TrueNAS's documented default topology, where the
-  host's own address moves onto the bridge and `eno1` becomes a plain member) remains blocked by
-  the constraint in section 3.2 for as long as the VM's current NIC is attached to `eno1`. It could
-  be done by stopping the VM (or removing its NIC device) first, creating `br0` with `eno1` as a
-  member, moving `eno1`'s address to `br0`, then reattaching the VM's NIC to `br0` once it is a
-  selectable option. Not attempted: it needs VM downtime and was not required to reach the goal.
+  host's own address moves onto the bridge and `eno1` becomes a plain member) was attempted, with
+  the VM stopped first to clear section 3.2's macvtap constraint, and failed for a different,
+  switch-side reason. See section 12.
 - **The `bridge_setup()` exception-swallowing defect** in section 3.2 is worth reporting upstream
   with this evidence, independent of anything this deployment does.
 
@@ -346,3 +344,77 @@ own once the VM's network device existed again.
 reboot), check the VM's own network before assuming it is fine because TrueNAS shows it running. A
 macvtap-based guest NIC does not survive its underlying physical interface being torn down and
 rebuilt, and needs its own restart.
+
+## 12. Hardening after the hardware hang: three mitigations, one of them incomplete
+
+Following the `eno1` hang in section 11, three mitigations were considered for reducing how often
+it recurs and how much intervention it needs.
+
+### Disabling EEE and TSO on `eno1`
+
+Confirmed via `ethtool --show-eee eno1` (`EEE status: enabled - inactive`) and `ethtool -k eno1`
+(`tcp-segmentation-offload: on`) that both suspects from section 11's research were active. Disabled
+both:
+
+```bash
+ethtool --set-eee eno1 eee off
+ethtool -K eno1 tso off gso off
+```
+
+Persisted via a TrueNAS Init Script (System > Advanced > Init/Shutdown Scripts, Post Init, so it
+reruns after every boot; `ethtool` settings do not survive a reboot on their own).
+
+### An auto-recovery watchdog
+
+A `systemd` service (`eno1-hang-watchdog.service`) tails `journalctl -k -f` for the "Detected
+Hardware Unit Hang" signature, and on match reloads the `e1000e` driver (`rmmod`/`modprobe`) then
+restarts the VM (`midclt call vm.stop`/`vm.start`) to rebuild its macvtap NIC, with a 120-second
+cooldown to avoid a restart loop if the hang recurs quickly. The watchdog script itself lives on
+the pool (`/mnt/arrow/scripts/eno1-hang-watchdog.sh`), the one genuinely writable, always-persistent
+location on this host (`/usr/local/bin` and other base-OS paths are read-only). A second Init
+Script (Post Init) reasserts the `systemd` unit file and re-enables the service on every boot, since
+`/etc/systemd/system` is not guaranteed to survive a TrueNAS version upgrade the way the pool is.
+
+This closes the gap the manual recovery in section 11 depended on: previously, a hang needed
+someone at the physical console; now it self-heals within seconds.
+
+### Bridging `eno1` instead of using macvtap: attempted, failed
+
+Section 7 (before this update) flagged the "proper" `br0`-with-`eno1`-member layout as a way to
+stop a driver reload from orphaning the VM's macvtap NIC, unattempted because it needed VM
+downtime. It was attempted here, and failed.
+
+With the VM stopped (releasing `eno1`'s macvtap), `eno1`'s own address was cleared and a new bridge
+`br0` (DHCP, member `eno1`) was staged as a paired change, following the safe-commit procedure in
+section 8: Test Changes with a 300-second window, confirmed via an independent ping rather than the
+browser tab that issued the change. The host never came back. `eno1`'s address dropped and `br0`
+started `dhclient`, then nothing until the rollback fired at the full 300 seconds and restored
+`eno1`:
+
+```text
+22:02:05  eno1: removing 192.168.99.8 ... bridge_setup(): Adding member 'eno1' to 'br0'
+22:02:05  bridge_setup(): Turning STP on for 'br0'
+22:02:05  run_dhcp(): Starting dhclient for br0
+[... nothing else for 5 minutes ...]
+22:07:05  (rollback) run_dhcp(): Starting dhclient for eno1
+22:07:06  unconfigure(): Unconfiguring interface 'br0'
+```
+
+Confirmed afterwards: no leftover macvtap device (`ip link show type macvtap` empty), `eno1` clean
+with no bridge membership, so this is not a repeat of section 3.2's macvtap-exclusivity defect. The
+log shows `dhclient` starting for `br0` and then total silence, no lease and no error, for the
+entire window. Read together with `Turning STP on for 'br0'`, the working hypothesis is that the
+upstream switch's BPDU Guard or loop protection err-disabled the port once `br0` (a bridge with a
+real member, unlike the memberless `br1`) started sending Spanning Tree BPDUs, a common switch-side
+reaction to an unexpected bridge that does not resolve within the usual 30-second STP forward-delay
+window. This cannot be confirmed without access to the switch's own configuration or logs, which is
+outside this runbook's scope.
+
+**Not pursued further.** Retrying without first addressing the switch side would likely reproduce
+the same outage. The two mitigations above already remove the practical cost of a hang without this
+change, so the macvtap topology stays as it is.
+
+**Rule that follows from this**: a bridge with a real member behaves differently from an empty one.
+`br1`'s six successful isolated-bridge attempts (section 2.1) say nothing about whether enslaving a
+production interface will also converge cleanly; test that specific case, with an
+independent-connection safe-commit check, before relying on it.
