@@ -223,6 +223,39 @@ as such rather than assumed.
   writes a solid-body row per refined estimate with the revised state and the online beliefs.
 - The lossless-batch oracle covers `lidar_track_solid_bodies`.
 
+### Configuration surface
+
+Everything above is reached one way: a replay `-experiment` name sets a field on
+`TrackerConfig.SolidBody` in `replayeval`. The corpus tool, the pcap tests, the per-frame
+evaluator and the headway field run can therefore compare arms; nothing that builds a tracker from
+the tuning config can. `velocity serve`, PCAP replay on :8081, the sweep, HINT, the run record and
+the visualiser have no way to switch the body on, so no VRLOG or analysis run carries it, and the
+tuning fingerprint does not know it exists.
+
+The options move into the tuning config as one block, `l5.cv_kf_v1.solid_body`, with these rules:
+
+| Rule                                   | Why                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An options block, not an engine        | The body does not change the motion model (Option A). Engines select estimators (state plan, Section 4.3); a `cv_kf_near_edge_v1` engine would copy `L5Common` and fork every sweep, runtime and HINT path that reads it                                                                                                |
+| A pointer, `omitempty`, nil by default | `tuning.defaults.json` and the profiles are byte-identical, so the fingerprint does not move (invariant 1) and the perf baselines stand. The unselected engine blocks already take this shape, and the key-order check accepts their absence                                                                            |
+| Experiments become aliases             | `solid_body`, `solid_body_face_hysteresis`, `solid_body_course_faces` and the rest set the same block in replay. F1 to F3 stay reproducible from their manifests, and the summary's `experiments` list keeps its meaning                                                                                                |
+| One mapping                            | `TrackerConfigFromTuning` reads the block; the runtime apply path (`/api/lidar/params`) gains its keys under `l5.cv_kf_v1.solid_body.*`; the run record and manifest hash it with everything else                                                                                                                       |
+| Live parity or refusal                 | The live pipeline hands the tracker capped `RetainedPoints` and no declared origin. Full members need the same L4 hand-off replay uses (S2.1 step 2); the origin comes from the calibration transform and is recorded (Sensor geometry declaration). Until both hold, the block refuses on the live path as replay does |
+
+Fields: `enabled`, `face_hysteresis`, `face_entry_consider`, `course_aligned_faces`,
+`course_alignment_min_speed_mps` (2.0 today, a constant) and, when S2.2 lands, `near_edge_track`.
+The numeric ones become sweepable; the booleans are arms.
+
+What this buys the sprint: a run of a real capture through the real server with the body on, so
+the macOS tool can review it against the kirk0 pack, the visualiser can draw it, and
+`lidar_track_solid_bodies` fills from a run rather than a test. What it does not buy: a score on
+:8081. The sweep, auto-tune and HINT score `lidar_run_tracks`, which is the tracked state, and
+that state stays on the medoid until S2.2. Until then the body's A/B harness is offline: the corpus
+tool's per-case summary (label-free), the per-frame evaluator's paired arms with `-a-solid-body`
+and `-b-solid-body` on reviewed held-out episodes, and the headway field run with
+`--solid-bodies`. After S2.2 the body is the tracked state, and every :8081 harness scores it
+without change.
+
 ## Scope
 
 ### S2.0: corpus instrumentation for the shadow
@@ -257,6 +290,8 @@ refuse without an origin. All of it is in the shadow, where G-GEO-1 is attributa
    transform, and refuses without one; the manifest and hash record it.
 4. Stratify the face-stable residual by heading rate and range on `columbus-broadway`, where the
    body loses to the point estimate at p99 even within face-stable runs (T0).
+5. Move the options into the tuning config as `l5.cv_kf_v1.solid_body`, with the experiments
+   as aliases and live parity or refusal (see [Configuration surface](#configuration-surface)).
 
 **Exit:**
 
@@ -268,59 +303,106 @@ refuse without an origin. All of it is in the shadow, where G-GEO-1 is attributa
 
 #### What S2.1 found
 
-The code is in replay behind four experiments that qualify `solid_body`:
+The code is in replay behind five experiments that qualify `solid_body`:
 
 - `solid_body_face_hysteresis` (T1);
 - `solid_body_face_consider` (T2);
+- `solid_body_course_faces` (T3), on `claude/upbeat-galileo-4xbaat-s2-1-t3` at `0adb33e5`, not
+  yet merged;
 - `solid_body_full_members`;
 - the sensor origin, which `solid_body` now requires. Without a declaration it is derived from the
   identity tracking transform and recorded in the manifest.
 
-Test F2 ran on the Mac (Apple M1 Pro, 24 minutes and under 1 GB per arm): the full-member solid
-body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. F1, which
-runs T2 on the tuning partition, finished but its results are not yet published. Solid-body
-lateral residual p99, in metres:
+Three tests ran on the Mac (Apple M1 Pro, 20 to 26 minutes and under 1 GB per arm), each on the
+tuning partition at 256 sample points, two arms at a time: F1 (T1, T2, both, without full
+members), F2 (full members, with and without T1; `claude/upbeat-galileo-4xbaat-s2-f2-results`)
+and F3 (T3 alone and with T1, full members; #623). Full members change nothing but the
+independence from the cap (below), so the F1 rows compare with the rest. kirk0 ran every arm in
+the pcap test on the T3 branch. Solid-body lateral residual p99 over moving tracks, in metres,
+with the point estimate's p99 over the same body-centre frames beside it:
 
-| Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
-| ---------------------- | ------------ | -----: | -----: | -----------------: | ---------------: | --: |
-| kirk0                  | solid body   |    826 |        |              0.364 |            0.083 | 4.4 |
-| kirk0                  | T1           |    697 |        |              0.216 |            0.085 | 2.5 |
-| `marina-webster-beach` | full members | 14,557 |    402 |              0.231 |            0.073 | 3.2 |
-| `marina-webster-beach` | T1, full     | 13,570 |    587 |              0.159 |            0.064 | 2.5 |
-| `columbus-broadway`    | full members | 40,630 |    898 |              0.386 |            0.194 | 2.0 |
-| `columbus-broadway`    | T1, full     | 37,130 |  1,363 |              0.344 |            0.136 | 2.5 |
+| Site                   | Arm        |  Fixes | Lapses | Body-centre frames | Face-stable runs | Point, body-centre frames | Gap |
+| ---------------------- | ---------- | -----: | -----: | -----------------: | ---------------: | ------------------------: | --: |
+| kirk0                  | solid body |    825 |        |              0.364 |            0.087 |                     0.309 | 4.2 |
+| kirk0                  | T1         |    698 |        |              0.216 |            0.087 |                     0.303 | 2.5 |
+| kirk0                  | T1, T2     |    698 |        |              0.220 |            0.084 |                     0.303 | 2.6 |
+| kirk0                  | T3         |  1,110 |        |              0.209 |            0.132 |                     0.309 | 1.6 |
+| kirk0                  | T1, T3     |    948 |        |              0.531 |            0.058 |                     0.266 | 9.2 |
+| `marina-webster-beach` | solid body | 14,557 |    402 |              0.231 |            0.073 |                     0.194 | 3.2 |
+| `marina-webster-beach` | T1         | 13,570 |    587 |              0.159 |            0.064 |                     0.180 | 2.5 |
+| `marina-webster-beach` | T2         | 14,457 |    406 |              0.221 |            0.077 |                     0.194 | 2.9 |
+| `marina-webster-beach` | T1, T2     | 13,570 |    587 |              0.169 |            0.069 |                     0.180 | 2.4 |
+| `marina-webster-beach` | T3         | 18,351 |    514 |              0.182 |            0.069 |                     0.198 | 2.6 |
+| `marina-webster-beach` | T1, T3     | 16,785 |    674 |              0.154 |            0.065 |                     0.183 | 2.4 |
+| `columbus-broadway`    | solid body | 40,630 |    898 |              0.386 |            0.194 |                     0.254 | 2.0 |
+| `columbus-broadway`    | T1         | 37,130 |  1,363 |              0.344 |            0.136 |                     0.197 | 2.5 |
+| `columbus-broadway`    | T2         | 40,630 |    898 |              0.336 |            0.198 |                     0.254 | 1.7 |
+| `columbus-broadway`    | T1, T2     | 37,130 |  1,363 |              0.307 |            0.135 |                     0.197 | 2.3 |
+| `columbus-broadway`    | T3         | 47,664 |  1,039 |              0.401 |            0.164 |                     0.270 | 2.4 |
+| `columbus-broadway`    | T1, T3     | 43,294 |  1,680 |              0.287 |            0.139 |                     0.228 | 2.1 |
+
+The point estimate's figure moves between arms because the set of body-centre frames does; the
+tracker itself is identical in every arm.
 
 Against the exit:
 
-- **Remedy: not met.** T1 is the better remedy, but the gap stays near 2.5 on all three sites, far
-  from 1.25. It costs 7 % to 9 % of fixes and adds about half again as many lapses, because a held
-  frame is a faceless one. With T1 the body beats the point estimate over all body-centre frames on
-  marina (0.159 against 0.180 m), not on columbus (0.344 against 0.197 m).
-- **Columbus's within-run tail: named.** It is turning. At 15 degrees per second or more the body's
-  face-stable p99 is 0.369 m against the point estimate's 0.152 m, over 490 of 2,563 windows. Below
-  that the body is level with or better than the point: 0.168 against 0.164 m under 5 degrees per
-  second, and 0.138 against 0.212 m from 5 to 15. Marina shows the same above 15 degrees per
-  second, 0.204 against 0.115 m, on 242 windows. The tracked heading lags a turn, and the face
-  normal and the face choice lag with it: the state plan's invalidating condition b. Range shows
-  no pattern inside 40 m.
+- **Remedy: not met by T1 or T2.** T1 costs 7 % to 9 % of fixes and adds about half again as many
+  lapses, because a held frame is a faceless one, and leaves the gap near 2.5 on every site. T2
+  changes nothing on kirk0 or marina; on columbus it takes the all-frame p99 from 0.386 to 0.336 m
+  at no cost in fixes, so a face's first update does carry some of that site's tail. Together they
+  are no better than T1 alone.
+- **Columbus's within-run tail: named, then closed by T3.** It is turning. With T1 alone, at 15
+  degrees per second or more the body's face-stable p99 is 0.369 m against the point estimate's
+  0.152 m, over 490 of 2,563 windows; below that the body is level with or better than the point.
+  Marina shows the same above 15 degrees per second, 0.204 against 0.115 m, on 242 windows. The
+  tracked heading lags a turn, and the face normal and the face choice lag with it: the state
+  plan's invalidating condition b. Range shows no pattern inside 40 m. T3 takes the face choice
+  and normals from the body's own course above 2 m/s: in that stratum the body's face-stable p99
+  falls to 0.143 m on columbus (0.136 with T1, against the point's 0.178) and 0.069 m on marina,
+  over three to four times as many windows (1,568 and 936), because the turning frames now fix.
+  With T3 the body beats the point estimate in every heading-rate stratum on both sites.
+- **T3 raises the fix rate, through extent admission.** Fixes rise 26 % on marina and 17 % on
+  columbus, and 34 % on kirk0. The rows that had a face but only a prior extent fall from 4,538 to
+  1,494 and from 15,337 to 8,857: extent admission already refused spans when the tracked heading
+  and the course disagreed by more than 10 degrees, and measuring along the course admits them,
+  so widths converge on 239 and 482 tracks instead of 190 and 365. The clusters with no supported
+  face are unchanged, as T0 predicted.
+- **The transition tail stays open.** T1 with T3 is the best corpus arm on every figure: 0.154 m
+  on marina and 0.287 m on columbus over all body-centre frames, at 2.4 and 2.1 times the
+  face-stable p99, against the exit's 1.25. Over all body-centre frames the body beats the point
+  on marina (0.154 against 0.183 m) and still loses on columbus (0.287 against 0.228 m), with the
+  deficit halved from T1's. Excursion share rises with T3 (marina 0.036 to 0.054, columbus 0.043
+  to 0.054; 0.043 and 0.037 with T1), but so does the point estimate's over the same frames
+  (marina 0.018 to 0.043): the population now includes the admitted turning frames.
+- **kirk0 disagrees about T1 with T3.** There T3 alone is the best all-frame arm (0.209 m, gap
+  1.6) and T1 with T3 the worst (0.531 m, maximum 0.708 m, from 197 windows). A held face and a
+  course-aligned normal interact somewhere in kirk0's 63 s in a way the corpus sites do not show,
+  and the pcap test asserts nothing that catches it. Those frames want looking at before T1 with
+  T3 is frozen.
 - **Full members: met.** Fixes, every fallback, lapses, converged widths and run counts are
   identical to T0's 256-point arm on both sites. p95 and p99 move by 2 mm or less.
 - **Refusal: met.** A solid body without a declared origin makes no fix and says
   `missing_calibrated_sensor_origin` on every row (unit test).
 
-#### Open decision: the next remedy
+#### Decision: the S2.1 configuration
 
-The two tails may share one cause: at an intersection a vehicle's visible faces change as it
-turns. Options, for a decision before S2.2:
+T3 was the proposed next remedy and has now run. The options as they stand:
 
-1. **T3, course-aligned faces (proposed).** Above `CourseAlignmentMinSpeedMps`, take the body axis
-   for face choice and face normals from the solid body's own course instead of the tracked
-   heading. Extent admission already refuses spans when the two disagree by more than 10 degrees;
-   on kirk0 that was 59 % of moving near-edge frames. Run T1 with T3 on the tuning partition
-   against the same exit.
-2. **Accept T1 and relax the exit.** Not recommended: gate 2 would still fail on the held-out case.
-3. **A per-face bias state.** Estimate each face's half-extent error rather than hold it fixed. It
-   is closer to Option B (nonlinear state) than to this plan, and is out of scope here.
+1. **Freeze T1 with T3 as B1-T (recommended).** It is the best arm on both tuning sites and the
+   only one that beats the point estimate in every heading-rate stratum. The exit's 25 % is not
+   met, and this records that rather than relaxing it: what remains of the all-frame tail is the
+   half-extent bias itself, which no admission rule removes. Before freezing, inspect kirk0's T1
+   with T3 excursion (197 windows; one evening), then score `embarcadero-folsom` once with the
+   frozen configuration (F4), as the protocol requires.
+2. **T3 alone.** Best on kirk0 and loses nothing on fixes, but the corpus says T1 buys 15 % to
+   28 % of the all-frame p99 on top of it. Fall back here if kirk0's excursion is real and T1's.
+3. **A per-face bias state.** Still the lever for the remaining gap, still closer to Option B, and
+   still out of scope here. It moves to S3 beside adaptive R, where the half-extent's sigma is
+   already load-bearing.
+
+The remaining gap is carried into S2.2 as a measured starting point, not hidden by it: gate 2 is
+scored on the held-out case against B0, and B1-T's held-out figure from F4 says in advance whether
+the tracked arm can pass it.
 
 ### S2.2: the tracked near-edge update
 
@@ -368,7 +450,9 @@ smaller host:
   disk.
 - Results are committed as JSON, with a markdown table per arm, to a results branch per test under
   `results/<test>/`, and pushed. They can then be read and reviewed away from the machine.
-- T0's branch is `claude/upbeat-galileo-4xbaat-s2-t0-results`.
+- T0's branch is `claude/upbeat-galileo-4xbaat-s2-t0-results`; F2's is
+  `claude/upbeat-galileo-4xbaat-s2-f2-results`; F3's is #623. F1's figures are in
+  [What S2.1 found](#what-s21-found); its raw results are on the Mac and not yet pushed.
 
 Test T0, the first run, was the shadow at 256 and 1,024 sample points on the tuning and held-out
 cases (arms B1-256 and B1-1024 below), before any S2.1 change. It asked how much of the fix rate
@@ -388,7 +472,7 @@ and the face-transition tail is the sample cap. The answer is none of either; se
 | B1-256  | `solid_body`, 256 sample points                                 | S2.0  |
 | B1-1024 | `solid_body`, 1,024 sample points; T0: the same fixes as B1-256 | S2.0  |
 | B1-F    | `solid_body`, full members                                      | S2.1  |
-| B1-T    | `solid_body`, full members, chosen face remedy                  | S2.1  |
+| B1-T    | `solid_body`, full members, T1 and T3 (proposed; F4 scores it)  | S2.1  |
 | S2a     | `near_edge_track`, A2, full members                             | S2.2  |
 | S2x     | `near_edge_track`, A1, full members                             | S2.3  |
 
@@ -448,9 +532,16 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.1 T1 and T2 on the solid body; heading-rate and range strata
 - [x] S2.1 full member geometry to the tracker; declared origin with refusal
 - [x] F2: full members, with and without T1, on the tuning partition, on the Mac
-- [ ] F1: T2 on the tuning partition (run, not yet published)
-- [ ] S2.1 face-transition remedy chosen: T1 is the better, and does not meet the exit; next
-      remedy awaits a decision
+- [x] F1: T1, T2 and both on the tuning partition, on the Mac (figures in the plan; raw results
+      not pushed)
+- [x] S2.1 T3, course-aligned faces, on the solid body (branch, unmerged)
+- [x] F3: T3 alone and with T1 on the tuning partition, on the Mac (#623)
+- [ ] S2.1 face-transition remedy frozen: T1 with T3 recommended; inspect kirk0's T1-with-T3
+      excursion first; the exit's 25 % is not met on any site and is recorded as such
+- [ ] F4: `embarcadero-folsom` once with the frozen B1-T
+- [ ] S2.1 configuration surface: `l5.cv_kf_v1.solid_body`, experiments as aliases, runtime
+      keys, live parity or refusal
+- [ ] T3 branch merged
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
 - [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage
