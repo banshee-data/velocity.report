@@ -796,6 +796,8 @@ func TestDecodeAndReflectionHelpers(t *testing.T) {
 		requireErrorContains(t, strictDecodeObject([]byte(`{"shared":1,"name":"ok","DefaultName":"default","Plain":2,"extra":3}`), &out, "target"), "target: unknown keys: extra")
 		requireErrorContains(t, strictDecodeObject([]byte(`{"shared":1,"name":"ok","Plain":2}`), &out, "target"), "target: missing required keys: DefaultName")
 		requireErrorContains(t, strictDecodeObject([]byte(`[]`), &out, "target"), "target: expected object")
+		// The exported form is the same rule, for other config-as-code files.
+		requireErrorContains(t, StrictDecode([]byte(`{"shared":1,"name":"ok","Plain":2}`), &out, "other"), "other: missing required keys: DefaultName")
 
 		keys := expectedJSONKeys(reflect.TypeOf(&out))
 		want := []string{"shared", "name", "DefaultName", "Plain"}

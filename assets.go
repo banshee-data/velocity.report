@@ -21,3 +21,11 @@ var DocsSiteStub []byte
 //
 //go:embed config/tuning.defaults.json
 var TuningDefaults []byte
+
+// SegmentSelectorDefaults is the canonical segment selector file, embedded
+// for the same reason: the server and the segments command read these bytes
+// when no selector file is found on disk (see
+// segments.LoadSelectorsOrEmbedded).
+//
+//go:embed config/segment-selectors.defaults.json
+var SegmentSelectorDefaults []byte

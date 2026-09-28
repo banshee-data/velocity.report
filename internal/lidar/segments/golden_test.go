@@ -11,6 +11,8 @@ import (
 
 var updateGolden = flag.Bool("update", false, "rewrite the ranking golden file under testdata")
 
+var goldenPath = filepath.Join("testdata", "rankings.golden.json")
+
 // goldenSeries gives every finder something to rank: a lane whose follower
 // changes leader, a second lane that follows for longer, one lateral jump,
 // split flags in two windows, and two captures to draw random windows from.
@@ -47,17 +49,14 @@ func goldenSeries() ([]Point, []Capture) {
 	return points, captures
 }
 
-// The golden file pins what every finder returns for one series: which
-// windows, in what order, with what identity, score and measurements. Other
-// ways of ranking are built on Find, so a change here moves the identity of
-// windows that people have already chosen and cut. Review the diff, then
-// regenerate with go test ./internal/lidar/segments -run Golden -update.
-func TestEveryFinderRanksTheGoldenSeriesAsBefore(t *testing.T) {
-	points, captures := goldenSeries()
-	runs := map[string]struct {
-		finder, role string
-		captures     []Capture
-	}{
+type goldenRun struct {
+	finder, role string
+	captures     []Capture
+}
+
+// goldenRuns is every finder with every role it may choose for.
+func goldenRuns(captures []Capture) map[string]goldenRun {
+	return map[string]goldenRun{
 		"following as tuning":                   {"following", "tuning", captures},
 		"following as held_out":                 {"following", "held_out", captures},
 		"leader_changes as tuning":              {"leader_changes", "tuning", captures},
@@ -69,8 +68,26 @@ func TestEveryFinderRanksTheGoldenSeriesAsBefore(t *testing.T) {
 		"random as held_out":                    {"random", "held_out", captures},
 		"random as tuning, without the capture": {"random", "tuning", nil},
 	}
+}
+
+func goldenBytes(t *testing.T, rankings map[string][]Window) []byte {
+	t.Helper()
+	b, err := json.MarshalIndent(rankings, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return append(b, '\n')
+}
+
+// The golden file pins what every finder returns for one series: which
+// windows, in what order, with what identity, score and measurements. Other
+// ways of ranking are built on Find, so a change here moves the identity of
+// windows that people have already chosen and cut. Review the diff, then
+// regenerate with go test ./internal/lidar/segments -run Golden -update.
+func TestEveryFinderRanksTheGoldenSeriesAsBefore(t *testing.T) {
+	points, captures := goldenSeries()
 	got := map[string][]Window{}
-	for name, run := range runs {
+	for name, run := range goldenRuns(captures) {
 		windows, err := Find(points, run.finder, "golden", run.role, DefaultParams(), run.captures)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
@@ -80,27 +97,22 @@ func TestEveryFinderRanksTheGoldenSeriesAsBefore(t *testing.T) {
 		}
 		got[name] = windows
 	}
-	b, err := json.MarshalIndent(got, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b = append(b, '\n')
-	path := filepath.Join("testdata", "rankings.golden.json")
+	b := goldenBytes(t, got)
 	if *updateGolden {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, b, 0o644); err != nil {
+		if err := os.WriteFile(goldenPath, b, 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
-	want, err := os.ReadFile(path)
+	want, err := os.ReadFile(goldenPath)
 	if err != nil {
 		t.Fatalf("%v (regenerate with go test ./internal/lidar/segments -run Golden -update)", err)
 	}
 	if !bytes.Equal(want, b) {
 		t.Errorf("%s differs from what the finders return now: review the change, then regenerate "+
-			"with go test ./internal/lidar/segments -run Golden -update", path)
+			"with go test ./internal/lidar/segments -run Golden -update", goldenPath)
 	}
 }

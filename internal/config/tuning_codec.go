@@ -236,6 +236,14 @@ func decodeSelectedEngineBlock[T any](raw map[string]json.RawMessage, path, engi
 	return &block, nil
 }
 
+// StrictDecode decodes a JSON object into dst under the tuning file's rule:
+// an unknown key and a missing key are both errors. Other config-as-code
+// files use it so that one rule holds for all of them. path names the object
+// in error messages.
+func StrictDecode(data []byte, dst interface{}, path string) error {
+	return strictDecodeObject(data, dst, path)
+}
+
 func strictDecodeObject(data []byte, dst interface{}, path string) error {
 	raw, err := parseObject(data, path)
 	if err != nil {
