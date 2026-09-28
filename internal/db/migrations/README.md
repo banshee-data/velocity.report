@@ -475,6 +475,20 @@ ALTER TABLE my_table DROP COLUMN old_col;
 
 Older migrations in this repository still use the table-recreation workaround because they predate this capability. They are left as-is for safety.
 
+### 9. Set rows aside, never drop them
+
+A migration that tightens a rule can meet rows the new rule refuses. Do not delete them, and do not let them stop the migration: a device in the field cannot be asked what it meant. Copy each one whole into `lidar_migration_rejects`, with the migration's number, the table it came from, its key, and the rule it failed:
+
+| Column         | Holds                                                |
+| -------------- | ---------------------------------------------------- |
+| `migration`    | The number of the migration that set the row aside   |
+| `source_table` | The table the row was in                             |
+| `source_key`   | The row's key in that table                          |
+| `reason`       | The first rule it failed, in words an operator reads |
+| `row_json`     | Every column of the row as it was, as a JSON object  |
+
+Work the verdicts out once, in a temporary table, and use them for both destinations, so that a row cannot be copied and set aside at once. Let the down migration put the rows back. Migration 000055 is the pattern to copy, and `migration_055_test.go` shows how to test one: build a database at the version before, write the rows a real database could hold, migrate, and account for every row.
+
 ## Troubleshooting
 
 ### "Dirty migration" error

@@ -69,13 +69,15 @@ func TestSegmentClipRejectsAnEditedReplayCase(t *testing.T) {
 	}
 }
 
+const clipTestDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 func segmentClipTestOperations(t *testing.T) segmentClipOperations {
 	t.Helper()
-	packDir := t.TempDir()
 	return segmentClipOperations{
 		mkdirAll:   os.MkdirAll,
 		mkdirTemp:  os.MkdirTemp,
 		removeAll:  os.RemoveAll,
+		readDir:    os.ReadDir,
 		detectPort: func(string) (int, error) { return 2369, nil },
 		run: func(cfg replayeval.Config) (*replayeval.Result, error) {
 			if !cfg.IncludePoints || !cfg.RequireSettled || cfg.Context == nil {
@@ -90,7 +92,8 @@ func segmentClipTestOperations(t *testing.T) segmentClipOperations {
 			if cfg.EndNs <= cfg.StartNs || cfg.Coverage != annotation.CoverageForegroundOnly {
 				t.Fatalf("invalid export bounds or coverage: %+v", cfg)
 			}
-			return &annotation.Pack{Dir: packDir, Manifest: annotation.Manifest{PackDigest: "sha256:" + strings.Repeat("a", 64)}}, nil
+			// The pack is written where the job asked, inside its attempt.
+			return &annotation.Pack{Dir: cfg.OutDir, Manifest: annotation.Manifest{PackDigest: clipTestDigest}}, nil
 		},
 		writeRecord: func(_ string, record segments.Record) error { return record.Validate() },
 	}
@@ -192,8 +195,10 @@ func TestSegmentClipJobRejectsMissingOrCorruptSelectionEvidence(t *testing.T) {
 	}{
 		{"missing job", `DELETE FROM lidar_segment_clip_jobs`},
 		{"unreadable selection", `ALTER TABLE lidar_segment_selections RENAME COLUMN role TO broken_role`},
-		{"bad parameters", `UPDATE lidar_segment_selections SET parameters_json='{'`},
-		{"bad window", `UPDATE lidar_segment_selections SET window_json='{'`},
+		// The database refuses a document that is not JSON, so what is left
+		// to refuse here is one that is JSON and not what the worker reads.
+		{"parameters of the wrong shape", `UPDATE lidar_segment_selections SET parameters_json='{"window_seconds":"ten"}'`},
+		{"window of the wrong shape", `UPDATE lidar_segment_selections SET window_json=json_set(window_json,'$.score','high')`},
 		{"missing case", `DROP TABLE lidar_replay_cases`},
 		{"unreadable case", `ALTER TABLE lidar_replay_cases RENAME COLUMN description TO broken_description`},
 		{"unreadable case files", `ALTER TABLE lidar_replay_case_files RENAME COLUMN pcap_file TO broken_path`},
@@ -267,7 +272,7 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	chosen.ID = segments.Identity(chosen.Finder, chosen.Source, chosen.Role, params, chosen.StartNs)
 	parametersJSON, _ := json.Marshal(params)
 	windowJSON, _ := json.Marshal(chosen)
-	if _, err := ws.db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,replay_case_id,role,finder,parameters_json,window_json,created_at_ns) VALUES(?,?,?,?,?,?,?,1)`, chosen.ID, "run", scene.ReplayCaseID, chosen.Role, chosen.Finder, string(parametersJSON), string(windowJSON)); err != nil {
+	if err := sqlite.NewSegmentStore(ws.db).InsertSelection(chosen.ID, "run", scene.ReplayCaseID, parametersJSON, windowJSON); err != nil {
 		t.Fatal(err)
 	}
 	queued := callSegment(t, ws, "POST", "/api/lidar/scenes/"+scene.ReplayCaseID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, scene.ReplayCaseID) })
@@ -295,10 +300,16 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	if err := ws.runSegmentClipJob(context.Background(), job, func(capjobs.Progress) {}); err != nil {
 		t.Fatal(err)
 	}
-	var packDir string
-	if err := ws.db.QueryRow(`SELECT pack_dir FROM lidar_segment_clip_jobs WHERE job_id=?`, job.JobID).Scan(&packDir); err != nil {
+	clip, _, err := sqlite.NewSegmentStore(ws.db).ClipJob(job.JobID)
+	if err != nil {
 		t.Fatal(err)
 	}
+	// The row names the pack from the packs directory, so that it is still
+	// found when that directory is moved.
+	if filepath.IsAbs(clip.PackDir) || !strings.HasPrefix(clip.PackDir, "clip-"+job.JobID+"-") || !strings.HasSuffix(clip.PackDir, "/pack") {
+		t.Fatalf("stored pack directory: %q", clip.PackDir)
+	}
+	packDir := ws.segmentPackPath(clip.PackDir)
 	pack, err := annotation.OpenPack(packDir)
 	if err != nil {
 		t.Fatal(err)
@@ -317,8 +328,8 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	if err := record.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if record.PackDigest != pack.Manifest.PackDigest || record.Segment.ID != chosen.ID {
-		t.Fatalf("pack and selection are unbound: %+v", record)
+	if record.PackDigest != pack.Manifest.PackDigest || record.Segment.ID != chosen.ID || clip.PackDigest != pack.Manifest.PackDigest {
+		t.Fatalf("pack, selection and job row are unbound: %+v, row digest %q", record, clip.PackDigest)
 	}
 	// A worker retry must reuse the complete pack instead of creating another.
 	if err := ws.runSegmentClipJob(context.Background(), job, func(capjobs.Progress) {}); err != nil {
@@ -342,4 +353,240 @@ func TestCaptureWorkerRunsClipJobs(t *testing.T) {
 	if left := clipAttempts(t, ws); len(left) != 0 {
 		t.Fatalf("refused clip left its output behind: %v", left)
 	}
+}
+
+// neverReplays fails the test if the job goes on to replay the capture.
+func neverReplays(t *testing.T, ops *segmentClipOperations) {
+	t.Helper()
+	ops.run = func(replayeval.Config) (*replayeval.Result, error) {
+		t.Fatal("the capture was replayed although its pack already exists")
+		return nil, nil
+	}
+}
+
+func TestClipRetryAdoptsThePackAnEarlierAttemptFinished(t *testing.T) {
+	ws, job, _ := selectedSegmentJob(t)
+	ws.udpPort = 2369
+	store := sqlite.NewSegmentStore(ws.db)
+	clip, _, err := store.ClipJob(job.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The process stopped after writing the pack and before recording it.
+	// A second attempt got as far as a directory and no further.
+	pack, digest := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "finished")
+	unfinished := filepath.Join(ws.annotationPacksDir, clipAttemptPrefix(job.JobID)+"unfinished")
+	if err := os.MkdirAll(filepath.Join(unfinished, "vrlog"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	another := filepath.Join(ws.annotationPacksDir, clipAttemptPrefix("job-another")+"1")
+	if err := os.MkdirAll(another, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ops := segmentClipTestOperations(t)
+	neverReplays(t, &ops)
+	var last capjobs.Progress
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(p capjobs.Progress) { last = p }, ops); err != nil {
+		t.Fatal(err)
+	}
+	clip, _, err = store.ClipJob(job.JobID)
+	if err != nil || ws.segmentPackPath(clip.PackDir) != pack || clip.PackDigest != digest {
+		t.Fatalf("adopted pack: %+v %v, want %s %s", clip, err, pack, digest)
+	}
+	if last.Current != 3 || last.Total != 3 || !strings.Contains(last.Detail, pack) {
+		t.Fatalf("progress after adoption: %+v", last)
+	}
+	if _, err := os.Stat(unfinished); !os.IsNotExist(err) {
+		t.Fatalf("the job's unfinished attempt was left behind: %v", err)
+	}
+	if _, err := os.Stat(another); err != nil {
+		t.Fatalf("another job's attempt was removed: %v", err)
+	}
+	// With the pack recorded, a further retry has nothing to read or cut.
+	ops.readDir = func(string) ([]os.DirEntry, error) {
+		t.Fatal("a recorded pack was looked for again")
+		return nil, nil
+	}
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// recordedClip is a job whose pack is written and recorded.
+func recordedClip(t *testing.T) (ws *Server, job capjobs.Job, pack, stored, digest string) {
+	t.Helper()
+	ws, job, _ = selectedSegmentJob(t)
+	ws.udpPort = 2369
+	store := sqlite.NewSegmentStore(ws.db)
+	clip, _, err := store.ClipJob(job.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack, digest = writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "recorded")
+	if stored, err = ws.storedPackDir(pack); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.LinkPack(job.JobID, stored, digest); err != nil {
+		t.Fatal(err)
+	}
+	return ws, job, pack, stored, digest
+}
+
+// Before a retry adopted what an earlier attempt had finished, it cut the pack
+// again, so a job can have two whole packs on disk and a person's review in
+// either. A retry links one and removes neither.
+func TestClipRetryNeverRemovesAWholePack(t *testing.T) {
+	ws, job, _ := selectedSegmentJob(t)
+	ws.udpPort = 2369
+	store := sqlite.NewSegmentStore(ws.db)
+	clip, _, err := store.ClipJob(job.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, _ := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "1")
+	reviewed, digest := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "2")
+	review := filepath.Join(reviewed, "annotations.json")
+	if err := os.WriteFile(review, []byte(`{"objects":[]}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	unfinished := filepath.Join(ws.annotationPacksDir, clipAttemptPrefix(job.JobID)+"3")
+	if err := os.MkdirAll(unfinished, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ops := segmentClipTestOperations(t)
+	neverReplays(t, &ops)
+	removed := []string{}
+	ops.removeAll = func(dir string) error {
+		removed = append(removed, dir)
+		return os.RemoveAll(dir)
+	}
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 || removed[0] != unfinished {
+		t.Fatalf("removed %v, want only the attempt that left no pack", removed)
+	}
+	for _, kept := range []string{filepath.Join(plain, "manifest.json"), filepath.Join(reviewed, "manifest.json"), review} {
+		if _, err := os.Stat(kept); err != nil {
+			t.Fatalf("a whole pack or its review was removed: %v", err)
+		}
+	}
+	clip, _, err = store.ClipJob(job.JobID)
+	if err != nil || ws.segmentPackPath(clip.PackDir) != reviewed || clip.PackDigest != digest {
+		t.Fatalf("linked pack: %+v %v, want the reviewed one %s", clip, err, reviewed)
+	}
+}
+
+func TestClipRetryCutsAgainWhenItsRecordedPackIsGone(t *testing.T) {
+	ws, job, pack, stored, _ := recordedClip(t)
+	if err := os.RemoveAll(filepath.Dir(pack)); err != nil {
+		t.Fatal(err)
+	}
+	replayed := false
+	ops := segmentClipTestOperations(t)
+	base := ops.run
+	ops.run = func(cfg replayeval.Config) (*replayeval.Result, error) {
+		replayed = true
+		return base(cfg)
+	}
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+	if !replayed {
+		t.Fatal("a recorded pack that is no longer on disk was trusted")
+	}
+	clip, _, err := sqlite.NewSegmentStore(ws.db).ClipJob(job.JobID)
+	if err != nil || clip.PackDigest != clipTestDigest || clip.PackDir == stored || clip.PackDir == "" {
+		t.Fatalf("row after cutting again: %+v %v", clip, err)
+	}
+}
+
+// The row is a note of what is on disk. When the two disagree the pack on
+// disk is the evidence, and the row is corrected without cutting it again.
+func TestClipRetryCorrectsARowThatNamesAnotherDigest(t *testing.T) {
+	ws, job, pack, stored, digest := recordedClip(t)
+	if _, err := ws.db.Exec(`UPDATE lidar_segment_clip_jobs SET pack_digest=? WHERE job_id=?`, "sha256:"+strings.Repeat("c", 64), job.JobID); err != nil {
+		t.Fatal(err)
+	}
+	ops := segmentClipTestOperations(t)
+	neverReplays(t, &ops)
+	if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+	clip, _, err := sqlite.NewSegmentStore(ws.db).ClipJob(job.JobID)
+	if err != nil || clip.PackDigest != digest || clip.PackDir != stored {
+		t.Fatalf("row after the retry: %+v %v, want %s %s", clip, err, stored, digest)
+	}
+	if _, err := os.Stat(pack); err != nil {
+		t.Fatalf("the pack on disk was disturbed: %v", err)
+	}
+}
+
+func TestClipRecoveryReportsWhatItCouldNotDo(t *testing.T) {
+	failure := errors.New("forced recovery failure")
+	for _, tc := range []struct {
+		name string
+		edit func(t *testing.T, ws *Server, ops *segmentClipOperations, jobID, segmentID string)
+	}{
+		{"packs directory unreadable", func(_ *testing.T, _ *Server, ops *segmentClipOperations, _, _ string) {
+			ops.readDir = func(string) ([]os.DirEntry, error) { return nil, failure }
+		}},
+		{"unfinished attempt cannot be removed", func(t *testing.T, ws *Server, ops *segmentClipOperations, jobID, _ string) {
+			if err := os.MkdirAll(filepath.Join(ws.annotationPacksDir, clipAttemptPrefix(jobID)+"half"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			ops.removeAll = func(string) error { return failure }
+		}},
+		{"pack cannot be linked", func(t *testing.T, ws *Server, _ *segmentClipOperations, jobID, segmentID string) {
+			writeClipAttempt(t, ws, jobID, segmentID, "finished")
+			if _, err := ws.db.Exec(`CREATE TRIGGER refuse_pack_link BEFORE UPDATE ON lidar_segment_clip_jobs BEGIN SELECT RAISE(ABORT,'forced link failure'); END`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, job, _ := selectedSegmentJob(t)
+			ws.udpPort = 2369
+			clip, _, err := sqlite.NewSegmentStore(ws.db).ClipJob(job.JobID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ops := segmentClipTestOperations(t)
+			neverReplays(t, &ops)
+			tc.edit(t, ws, &ops, job.JobID, clip.SegmentID)
+			err = ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops)
+			if err == nil || !strings.Contains(err.Error(), "recover an earlier attempt") {
+				t.Fatalf("recovery failure: %v", err)
+			}
+		})
+	}
+	t.Run("pack written outside the packs directory", func(t *testing.T) {
+		ws, job, _ := selectedSegmentJob(t)
+		ws.udpPort = 2369
+		ops := segmentClipTestOperations(t)
+		elsewhere := t.TempDir()
+		ops.export = func(annotation.ExportConfig) (*annotation.Pack, error) {
+			return &annotation.Pack{Dir: elsewhere, Manifest: annotation.Manifest{PackDigest: clipTestDigest}}, nil
+		}
+		err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops)
+		if err == nil || !strings.Contains(err.Error(), "not inside the annotation packs directory") {
+			t.Fatalf("pack outside the directory: %v", err)
+		}
+		if left := clipAttempts(t, ws); len(left) != 0 {
+			t.Fatalf("refused clip left its output behind: %v", left)
+		}
+	})
+	t.Run("packs directory does not exist yet", func(t *testing.T) {
+		ws, job, _ := selectedSegmentJob(t)
+		ws.udpPort = 2369
+		ws.annotationPacksDir = filepath.Join(ws.annotationPacksDir, "made-by-the-job")
+		ops := segmentClipTestOperations(t)
+		// The first clip on a machine makes the directory it then looks in.
+		if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+			t.Fatal(err)
+		}
+		if kept := clipAttempts(t, ws); len(kept) != 1 {
+			t.Fatalf("first clip: %v", kept)
+		}
+	})
 }

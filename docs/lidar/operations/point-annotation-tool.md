@@ -80,6 +80,15 @@ A run is ranked from wherever it kept its tracks. A live run stores track observ
 run does not, because a replay must not add to the live track store, so it is ranked from its own
 recording. A run with neither has nothing to rank, and only the random finder offers it a window.
 
+A chosen window outlives the run it was chosen from. Deleting the run clears the link and keeps
+the window, its replay case and its pack, with the run's name still recorded beside them. Deleting
+the replay case is what removes the choice.
+
+A clip that fails or is cancelled leaves nothing in the annotation packs directory. If the server
+stops while a clip is being cut, the job runs again when the server starts: it keeps the pack if
+the pack was finished, and cuts it again if not. The job remembers its pack by a path inside the
+packs directory and by the pack's digest, so the directory can be moved without losing the link.
+
 For an evidence database, the Go finder produces a JSON report. Give it the capture path
 when selecting at random, so an empty stretch remains eligible even if the tracker saw nothing:
 
