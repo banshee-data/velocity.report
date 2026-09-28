@@ -216,6 +216,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
 	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
+	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
 	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
 	mux.HandleFunc("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
 	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))

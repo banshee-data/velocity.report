@@ -126,16 +126,21 @@ func TestSegmentsCLIRejectsBadQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, args := range map[string][]string{
-		"bad flag":         {"--not-a-flag"},
-		"missing database": {"--finder", "following"},
-		"negative top":     {"--db", db, "--source", "source", "--top", "-1"},
-		"mixed selectors":  {"--db", db, "--run", "run", "--source", "source"},
-		"missing file":     {"--db", filepath.Join(t.TempDir(), "absent.db"), "--source", "source"},
-		"unknown source":   {"--db", db, "--source", "other"},
-		"unknown finder":   {"--db", db, "--source", "source", "--finder", "unknown"},
-		"relative capture": {"--db", db, "--source", "source", "--finder", "random", "--capture", "relative.pcap"},
-		"missing capture":  {"--db", db, "--source", "source", "--finder", "random", "--capture", filepath.Join(t.TempDir(), "missing.pcap")},
-		"short capture":    {"--db", db, "--source", "source", "--finder", "random", "--capture", samplePCAP},
+		"bad flag":            {"--not-a-flag"},
+		"missing database":    {"--finder", "following"},
+		"negative top":        {"--db", db, "--source", "source", "--top", "-1"},
+		"mixed selectors":     {"--db", db, "--run", "run", "--source", "source"},
+		"missing file":        {"--db", filepath.Join(t.TempDir(), "absent.db"), "--source", "source"},
+		"unknown source":      {"--db", db, "--source", "other"},
+		"unknown finder":      {"--db", db, "--source", "source", "--finder", "unknown"},
+		"relative capture":    {"--db", db, "--source", "source", "--finder", "random", "--capture", "relative.pcap"},
+		"missing capture":     {"--db", db, "--source", "source", "--finder", "random", "--capture", filepath.Join(t.TempDir(), "missing.pcap")},
+		"short capture":       {"--db", db, "--source", "source", "--finder", "random", "--capture", samplePCAP},
+		"selector and finder": {"--db", db, "--source", "source", "--selector", "following", "--finder", "following"},
+		"unknown selector":    {"--db", db, "--source", "source", "--selector", "tailgating"},
+		"held-out parameters": {"--db", db, "--source", "source", "--role", "held_out", "--max-gap", "15"},
+		"missing selectors":   {"--selectors", filepath.Join(t.TempDir(), "absent.json"), "--list-selectors"},
+		"invalid parameters":  {"--db", db, "--source", "source", "--window-seconds", "0"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			code := silence(t, func() int { return SegmentsMain(args) })
@@ -157,9 +162,10 @@ func TestSegmentsCLIRejectsBadQueries(t *testing.T) {
 	old := os.Stdout
 	os.Stdout = output
 	code := SegmentsMain([]string{"--db", db, "--source", "source", "--finder", "following"})
+	listed := SegmentsMain([]string{"--list-selectors"})
 	os.Stdout = old
-	if code != 1 {
-		t.Fatalf("closed report output exited %d", code)
+	if code != 1 || listed != 1 {
+		t.Fatalf("closed report output exited %d, and the list %d", code, listed)
 	}
 	if code := silence(t, func() int {
 		return segmentsMainWithOpen([]string{"--db", db}, func(string) (*sqlite.SQLDB, error) {
@@ -357,5 +363,59 @@ func TestSegmentsCLIReadsAReplayedRunFromItsRecording(t *testing.T) {
 		if code := silence(t, func() int { return SegmentsMain([]string{"--db", path, "--run", run, "--finder", "following"}) }); code != 1 {
 			t.Errorf("%s: exit %d, want 1", name, code)
 		}
+	}
+}
+
+// The command ranks with the selectors the file defines, and its report
+// records the selector as it ran, parameter flags and all.
+func TestSegmentsCLIRanksWithSelectors(t *testing.T) {
+	db, capture := cliEvidence(t)
+	var listing struct {
+		Source    string `json:"source"`
+		Selectors []struct {
+			ID      string `json:"id"`
+			HeldOut bool   `json:"held_out"`
+			Digest  string `json:"digest"`
+		} `json:"selectors"`
+	}
+	b := captureCommandJSON(t, func() int { return SegmentsMain([]string{"--list-selectors"}) })
+	if err := json.Unmarshal(b, &listing); err != nil || len(listing.Selectors) != 7 ||
+		listing.Selectors[1].ID != "close_following" || listing.Selectors[1].HeldOut || !listing.Selectors[0].HeldOut {
+		t.Fatalf("listing: %+v %v", listing, err)
+	}
+	file := filepath.Join("..", "..", "..", "config", "segment-selectors.defaults.json")
+	b = captureCommandJSON(t, func() int { return SegmentsMain([]string{"--selectors", file, "--list-selectors"}) })
+	if err := json.Unmarshal(b, &listing); err != nil || listing.Source != filepath.Clean(file) {
+		t.Fatalf("listing from a named file: %+v %v", listing.Source, err)
+	}
+
+	var report struct {
+		Finder     string                      `json:"finder"`
+		Parameters segments.Params             `json:"parameters"`
+		Selector   segments.SelectorProvenance `json:"selector"`
+		Windows    []segments.Window           `json:"windows"`
+	}
+	args := []string{"--db", db, "--source", "source", "--selector", "close_following", "--capture", capture, "--top", "0",
+		"--window-seconds", "10", "--min-speed", "3", "--max-heading-deg", "20", "--min-gap", "3", "--max-gap", "12",
+		"--max-lateral", "2.5", "--jump-threshold", "0.6", "--jump-max-gap", "0.4", "--seed", "3"}
+	b = captureCommandJSON(t, func() int { return SegmentsMain(args) })
+	if err := json.Unmarshal(b, &report); err != nil {
+		t.Fatal(err)
+	}
+	want := segments.Params{WindowSeconds: 10, MinSpeed: 3, MaxHeadingDeg: 20, MinGap: 3, MaxGap: 12, MaxLateral: 2.5, JumpThreshold: 0.6, JumpMaxGapSeconds: 0.4, RandomSeed: 3}
+	if report.Finder != "following" || report.Parameters != want || report.Selector.ID != "close_following" ||
+		report.Selector.Parameters != want || report.Selector.HeldOutEligible {
+		t.Fatalf("report: %+v", report)
+	}
+	// Close following asks for two seconds of it; the fixture has half a
+	// second, so the selector offers nothing where following offers a window.
+	if len(report.Windows) != 0 {
+		t.Fatalf("a window below the requirement was offered: %+v", report.Windows)
+	}
+	b = captureCommandJSON(t, func() int {
+		return SegmentsMain([]string{"--db", db, "--source", "source", "--role", "held_out", "--capture", capture})
+	})
+	if err := json.Unmarshal(b, &report); err != nil || report.Selector.ID != "following" || !report.Selector.HeldOutEligible || len(report.Windows) == 0 {
+		t.Fatalf("the default selector for a held-out window: %+v %v", report, err)
 	}
 }

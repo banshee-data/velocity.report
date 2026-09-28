@@ -42,6 +42,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
@@ -176,6 +177,10 @@ var (
 	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
 	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	// Read once at startup. Empty uses the repository's file when the server
+	// runs from the repository, and the binary's own copy anywhere else.
+	lidarSegmentSelectors = serveFlags.String("lidar-segment-selectors", "",
+		"Segment selector file (JSON); empty uses "+segments.DefaultSelectorsPath+" when present, else the copy built into the binary")
 	// Off unless set. Experimental: the power-loss and target-hardware
 	// evidence a live default needs does not exist yet (VRLOG plan, G-OBS-CRASH
 	// and G-OBS-PI).
@@ -450,6 +455,7 @@ func Main(args []string) int {
 		log.Fatalf("Failed to load tuning config from %s: %v. Check the file exists and is valid JSON", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration (config=%s)", *configFile)
+	selectors := mustLoadSegmentSelectors(*lidarSegmentSelectors, log.Fatalf, log.Printf)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
 	if *enableLidar {
 		ensureValidLidarNetworkingFlags(
@@ -802,6 +808,7 @@ func Main(args []string) int {
 			PlotsBaseDir:       *lidarPlotsDir,
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
+			SegmentSelectors:   selectors,
 			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
 			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),

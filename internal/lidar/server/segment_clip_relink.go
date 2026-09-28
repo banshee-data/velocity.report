@@ -85,13 +85,18 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 		}
 		attempt := filepath.Join(ws.annotationPacksDir, entry.Name())
 		dir := filepath.Join(attempt, "pack")
-		digest, whole := segmentPackDigest(dir, segmentID)
-		if !whole {
-			unfinished = append(unfinished, attempt)
-			continue
-		}
 		_, statErr := os.Stat(filepath.Join(dir, "annotations.json"))
 		holdsReview := statErr == nil
+		digest, whole := segmentPackDigest(dir, segmentID)
+		if !whole {
+			// A person's review is never removed, whatever else is wrong
+			// with the pack: its segment record may simply be one that this
+			// build no longer reads. It is left where it is, and not linked.
+			if !holdsReview {
+				unfinished = append(unfinished, attempt)
+			}
+			continue
+		}
 		if found == nil || (holdsReview && !reviewed) {
 			found = &clipPack{stored: entry.Name() + "/pack", dir: dir, digest: digest}
 			reviewed = holdsReview

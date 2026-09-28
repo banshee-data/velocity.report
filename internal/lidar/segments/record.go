@@ -18,6 +18,9 @@ type Record struct {
 	FinderVersion int    `json:"finder_version"`
 	Parameters    Params `json:"parameters"`
 	Segment       Window `json:"segment"`
+	// Selector is the selector that chose the segment, as it ran. A pack cut
+	// before selectors existed, or from a hand-chosen window, has none.
+	Selector *SelectorProvenance `json:"selector,omitempty"`
 }
 
 func (r Record) Validate() error {
@@ -38,6 +41,11 @@ func (r Record) Validate() error {
 	}
 	if err := r.Parameters.Validate(); err != nil {
 		return err
+	}
+	if r.Selector != nil {
+		if err := r.Selector.check(r.Finder, r.Role, r.Parameters); err != nil {
+			return err
+		}
 	}
 	if r.Finder != "manual" && (r.Segment.Version != r.FinderVersion || r.Segment.Source == "" ||
 		r.Segment.Role != r.Role || r.Segment.ID != identityAtVersion(r.FinderVersion, r.Finder, r.Segment.Source, r.Role, r.Parameters, r.Segment.StartNs) ||

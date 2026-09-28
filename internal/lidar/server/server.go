@@ -18,6 +18,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -139,6 +140,10 @@ type Server struct {
 	// directories are created, and conflating them would let a pack write
 	// land anywhere a VRLOG could be read from.
 	annotationPacksDir string
+
+	// segmentSelectors is the catalogue the segments API ranks with. Nil
+	// reads the default one: the repository's file, or the binary's copy.
+	segmentSelectors *segments.Catalogue
 
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
@@ -266,6 +271,9 @@ type Config struct {
 	// either way it went.
 	AnnotationPacksDir string
 	TuningConfig       *cfgpkg.TuningConfig
+	// SegmentSelectors is the catalogue the segments API ranks with, read
+	// once at startup. Nil reads the default one.
+	SegmentSelectors *segments.Catalogue
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -379,6 +387,7 @@ func NewServer(config Config) *Server {
 		latestFgCounts:     make(map[string]int),
 		plotsBaseDir:       config.PlotsBaseDir,
 		annotationPacksDir: annotationPacksDir,
+		segmentSelectors:   config.SegmentSelectors,
 		onPCAPStarted:      config.OnPCAPStarted,
 		onPCAPStopped:      config.OnPCAPStopped,
 		onTuningChange:     config.OnTuningChange,

@@ -112,7 +112,7 @@ func TestRun(t *testing.T) {
 		if code := run(nil, &stdout, &stderr); code != 2 {
 			t.Fatalf("run returned %d, want 2", code)
 		}
-		requireContains(t, stderr.String(), "--in is required")
+		requireContains(t, stderr.String(), "--in or --selectors is required")
 	})
 
 	t.Run("flag parse error", func(t *testing.T) {
@@ -146,6 +146,28 @@ func TestRun(t *testing.T) {
 			t.Fatalf("expected empty stderr, got %q", stderr.String())
 		}
 	})
+}
+
+func TestRunValidatesSelectorFiles(t *testing.T) {
+	t.Parallel()
+	shipped := filepath.Join("..", "..", "..", "config", "segment-selectors.defaults.json")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-selectors", shipped}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run returned %d: %s", code, stderr.String())
+	}
+	requireContains(t, stdout.String(), "valid selectors:")
+	requireContains(t, stdout.String(), "selectors=7 held_out=3")
+
+	invalid := filepath.Join(t.TempDir(), "selectors.json")
+	if err := os.WriteFile(invalid, []byte(`{"version": 1, "selectors": []}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"-selectors", invalid}, &stdout, &stderr); code != 1 {
+		t.Fatalf("run returned %d, want 1", code)
+	}
+	requireContains(t, stderr.String(), "invalid selectors:")
 }
 
 func TestMain(t *testing.T) {

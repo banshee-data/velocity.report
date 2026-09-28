@@ -58,6 +58,17 @@ The constraints catch a divergent write. They do not replace the checks that giv
 - The clip worker compares the chosen window with its replay case before it replays anything.
 - The pack's `segment.json` remains the record of how the window was chosen, and `annotations.json` the record of human review. Neither is copied into SQLite to show review state.
 
+### Selectors, since migration 56
+
+Windows are now chosen by selectors defined in
+[config/segment-selectors.defaults.json](../../config/segment-selectors.defaults.json). Migration
+000056 adds `selector_json`, the selector as it ran, as a column rather than rebuilding the table.
+Its `CHECK` ties the selector to the row's `finder` and refuses a held-out window whose selector
+the code did not find eligible; it reads the flag with `IS 1`, since `= 1` would give `NULL` for
+a missing flag and a `CHECK` accepts `NULL`. A trigger requires the column on every new row and
+another refuses erasing it; rows chosen before selectors keep `NULL`. A Go test fails when the
+`CHECK` and `Selector.HeldOut` disagree, in either direction.
+
 ### Rows written before the migration
 
 The two segment tables first appeared in migration 54 and no release has carried them. A database that ran migration 54 keeps every row:

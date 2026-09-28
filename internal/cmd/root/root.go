@@ -15,6 +15,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/cmd/tune"
 	"github.com/banshee-data/velocity.report/internal/cmd/worker"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -27,6 +28,9 @@ func init() {
 	// from any other directory panics the moment a job needs the default
 	// tuning document.
 	config.SetEmbeddedDefaults(radarassets.TuningDefaults)
+	// The segment selector file is found the same way, and for the same
+	// reason.
+	segments.SetEmbeddedSelectors(radarassets.SegmentSelectorDefaults)
 }
 
 var (

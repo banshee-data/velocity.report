@@ -141,6 +141,9 @@ type accumulator struct {
 	maxEvent                   float64
 	framePairCounts            map[int64]int
 	peakPairCount              int
+	// closestSet says ClosestGapM holds a pair's gap. A gap of exactly 0 is
+	// a real one when min_gap is 0, so the value cannot say so itself.
+	closestSet bool
 }
 type pairFrame struct {
 	time   int64
@@ -246,8 +249,8 @@ func Find(points []Point, finder, source, role string, p Params, captures []Capt
 					a.leaders[l.Track] = true
 					a.tracks[f.Track] = true
 					a.tracks[l.Track] = true
-					if a.w.ClosestGapM == 0 || along < a.w.ClosestGapM {
-						a.w.ClosestGapM = along
+					if !a.closestSet || along < a.w.ClosestGapM {
+						a.w.ClosestGapM, a.closestSet = along, true
 					}
 					frames := a.nearest[f.Track]
 					if len(frames) > 0 && frames[len(frames)-1].time == t {

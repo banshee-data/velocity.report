@@ -70,11 +70,18 @@ it unchanged.
 ### Choosing what to cut
 
 An hour of labelling covers tens of seconds of a busy street, so the window matters more than the
-speed. Open **LiDAR → Segments** at `/app/lidar/segments`, choose a run and finder, then inspect
+speed. Open **LiDAR → Segments** at `/app/lidar/segments`, choose a run and a selector, then inspect
 the score strip and ranked windows. **Preview in scene player** shows a tuning window with the
 run's tracks. **Make case** fixes the capture and offset; **Queue clip** replays it with points and
 exports the annotation pack. The page reads review counts from `annotations.json`. Labels and
 review decisions still belong in the macOS window.
+
+A selector is one way of choosing: following, close following, moving traffic, a random draw, or
+one of the tracker-failure hunts. The list is grouped by category and each selector says what it
+ranks by and what it requires. The selectors are defined in
+[segment-selectors.defaults.json](../../../config/segment-selectors.defaults.json), which the
+server reads when it starts; [SELECTORS.md](../../../config/SELECTORS.md) says how to add one.
+Every window you make a case from records the selector that chose it, and so does its pack.
 
 A run is ranked from wherever it kept its tracks. A live run stores track observations. A replayed
 run does not, because a replay must not add to the live track store, so it is ranked from its own
@@ -94,13 +101,14 @@ when selecting at random, so an empty stretch remains eligible even if the track
 
 ```bash
 velocity lidar segments --db "$LIDAR_EVIDENCE_DIR/<run>/observations/observations.db" \
-  --source "$SOURCE_ID" --finder following --capture "$CAPTURE" --top 1 > "$SEGMENTS_JSON"
+  --source "$SOURCE_ID" --selector following --capture "$CAPTURE" --top 1 > "$SEGMENTS_JSON"
 velocity lidar annotation-clip --pcap "$CAPTURE" \
   --start-seconds "$(jq -r '.windows[0].offset_seconds' "$SEGMENTS_JSON")" \
   --duration-seconds 10 --selection "$SEGMENTS_JSON" --output "$PACK_OUTPUT"
 ```
 
-The report records each 10 s window's score, capture offset, finder version and parameters. Pass
+`--list-selectors` prints the selectors. The report records each 10 s window's score, capture
+offset, finder version and parameters, and the selector that ranked it. Pass
 `--segment-id` as well when the report contains several windows. The clip command uses the
 report's selection and replay manifest to write `vrlog/`, `pack/` and `pack/segment.json` in one
 new output directory. It refuses a selected window whose role, capture, offset or duration does
@@ -108,8 +116,9 @@ not match the command. The old `scripts/lidar-following-windows.py` remains a us
 for comparing following scores.
 
 Decide a pack's role before choosing its window. Tuning packs may be chosen for tracker failure.
-Held-out packs, Embarcadero's among them, use traffic finders or random windows, never a finder
-that hunts tracker failures. Choose a random window from each capture first. The Segments page
+Held-out packs, Embarcadero's among them, use the standard following, moving-traffic or random
+selectors at their own parameters, never one that hunts tracker failures; the page offers only
+those, and a held-out request that sets parameters is refused. Choose a random window from each capture first. The Segments page
 enforces that order before making a held-out traffic case. Blind review hides tracker previews.
 The warm-up precedes the clip and is not exported; random windows start at least 35 seconds into
 a capture with measured packet times so that this prefix is available.

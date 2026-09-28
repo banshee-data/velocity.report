@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "selectors": [
+    {
+      "id": "following",
+      "label": "Vehicles following",
+      "category": "Traffic",
+      "description": "Most frames in which one vehicle follows another in its lane, 3 to 40 m behind.",
+      "finder": "following",
+      "parameters": {
+        "window_seconds": 10,
+        "min_speed": 3,
+        "max_heading_deg": 20,
+        "min_gap": 3,
+        "max_gap": 40,
+        "max_lateral": 2.5
+      },
+      "score": { "measure": "pair_frames", "order": "descending" },
+      "require": []
+    },
+    {
+      "id": "close_following",
+      "label": "Close following",
+      "category": "Traffic",
+      "description": "Most time with a follower within 15 m of its leader, and at least 2 s of it.",
+      "finder": "following",
+      "parameters": {
+        "window_seconds": 10,
+        "min_speed": 3,
+        "max_heading_deg": 20,
+        "min_gap": 3,
+        "max_gap": 15,
+        "max_lateral": 2.5
+      },
+      "score": { "measure": "pair_seconds", "order": "descending" },
+      "require": [{ "measure": "pair_seconds", "min": 2, "max": null }]
+    },
+    {
+      "id": "exposure",
+      "label": "Moving traffic",
+      "category": "Traffic",
+      "description": "Most observations of tracks moving at 3 m/s or more.",
+      "finder": "exposure",
+      "parameters": {
+        "window_seconds": 10,
+        "min_speed": 3
+      },
+      "score": { "measure": "events", "order": "descending" },
+      "require": []
+    },
+    {
+      "id": "random",
+      "label": "Random window per capture",
+      "category": "Random",
+      "description": "One seeded draw from each capture, quiet road included, after the 35 s warm-up.",
+      "finder": "random",
+      "parameters": {
+        "window_seconds": 10,
+        "min_speed": 3,
+        "random_seed": 1
+      },
+      "score": { "measure": "draw", "order": "descending" },
+      "require": []
+    },
+    {
+      "id": "leader_changes",
+      "label": "Leader changes",
+      "category": "Tracker failure",
+      "description": "Followers whose nearest leader changes: split leaders and cut-ins.",
+      "finder": "leader_changes",
+      "parameters": {
+        "window_seconds": 10,
+        "min_speed": 3,
+        "max_heading_deg": 20,
+        "min_gap": 3,
+        "max_gap": 40,
+        "max_lateral": 2.5
+      },
+      "score": { "measure": "leader_changes", "order": "descending" },
+      "require": []
+    },
+    {
+      "id": "lateral_jump",
+      "label": "Lateral jumps",
+      "category": "Tracker failure",
+      "description": "The largest sideways jump of a track from a five-point fit of its path.",
+      "finder": "lateral_jump",
+      "parameters": {
+        "window_seconds": 10,
+        "jump_threshold": 0.5,
+        "jump_max_gap_seconds": 0.3
+      },
+      "score": { "measure": "max_residual_m", "order": "descending" },
+      "require": []
+    },
+    {
+      "id": "split_flags",
+      "label": "Split and merge flags",
+      "category": "Tracker failure",
+      "description": "Most observations of tracks the run flagged as split or merge candidates.",
+      "finder": "split_flags",
+      "parameters": {
+        "window_seconds": 10
+      },
+      "score": { "measure": "events", "order": "descending" },
+      "require": []
+    }
+  ]
+}

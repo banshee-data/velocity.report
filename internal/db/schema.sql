@@ -467,6 +467,21 @@
         , window_start_ns INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.window_start_unix_nanos')) STORED
         , window_end_ns INTEGER NOT NULL AS (JSON_EXTRACT(window_json, '$.window_end_unix_nanos')) STORED
         , created_at_ns INTEGER NOT NULL
+        , selector_json TEXT CHECK (
+          selector_json IS NULL
+       OR (
+          JSON_VALID(selector_json)
+      AND JSON_TYPE(selector_json) = 'object'
+      AND TYPEOF(JSON_EXTRACT(selector_json, '$.id')) = 'text'
+      AND JSON_EXTRACT(selector_json, '$.id') != ''
+      AND JSON_EXTRACT(selector_json, '$.digest') LIKE 'sha256:_%'
+      AND JSON_EXTRACT(selector_json, '$.finder') IS finder
+      AND (
+          role = 'tuning'
+       OR JSON_EXTRACT(selector_json, '$.held_out_eligible') IS 1
+          )
+          )
+          )
         , CHECK (document_version = 1)
         , CHECK (
           JSON_VALID(parameters_json)
@@ -1251,6 +1266,18 @@ CREATE INDEX idx_lidar_segment_selections_guard ON lidar_segment_selections (rol
 CREATE INDEX idx_lidar_segment_selections_run ON lidar_segment_selections (run_id);
 
 CREATE INDEX idx_lidar_segment_clip_jobs_segment ON lidar_segment_clip_jobs (segment_id);
+
+CREATE TRIGGER lidar_segment_selections_name_selector BEFORE INSERT ON lidar_segment_selections WHEN NEW.selector_json IS NULL BEGIN
+   SELECT RAISE (ABORT, 'a segment selection names the selector that chose it');
+
+END;
+
+CREATE TRIGGER lidar_segment_selections_keep_selector BEFORE
+   UPDATE OF selector_json ON lidar_segment_selections WHEN OLD.selector_json IS NOT NULL
+      AND NEW.selector_json IS NULL BEGIN
+             SELECT RAISE (ABORT, 'a segment selection keeps the selector that chose it');
+
+END;
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

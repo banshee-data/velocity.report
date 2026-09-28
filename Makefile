@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre41
+VERSION := 0.5.1-pre42
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -200,6 +200,7 @@ help:
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
+	@echo "  selectors-validate   Validate a segment selector file (SELECTORS=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
@@ -1000,6 +1001,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_release_radar_remote.py \
 	scripts/test_spider_docs_404s.py \
 	scripts/test_sqlite_erd.py \
+	scripts/test_static_build_context.py \
 	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
@@ -2010,9 +2012,10 @@ fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
-.PHONY: config-migrate config-validate
+.PHONY: config-migrate config-validate selectors-validate
 
 TUNING_CONFIG ?= config/tuning.defaults.json
+SELECTORS ?= config/segment-selectors.defaults.json
 
 config-migrate:
 	@if [ -z "$(IN)" ]; then \
@@ -2023,6 +2026,9 @@ config-migrate:
 
 config-validate:
 	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(TUNING_CONFIG)"
+
+selectors-validate:
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --selectors "$(SELECTORS)"
 
 check-config-order:
 	@./scripts/config-order-sync \

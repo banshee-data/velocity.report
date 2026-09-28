@@ -31,6 +31,34 @@ func segmentWindow(id, finder, role, source string, edit func(map[string]any)) [
 
 var segmentParameters = []byte(`{"window_seconds":10,"min_speed":3,"random_seed":1}`)
 
+// chosenBy is the record of a selector that could have chosen the window: it
+// ran the window's finder, and it was eligible for a held-out window if the
+// finder may choose one. A window that cannot be read gets a following
+// selector's record.
+func chosenBy(window []byte) []byte {
+	return segmentSelector(window, nil)
+}
+
+func segmentSelector(window []byte, edit func(map[string]any)) []byte {
+	var w struct {
+		Finder string `json:"finder"`
+	}
+	if json.Unmarshal(window, &w) != nil {
+		w.Finder = "following"
+	}
+	eligible := w.Finder == "following" || w.Finder == "exposure" || w.Finder == "random"
+	doc := map[string]any{
+		"id": w.Finder, "label": "Chosen by " + w.Finder, "digest": segmentStoreDigest,
+		"held_out_eligible": eligible, "finder": w.Finder, "parameters": json.RawMessage(segmentParameters),
+		"score": map[string]any{"measure": "events", "order": "descending"}, "require": []any{},
+	}
+	if edit != nil {
+		edit(doc)
+	}
+	b, _ := json.Marshal(doc)
+	return b
+}
+
 // segmentFixture is a database with two runs and the replay cases named.
 func segmentFixture(t *testing.T, cases ...string) (*SegmentStore, DBClient) {
 	t.Helper()
@@ -52,7 +80,7 @@ func segmentFixture(t *testing.T, cases ...string) (*SegmentStore, DBClient) {
 func TestSegmentSelectionIsReadFromItsDocument(t *testing.T) {
 	store, _ := segmentFixture(t, "case-1")
 	window := segmentWindow("seg-1", "following", "tuning", "run-a", nil)
-	if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, window); err != nil {
+	if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, window, chosenBy(window)); err != nil {
 		t.Fatal(err)
 	}
 	for name, read := range map[string]func() (SegmentSelection, error){
@@ -67,7 +95,8 @@ func TestSegmentSelectionIsReadFromItsDocument(t *testing.T) {
 			SegmentID: "seg-1", RunID: "run-a", Source: "run-a", ReplayCaseID: "case-1",
 			Role: "tuning", Finder: "following", FinderVersion: 1, Capture: "/captures/a.pcap",
 			WindowStartNs: 1_788_466_680_000_000_000, WindowEndNs: 1_788_466_690_000_000_000,
-			ParametersJSON: string(segmentParameters), WindowJSON: string(window), CreatedAtNs: got.CreatedAtNs,
+			ParametersJSON: string(segmentParameters), WindowJSON: string(window), SelectorJSON: string(chosenBy(window)),
+			CreatedAtNs: got.CreatedAtNs,
 		}
 		if got != want || got.CreatedAtNs <= 0 {
 			t.Fatalf("%s:\n got %+v\nwant %+v", name, got, want)
@@ -86,7 +115,7 @@ func TestSegmentSelectionIsReadFromItsDocument(t *testing.T) {
 		"no run":     {"seg-2", "", "case-1"},
 		"no case":    {"seg-2", "run-a", ""},
 	} {
-		if err := store.InsertSelection(args[0], args[1], args[2], segmentParameters, window); err == nil {
+		if err := store.InsertSelection(args[0], args[1], args[2], segmentParameters, window, chosenBy(window)); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
 	}
@@ -124,7 +153,7 @@ func TestSegmentSelectionRulesAreHeldByTheDatabase(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store, db := segmentFixture(t, "case-1")
-			if err := store.InsertSelection(tc.segment, tc.run, "case-1", tc.parameters, tc.window); err == nil {
+			if err := store.InsertSelection(tc.segment, tc.run, "case-1", tc.parameters, tc.window, chosenBy(tc.window)); err == nil {
 				t.Fatal("the database accepted it")
 			}
 			var rows int
@@ -135,26 +164,64 @@ func TestSegmentSelectionRulesAreHeldByTheDatabase(t *testing.T) {
 	}
 	t.Run("replay case does not exist", func(t *testing.T) {
 		store, _ := segmentFixture(t)
-		if err := store.InsertSelection("seg-1", "run-a", "case-none", segmentParameters, segmentWindow("seg-1", "following", "tuning", "run-a", nil)); err == nil {
+		if err := store.InsertSelection("seg-1", "run-a", "case-none", segmentParameters, segmentWindow("seg-1", "following", "tuning", "run-a", nil), chosenBy(segmentWindow("seg-1", "following", "tuning", "run-a", nil))); err == nil {
 			t.Fatal("the database accepted a selection for no case")
 		}
 	})
 	t.Run("one case, one segment", func(t *testing.T) {
 		store, _ := segmentFixture(t, "case-1", "case-2")
 		first := segmentWindow("seg-1", "following", "tuning", "run-a", nil)
-		if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, first); err != nil {
+		if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, first, chosenBy(first)); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.InsertSelection("seg-1", "run-a", "case-2", segmentParameters, first); err == nil {
+		if err := store.InsertSelection("seg-1", "run-a", "case-2", segmentParameters, first, chosenBy(first)); err == nil {
 			t.Fatal("a segment was chosen twice")
 		}
-		if err := store.InsertSelection("seg-2", "run-a", "case-1", segmentParameters, segmentWindow("seg-2", "following", "tuning", "run-a", nil)); err == nil {
+		if err := store.InsertSelection("seg-2", "run-a", "case-1", segmentParameters, segmentWindow("seg-2", "following", "tuning", "run-a", nil), chosenBy(segmentWindow("seg-2", "following", "tuning", "run-a", nil))); err == nil {
 			t.Fatal("a case was given a second segment")
+		}
+	})
+	// The selector is held to the window it chose, and to the held-out rule
+	// as the code applied it when it ranked.
+	for _, tc := range []struct {
+		name     string
+		role     string
+		selector func(window []byte) []byte
+	}{
+		{"no selector", "tuning", func([]byte) []byte { return nil }},
+		{"selector is not JSON", "tuning", func([]byte) []byte { return []byte(`{`) }},
+		{"selector is not an object", "tuning", func([]byte) []byte { return []byte(`["following"]`) }},
+		{"selector has no id", "tuning", func(w []byte) []byte { return segmentSelector(w, func(d map[string]any) { delete(d, "id") }) }},
+		{"selector id is empty", "tuning", func(w []byte) []byte { return segmentSelector(w, func(d map[string]any) { d["id"] = "" }) }},
+		{"selector id is a number", "tuning", func(w []byte) []byte { return segmentSelector(w, func(d map[string]any) { d["id"] = 7 }) }},
+		{"selector has no digest", "tuning", func(w []byte) []byte { return segmentSelector(w, func(d map[string]any) { d["digest"] = "md5:0" }) }},
+		{"selector ran another finder", "tuning", func(w []byte) []byte { return segmentSelector(w, func(d map[string]any) { d["finder"] = "exposure" }) }},
+		{"held-out window by an ineligible selector", "held_out", func(w []byte) []byte {
+			return segmentSelector(w, func(d map[string]any) { d["held_out_eligible"] = false })
+		}},
+		{"held-out window by a selector that does not say", "held_out", func(w []byte) []byte {
+			return segmentSelector(w, func(d map[string]any) { delete(d, "held_out_eligible") })
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, _ := segmentFixture(t, "case-1")
+			window := segmentWindow("seg-1", "following", tc.role, "run-a", nil)
+			if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, window, tc.selector(window)); err == nil {
+				t.Fatal("the database accepted it")
+			}
+		})
+	}
+	t.Run("a tuning window by an ineligible selector", func(t *testing.T) {
+		store, _ := segmentFixture(t, "case-1")
+		window := segmentWindow("seg-1", "following", "tuning", "run-a", nil)
+		ineligible := segmentSelector(window, func(d map[string]any) { d["held_out_eligible"] = false })
+		if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, window, ineligible); err != nil {
+			t.Fatal(err)
 		}
 	})
 	t.Run("a stored document cannot be edited out of the rules", func(t *testing.T) {
 		store, db := segmentFixture(t, "case-1")
-		if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, segmentWindow("seg-1", "following", "held_out", "run-a", nil)); err != nil {
+		if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, segmentWindow("seg-1", "following", "held_out", "run-a", nil), chosenBy(segmentWindow("seg-1", "following", "held_out", "run-a", nil))); err != nil {
 			t.Fatal(err)
 		}
 		for name, update := range map[string]string{
@@ -162,6 +229,8 @@ func TestSegmentSelectionRulesAreHeldByTheDatabase(t *testing.T) {
 			"document": `UPDATE lidar_segment_selections SET window_json = '{'`,
 			"version":  `UPDATE lidar_segment_selections SET document_version = 2`,
 			"role":     `UPDATE lidar_segment_selections SET role = 'tuning'`,
+			"selector": `UPDATE lidar_segment_selections SET selector_json = NULL`,
+			"verdict":  `UPDATE lidar_segment_selections SET selector_json = json_set(selector_json, '$.held_out_eligible', json('false'))`,
 		} {
 			if _, err := db.Exec(update); err == nil {
 				t.Fatalf("%s was edited past its rule", name)
@@ -172,7 +241,7 @@ func TestSegmentSelectionRulesAreHeldByTheDatabase(t *testing.T) {
 
 func TestDeletingARunKeepsItsSelections(t *testing.T) {
 	store, db := segmentFixture(t, "case-1")
-	if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, segmentWindow("seg-1", "exposure", "held_out", "run-a", nil)); err != nil {
+	if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, segmentWindow("seg-1", "exposure", "held_out", "run-a", nil), chosenBy(segmentWindow("seg-1", "exposure", "held_out", "run-a", nil))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`DELETE FROM lidar_run_records WHERE run_id='run-a'`); err != nil {
@@ -203,7 +272,7 @@ func TestHeldOutGuardIsALookup(t *testing.T) {
 		{"seg-3", "case-3", "random", "held_out", "/captures/b.pcap"},
 	} {
 		window := segmentWindow(s.id, s.finder, s.role, "run-a", func(d map[string]any) { d["capture"] = s.capture })
-		if err := store.InsertSelection(s.id, "run-a", s.caseID, segmentParameters, window); err != nil {
+		if err := store.InsertSelection(s.id, "run-a", s.caseID, segmentParameters, window, chosenBy(window)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -251,7 +320,7 @@ func clipFixture(t *testing.T) (*SegmentStore, DBClient) {
 	t.Helper()
 	store, db := segmentFixture(t, "case-1", "case-2")
 	for _, s := range []struct{ id, caseID string }{{"seg-1", "case-1"}, {"seg-2", "case-2"}} {
-		if err := store.InsertSelection(s.id, "run-a", s.caseID, segmentParameters, segmentWindow(s.id, "following", "tuning", "run-a", nil)); err != nil {
+		if err := store.InsertSelection(s.id, "run-a", s.caseID, segmentParameters, segmentWindow(s.id, "following", "tuning", "run-a", nil), chosenBy(segmentWindow(s.id, "following", "tuning", "run-a", nil))); err != nil {
 			t.Fatal(err)
 		}
 	}

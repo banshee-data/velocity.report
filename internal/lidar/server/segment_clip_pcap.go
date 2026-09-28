@@ -81,6 +81,14 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err := json.Unmarshal([]byte(selection.WindowJSON), &chosen); err != nil {
 		return err
 	}
+	// A window chosen before selectors existed has no selector to record.
+	var chosenBy *segments.SelectorProvenance
+	if selection.SelectorJSON != "" {
+		chosenBy = new(segments.SelectorProvenance)
+		if err := json.Unmarshal([]byte(selection.SelectorJSON), chosenBy); err != nil {
+			return err
+		}
+	}
 	store := sqlite.NewReplayCaseStore(ws.db)
 	scene, err := store.GetScene(caseID)
 	if err != nil {
@@ -188,7 +196,7 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	record := segments.Record{Schema: "velocity.report/annotation-segment", SchemaVersion: 1, PackDigest: pack.Manifest.PackDigest, Role: role, Finder: finder, FinderVersion: chosen.Version, Parameters: params, Segment: chosen}
+	record := segments.Record{Schema: "velocity.report/annotation-segment", SchemaVersion: 1, PackDigest: pack.Manifest.PackDigest, Role: role, Finder: finder, FinderVersion: chosen.Version, Parameters: params, Segment: chosen, Selector: chosenBy}
 	if err := ops.writeRecord(pack.Dir, record); err != nil {
 		return err
 	}

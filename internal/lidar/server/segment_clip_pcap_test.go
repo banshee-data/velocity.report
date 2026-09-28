@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -97,6 +98,59 @@ func segmentClipTestOperations(t *testing.T) segmentClipOperations {
 		},
 		writeRecord: func(_ string, record segments.Record) error { return record.Validate() },
 	}
+}
+
+// The pack says which selector chose its window, as the selector ran. A
+// window chosen before selectors existed has none to name.
+func TestSegmentClipRecordsTheSelectorThatChoseTheWindow(t *testing.T) {
+	catalogue, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	following, _ := catalogue.Selector("following")
+	for _, tc := range []struct {
+		name   string
+		stored string
+		want   *segments.SelectorProvenance
+	}{
+		{"chosen by a selector", "", func() *segments.SelectorProvenance { p := following.Provenance(); return &p }()},
+		{"chosen before selectors", "NULL", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws, job, _ := selectedSegmentJob(t)
+			if tc.stored == "NULL" {
+				for _, statement := range []string{
+					`DROP TRIGGER lidar_segment_selections_keep_selector`,
+					`UPDATE lidar_segment_selections SET selector_json = NULL`,
+				} {
+					if _, err := ws.db.Exec(statement); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			ops := segmentClipTestOperations(t)
+			var written segments.Record
+			ops.writeRecord = func(_ string, record segments.Record) error {
+				written = record
+				return record.Validate()
+			}
+			if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, ops); err != nil {
+				t.Fatal(err)
+			}
+			if (written.Selector == nil) != (tc.want == nil) || (tc.want != nil && !reflect.DeepEqual(*written.Selector, *tc.want)) {
+				t.Fatalf("recorded selector %+v, want %+v", written.Selector, tc.want)
+			}
+		})
+	}
+	t.Run("a selector record that cannot be read", func(t *testing.T) {
+		ws, job, _ := selectedSegmentJob(t)
+		if _, err := ws.db.Exec(`UPDATE lidar_segment_selections SET selector_json = json_set(selector_json, '$.parameters', 'oops')`); err != nil {
+			t.Fatal(err)
+		}
+		if err := ws.runSegmentClipJobWith(context.Background(), job, func(capjobs.Progress) {}, segmentClipTestOperations(t)); err == nil {
+			t.Fatal("a clip was cut for a selection whose selector could not be read")
+		}
+	})
 }
 
 func TestSegmentClipJobReportsEveryOutputBoundary(t *testing.T) {
@@ -272,7 +326,14 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	chosen.ID = segments.Identity(chosen.Finder, chosen.Source, chosen.Role, params, chosen.StartNs)
 	parametersJSON, _ := json.Marshal(params)
 	windowJSON, _ := json.Marshal(chosen)
-	if err := sqlite.NewSegmentStore(ws.db).InsertSelection(chosen.ID, "run", scene.ReplayCaseID, parametersJSON, windowJSON); err != nil {
+	catalogue, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	following, _ := catalogue.Selector("following")
+	following.Parameters = params
+	selectorJSON, _ := json.Marshal(following.Provenance())
+	if err := sqlite.NewSegmentStore(ws.db).InsertSelection(chosen.ID, "run", scene.ReplayCaseID, parametersJSON, windowJSON, selectorJSON); err != nil {
 		t.Fatal(err)
 	}
 	queued := callSegment(t, ws, "POST", "/api/lidar/scenes/"+scene.ReplayCaseID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, scene.ReplayCaseID) })
@@ -327,6 +388,9 @@ func TestSegmentClipJobCutsKirk0Pack(t *testing.T) {
 	}
 	if err := record.Validate(); err != nil {
 		t.Fatal(err)
+	}
+	if record.Selector == nil || record.Selector.ID != "following" || record.Selector.Digest != following.Digest() {
+		t.Fatalf("the pack does not name the selector that chose it: %+v", record.Selector)
 	}
 	if record.PackDigest != pack.Manifest.PackDigest || record.Segment.ID != chosen.ID || clip.PackDigest != pack.Manifest.PackDigest {
 		t.Fatalf("pack, selection and job row are unbound: %+v, row digest %q", record, clip.PackDigest)

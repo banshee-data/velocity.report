@@ -113,3 +113,64 @@ func TestWriteRecordIsDigestBoundAndExclusive(t *testing.T) {
 		t.Fatal("wrote a record with a non-finite score")
 	}
 }
+
+// A pack records the selector that chose its segment. The record is read for
+// its form and for agreement with the segment, never against the selector
+// file: a pack that stops validating is taken for an unfinished attempt.
+func TestRecordKeepsTheSelectorThatChoseTheSegment(t *testing.T) {
+	c := shippedCatalogue(t)
+	following := selectorFrom(t, c, "following")
+	base := validRecord()
+	chosenBy := following.Provenance()
+	base.Selector = &chosenBy
+	if err := base.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := WriteRecord(dir, base); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "segment.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved Record
+	if err := json.Unmarshal(b, &saved); err != nil || saved.Selector == nil || saved.Selector.Digest != following.Digest() || !saved.Selector.HeldOutEligible {
+		t.Fatalf("saved selector: %+v, %v", saved.Selector, err)
+	}
+	for name, mutate := range map[string]func(*SelectorProvenance, *Record){
+		"no id":              func(p *SelectorProvenance, _ *Record) { p.ID = "" },
+		"a short digest":     func(p *SelectorProvenance, _ *Record) { p.Digest = "sha256:abc" },
+		"another algorithm":  func(p *SelectorProvenance, _ *Record) { p.Digest = "md5:" + p.Digest[7:] },
+		"another finder":     func(p *SelectorProvenance, _ *Record) { p.Finder = "exposure" },
+		"other parameters":   func(p *SelectorProvenance, _ *Record) { p.Parameters.MaxGap = 15 },
+		"held out, not able": func(p *SelectorProvenance, r *Record) { p.HeldOutEligible = false; heldOut(r) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := base
+			p := chosenBy
+			mutate(&p, &r)
+			r.Selector = &p
+			if err := r.Validate(); err == nil {
+				t.Fatal("the record was accepted")
+			}
+		})
+	}
+	// Eligible, it may stand for a held-out pack; a record cut before
+	// selectors existed has none, and is read as before.
+	r := base
+	heldOut(&r)
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	r.Selector = nil
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// heldOut makes a record's segment a held-out one, with its identity.
+func heldOut(r *Record) {
+	r.Role, r.Segment.Role = "held_out", "held_out"
+	r.Segment.ID = Identity(r.Finder, r.Segment.Source, r.Role, r.Parameters, r.Segment.StartNs)
+}
