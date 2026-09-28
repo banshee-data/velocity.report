@@ -194,7 +194,9 @@ S2.1 measured both (see [What S2.1 found](#what-s21-found)). T1 helps but leaves
 p99 about 2.5 times the face-stable p99 on every site. T2 changes nothing on kirk0, because the
 half-extent's error is a bias and softening one update only delays it. A third remedy, T3, takes
 the face axis from the solid body's course (see [T3](#t3-course-aligned-faces)). It removes the
-turning tail and raises the fix rate; with T1 the gap is 2.1 to 2.4 on the tuning sites.
+turning tail and raises the fix rate; with T1 the gap is 2.1 to 2.4 on the tuning sites and 1.9
+on the held-out case (see [F4](#f4-the-held-out-score)). T4, next, estimates each face's
+half-extent error instead of holding it fixed.
 
 ### Seeding and re-reference
 
@@ -338,7 +340,8 @@ The tuning-site rows are F3, run at `0adb33e5` before two review fixes:
 - the course is taken within 90 degrees of the tracked heading, so faces keep their names.
 
 On kirk0 the fixes move fixes by under 1 % and the face-stable p99 by at most 12 mm, and leave the
-all-frame p99 unchanged. Test F4 re-runs the tuning arm with them, beside the held-out score.
+all-frame p99 unchanged. Test F4 re-ran the tuning arm with them and confirmed the table (see
+[F4](#f4-the-held-out-score)).
 
 - **T3 removes the turning tail.** On columbus, at 15 degrees per second or more, the body's
   face-stable p99 falls from 0.369 to 0.143 m, against the point estimate's 0.193 m. Marina's
@@ -355,17 +358,47 @@ all-frame p99 unchanged. Test F4 re-runs the tuning arm with them, beside the he
 - **Cost.** T1 with T3 has 68 % (marina) to 87 % (columbus) more lapses than the plain body,
   because a held frame is a faceless one.
 
-#### Open decision: what S2.2 starts from
+#### F4: the held-out score
 
-T1 with T3 is the best remedy measured, and the gap in S2.1's exit is still unmet. Options:
+Test F4 froze T1 with T3 and full members at `f5d1b0c8` and scored it once on the held-out case.
+It re-ran the tuning partition beside it. Both arms ran on the Mac: 12 and 27 minutes, under 1 GB
+each. The default replay was byte-equal on all three cases. Lateral residual p99 in metres over
+the same frames for body and point:
 
-1. **Go to S2.2 with T1 and T3 (proposed).** Freeze T1 with T3 and score it once on the held-out
-   case now, so gate 2's reach is known before the tracker is fed, and carry the gap as a named
-   risk. The body already beats the point estimate over all body-centre frames on marina.
-2. **A per-face bias state first.** The remaining tail is the half-extent error a face brings when
-   it enters. Estimating it per face, rather than holding it fixed, is the direct remedy, but it is
-   closer to Option B (nonlinear state) than to this plan.
-3. **Relax the exit.** Not recommended before the held-out score.
+| Site                   | Partition |  Fixes | Lapses | Body-centre frames: point / body | Face-stable runs: point / body | Gap |
+| ---------------------- | --------- | -----: | -----: | -------------------------------- | ------------------------------ | --: |
+| `embarcadero-folsom`   | Held out  | 24,886 |    923 | 0.204 / 0.229                    | 0.181 / 0.118                  | 1.9 |
+| `marina-webster-beach` | Tuning    | 16,722 |    676 | 0.183 / 0.158                    | 0.150 / 0.065                  | 2.4 |
+| `columbus-broadway`    | Tuning    | 43,106 |  1,695 | 0.226 / 0.280                    | 0.188 / 0.141                  | 2.0 |
+
+The tables and summaries are on `claude/upbeat-galileo-4xbaat-s2-f4-results`, under
+`results/s2-f4/`.
+
+- **Gate 2's reach: not met.** Over all body-centre frames the body's p99 on the held-out case is
+  12 % above the point estimate's, where gate 2 wants it at half (0.102 m). Even the face-stable
+  p99, 0.118 m, is above that. Closing the transition tail alone would not pass gate 2.
+- **S2.1's exit: not met.** The gap is 1.9 on the held-out case, against 1.25.
+- **T3 holds on data it was not tuned on.** Within face-stable runs the body beats the point
+  estimate in every heading-rate bin on the held-out case: at 15 degrees per second or more,
+  0.098 m against 0.155 m. Against T0's plain body there, the body-centre p99 falls 21 % (0.291 to
+  0.229 m) and the face-stable p99 35 % (0.182 to 0.118 m).
+- **The held-out case behaves like columbus, not marina.** Over body-centre frames the body is
+  1.12 times the point estimate there, 1.24 times on columbus and 0.86 times on marina.
+- **The review fixes change nothing material.** Against F3, fixes fall 0.4 % on both tuning sites
+  and every p99 moves by 7 mm or less.
+
+#### Decision: a per-face bias state before S2.2
+
+The options after T3 were to go to S2.2 with T1 and T3, to estimate a per-face bias first, or to
+relax the exit. F4 settles it: over body-centre frames the held-out body loses to the point
+estimate, so feeding the tracker now would carry a tail known to be worse into association. The
+next remedy, T4, estimates the half-extent error a face brings when it enters, per face, rather
+than holding it fixed. It stays in the shadow and qualifies T1 with T3.
+
+It is closer to Option B (nonlinear state) than the rest of this plan, and F4 bounds what it can
+buy. If it closed the gap completely the held-out body-centre p99 would fall to the face-stable
+0.118 m, still above gate 2's 0.102 m, so the within-run tail must shrink too, or gate 2's bar
+be reviewed; see [Risks](#risks).
 
 ### S2.2: the tracked near-edge update
 
@@ -466,9 +499,11 @@ reviewed split (S0, still open). Until then S2 stays default-off and provisional
 - **Heading lag on turns** tilts the face normal (the state plan's invalidating condition b).
   Stratify the residual by heading rate before drawing conclusions. It is the first suspect for
   columbus-broadway's within-run tail.
-- **Gate 2's reach.** On embarcadero-folsom, even the face-stable body p99 (0.175 to 0.182 m) is
-  above half the point estimate's over body-centre frames (0.123 m). So closing the transition
-  tail alone does not pass gate 2; the within-run tail must shrink too. The five-point residual
+- **Gate 2's reach.** Gate 2's bar on embarcadero-folsom is half the point estimate's p99 over
+  body-centre frames: 0.123 m at T0 (half of 0.245 m) and 0.102 m with T1 and T3 (half of
+  0.204 m, F4). Even the face-stable body p99 is above it: 0.175 to 0.182 m at T0, 0.118 m in F4.
+  So closing the transition tail alone does not pass gate 2; the within-run tail must shrink too.
+  The five-point residual
   measures lateral jitter about a local fit, not bias: the medoid's bias is smooth and does not
   show in it, so the gate compares steadiness only.
 - **Fix rate.** On the T0 sites, 37 % to 55 % of rows are fixes. Most of the rest are clusters too
@@ -495,8 +530,10 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] F2: full members, with and without T1, on the tuning partition, on the Mac
 - [ ] F1: T2 on the tuning partition (run, not yet published)
 - [x] S2.1 T3 course-aligned faces; F3 on the tuning partition, on the Mac
-- [ ] S2.1 face-transition remedy chosen: T1 with T3 is the best measured and does not meet the
-      exit; the next step awaits a decision
+- [x] F4: T1 with T3, held-out score and tuning re-run, on the Mac; gate 2's reach not met
+- [ ] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on kirk0 and the tuning
+      partition
+- [ ] S2.1 face-transition remedy chosen
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
 - [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage
