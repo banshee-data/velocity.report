@@ -340,7 +340,7 @@ The tuning-site rows are F3, run at `0adb33e5` before two review fixes:
 - the course is taken within 90 degrees of the tracked heading, so faces keep their names.
 
 On kirk0 the fixes move fixes by under 1 % and the face-stable p99 by at most 12 mm, and leave the
-all-frame p99 unchanged. Test F4 re-ran the tuning arm with them and confirms the table (see
+all-frame p99 unchanged. Test F4 re-ran the tuning arm with them and confirmed the table (see
 [F4](#f4-the-held-out-score)).
 
 - **T3 removes the turning tail.** On columbus, at 15 degrees per second or more, the body's
@@ -499,10 +499,11 @@ reviewed split (S0, still open). Until then S2 stays default-off and provisional
 - **Heading lag on turns** tilts the face normal (the state plan's invalidating condition b).
   Stratify the residual by heading rate before drawing conclusions. It is the first suspect for
   columbus-broadway's within-run tail.
-- **Gate 2's reach.** On embarcadero-folsom, even the face-stable body p99 is above half the
-  point estimate's over body-centre frames: 0.175 to 0.182 m against 0.123 m at T0, and 0.118 m
-  against 0.102 m with T1 and T3 (F4). So closing the transition tail alone does not pass gate 2;
-  the within-run tail must shrink too. The five-point residual
+- **Gate 2's reach.** Gate 2's bar on embarcadero-folsom is half the point estimate's p99 over
+  body-centre frames: 0.123 m at T0 (half of 0.245 m) and 0.102 m with T1 and T3 (half of
+  0.204 m, F4). Even the face-stable body p99 is above it: 0.175 to 0.182 m at T0, 0.118 m in F4.
+  So closing the transition tail alone does not pass gate 2; the within-run tail must shrink too.
+  The five-point residual
   measures lateral jitter about a local fit, not bias: the medoid's bias is smooth and does not
   show in it, so the gate compares steadiness only.
 - **Fix rate.** On the T0 sites, 37 % to 55 % of rows are fixes. Most of the rest are clusters too
