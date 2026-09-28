@@ -13,6 +13,19 @@ import simd
 
 private let sessionLogger = DevLogger(category: "AnnotationSession")
 
+private struct SegmentOpening: Decodable {
+    let packDigest: String
+    let segment: Peak
+    struct Peak: Decodable {
+        let peakTimestampNs: Int64
+        enum CodingKeys: String, CodingKey { case peakTimestampNs = "peak_timestamp_ns" }
+    }
+    enum CodingKeys: String, CodingKey {
+        case packDigest = "pack_digest"
+        case segment
+    }
+}
+
 /// Why a navigation or source change was refused, so the UI can say which.
 enum AnnotationGuard: Equatable {
     case strokeInProgress
@@ -285,6 +298,7 @@ enum AnnotationGuard: Equatable {
 
     /// Objects the proposer found and nobody has graded yet, largest first.
     @Published private(set) var proposals: [ObjectProposal] = [] { didSet { sceneRevision &+= 1 } }
+    private var nextProposalID = 0
     /// Set while the proposer runs: the frame it has reached.
     @Published private(set) var proposalProgress: Int?
     /// The proposal being looked at. Its returns are drawn in every frame it
@@ -486,6 +500,45 @@ enum AnnotationGuard: Equatable {
             return (0..<points.count).filter { FrameCompleteness.isLabelable(classes, $0) }.count
         }
         refreshFrameProgress()
+        let loaded = try ProposalLayerStore(pack: pack).load()
+        nextProposalID = (loaded.map(\.id).max() ?? -1) + 1
+        let dismissed = Set(sidecar.dismissedProposals ?? [])
+        let labelled = Dictionary(grouping: sidecar.masks, by: \.sampleID).mapValues {
+            Set($0.flatMap(\.pointIndices))
+        }
+        for proposal in loaded {
+            if dismissed.contains(ProposalLayerStore.key(for: proposal)) {
+                for (frame, indices) in proposal.frames {
+                    dismissedProposalIndices[frame, default: []].formUnion(indices)
+                }
+                continue
+            }
+            var remaining = proposal
+            remaining.frames = [:]
+            // A saved mask takes precedence over an immutable suggestion.
+            for (frame, indices) in proposal.frames {
+                let sampleID = orderedSamples[frame].sampleID
+                let unlabelled = indices.filter { !((labelled[sampleID] ?? []).contains($0)) }
+                if !unlabelled.isEmpty { remaining.frames[frame] = unlabelled }
+            }
+            if !remaining.frames.isEmpty { proposals.append(remaining) }
+        }
+        let segmentURL = pack.directory.appendingPathComponent("segment.json")
+        if let data = try? Data(contentsOf: segmentURL),
+            let record = try? JSONDecoder().decode(SegmentOpening.self, from: data),
+            record.packDigest == pack.manifest.packDigest,
+            let peakIndex = orderedSamples.indices.min(by: {
+                abs(orderedSamples[$0].timestampNs - record.segment.peakTimestampNs)
+                    < abs(orderedSamples[$1].timestampNs - record.segment.peakTimestampNs)
+            })
+        {
+            _ = step(to: peakIndex)
+            proposals.sort {
+                let a = $0.frames[peakIndex]?.count ?? 0
+                let b = $1.frames[peakIndex]?.count ?? 0
+                return a != b ? a > b : $0.id < $1.id
+            }
+        }
     }
 
     // MARK: - Objects
@@ -1649,10 +1702,19 @@ enum AnnotationGuard: Equatable {
         }
         // Ids carry on from the ones already listed, so a proposal an operator
         // has been calling "14" stays 14 for as long as the window is open.
-        let firstID = (proposals.map(\.id).max() ?? -1) + 1
+        let firstID = nextProposalID
         let moving = proposer.finish(firstID: firstID)
         let fixed = patches.finish(
             firstID: firstID + moving.count, bandFloor: Float(heightBand.floorM))
+        do {
+            let layers = ProposalLayerStore(pack: pack)
+            try layers.save(moving, algorithm: "cluster_chain")
+            try layers.save(fixed, algorithm: "persistent_voxels")
+        } catch {
+            lastError = "Could not keep proposal layers: \(error)"
+            return
+        }
+        nextProposalID = firstID + moving.count + fixed.count
         proposals += moving + fixed
         sessionLogger.info(
             "Proposed \(moving.count) moving and \(fixed.count) fixed objects, "
@@ -1676,15 +1738,31 @@ enum AnnotationGuard: Equatable {
         if let indices = proposal.frames[sampleIndex] { fitViews(toIndices: Set(indices)) }
     }
 
-    /// Drops a proposal from the list, and remembers what it covered so that
-    /// proposing again does not hand it straight back. Dismissals last as long
-    /// as the window is open: they are the operator's judgement about a
-    /// suggestion, not a label, and nothing in the pack records them.
+    /// Drops a proposal from the list and keeps its dismissal in the sidecar,
+    /// so opening the pack or proposing again does not bring it back.
     func dismissProposal(_ id: Int) {
-        if let proposal = proposals.first(where: { $0.id == id }) {
-            for (frame, indices) in proposal.frames {
-                dismissedProposalIndices[frame, default: []].formUnion(indices)
-            }
+        guard let proposal = proposals.first(where: { $0.id == id }) else { return }
+        var edited = document
+        edited.sidecar = sidecar
+        edited.sidecar.packDigest = pack.manifest.packDigest
+        edited.sidecar.datasetID = pack.manifest.datasetID
+        let key = ProposalLayerStore.key(for: proposal)
+        var dismissed = edited.sidecar.dismissedProposals ?? []
+        if !dismissed.contains(key) { dismissed.append(key) }
+        edited.sidecar.dismissedProposals = dismissed
+        do {
+            document = try store.save(
+                edited,
+                change: Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: SidecarStore.utcTimestamp(), operation: "dismiss_proposal"))
+            sidecar = document.sidecar
+        } catch {
+            lastError = "Could not keep dismissal: \(error)"
+            return
+        }
+        for (frame, indices) in proposal.frames {
+            dismissedProposalIndices[frame, default: []].formUnion(indices)
         }
         proposals.removeAll { $0.id == id }
         if selectedProposalID == id { selectedProposalID = nil }

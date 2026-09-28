@@ -215,6 +215,11 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Scene API routes (scene management for track labelling and auto-tuning)
 	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
+	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
+	mux.HandleFunc("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
+	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))
+	mux.HandleFunc("/api/annotations/packs", ws.handleAnnotationPacks)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed
 	// intersection midpoint) — distinct from a case's own sensor pose.

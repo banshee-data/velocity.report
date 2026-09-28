@@ -52,37 +52,45 @@ it unchanged.
 ### Choosing what to cut
 
 An hour of labelling covers tens of seconds of a busy street, so the window matters more than the
-speed. For following and split work, rank the windows of an evidence database first:
+speed. Open **LiDAR → Segments** at `/app/lidar/segments`, choose a run and finder, then inspect
+the score strip and ranked windows. **Preview in scene player** shows a tuning window with the
+run's tracks. **Make case** fixes the capture and offset; **Queue clip** replays it with points and
+exports the annotation pack. The page reads review counts from `annotations.json`. Labels and
+review decisions still belong in the macOS window.
+
+A run is ranked from wherever it kept its tracks. A live run stores track observations. A replayed
+run does not, because a replay must not add to the live track store, so it is ranked from its own
+recording. A run with neither has nothing to rank, and only the random finder offers it a window.
+
+For an evidence database, the Go finder produces a JSON report. Give it the capture path
+when selecting at random, so an empty stretch remains eligible even if the tracker saw nothing:
 
 ```bash
-scripts/lidar-following-windows.py "$LIDAR_EVIDENCE_DIR/<run>/observations/observations.db" \
-  --site-index tools/s2-archive/site-index.json --case embarcadero-folsom
+velocity lidar segments --db "$LIDAR_EVIDENCE_DIR/<run>/observations/observations.db" \
+  --source "$SOURCE_ID" --finder following --capture "$CAPTURE" --top 1 > "$SEGMENTS_JSON"
+velocity lidar annotation-clip --pcap "$CAPTURE" \
+  --start-seconds "$(jq -r '.windows[0].offset_seconds' "$SEGMENTS_JSON")" \
+  --duration-seconds 10 --selection "$SEGMENTS_JSON" --output "$PACK_OUTPUT"
 ```
 
-Each row is a 10 s window: the pair-seconds of vehicles following one another, how many pairs
-and distinct leaders, how often a follower's nearest leader changed, the closest gap, and the
-capture file and offset to cut. Many leader changes for few leaders is usually one lead vehicle
-the tracker split, which is exactly what wants a reviewed reference. The ranking is a review
-queue built from tracker output, not a measurement. `--json` keeps it, and refuses to overwrite.
+The report records each 10 s window's score, capture offset, finder version and parameters. Pass
+`--segment-id` as well when the report contains several windows. The clip command uses the
+report's selection and replay manifest to write `vrlog/`, `pack/` and `pack/segment.json` in one
+new output directory. It refuses a selected window whose role, capture, offset or duration does
+not match the command. The old `scripts/lidar-following-windows.py` remains a useful reference
+for comparing following scores.
 
 Decide a pack's role before choosing its window. Tuning packs may be chosen for tracker failure.
-Held-out packs, Embarcadero's among them, should be chosen for traffic rather than failure, with
-a random window per capture alongside: a window picked because the baseline failed there
-flatters whatever is compared against it.
+Held-out packs, Embarcadero's among them, use traffic finders or random windows, never a finder
+that hunts tracker failures. Choose a random window from each capture first. The Segments page
+enforces that order before making a held-out traffic case. Blind review hides tracker previews.
+The warm-up precedes the clip and is not exported; random windows start at least 35 seconds into
+a capture with measured packet times so that this prefix is available.
 
-Cut the chosen window with points. The warm-up is replayed, unrecorded, immediately before the
-start so the background can settle, and cannot be longer than the offset: a window in a capture's
-first minute gets a shorter warm-up, and a worse-settled background.
-
-```bash
-velocity lidar pcap-replay --pcap "$CAPTURE" --output "$VRLOG_DIR/<case>-annot" \
-  --warmup-seconds 70 --start-seconds <offset> --duration-seconds 20 --include-points
-velocity lidar annotation-export --vrlog "$VRLOG_DIR/<case>-annot" \
-  --output "$LIDAR_ANNOTATION_DIR/<case>-v1" --coverage foreground_only
-```
-
-The [segment finder plan](../../plans/lidar-annotation-segment-finder-plan.md) makes this one
-step, with the finder, the pack and its proposals joined up.
+When the macOS annotation window first opens a pack, it saves its moving and fixed suggestions
+as proposal layers. They load again on the next open, while dismissals live in the sidecar. The
+pack opens near the selected segment's peak sample. Proposals are suggestions, not reference
+truth; only reviewed objects and masks count as such.
 
 ## The window
 

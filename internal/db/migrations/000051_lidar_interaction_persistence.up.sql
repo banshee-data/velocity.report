@@ -7,15 +7,15 @@
 -- queries select on. Metric values are keyed inside the JSON by registry
 -- metric id and suppressions by reason token; no column names a metric.
 --
--- lidar_interaction_events: one row per pairwise encounter per version,
+-- lidar_interaction_events: one row per pairwise encounter per version
 -- indexed on both track ids and on interaction_type. event_id digests the
--- source, type, pair and every version axis (estimate stage, estimator,
+-- source, type, pair and every version axis (estimate stage, estimator
 -- observation model, behaviour method with its parameter hash, geometry and
 -- estimator parameter hash), so regeneration under a new version writes new
 -- rows beside the old and never overwrites them; a reader selects one
 -- version through the version index.
 --
--- lidar_interaction_instants: an event's per-instant suppression history,
+-- lidar_interaction_instants: an event's per-instant suppression history
 -- physical endpoints and series values. basis separates instants where both
 -- parties were observed from predicted-only ones, and a CHECK refuses a
 -- valid predicted-only instant.
@@ -46,7 +46,14 @@
         , CHECK (event_id = JSON_EXTRACT(event_json, '$.event_id'))
           );
 
-CREATE INDEX IF NOT EXISTS idx_lidar_interaction_events_version ON lidar_interaction_events (source_id, estimate_stage, estimator_id, obs_model_id, method_id, param_hash);
+CREATE INDEX IF NOT EXISTS idx_lidar_interaction_events_version ON lidar_interaction_events (
+source_id
+        , estimate_stage
+        , estimator_id
+        , obs_model_id
+        , method_id
+        , param_hash
+);
 
 CREATE INDEX IF NOT EXISTS idx_lidar_interaction_events_primary ON lidar_interaction_events (primary_track_id, interaction_type);
 
@@ -64,11 +71,11 @@ CREATE INDEX IF NOT EXISTS idx_lidar_interaction_events_type ON lidar_interactio
         , PRIMARY KEY (event_id, capture_unix_nanos)
         , CHECK (
           event_id = JSON_EXTRACT(instant_json, '$.event_id')
-          AND capture_unix_nanos = JSON_EXTRACT(instant_json, '$.capture_unix_nanos')
+      AND capture_unix_nanos = JSON_EXTRACT(instant_json, '$.capture_unix_nanos')
           )
         , CHECK (
           basis = 'observed'
-          OR valid = 0
+       OR valid = 0
           )
           );
 
@@ -92,16 +99,25 @@ CREATE INDEX IF NOT EXISTS idx_lidar_interaction_events_type ON lidar_interactio
         , inserted_at_ns INTEGER NOT NULL
         , CHECK (
           window_id = JSON_EXTRACT(window_json, '$.window_id')
-          AND event_id = JSON_EXTRACT(window_json, '$.event_id')
+      AND event_id = JSON_EXTRACT(window_json, '$.event_id')
           )
         , CHECK (
           duration_nanos > 0
-          AND end_unix_nanos - start_unix_nanos = duration_nanos
+      AND end_unix_nanos - start_unix_nanos = duration_nanos
           )
           );
 
 CREATE INDEX IF NOT EXISTS idx_lidar_exposure_windows_event ON lidar_exposure_windows (event_id, start_unix_nanos);
 
-CREATE INDEX IF NOT EXISTS idx_lidar_exposure_windows_version ON lidar_exposure_windows (source_id, kind, basis, estimate_stage, estimator_id, obs_model_id, method_id, param_hash);
+CREATE INDEX IF NOT EXISTS idx_lidar_exposure_windows_version ON lidar_exposure_windows (
+source_id
+        , kind
+        , basis
+        , estimate_stage
+        , estimator_id
+        , obs_model_id
+        , method_id
+        , param_hash
+);
 
 CREATE INDEX IF NOT EXISTS idx_lidar_exposure_windows_track ON lidar_exposure_windows (track_id, kind);

@@ -203,6 +203,7 @@ struct Sidecar: Codable, Equatable {
     var objects: [AnnotationObject] = []
     var masks: [FrameMask] = []
     var correspondences: [TrackCorrespondence]?
+    var dismissedProposals: [String]?
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -215,6 +216,7 @@ struct Sidecar: Codable, Equatable {
         case objects
         case masks
         case correspondences
+        case dismissedProposals = "dismissed_proposals"
     }
 
     /// The mask for one object in one sample, if any.
@@ -435,6 +437,7 @@ final class SidecarStore {
         document.sidecar.objects = restored.objects
         document.sidecar.masks = restored.masks
         document.sidecar.correspondences = restored.correspondences
+        document.sidecar.dismissedProposals = restored.dismissedProposals
         var stamped = change
         if stamped.operation == nil { stamped.operation = "restore" }
         var saved = try save(document, change: stamped)

@@ -118,6 +118,12 @@
 				currentUrl={page.url}
 			/>
 			<NavItem
+				text="Segments"
+				icon={mdiMovieOpen}
+				path="/app/lidar/segments"
+				currentUrl={page.url}
+			/>
+			<NavItem
 				text="Scene Map"
 				icon={mdiMapMarkerPath}
 				path="/app/lidar/scene-map"

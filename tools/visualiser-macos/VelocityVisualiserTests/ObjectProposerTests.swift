@@ -519,4 +519,48 @@ struct ProposalGradingTests {
         #expect(session.acceptProposal(car.id, objectClass: "car") == nil)
         #expect(session.proposals.contains { $0.id == car.id })
     }
+
+    @Test func proposalLayersReloadWithoutRecomputingAndDismissalSurvives() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let original = session.proposals
+        #expect(ProposalLayerStore(pack: session.pack).hasLayers)
+        #expect(original.count == 2)
+
+        let reopened = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
+        #expect(reopened.proposals == original)
+        let car = try #require(original.first { $0.kind == .moving })
+        reopened.dismissProposal(car.id)
+        #expect(reopened.sidecar.dismissedProposals?.contains(ProposalLayerStore.key(for: car)) == true)
+
+        let afterDismissal = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
+        #expect(!afterDismissal.proposals.contains { $0.id == car.id })
+        #expect(afterDismissal.proposals.contains { $0.kind == .fixed })
+    }
+
+    @Test func aReviewedMaskSuppressesItsImmutableProposalOnReopen() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let car = try #require(session.proposals.first { $0.kind == .moving })
+        #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
+        let reopened = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
+        #expect(!reopened.proposals.contains { $0.id == car.id })
+    }
+
+    @Test func aLayerBoundToAnotherDigestIsRefused() async throws {
+        let (session, dir) = try street()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        await session.proposeObjects()
+        let path = dir.appendingPathComponent("proposals/cluster_chain@1.json")
+        // Rewrite through a dictionary because the immutable layer's fields
+        // are deliberately let-bound in production.
+        var object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: path)) as? [String: Any])
+        object["pack_digest"] = "sha256:another-pack"
+        try JSONSerialization.data(withJSONObject: object).write(to: path)
+        #expect(throws: Error.self) {
+            try AnnotationSession(pack: AnnotationPack.open(directory: dir))
+        }
+    }
 }

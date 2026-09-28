@@ -167,7 +167,9 @@ func annotationFramingHalfHeight(
         grant = newGrant
         do {
             let pack = try AnnotationPack.open(directory: directory)
-            session = try AnnotationSession(pack: pack)
+            let opened = try AnnotationSession(pack: pack)
+            session = opened
+            if !ProposalLayerStore(pack: pack).hasLayers { Task { await opened.proposeObjects() } }
             lastError = nil
             annotationLogger.info("Opened annotation pack \(directory.lastPathComponent)")
         } catch {

@@ -25,6 +25,7 @@
 	import ScenePane from '$lib/components/lidar/ScenePane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
+	import { unixNanosToMillis } from '$lib/dateUtils';
 	import type {
 		AnalysisRun,
 		LabellingProgress,
@@ -326,6 +327,12 @@
 			tracks = Array.isArray(history.tracks) ? history.tracks : [];
 			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 };
 			selectedTime = runStartNs / 1e6;
+			// The timeline works in milliseconds, so the requested time is
+			// converted before it is compared, never compared as nanoseconds.
+			const requestedMs = unixNanosToMillis($page.url.searchParams.get('at_ns'));
+			if (requestedMs !== null && requestedMs >= timeRange.start && requestedMs <= timeRange.end) {
+				selectedTime = requestedMs;
+			}
 			loadForegroundObservations(timeRange.start, timeRange.end);
 		} catch (error) {
 			console.error('[TrackHistory] Could not load tracks for run window:', error);

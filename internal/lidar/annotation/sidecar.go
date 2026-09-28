@@ -152,6 +152,9 @@ type Sidecar struct {
 	Objects         []Object              `json:"objects"`
 	Masks           []FrameMask           `json:"masks"`
 	Correspondences []TrackCorrespondence `json:"correspondences,omitempty"`
+	// DismissedProposals names immutable layer entries the operator rejected.
+	// They remain in the layer for provenance and never become reference truth.
+	DismissedProposals []string `json:"dismissed_proposals,omitempty"`
 }
 
 // NewSidecar starts an empty annotation document for a pack.
@@ -181,6 +184,13 @@ func (s *Sidecar) Validate(p *Pack) error {
 	}
 	if s.DatasetID != p.Manifest.DatasetID {
 		return fmt.Errorf("sidecar dataset %q does not match pack dataset %q", s.DatasetID, p.Manifest.DatasetID)
+	}
+	dismissed := make(map[string]bool, len(s.DismissedProposals))
+	for _, id := range s.DismissedProposals {
+		if id == "" || dismissed[id] {
+			return fmt.Errorf("invalid or duplicate dismissed proposal %q", id)
+		}
+		dismissed[id] = true
 	}
 
 	known := make(map[string]bool, len(s.Objects))
