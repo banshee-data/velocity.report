@@ -91,6 +91,11 @@ const (
 	// (SolidBodyOptions.CourseAlignedFaces): faces and spans along the solid
 	// body's own course while it moves, not the lagging tracked heading.
 	ExperimentSolidBodyCourseFaces = "solid_body_course_faces"
+	// ExperimentSolidBodyHalfExtents is remedy T4
+	// (SolidBodyOptions.HalfExtentState): the half-length and half-width
+	// behind the faces are state, estimated with the position, instead of
+	// held at half the believed dimensions.
+	ExperimentSolidBodyHalfExtents = "solid_body_half_extent_state"
 	// ExperimentSolidBodyFullMembers hands the tracker every cluster member
 	// for the frame (pipeline KeepClusterMembers), so the solid body measures
 	// faces from the members rather than the retained evidence sample. It
@@ -118,6 +123,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
 	ExperimentSolidBodyCourseFaces:    true,
+	ExperimentSolidBodyHalfExtents:    true,
 	ExperimentSolidBodyFullMembers:    true,
 }
 

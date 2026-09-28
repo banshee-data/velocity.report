@@ -74,7 +74,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
 		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces, ExperimentSolidBodyFaceConsider,
-		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers}
+		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHalfExtents}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -131,6 +131,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyFaceHysteresis: func(o *l5tracks.SolidBodyOptions) { o.FaceHysteresis = true },
 		ExperimentSolidBodyFaceConsider:   func(o *l5tracks.SolidBodyOptions) { o.FaceEntryConsider = true },
 		ExperimentSolidBodyCourseFaces:    func(o *l5tracks.SolidBodyOptions) { o.CourseAlignedFaces = true },
+		ExperimentSolidBodyHalfExtents:    func(o *l5tracks.SolidBodyOptions) { o.HalfExtentState = true },
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}

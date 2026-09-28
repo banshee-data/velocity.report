@@ -1163,13 +1163,15 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	hysteresis := hasExperiment(experiments, ExperimentSolidBodyFaceHysteresis)
 	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	course := hasExperiment(experiments, ExperimentSolidBodyCourseFaces)
+	halfExtents := hasExperiment(experiments, ExperimentSolidBodyHalfExtents)
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
 			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
+			HalfExtentState: halfExtents,
 		}
-	} else if hysteresis || consider || course || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+	} else if hysteresis || consider || course || halfExtents || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
