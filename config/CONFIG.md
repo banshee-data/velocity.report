@@ -14,6 +14,10 @@ velocity.report.
 For ports, thresholds, and fixed constants outside the tuning schema, see
 [MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
 
+The segment selectors, which choose capture windows for annotation, live
+beside it in [segment-selectors.defaults.json](segment-selectors.defaults.json)
+and are described in [SELECTORS.md](SELECTORS.md).
+
 ## Schema
 
 The runtime uses a versioned nested schema.

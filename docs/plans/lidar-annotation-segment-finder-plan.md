@@ -4,8 +4,9 @@ This plan turns "which minute should I label?" from a hand query into a tool: fi
 windows of a run or evidence database, one action cuts a clip and an annotation pack from a
 chosen window, and the pack arrives with proposals already made.
 
-- **Status:** The v0.5.2 finder, clip, proposal-layer and Segments-page flow is implemented;
-  membership-seeded proposals and the split manifest remain planned for v0.5.3
+- **Status:** The v0.5.2 finder, clip, proposal-layer and Segments-page flow is implemented, and
+  windows are chosen by selectors defined in a versioned config file; membership-seeded proposals
+  and the split manifest remain planned for v0.5.3
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients (web and macOS), storage
 - **Target:** v0.5.2 for the finders, the one-step clip, kept proposals and the Svelte segments
   page, as track T1 of the
@@ -138,6 +139,32 @@ smoother change the answer. `exposure` exists for the held-out rule below.
 
 The script stays as the reference: the Go `following` finder must reproduce its JSON on kirk0
 before the script is retired.
+
+### Selectors: ranking as config
+
+A finder measures windows; a **selector** decides which of them to offer, and in what order. The
+selectors are defined in one versioned file,
+[segment-selectors.defaults.json](../../config/segment-selectors.defaults.json), described in
+[SELECTORS.md](../../config/SELECTORS.md). Each has a label and a category for the Segments page,
+a finder at its parameters, one measure to rank by, largest or smallest first, and bounds a window
+must meet. `close_following` is the first that is not a finder on its own: following within
+15 m, ranked by seconds of it, at least two seconds.
+
+Four decisions shape it:
+
+1. **The file composes; the code computes.** A selector names a finder's pass and one of the
+   measures that pass computes. It cannot compute anything new, so a selector never needs a
+   migration or a release, and a new measure is a change to the code.
+2. **Held-out eligibility is decided by code.** Only the standard `following`, `exposure` and
+   `random` selectors, at their default parameters, choose held-out windows. The file cannot say
+   otherwise, and a held-out request cannot carry parameters: `min_gap` 0 alone would turn
+   following into a split detector.
+3. **Identity is unchanged.** A window's ID does not name its selector. The six standard
+   selectors return exactly what the finders did; a golden test pins every window, order and
+   score, so no chosen window, case or pack moved.
+4. **Every choice records its selector, as it ran.** Migration 000056 adds `selector_json` to
+   the selection, held to the finder and the held-out rule by a CHECK, and the clip job writes it
+   into the pack's `segment.json`.
 
 ### Held-out windows are not chosen by failure
 
@@ -345,6 +372,20 @@ once that sprint step lands
 
 **Milestone:** v0.5.3
 
+### Item 8: selectors as config
+
+**Summary:** Segment selectors defined in a versioned JSON file, labelled and grouped on the page.
+
+**Steps:**
+
+1. Pin every finder's ranking in a golden test
+2. Selector file, strict loader, `Rank`, and the held-out rule in code
+3. Migration 000056: each selection records its selector; the clip job writes it to the pack
+4. `GET /api/lidar/segments/selectors`, `selector=`, `--selector` and `--list-selectors`
+5. The page's selector list, grouped by category
+
+**Milestone:** v0.5.2
+
 ## Dependencies
 
 - The annotation toolset (#579) and the per-frame harness (#598): the pack, the sidecar, the
@@ -373,6 +414,8 @@ once that sprint step lands
 - [x] `velocity lidar annotation-clip` and `segment.json` (`S`)
 - [x] Persisted proposal layers, macOS autogeneration on open, kept dismissals (`M`)
 - [x] Segments API and `/app/lidar/segments` (`M`)
+- [x] Selectors as config: a versioned file of labelled selectors, each choice recording its
+      selector (`M`)
 
 ### Outstanding
 
@@ -380,6 +423,10 @@ once that sprint step lands
 - [ ] Split manifest from pack roles (`S`)
 
 ### Deferred
+
+- [ ] A guard that one window is not chosen for both tuning and held-out packs: role is part of a
+      window's ID, so the same seconds can be chosen twice, once for each role
+- [ ] Ranking by more than one measure: weights mix units, and need a rule for rounding first
 
 - [ ] Proposal records inside VRLOG containers: rejected above; revisit only if proposals must
       be produced where no pack exists
