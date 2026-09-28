@@ -322,14 +322,23 @@ same body-centre frames:
 | Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap | Point, body-centre frames |
 | ---------------------- | ------------ | -----: | -----: | -----------------: | ---------------: | --: | ------------------------: |
 | kirk0                  | solid body   |    826 |        |              0.364 |            0.083 | 4.4 |                     0.309 |
-| kirk0                  | T3           |  1,109 |        |              0.129 |            0.124 | 1.0 |                     0.309 |
-| kirk0                  | T1, T3       |    962 |        |              0.404 |            0.072 | 5.6 |                     0.267 |
+| kirk0                  | T3           |  1,113 |        |              0.129 |            0.121 | 1.1 |                     0.309 |
+| kirk0                  | T1, T3       |    956 |        |              0.404 |            0.060 | 6.7 |                     0.267 |
 | `marina-webster-beach` | full members | 14,557 |    402 |              0.231 |            0.073 | 3.2 |                     0.194 |
 | `marina-webster-beach` | T3, full     | 18,351 |    514 |              0.182 |            0.069 | 2.6 |                     0.198 |
 | `marina-webster-beach` | T1, T3, full | 16,785 |    674 |              0.154 |            0.065 | 2.4 |                     0.183 |
 | `columbus-broadway`    | full members | 40,630 |    898 |              0.386 |            0.194 | 2.0 |                     0.254 |
 | `columbus-broadway`    | T3, full     | 47,664 |  1,039 |              0.401 |            0.164 | 2.4 |                     0.270 |
 | `columbus-broadway`    | T1, T3, full | 43,294 |  1,680 |              0.287 |            0.139 | 2.1 |                     0.228 |
+
+The tuning-site rows are F3, run at `0adb33e5` before two review fixes:
+
+- the extent gate is skipped when the axis is this frame's course, since the update can turn the
+  velocity after the faces are measured;
+- the course is taken within 90 degrees of the tracked heading, so faces keep their names.
+
+On kirk0 the fixes move fixes by under 1 % and the face-stable p99 by at most 12 mm, and leave the
+all-frame p99 unchanged. Test F4 re-runs the tuning arm with them, beside the held-out score.
 
 - **T3 removes the turning tail.** On columbus, at 15 degrees per second or more, the body's
   face-stable p99 falls from 0.369 to 0.143 m, against the point estimate's 0.193 m. Marina's
@@ -342,7 +351,7 @@ same body-centre frames:
   down 33 % and 26 % from the plain solid body. It is below the point estimate's on marina, at
   0.183 m, but not on columbus, at 0.228 m.
 - **The transition tail remains.** With T1 and T3 the gap is 2.1 to 2.4, against 1.25. kirk0's T3
-  gap of 1.0 rests on about 150 windows and does not hold on the tuning sites.
+  gap of 1.1 rests on about 150 windows and does not hold on the tuning sites.
 - **Cost.** T1 with T3 has 68 % (marina) to 87 % (columbus) more lapses than the plain body,
   because a held frame is a faceless one.
 
