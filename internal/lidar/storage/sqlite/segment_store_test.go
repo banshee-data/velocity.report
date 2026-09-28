@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -552,4 +553,22 @@ func TestSegmentStoreReportsAnUnreadableDatabase(t *testing.T) {
 			t.Fatal("a clip row that could not be read was accepted")
 		}
 	})
+}
+
+// The job and its link are one write, so a commit that fails leaves neither:
+// no job that a worker could claim without knowing what it cuts.
+func TestAFailedClipEnqueueLeavesNoJob(t *testing.T) {
+	store, db := clipFixture(t)
+	failure := errors.New("commit failed")
+	store.commit = func(*sql.Tx) error { return failure }
+	if _, err := store.EnqueueClip("seg-1", "clip for case-1"); !errors.Is(err, failure) {
+		t.Fatalf("enqueue with a failed commit: %v", err)
+	}
+	var jobs, links int
+	if err := db.QueryRow(`SELECT (SELECT COUNT(*) FROM lidar_capture_jobs), (SELECT COUNT(*) FROM lidar_segment_clip_jobs)`).Scan(&jobs, &links); err != nil {
+		t.Fatal(err)
+	}
+	if jobs != 0 || links != 0 {
+		t.Fatalf("a failed commit left %d jobs and %d links", jobs, links)
+	}
 }

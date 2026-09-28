@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -58,12 +59,13 @@ type SegmentStatus struct {
 
 // SegmentStore persists chosen annotation segments and their clip jobs.
 type SegmentStore struct {
-	db DBClient
+	db     DBClient
+	commit func(*sql.Tx) error
 }
 
 // NewSegmentStore creates a SegmentStore.
 func NewSegmentStore(db DBClient) *SegmentStore {
-	return &SegmentStore{db: db}
+	return &SegmentStore{db: db, commit: func(tx *sql.Tx) error { return tx.Commit() }}
 }
 
 const segmentSelectionColumns = `segment_id, COALESCE(run_id, ''), source, replay_case_id, role, finder,
@@ -198,7 +200,7 @@ func (s *SegmentStore) EnqueueClip(segmentID, detail string) (CaptureJob, error)
 		job.JobID, segmentID); err != nil {
 		return CaptureJob{}, fmt.Errorf("link clip to segment: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(tx); err != nil {
 		return CaptureJob{}, fmt.Errorf("commit clip enqueue: %w", err)
 	}
 	return job, nil
@@ -239,7 +241,7 @@ func (s *SegmentStore) LinkPack(jobID, packDir, packDigest string) error {
 	if err != nil {
 		return fmt.Errorf("link pack to clip job: %w", err)
 	}
-	if n, err := res.RowsAffected(); err == nil && n == 0 {
+	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
 	return nil
