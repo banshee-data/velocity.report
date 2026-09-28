@@ -192,7 +192,9 @@ within 25 % of the face-stable p99 on the held-out case.
 
 S2.1 measured both (see [What S2.1 found](#what-s21-found)). T1 helps but leaves the all-frame
 p99 about 2.5 times the face-stable p99 on every site. T2 changes nothing on kirk0, because the
-half-extent's error is a bias and softening one update only delays it.
+half-extent's error is a bias and softening one update only delays it. A third remedy, T3, takes
+the face axis from the solid body's course (see [T3](#t3-course-aligned-faces)). It removes the
+turning tail and raises the fix rate; with T1 the gap is 2.1 to 2.4 on the tuning sites.
 
 ### Seeding and re-reference
 
@@ -308,19 +310,62 @@ Against the exit:
 - **Refusal: met.** A solid body without a declared origin makes no fix and says
   `missing_calibrated_sensor_origin` on every row (unit test).
 
-#### Open decision: the next remedy
+#### T3: course-aligned faces
 
-The two tails may share one cause: at an intersection a vehicle's visible faces change as it
-turns. Options, for a decision before S2.2:
+`solid_body_course_faces` takes the body axis for face choice, face normals and extent spans from
+the solid body's own course while it moves at `CourseAlignmentMinSpeedMps` or more, instead of
+the tracked heading. It assumes a body moves along its length, which holds for vehicles and
+cyclists. Test F3 ran it on the Mac, alone and with T1, with full members (23 minutes and under
+1 GB per arm). Solid-body lateral residual p99 in metres, beside the point estimate's over the
+same body-centre frames:
 
-1. **T3, course-aligned faces (proposed).** Above `CourseAlignmentMinSpeedMps`, take the body axis
-   for face choice and face normals from the solid body's own course instead of the tracked
-   heading. Extent admission already refuses spans when the two disagree by more than 10 degrees;
-   on kirk0 that was 59 % of moving near-edge frames. Run T1 with T3 on the tuning partition
-   against the same exit.
-2. **Accept T1 and relax the exit.** Not recommended: gate 2 would still fail on the held-out case.
-3. **A per-face bias state.** Estimate each face's half-extent error rather than hold it fixed. It
-   is closer to Option B (nonlinear state) than to this plan, and is out of scope here.
+| Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap | Point, body-centre frames |
+| ---------------------- | ------------ | -----: | -----: | -----------------: | ---------------: | --: | ------------------------: |
+| kirk0                  | solid body   |    826 |        |              0.364 |            0.083 | 4.4 |                     0.309 |
+| kirk0                  | T3           |  1,113 |        |              0.129 |            0.121 | 1.1 |                     0.309 |
+| kirk0                  | T1, T3       |    956 |        |              0.404 |            0.060 | 6.7 |                     0.267 |
+| `marina-webster-beach` | full members | 14,557 |    402 |              0.231 |            0.073 | 3.2 |                     0.194 |
+| `marina-webster-beach` | T3, full     | 18,351 |    514 |              0.182 |            0.069 | 2.6 |                     0.198 |
+| `marina-webster-beach` | T1, T3, full | 16,785 |    674 |              0.154 |            0.065 | 2.4 |                     0.183 |
+| `columbus-broadway`    | full members | 40,630 |    898 |              0.386 |            0.194 | 2.0 |                     0.254 |
+| `columbus-broadway`    | T3, full     | 47,664 |  1,039 |              0.401 |            0.164 | 2.4 |                     0.270 |
+| `columbus-broadway`    | T1, T3, full | 43,294 |  1,680 |              0.287 |            0.139 | 2.1 |                     0.228 |
+
+The tuning-site rows are F3, run at `0adb33e5` before two review fixes:
+
+- the extent gate is skipped when the axis is this frame's course, since the update can turn the
+  velocity after the faces are measured;
+- the course is taken within 90 degrees of the tracked heading, so faces keep their names.
+
+On kirk0 the fixes move fixes by under 1 % and the face-stable p99 by at most 12 mm, and leave the
+all-frame p99 unchanged. Test F4 re-runs the tuning arm with them, beside the held-out score.
+
+- **T3 removes the turning tail.** On columbus, at 15 degrees per second or more, the body's
+  face-stable p99 falls from 0.369 to 0.143 m, against the point estimate's 0.193 m. Marina's
+  falls from 0.204 to 0.069 m. Within face-stable runs the body now beats the point estimate in
+  every heading-rate bin on both sites.
+- **T3 raises the fix rate** by 17 % to 26 %. Spans along the course are admitted where the
+  lagging heading refused them, so widths converge on 26 % to 32 % more tracks, and faces refused
+  for a prior-only extent fall by 42 % (columbus) to 67 % (marina).
+- **T1 with T3 is the best arm on both tuning sites.** Its body-centre p99 is 0.154 and 0.287 m,
+  down 33 % and 26 % from the plain solid body. It is below the point estimate's on marina, at
+  0.183 m, but not on columbus, at 0.228 m.
+- **The transition tail remains.** With T1 and T3 the gap is 2.1 to 2.4, against 1.25. kirk0's T3
+  gap of 1.1 rests on about 150 windows and does not hold on the tuning sites.
+- **Cost.** T1 with T3 has 68 % (marina) to 87 % (columbus) more lapses than the plain body,
+  because a held frame is a faceless one.
+
+#### Open decision: what S2.2 starts from
+
+T1 with T3 is the best remedy measured, and the gap in S2.1's exit is still unmet. Options:
+
+1. **Go to S2.2 with T1 and T3 (proposed).** Freeze T1 with T3 and score it once on the held-out
+   case now, so gate 2's reach is known before the tracker is fed, and carry the gap as a named
+   risk. The body already beats the point estimate over all body-centre frames on marina.
+2. **A per-face bias state first.** The remaining tail is the half-extent error a face brings when
+   it enters. Estimating it per face, rather than holding it fixed, is the direct remedy, but it is
+   closer to Option B (nonlinear state) than to this plan.
+3. **Relax the exit.** Not recommended before the held-out score.
 
 ### S2.2: the tracked near-edge update
 
@@ -449,8 +494,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.1 full member geometry to the tracker; declared origin with refusal
 - [x] F2: full members, with and without T1, on the tuning partition, on the Mac
 - [ ] F1: T2 on the tuning partition (run, not yet published)
-- [ ] S2.1 face-transition remedy chosen: T1 is the better, and does not meet the exit; next
-      remedy awaits a decision
+- [x] S2.1 T3 course-aligned faces; F3 on the tuning partition, on the Mac
+- [ ] S2.1 face-transition remedy chosen: T1 with T3 is the best measured and does not meet the
+      exit; the next step awaits a decision
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
 - [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage

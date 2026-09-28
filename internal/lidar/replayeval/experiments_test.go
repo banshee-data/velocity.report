@@ -73,8 +73,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
-		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis,
-		ExperimentSolidBodyFullMembers}
+		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces, ExperimentSolidBodyFaceConsider,
+		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -130,6 +130,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	for name, set := range map[string]func(*l5tracks.SolidBodyOptions){
 		ExperimentSolidBodyFaceHysteresis: func(o *l5tracks.SolidBodyOptions) { o.FaceHysteresis = true },
 		ExperimentSolidBodyFaceConsider:   func(o *l5tracks.SolidBodyOptions) { o.FaceEntryConsider = true },
+		ExperimentSolidBodyCourseFaces:    func(o *l5tracks.SolidBodyOptions) { o.CourseAlignedFaces = true },
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}

@@ -139,7 +139,7 @@ func TestSolidBodyNeverFeedsBackIntoTheTrackedState(t *testing.T) {
 		"shipped":    {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
 		"continuity": {continuity, SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
 		"remedies": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin,
-			FaceHysteresis: true, FaceEntryConsider: true}},
+			FaceHysteresis: true, FaceEntryConsider: true, CourseAlignedFaces: true}},
 		"undeclared": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true}},
 	} {
 		base := c.base
@@ -635,7 +635,8 @@ func TestExtentsAreRefusedAlongAnAxisTheCourseContradicts(t *testing.T) {
 			estimation:  EstimationGeometryConverging,
 			orientation: OrientationBelief{PsiRad: c.headingRad, Provenance: ProvenanceObserved},
 		}
-		tracker.admitSolidBodyExtents(track, cluster, set)
+		axis, fromCourse := tracker.faceAxis(&track.solidBody)
+		tracker.admitSolidBodyExtents(track, cluster, set, axis, fromCourse)
 		got := track.solidBody.widthBelief.Support > 0
 		if got != c.admitted {
 			t.Errorf("heading %.2f rad on a +X course: admitted %v, want %v", c.headingRad, got, c.admitted)
@@ -645,6 +646,54 @@ func TestExtentsAreRefusedAlongAnAxisTheCourseContradicts(t *testing.T) {
 				t.Errorf("heading %.2f rad: width %v overstates a 1.8 m body", c.headingRad, w)
 			}
 		}
+	}
+
+	// With course-aligned faces the spans are taken along the course, so the
+	// same lagging heading no longer costs the evidence, and the width is
+	// still the width.
+	cfg := solidBodyConfig()
+	cfg.SolidBody.CourseAlignedFaces = true
+	course := NewTracker(cfg)
+	track := &TrackedObject{}
+	track.solidBody = solidBodyTrack{
+		seeded:      true,
+		state:       [4]float32{0, 0, 10, 0},
+		estimation:  EstimationGeometryConverging,
+		orientation: OrientationBelief{PsiRad: math.Pi / 4, Provenance: ProvenanceObserved},
+	}
+	axis, fromCourse := course.faceAxis(&track.solidBody)
+	if !fromCourse {
+		t.Fatal("moving at 10 m/s with course-aligned faces, the axis did not come from the course")
+	}
+	course.admitSolidBodyExtents(track, cluster, set, axis, fromCourse)
+	if track.solidBody.widthBelief.Support == 0 {
+		t.Fatal("course-aligned spans refused a body moving along its length")
+	}
+	if w := track.solidBody.widthBelief.Estimate(); w > 2 {
+		t.Errorf("course-aligned width %v overstates a 1.8 m body", w)
+	}
+
+	// The update after the faces were measured can turn the velocity. Spans
+	// taken along the course the faces used are still admitted: the gate
+	// would otherwise compare that course with a later one. A heading axis
+	// against the same turned velocity is still refused.
+	turned := &TrackedObject{}
+	turned.solidBody = solidBodyTrack{
+		seeded:      true,
+		state:       [4]float32{0, 0, 10 * float32(math.Cos(0.35)), 10 * float32(math.Sin(0.35))},
+		estimation:  EstimationGeometryConverging,
+		orientation: OrientationBelief{PsiRad: 0, Provenance: ProvenanceObserved},
+	}
+	course.admitSolidBodyExtents(turned, cluster, set, 0, true)
+	if turned.solidBody.widthBelief.Support == 0 {
+		t.Fatal("spans along this frame's course were refused because the update turned the velocity by 20 degrees")
+	}
+	heading := &TrackedObject{}
+	heading.solidBody = turned.solidBody
+	heading.solidBody.widthBelief = extentBelief{}
+	course.admitSolidBodyExtents(heading, cluster, set, 0, false)
+	if heading.solidBody.widthBelief.Support != 0 {
+		t.Fatal("a heading axis 20 degrees off the course was admitted")
 	}
 }
 
@@ -850,5 +899,58 @@ func TestSolidBodyWithoutADeclaredOriginMakesNoFixAndSaysWhy(t *testing.T) {
 		if r.Measurement.FallbackReason != "missing_calibrated_sensor_origin" && r.Measurement.FallbackReason != "no_association" {
 			t.Fatalf("frame %d: fallback %q, want missing_calibrated_sensor_origin", i, r.Measurement.FallbackReason)
 		}
+	}
+}
+
+func TestFaceAxisFollowsTheCourseOnlyWhenAskedAndMoving(t *testing.T) {
+	// Heading along +X, moving along +Y: a turn the tracked heading has not
+	// caught up with.
+	moving := solidBodyTrack{state: [4]float32{0, 0, 0, 5}, orientation: OrientationBelief{PsiRad: 0, Provenance: ProvenanceObserved}}
+	slow := moving
+	slow.state[3] = CourseAlignmentMinSpeedMps / 2
+	cfg := solidBodyConfig()
+	plain := NewTracker(cfg)
+	cfg.SolidBody.CourseAlignedFaces = true
+	course := NewTracker(cfg)
+	if got, fromCourse := plain.faceAxis(&moving); got != 0 || fromCourse {
+		t.Fatalf("without the option the axis is %v, want the tracked heading", got)
+	}
+	if got, fromCourse := course.faceAxis(&moving); math.Abs(float64(got)-math.Pi/2) > 1e-6 || !fromCourse {
+		t.Fatalf("moving at 5 m/s along +Y the axis is %v, want the course, pi/2", got)
+	}
+	if got, fromCourse := course.faceAxis(&slow); got != 0 || fromCourse {
+		t.Fatalf("below %v m/s the axis is %v, want the tracked heading", CourseAlignmentMinSpeedMps, got)
+	}
+	// A tracked heading pointing against the course: the course is taken the
+	// same way round, so front stays front when the body crosses the speed
+	// threshold.
+	against := moving
+	against.orientation.PsiRad = -math.Pi/2 + 0.1
+	if got, fromCourse := course.faceAxis(&against); math.Abs(float64(got)+math.Pi/2) > 1e-6 || !fromCourse {
+		t.Fatalf("moving along +Y under a heading of %v the axis is %v, want the course reversed, -pi/2",
+			against.orientation.PsiRad, got)
+	}
+}
+
+func TestCourseAlignedFacesStillAnchorTheStraightPass(t *testing.T) {
+	// On a straight pass the course is the heading, so T3 must anchor the
+	// body centre as well as the tracked heading does.
+	cfg := solidBodyConfig()
+	cfg.SolidBody.CourseAlignedFaces = true
+	tracker := NewTracker(cfg)
+	var lateral []float64
+	for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+		tracker.Update(f.clusters, f.at)
+		r, _ := mainTrack(t, tracker).SolidBody()
+		if f.occluded || r.Measurement.Source != MeasurementNearEdgeCandidateV1 {
+			continue
+		}
+		lateral = append(lateral, math.Abs(float64(r.Estimate.Y)-f.truthY))
+	}
+	if len(lateral) < 20 {
+		t.Fatalf("only %d near-edge frames with course-aligned faces", len(lateral))
+	}
+	if settled := meanOf(lateral[len(lateral)/2:]); settled > 0.15 {
+		t.Fatalf("settled lateral error %.3f m with course-aligned faces, want under 0.15 m", settled)
 	}
 }

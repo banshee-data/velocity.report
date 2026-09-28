@@ -226,11 +226,13 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 		{"t2_consider", []string{ExperimentSolidBody, ExperimentSolidBodyFaceConsider}},
 		{"t1_t2", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFaceConsider}},
 		{"full_members", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers}},
+		{"t3_course", []string{ExperimentSolidBody, ExperimentSolidBodyCourseFaces}},
+		{"t1_t3", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces}},
 	}
 	var plain solidBodyArm
 	var table strings.Builder
 	fmt.Fprintf(&table, "\n  %-14s %6s %9s %6s %8s  %-17s  %-17s  %s",
-		"arm", "fixes", "face runs", "held", "faceless", "all p95/p99/max", "face p95/p99/max", "point face p99")
+		"arm", "fixes", "face runs", "held", "faceless", "all p95/p99/max", "face p95/p99/max", "point all/face p99")
 	for i, a := range arms {
 		arm := runSolidBodyArm(t, dir, a.name, a.experiments)
 		if i == 0 {
@@ -256,10 +258,10 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 			t.Fatal(err)
 		}
 		all, face := s.AnchorBodiesCentred, s.AnchorBodiesFaceStable
-		fmt.Fprintf(&table, "\n  %-14s %6d %9d %6d %8d  %.3f/%.3f/%.3f  %.3f/%.3f/%.3f  %.3f",
+		fmt.Fprintf(&table, "\n  %-14s %6d %9d %6d %8d  %.3f/%.3f/%.3f  %.3f/%.3f/%.3f  %.3f/%.3f",
 			a.name, s.NearEdgeFixes, s.FaceStableRuns, s.Fallbacks["face_hysteresis"], s.Fallbacks["no_face_reached_minimum_support"],
 			all.P95Metres, all.P99Metres, all.MaxMetres, face.P95Metres, face.P99Metres, face.MaxMetres,
-			s.AnchorPointsFaceStable.P99Metres)
+			s.AnchorPointsCentred.P99Metres, s.AnchorPointsFaceStable.P99Metres)
 		if a.name == "t1_t2" {
 			b, err := json.MarshalIndent(s.FaceStableStrata, "", "  ")
 			if err != nil {

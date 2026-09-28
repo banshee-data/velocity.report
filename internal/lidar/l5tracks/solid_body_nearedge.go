@@ -95,6 +95,15 @@ type SolidBodyOptions struct {
 	// updates from the same face carry the measurement noise alone, as
 	// Section 8.1 requires. Default false.
 	FaceEntryConsider bool
+	// CourseAlignedFaces is remedy T3: while the solid body moves at
+	// CourseAlignmentMinSpeedMps or more, the body axis that picks and
+	// orients the near faces, and along which extent spans are taken, is its
+	// own course rather than the tracked heading, which lags a turn by its
+	// smoothing. Below that speed the tracked heading is used. The reported
+	// orientation is the tracked heading either way. It assumes a body moves
+	// along its length, which holds for vehicles and cyclists and not for a
+	// pedestrian stepping sideways. Default false.
+	CourseAlignedFaces bool
 }
 
 // faceHysteresisFrames is how many consecutive frames a face must be usable
@@ -387,6 +396,9 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	var m SolidBodyMeasurement
 	var edges EdgeMeasurementSet
 	measured := false
+	// axis is the body axis this frame's faces and spans are taken along,
+	// and axisIsCourse says it is the solid body's course (faceAxis).
+	axis, axisIsCourse := sb.orientation.PsiRad, false
 	// facesCounted records whether this frame's usable faces reached the
 	// hysteresis counts; any frame that did not is a frame without them.
 	facesCounted := false
@@ -406,12 +418,13 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	default:
 		length := dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 		width := dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
+		axis, axisIsCourse = t.faceAxis(sb)
 		edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
 			Points:           nearEdgePoints(cluster),
 			SensorX:          t.Config.SolidBody.SensorX,
 			SensorY:          t.Config.SolidBody.SensorY,
-			HeadingRad:       sb.orientation.PsiRad,
+			HeadingRad:       axis,
 			HalfLength:       length.Metres / 2,
 			HalfWidth:        width.Metres / 2,
 			LengthProvenance: length.Provenance,
@@ -504,7 +517,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	}
 
 	// Extent evidence comes from every face the model found, used or not.
-	t.admitSolidBodyExtents(track, cluster, edges)
+	t.admitSolidBodyExtents(track, cluster, edges, axis, axisIsCourse)
 	if measured {
 		sb.lastObservedNanos = track.LastMeasurementUnixNanos
 		sb.support = SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved}
@@ -599,6 +612,36 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 		out[i] = sigma * sigma / 4
 	}
 	return out
+}
+
+// faceAxis is the body axis the near-edge measurement and the extent spans use
+// this frame: the tracked heading, unless CourseAlignedFaces is on and the
+// solid body moves fast enough for its course to mean something, when it is
+// the course, and the second result says so. On columbus-broadway the solid
+// body's face-stable p99 is more than twice the point estimate's while turning
+// at 15 degrees per second or more, because a face chosen and oriented by a
+// lagging heading carries the lag into the centre.
+//
+// The axis's direction does not change the geometry, since each face's normal
+// points at the sensor whichever way the axis runs, but it names the faces:
+// MeasureNearEdge calls the face along the axis the front. So the course is
+// taken in whichever direction lies within 90 degrees of the tracked heading.
+// The faces keep the names the reported orientation gives them, and do not
+// swap front for rear when the body crosses the speed threshold under a
+// heading that points the other way.
+func (t *Tracker) faceAxis(sb *solidBodyTrack) (float32, bool) {
+	psi := sb.orientation.PsiRad
+	if t.Config.SolidBody.CourseAlignedFaces {
+		vx, vy := float64(sb.state[2]), float64(sb.state[3])
+		if math.Hypot(vx, vy) >= CourseAlignmentMinSpeedMps {
+			course := math.Atan2(vy, vx)
+			if math.Cos(course-float64(psi)) < 0 {
+				course = math.Remainder(course+math.Pi, 2*math.Pi)
+			}
+			return float32(course), true
+		}
+	}
+	return psi, false
 }
 
 // nearEdgePoints is the geometry the near-edge measurement and the extent
@@ -734,8 +777,10 @@ func scalarPositionUpdate(x *[4]float32, p *[16]float32, hx, hy, z, r float64) (
 //
 // Truncation at the field of view and fragmentation are not detected by the
 // tracker, so those two rules are not applied here; they are recorded as
-// false in the support state rather than claimed.
-func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldCluster, set EdgeMeasurementSet) {
+// false in the support state rather than claimed. axis is the body axis the
+// frame's faces were measured along, and axisIsCourse says faceAxis took it
+// from the solid body's course before this frame's update.
+func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldCluster, set EdgeMeasurementSet, axis float32, axisIsCourse bool) {
 	sb := &track.solidBody
 	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising || track.MergeCandidate {
 		return
@@ -749,18 +794,23 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	// moving near-edge frames. The axis is undirected, so the comparison is
 	// folded; for a pedestrian stepping sideways this refuses evidence
 	// rather than admitting it, which is the safe direction.
-	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); speed >= CourseAlignmentMinSpeedMps {
+	//
+	// An axis taken from the course is believed by construction. It is the
+	// course before this frame's update, and the update can turn the
+	// velocity, so comparing it with the course after the update would refuse
+	// spans measured along exactly the axis the faces were.
+	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); !axisIsCourse && speed >= CourseAlignmentMinSpeedMps {
 		course := math.Atan2(float64(sb.state[3]), float64(sb.state[2]))
-		if FoldAxisAngleDeg(float64(sb.orientation.PsiRad)-course) > spanSearchHalfWindowDeg {
+		if FoldAxisAngleDeg(float64(axis)-course) > spanSearchHalfWindowDeg {
 			return
 		}
 	}
 	for _, e := range set.Edges {
 		if e.Face.IsLongitudinal() {
-			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad); ok {
+			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis); ok {
 				sb.lengthBelief.Observe(span)
 			}
-		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), sb.orientation.PsiRad+math.Pi/2); ok {
+		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis+math.Pi/2); ok {
 			sb.widthBelief.Observe(span)
 		}
 	}
