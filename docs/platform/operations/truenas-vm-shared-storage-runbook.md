@@ -2,10 +2,11 @@
 
 Status: solved. The VM `bansheeworker` (guest hostname `arrow-worker`) mounts NFS exports from the
 TrueNAS host `arrow`'s pool over a local, Tailscale-independent path. Verified: the guest mount
-survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 6). This
+survives a guest reboot. Not yet verified: a full TrueNAS host reboot (see section 7). This
 document records what was tried, why each attempt failed, the confirmed root cause, and the
 working solution, so a future change to this host does not repeat a night's worth of failed
-attempts and one real outage.
+attempts and one real outage. Sections 9 to 11 record three later, unrelated incidents on the same
+host and VM, kept here for the same reason.
 
 ## 1. The problem
 
@@ -173,15 +174,49 @@ sudo systemctl daemon-reload
 sudo systemctl restart remote-fs.target
 ```
 
-## 5. Verification
+## 5. Read-only access, and a third share
 
-- `df -h /mnt/captures /mnt/results` shows both exports mounted over `arrow-local` (`10.10.10.1`).
+`captures` was already exported `ro: true` server-side (not just `ro` in the guest's mount
+options, which a client cannot be trusted to enforce on its own) from when the share was first
+created; nothing needed to change there.
+
+A third share, `media` (`/mnt/arrow/media`, a personal media library unrelated to the VM's actual
+work), was added read-only for the guest, following the same shape as `captures`:
+
+- NFS share: path `/mnt/arrow/media`, Read Only ticked, Mapall User/Group set to `banshee`
+  (Shares > UNIX (NFS) Shares > Add), networks `192.168.99.0/24` and `10.10.10.0/24`.
+- Guest fstab: `arrow-local:/mnt/arrow/media /mnt/media nfs
+ro,vers=3,_netdev,x-systemd.automount,timeo=30,retrans=2,noauto 0 0`.
+
+**The mapped user also needs read permission on the actual filesystem**, which the NFS share's
+`ro` flag alone does not grant. `captures` and `results` already had `other: r-x` on every
+directory, which is why `banshee` (mapped via `mapall_user`, not the file owner or in the owning
+group) could read them without any extra step. `media`'s directories were `770`, owned by other
+users, with no such grant, so the guest could see the share existed but got "Permission denied"
+listing anything in it. Fixed via Datasets > `media` > Permissions > Edit: added a `User - banshee:
+Read` NFSv4 ACL entry, applied recursively (TrueNAS's own ACL editor warns recursive apply "can
+make data inaccessible" since it overwrites, not merges, every descendant's existing ACL; this is
+a real risk on a mixed-ownership tree and is worth pausing on for anything larger or less well
+understood than a personal media share). One directory (`video`) was not touched by the recursive
+apply, for no clear reason; found and fixed by re-running the same ACL edit scoped to just that
+path. Check `find <mount> -type d` for `Permission denied` after any similar recursive apply,
+rather than assuming it reached everything.
+
+## 6. Verification
+
+- `df -h /mnt/captures /mnt/results /mnt/media` shows all three exports mounted over `arrow-local`
+  (`10.10.10.1`).
 - A 50 MiB write to `/mnt/results` completed at 603 MB/s, full local virtio-net speed, with no
   tailnet hop.
-- The guest was rebooted; `ens4` and both mounts came back automatically, with no manual steps,
-  confirmed immediately after boot.
+- `touch` inside `/mnt/captures` or `/mnt/media` fails with "Read-only file system"; every file
+  found under `media` (including `video`, once fixed) opens for reading.
+- The guest was rebooted; `ens4` and all three mounts came back automatically, with no manual
+  steps, confirmed immediately after boot.
+- The configuration also survived an unplanned event, a hardware NIC hang on the host (section
+  11): once the VM's network device was rebuilt, `br1`, `eno1`'s DHCP registration, and all three
+  guest mounts came back with no reconfiguration, only the VM restart itself.
 
-## 6. Known limitations and possible follow-ups
+## 7. Known limitations and possible follow-ups
 
 - **Host reboot is untested.** The interface and bridge configuration are now genuinely persisted
   in TrueNAS's database, so they are expected to survive a reboot, but this has not been observed
@@ -189,15 +224,13 @@ sudo systemctl restart remote-fs.target
 - **Tailscale remains installed and running on the guest** (not the host). It is no longer needed
   for this mount; removing it, or leaving it for other uses, is a separate decision.
 - **The "proper" `br0`-with-`eno1`-member layout** (TrueNAS's documented default topology, where the
-  host's own address moves onto the bridge and `eno1` becomes a plain member) remains blocked by
-  the constraint in section 3.2 for as long as the VM's current NIC is attached to `eno1`. It could
-  be done by stopping the VM (or removing its NIC device) first, creating `br0` with `eno1` as a
-  member, moving `eno1`'s address to `br0`, then reattaching the VM's NIC to `br0` once it is a
-  selectable option. Not attempted: it needs VM downtime and was not required to reach the goal.
+  host's own address moves onto the bridge and `eno1` becomes a plain member) was attempted, with
+  the VM stopped first to clear section 3.2's macvtap constraint, and failed for a different,
+  switch-side reason. See section 12.
 - **The `bridge_setup()` exception-swallowing defect** in section 3.2 is worth reporting upstream
   with this evidence, independent of anything this deployment does.
 
-## 7. Reference: safe commit procedure
+## 8. Reference: safe commit procedure
 
 Applies to any future change to `eno1`, `br1`, or a new interface on this host.
 
@@ -217,3 +250,171 @@ physical console (or IPMI/BMC console) rather than any network-dependent session
 depend on the interface being changed. From there, `ip -br a` and `midclt call
 interface.has_pending_changes` establish the current state before deciding whether to wait for the
 rollback or force it.
+
+## 9. Guest disk pressure: relocating `/home` to `/srv`
+
+The guest's root partition (`/dev/sda2`, 5.9 GiB) filled to 85% (843 MiB free), almost entirely
+from `/home/banshee` (3.2 GiB: Go build cache, capture scratch, git checkouts, dotfile caches).
+Growing the VM's virtual disk in TrueNAS would not have helped: its five partitions already span
+the full 32 GiB end to end, and root is not the last one (`efi` → `root` → `var` → `swap` →
+`srv`), so new space lands after `srv`, unreachable by root without moving the intervening
+partitions live.
+
+`srv` (`/dev/sda5`, 21.8 GiB), a Debian installer default that nothing on this VM actually used,
+sat almost empty. Relocating `/home/banshee` onto it needed no VM downtime and no partition
+surgery:
+
+```bash
+sudo mkdir -p /srv/banshee
+sudo cp -a /home/banshee/. /srv/banshee/
+sudo mv /home/banshee /home/banshee.premove   # kept until verified, then removed
+sudo mkdir /home/banshee
+sudo chown banshee:banshee /home/banshee
+echo "/srv/banshee /home/banshee none bind 0 0" | sudo tee -a /etc/fstab
+sudo mount /home/banshee
+```
+
+Verified before removing the backup: file counts and a checksum sample matched, the relocated git
+checkout's `git status` was clean, and a fresh SSH connection authenticated correctly against the
+bind-mounted `.ssh/authorized_keys`. Root went from 843 MiB to 3.8 GiB free.
+
+**Rule that follows from this**: check the actual partition table before proposing a disk-size
+increase. A virtual disk that already spans its full allocation, with the tight partition not last
+in order, needs partition surgery to grow; an already-provisioned, under-used partition on the same
+disk is often the lower-risk fix.
+
+## 10. VM CPU mode and a native-binary spin bug
+
+Installing `claude-code` (the Claude Code CLI) via the official apt repository succeeded, but
+running `claude` pegged one CPU core at 90 to 99% indefinitely. `strace` showed the main thread
+making essentially no syscalls while spinning; the two idle helper threads were named
+`mi-scavenger` and `Bun Pool 0`/`Bun Pool 1`, identifying the native Linux binary as a Bun build.
+
+Root cause: the VM's CPU Mode was `Custom` with no model selected, which TrueNAS/QEMU renders as
+the generic `QEMU Virtual CPU version 2.5+`, a compatibility model that strips SSE4.2, POPCNT, and
+AVX so a VM can migrate to older physical hosts. This is a known upstream bug
+(`anthropics/claude-code#95566`): the Bun runtime mishandles the missing instructions by spinning
+rather than failing cleanly.
+
+Fix: Virtual Machines > `bansheeworker` > Edit > CPU Mode, changed from `Custom` to `Host
+Passthrough`. This is a single, non-clustered TrueNAS box, so exposing the exact physical CPU
+(`Intel(R) Core(TM) i3-4130T`, which has `sse4_1 sse4_2 popcnt avx avx2`) carries no
+migration-compatibility cost. The change only takes effect on a full stop and start, not a soft
+reboot inside the guest, since the CPU model is fixed at QEMU launch.
+
+**Rule that follows from this**: if a Linux VM's CPU Mode is `Custom` with no model, and a modern
+binary (anything built on Bun, or otherwise doing CPU-feature-gated JIT) hangs or spins instead of
+running, check `lscpu` for missing `sse4_2`/`popcnt`/`avx` before looking anywhere else.
+
+## 11. A hardware NIC hang on `eno1`, and its side effect on the VM's macvtap NIC
+
+Both the host (`192.168.99.8`) and the guest became unreachable: no ping, no HTTP, ARP resolution
+failing outright (`Host is down` / `No route to host`). The physical console showed the actual
+cause, repeating every two seconds:
+
+```text
+e1000e 0000:00:19.0 eno1: Detected Hardware Unit Hang:
+  TDH                  <74>
+  TDT                  <f8>
+  ...
+```
+
+This is an Intel `e1000e` transmit-ring hang: the link/PHY stays up (the switch port kept blinking
+normally), but the driver can no longer transmit, so the host could receive an ARP request but
+never get the reply out. It is a hardware/driver-level fault, unrelated to the
+database-registration and macvtap-exclusivity issues in section 3; it can happen to `eno1`
+independently of anything this runbook's setup did.
+
+Recovery, from the physical console (a network-dependent session is useless while the NIC is
+hung):
+
+```bash
+rmmod e1000e && modprobe e1000e
+ip -br a          # confirm eno1 is UP with 192.168.99.8/24 again
+```
+
+This is not the end of the recovery. Because the VM's primary NIC is a macvtap child of `eno1`
+(section 3.2), destroying and recreating the `eno1` netdevice destroys the macvtap device riding
+on it. TrueNAS still showed the VM as "Running" afterwards, but its network was gone underneath it;
+only a full VM stop and start rebuilt the macvtap against the fresh `eno1` and restored guest
+connectivity. `br1` and the guest's NFS mounts needed no reconfiguration; they came back on their
+own once the VM's network device existed again.
+
+**Rule that follows from this**: after any recovery that recreates `eno1` (driver reload, or a host
+reboot), check the VM's own network before assuming it is fine because TrueNAS shows it running. A
+macvtap-based guest NIC does not survive its underlying physical interface being torn down and
+rebuilt, and needs its own restart.
+
+## 12. Hardening after the hardware hang: three mitigations, one of them incomplete
+
+Following the `eno1` hang in section 11, three mitigations were considered for reducing how often
+it recurs and how much intervention it needs.
+
+### Disabling EEE and TSO on `eno1`
+
+Confirmed via `ethtool --show-eee eno1` (`EEE status: enabled - inactive`) and `ethtool -k eno1`
+(`tcp-segmentation-offload: on`) that both suspects from section 11's research were active. Disabled
+both:
+
+```bash
+ethtool --set-eee eno1 eee off
+ethtool -K eno1 tso off gso off
+```
+
+Persisted via a TrueNAS Init Script (System > Advanced > Init/Shutdown Scripts, Post Init, so it
+reruns after every boot; `ethtool` settings do not survive a reboot on their own).
+
+### An auto-recovery watchdog
+
+A `systemd` service (`eno1-hang-watchdog.service`) tails `journalctl -k -f` for the "Detected
+Hardware Unit Hang" signature, and on match reloads the `e1000e` driver (`rmmod`/`modprobe`) then
+restarts the VM (`midclt call vm.stop`/`vm.start`) to rebuild its macvtap NIC, with a 120-second
+cooldown to avoid a restart loop if the hang recurs quickly. The watchdog script itself lives on
+the pool (`/mnt/arrow/scripts/eno1-hang-watchdog.sh`), the one genuinely writable, always-persistent
+location on this host (`/usr/local/bin` and other base-OS paths are read-only). A second Init
+Script (Post Init) reasserts the `systemd` unit file and re-enables the service on every boot, since
+`/etc/systemd/system` is not guaranteed to survive a TrueNAS version upgrade the way the pool is.
+
+This closes the gap the manual recovery in section 11 depended on: previously, a hang needed
+someone at the physical console; now it self-heals within seconds.
+
+### Bridging `eno1` instead of using macvtap: attempted, failed
+
+Section 7 (before this update) flagged the "proper" `br0`-with-`eno1`-member layout as a way to
+stop a driver reload from orphaning the VM's macvtap NIC, unattempted because it needed VM
+downtime. It was attempted here, and failed.
+
+With the VM stopped (releasing `eno1`'s macvtap), `eno1`'s own address was cleared and a new bridge
+`br0` (DHCP, member `eno1`) was staged as a paired change, following the safe-commit procedure in
+section 8: Test Changes with a 300-second window, confirmed via an independent ping rather than the
+browser tab that issued the change. The host never came back. `eno1`'s address dropped and `br0`
+started `dhclient`, then nothing until the rollback fired at the full 300 seconds and restored
+`eno1`:
+
+```text
+22:02:05  eno1: removing 192.168.99.8 ... bridge_setup(): Adding member 'eno1' to 'br0'
+22:02:05  bridge_setup(): Turning STP on for 'br0'
+22:02:05  run_dhcp(): Starting dhclient for br0
+[... nothing else for 5 minutes ...]
+22:07:05  (rollback) run_dhcp(): Starting dhclient for eno1
+22:07:06  unconfigure(): Unconfiguring interface 'br0'
+```
+
+Confirmed afterwards: no leftover macvtap device (`ip link show type macvtap` empty), `eno1` clean
+with no bridge membership, so this is not a repeat of section 3.2's macvtap-exclusivity defect. The
+log shows `dhclient` starting for `br0` and then total silence, no lease and no error, for the
+entire window. Read together with `Turning STP on for 'br0'`, the working hypothesis is that the
+upstream switch's BPDU Guard or loop protection err-disabled the port once `br0` (a bridge with a
+real member, unlike the memberless `br1`) started sending Spanning Tree BPDUs, a common switch-side
+reaction to an unexpected bridge that does not resolve within the usual 30-second STP forward-delay
+window. This cannot be confirmed without access to the switch's own configuration or logs, which is
+outside this runbook's scope.
+
+**Not pursued further.** Retrying without first addressing the switch side would likely reproduce
+the same outage. The two mitigations above already remove the practical cost of a hang without this
+change, so the macvtap topology stays as it is.
+
+**Rule that follows from this**: a bridge with a real member behaves differently from an empty one.
+`br1`'s six successful isolated-bridge attempts (section 2.1) say nothing about whether enslaving a
+production interface will also converge cleanly; test that specific case, with an
+independent-connection safe-commit check, before relying on it.
