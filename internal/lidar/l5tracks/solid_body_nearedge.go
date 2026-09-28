@@ -396,8 +396,9 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	var m SolidBodyMeasurement
 	var edges EdgeMeasurementSet
 	measured := false
-	// axis is the body axis this frame's faces and spans are taken along.
-	axis := sb.orientation.PsiRad
+	// axis is the body axis this frame's faces and spans are taken along,
+	// and axisIsCourse says it is the solid body's course (faceAxis).
+	axis, axisIsCourse := sb.orientation.PsiRad, false
 	// facesCounted records whether this frame's usable faces reached the
 	// hysteresis counts; any frame that did not is a frame without them.
 	facesCounted := false
@@ -417,7 +418,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	default:
 		length := dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 		width := dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
-		axis = t.faceAxis(sb)
+		axis, axisIsCourse = t.faceAxis(sb)
 		edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
 			Points:           nearEdgePoints(cluster),
@@ -516,7 +517,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	}
 
 	// Extent evidence comes from every face the model found, used or not.
-	t.admitSolidBodyExtents(track, cluster, edges, axis)
+	t.admitSolidBodyExtents(track, cluster, edges, axis, axisIsCourse)
 	if measured {
 		sb.lastObservedNanos = track.LastMeasurementUnixNanos
 		sb.support = SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved}
@@ -616,19 +617,31 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 // faceAxis is the body axis the near-edge measurement and the extent spans use
 // this frame: the tracked heading, unless CourseAlignedFaces is on and the
 // solid body moves fast enough for its course to mean something, when it is
-// the course. The near-edge model needs an axis, not a direction, so the
-// course's sign does not matter. On columbus-broadway the solid body's
-// face-stable p99 is more than twice the point estimate's while turning at 15
-// degrees per second or more, because a face chosen and oriented by a lagging
-// heading carries the lag into the centre.
-func (t *Tracker) faceAxis(sb *solidBodyTrack) float32 {
+// the course, and the second result says so. On columbus-broadway the solid
+// body's face-stable p99 is more than twice the point estimate's while turning
+// at 15 degrees per second or more, because a face chosen and oriented by a
+// lagging heading carries the lag into the centre.
+//
+// The axis's direction does not change the geometry, since each face's normal
+// points at the sensor whichever way the axis runs, but it names the faces:
+// MeasureNearEdge calls the face along the axis the front. So the course is
+// taken in whichever direction lies within 90 degrees of the tracked heading.
+// The faces keep the names the reported orientation gives them, and do not
+// swap front for rear when the body crosses the speed threshold under a
+// heading that points the other way.
+func (t *Tracker) faceAxis(sb *solidBodyTrack) (float32, bool) {
+	psi := sb.orientation.PsiRad
 	if t.Config.SolidBody.CourseAlignedFaces {
 		vx, vy := float64(sb.state[2]), float64(sb.state[3])
 		if math.Hypot(vx, vy) >= CourseAlignmentMinSpeedMps {
-			return float32(math.Atan2(vy, vx))
+			course := math.Atan2(vy, vx)
+			if math.Cos(course-float64(psi)) < 0 {
+				course = math.Remainder(course+math.Pi, 2*math.Pi)
+			}
+			return float32(course), true
 		}
 	}
-	return sb.orientation.PsiRad
+	return psi, false
 }
 
 // nearEdgePoints is the geometry the near-edge measurement and the extent
@@ -765,8 +778,9 @@ func scalarPositionUpdate(x *[4]float32, p *[16]float32, hx, hy, z, r float64) (
 // Truncation at the field of view and fragmentation are not detected by the
 // tracker, so those two rules are not applied here; they are recorded as
 // false in the support state rather than claimed. axis is the body axis the
-// frame's faces were measured along (faceAxis).
-func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldCluster, set EdgeMeasurementSet, axis float32) {
+// frame's faces were measured along, and axisIsCourse says faceAxis took it
+// from the solid body's course before this frame's update.
+func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldCluster, set EdgeMeasurementSet, axis float32, axisIsCourse bool) {
 	sb := &track.solidBody
 	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising || track.MergeCandidate {
 		return
@@ -780,7 +794,12 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	// moving near-edge frames. The axis is undirected, so the comparison is
 	// folded; for a pedestrian stepping sideways this refuses evidence
 	// rather than admitting it, which is the safe direction.
-	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); speed >= CourseAlignmentMinSpeedMps {
+	//
+	// An axis taken from the course is believed by construction. It is the
+	// course before this frame's update, and the update can turn the
+	// velocity, so comparing it with the course after the update would refuse
+	// spans measured along exactly the axis the faces were.
+	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); !axisIsCourse && speed >= CourseAlignmentMinSpeedMps {
 		course := math.Atan2(float64(sb.state[3]), float64(sb.state[2]))
 		if FoldAxisAngleDeg(float64(axis)-course) > spanSearchHalfWindowDeg {
 			return

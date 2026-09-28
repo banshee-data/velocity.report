@@ -635,7 +635,8 @@ func TestExtentsAreRefusedAlongAnAxisTheCourseContradicts(t *testing.T) {
 			estimation:  EstimationGeometryConverging,
 			orientation: OrientationBelief{PsiRad: c.headingRad, Provenance: ProvenanceObserved},
 		}
-		tracker.admitSolidBodyExtents(track, cluster, set, tracker.faceAxis(&track.solidBody))
+		axis, fromCourse := tracker.faceAxis(&track.solidBody)
+		tracker.admitSolidBodyExtents(track, cluster, set, axis, fromCourse)
 		got := track.solidBody.widthBelief.Support > 0
 		if got != c.admitted {
 			t.Errorf("heading %.2f rad on a +X course: admitted %v, want %v", c.headingRad, got, c.admitted)
@@ -660,12 +661,39 @@ func TestExtentsAreRefusedAlongAnAxisTheCourseContradicts(t *testing.T) {
 		estimation:  EstimationGeometryConverging,
 		orientation: OrientationBelief{PsiRad: math.Pi / 4, Provenance: ProvenanceObserved},
 	}
-	course.admitSolidBodyExtents(track, cluster, set, course.faceAxis(&track.solidBody))
+	axis, fromCourse := course.faceAxis(&track.solidBody)
+	if !fromCourse {
+		t.Fatal("moving at 10 m/s with course-aligned faces, the axis did not come from the course")
+	}
+	course.admitSolidBodyExtents(track, cluster, set, axis, fromCourse)
 	if track.solidBody.widthBelief.Support == 0 {
 		t.Fatal("course-aligned spans refused a body moving along its length")
 	}
 	if w := track.solidBody.widthBelief.Estimate(); w > 2 {
 		t.Errorf("course-aligned width %v overstates a 1.8 m body", w)
+	}
+
+	// The update after the faces were measured can turn the velocity. Spans
+	// taken along the course the faces used are still admitted: the gate
+	// would otherwise compare that course with a later one. A heading axis
+	// against the same turned velocity is still refused.
+	turned := &TrackedObject{}
+	turned.solidBody = solidBodyTrack{
+		seeded:      true,
+		state:       [4]float32{0, 0, 10 * float32(math.Cos(0.35)), 10 * float32(math.Sin(0.35))},
+		estimation:  EstimationGeometryConverging,
+		orientation: OrientationBelief{PsiRad: 0, Provenance: ProvenanceObserved},
+	}
+	course.admitSolidBodyExtents(turned, cluster, set, 0, true)
+	if turned.solidBody.widthBelief.Support == 0 {
+		t.Fatal("spans along this frame's course were refused because the update turned the velocity by 20 degrees")
+	}
+	heading := &TrackedObject{}
+	heading.solidBody = turned.solidBody
+	heading.solidBody.widthBelief = extentBelief{}
+	course.admitSolidBodyExtents(heading, cluster, set, 0, false)
+	if heading.solidBody.widthBelief.Support != 0 {
+		t.Fatal("a heading axis 20 degrees off the course was admitted")
 	}
 }
 
@@ -884,14 +912,23 @@ func TestFaceAxisFollowsTheCourseOnlyWhenAskedAndMoving(t *testing.T) {
 	plain := NewTracker(cfg)
 	cfg.SolidBody.CourseAlignedFaces = true
 	course := NewTracker(cfg)
-	if got := plain.faceAxis(&moving); got != 0 {
+	if got, fromCourse := plain.faceAxis(&moving); got != 0 || fromCourse {
 		t.Fatalf("without the option the axis is %v, want the tracked heading", got)
 	}
-	if got := course.faceAxis(&moving); math.Abs(float64(got)-math.Pi/2) > 1e-6 {
+	if got, fromCourse := course.faceAxis(&moving); math.Abs(float64(got)-math.Pi/2) > 1e-6 || !fromCourse {
 		t.Fatalf("moving at 5 m/s along +Y the axis is %v, want the course, pi/2", got)
 	}
-	if got := course.faceAxis(&slow); got != 0 {
+	if got, fromCourse := course.faceAxis(&slow); got != 0 || fromCourse {
 		t.Fatalf("below %v m/s the axis is %v, want the tracked heading", CourseAlignmentMinSpeedMps, got)
+	}
+	// A tracked heading pointing against the course: the course is taken the
+	// same way round, so front stays front when the body crosses the speed
+	// threshold.
+	against := moving
+	against.orientation.PsiRad = -math.Pi/2 + 0.1
+	if got, fromCourse := course.faceAxis(&against); math.Abs(float64(got)+math.Pi/2) > 1e-6 || !fromCourse {
+		t.Fatalf("moving along +Y under a heading of %v the axis is %v, want the course reversed, -pi/2",
+			against.orientation.PsiRad, got)
 	}
 }
 
