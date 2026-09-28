@@ -15,6 +15,7 @@
 !assets.go
 !static/
 !config/tuning.defaults.json
+!config/segment-selectors.defaults.json
 
 # Drop non-build tree artefacts.
 internal/lidar/perf/
