@@ -6,6 +6,11 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 29, 2026 - A frozen reviewed split and measured sensor coverage
+
+- Froze the reviewed split: `velocity lidar annotation-split freeze` certifies membership review, pins each pack, its manifest, selection record and annotation revision by digest, and binds every corpus case to its captures by SHA-256, so a pack cut from a held-out capture cannot be tuned on under another name. A revision carries the whole history of what was tuned on, by capture span as well as by pack, so no later revision can hold out a car that an earlier one tuned on, whether the pack was dropped and re-added or re-cut wider. The evaluators given `-split-manifest` hold each case to its role, check the replayed capture against the case, and record the split; the digest is unkeyed, so it catches accidental edits, not deliberate ones (#636).
+- Measured sensor coverage instead of declaring it by hand: `-survey-coverage` replays a case's default configuration and declares its range and azimuth sector from the online estimates. On kirk0 it reproduces the hand-declared 92 m range and finds no estimate in the 155° behind the sensor, which the hand declaration had assumed was covered (#636).
+
 ## September 29, 2026 - The near-edge update reaches the tracked filter
 
 - Built S2.2 of the near-edge plan behind `near_edge_track`, default off. The solid body's state machine is one function over a state, covariance, reference and support value, which the shadow runs on its own filter and the new mode runs on the tracked one: a fix replaces the medoid update with the face updates, a faceless frame leaves the prediction alone, a lapse returns to the medoid, and a body-centre track is associated on the pair's face residual (A2), keeping the gate at two degrees of freedom. A re-reference is a translation before it is an update, so velocity is not kicked by half a body. On kirk0 the default replay and the shadow arms are byte-identical to main, the new arm runs identically twice, and its body-centre lateral p99 is 0.130 m against the default point estimates' 0.309 m, label-free and on one capture.
