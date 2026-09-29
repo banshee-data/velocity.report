@@ -134,7 +134,9 @@ func TestPhysicalImportRefusesWhatTheStoreRefuses(t *testing.T) {
 		{"tracker-assisted as independent", func(i *PhysicalReferenceImport) {
 			i.Objects[0].Keyframes[2].Review.Origin = OriginIndependent
 		}, "cannot claim independent provenance"},
-		{"object not in the annotation", func(i *PhysicalReferenceImport) { i.Objects[1].ObjectID = "car-7" }, "declare it there first"},
+		{"object not in the annotation", func(i *PhysicalReferenceImport) {
+			i.Objects = append(i.Objects, PhysicalObject{ObjectID: "car-7", Keyframes: []PhysicalKeyframe{}})
+		}, "declare it there first"},
 		{"partial span as full", func(i *PhysicalReferenceImport) { i.Objects[0].Body.Length.Support = frames(3) }, "a partial span supports only a lower bound"},
 	}
 	for _, c := range cases {

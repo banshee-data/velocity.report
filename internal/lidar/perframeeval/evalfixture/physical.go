@@ -31,8 +31,9 @@ import (
 // 7 (rear face without an offset) and 8 (a tracker-assisted proposal); its
 // height is a partial span. The leader has keyframes at 0, 2 and 5, and a
 // full height of 1.4 to 1.6 m (its returns span 1.2 m, within the slack). The
-// follower follows the leader over every sample, with gaps at 0, 2 and 5; the
-// leader has no leader.
+// follower follows the leader over every sample, with gaps at 0 and 2 and an
+// unknown gap at 5, where the follower's front cannot be named; the leader
+// has no leader.
 //
 // Estimate versions, all solid bodies at stage online in one source:
 //
@@ -323,7 +324,11 @@ func PhysicalReferences(p *annotation.Pack) *annotation.PhysicalReferenceSet {
 			Gaps: []annotation.FollowingGap{
 				gap(0, annotation.EvidenceObserved, bumper(annotation.EvidenceObserved, support(0)), 5.3, 5.7),
 				gap(2, annotation.EvidenceObserved, bumper(annotation.EvidenceObserved, support(2)), 5.3, 5.7),
-				gap(5, annotation.EvidenceInferred, bumper(annotation.EvidenceInferred, support(4, 5)), 5.2, 5.8),
+				// The follower's axis is unresolved at 5, so its front has no
+				// name there, and the gap is unknown.
+				{SampleID: 5, TimestampNs: SampleTime(5), Status: annotation.EvidenceUnknown,
+					FollowerFront: bumper(annotation.EvidenceUnknown, annotation.EvidenceSupport{}),
+					LeaderRear:    bumper(annotation.EvidenceObserved, support(5))},
 			},
 			Review: indep,
 		},

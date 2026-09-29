@@ -235,6 +235,24 @@ func TestPhysicalFollowingReasons(t *testing.T) {
 		t.Fatalf("no gap at %d", sample)
 		return PhysicalFollowingInstant{}
 	}
+	// A yaw stated only as a prior leaves the follower's keyframe at 0 with
+	// no axis to measure along. The geometry is derived from the stored
+	// keyframe, so it is what the annotation layer would give.
+	p, err := annotation.OpenPack(f.PackDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := annotation.LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	follower, _ := doc.Object(evalfixture.Follower)
+	k, _ := doc.Keyframe(evalfixture.Follower, 0)
+	k.Yaw.Status = annotation.EvidencePriorOnly
+	priorYaw := follower.Geometry(k)
+	if priorYaw.Yaw != nil || priorYaw.Centre == nil {
+		t.Fatalf("a prior-only yaw left the keyframe with an axis or without a centre: %+v", priorYaw)
+	}
 	withBodies := func(arm PhysicalArm, keep func(PredictedBody) (PredictedBody, bool)) PhysicalArm {
 		var out []PredictedBody
 		for _, b := range arm.Bodies {
@@ -288,16 +306,10 @@ func TestPhysicalFollowingReasons(t *testing.T) {
 		{"leader unmatched", 0, func(_ *PhysicalReference, a PhysicalArm) PhysicalArm {
 			return withBodies(a, func(b PredictedBody) (PredictedBody, bool) { return b, !at(0, "seq-000002")(b) })
 		}, OutcomeUnmatched, ReasonLeaderUnmatched},
-		{"orientation unresolved", 5, func(_ *PhysicalReference, a PhysicalArm) PhysicalArm {
-			return withBodies(a, func(b PredictedBody) (PredictedBody, bool) {
-				if at(5, "seq-000001")(b) {
-					h := *b.Heading
-					h.Resolved = false
-					b.Heading = &h
-				}
-				return b, true
-			})
-		}, OutcomeMissingPrediction, ReasonOrientationUnresolved},
+		{"follower axis unavailable", 0, func(pr *PhysicalReference, a PhysicalArm) PhysicalArm {
+			pr.geometry[evalfixture.Follower][0] = priorYaw
+			return a
+		}, OutcomeUnknownGeometry, ReasonFollowerAxisUnavailable},
 		{"instants differ", 0, func(_ *PhysicalReference, a PhysicalArm) PhysicalArm {
 			return withBodies(a, func(b PredictedBody) (PredictedBody, bool) {
 				if at(0, "seq-000002")(b) {

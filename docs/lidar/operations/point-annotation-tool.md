@@ -330,11 +330,18 @@ never reviews a pose, and the sidecar's optional `pose` is not read as a physica
 
 References live beside the sidecar, in `physical-references.json`, with every earlier revision
 kept byte for byte in `physical-reference-revisions/`. The store follows the sidecar's revision
-protocol and takes the same `.annotations.lock`, so a physical save and a membership save never
-interleave. A save is refused if the base revision changed, and it checks every object against
-the sidecar at the moment it commits. Each revision has two digests: one over its exact bytes,
-and a **content digest** over the references alone. Two revisions with the same content share a
-content digest; that is what an evaluation cites.
+protocol and takes the same `.annotations.lock`, so a physical save does not interleave with a
+membership save by a writer that takes it. A save is refused if the base revision changed, and it
+checks every link against the sidecar as it stands at that commit. Each revision has two digests:
+one over its exact bytes, and a **content digest** over the references alone. Two revisions with
+the same content share a content digest; that is what an evaluation cites.
+
+A later membership edit can still invalidate a saved reference: rejecting its object, or removing
+a mask a reference cites. Membership saves are not refused for that, because the macOS client
+saves the sidecar without reading the references. Instead every load checks the links again and
+lists what no longer holds, `validate` reports it, and the next save of references refuses until
+those records are repaired or removed. Nothing is rewritten to mark them, so no file's bytes
+change.
 
 ### The record
 
@@ -359,9 +366,19 @@ a dimension is `lower_m`/`upper_m` with an optional `value_m`, a position has a 
 `bound_m`, a yaw a `bound_rad`, a gap `lower_m`/`upper_m`. They say what the record's
 `uncertainty_assumptions` state.
 
+Observed claims are held to the returns. Every frame a record cites must hold returns of the
+object in its mask (for a gap, of the parties it cites). An observed position, yaw or bumper at a
+keyframe, and an observed gap or gap bumper, must cite its own sample. A claim the returns cannot
+test is refused as observed; state it as inferred.
+
 - **Span.** A dimension is `full` or `partial`. A partial span is an observation of part of the
-  body and carries only `lower_m`. An observed full dimension is refused when its supporting
-  frames' returns fall short of its lower bound by more than 0.5 m.
+  body and carries only `lower_m`. An observed dimension is measured in its cited frames: height
+  from the returns, length and width along the axis of a keyframe at that frame. It is refused if
+  no cited frame can measure it, or if the returns fall short of its lower bound by more than
+  0.5 m.
+- **Bumpers.** An observed bumper must be reached, to within 0.5 m, by the keyframe's own returns
+  along its axis: at the anchor when the anchor is that face, and otherwise half the body's lower
+  length from the centre. With neither a face nor a centre and a length, it cannot be observed.
 - **Anchor.** A keyframe's position is the `body_centre`, or the centre of the `front_face`,
   `rear_face`, `left_face` or `right_face`. A face may declare `offset_m` and `offset_bound_m`, the
   distance from it to the centre; that offset must agree with the body's own bounds. A face with no
@@ -375,7 +392,11 @@ a dimension is `lower_m`/`upper_m` with an optional `value_m`, a position has a 
 - **Following.** A gap is `along_follower_axis`: the leader's rear extreme minus the follower's
   front extreme, projected onto the follower's body axis. For aligned cars these are the bumpers.
   It is a straight chord, not the along-path headway arc. A gap is no better known than the weaker
-  of its two bumpers.
+  of its two bumpers, and a bumper no better known than its party's keyframe at that sample says:
+  a party whose axis is unresolved there has no named bumper, and an observed bumper needs the
+  party's keyframe there. Two reviewed records for one follower that overlap must agree on the
+  decision and leader, and cannot both give a gap at one sample; a proposal may disagree with a
+  reviewed record.
 - **Review.** Each body, keyframe and following reference has its own `review`: status, origin,
   method, author and uncertainty assumptions. A `tracker_assisted` record names the tracker output
   it came from, and never becomes `independent`: not by review, not by editing its origin, not by
@@ -389,8 +410,9 @@ until someone reviews one there.
 An independent reference measured elsewhere comes in through an import file,
 `velocity.report/physical-reference-import` version 1. It holds `pack_digest`, `dataset_id`,
 `source`, `objects` and `following` exactly as the record does, without the fields the store sets.
-It passes the same checks as a saved document, then merges into the current references as a new
-revision:
+It is merged into the current references, and the merged document passes every check a save
+makes, including the stored origin ledger and the links, before it is saved as a new revision. It
+is never checked on its own, since it may add a keyframe to a body already stored:
 
 ```bash
 velocity lidar annotation-reference validate --pack "$PACK" --file references.json
@@ -398,10 +420,13 @@ velocity lidar annotation-reference import --pack "$PACK" --file references.json
 velocity lidar annotation-reference validate --pack "$PACK"
 ```
 
-`validate --file` writes nothing. An import that would replace a body, a keyframe at the same
-sample or a following reference is refused unless `--replace` is given. `validate --revision N`
-checks a retained revision. Each command prints the revision, both digests and the counts,
-including how many keyframes are reviewed and independent.
+`validate --file` is a dry run of that import, `--replace` included, and writes nothing: what it
+passes, the import passes against the same stored state. An import that would replace a body, a
+keyframe at the same sample or a following reference is refused unless `--replace` is given.
+`validate` on its own checks the stored references against the current annotation and names every
+record that no longer holds; on a pack with none it says so. `validate --revision N` checks a
+retained revision. Each command prints the revision, the digests and the counts, including how
+many keyframes are reviewed and independent.
 
 ### Scoring against physical references
 
@@ -432,7 +457,8 @@ Each error is reported beside that bound and beside what the prediction's point 
 distance from the body centre is reported as such. An ambiguous axis gives an axis error and an
 unsigned comparison of both ends, never a signed front or rear error. A box overlap needs a
 complete box on both sides. The gap is the behaviour layer's projected footprint gap, along the
-reference follower's axis where it is resolved and the predicted follower's otherwise.
+reference follower's axis. Where that keyframe has no resolved axis, the gap is counted as unknown
+geometry (`follower_axis_unavailable`) rather than measured along the prediction's own heading.
 
 Every object of every episode is expected at every sample where it has a mask or a keyframe. Each
 expected instant is **scored**, or counted, per component, as **unknown geometry** (no keyframe

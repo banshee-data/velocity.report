@@ -134,7 +134,8 @@ func TestPhysicalScoringOfAStraightPass(t *testing.T) {
 	// Following: the reviewed gap at three instants, a no-leader decision
 	// counted as an answer, and the rest counted as unreferenced.
 	fa := r.Accounting.Following
-	if fa.Scored != 3 || fa.Unscored[OutcomeNotFollowing]["no_leader"] != 10 || fa.Unscored[OutcomeUnknownGeometry][ReasonNoGapReference] != 7 {
+	if fa.Scored != 2 || fa.Unscored[OutcomeNotFollowing]["no_leader"] != 10 || fa.Unscored[OutcomeUnknownGeometry][ReasonNoGapReference] != 7 ||
+		fa.Unscored[OutcomeUnknownGeometry]["unknown"] != 1 {
 		t.Fatalf("following accounting: %+v", fa)
 	}
 	for _, g := range r.Following {
@@ -144,7 +145,7 @@ func TestPhysicalScoringOfAStraightPass(t *testing.T) {
 	}
 	s := r.Summary
 	if s.Components[ComponentCentre].Scored != 6 || s.Components[ComponentCentre].WithinReferenceBound != 6 ||
-		s.BoxScored != 6 || !approx(s.MeanBoxIoU, 1) || s.Following.Scored != 3 || s.CentreByPredictionReference["body_centre"].Scored != 6 {
+		s.BoxScored != 6 || !approx(s.MeanBoxIoU, 1) || s.Following.Scored != 2 || s.CentreByPredictionReference["body_centre"].Scored != 6 {
 		t.Fatalf("summary: %+v", s)
 	}
 }
@@ -165,10 +166,12 @@ func TestPhysicalScoringOfUnresolvedPartialAndOccludedInstants(t *testing.T) {
 		!approx(in.Comparison.Ends.MeanDistanceM, 0) {
 		t.Fatalf("ambiguous-axis comparison: %+v", in.Comparison)
 	}
-	// A following gap there is taken along the predicted follower's axis.
+	// The follower's front has no name there, so its gap is unknown, not
+	// measured along the prediction's own heading.
 	for _, g := range r.Following {
-		if g.FollowingID == "follow-lead" && g.SampleID == 5 && g.PredictedGap.Axis != "predicted_follower_axis" {
-			t.Fatalf("gap axis at 5: %+v", g.PredictedGap)
+		if g.FollowingID == "follow-lead" && g.SampleID == 5 &&
+			(g.Outcome != Outcome{Category: OutcomeUnknownGeometry, Reason: "unknown"} || g.PredictedGap != nil) {
+			t.Fatalf("gap at the unresolved axis: %+v", g)
 		}
 	}
 
@@ -253,7 +256,7 @@ func TestPhysicalScoringOfANonPhysicalPoint(t *testing.T) {
 	if !approx(in.Comparison.Length.ErrorM, 4.0-evalfixture.FollowerLength) || !approx(in.Comparison.Length.OutsideBoundM, 4.0-4.5) {
 		t.Fatalf("medoid length: %+v", in.Comparison.Length)
 	}
-	if r.Accounting.Following.Unscored[OutcomeMissingPrediction]["follower_insufficient_observation"] != 3 {
+	if r.Accounting.Following.Unscored[OutcomeMissingPrediction]["follower_insufficient_observation"] != 2 {
 		t.Fatalf("gaps from medoids: %+v", r.Accounting.Following)
 	}
 	if s := r.Summary.CentreByPredictionReference["cluster_medoid"]; s.Scored != 6 || !approx(s.MeanAbsError, evalfixture.MedoidOffsetM) {

@@ -228,10 +228,25 @@ func TestPhysicalLinkRefusals(t *testing.T) {
 		mutate func(*PhysicalReferenceSet)
 		want   string
 	}{
-		{"object not declared", func(r *PhysicalReferenceSet) { r.Objects[1].ObjectID = "car-9" }, `"car-9" is not an object`},
-		{"object rejected", func(r *PhysicalReferenceSet) { r.Objects[1].ObjectID = "ghost" }, `"ghost" is rejected`},
-		{"follower not declared", func(r *PhysicalReferenceSet) { r.Following[0].FollowerObjectID = "car-9" }, "follower"},
-		{"leader rejected", func(r *PhysicalReferenceSet) { r.Following[0].LeaderObjectID = "ghost" }, "leader"},
+		{"object not declared", func(r *PhysicalReferenceSet) {
+			r.Objects = append(r.Objects, PhysicalObject{ObjectID: "car-9", Keyframes: []PhysicalKeyframe{}})
+		}, `"car-9" is not an object`},
+		{"object rejected", func(r *PhysicalReferenceSet) {
+			r.Objects = append(r.Objects, PhysicalObject{ObjectID: "ghost", Keyframes: []PhysicalKeyframe{}})
+		}, `"ghost" is rejected`},
+		{"follower not declared", func(r *PhysicalReferenceSet) {
+			r.Following = append(r.Following, FollowingReference{FollowingID: "f-9", FollowerObjectID: "car-9",
+				Decision: FollowingNoLeader, Interval: FrameInterval{}, Review: independentReview()})
+		}, `follower "car-9" is not an object`},
+		{"leader rejected", func(r *PhysicalReferenceSet) {
+			r.Following = append(r.Following, FollowingReference{FollowingID: "f-ghost", FollowerObjectID: "car-2",
+				Decision: FollowingLeader, LeaderObjectID: "ghost", Interval: FrameInterval{}, Review: independentReview()})
+		}, `leader "ghost" is rejected`},
+		{"length on no measurable frame", func(r *PhysicalReferenceSet) {
+			// Sample 4 holds the car but no keyframe says which way it
+			// faced, so nothing there measures a length.
+			r.Objects[0].Body.Length.Support = frames(4)
+		}, "cannot be checked, so state it as inferred"},
 		{"length beyond the returns", func(r *PhysicalReferenceSet) {
 			// Sample 3 saw only the rear 1.5 m: a full length claimed on it
 			// alone is refused.
@@ -250,8 +265,8 @@ func TestPhysicalLinkRefusals(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			r := validPhysical(p)
-			r.RecordOrigins = r.currentOrigins()
 			c.mutate(r)
+			r.RecordOrigins = r.currentOrigins()
 			if err := r.Validate(p); err != nil {
 				t.Fatalf("the mutation broke structural validation: %v", err)
 			}
@@ -266,27 +281,27 @@ func TestPhysicalLinkRefusals(t *testing.T) {
 	if err := r.ValidateLinks(p, s); err != nil {
 		t.Fatalf("the valid document's links were refused: %v", err)
 	}
-	// Frames that cannot say anything are not evidence either way: no mask
-	// at the supporting frame, or no yaw to know the axis by.
-	r.Objects[0].Body.Length.Support = frames(4)
-	if err := r.ValidateLinks(p, s); err != nil {
-		t.Fatalf("a frame with no keyframe yaw was held against the length: %v", err)
-	}
+	// A frame cited as evidence must hold the object: with no masks at all,
+	// every record that cites a frame is refused, each named.
 	unmasked := *s
 	unmasked.Masks = nil
-	r.Objects[0].Body.Length.Support = frames(3)
-	if err := r.ValidateLinks(p, &unmasked); err != nil {
-		t.Fatalf("a frame with no mask was held against the length: %v", err)
+	problems := r.LinkProblems(p, &unmasked)
+	if len(problems) != 7 || !strings.Contains(problems[0].Problem, "has no returns in its mask") {
+		t.Fatalf("records citing frames without the object: %v", problems)
 	}
 	other := *s
 	other.PackDigest = "sha256:other"
 	if err := r.ValidateLinks(p, &other); err == nil || !strings.Contains(err.Error(), "annotation was written against pack") {
 		t.Fatalf("a sidecar for another pack: %v", err)
 	}
-	// A body without keyframes, and an object with no body, validate.
+	// An object with no body, and a body with no keyframes, validate when
+	// nothing they state needs the other.
 	r = validPhysical(p)
+	r.Following = nil
 	r.Objects[1].Body = nil
+	r.Objects[1].Keyframes[0].Rear = EndpointEvidence{Status: EvidenceUnknown}
 	r.Objects[0].Keyframes = nil
+	r.Objects[0].Body.Length = DimensionBound{Status: EvidenceInferred, Span: SpanFull, LowerM: fp(4.3), UpperM: fp(4.7), Support: frames(0, 1)}
 	r.RecordOrigins = r.currentOrigins()
 	if err := r.Validate(p); err != nil {
 		t.Fatal(err)

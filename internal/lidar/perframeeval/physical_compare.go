@@ -580,9 +580,12 @@ func addSteps(instants []PhysicalInstant) {
 }
 
 // following scores one sample of one following reference. The gap is taken
-// along the reference follower's axis where a truth keyframe gives one, and
-// the predicted follower's resolved heading otherwise, through the behaviour
-// layer's own projection, so a predicted gap here is the one it would report.
+// along the reference follower's axis, through the behaviour layer's own
+// projection, so a predicted gap here is the one it would report. A gap whose
+// follower has no truth keyframe with a resolved axis at that sample has no
+// axis to be measured along: the reference validation already refuses a named
+// follower front there, and anything else is counted, not measured along the
+// prediction's own heading.
 func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstant, error) {
 	f := e.ref
 	out := PhysicalFollowingInstant{
@@ -607,11 +610,14 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 			out.ReferenceGap = &f.Gaps[i]
 		}
 	}
+	axis, hasAxis := s.pr.geometry[f.FollowerObjectID][e.sample]
 	switch {
 	case out.ReferenceGap == nil:
 		return set(OutcomeUnknownGeometry, ReasonNoGapReference)
 	case !out.ReferenceGap.Status.Scorable():
 		return set(OutcomeUnknownGeometry, string(out.ReferenceGap.Status))
+	case !hasAxis || !axis.Truth || axis.Yaw == nil || axis.Yaw.Axis != annotation.AxisResolved:
+		return set(OutcomeUnknownGeometry, ReasonFollowerAxisUnavailable)
 	}
 	m := s.match(e.sample)
 	fi, followerOK := m.matched[f.FollowerObjectID]
@@ -625,14 +631,8 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 		return set(OutcomeUnmatched, ReasonLeaderUnmatched)
 	}
 	fb, lb := m.predictions[fi].body, m.predictions[li].body
-	gap := &PredictedGap{FollowerTrack: fb.TrackKey, LeaderTrack: lb.TrackKey}
-	if g, ok := s.pr.geometry[f.FollowerObjectID][e.sample]; ok && g.Yaw != nil && g.Yaw.Axis == annotation.AxisResolved {
-		gap.Axis, gap.AxisRad = "reference_follower_axis", g.Yaw.Rad
-	} else if fb.Heading != nil && fb.Heading.Resolved {
-		gap.Axis, gap.AxisRad = "predicted_follower_axis", fb.Heading.Rad
-	} else {
-		return set(OutcomeMissingPrediction, ReasonOrientationUnresolved)
-	}
+	gap := &PredictedGap{FollowerTrack: fb.TrackKey, LeaderTrack: lb.TrackKey,
+		Axis: "reference_follower_axis", AxisRad: axis.Yaw.Rad}
 	if fb.TimestampNs != lb.TimestampNs {
 		return set(OutcomeMissingPrediction, "prediction_instants_differ")
 	}

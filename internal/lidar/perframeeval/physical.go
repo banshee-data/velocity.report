@@ -105,7 +105,7 @@ const (
 	ReasonNoGapReference           = "no_gap_reference"
 	ReasonFollowerUnmatched        = "follower_unmatched"
 	ReasonLeaderUnmatched          = "leader_unmatched"
-	ReasonOrientationUnresolved    = "orientation_unresolved"
+	ReasonFollowerAxisUnavailable  = "follower_axis_unavailable"
 )
 
 // Outcome is one component's fate at one instant.

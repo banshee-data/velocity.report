@@ -192,16 +192,7 @@ func (g *PhysicalGeometry) centre(a PhysicalAnchor) {
 	case g.Yaw == nil:
 		g.CentreUnavailable = UnavailableYaw
 	default:
-		ux, uy := math.Cos(g.Yaw.Rad), math.Sin(g.Yaw.Rad)
-		nx, ny := ux, uy // from the rear face, inward is forward
-		switch a.Kind {
-		case AnchorFrontFace:
-			nx, ny = -ux, -uy
-		case AnchorLeftFace:
-			nx, ny = uy, -ux
-		case AnchorRightFace:
-			nx, ny = -uy, ux
-		}
+		nx, ny := inwardNormal(a.Kind, g.Yaw.Rad)
 		off := *a.OffsetM
 		g.Centre = &PlanarBound{
 			XM: g.AnchorPoint.XM + off*nx, YM: g.AnchorPoint.YM + off*ny,

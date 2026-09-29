@@ -31,7 +31,7 @@ func (r *PhysicalReferenceSet) Validate(p *Pack) error {
 	if err := r.validateSource(p); err != nil {
 		return err
 	}
-	v := physicalValidator{p: p, ids: map[string]string{}}
+	v := physicalValidator{p: p, ids: map[string]string{}, keyframes: map[string]map[int]PhysicalKeyframe{}}
 	seen := map[string]bool{}
 	for _, o := range r.Objects {
 		if o.ObjectID == "" {
@@ -50,7 +50,40 @@ func (r *PhysicalReferenceSet) Validate(p *Pack) error {
 			return fmt.Errorf("following %q: %w", f.FollowingID, err)
 		}
 	}
+	if err := followingConflicts(r.Following); err != nil {
+		return err
+	}
 	return r.validateOrigins(v.origins)
+}
+
+// followingConflicts refuses two reviewed records for one follower that
+// overlap and disagree: a different decision or leader, or two gaps at one
+// sample. A proposal may disagree with a reviewed record, which is what a
+// proposal to change one is; two confirmed answers to one question may not.
+func followingConflicts(fs []FollowingReference) error {
+	for i, a := range fs {
+		for _, b := range fs[i+1:] {
+			if a.Review.Status != StatusReviewed || b.Review.Status != StatusReviewed || a.FollowerObjectID != b.FollowerObjectID {
+				continue
+			}
+			first, last := max(a.Interval.FirstSample, b.Interval.FirstSample), min(a.Interval.LastSample, b.Interval.LastSample)
+			if first > last {
+				continue
+			}
+			if a.Decision != b.Decision || a.LeaderObjectID != b.LeaderObjectID {
+				return fmt.Errorf("following %q (%s %s) and %q (%s %s) are both reviewed for follower %q over samples [%d, %d] and disagree",
+					a.FollowingID, a.Decision, a.LeaderObjectID, b.FollowingID, b.Decision, b.LeaderObjectID, a.FollowerObjectID, first, last)
+			}
+			for _, ga := range a.Gaps {
+				for _, gb := range b.Gaps {
+					if ga.SampleID == gb.SampleID {
+						return fmt.Errorf("following %q and %q both give follower %q a gap at sample %d", a.FollowingID, b.FollowingID, a.FollowerObjectID, ga.SampleID)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (r *PhysicalReferenceSet) validateSource(p *Pack) error {
@@ -100,6 +133,9 @@ type physicalValidator struct {
 	// ids maps every record ID to its kind, so no two records share one.
 	ids     map[string]string
 	origins map[string]ReferenceOrigin
+	// keyframes are every object's keyframes by sample, for holding a
+	// following gap's bumpers to what the parties' keyframes say there.
+	keyframes map[string]map[int]PhysicalKeyframe
 }
 
 func (v *physicalValidator) claim(kind, id string, review PhysicalReview) error {
@@ -123,17 +159,32 @@ func (v *physicalValidator) object(o PhysicalObject) error {
 			return fmt.Errorf("body %q: %w", o.Body.BodyID, err)
 		}
 	}
-	samples := map[int]bool{}
+	samples := map[int]PhysicalKeyframe{}
 	for _, k := range o.Keyframes {
-		if samples[k.SampleID] {
+		if _, dup := samples[k.SampleID]; dup {
 			return fmt.Errorf("two keyframes at sample %d", k.SampleID)
 		}
-		samples[k.SampleID] = true
+		samples[k.SampleID] = k
 		if err := v.keyframe(k, o.Body); err != nil {
 			return fmt.Errorf("keyframe %q: %w", k.KeyframeID, err)
 		}
 	}
+	v.keyframes[o.ObjectID] = samples
 	return nil
+}
+
+// ownSample holds an observed component of a record at one instant to that
+// instant: what was seen then must be cited from the frame it was seen in.
+func ownSample(name string, status EvidenceStatus, s EvidenceSupport, sample int) error {
+	if status != EvidenceObserved {
+		return nil
+	}
+	for _, f := range s.Frames {
+		if f == sample {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s is observed but does not cite its own sample %d", name, sample)
 }
 
 func (v *physicalValidator) body(b BodyGeometry) error {
@@ -261,6 +312,16 @@ func (v *physicalValidator) keyframe(k PhysicalKeyframe, body *BodyGeometry) err
 		}
 		if err := v.support(e.e.Status, e.e.Support); err != nil {
 			return fmt.Errorf("%s: %w", e.name, err)
+		}
+	}
+	for _, c := range []struct {
+		name   string
+		status EvidenceStatus
+		s      EvidenceSupport
+	}{{"position", k.Position.Status, k.Position.Support}, {"yaw", k.Yaw.Status, k.Yaw.Support},
+		{"front", k.Front.Status, k.Front.Support}, {"rear", k.Rear.Status, k.Rear.Support}} {
+		if err := ownSample(c.name, c.status, c.s, k.SampleID); err != nil {
+			return err
 		}
 	}
 	for i, se := range k.SharedErrors {
@@ -439,7 +500,7 @@ func (v *physicalValidator) following(f FollowingReference) error {
 		if !iv.Contains(g.SampleID) {
 			return fmt.Errorf("gap at sample %d is outside the interval", g.SampleID)
 		}
-		if err := v.gap(g); err != nil {
+		if err := v.gap(g, f); err != nil {
 			return fmt.Errorf("gap at sample %d: %w", g.SampleID, err)
 		}
 		declares = declares || g.Status != EvidenceUnknown
@@ -447,7 +508,7 @@ func (v *physicalValidator) following(f FollowingReference) error {
 	return v.review(f.Review, declares)
 }
 
-func (v *physicalValidator) gap(g FollowingGap) error {
+func (v *physicalValidator) gap(g FollowingGap, f FollowingReference) error {
 	if err := v.sample(g.SampleID, g.TimestampNs); err != nil {
 		return err
 	}
@@ -455,19 +516,29 @@ func (v *physicalValidator) gap(g FollowingGap) error {
 		return fmt.Errorf("status %q", g.Status)
 	}
 	for _, e := range []struct {
-		name string
-		e    EndpointEvidence
-	}{{"follower_front", g.FollowerFront}, {"leader_rear", g.LeaderRear}} {
+		name, party string
+		front       bool
+		e           EndpointEvidence
+	}{{"follower_front", f.FollowerObjectID, true, g.FollowerFront}, {"leader_rear", f.LeaderObjectID, false, g.LeaderRear}} {
 		if !e.e.Status.valid() {
 			return fmt.Errorf("%s: status %q", e.name, e.e.Status)
 		}
 		if err := v.support(e.e.Status, e.e.Support); err != nil {
 			return fmt.Errorf("%s: %w", e.name, err)
 		}
+		if err := ownSample(e.name, e.e.Status, e.e.Support, g.SampleID); err != nil {
+			return err
+		}
 		// A gap is no better known than the bumper it is measured from.
 		if g.Status.strength() > e.e.Status.strength() {
 			return fmt.Errorf("a %s gap cannot rest on a %s %s", g.Status, e.e.Status, e.name)
 		}
+		if err := v.gapBumper(e.name, e.party, e.front, e.e.Status, g.SampleID); err != nil {
+			return err
+		}
+	}
+	if err := ownSample("gap", g.Status, g.Support, g.SampleID); err != nil {
+		return err
 	}
 	if g.Status == EvidenceUnknown {
 		if g.LowerM != nil || g.UpperM != nil || g.ValueM != nil {
@@ -484,116 +555,31 @@ func (v *physicalValidator) gap(g FollowingGap) error {
 	return v.support(g.Status, g.Support)
 }
 
-// ValidateLinks checks the references against a membership sidecar: every
-// object and following party is an object the sidecar declares and has not
-// rejected, and no observed full dimension claims more than its own frames'
-// returns show. The sidecar must be for this pack.
-func (r *PhysicalReferenceSet) ValidateLinks(p *Pack, s *Sidecar) error {
-	if s.PackDigest != r.PackDigest {
-		return fmt.Errorf("annotation was written against pack %s, the physical references against %s", s.PackDigest, r.PackDigest)
+// gapBumper holds a gap's bumper to its party's own keyframe at that sample,
+// as a keyframe's own bumpers are held to its axis: a bumper the keyframe
+// cannot name, because its axis is unresolved, or states less well, cannot be
+// better known in a gap; and an observed bumper needs the keyframe that saw
+// it.
+func (v *physicalValidator) gapBumper(name, party string, front bool, status EvidenceStatus, sample int) error {
+	if status == EvidenceUnknown {
+		return nil
 	}
-	status := make(map[string]ReviewStatus, len(s.Objects))
-	for _, o := range s.Objects {
-		status[o.ObjectID] = o.Status
-	}
-	check := func(what, id string) error {
-		st, ok := status[id]
-		if !ok {
-			return fmt.Errorf("%s %q is not an object of annotation revision %d: declare it there first", what, id, s.Revision)
-		}
-		if st == StatusRejected {
-			return fmt.Errorf("%s %q is rejected in annotation revision %d", what, id, s.Revision)
+	k, ok := v.keyframes[party][sample]
+	if !ok {
+		if status == EvidenceObserved {
+			return fmt.Errorf("an observed %s needs %q's keyframe at sample %d", name, party, sample)
 		}
 		return nil
 	}
-	for _, o := range r.Objects {
-		if err := check("physical reference object", o.ObjectID); err != nil {
-			return err
-		}
-		if err := checkObservedSpans(p, s, o); err != nil {
-			return fmt.Errorf("object %q: %w", o.ObjectID, err)
-		}
+	if k.Yaw.Axis != AxisResolved {
+		return fmt.Errorf("%s cannot be named: %q's keyframe at sample %d has a %s axis", name, party, sample, k.Yaw.Axis)
 	}
-	for _, f := range r.Following {
-		if err := check("follower", f.FollowerObjectID); err != nil {
-			return fmt.Errorf("following %q: %w", f.FollowingID, err)
-		}
-		if f.LeaderObjectID != "" {
-			if err := check("leader", f.LeaderObjectID); err != nil {
-				return fmt.Errorf("following %q: %w", f.FollowingID, err)
-			}
-		}
+	stated := k.Rear.Status
+	if front {
+		stated = k.Front.Status
+	}
+	if status.strength() > stated.strength() {
+		return fmt.Errorf("a %s %s cannot rest on %q's keyframe at sample %d, which states that bumper %s", status, name, party, sample, stated)
 	}
 	return nil
-}
-
-// checkObservedSpans refuses an observed full dimension whose supporting
-// frames' returns span less than its lower bound by more than the slack.
-// Height needs only the returns; length and width need the keyframe's yaw at
-// that frame to know the axis. A frame with no mask, or no yaw, says
-// nothing here, and a dimension with no such frame is not checked.
-func checkObservedSpans(p *Pack, s *Sidecar, o PhysicalObject) error {
-	if o.Body == nil {
-		return nil
-	}
-	masks := map[int][]int{}
-	for _, m := range s.Masks {
-		if m.ObjectID == o.ObjectID && m.Status != StatusRejected && len(m.PointIndices) > 0 {
-			masks[m.SampleID] = m.PointIndices
-		}
-	}
-	yaws := map[int]float64{}
-	for _, k := range o.Keyframes {
-		if k.Yaw.YawRad != nil {
-			yaws[k.SampleID] = *k.Yaw.YawRad
-		}
-	}
-	for _, d := range []struct {
-		name string
-		d    DimensionBound
-		axis int // 0 length, 1 width, 2 height
-	}{{"length", o.Body.Length, 0}, {"width", o.Body.Width, 1}, {"height", o.Body.Height, 2}} {
-		if d.d.Status != EvidenceObserved || d.d.Span != SpanFull {
-			continue
-		}
-		best, checked := 0.0, false
-		for _, f := range d.d.Support.Frames {
-			idx, ok := masks[f]
-			if !ok {
-				continue
-			}
-			yaw, hasYaw := yaws[f]
-			if d.axis != 2 && !hasYaw {
-				continue
-			}
-			pts, err := p.PointsAt(f)
-			if err != nil {
-				return err
-			}
-			best, checked = math.Max(best, returnSpan(pts, idx, d.axis, yaw)), true
-		}
-		if checked && best+ObservedSpanSlackM < *d.d.LowerM {
-			return fmt.Errorf("observed full %s is at least %.3f m, but its supporting frames' returns span at most %.3f m: "+
-				"a partial span supports only a lower bound", d.name, *d.d.LowerM, best)
-		}
-	}
-	return nil
-}
-
-// returnSpan is the extent of the given returns along the body's length
-// (axis 0) or width (axis 1) at a yaw, or in height (axis 2).
-func returnSpan(pts Points, indices []int, axis int, yaw float64) float64 {
-	ux, uy := math.Cos(yaw), math.Sin(yaw)
-	if axis == 1 {
-		ux, uy = -uy, ux
-	}
-	lo, hi := math.Inf(1), math.Inf(-1)
-	for _, i := range indices {
-		v := float64(pts.Z[i])
-		if axis != 2 {
-			v = float64(pts.X[i])*ux + float64(pts.Y[i])*uy
-		}
-		lo, hi = math.Min(lo, v), math.Max(hi, v)
-	}
-	return hi - lo
 }

@@ -44,7 +44,7 @@ func TestRunScoresBothArmsPhysically(t *testing.T) {
 		t.Fatalf("no caveat separates the mask position from the body centre: %v", c.Caveats)
 	}
 	md := RenderMarkdown(*c)
-	for _, want := range []string{"## Physical references", "| centre | 6 |", "| following_gap | 3 |", "Where arm face_bias's expected instants went",
+	for _, want := range []string{"## Physical references", "| centre | 6 |", "| following_gap | 2 |", "Where arm face_bias's expected instants went",
 		"unknown_geometry/no_keyframe 11", "> Split \"tune-physical\" has role \"tuning\""} {
 		if !strings.Contains(md, want) {
 			t.Errorf("markdown lacks %q:\n%s", want, md)
