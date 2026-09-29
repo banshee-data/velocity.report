@@ -6,6 +6,10 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 29, 2026 - The half-extent state does not close the transition tail
+
+- Ran T4, a per-face half-extent state on the solid body, on the tuning partition on the Mac (F5). It lowers the body-centre lateral p99 by 5 to 6 mm (0.158 to 0.152 m on marina-webster-beach, 0.280 to 0.275 m on columbus-broadway) and leaves the gap at 2.3 and 2.0 against S2.1's 1.25, so it is not kept. The steady-run anatomy, which moves to main, names lateral face entries as the tail: without them the steady p99 falls to 0.101 and 0.180 m. They mostly arrive while another face is fixed, which points at rank-one drift rather than a re-reference. F6 runs `near_edge_track` on the tuning partition next (#640).
+
 ## September 29, 2026 - A frozen reviewed split and measured sensor coverage
 
 - Froze the reviewed split: `velocity lidar annotation-split freeze` certifies membership review, pins each pack, its manifest, selection record and annotation revision by digest, and binds every corpus case to its captures by SHA-256, so a pack cut from a held-out capture cannot be tuned on under another name. A revision carries the whole history of what was tuned on, by capture span as well as by pack, so no later revision can hold out a car that an earlier one tuned on, whether the pack was dropped and re-added or re-cut wider. The evaluators given `-split-manifest` hold each case to its role, check the replayed capture against the case, and record the split; the digest is unkeyed, so it catches accidental edits, not deliberate ones (#636).

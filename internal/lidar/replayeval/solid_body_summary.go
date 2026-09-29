@@ -78,8 +78,167 @@ type SolidBodySummary struct {
 	// can be attributed. Both come from the solid body on that frame, for the
 	// point estimate's windows as well, so the two are split by the same
 	// frames.
-	FaceStableStrata     []AnchorStratum `json:"face_stable_strata,omitempty"`
-	RetainedSamplePoints int             `json:"retained_sample_points,omitempty"`
+	FaceStableStrata []AnchorStratum `json:"face_stable_strata,omitempty"`
+	// SteadyTransitions attributes the steady runs' body tail to what changed
+	// inside each window, so the difference between the steady and
+	// face-stable figures is named rather than inferred.
+	SteadyTransitions    *TransitionAnatomy `json:"steady_run_transitions,omitempty"`
+	RetainedSamplePoints int                `json:"retained_sample_points,omitempty"`
+}
+
+// TransitionAnatomy is the solid bodies' five-point windows on steady runs,
+// grouped by what changed between consecutive rows inside each window. A
+// window can carry several changes, so the groups overlap; a window with none
+// is stable. The tail is the windows at or above the steady runs' p95.
+type TransitionAnatomy struct {
+	Windows         int               `json:"windows"`
+	P99Metres       float64           `json:"p99_m"`
+	TailMetres      float64           `json:"tail_threshold_m"`
+	StableWindows   int               `json:"stable_windows"`
+	StableP99Metres float64           `json:"stable_p99_m"`
+	Transitions     []TransitionShare `json:"transitions"`
+}
+
+// TransitionShare is one kind of change: the windows that carry it, those of
+// them in the tail, and the p99 of every window that does not carry it, which
+// is what the steady p99 would be if this change cost nothing.
+type TransitionShare struct {
+	Transition       string  `json:"transition"`
+	Windows          int     `json:"windows"`
+	TailWindows      int     `json:"tail_windows"`
+	P99WithoutMetres float64 `json:"p99_without_m"`
+}
+
+// The changes a window is grouped by. A face enters when it is in a fix and
+// was not in the previous row's, and swaps when the face opposite it was; it
+// leaves when it is not in a fix and neither it nor its opposite was before.
+// Faceless is a row without a fix beside one with. Revised is a change in
+// the believed dimension the half-extents come from.
+const (
+	TransitionFaceless               = "faceless"
+	TransitionLateralFaceEnters      = "lateral_face_enters"
+	TransitionLongitudinalFaceEnters = "longitudinal_face_enters"
+	TransitionFaceLeaves             = "face_leaves"
+	TransitionFaceSwaps              = "face_swaps"
+	TransitionWidthRevised           = "width_revised"
+	TransitionLengthRevised          = "length_revised"
+)
+
+var transitionOrder = []string{
+	TransitionFaceless, TransitionLateralFaceEnters, TransitionLongitudinalFaceEnters,
+	TransitionFaceLeaves, TransitionFaceSwaps, TransitionWidthRevised, TransitionLengthRevised,
+}
+
+// transitionRow is what the anatomy needs to know about one body-centre row.
+type transitionRow struct {
+	fix           bool
+	faces         l5tracks.VisibleFaces
+	width, length float32
+}
+
+// oppositeFace is the face on the other side of the same axis.
+func oppositeFace(f l5tracks.BodyFace) l5tracks.BodyFace {
+	switch f {
+	case l5tracks.FaceFront:
+		return l5tracks.FaceRear
+	case l5tracks.FaceRear:
+		return l5tracks.FaceFront
+	case l5tracks.FaceLeft:
+		return l5tracks.FaceRight
+	default:
+		return l5tracks.FaceLeft
+	}
+}
+
+// rowTransitions is the set of changes between two consecutive rows.
+func rowTransitions(a, b transitionRow, into map[string]bool) {
+	if a.fix != b.fix {
+		into[TransitionFaceless] = true
+	}
+	var before, after l5tracks.VisibleFaces
+	if a.fix {
+		before = a.faces
+	}
+	if b.fix {
+		after = b.faces
+	}
+	for _, f := range []l5tracks.BodyFace{l5tracks.FaceFront, l5tracks.FaceRear, l5tracks.FaceLeft, l5tracks.FaceRight} {
+		switch {
+		case after.Has(f) && !before.Has(f):
+			switch {
+			case before.Has(oppositeFace(f)):
+				into[TransitionFaceSwaps] = true
+			case f.IsLongitudinal():
+				into[TransitionLongitudinalFaceEnters] = true
+			default:
+				into[TransitionLateralFaceEnters] = true
+			}
+		case before.Has(f) && !after.Has(f) && !after.Has(oppositeFace(f)):
+			into[TransitionFaceLeaves] = true
+		}
+	}
+	if a.width != b.width {
+		into[TransitionWidthRevised] = true
+	}
+	if a.length != b.length {
+		into[TransitionLengthRevised] = true
+	}
+}
+
+// transitionAnatomy groups the moving tracks' windows of the body series by
+// the changes inside each, reading rows, the series' own rows in order.
+func transitionAnatomy(bodies []l8analytics.LateralFitTrack, rows [][]transitionRow) *TransitionAnatomy {
+	type scored struct {
+		residual float64
+		changes  map[string]bool
+	}
+	var windows []scored
+	for i, tr := range bodies {
+		if tr.MaxSpeedMps < l8analytics.LateralFitMovingMinSpeedMps {
+			continue
+		}
+		for _, w := range l8analytics.LateralFitWindows(tr.Points) {
+			// A scored window is five consecutive rows about its centre.
+			changes := map[string]bool{}
+			for j := w.Centre - 2; j < w.Centre+2; j++ {
+				rowTransitions(rows[i][j], rows[i][j+1], changes)
+			}
+			windows = append(windows, scored{w.Residual, changes})
+		}
+	}
+	if len(windows) == 0 {
+		return nil
+	}
+	all := make([]float64, len(windows))
+	var stable []float64
+	for i, w := range windows {
+		all[i] = w.residual
+		if len(w.changes) == 0 {
+			stable = append(stable, w.residual)
+		}
+	}
+	overall := l8analytics.SummariseLateralResiduals(append([]float64(nil), all...))
+	a := &TransitionAnatomy{
+		Windows: overall.Windows, P99Metres: overall.P99Metres, TailMetres: overall.P95Metres,
+		StableWindows: len(stable), StableP99Metres: l8analytics.SummariseLateralResiduals(stable).P99Metres,
+	}
+	for _, name := range transitionOrder {
+		share := TransitionShare{Transition: name}
+		var without []float64
+		for _, w := range windows {
+			if !w.changes[name] {
+				without = append(without, w.residual)
+				continue
+			}
+			share.Windows++
+			if w.residual >= a.TailMetres {
+				share.TailWindows++
+			}
+		}
+		share.P99WithoutMetres = l8analytics.SummariseLateralResiduals(without).P99Metres
+		a.Transitions = append(a.Transitions, share)
+	}
+	return a
 }
 
 // AnchorStratum is one bin of an anchor comparison: its axis ("heading_rate"
@@ -222,6 +381,7 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	type centredRow struct {
 		estimate     l5tracks.SolidBodyEstimate
 		run, faceRun int
+		transition   transitionRow
 	}
 	centred := map[key]centredRow{}
 	// run numbers each track's contiguous body-centre rows; a row that is
@@ -270,6 +430,10 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 			lastFaces[sb.CreationSequence] = faces
 			centred[key{sb.CreationSequence, sb.FrameUnixNanos}] = centredRow{
 				estimate: e, run: run[sb.CreationSequence], faceRun: faceRun[sb.CreationSequence],
+				transition: transitionRow{
+					fix:   m.Source == l5tracks.MeasurementNearEdgeCandidateV1,
+					faces: m.Faces, width: e.Width.Metres, length: e.Length.Metres,
+				},
 			}
 		} else {
 			inRun[sb.CreationSequence] = false
@@ -324,6 +488,7 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	}
 	steadyIndex, faceIndex := map[runKey]int{}, map[runKey]int{}
 	var faceSamples [][]stratumSample
+	var steadyRows [][]transitionRow
 	for _, p := range version {
 		id := strconv.FormatInt(p.CreationSequence, 10)
 		i, ok := allIndex[p.CreationSequence]
@@ -357,7 +522,9 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 			runID := id + "." + strconv.Itoa(row.run)
 			pointsSteady = append(pointsSteady, l8analytics.LateralFitTrack{ID: runID, MaxSpeedMps: maxSpeed[p.CreationSequence]})
 			bodiesSteady = append(bodiesSteady, l8analytics.LateralFitTrack{ID: runID, MaxSpeedMps: maxSpeed[p.CreationSequence]})
+			steadyRows = append(steadyRows, nil)
 		}
+		steadyRows[k] = append(steadyRows[k], row.transition)
 		pointsSteady[k].Points = append(pointsSteady[k].Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: p.X, Y: p.Y})
 		bodiesSteady[k].Points = append(bodiesSteady[k].Points, l8analytics.SeriesPoint{TimestampNanos: p.FrameUnixNanos, X: e.X, Y: e.Y})
 
@@ -385,6 +552,7 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	s.AnchorPointsSteady = l8analytics.SummariseLateralFit(pointsSteady)
 	s.AnchorBodiesSteady = l8analytics.SummariseLateralFit(bodiesSteady)
 	s.SteadyRuns = len(bodiesSteady)
+	s.SteadyTransitions = transitionAnatomy(bodiesSteady, steadyRows)
 	s.AnchorPointsFaceStable = l8analytics.SummariseLateralFit(pointsFace)
 	s.AnchorBodiesFaceStable = l8analytics.SummariseLateralFit(bodiesFace)
 	s.FaceStableRuns = len(bodiesFace)

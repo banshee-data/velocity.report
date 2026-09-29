@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built; the face-transition remedy is not yet chosen
+- **Status:** In progress: S2.0, S2.1 and S2.2 built; T4 did not close the face-transition tail (F5), and F6 runs the tracked arm on the tuning partition
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -401,6 +401,75 @@ buy. If it closed the gap completely the held-out body-centre p99 would fall to 
 0.118 m, still above gate 2's 0.102 m, so the within-run tail must shrink too, or gate 2's bar
 be reviewed; see [Risks](#risks).
 
+#### F5: the half-extent state
+
+Test F5 added T4, the half-extents behind the faces as solid-body state
+(`solid_body_half_extent_state`, on `claude/upbeat-galileo-4xbaat-s2-1-t4`, not merged), to T1
+with T3 and full members, and re-ran T1 with T3 beside it on the tuning partition. Both arms ran on
+the Mac, reading the captures from the NAS: about 28 minutes of CPU and 1 GB each. The default
+replay was byte-equal on both cases in both arms. Lateral residual p99 in metres:
+
+| Site                   | Arm        |  Fixes | Lapses | Body-centre frames: point / body | Steady runs: body | Face-stable runs: point / body | Gap |
+| ---------------------- | ---------- | -----: | -----: | -------------------------------- | ----------------: | ------------------------------ | --: |
+| `marina-webster-beach` | T1, T3     | 16,722 |    676 | 0.183 / 0.158                    |             0.135 | 0.150 / 0.065                  | 2.4 |
+| `marina-webster-beach` | T1, T3, T4 | 16,724 |    675 | 0.183 / 0.152                    |             0.135 | 0.150 / 0.066                  | 2.3 |
+| `columbus-broadway`    | T1, T3     | 43,106 |  1,695 | 0.226 / 0.280                    |             0.280 | 0.188 / 0.141                  | 2.0 |
+| `columbus-broadway`    | T1, T3, T4 | 43,107 |  1,696 | 0.226 / 0.275                    |             0.275 | 0.188 / 0.140                  | 2.0 |
+
+The tables and summaries are on `claude/upbeat-galileo-4xbaat-s2-f5-results`, under
+`results/s2-f5/`.
+
+- **T4 buys 5 to 6 mm.** The body-centre p99 falls from 0.158 to 0.152 m on marina and from 0.280
+  to 0.275 m on columbus. Steady and face-stable runs move by 5 mm or less, fixes and lapses by at
+  most two, and the gap stays at 2.3 and 2.0, against 1.25. Marina's maximum rises from 1.77 to
+  1.98 m.
+- **The tail comes with a lateral face.** The corpus summary groups each steady-run window by what
+  changed inside it (`steady_run_transitions`). Removing the windows in which a lateral face
+  enters lowers the steady p99 more than removing any other change: from 0.135 to 0.101 m on
+  marina and from 0.280 to 0.180 m on columbus. Width revisions come next, at 0.111 and 0.206 m
+  without them. Removing the windows that lose or regain the fix moves the p99 least (0.126 and
+  0.272 m), and no face ever swaps for its opposite. T4 leaves this ordering as it was, so the
+  error a lateral face brings in is not its half-extent.
+- **The re-run reproduces F4.** T1 with T3 gives F4's fixes, lapses and p99s on both tuning sites.
+
+#### Decision: stop T4, run the tracked arm (F6)
+
+T4 is not kept: it adds per-face state for 5 mm and leaves the exit as far off as before. The
+per-window anatomy, the part of F5's code that paid, moves to main.
+
+A lateral face mostly enters while another face is already fixed, so it is not a re-reference and
+S2.2's translation does not apply to it. The likelier cause is the plan's rank-one drift (see
+[Risks](#risks)): with only an end face, the lateral direction is unconstrained, the body drifts
+on its prediction, and the side face snaps it back when it arrives. The remedy that follows is to
+keep the medoid across the unconstrained direction at rank one, with the variance A2 already gives
+it (R plus the believed half-extent squared), so the drift is bounded before the face arrives.
+
+F6 comes first, because the tracked filter predicts differently from the shadow's: it runs
+`near_edge_track` (S2a) on the tuning partition with the anatomy, beside the T1 with T3 control on
+the same build. A third arm with `solid_body_reference_translation` measures what translation
+does to the windows that regain the fix. On the Mac, from main, one arm at a time:
+
+```bash
+W=/Volumes/lidar/evidence/s2-f6
+CAPTURES=/Volumes/banshee-captures/lidar
+STAMP="-X github.com/banshee-data/velocity.report/internal/version.GitSHA=$(git rev-parse HEAD)"
+BASE=solid_body,solid_body_face_hysteresis,solid_body_course_faces,solid_body_full_members
+mkdir -p "$W/bin"
+go build -tags=pcap -ldflags "$STAMP" -o "$W/bin/baseline" ./cmd/tools/lidar-state-estimation-baseline
+for arm in "track:$BASE,near_edge_track" "control:$BASE" "translate:$BASE,solid_body_reference_translation"; do
+  name=${arm%%:*}
+  mkdir -p "$W/$name"
+  "$W/bin/baseline" -pcap-root "$CAPTURES" -pcap-subdir s2 \
+    -case marina-webster-beach,columbus-broadway -experiment "${arm#*:}" \
+    -source-manifest "$W/$name/source-manifest.json" -out "$W/$name/out" \
+    -evidence-dir "$W/$name/evidence" -evidence-per-case -discard-evidence \
+    > "$W/$name/run.log" 2>&1 || { echo "$name failed: $W/$name/run.log"; break; }
+done
+```
+
+Each arm writes `out/phase0-summary.json`; the results go to
+`claude/upbeat-galileo-4xbaat-s2-f6-results` under `results/s2-f6/`, as F4's and F5's did.
+
 ### S2.2: the tracked near-edge update
 
 **Summary:** `near_edge_track` updates the tracked filter through the shared state machine, with
@@ -613,9 +682,10 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] F1: T2 on the tuning partition (run, not yet published)
 - [x] S2.1 T3 course-aligned faces; F3 on the tuning partition, on the Mac
 - [x] F4: T1 with T3, held-out score and tuning re-run, on the Mac; gate 2's reach not met
-- [ ] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on kirk0 and the tuning
-      partition
+- [x] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on the tuning partition
+      (F5): 5 mm, not kept; the steady-run anatomy moves to main
 - [ ] S2.1 face-transition remedy chosen
+- [ ] F6: `near_edge_track` (S2a) and the T1 with T3 control on the tuning partition, on the Mac
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
