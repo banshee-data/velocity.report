@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // The smoother's claims, each pinned where it can break:
@@ -579,6 +581,14 @@ func TestCoastedStatesStaySmoothedPredictions(t *testing.T) {
 			if s.Observed == isGap {
 				t.Fatalf("%s frame %d: observed=%v in a scene where the gap is %v", lag, frame, s.Observed, isGap)
 			}
+			// Smoothing a coasted state does not make its instant observed.
+			wantSupport := SupportObserved
+			if isGap {
+				wantSupport = SupportCoasted
+			}
+			if s.Support != wantSupport {
+				t.Fatalf("%s frame %d states %q, want %q", lag, frame, s.Support, wantSupport)
+			}
 			if frame >= 70 {
 				trailing++
 				if s.Revision.PositionMetres != 0 || s.Revision.VelocityMps != 0 || len(s.Revision.Evidence) != 0 {
@@ -821,11 +831,22 @@ func TestFilterStepsRecordTheFilter(t *testing.T) {
 			t.Fatalf("step %d: prior X %.5f is not F(τ) applied to the previous posterior (%.5f)", k, s.Prior.X, prev.X+prev.VX*tau)
 		}
 	}
+	// Each step states what the track does: the default filter measures the
+	// medoid, and every step here was observed. A released state keeps its
+	// step's statement.
+	for k, s := range steps {
+		if s.Reference != ReferenceClusterMedoid || s.Support != SupportObserved {
+			t.Fatalf("step %d states %s and %q, want cluster_medoid and observed", k, s.Reference, s.Support)
+		}
+	}
 	released := arms.released[0]
 	clamped := 0
 	for _, s := range released {
 		if s.ClampedPrediction {
 			clamped++
+		}
+		if s.Reference != ReferenceClusterMedoid || s.Support != SupportObserved {
+			t.Fatalf("a released state at %d states %s and %q", s.FrameUnixNanos, s.Reference, s.Support)
 		}
 	}
 	if clamped == 0 || arms.smoothers[0].Stats().ClampedTransitions != 1 {
@@ -844,6 +865,13 @@ func TestFilterStepsRecordTheFilter(t *testing.T) {
 	for _, f := range arms.frames {
 		ended = append(ended, f.Ended...)
 		after += len(f.Steps)
+		for _, s := range f.Steps {
+			// A coasted step still refers to the medoid it last measured,
+			// and says it was not observed.
+			if s.Observed != (s.Support == SupportObserved) || s.Reference != ReferenceClusterMedoid {
+				t.Fatalf("step at %d: observed %v, states %s and %q", s.FrameUnixNanos, s.Observed, s.Reference, s.Support)
+			}
+		}
 	}
 	if len(ended) != 1 || ended[0].Reason != ChainEndDeleted {
 		t.Fatalf("chain ends %+v, want one track_deleted", ended)
@@ -853,6 +881,48 @@ func TestFilterStepsRecordTheFilter(t *testing.T) {
 	}
 	if coasts := after - stepsBefore; coasts != cfg.MaxMissesConfirmed-1 {
 		t.Fatalf("%d coasted steps recorded before deletion, want %d (the deletion frame is not a step)", coasts, cfg.MaxMissesConfirmed-1)
+	}
+}
+
+// TestFilterStepsStateTheTracksReference: under the OBB-centre model a step
+// refers to the centre of the visible box, and a frame whose cluster has no
+// box falls back to the medoid; each step, and each state released from it,
+// states the reference the track held at that step.
+func TestFilterStepsStateTheTracksReference(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.MeasurementSourceMode = MeasurementOBBCentreV1
+	tk := NewTracker(cfg)
+	arms := newSmootherArms(t, LagFrames(2))
+	tk.SetFilterStepObserver(arms)
+	want := map[int64]ReferencePoint{}
+	for k := 0; k < 6; k++ {
+		c := tdCluster(float32(k)*0.1, 10, 0)
+		c.ClusterID = int64(k + 1)
+		at := tdAt(1 + 0.1*float64(k))
+		want[at.UnixNano()] = ReferenceClusterMedoid
+		if k%2 == 0 {
+			c.OBB = &l4perception.OrientedBoundingBox{CenterX: c.CentroidX + 0.5, CenterY: 10, Length: 4.5, Width: 1.8, Height: 1.5}
+			want[at.UnixNano()] = ReferenceVisibleOBBCentre
+		}
+		tk.Update([]WorldCluster{c}, at)
+	}
+	arms.flush()
+	steps := 0
+	for _, f := range arms.frames {
+		for _, s := range f.Steps {
+			steps++
+			if s.Reference != want[s.FrameUnixNanos] || s.Support != SupportObserved {
+				t.Errorf("step at %d states %s and %q, want %s", s.FrameUnixNanos, s.Reference, s.Support, want[s.FrameUnixNanos])
+			}
+		}
+	}
+	if steps != 6 || len(arms.released[0]) != 6 {
+		t.Fatalf("%d steps and %d released states, want 6 of each", steps, len(arms.released[0]))
+	}
+	for _, s := range arms.released[0] {
+		if s.Reference != want[s.FrameUnixNanos] {
+			t.Errorf("state at %d states %s, want %s", s.FrameUnixNanos, s.Reference, want[s.FrameUnixNanos])
+		}
 	}
 }
 

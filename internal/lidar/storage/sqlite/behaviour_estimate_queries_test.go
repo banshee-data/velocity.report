@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // insertBareObservation stores an observation row with the identity columns
@@ -27,6 +29,7 @@ func versionEstimate(track, stage, paramHash string, frame int64) (TrackEstimate
 		FrameUnixNanos: frame, MeasurementUnixNanos: frame - 5, EstimatorID: "cv_kf_v1", ObservationModelID: "obb_centre_v1",
 		ParamHash: paramHash, Stage: stage, MeasurementSource: "obb_centre_v1", X: float32(frame), VX: 10,
 		Covariance: [16]float32{1, 0.5, 0, 0, 0.5, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2},
+		Reference:  l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved,
 	}
 	return e, TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}
 }
@@ -58,7 +61,8 @@ func TestListVersionEstimates(t *testing.T) {
 	var order []string
 	for _, r := range got {
 		order = append(order, fmt.Sprintf("%s@%d", r.TrackID, r.FrameUnixNanos))
-		if r.Stage != "final" || r.ParamHash != "p1" || r.SensorID != "sensor_a" || r.Covariance[1] != 0.5 || r.VX != 10 {
+		if r.Stage != "final" || r.ParamHash != "p1" || r.SensorID != "sensor_a" || r.Covariance[1] != 0.5 || r.VX != 10 ||
+			r.Reference != l5tracks.ReferenceVisibleOBBCentre || r.Support != l5tracks.SupportObserved {
 			t.Errorf("row %s = %+v", r.EstimateID, r)
 		}
 	}

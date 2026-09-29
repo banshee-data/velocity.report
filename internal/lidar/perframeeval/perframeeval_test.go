@@ -9,6 +9,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -320,6 +321,7 @@ func TestCreationSequenceCollisionIsRefused(t *testing.T) {
 			EstimateID: id, TrackID: trackID, ObservationID: "o/" + id, SourceID: "s", CalibrationID: "c",
 			FrameUnixNanos: int64(i + 1), EstimatorID: "e", ObservationModelID: "m", ParamHash: "p",
 			Stage: StageFinal, MeasurementSource: "m", CreationSequence: 1,
+			Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
 		}
 		if err := states.Insert(e, sqlite.TrackResidual{EstimateID: id, ObservationID: e.ObservationID, Disposition: "accepted", Reason: "r"}); err != nil {
 			t.Fatal(err)

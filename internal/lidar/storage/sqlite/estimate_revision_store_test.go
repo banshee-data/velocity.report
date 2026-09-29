@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // A refined stage lives beside the online estimate it revises: same
@@ -21,6 +23,7 @@ func revisionFixture(trackID, observationID string, frame int64, stage, paramHas
 		FrameUnixNanos: frame, MeasurementUnixNanos: frame, EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v0",
 		ParamHash: "sha256:online", Stage: EstimateStageOnline, MeasurementSource: "medoid_v0", CreationSequence: 2,
 		X: 1, Y: 2, VX: 3, VY: 4, Covariance: [16]float32{0.1, 0, 0, 0, 0, 0.1},
+		Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
 	}
 	residual := TrackResidual{
 		EstimateID: online.EstimateID, ObservationID: observationID, PredictedX: 0.9, PredictedY: 1.9,
@@ -33,6 +36,9 @@ func revisionFixture(trackID, observationID string, frame int64, stage, paramHas
 	refined.ParamHash = paramHash
 	refined.Stage = stage
 	refined.X, refined.Y = 1.05, 2.02
+	// A refined row states its own reference, which the round trip below
+	// must return rather than one derived from the shared measurement source.
+	refined.Reference = l5tracks.ReferenceBodyCentre
 	refinedResidual := residual
 	refinedResidual.EstimateID = refined.EstimateID
 	refinedResidual.Reason = "fixed_assignment_" + stage

@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** Proposed
+- **Status:** In progress: S2.0, S2.1 and S2.2 built; the face-transition remedy is not yet chosen
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -29,7 +29,7 @@ is, with the one that decides identity being the biased one.
 | Association           | Mahalanobis of the medoid (or OBB centre) against the tracked prediction, plausibility checks, extent compatibility, fragment guard, exact Hungarian (#600)            |
 | Sensor origin         | `SolidBodyOptions.SensorX/Y`, left at (0, 0) because replay tracks in the sensor frame; nothing declares or checks it                                                  |
 | Member geometry       | `WorldCluster.RetainedPoints`, a uniform subsample capped by `MaxSamplePoints` (at most 1024); the kirk0 field-run test uses 16, the corpus tool 256                   |
-| Persisted reference   | Inferred from `measurement_source` per point-estimate row (#618); the solid-body table stores it per row                                                               |
+| Persisted reference   | Stated per row in both estimate tables: `reference_point` and `support_instant` (point estimates since migration 000057, backfilled from `measurement_source`)         |
 | Refined stages        | The RTS smoother revises point estimates only; no solid body at `fixed_lag` or `final`                                                                                 |
 | Evidence oracle       | The lossless-batch oracle does not cover `lidar_track_solid_bodies`                                                                                                    |
 
@@ -417,6 +417,62 @@ A2 association.
 
 **Exit:** default replay byte-identical; kirk0 arm runs with a deterministic repeat.
 
+#### What S2.2 built
+
+- **One state machine.** `updateSolidBody` is now three steps: `measureNearEdgeFrame` makes the
+  frame's near-edge measurement or says why it did not, `stepNearEdge` is the transition of a
+  (state, covariance, reference, support) value, and `completeSolidBodyFrame` admits extents,
+  support, lifecycle and the reading. The shadow calls them on its own filter.
+- **`NearEdgeTracking`.** Reached by `near_edge_track`, which needs `solid_body` and
+  `solid_body_full_members`. The solid body keeps no filter of its own: `stepNearEdge` runs on
+  the tracked filter inside the tracked update, and the body reads the tracked state. A fix
+  replaces the medoid update with the face updates; a faceless body-centre frame leaves the
+  prediction alone; a lapse returns the position to the medoid; a medoid-referenced frame takes
+  the tracked filter's usual update. The measurement is made with the previous frame's heading,
+  because this frame's heading decision follows the update. A tracked position then names its
+  reference from the body (`trackReference`), so a point estimate on a body-centre frame is
+  `body_centre`.
+- **Reference translations.** A re-reference moves the position along each fixing face's normal
+  by the offset between the frame's implied centre and its medoid, widens the position
+  covariance by the medoid's bias, and only then applies the faces. Velocity is untouched by the
+  translation. The tracked mode always translates; the shadow does with
+  `solid_body_reference_translation`, so a shadow arm can match the tracked arm's state machine.
+  Each change is recorded on the reading (`ReferenceChange`) and counted by the tracker, and the
+  corpus summary counts `re_references` beside `lapses`.
+- **A2 association.** A body-centre tracked track is gated on `faceResidualDistanceSquared`:
+  each usable face's residual along its normal with R, and the medoid's residual projected onto
+  any unconstrained direction with R plus the believed half-extent squared that way, over two
+  orthonormal directions, so the gate stays chi-square with two degrees of freedom. The
+  plausibility checks run first and unchanged. The pair's measurement is kept for the frame and
+  reused by the update.
+- **Refusals.** `near_edge_track` refuses `adaptive_uncertainty` and `likelihood_cost`, whose
+  terms are the medoid update's, the OBB-centre position model, and the uncertainty report, whose
+  pre-gate residuals are the medoid gate's. Estimate rows under it name `near_edge_candidate_v1`
+  as their observation model.
+
+Unit tests cover the plan's list: a rank-one translation moves nothing across its face and no
+velocity; the tracked state lands on the body centre of the synthetic pass (0.028 m settled
+lateral error); a lapse keeps velocity; a 3.5 m synthetic lane change at 12 m/s keeps 93 % of its
+magnitude; and with no member geometry to measure, as in the scripted identity scenes, the tracks
+are exactly the default's. On kirk0 the default replay and the shadow arms (plain, and T1 with T3
+from full members) are byte-identical to main: tracking baseline, point estimates and solid-body
+rows.
+
+Every associated frame writes an estimate row. A fix records what the faces applied: its
+prediction is the position they updated, after any translation, and its measurement that position
+moved to each face's implied centre along the face's normal, so a translation is never an
+innovation. A faceless frame (`not_applied`) and a lapse (`reference_changed`) record the medoid
+the association saw, with A2's two-degree-of-freedom distance as their NIS. A reference change
+translates the track's trail with its position, so it is not counted as distance or as a turn.
+The tracked residual bands and the scorecard's two-degree-of-freedom NIS describe
+medoid-referenced updates only; a fix's NIS has the fix's rank.
+
+On kirk0 the arm with T1, T3 and full members runs identically twice (the exit). Label-free, and on
+one capture, its body-centre lateral p99 is 0.130 m (p95 0.051 m, max 0.246 m), face-stable 0.043
+m, over 880 fixes of 1,926 rows with 64 re-references and 49 lapses; the default's point estimates
+reached 0.309 m (#614). The tracks change: 3,439 track-frames against the default's 3,286. Whether
+A2 keeps identity is gate 3's question, on the held-out case.
+
 ### S2.3: the A1 ablation arm
 
 A1 behind a second experiment, run once on the tuning partition to show what A2 buys.
@@ -534,7 +590,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on kirk0 and the tuning
       partition
 - [ ] S2.1 face-transition remedy chosen
-- [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
+- [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
-- [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage
+- [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
+      the adapter reads them
+- [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report

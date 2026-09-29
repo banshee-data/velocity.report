@@ -422,6 +422,7 @@ func writePhysicalDB(path string) error {
 				SourceID: PhysSource, CalibrationID: PhysCalibration, FrameUnixNanos: frame, MeasurementUnixNanos: frame,
 				EstimatorID: EstimatorID, ObservationModelID: string(l5tracks.MeasurementOBBCentreV1), ParamHash: ParamsExact,
 				Stage: "final", MeasurementSource: string(l5tracks.MeasurementOBBCentreV1), CreationSequence: seq,
+				Reference: l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved,
 				X: float32(x), Y: 0, VX: 10, Covariance: [16]float32{0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.1},
 			}
 			observe(e.ObservationID, PhysCalibration, frame)

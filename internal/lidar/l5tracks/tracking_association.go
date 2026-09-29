@@ -152,6 +152,8 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 // the cluster was associated with, or "" if unassociated.
 func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
+	// The near-edge pair measurements are this frame's alone.
+	clear(t.nearEdgePairs)
 
 	// Build ordered list of active tracks.
 	//
@@ -272,7 +274,7 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 				continue
 			}
 
-			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+			dist2 := t.gateDistanceSquared(track, clusters, ci, dt)
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > gate {
 				costMatrix[row][tj] = float32(hungarianlnf)
 			} else if t.Config.ClassIdentity && classMismatch(track, &clusters[ci]) {
@@ -372,18 +374,8 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	dx := measurement.X - track.X
 	dy := measurement.Y - track.Y
 
-	// Physical plausibility check: reject if position jump is too large
-	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-	if euclideanDist > t.Config.MaxPositionJumpMetres {
+	if t.implausiblePairing(track, measurement, dt) {
 		return SingularDistanceRejection
-	}
-
-	// Check if implied velocity would be unreasonable
-	if dt > 0 {
-		impliedSpeed := euclideanDist / reacquisitionPlausibilityDt(t.Config.OcclusionContinuity.ReacquisitionGuard, track, dt)
-		if impliedSpeed > t.Config.MaxReasonableSpeedMps {
-			return SingularDistanceRejection
-		}
 	}
 
 	// Innovation covariance S = H * P * H^T + R
@@ -445,6 +437,29 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
 	return dist2
+}
+
+// implausiblePairing is the physical plausibility check every gate applies
+// first: a position jump beyond MaxPositionJumpMetres, or one implying a speed
+// beyond MaxReasonableSpeedMps, is not the same object.
+func (t *Tracker) implausiblePairing(track *TrackedObject, measurement PositionMeasurement, dt float32) bool {
+	dx := measurement.X - track.X
+	dy := measurement.Y - track.Y
+
+	// Physical plausibility check: reject if position jump is too large
+	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+	if euclideanDist > t.Config.MaxPositionJumpMetres {
+		return true
+	}
+
+	// Check if implied velocity would be unreasonable
+	if dt > 0 {
+		impliedSpeed := euclideanDist / reacquisitionPlausibilityDt(t.Config.OcclusionContinuity.ReacquisitionGuard, track, dt)
+		if impliedSpeed > t.Config.MaxReasonableSpeedMps {
+			return true
+		}
+	}
+	return false
 }
 
 // FragmentGuardMinTrackExtentMetres is the size belief above which a track is

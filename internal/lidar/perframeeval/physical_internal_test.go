@@ -404,20 +404,20 @@ func TestPhysicalFollowingReasons(t *testing.T) {
 }
 
 // Rows the behaviour adapters refuse are refused here too, with the arm
-// named: an estimate whose measurement names no reference point, a solid
-// body with no stored observation, one whose reference the adapter cannot
-// place, and two tracks under one creation sequence.
+// named: an estimate row that was not observed, a solid body with no stored
+// observation, one whose reference the adapter cannot place, and two tracks
+// under one creation sequence.
 func TestLoadPhysicalArmRefusesUnreadableRows(t *testing.T) {
 	f := physFixture(t)
 	insertUnreadableRows(t, f.DBPath)
 	for params, want := range map[string]string{
-		"params/bad-source": "names no reference point",
-		"params/orphan":     "not stored",
-		"params/near-face":  "no declared offset",
-		"params/two-runs":   "names two tracks",
+		"params/bad-support": "only an observed row is read",
+		"params/orphan":      "not stored",
+		"params/near-face":   "no declared offset",
+		"params/two-runs":    "names two tracks",
 	} {
 		spec := ArmSpec{Label: "x", DBPath: f.DBPath, ParamHash: params, Stage: "online", DeclaredBaseline: true, SolidBodies: true}
-		if params == "params/bad-source" {
+		if params == "params/bad-support" {
 			spec.Stage, spec.SolidBodies = "", false
 		}
 		if _, err := LoadPhysicalArm(spec); err == nil || !strings.Contains(err.Error(), want) {
@@ -448,7 +448,8 @@ func insertUnreadableRows(t *testing.T, path string) {
 	e := sqlite.TrackEstimate{
 		EstimateID: "e/bad", TrackID: "t", ObservationID: "o/bad", SourceID: "s", CalibrationID: "c",
 		FrameUnixNanos: frame, MeasurementUnixNanos: frame, EstimatorID: evalfixture.EstimatorID, ObservationModelID: "m",
-		ParamHash: "params/bad-source", Stage: "final", MeasurementSource: "mystery_v1",
+		ParamHash: "params/bad-support", Stage: "final", MeasurementSource: string(l5tracks.MeasurementMedoidV0),
+		Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportCoasted,
 	}
 	observe(e.ObservationID, frame)
 	if err := store.Insert(e, sqlite.TrackResidual{EstimateID: e.EstimateID, ObservationID: e.ObservationID, Disposition: "accepted", Reason: "t"}); err != nil {

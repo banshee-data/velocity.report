@@ -11,6 +11,22 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	t.filterSteps.notePrior(track)
 	track.LastResidual.Valid = false
 	measurement := t.measurementForCluster(cluster, nowNanos)
+	if track.solidBody.tracked {
+		predicted := trackedPrediction{x: track.X, y: track.Y, p: track.P}
+		if t.stepTrackedNearEdge(track, cluster) {
+			// NearEdgeTracking: the state machine decided the tracked state,
+			// so the medoid update below does not apply this frame.
+			if t.refuseNonFiniteUpdate(track) {
+				return
+			}
+			t.clampVelocity(track)
+			a := track.solidBody.pending.applied
+			shiftHistory(track, a.shiftX, a.shiftY)
+			measurement = t.recordTrackedNearEdgeResidual(track, predicted, cluster, measurement)
+			t.recordUpdate(track, cluster, measurement)
+			return
+		}
+	}
 	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
 	// fallback for invalid geometry. The filter keeps its existing CV state and
 	// covariance shape; only the biased geometry input is corrected here.
@@ -93,26 +109,19 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	}
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
-	if !isFiniteState(track) {
-		opsf("Update produced non-finite state: track_id=%s deleting track", track.TrackID)
-		track.X = 0
-		track.Y = 0
-		track.VX = 0
-		track.VY = 0
-		track.P = [16]float32{
-			10, 0, 0, 0,
-			0, 10, 0, 0,
-			0, 0, 1, 0,
-			0, 0, 0, 1,
-		}
-		track.TrackState = TrackDeleted
-		t.recordExpiry(track, ExpiryNonFinite)
+	if t.refuseNonFiniteUpdate(track) {
 		return
 	}
 
 	// Clamp velocity magnitude after update (task 2.3).
 	t.clampVelocity(track)
+	t.recordUpdate(track, cluster, measurement)
+}
 
+// recordUpdate does an associated frame's bookkeeping once the filter's state
+// is final: timestamps, aggregated features, history, speed statistics and
+// the heading decision.
+func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measurement PositionMeasurement) {
 	// Update timestamp
 	track.LastMeasurementSource = measurement.Source
 	track.LastMeasurementUnixNanos = measurement.UnixNanos
@@ -454,6 +463,28 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		// measure an intermediate value no client ever sees.
 		track.SampleCourseAlignment()
 	}
+}
+
+// refuseNonFiniteUpdate deletes a track whose update produced a non-finite
+// state, and says so.
+func (t *Tracker) refuseNonFiniteUpdate(track *TrackedObject) bool {
+	if isFiniteState(track) {
+		return false
+	}
+	opsf("Update produced non-finite state: track_id=%s deleting track", track.TrackID)
+	track.X = 0
+	track.Y = 0
+	track.VX = 0
+	track.VY = 0
+	track.P = [16]float32{
+		10, 0, 0, 0,
+		0, 10, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+	track.TrackState = TrackDeleted
+	t.recordExpiry(track, ExpiryNonFinite)
+	return true
 }
 
 // SampleCourseAlignment records the angle between the track's published OBB

@@ -66,13 +66,16 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 		EstimatorID:      cfg.StateEstimatorID, ObservationModelID: cfg.StateObservationModelID,
 		ParamHash: cfg.StateParameterHash, Stage: sqlite.EstimateStageOnline, MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
+		// What the tracker says the state refers to and rested on this
+		// frame, not what the measurement source would suggest.
+		Reference: track.PositionReference(), Support: track.LastSupport,
 	}
 	pair := sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{
 		EstimateID: estimateID, ObservationID: observationID, PredictedX: residual.PredictedX, PredictedY: residual.PredictedY,
 		MeasurementX: residual.Measurement.X, MeasurementY: residual.Measurement.Y,
 		InnovationX: residual.InnovationX, InnovationY: residual.InnovationY, NIS: residual.NIS,
 		GeometryCovXX: residual.GeometryCovariance.XX, GeometryCovXY: residual.GeometryCovariance.XY, GeometryCovYY: residual.GeometryCovariance.YY,
-		Disposition: "accepted", Reason: "association_accepted",
+		Disposition: residualDisposition(residual), Reason: residualReason(residual),
 	}}
 	pair.SolidBody = onlineSolidBody(cfg, track, observationID, frameUnixNanos)
 	return pair, nil
@@ -100,4 +103,20 @@ func onlineSolidBody(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObject,
 		CreationSequence: track.CreationSequence,
 		Reading:          reading,
 	}
+}
+
+// residualDisposition and residualReason are what became of the frame's
+// measurement: an accepted update unless the tracker said otherwise.
+func residualDisposition(r l5tracks.FilterResidual) string {
+	if r.Disposition == "" {
+		return "accepted"
+	}
+	return r.Disposition
+}
+
+func residualReason(r l5tracks.FilterResidual) string {
+	if r.Disposition == "" {
+		return "association_accepted"
+	}
+	return r.Reason
 }

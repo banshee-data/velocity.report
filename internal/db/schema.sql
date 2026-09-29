@@ -617,6 +617,8 @@
         , covariance_json BLOB NOT NULL
         , inserted_at_ns INTEGER NOT NULL
         , state_model TEXT NOT NULL DEFAULT 'cv_cartesian_v1'
+        , reference_point TEXT NOT NULL DEFAULT ''
+        , support_instant TEXT NOT NULL DEFAULT ''
         , UNIQUE (
           track_id
         , estimator_id
@@ -1276,6 +1278,15 @@ CREATE TRIGGER lidar_segment_selections_keep_selector BEFORE
    UPDATE OF selector_json ON lidar_segment_selections WHEN OLD.selector_json IS NOT NULL
       AND NEW.selector_json IS NULL BEGIN
              SELECT RAISE (ABORT, 'a segment selection keeps the selector that chose it');
+
+END;
+
+CREATE TRIGGER lidar_track_estimates_state_reference_and_support BEFORE INSERT ON lidar_track_estimates WHEN NEW.reference_point = ''
+       OR NEW.support_instant = '' BEGIN
+             SELECT RAISE (
+                    ABORT
+                  , 'a track estimate states its reference point and support token'
+                    );
 
 END;
 

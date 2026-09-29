@@ -155,7 +155,7 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 			persisted[i] = l8behaviour.PersistedEstimate{
 				TrackID: r.TrackID, SensorID: r.SensorID, FrameUnixNanos: r.FrameUnixNanos,
 				EstimatorID: r.EstimatorID, ObsModelID: r.ObservationModelID, ParamHash: r.ParamHash, Stage: r.Stage,
-				MeasurementSource: r.MeasurementSource, MeasurementUnixNanos: r.MeasurementUnixNanos,
+				Reference: r.Reference, Support: r.Support, MeasurementUnixNanos: r.MeasurementUnixNanos,
 				X: r.X, Y: r.Y, VX: r.VX, VY: r.VY, Covariance: r.Covariance,
 			}
 			sequence[r.TrackID] = r.CreationSequence

@@ -32,7 +32,8 @@ package l8behaviour
 // Nothing here changes l5tracks behaviour; it only reads its types.
 //
 // A persisted estimate (a lidar_track_estimates row) says less again: pose,
-// velocity and covariance, and nothing of the solid body held beside them.
+// velocity and covariance with the reference point and support token the
+// writer stated, and nothing of the solid body held beside them.
 // TrajectoriesFromEstimates maps what a row carries and claims nothing it
 // does not; see PersistedEstimate. A persisted solid body (a
 // lidar_track_solid_bodies row) carries the reading itself, and
@@ -324,15 +325,21 @@ func extentFromL5(d l5tracks.DimensionBelief, bounds l5tracks.ConvergenceBounds)
 //     known layout are read: cv_kf_v1 is cv_cartesian_v1.
 //   - Stage. The row's own: online, fixed_lag or final. This is the one place
 //     final is read rather than inferred.
-//   - Reference. From the geometry that entered the filter at that frame:
-//     an OBB centre is the centre of the visible box and a medoid, including
-//     the OBB-centre model's medoid fallback, is a cluster medoid, as
-//     l5tracks.SolidBodyFromTrack names them. Neither is a place on the
-//     body, whatever the row's stage, so no endpoint is projected from a row.
+//   - Reference. The row's reference_point, as the tracker or smoother
+//     stated it when the row was written; never inferred from the
+//     measurement source, which names the geometry that entered the filter
+//     and not the point the state refers to. Today's writers state the
+//     centre of the visible box or the cluster medoid, as
+//     l5tracks.TrackedObject.PositionReference names them; neither is a
+//     place on the body, whatever the row's stage. A near-face or unknown
+//     reference is refused, as for a solid body.
 //   - Acquisition time. The row's measurement time, when it recorded one.
-//   - Support. Observed: the row exists because a measurement was
-//     associated. A frame with no row is not invented; it is a gap between
-//     samples, which the encounter method holds or counts as a record gap.
+//   - Support. The row's support_instant, which must be observed: every
+//     writer writes a row only at an associated frame, and a row records no
+//     coasted count or last observed time, so an unobserved row is refused
+//     rather than read with those guessed. A frame with no row is not
+//     invented; it is a gap between samples, which the encounter method
+//     holds or counts as a record gap.
 //   - Estimation. l5tracks.NextEstimationState on what the row proves: a
 //     sustained association (the track is confirmed) at the row's speed,
 //     against no persisted geometry. Established is unreachable, so the state
@@ -347,14 +354,18 @@ func extentFromL5(d l5tracks.DimensionBelief, bounds l5tracks.ConvergenceBounds)
 //     kirk0); each pair is averaged when it agrees within
 //     persistedAsymmetryTolerance, and the row is refused otherwise.
 type PersistedEstimate struct {
-	TrackID           string
-	SensorID          string
-	FrameUnixNanos    int64
-	EstimatorID       string
-	ObsModelID        string
-	ParamHash         string
-	Stage             string
-	MeasurementSource string
+	TrackID        string
+	SensorID       string
+	FrameUnixNanos int64
+	EstimatorID    string
+	ObsModelID     string
+	ParamHash      string
+	Stage          string
+	// Reference and Support are the row's reference_point and
+	// support_instant, read by the l5tracks parsers. There is deliberately no
+	// measurement source here: nothing is inferred from it.
+	Reference l5tracks.ReferencePoint
+	Support   l5tracks.ObservationSupport
 	// MeasurementUnixNanos is the acquisition time of the geometry that
 	// entered the filter; zero when the row did not record it.
 	MeasurementUnixNanos int64
@@ -364,14 +375,6 @@ type PersistedEstimate struct {
 
 // persistedStateModels maps a filter estimator id to its state layout.
 var persistedStateModels = map[string]string{"cv_kf_v1": StateModelCVCartesianV1}
-
-// persistedReferences maps the geometry that entered the filter to the point
-// the filtered pose refers to.
-var persistedReferences = map[string]l5tracks.ReferencePoint{
-	string(l5tracks.MeasurementOBBCentreV1):      l5tracks.ReferenceVisibleOBBCentre,
-	string(l5tracks.MeasurementMedoidV0):         l5tracks.ReferenceClusterMedoid,
-	string(l5tracks.MeasurementMedoidFallbackV1): l5tracks.ReferenceClusterMedoid,
-}
 
 // PersistedStateModel is the dynamic state layout of an estimator's rows, or
 // an error when the filter's layout is not known.
@@ -455,20 +458,19 @@ func TrajectoriesFromEstimates(rows []PersistedEstimate, bounds l5tracks.Converg
 
 func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateStage, current l5tracks.EstimationState,
 	bounds l5tracks.ConvergenceBounds) (TrajectorySample, l5tracks.EstimationState, error) {
-	reference, ok := persistedReferences[r.MeasurementSource]
-	if !ok {
-		return TrajectorySample{}, current, fmt.Errorf("measurement source %q names no reference point", r.MeasurementSource)
+	if !r.Support.IsObserved() {
+		return TrajectorySample{}, current, fmt.Errorf("support %q: a point-estimate row records no last observed time, so only an observed row is read", r.Support)
 	}
 	p, err := symmetricCovariance(r.Covariance)
 	if err != nil {
 		return TrajectorySample{}, current, err
 	}
 	body := l5tracks.SolidBodyEstimate{
-		StateModel: stateModel, Reference: reference, X: r.X, Y: r.Y,
+		StateModel: stateModel, Reference: r.Reference, X: r.X, Y: r.Y,
 		PositionCovariance: [4]float32{p[0], p[1], p[4], p[5]},
-		// A row exists only at an associated frame, so it is observed at
-		// its own frame.
+		// An observed row is observed at its own frame.
 		LastObservedUnixNanos: r.FrameUnixNanos,
+		Support:               l5tracks.SupportState{Instant: r.Support},
 	}
 	body.Estimation = l5tracks.NextEstimationState(current, body, l5tracks.EstimationEvidence{
 		SustainedAssociation: true,

@@ -72,9 +72,10 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
-		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNoRegionOverrides, ExperimentOcclusionContinuity,
-		ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces, ExperimentSolidBodyFaceConsider,
-		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers}
+		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNoRegionOverrides,
+		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
+		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers,
+		ExperimentSolidBodyReferenceTranslation}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -131,6 +132,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyFaceHysteresis: func(o *l5tracks.SolidBodyOptions) { o.FaceHysteresis = true },
 		ExperimentSolidBodyFaceConsider:   func(o *l5tracks.SolidBodyOptions) { o.FaceEntryConsider = true },
 		ExperimentSolidBodyCourseFaces:    func(o *l5tracks.SolidBodyOptions) { o.CourseAlignedFaces = true },
+		ExperimentSolidBodyReferenceTranslation: func(o *l5tracks.SolidBodyOptions) {
+			o.ReferenceTranslation = true
+		},
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
@@ -207,4 +211,69 @@ func continuityWith(set func(*l5tracks.OcclusionContinuityConfig)) l5tracks.Occl
 	oc.ExplainAbsence, oc.CaptureTimeInflation, oc.ClassCoastBounds, oc.ReacquisitionGuard = false, false, false, false
 	set(&oc)
 	return oc
+}
+
+// near_edge_track runs the solid body it names from full members, reaches
+// NearEdgeTracking and nothing else, and refuses what it would silently change
+// the meaning of.
+func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	arm := []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack}
+	want, err := trackerConfigFor(l5, "", arm[:2], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want.NearEdgeTracking = true
+	got, err := trackerConfigFor(l5, "", arm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("near_edge_track:\n got %+v\nwant %+v", got, want)
+	}
+	for name, experiments := range map[string][]string{
+		"without solid_body":   {ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack},
+		"without full members": {ExperimentSolidBody, ExperimentNearEdgeTrack},
+		"alone":                {ExperimentNearEdgeTrack},
+		"with adaptive noise":  append([]string{ExperimentAdaptiveUncertainty}, arm...),
+		"with likelihood cost": append([]string{ExperimentLikelihoodCost}, arm...),
+		"with the smoother":    append([]string{ExperimentFixedLagRTS}, arm...),
+	} {
+		if _, err := trackerConfigFor(l5, "", experiments, nil); err == nil {
+			t.Errorf("near_edge_track %s was accepted", name)
+		}
+	}
+	if _, err := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, arm, nil); err == nil {
+		t.Error("near_edge_track was accepted with the OBB-centre position model")
+	}
+	if _, err := trackerConfigFor(l5, l5tracks.MeasurementMedoidV0, arm, nil); err != nil {
+		t.Errorf("near_edge_track refused the medoid position model: %v", err)
+	}
+}
+
+func TestNearEdgeTrackRefusesTheUncertaintyReport(t *testing.T) {
+	_, err := Run(Config{
+		PCAPFile: "unused.pcap", OutDir: t.TempDir(), UncertaintyReport: true,
+		Experiments: []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack},
+	})
+	if err == nil || !strings.Contains(err.Error(), "uncertainty report") {
+		t.Fatalf("got %v, want the uncertainty-report refusal", err)
+	}
+}
+
+func TestEstimateRowsNameTheModelThatUpdatedThem(t *testing.T) {
+	for _, tc := range []struct {
+		experiments []string
+		mode        l5tracks.MeasurementSource
+		want        l5tracks.MeasurementSource
+	}{
+		{nil, "", l5tracks.MeasurementMedoidV0},
+		{nil, l5tracks.MeasurementOBBCentreV1, l5tracks.MeasurementOBBCentreV1},
+		{[]string{ExperimentSolidBody}, "", l5tracks.MeasurementMedoidV0},
+		{[]string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack}, "", l5tracks.MeasurementNearEdgeCandidateV1},
+	} {
+		if got := stateObservationModelFor(tc.experiments, tc.mode); got != string(tc.want) {
+			t.Errorf("%v with mode %q: rows name %s, want %s", tc.experiments, tc.mode, got, tc.want)
+		}
+	}
 }

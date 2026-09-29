@@ -38,6 +38,10 @@ type SolidBodySummary struct {
 	Faces      map[string]int `json:"faces"`
 	Fallbacks  map[string]int `json:"fallbacks"`
 	Lapses     int            `json:"lapses"`
+	// ReReferences counts rows whose reference is the body centre where the
+	// same track's previous row was referenced to the medoid: the first fix
+	// after a seed or a lapse.
+	ReReferences int `json:"re_references"`
 	// Per track, from its last row: accumulated width, width converged under
 	// the default bounds at any row, and ever established.
 	Tracks               int     `json:"tracks"`
@@ -229,8 +233,15 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	// fix.
 	faceRun := map[int64]int{}
 	lastFaces := map[int64]string{}
+	// lastReference is each track's previous row's reference.
+	lastReference := map[int64]l5tracks.ReferencePoint{}
 	for _, sb := range bodies {
 		e, m := sb.Reading.Estimate, sb.Reading.Measurement
+		if previous, ok := lastReference[sb.CreationSequence]; ok &&
+			previous == l5tracks.ReferenceClusterMedoid && e.Reference == l5tracks.ReferenceBodyCentre {
+			s.ReReferences++
+		}
+		lastReference[sb.CreationSequence] = e.Reference
 		s.Sources[sourceName(m.Source)]++
 		s.References[e.Reference.String()]++
 		s.Ranks[strconv.Itoa(m.Rank)]++
