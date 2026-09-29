@@ -31,6 +31,13 @@ type TrackEstimate struct {
 	CreationSequence int64
 	X, Y, VX, VY     float32
 	Covariance       [16]float32
+	// Reference names the point X and Y refer to, and Support what the
+	// instant rested on, as the tracker or smoother stated them; they are
+	// stored in reference_point and support_instant. Neither is derived from
+	// MeasurementSource: the geometry that entered the filter need not be the
+	// point its state refers to (near-edge plan, invariant 7).
+	Reference l5tracks.ReferencePoint
+	Support   l5tracks.ObservationSupport
 }
 
 // TrackResidual is the innovation that led to one estimate. The geometry
@@ -105,8 +112,8 @@ func insertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackRe
 const stateEstimateInsertSQL = `INSERT OR REPLACE INTO lidar_track_estimates
 		(estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos,
 		 estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns,
-		 state_model)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 state_model, reference_point, support_instant)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 const stateResidualInsertSQL = `INSERT OR REPLACE INTO lidar_track_residuals
 		(estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y,
@@ -119,7 +126,7 @@ func stateEstimateInsertArgs(estimate TrackEstimate, covariance []byte, inserted
 		estimate.FrameUnixNanos, estimate.MeasurementUnixNanos, estimate.EstimatorID, estimate.ObservationModelID,
 		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.CreationSequence,
 		estimate.X, estimate.Y, estimate.VX, estimate.VY, covariance, insertedAtNanos,
-		l5tracks.StateModelCVCartesianV1,
+		l5tracks.StateModelCVCartesianV1, estimate.Reference.String(), estimate.Support.String(),
 	}
 }
 
@@ -136,6 +143,14 @@ func validateStateEstimate(estimate TrackEstimate, residual TrackResidual) error
 		estimate.CalibrationID == "" || estimate.EstimatorID == "" || estimate.ObservationModelID == "" || estimate.ParamHash == "" ||
 		estimate.Stage == "" || estimate.MeasurementSource == "" {
 		return fmt.Errorf("state estimate requires identity, model and source fields")
+	}
+	// Each check refuses the zero value, which is what a writer that did not
+	// set the field leaves, and any value its String does not name.
+	if estimate.Reference.String() == l5tracks.ReferenceUnknown.String() {
+		return fmt.Errorf("state estimate %s states no reference point", estimate.EstimateID)
+	}
+	if _, ok := l5tracks.ParseObservationSupport(estimate.Support.String()); !ok {
+		return fmt.Errorf("state estimate %s states no support token", estimate.EstimateID)
 	}
 	if residual.EstimateID != estimate.EstimateID || residual.ObservationID != estimate.ObservationID || residual.Disposition == "" || residual.Reason == "" {
 		return fmt.Errorf("residual must identify the same estimate and observation with a disposition and reason")
@@ -163,6 +178,7 @@ func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, err
 		     , frame_unix_nanos, measurement_unix_nanos, estimator_id
 		     , observation_model_id, param_hash, stage, measurement_source
 		     , creation_sequence, x, y, vx, vy, covariance_json, state_model
+		     , reference_point, support_instant
 		  FROM lidar_track_estimates
 		 WHERE source_id = ? AND stage = ?
 		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID, EstimateStageOnline)
@@ -175,18 +191,22 @@ func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, err
 	for rows.Next() {
 		var e TrackEstimate
 		var covariance []byte
-		var stateModel string
+		var stateModel, reference, support string
 		if err := rows.Scan(
 			&e.EstimateID, &e.TrackID, &e.ObservationID, &e.SourceID, &e.CalibrationID,
 			&e.FrameUnixNanos, &e.MeasurementUnixNanos, &e.EstimatorID,
 			&e.ObservationModelID, &e.ParamHash, &e.Stage, &e.MeasurementSource,
 			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance, &stateModel,
+			&reference, &support,
 		); err != nil {
 			return nil, fmt.Errorf("scan track estimate: %w", err)
 		}
 		if stateModel != l5tracks.StateModelCVCartesianV1 {
 			return nil, fmt.Errorf("track estimate %s has state model %q; refusing to decode its covariance as %s",
 				e.EstimateID, stateModel, l5tracks.StateModelCVCartesianV1)
+		}
+		if err := readEstimateStatement(&e, reference, support); err != nil {
+			return nil, err
 		}
 		if err := json.Unmarshal(covariance, &e.Covariance); err != nil {
 			return nil, fmt.Errorf("unmarshal estimate covariance %s: %w", e.EstimateID, err)
@@ -197,4 +217,22 @@ func (s *StateEstimateStore) ListBySource(sourceID string) ([]TrackEstimate, err
 		return nil, fmt.Errorf("iterate track estimates: %w", err)
 	}
 	return estimates, nil
+}
+
+// readEstimateStatement reads a row's reference_point and support_instant
+// through the l5tracks parsers, the only vocabulary for either. A value its
+// parser does not know is an error, never a default; that includes the empty
+// reference migration 000057 left on a row whose measurement source it could
+// not map.
+func readEstimateStatement(e *TrackEstimate, reference, support string) error {
+	r, err := l5tracks.ParseReferencePoint(reference)
+	if err != nil {
+		return fmt.Errorf("track estimate %s: %w", e.EstimateID, err)
+	}
+	s, ok := l5tracks.ParseObservationSupport(support)
+	if !ok {
+		return fmt.Errorf("track estimate %s: unknown support token %q", e.EstimateID, support)
+	}
+	e.Reference, e.Support = r, s
+	return nil
 }

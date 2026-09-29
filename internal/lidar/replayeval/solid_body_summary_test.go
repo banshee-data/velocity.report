@@ -76,8 +76,10 @@ func TestSummariseSolidBodies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Frames 3 to 19 of track 1, but for the lapse at frame 10.
-	if s.PointEstimates != 40 || s.SolidBodies != 40 || s.NearEdgeFixes != 16 || s.FixShare != 16.0/40 || s.Lapses != 1 {
+	// Frames 3 to 19 of track 1, but for the lapse at frame 10, which makes
+	// frames 3 and 11 re-references.
+	if s.PointEstimates != 40 || s.SolidBodies != 40 || s.NearEdgeFixes != 16 || s.FixShare != 16.0/40 || s.Lapses != 1 ||
+		s.ReReferences != 2 {
 		t.Fatalf("counts %+v", s)
 	}
 	if s.Sources["near_edge_candidate_v1"] != 16 || s.Sources["medoid_v0"] != 24 || s.References["body_centre"] != 16 ||

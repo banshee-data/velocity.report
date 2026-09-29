@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -272,6 +273,7 @@ func seedSurveyEvidence(t *testing.T, path, sourceID string, estimates []observa
 		}
 		e.TrackID, e.ObservationID, e.SourceID, e.CalibrationID = fmt.Sprintf("track-%d", e.CreationSequence), obs, sourceID, "calibration/test"
 		e.FrameUnixNanos, e.EstimatorID, e.ObservationModelID, e.Stage, e.MeasurementSource = int64(i), "cv_kf_v1", "medoid_v0", "online", "medoid_v0"
+		e.Reference, e.Support = l5tracks.ReferenceClusterMedoid, l5tracks.SupportObserved
 		r := observationsqlite.TrackResidual{EstimateID: e.EstimateID, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}
 		if err := observationsqlite.InsertStateEstimate(database, e, r); err != nil {
 			t.Fatal(err)

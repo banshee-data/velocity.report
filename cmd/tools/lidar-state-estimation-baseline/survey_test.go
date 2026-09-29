@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -99,7 +100,8 @@ func seedReplay(t *testing.T, ranges ...float32) (replayDir, dbPath string) {
 		}
 		e := sqlite.TrackEstimate{EstimateID: id, TrackID: "track", ObservationID: obs, SourceID: source, CalibrationID: "calibration/test",
 			FrameUnixNanos: int64(i), EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v0", ParamHash: params,
-			Stage: "online", MeasurementSource: "medoid_v0", X: x, Y: y}
+			Stage: "online", MeasurementSource: "medoid_v0", X: x, Y: y,
+			Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved}
 		r := sqlite.TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}
 		if err := sqlite.InsertStateEstimate(database, e, r); err != nil {
 			t.Fatal(err)

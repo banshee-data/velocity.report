@@ -4,7 +4,7 @@ This plan adds the reference authoring and scoring that the tailgating sprint ne
 physical body estimate. Point masks establish which returns belong to a car; a separate reference
 must establish what is known about the car's pose, dimensions, and physical endpoints.
 
-- **Status:** Planned; optional pose storage exists, but the macOS authoring and physical scoring workflow is not delivered
+- **Status:** In progress; P0 reference storage and independent import delivered, macOS authoring and physical scoring not yet
 - **Target:** v0.5.2, Sprint 0.5.2.0; S0 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Layers:** L5 Tracks, L8 Analytics, L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
@@ -134,7 +134,7 @@ qualification remain separately tracked under the persistence and deployment pla
 
 ## Checklist
 
-- [ ] P0: versioned physical-reference contract, independent import, and revision-safe round trip
+- [x] P0: versioned physical-reference contract, independent import, and revision-safe round trip
 - [ ] P1: macOS pose/extent authoring with component bounds, ambiguity, and separate review
 - [ ] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting
 - [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits

@@ -28,6 +28,10 @@ Commands:
                   Cut a frozen excerpt of a VRLOG into an annotation pack: an
                   immutable point domain that reviewed masks reference, so a
                   reference identity is not itself a tracker output
+  annotation-reference
+                  Import or validate an annotation pack's physical references:
+                  body dimensions, keyframe poses and following gaps with
+                  bounds, evidence status and their own review
   segments        Rank candidate annotation windows from an evidence DB or run
   annotation-clip Replay one capture window and cut its annotation pack
   annotation-split
@@ -55,6 +59,8 @@ func Main(args []string) int {
 		return ReplayEvalMain(args[1:])
 	case "annotation-export":
 		return AnnotationExportMain(args[1:])
+	case "annotation-reference":
+		return AnnotationReferenceMain(args[1:])
 	case "segments":
 		return SegmentsMain(args[1:])
 	case "annotation-clip":

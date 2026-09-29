@@ -350,3 +350,33 @@ func largestCluster(clusters []WorldCluster) (WorldCluster, bool) {
 }
 
 var _ = time.Now
+
+func TestSyntheticLaneChangeFollowsAHalfCosineAndHolds(t *testing.T) {
+	v := DefaultSyntheticVehicle()
+	interval := 100 * time.Millisecond
+	_, straight, _ := v.CentreAt(30, interval)
+	if straight != v.LateralOffsetMetres {
+		t.Fatalf("a straight pass moved laterally to %v", straight)
+	}
+	v.LaneChangeMetres, v.LaneChangeStartSecs, v.LaneChangeDurationSecs = 3.5, 1, 2
+	for _, tc := range []struct {
+		frame int
+		want  float64
+	}{
+		{0, 0}, {10, 0}, {20, 1.75}, {30, 3.5}, {50, 3.5},
+	} {
+		_, y, _ := v.CentreAt(tc.frame, interval)
+		if got := y - v.LateralOffsetMetres; math.Abs(got-tc.want) > 1e-9 {
+			t.Errorf("frame %d: lateral displacement %v, want %v", tc.frame, got, tc.want)
+		}
+	}
+	x0, _, _ := v.CentreAt(0, interval)
+	x20, _, _ := v.CentreAt(20, interval)
+	if x20-x0 != v.SpeedMps*2 {
+		t.Errorf("the lane change changed the longitudinal motion: %v m in 2 s", x20-x0)
+	}
+	v.LaneChangeDurationSecs = 0
+	if _, y, _ := v.CentreAt(11, interval); y-v.LateralOffsetMetres != 3.5 {
+		t.Errorf("an instantaneous lane change is at %v after it starts", y-v.LateralOffsetMetres)
+	}
+}

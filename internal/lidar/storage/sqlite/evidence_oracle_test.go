@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestBuildEvidenceOracleCanonicalSemantics(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns) VALUES ('e-1', 'track', 'o-1', 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', 1, 1, 2, 3, 4, '[]', 1)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns, reference_point, support_instant) VALUES ('e-1', 'track', 'o-1', 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', 1, 1, 2, 3, 4, '[]', 1, 'cluster_medoid', 'observed')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO lidar_track_residuals (estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y, nis, geometry_cov_xx, geometry_cov_xy, geometry_cov_yy, disposition, reason, inserted_at_ns) VALUES ('e-1', 'o-1', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 'accepted', 'ok', 1)`); err != nil {
@@ -50,6 +51,24 @@ func TestBuildEvidenceOracleCanonicalSemantics(t *testing.T) {
 	if reflect.DeepEqual(first, changed) {
 		t.Fatal("changed observation payload did not change the semantic oracle")
 	}
+	// An estimate's reference point and support token are content: a replay
+	// that states another reference, or another support, wrote other evidence.
+	for _, column := range []string{"reference_point", "support_instant"} {
+		before, err := BuildEvidenceOracle(db, expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`UPDATE lidar_track_estimates SET ` + column + ` = 'body_centre' WHERE estimate_id = 'e-1'`); err != nil {
+			t.Fatal(err)
+		}
+		after, err := BuildEvidenceOracle(db, expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if reflect.DeepEqual(before, after) {
+			t.Fatalf("a changed %s did not change the semantic oracle", column)
+		}
+	}
 }
 
 func TestBuildEvidenceOracleRejectsBrokenEstimateLink(t *testing.T) {
@@ -58,11 +77,27 @@ func TestBuildEvidenceOracleRejectsBrokenEstimateLink(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO lidar_observations (observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos, cluster_unix_nanos, cluster_id, record_json, inserted_at_ns) VALUES ('o-1', 1, 'source-a', 'cal', 'sensor', 'frame', 100, 100, 1, '{}', 1)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns) VALUES ('e-1', 'track', 'missing', 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', 1, 1, 2, 3, 4, '[]', 1)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns, reference_point, support_instant) VALUES ('e-1', 'track', 'missing', 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', 1, 1, 2, 3, 4, '[]', 1, 'cluster_medoid', 'observed')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := BuildEvidenceOracle(db, map[string]struct{}{"source-a": {}}); err == nil {
 		t.Fatal("broken estimate link was accepted")
+	}
+}
+
+// A stored estimate that cannot be read as the oracle's row is an error, not
+// a row hashed with a zero in its place.
+func TestBuildEvidenceOracleRejectsAnUnreadableEstimate(t *testing.T) {
+	db, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
+	if _, err := db.Exec(`INSERT INTO lidar_observations (observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos, cluster_unix_nanos, cluster_id, record_json, inserted_at_ns) VALUES ('o-1', 1, 'source-a', 'cal', 'sensor', 'frame', 100, 100, 1, '{}', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns, reference_point, support_instant) VALUES ('e-1', 'track', 'o-1', 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', 1, 'not a number', 2, 3, 4, '[]', 1, 'cluster_medoid', 'observed')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildEvidenceOracle(db, map[string]struct{}{"source-a": {}}); err == nil || !strings.Contains(err.Error(), "scan estimate") {
+		t.Fatalf("an estimate with a text position: error %v", err)
 	}
 }
 
@@ -85,7 +120,7 @@ func TestBuildEvidenceOracleIgnoresRandomTrackIdentity(t *testing.T) {
 		if _, err := db.Exec(`INSERT INTO lidar_observations (observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos, cluster_unix_nanos, cluster_id, record_json, inserted_at_ns) VALUES (?, 1, 'source-a', 'cal', 'sensor', 'frame', 100, 100, 1, '{"cluster":1}', 1)`, observationID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns) VALUES (?, ?, ?, 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', ?, 1, 2, 3, 4, '[]', 1)`,
+		if _, err := db.Exec(`INSERT INTO lidar_track_estimates (estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns, reference_point, support_instant) VALUES (?, ?, ?, 'source-a', 'cal', 100, 100, 'estimator', 'model', 'params', 'online', 'obb', ?, 1, 2, 3, 4, '[]', 1, 'cluster_medoid', 'observed')`,
 			estimateID, trackID, observationID, creationSequence); err != nil {
 			t.Fatal(err)
 		}

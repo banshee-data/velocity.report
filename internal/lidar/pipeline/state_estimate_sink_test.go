@@ -80,6 +80,33 @@ func TestOnlineStateEstimateFilesTheSolidBodyBesideThePointEstimate(t *testing.T
 	}
 }
 
+// The online row states what the track says its position refers to and what
+// the instant rested on, whatever the measurement source would suggest.
+func TestOnlineStateEstimateStatesTheTracksReferenceAndSupport(t *testing.T) {
+	cfg := estimateIdentityConfig()
+	track, frame := trackedVehicle(t, false)
+	pair, err := onlineStateEstimate(cfg, track, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := pair.Estimate; e.Reference != l5tracks.ReferenceClusterMedoid || e.Support != l5tracks.SupportObserved ||
+		e.MeasurementSource != string(l5tracks.MeasurementMedoidV0) {
+		t.Fatalf("a medoid track's row states %s and %q from %s", e.Reference, e.Support, e.MeasurementSource)
+	}
+	// Another statement from the track is carried as it is.
+	stated := *track
+	stated.LastMeasurementSource = l5tracks.MeasurementOBBCentreV1
+	stated.LastSupport = l5tracks.SupportClusterSplit
+	pair, err = onlineStateEstimate(cfg, &stated, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := pair.Estimate; e.Reference != stated.PositionReference() || e.Reference != l5tracks.ReferenceVisibleOBBCentre ||
+		e.Support != l5tracks.SupportClusterSplit {
+		t.Fatalf("the row states %s and %q, the track %s and %q", e.Reference, e.Support, stated.PositionReference(), stated.LastSupport)
+	}
+}
+
 func TestOnlineStateEstimateHasNoSolidBodyWithTheOptionOff(t *testing.T) {
 	track, frame := trackedVehicle(t, false)
 	pair, err := onlineStateEstimate(estimateIdentityConfig(), track, frame)
@@ -133,5 +160,26 @@ func TestPersistOnlineStateEstimateNeverDropsASolidBodySilently(t *testing.T) {
 	cfg.StateEstimateSink = pointOnly
 	if err := persistOnlineStateEstimate(cfg, plain, frame); err != nil {
 		t.Fatalf("option off: %v", err)
+	}
+}
+
+// A frame the tracker decided without applying its observation files its
+// residual with the tracker's disposition and reason; an ordinary update is
+// accepted.
+func TestOnlineStateEstimateFilesTheTrackersDisposition(t *testing.T) {
+	track, frame := trackedVehicle(t, false)
+	pair, err := onlineStateEstimate(estimateIdentityConfig(), track, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.Residual.Disposition != "accepted" || pair.Residual.Reason != "association_accepted" {
+		t.Fatalf("an ordinary update filed %s/%s", pair.Residual.Disposition, pair.Residual.Reason)
+	}
+	track.LastResidual.Disposition, track.LastResidual.Reason = l5tracks.ResidualNotApplied, "face_hysteresis"
+	if pair, err = onlineStateEstimate(estimateIdentityConfig(), track, frame); err != nil {
+		t.Fatal(err)
+	}
+	if pair.Residual.Disposition != l5tracks.ResidualNotApplied || pair.Residual.Reason != "face_hysteresis" {
+		t.Fatalf("a frame not applied filed %s/%s", pair.Residual.Disposition, pair.Residual.Reason)
 	}
 }

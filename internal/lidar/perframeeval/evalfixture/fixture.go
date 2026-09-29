@@ -26,6 +26,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -248,6 +249,7 @@ func WriteDB(path string, stages []string) error {
 						EstimatorID: EstimatorID, ObservationModelID: ObservationModelID, ParamHash: params,
 						Stage: stage, MeasurementSource: ObservationModelID, CreationSequence: tr.seq,
 						X: float32(i), Y: tr.y,
+						Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
 					}
 					r := sqlite.TrackResidual{EstimateID: id, ObservationID: e.ObservationID, Disposition: "accepted", Reason: "fixture"}
 					if err := states.Insert(e, r); err != nil {
