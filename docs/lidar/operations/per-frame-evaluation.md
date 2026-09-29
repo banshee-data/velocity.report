@@ -218,6 +218,16 @@ the same problem the same way.
 | Arms of different kinds                                            | Different write paths, not different estimators              |
 | Differing policy, episodes, gate, tolerance or reference digest    | Not a comparison                                             |
 
+## Physical references
+
+The reference position above is a visible-mask position, not a body centre. `-physical-reference`
+adds a separate physical score for each estimate arm against the pack's reviewed physical
+references: centre, yaw, dimensions, bumpers, box and following gap, each only where the reference
+has it, with complete accounting of what was not scored. It refuses a held-out split and analysis
+runs. The flags, matching and accounting are in the
+[point annotation tool guide](point-annotation-tool.md#scoring-against-physical-references); the
+output gains a `physical` section and a Markdown table.
+
 ## Output
 
 `-json` writes the comparison (schema `velocity.report/perframe-comparison` version 1): the

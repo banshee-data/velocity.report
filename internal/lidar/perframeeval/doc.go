@@ -25,6 +25,11 @@
 //  5. Comparison: two arms, paired per episode, with deltas; refused when the
 //     reference, policy, gate, tolerance or episode set differ.
 //
+// Beside that sits a separate physical path (physical.go): each estimate arm
+// against the pack's reviewed physical references, component by component,
+// with complete accounting of what was not scored. The mask position above is
+// never scored as a body centre.
+//
 // It depends on the annotation package, which reaches into L9 for export, so
 // it sits beside the layers rather than inside L8.
 package perframeeval

@@ -75,6 +75,15 @@ type Comparison struct {
 	Caveats []string  `json:"caveats"`
 	A       ArmResult `json:"arm_a"`
 	B       ArmResult `json:"arm_b"`
+	// Physical is present only when physical scoring was asked for.
+	Physical *PhysicalArms `json:"physical,omitempty"`
+}
+
+// PhysicalArms is both arms scored against one physical reference.
+type PhysicalArms struct {
+	Reference PhysicalReferenceIdentity `json:"reference"`
+	A         PhysicalResult            `json:"arm_a"`
+	B         PhysicalResult            `json:"arm_b"`
 }
 
 // CompareArms pairs two arms episode by episode. It refuses when anything that

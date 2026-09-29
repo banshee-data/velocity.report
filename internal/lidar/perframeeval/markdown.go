@@ -2,6 +2,7 @@ package perframeeval
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -59,11 +60,77 @@ func RenderMarkdown(c Comparison) string {
 		writeSummaryTable(&b, c.A.Arm.Label, c.B.Arm.Label, p)
 	}
 
+	if c.Physical != nil {
+		writePhysical(&b, *c.Physical)
+	}
+
 	b.WriteString("\n## Caveats\n\n")
 	for _, cv := range c.Caveats {
 		fmt.Fprintf(&b, "- %s\n", cv)
 	}
 	return b.String()
+}
+
+// writePhysical is the physical section: the reference revision, each
+// component's pooled error beside the reference's own bound, and where every
+// unscored instant went.
+func writePhysical(b *strings.Builder, p PhysicalArms) {
+	ref := p.Reference
+	fmt.Fprintf(b, "\n## Physical references\n\n")
+	fmt.Fprintf(b, "Revision %d, content `%s`, %d expected instants, gate %g m.\n\n",
+		ref.PhysicalRevision, ref.PhysicalContentDigest, ref.ExpectedInstants, ref.GateMetres)
+	// Each arm's mean bound is over the instants it scored, which need not
+	// be the other arm's.
+	fmt.Fprintf(b, "| Component | %s scored | %s mean abs error | %s mean reference bound | %s scored | %s mean abs error | %s mean reference bound |\n",
+		p.A.Arm.Label, p.A.Arm.Label, p.A.Arm.Label, p.B.Arm.Label, p.B.Arm.Label, p.B.Arm.Label)
+	b.WriteString("| --------- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	row := func(name string, a, bs ComponentSummary) {
+		fmt.Fprintf(b, "| %s | %d | %.3f | %.3f | %d | %.3f | %.3f |\n",
+			name, a.Scored, a.MeanAbsError, a.MeanReferenceBound, bs.Scored, bs.MeanAbsError, bs.MeanReferenceBound)
+	}
+	for _, c := range PhysicalComponents() {
+		if c != ComponentBox {
+			row(string(c), p.A.Summary.Components[c], p.B.Summary.Components[c])
+		}
+	}
+	row("following_gap", p.A.Summary.Following, p.B.Summary.Following)
+	fmt.Fprintf(b, "| box IoU | %d | %.3f | - | %d | %.3f | - |\n",
+		p.A.Summary.BoxScored, p.A.Summary.MeanBoxIoU, p.B.Summary.BoxScored, p.B.Summary.MeanBoxIoU)
+
+	for _, arm := range []PhysicalResult{p.A, p.B} {
+		fmt.Fprintf(b, "\nWhere arm %s's expected instants went:\n\n", arm.Arm.Label)
+		for _, c := range PhysicalComponents() {
+			a := arm.Accounting.Components[c]
+			fmt.Fprintf(b, "- %s: %d of %d scored%s\n", c, a.Scored, a.Expected, describeUnscored(a))
+		}
+		f := arm.Accounting.Following
+		fmt.Fprintf(b, "- following_gap: %d of %d scored%s\n", f.Scored, f.Expected, describeUnscored(f))
+		for _, cv := range arm.Caveats {
+			fmt.Fprintf(b, "\n> %s\n", cv)
+		}
+	}
+}
+
+func describeUnscored(a ComponentAccounting) string {
+	var parts []string
+	for _, category := range sortedMapKeys(a.Unscored) {
+		for _, reason := range sortedMapKeys(a.Unscored[category]) {
+			parts = append(parts, fmt.Sprintf("%s/%s %d", category, reason, a.Unscored[category][reason]))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "; " + strings.Join(parts, ", ")
+}
+
+func sortedMapKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func writeSummaryTable(b *strings.Builder, labelA, labelB string, p PairedResult) {

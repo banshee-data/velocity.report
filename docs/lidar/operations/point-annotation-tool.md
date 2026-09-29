@@ -394,13 +394,14 @@ test is refused as observed; state it as inferred.
 - **Shared errors.** `shared_errors` name an observation that several components rest on, such as
   one outline fit that places the centre and bounds the length. Anything derived from several
   components is bounded by adding their bounds, which holds however their errors are correlated.
-- **Following.** A gap is `along_follower_axis`: the leader's rear bumper minus the follower's
-  front, along the follower's body axis. It is a straight chord, not the along-path headway arc.
-  A gap is no better known than the weaker of its two bumpers, and a bumper no better known than
-  its party's keyframe at that sample says: a party whose axis is unresolved there has no named
-  bumper, and an observed bumper needs the party's keyframe there. Two reviewed records for one
-  follower that overlap must agree on the decision and leader, and cannot both give a gap at one
-  sample; a proposal may disagree with a reviewed record.
+- **Following.** A gap is `along_follower_axis`: the leader's rear extreme minus the follower's
+  front extreme, projected onto the follower's body axis. For aligned cars these are the bumpers.
+  It is a straight chord, not the along-path headway arc. A gap is no better known than the weaker
+  of its two bumpers, and a bumper no better known than its party's keyframe at that sample says:
+  a party whose axis is unresolved there has no named bumper, and an observed bumper needs the
+  party's keyframe there. Two reviewed records for one follower that overlap must agree on the
+  decision and leader, and cannot both give a gap at one sample; a proposal may disagree with a
+  reviewed record.
 - **Review.** Each body, keyframe and following reference has its own `review`: status, origin,
   method, author and uncertainty assumptions. A `tracker_assisted` record names the tracker output
   it came from, and never becomes `independent`: not by review, not by editing its origin, not by
@@ -431,6 +432,61 @@ keyframe at the same sample or a following reference is refused unless `--replac
 record that no longer holds; on a pack with none it says so. `validate --revision N` checks a
 retained revision. Each command prints the revision, the digests and the counts, including how
 many keyframes are reviewed and independent.
+
+### Scoring against physical references
+
+The [per-frame evaluator](per-frame-evaluation.md) scores two estimate versions against the
+reviewed masks at a visible-mask position. That comparison is for identity; it is not a body-centre
+accuracy score and is not relabelled as one. `-physical-reference` adds a separate physical score
+for each arm against these references:
+
+```bash
+bin/lidar-ground-truth-eval perframe -pack "$PACK" -split-manifest "$SPLIT" -split tuning \
+  -allow-tuning-split -physical-reference \
+  -a-label near_edge -a-db "$DB" -a-param-hash "$PARAMS" -a-stage online -a-declared-baseline -a-solid-body \
+  -b-label medoid -b-db "$DB" -b-param-hash "$PARAMS" -b-stage online -b-declared-baseline \
+  -json physical.json -markdown physical.md
+```
+
+| Flag                             | Meaning                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `-physical-reference`            | Score each arm's centre, yaw, dimensions, bumpers, box and following gap       |
+| `-physical-reference-revision N` | Score a retained revision; the default is the current one. Both are recorded   |
+| `-physical-gate-metres M`        | How far a prediction's point may be from the reference centre, or anchor (3 m) |
+
+A prediction matches a reference by source (every row's sensor, and one calibration: the
+reference's, if it names one), by capture instant (the frame tolerance), in the pack's frame, and
+by object: at each sample, reviewed keyframes and predictions pair one to one, nearest first,
+within the gate. Objects the split manifest puts in another split take no part, so another split's
+references never change this one's outcomes; a prediction of such an object, like one of an
+untracked neighbour, may then match a scored object inside the gate.
+
+A component is scored only where the reference has it, reviewed and independent, with its bound.
+A derived bound adds its inputs' bounds and the chord a yaw bound sweeps with its lever arm. Each
+error is reported beside that bound. Only a body-centre prediction scores the centre: a medoid or
+a visible-box point is counted as a missing prediction, and its distance from the body centre is
+reported only by prediction reference. A signed front or rear needs a scorable yaw, and an
+ambiguous axis gives an axis error and an unsigned comparison of both ends, never a signed front or
+rear error. A box overlap needs a complete box on both sides. The gap is the behaviour layer's
+projected footprint gap, along the reference follower's axis. Where that keyframe has no resolved
+axis, the gap is counted as unknown geometry (`follower_axis_unavailable`) rather than measured
+along the prediction's own heading; so is a gap whose leader the episode does not score
+(`leader_outside_episode`) or has no keyframe for (`no_leader_keyframe`).
+
+Every object of every episode is expected at every sample where it has a mask or a keyframe, and
+every follower once at each sample its following records cover, whichever record speaks for it. Each
+expected instant is **scored**, or counted, per component, as **unknown geometry** (no keyframe
+there, not reviewed, tracker-assisted, or the component unknown, a prior, a lower bound only),
+**unmatched** or **missing prediction**, with its reason. A reviewed `no_leader` or `ambiguous`
+decision is counted as **not following**. Each per-instant record keeps the reference layer, the
+prediction layer and the comparison apart, and names the reference revision and the estimate
+version, so an inspector showing it cannot pair one instant's reference with another's estimate.
+Consecutive scored centres also report how far each layer moved: a step at a face change that the
+reference does not make shows up there.
+
+Physical scoring refuses a held-out split. Its error limits, reference precision and coverage have
+to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
+and the along-path gap waits for persisted paths.
 
 ## Limits
 
