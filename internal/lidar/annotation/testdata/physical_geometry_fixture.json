@@ -1,0 +1,1707 @@
+{
+  "objects": [
+    {
+      "object_id": "car-1",
+      "body": {
+        "body_id": "body-car-1",
+        "axis_convention": "x_front_y_left_z_up",
+        "length": {
+          "status": "observed",
+          "span": "full",
+          "lower_m": 4.3,
+          "upper_m": 4.7,
+          "value_m": 4.5,
+          "support": {
+            "frames": [
+              0,
+              1
+            ]
+          }
+        },
+        "width": {
+          "status": "inferred",
+          "span": "full",
+          "lower_m": 1.7,
+          "upper_m": 1.9,
+          "support": {
+            "external": "manufacturer's published width"
+          }
+        },
+        "height": {
+          "status": "observed",
+          "span": "partial",
+          "lower_m": 1.1,
+          "support": {
+            "frames": [
+              0
+            ]
+          }
+        },
+        "review": {
+          "status": "reviewed",
+          "origin": "independent",
+          "method": "manual_box",
+          "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+          "provenance": {
+            "author": "op",
+            "created_utc": "",
+            "revision": 0
+          }
+        }
+      },
+      "keyframes": [
+        {
+          "keyframe_id": "kf-car-1-s0",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 10,
+            "y_m": 0,
+            "z_m": 0.9,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 0,
+            "bound_rad": 0.05,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "shared_errors": [
+            {
+              "observation": "outline fit at sample 0",
+              "components": [
+                "length",
+                "position",
+                "yaw"
+              ]
+            }
+          ],
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-car-1-s3",
+          "sample_id": 3,
+          "timestamp_ns": 1300000000,
+          "anchor": {
+            "kind": "rear_face",
+            "offset_m": 2.25,
+            "offset_bound_m": 0.2
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 10.75,
+            "y_m": 0,
+            "bound_m": 0.15,
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "yaw": {
+            "status": "inferred",
+            "axis": "resolved",
+            "yaw_rad": 0,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                2,
+                3,
+                4
+              ]
+            }
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-car-1-s5-proposal",
+          "sample_id": 5,
+          "timestamp_ns": 1500000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 15.1,
+            "y_m": 0.05,
+            "bound_m": 0.3,
+            "support": {
+              "frames": [
+                5
+              ]
+            }
+          },
+          "yaw": {
+            "status": "inferred",
+            "axis": "front_rear_ambiguous",
+            "yaw_rad": 0.02,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                5
+              ]
+            }
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "unknown",
+            "support": {}
+          },
+          "review": {
+            "status": "proposed",
+            "origin": "tracker_assisted",
+            "method": "tracker_copy",
+            "tracker_source": "lidar_track_solid_bodies cv_kf_v1 seq-000001",
+            "uncertainty_assumptions": "the tracker's one-sigma, unreviewed",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object_id": "car-2",
+      "body": {
+        "body_id": "body-car-2",
+        "axis_convention": "x_front_y_left_z_up",
+        "length": {
+          "status": "observed",
+          "span": "full",
+          "lower_m": 4,
+          "upper_m": 4.4,
+          "support": {
+            "frames": [
+              0
+            ]
+          }
+        },
+        "width": {
+          "status": "unknown",
+          "support": {}
+        },
+        "height": {
+          "status": "prior_only",
+          "span": "full",
+          "lower_m": 1.3,
+          "upper_m": 1.7,
+          "support": {
+            "external": "class prior: car height"
+          }
+        },
+        "review": {
+          "status": "reviewed",
+          "origin": "independent",
+          "method": "manual_box",
+          "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+          "provenance": {
+            "author": "op",
+            "created_utc": "",
+            "revision": 0
+          }
+        }
+      },
+      "keyframes": [
+        {
+          "keyframe_id": "kf-car-2-s0",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 20,
+            "y_m": 0,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 0,
+            "bound_rad": 0.05,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object_id": "car-3",
+      "body": {
+        "body_id": "body-car-3",
+        "axis_convention": "x_front_y_left_z_up",
+        "length": {
+          "status": "observed",
+          "span": "full",
+          "lower_m": 4.1,
+          "upper_m": 4.9,
+          "value_m": 4.6,
+          "support": {
+            "frames": [
+              0
+            ]
+          }
+        },
+        "width": {
+          "status": "inferred",
+          "span": "full",
+          "lower_m": 1.7,
+          "upper_m": 2,
+          "support": {
+            "external": "spec sheet"
+          }
+        },
+        "height": {
+          "status": "prior_only",
+          "span": "full",
+          "lower_m": 1.3,
+          "upper_m": 1.6,
+          "support": {
+            "external": "class prior"
+          }
+        },
+        "review": {
+          "status": "reviewed",
+          "origin": "independent",
+          "method": "manual_box",
+          "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+          "provenance": {
+            "author": "op",
+            "created_utc": "",
+            "revision": 0
+          }
+        }
+      },
+      "keyframes": [
+        {
+          "keyframe_id": "kf-left-offset",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "left_face",
+            "offset_m": 0.9,
+            "offset_bound_m": 0.1
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 3,
+            "y_m": 4,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 0.7,
+            "bound_rad": 0.05,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "rear": {
+            "status": "inferred",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-right-offset",
+          "sample_id": 1,
+          "timestamp_ns": 1100000000,
+          "anchor": {
+            "kind": "right_face",
+            "offset_m": 0.9,
+            "offset_bound_m": 0.1
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 3,
+            "y_m": 4,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                1
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": -2.9,
+            "bound_rad": 0.2,
+            "support": {
+              "frames": [
+                1
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                1
+              ]
+            }
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                1
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-front-no-offset",
+          "sample_id": 2,
+          "timestamp_ns": 1200000000,
+          "anchor": {
+            "kind": "front_face"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 5,
+            "y_m": -1,
+            "bound_m": 0.3,
+            "support": {
+              "frames": [
+                2
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 3.1,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                2
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                2
+              ]
+            }
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                2
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-front-offset-seam",
+          "sample_id": 3,
+          "timestamp_ns": 1300000000,
+          "anchor": {
+            "kind": "front_face",
+            "offset_m": 2.3,
+            "offset_bound_m": 0.2
+          },
+          "position": {
+            "status": "observed",
+            "x_m": -5,
+            "y_m": 2,
+            "bound_m": 0.1,
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": -3.1,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "rear": {
+            "status": "prior_only",
+            "support": {
+              "frames": [
+                3
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-ambiguous",
+          "sample_id": 4,
+          "timestamp_ns": 1400000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 1,
+            "y_m": 1,
+            "bound_m": 0.25,
+            "support": {
+              "frames": [
+                4
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "front_rear_ambiguous",
+            "yaw_rad": 1.2,
+            "bound_rad": 0.3,
+            "support": {
+              "frames": [
+                4
+              ]
+            }
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "unknown",
+            "support": {}
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        },
+        {
+          "keyframe_id": "kf-axis-unknown",
+          "sample_id": 5,
+          "timestamp_ns": 1500000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 2,
+            "y_m": 2,
+            "bound_m": 0.4,
+            "support": {
+              "frames": [
+                5
+              ]
+            }
+          },
+          "yaw": {
+            "status": "unknown",
+            "axis": "unknown",
+            "support": {}
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "unknown",
+            "support": {}
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object_id": "car-4",
+      "body": {
+        "body_id": "body-car-4",
+        "axis_convention": "x_front_y_left_z_up",
+        "length": {
+          "status": "observed",
+          "span": "full",
+          "lower_m": 4.1,
+          "upper_m": 4.9,
+          "value_m": 4.6,
+          "support": {
+            "frames": [
+              0
+            ]
+          }
+        },
+        "width": {
+          "status": "inferred",
+          "span": "full",
+          "lower_m": 1.7,
+          "upper_m": 2,
+          "support": {
+            "external": "spec sheet"
+          }
+        },
+        "height": {
+          "status": "prior_only",
+          "span": "full",
+          "lower_m": 1.3,
+          "upper_m": 1.6,
+          "support": {
+            "external": "class prior"
+          }
+        },
+        "review": {
+          "status": "proposed",
+          "origin": "independent",
+          "method": "manual_box",
+          "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+          "provenance": {
+            "author": "op",
+            "created_utc": "",
+            "revision": 0
+          }
+        }
+      },
+      "keyframes": [
+        {
+          "keyframe_id": "kf-unreviewed-body",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 7,
+            "y_m": 7,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 0.5,
+            "bound_rad": 4,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object_id": "car-5",
+      "keyframes": [
+        {
+          "keyframe_id": "kf-no-body",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "rear_face",
+            "offset_m": 2,
+            "offset_bound_m": 0.1
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 9,
+            "y_m": 9,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 1,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "unknown",
+            "support": {}
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object_id": "car-6",
+      "body": {
+        "body_id": "body-car-6",
+        "axis_convention": "x_front_y_left_z_up",
+        "length": {
+          "status": "observed",
+          "span": "full",
+          "lower_m": 4.1,
+          "upper_m": 4.9,
+          "value_m": 4.6,
+          "support": {
+            "frames": [
+              0
+            ]
+          }
+        },
+        "width": {
+          "status": "inferred",
+          "span": "full",
+          "lower_m": 1.7,
+          "upper_m": 2,
+          "support": {
+            "external": "spec sheet"
+          }
+        },
+        "height": {
+          "status": "prior_only",
+          "span": "full",
+          "lower_m": 1.3,
+          "upper_m": 1.6,
+          "support": {
+            "external": "class prior"
+          }
+        },
+        "review": {
+          "status": "proposed",
+          "origin": "tracker_assisted",
+          "method": "tracker_copy",
+          "tracker_source": "lidar_track_solid_bodies cv_kf_v1 seq-000001",
+          "uncertainty_assumptions": "the tracker's one-sigma, unreviewed",
+          "provenance": {
+            "author": "op",
+            "created_utc": "",
+            "revision": 0
+          }
+        }
+      },
+      "keyframes": [
+        {
+          "keyframe_id": "kf-assisted-body",
+          "sample_id": 0,
+          "timestamp_ns": 1000000000,
+          "anchor": {
+            "kind": "body_centre"
+          },
+          "position": {
+            "status": "observed",
+            "x_m": 0,
+            "y_m": 0,
+            "bound_m": 0.2,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "yaw": {
+            "status": "observed",
+            "axis": "resolved",
+            "yaw_rad": 0,
+            "bound_rad": 0.1,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "front": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "rear": {
+            "status": "observed",
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "reviewed",
+            "origin": "independent",
+            "method": "manual_box",
+            "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+            "provenance": {
+              "author": "op",
+              "created_utc": "",
+              "revision": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "geometries": {
+    "kf-ambiguous": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-ambiguous",
+      "sample_id": 4,
+      "timestamp_ns": 1400000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 1,
+        "y_m": 1,
+        "bound_m": 0.25
+      },
+      "centre": {
+        "x_m": 1,
+        "y_m": 1,
+        "bound_m": 0.25
+      },
+      "yaw": {
+        "rad": 1.2,
+        "bound_rad": 0.3,
+        "axis": "front_rear_ambiguous",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front_unavailable": "axis_ambiguous",
+      "rear_unavailable": "axis_ambiguous",
+      "ends": [
+        {
+          "x_m": 1.8334228352963493,
+          "y_m": 3.1436898977246206,
+          "bound_m": 1.1874154093785563
+        },
+        {
+          "x_m": 0.16657716470365075,
+          "y_m": -1.1436898977246206,
+          "bound_m": 1.1874154093785563
+        }
+      ],
+      "box": {
+        "centre_x_m": 1,
+        "centre_y_m": 1,
+        "yaw_rad": 1.2,
+        "length_m": 4.6,
+        "width_m": 1.85
+      }
+    },
+    "kf-assisted-body": {
+      "object_id": "car-6",
+      "keyframe_id": "kf-assisted-body",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": false,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 0,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 0,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "yaw": {
+        "rad": 0,
+        "bound_rad": 0.1,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length_unavailable": "body_tracker_assisted",
+      "width_unavailable": "body_tracker_assisted",
+      "height_unavailable": "body_tracker_assisted",
+      "front_unavailable": "length_unavailable",
+      "rear_unavailable": "length_unavailable",
+      "box_unavailable": "incomplete_box"
+    },
+    "kf-axis-unknown": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-axis-unknown",
+      "sample_id": 5,
+      "timestamp_ns": 1500000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 2,
+        "y_m": 2,
+        "bound_m": 0.4
+      },
+      "centre": {
+        "x_m": 2,
+        "y_m": 2,
+        "bound_m": 0.4
+      },
+      "yaw_unavailable": "axis_unknown",
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front_unavailable": "axis_unknown",
+      "rear_unavailable": "axis_unknown",
+      "box_unavailable": "incomplete_box"
+    },
+    "kf-car-1-s0": {
+      "object_id": "car-1",
+      "keyframe_id": "kf-car-1-s0",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 10,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 10,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "yaw": {
+        "rad": 0,
+        "bound_rad": 0.05,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.3,
+        "upper_m": 4.7,
+        "value_m": 4.5,
+        "half_width_m": 0.20000000000000018,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 1.9,
+        "value_m": 1.7999999999999998,
+        "half_width_m": 0.10000000000000009,
+        "status": "inferred"
+      },
+      "height_unavailable": "lower_bound_only",
+      "front": {
+        "x_m": 12.25,
+        "y_m": 0,
+        "bound_m": 0.4124882816162056
+      },
+      "rear": {
+        "x_m": 7.75,
+        "y_m": 0,
+        "bound_m": 0.4124882816162056
+      },
+      "ends": [
+        {
+          "x_m": 12.25,
+          "y_m": 0,
+          "bound_m": 0.4124882816162056
+        },
+        {
+          "x_m": 7.75,
+          "y_m": 0,
+          "bound_m": 0.4124882816162056
+        }
+      ],
+      "box": {
+        "centre_x_m": 10,
+        "centre_y_m": 0,
+        "yaw_rad": 0,
+        "length_m": 4.5,
+        "width_m": 1.7999999999999998
+      },
+      "shared_errors": [
+        {
+          "observation": "outline fit at sample 0",
+          "components": [
+            "length",
+            "position",
+            "yaw"
+          ]
+        }
+      ]
+    },
+    "kf-car-1-s3": {
+      "object_id": "car-1",
+      "keyframe_id": "kf-car-1-s3",
+      "sample_id": 3,
+      "timestamp_ns": 1300000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "rear_face",
+      "anchor_point": {
+        "x_m": 10.75,
+        "y_m": 0,
+        "bound_m": 0.15
+      },
+      "centre": {
+        "x_m": 13,
+        "y_m": 0,
+        "bound_m": 0.5749062617180525
+      },
+      "yaw": {
+        "rad": 0,
+        "bound_rad": 0.1,
+        "axis": "resolved",
+        "status": "inferred"
+      },
+      "length": {
+        "lower_m": 4.3,
+        "upper_m": 4.7,
+        "value_m": 4.5,
+        "half_width_m": 0.20000000000000018,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 1.9,
+        "value_m": 1.7999999999999998,
+        "half_width_m": 0.10000000000000009,
+        "status": "inferred"
+      },
+      "height_unavailable": "lower_bound_only",
+      "front_unavailable": "unknown",
+      "rear": {
+        "x_m": 10.75,
+        "y_m": 0,
+        "bound_m": 0.15
+      },
+      "ends": [
+        {
+          "x_m": 15.25,
+          "y_m": 0,
+          "bound_m": 0.8998125234361051
+        },
+        {
+          "x_m": 10.75,
+          "y_m": 0,
+          "bound_m": 0.8998125234361051
+        }
+      ],
+      "box": {
+        "centre_x_m": 13,
+        "centre_y_m": 0,
+        "yaw_rad": 0,
+        "length_m": 4.5,
+        "width_m": 1.7999999999999998
+      }
+    },
+    "kf-car-1-s5-proposal": {
+      "object_id": "car-1",
+      "keyframe_id": "kf-car-1-s5-proposal",
+      "sample_id": 5,
+      "timestamp_ns": 1500000000,
+      "review_status": "proposed",
+      "origin": "tracker_assisted",
+      "truth": false,
+      "body_truth": true,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 15.1,
+        "y_m": 0.05,
+        "bound_m": 0.3
+      },
+      "centre": {
+        "x_m": 15.1,
+        "y_m": 0.05,
+        "bound_m": 0.3
+      },
+      "yaw": {
+        "rad": 0.02,
+        "bound_rad": 0.1,
+        "axis": "front_rear_ambiguous",
+        "status": "inferred"
+      },
+      "length": {
+        "lower_m": 4.3,
+        "upper_m": 4.7,
+        "value_m": 4.5,
+        "half_width_m": 0.20000000000000018,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 1.9,
+        "value_m": 1.7999999999999998,
+        "half_width_m": 0.10000000000000009,
+        "status": "inferred"
+      },
+      "height_unavailable": "lower_bound_only",
+      "front_unavailable": "axis_ambiguous",
+      "rear_unavailable": "axis_ambiguous",
+      "ends": [
+        {
+          "x_m": 17.3495500149998,
+          "y_m": 0.09499700005999943,
+          "bound_m": 0.6249062617180525
+        },
+        {
+          "x_m": 12.8504499850002,
+          "y_m": 0.005002999940000572,
+          "bound_m": 0.6249062617180525
+        }
+      ],
+      "box": {
+        "centre_x_m": 15.1,
+        "centre_y_m": 0.05,
+        "yaw_rad": 0.02,
+        "length_m": 4.5,
+        "width_m": 1.7999999999999998
+      }
+    },
+    "kf-car-2-s0": {
+      "object_id": "car-2",
+      "keyframe_id": "kf-car-2-s0",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 20,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 20,
+        "y_m": 0,
+        "bound_m": 0.2
+      },
+      "yaw": {
+        "rad": 0,
+        "bound_rad": 0.05,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4,
+        "upper_m": 4.4,
+        "value_m": 4.2,
+        "half_width_m": 0.20000000000000018,
+        "status": "observed"
+      },
+      "width_unavailable": "unknown",
+      "height_unavailable": "prior_only",
+      "front_unavailable": "unknown",
+      "rear": {
+        "x_m": 17.9,
+        "y_m": 0,
+        "bound_m": 0.4049890628417919
+      },
+      "ends": [
+        {
+          "x_m": 22.1,
+          "y_m": 0,
+          "bound_m": 0.4049890628417919
+        },
+        {
+          "x_m": 17.9,
+          "y_m": 0,
+          "bound_m": 0.4049890628417919
+        }
+      ],
+      "box_unavailable": "incomplete_box"
+    },
+    "kf-front-no-offset": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-front-no-offset",
+      "sample_id": 2,
+      "timestamp_ns": 1200000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "front_face",
+      "anchor_point": {
+        "x_m": 5,
+        "y_m": -1,
+        "bound_m": 0.3
+      },
+      "centre_unavailable": "anchor_offset_unknown",
+      "yaw": {
+        "rad": 3.1,
+        "bound_rad": 0.1,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front": {
+        "x_m": 5,
+        "y_m": -1,
+        "bound_m": 0.3
+      },
+      "rear_unavailable": "centre_unavailable",
+      "box_unavailable": "incomplete_box"
+    },
+    "kf-front-offset-seam": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-front-offset-seam",
+      "sample_id": 3,
+      "timestamp_ns": 1300000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "front_face",
+      "anchor_point": {
+        "x_m": -5,
+        "y_m": 2,
+        "bound_m": 0.1
+      },
+      "centre": {
+        "x_m": -2.701989154371457,
+        "y_m": 2.095635523596568,
+        "bound_m": 0.5299041786451203
+      },
+      "yaw": {
+        "rad": -3.1,
+        "bound_rad": 0.1,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front": {
+        "x_m": -5,
+        "y_m": 2,
+        "bound_m": 0.1
+      },
+      "rear_unavailable": "prior_only",
+      "ends": [
+        {
+          "x_m": -5,
+          "y_m": 2,
+          "bound_m": 1.0098083572902405
+        },
+        {
+          "x_m": -0.4039783087429145,
+          "y_m": 2.191271047193136,
+          "bound_m": 1.0098083572902405
+        }
+      ],
+      "box": {
+        "centre_x_m": -2.701989154371457,
+        "centre_y_m": 2.095635523596568,
+        "yaw_rad": -3.1,
+        "length_m": 4.6,
+        "width_m": 1.85
+      }
+    },
+    "kf-left-offset": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-left-offset",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "left_face",
+      "anchor_point": {
+        "x_m": 3,
+        "y_m": 4,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 3.579795918513922,
+        "y_m": 3.3116420314439603,
+        "bound_m": 0.34499531264648226
+      },
+      "yaw": {
+        "rad": 0.7,
+        "bound_rad": 0.05,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front": {
+        "x_m": 5.338932949268245,
+        "y_m": 4.7933427120906495,
+        "bound_m": 0.7099833338541589
+      },
+      "rear": {
+        "x_m": 1.820658887759599,
+        "y_m": 1.829941350797271,
+        "bound_m": 0.7099833338541589
+      },
+      "ends": [
+        {
+          "x_m": 5.338932949268245,
+          "y_m": 4.7933427120906495,
+          "bound_m": 0.7099833338541589
+        },
+        {
+          "x_m": 1.820658887759599,
+          "y_m": 1.829941350797271,
+          "bound_m": 0.7099833338541589
+        }
+      ],
+      "box": {
+        "centre_x_m": 3.579795918513922,
+        "centre_y_m": 3.3116420314439603,
+        "yaw_rad": 0.7,
+        "length_m": 4.6,
+        "width_m": 1.85
+      }
+    },
+    "kf-no-body": {
+      "object_id": "car-5",
+      "keyframe_id": "kf-no-body",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": false,
+      "anchor": "rear_face",
+      "anchor_point": {
+        "x_m": 9,
+        "y_m": 9,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 10.08060461173628,
+        "y_m": 10.682941969615793,
+        "bound_m": 0.49991667708271337
+      },
+      "yaw": {
+        "rad": 1,
+        "bound_rad": 0.1,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length_unavailable": "no_body",
+      "width_unavailable": "no_body",
+      "height_unavailable": "no_body",
+      "front_unavailable": "unknown",
+      "rear": {
+        "x_m": 9,
+        "y_m": 9,
+        "bound_m": 0.2
+      },
+      "box_unavailable": "incomplete_box"
+    },
+    "kf-right-offset": {
+      "object_id": "car-3",
+      "keyframe_id": "kf-right-offset",
+      "sample_id": 1,
+      "timestamp_ns": 1100000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": true,
+      "anchor": "right_face",
+      "anchor_point": {
+        "x_m": 3,
+        "y_m": 4,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 3.2153243962925844,
+        "y_m": 3.1261376513653687,
+        "bound_m": 0.4797001499642907
+      },
+      "yaw": {
+        "rad": -2.9,
+        "bound_rad": 0.2,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length": {
+        "lower_m": 4.1,
+        "upper_m": 4.9,
+        "value_m": 4.6,
+        "half_width_m": 0.5,
+        "status": "observed"
+      },
+      "width": {
+        "lower_m": 1.7,
+        "upper_m": 2,
+        "value_m": 1.85,
+        "half_width_m": 0.15000000000000013,
+        "status": "inferred"
+      },
+      "height_unavailable": "prior_only",
+      "front": {
+        "x_m": 0.9821206164485263,
+        "y_m": 2.575864194173209,
+        "bound_m": 1.1889338665397002
+      },
+      "rear": {
+        "x_m": 5.448528176136643,
+        "y_m": 3.676411108557528,
+        "bound_m": 1.1889338665397002
+      },
+      "ends": [
+        {
+          "x_m": 0.9821206164485263,
+          "y_m": 2.575864194173209,
+          "bound_m": 1.1889338665397002
+        },
+        {
+          "x_m": 5.448528176136643,
+          "y_m": 3.676411108557528,
+          "bound_m": 1.1889338665397002
+        }
+      ],
+      "box": {
+        "centre_x_m": 3.2153243962925844,
+        "centre_y_m": 3.1261376513653687,
+        "yaw_rad": -2.9,
+        "length_m": 4.6,
+        "width_m": 1.85
+      }
+    },
+    "kf-unreviewed-body": {
+      "object_id": "car-4",
+      "keyframe_id": "kf-unreviewed-body",
+      "sample_id": 0,
+      "timestamp_ns": 1000000000,
+      "review_status": "reviewed",
+      "origin": "independent",
+      "truth": true,
+      "body_truth": false,
+      "anchor": "body_centre",
+      "anchor_point": {
+        "x_m": 7,
+        "y_m": 7,
+        "bound_m": 0.2
+      },
+      "centre": {
+        "x_m": 7,
+        "y_m": 7,
+        "bound_m": 0.2
+      },
+      "yaw": {
+        "rad": 0.5,
+        "bound_rad": 4,
+        "axis": "resolved",
+        "status": "observed"
+      },
+      "length_unavailable": "body_unreviewed",
+      "width_unavailable": "body_unreviewed",
+      "height_unavailable": "body_unreviewed",
+      "front_unavailable": "length_unavailable",
+      "rear_unavailable": "length_unavailable",
+      "box_unavailable": "incomplete_box"
+    }
+  }
+}
