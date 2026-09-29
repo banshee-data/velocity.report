@@ -239,8 +239,9 @@ func TestPhysicalScoringOfChangingVisibleFaces(t *testing.T) {
 	}
 }
 
-// A medoid is not a body centre: its centre error is reported for what it is,
-// and nothing that needs a place on the body is scored from it.
+// A medoid is not a body centre: its centre is a missing prediction, its
+// distance from the body centre is reported by prediction reference only, and
+// nothing that needs a place on the body is scored from it.
 func TestPhysicalScoringOfANonPhysicalPoint(t *testing.T) {
 	f := physFixture(t)
 	r := scorePhys(t, f, DefaultPhysicalOptions(), evalfixture.ParamsMedoid)
@@ -249,8 +250,12 @@ func TestPhysicalScoringOfANonPhysicalPoint(t *testing.T) {
 	if c := in.Comparison.Centre; c.PredictionReference != "cluster_medoid" || !approx(c.ErrorM, evalfixture.MedoidOffsetM) {
 		t.Fatalf("medoid centre: %+v", c)
 	}
+	wantOutcome(t, in, ComponentCentre, OutcomeMissingPrediction, ReasonPredictionNotOnBody)
 	wantOutcome(t, in, ComponentFront, OutcomeMissingPrediction, ReasonPredictionNotOnBody)
 	wantOutcome(t, in, ComponentEnds, OutcomeMissingPrediction, ReasonPredictionNotOnBody)
+	if s := r.Summary.Components[ComponentCentre]; s.Scored != 0 {
+		t.Fatalf("medoids entered the body-centre score: %+v", s)
+	}
 	wantOutcome(t, in, ComponentBox, OutcomeMissingPrediction, ReasonPredictionIncompleteBox)
 	wantOutcome(t, in, ComponentLength, OutcomeScored, "")
 	if !approx(in.Comparison.Length.ErrorM, 4.0-evalfixture.FollowerLength) || !approx(in.Comparison.Length.OutsideBoundM, 4.0-4.5) {
@@ -271,7 +276,9 @@ func TestPhysicalScoringOfANonPhysicalPoint(t *testing.T) {
 	}
 }
 
-// Point estimates carry a position and no body: only the centre is scored.
+// Point estimates carry a visible-box point and no body: nothing is scored,
+// and the point's distance from the body centre is kept by prediction
+// reference.
 func TestPhysicalScoringOfPointEstimates(t *testing.T) {
 	f := physFixture(t)
 	pr, err := LoadPhysicalReference(physRefOpts(f), DefaultPhysicalOptions())
@@ -288,7 +295,11 @@ func TestPhysicalScoringOfPointEstimates(t *testing.T) {
 	}
 	checkComplete(t, r)
 	in := instantOf(t, r, evalfixture.Follower, 0)
-	wantOutcome(t, in, ComponentCentre, OutcomeScored, "")
+	wantOutcome(t, in, ComponentCentre, OutcomeMissingPrediction, ReasonPredictionNotOnBody)
+	if in.Comparison.Centre == nil || r.Summary.Components[ComponentCentre].Scored != 0 ||
+		r.Summary.CentreByPredictionReference["visible_obb_centre"].Scored == 0 {
+		t.Fatalf("visible-box centres: %+v %+v", in.Comparison.Centre, r.Summary)
+	}
 	wantOutcome(t, in, ComponentYaw, OutcomeMissingPrediction, ReasonPredictionNoHeading)
 	wantOutcome(t, in, ComponentLength, OutcomeMissingPrediction, ReasonPredictionNoExtent)
 	wantOutcome(t, in, ComponentBox, OutcomeMissingPrediction, ReasonPredictionIncompleteBox)

@@ -59,6 +59,7 @@ func TestPerFramePhysicalReferenceRefusals(t *testing.T) {
 		code int
 	}{
 		"revision without the flag": {physicalArgs(f, "-physical-reference-revision", "1"), 2},
+		"gate without the flag":     {physicalArgs(f, "-physical-gate-metres", "2.5"), 2},
 		"zero gate":                 {physicalArgs(f, "-physical-reference", "-physical-gate-metres", "0"), 2},
 		"negative revision":         {physicalArgs(f, "-physical-reference", "-physical-reference-revision", "-1"), 2},
 		"missing revision":          {physicalArgs(f, "-physical-reference", "-physical-reference-revision", "4"), 1},

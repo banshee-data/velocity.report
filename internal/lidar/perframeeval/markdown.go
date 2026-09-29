@@ -76,11 +76,14 @@ func writePhysical(b *strings.Builder, p PhysicalArms) {
 	fmt.Fprintf(b, "\n## Physical references\n\n")
 	fmt.Fprintf(b, "Revision %d, content `%s`, %d expected instants, gate %g m.\n\n",
 		ref.PhysicalRevision, ref.PhysicalContentDigest, ref.ExpectedInstants, ref.GateMetres)
-	fmt.Fprintf(b, "| Component | %s scored | %s mean abs error | %s scored | %s mean abs error | Mean reference bound |\n",
-		p.A.Arm.Label, p.A.Arm.Label, p.B.Arm.Label, p.B.Arm.Label)
-	b.WriteString("| --------- | ---: | ---: | ---: | ---: | ---: |\n")
+	// Each arm's mean bound is over the instants it scored, which need not
+	// be the other arm's.
+	fmt.Fprintf(b, "| Component | %s scored | %s mean abs error | %s mean reference bound | %s scored | %s mean abs error | %s mean reference bound |\n",
+		p.A.Arm.Label, p.A.Arm.Label, p.A.Arm.Label, p.B.Arm.Label, p.B.Arm.Label, p.B.Arm.Label)
+	b.WriteString("| --------- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 	row := func(name string, a, bs ComponentSummary) {
-		fmt.Fprintf(b, "| %s | %d | %.3f | %d | %.3f | %.3f |\n", name, a.Scored, a.MeanAbsError, bs.Scored, bs.MeanAbsError, a.MeanReferenceBound)
+		fmt.Fprintf(b, "| %s | %d | %.3f | %.3f | %d | %.3f | %.3f |\n",
+			name, a.Scored, a.MeanAbsError, a.MeanReferenceBound, bs.Scored, bs.MeanAbsError, bs.MeanReferenceBound)
 	}
 	for _, c := range PhysicalComponents() {
 		if c != ComponentBox {
@@ -88,7 +91,7 @@ func writePhysical(b *strings.Builder, p PhysicalArms) {
 		}
 	}
 	row("following_gap", p.A.Summary.Following, p.B.Summary.Following)
-	fmt.Fprintf(b, "| box IoU | %d | %.3f | %d | %.3f | - |\n",
+	fmt.Fprintf(b, "| box IoU | %d | %.3f | - | %d | %.3f | - |\n",
 		p.A.Summary.BoxScored, p.A.Summary.MeanBoxIoU, p.B.Summary.BoxScored, p.B.Summary.MeanBoxIoU)
 
 	for _, arm := range []PhysicalResult{p.A, p.B} {

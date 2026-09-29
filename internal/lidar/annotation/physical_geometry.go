@@ -9,7 +9,7 @@ import "math"
 // bumpers and the box, each with a bound, or the reason it cannot be had.
 // They are derived here once, so the scorer and the inspector cannot disagree
 // about them. A derived bound is the sum of its inputs' bounds, including the
-// lateral swing a yaw bound gives a lever arm: worst-case propagation, which
+// chord a yaw bound sweeps with a lever arm: worst-case propagation, which
 // holds whatever the correlation between errors that share an observation.
 
 // Reasons a derived component is unavailable. A component's own status is
@@ -202,7 +202,9 @@ func (g *PhysicalGeometry) centre(a PhysicalAnchor) {
 }
 
 // endpoint is one bumper: the anchor itself when the anchor is that face,
-// and otherwise half the length from the centre along the axis.
+// and otherwise half the length from the centre along the axis. A signed
+// bumper is scored along the axis, so it needs a scorable yaw even when the
+// anchor places it.
 func (g *PhysicalGeometry) endpoint(e EndpointEvidence, sign float64, face AnchorKind) (*PlanarBound, string) {
 	switch {
 	case g.Yaw != nil && g.Yaw.Axis == AxisFrontRearAmbiguous:
@@ -211,11 +213,11 @@ func (g *PhysicalGeometry) endpoint(e EndpointEvidence, sign float64, face Ancho
 		return nil, UnavailableAxisUnknown
 	case !e.Status.Scorable():
 		return nil, string(e.Status)
+	case g.Yaw == nil:
+		return nil, UnavailableYaw
 	case g.Anchor == face && g.AnchorPoint != nil:
 		p := *g.AnchorPoint
 		return &p, ""
-	case g.Yaw == nil:
-		return nil, UnavailableYaw
 	case g.Centre == nil:
 		return nil, UnavailableCentre
 	case g.Length == nil:
@@ -235,9 +237,10 @@ func (g *PhysicalGeometry) alongAxis(sign float64) PlanarBound {
 	}
 }
 
-// swing is the lateral displacement per metre of lever arm that a yaw bound
-// allows.
-func swing(boundRad float64) float64 { return math.Sin(math.Min(boundRad, math.Pi/2)) }
+// swing is the displacement per metre of lever arm that a yaw bound allows:
+// the chord 2 sin(B/2) that turning through B sweeps, which is at least the
+// lateral part sin B, and reaches the full diameter at B = π.
+func swing(boundRad float64) float64 { return 2 * math.Sin(math.Min(boundRad, math.Pi)/2) }
 
 // Geometries derives every keyframe of every object, keyed by object and
 // sample.

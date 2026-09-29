@@ -106,6 +106,9 @@ const (
 	ReasonFollowerUnmatched        = "follower_unmatched"
 	ReasonLeaderUnmatched          = "leader_unmatched"
 	ReasonFollowerAxisUnavailable  = "follower_axis_unavailable"
+	ReasonLeaderOutsideEpisode     = "leader_outside_episode"
+	ReasonNoLeaderKeyframe         = "no_leader_keyframe"
+	ReasonPredictionInstantsDiffer = "prediction_instants_differ"
 )
 
 // Outcome is one component's fate at one instant.
@@ -173,11 +176,15 @@ type expectedInstant struct {
 	sample  int
 }
 
-// expectedFollowing is one sample of one following reference in an episode.
+// expectedFollowing is one follower at one sample of an episode, with the
+// following reference that speaks for it there.
 type expectedFollowing struct {
 	episode string
 	ref     annotation.FollowingReference
 	sample  int
+	// leaderInEpisode says the episode scores the leader too; a leader it
+	// does not score, perhaps one in another split, is not used.
+	leaderInEpisode bool
 }
 
 // PhysicalReference is a split's physical truth: the reference layer every
@@ -190,6 +197,10 @@ type PhysicalReference struct {
 	bodies    map[string]annotation.BodyGeometry
 	instants  []expectedInstant
 	following []expectedFollowing
+	// otherSplits are objects the manifest puts in another split. They take
+	// no part in matching, so another split's references never change this
+	// one's outcomes.
+	otherSplits map[string]bool
 }
 
 // LoadPhysicalReference opens the pack, its split manifest and annotation
@@ -254,7 +265,14 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	}
 
 	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples, geometry: doc.Geometries(),
-		bodies: map[string]annotation.BodyGeometry{}}
+		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{}}
+	for _, sp := range manifest.Splits {
+		if sp.Name != split.Name {
+			for _, obj := range sp.ObjectIDs {
+				pr.otherSplits[obj] = true
+			}
+		}
+	}
 	for _, o := range doc.Objects {
 		if o.Body != nil {
 			pr.bodies[o.ObjectID] = *o.Body
@@ -284,16 +302,7 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 				}
 			}
 		}
-		for _, f := range doc.Following {
-			if !scored[f.FollowerObjectID] {
-				continue
-			}
-			for s := f.Interval.FirstSample; s <= f.Interval.LastSample; s++ {
-				if ep.ContainsSample(s) {
-					pr.following = append(pr.following, expectedFollowing{episode: ep.EpisodeID, ref: f, sample: s})
-				}
-			}
-		}
+		pr.following = append(pr.following, expectedFollowings(ep, scored, doc.Following)...)
 	}
 	pr.Identity = PhysicalReferenceIdentity{
 		Method: PhysicalMethodID, PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID,
@@ -313,6 +322,61 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	sum := sha256.Sum256(b)
 	pr.Identity.Digest = "sha256:" + hex.EncodeToString(sum[:])
 	return pr, nil
+}
+
+// expectedFollowings is one expected item per follower and sample of an
+// episode, however many following records cover it. Where several do, the
+// one that speaks for the instant is a reviewed, independent record with a
+// gap there, then one without, then any other, in document order; the
+// validation already refuses reviewed records that disagree.
+func expectedFollowings(ep annotation.Episode, scored map[string]bool, refs []annotation.FollowingReference) []expectedFollowing {
+	type key struct {
+		follower string
+		sample   int
+	}
+	rank := func(f annotation.FollowingReference, s int) int {
+		if f.Review.Status != annotation.StatusReviewed || f.Review.Origin != annotation.OriginIndependent {
+			return 0
+		}
+		for _, g := range f.Gaps {
+			if g.SampleID == s {
+				return 2
+			}
+		}
+		return 1
+	}
+	chosen := map[key]annotation.FollowingReference{}
+	var keys []key
+	for _, f := range refs {
+		if !scored[f.FollowerObjectID] {
+			continue
+		}
+		for s := f.Interval.FirstSample; s <= f.Interval.LastSample; s++ {
+			if !ep.ContainsSample(s) {
+				continue
+			}
+			k := key{f.FollowerObjectID, s}
+			prev, seen := chosen[k]
+			if !seen {
+				keys = append(keys, k)
+			}
+			if !seen || rank(f, s) > rank(prev, s) {
+				chosen[k] = f
+			}
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].follower != keys[j].follower {
+			return keys[i].follower < keys[j].follower
+		}
+		return keys[i].sample < keys[j].sample
+	})
+	out := make([]expectedFollowing, len(keys))
+	for i, k := range keys {
+		f := chosen[k]
+		out[i] = expectedFollowing{episode: ep.EpisodeID, ref: f, sample: k.sample, leaderInEpisode: scored[f.LeaderObjectID]}
+	}
+	return out
 }
 
 func (pr *PhysicalReference) instantKeys() [][3]string {
@@ -355,14 +419,18 @@ type sampleMatches struct {
 	candidates  map[string]int
 }
 
-// checkSource holds every prediction row to the reference's sensor and, when
-// the reference names one, its calibration.
+// checkSource holds every prediction row to the reference's sensor and to
+// one calibration: the reference's, when it names one.
 func checkSource(src annotation.PhysicalSource, arm PhysicalArm) error {
 	for _, s := range arm.SensorIDs {
 		if s != src.SensorID {
 			return fmt.Errorf("arm %s is observed by sensor %q; the physical references are for sensor %q",
 				arm.Identity.Label, s, src.SensorID)
 		}
+	}
+	if len(arm.CalibrationIDs) > 1 {
+		return fmt.Errorf("arm %s mixes calibrations %q: score one calibration at a time",
+			arm.Identity.Label, arm.CalibrationIDs)
 	}
 	if src.CalibrationID == "" {
 		return nil
@@ -441,7 +509,10 @@ func predictionPosition(b PredictedBody) (x, y float64) {
 // matchSample pairs every truth keyframe at a sample with a prediction, one
 // to one, nearest pair first, within the gate. Every object with a truth
 // keyframe takes part, scored by this episode or not, so a prediction of a
-// neighbouring object is not handed to the one being scored.
+// neighbouring object is not handed to the one being scored; except objects
+// in another split, whose references must not change this split's outcomes.
+// A prediction of such an object, like one of an untracked neighbour, may
+// then be matched to a scored object inside the gate.
 func (pr *PhysicalReference) matchSample(sample int, predictions []alignedPrediction) sampleMatches {
 	m := sampleMatches{predictions: predictions, matched: map[string]int{}, candidates: map[string]int{}}
 	type pair struct {
@@ -457,7 +528,7 @@ func (pr *PhysicalReference) matchSample(sample int, predictions []alignedPredic
 	sort.Strings(objects)
 	for _, obj := range objects {
 		g, ok := pr.geometry[obj][sample]
-		if !ok || !g.Truth {
+		if !ok || !g.Truth || pr.otherSplits[obj] {
 			continue
 		}
 		rx, ry, ok := referencePosition(g)

@@ -152,10 +152,10 @@ func TestPredictionAndReferenceReasons(t *testing.T) {
 	}
 	centre := &annotation.PlanarBound{}
 	for want, g := range map[string]annotation.PhysicalGeometry{
-		annotation.UnavailableCentre:      {CentreUnavailable: annotation.UnavailableAnchorOffsetUnknown},
-		annotation.UnavailableAxisUnknown: {Centre: centre, YawUnavailable: annotation.UnavailableAxisUnknown},
-		annotation.UnavailableNoBody:      {Centre: centre, LengthUnavailable: annotation.UnavailableNoBody},
-		"":                                {Ends: []annotation.PlanarBound{{}, {}}},
+		annotation.UnavailableAnchorOffsetUnknown: {CentreUnavailable: annotation.UnavailableAnchorOffsetUnknown},
+		annotation.UnavailableAxisUnknown:         {Centre: centre, YawUnavailable: annotation.UnavailableAxisUnknown},
+		annotation.UnavailableNoBody:              {Centre: centre, LengthUnavailable: annotation.UnavailableNoBody},
+		"":                                        {Ends: []annotation.PlanarBound{{}, {}}},
 	} {
 		if got := endsUnavailable(g); got != want {
 			t.Errorf("ends of %+v: %q, want %q", g, got, want)

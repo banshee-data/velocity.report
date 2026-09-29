@@ -181,8 +181,12 @@ func (a *ComponentAccounting) add(o Outcome) {
 	a.Unscored[o.Category][o.Reason]++
 }
 
-// Complete reports whether every expected instant is scored or counted.
+// Complete reports whether every expected instant is scored or counted
+// under a named category.
 func (a ComponentAccounting) Complete() bool {
+	if _, unnamed := a.Unscored[""]; unnamed {
+		return false
+	}
 	n := a.Scored
 	for _, reasons := range a.Unscored {
 		for _, c := range reasons {
@@ -225,15 +229,18 @@ type PhysicalSummary struct {
 // PhysicalResult is one estimate version scored against one physical
 // reference.
 type PhysicalResult struct {
-	Schema        string                     `json:"schema"`
-	SchemaVersion int                        `json:"schema_version"`
-	Reference     PhysicalReferenceIdentity  `json:"reference"`
-	Arm           ArmIdentity                `json:"arm"`
-	Instants      []PhysicalInstant          `json:"instants"`
-	Following     []PhysicalFollowingInstant `json:"following"`
-	Accounting    PhysicalAccounting         `json:"accounting"`
-	Summary       PhysicalSummary            `json:"summary"`
-	Caveats       []string                   `json:"caveats"`
+	Schema        string                    `json:"schema"`
+	SchemaVersion int                       `json:"schema_version"`
+	Reference     PhysicalReferenceIdentity `json:"reference"`
+	Arm           ArmIdentity               `json:"arm"`
+	// ArmCalibrations are the calibrations the arm's rows were made under:
+	// one, since an arm that mixes them is refused.
+	ArmCalibrations []string                   `json:"arm_calibration_ids"`
+	Instants        []PhysicalInstant          `json:"instants"`
+	Following       []PhysicalFollowingInstant `json:"following"`
+	Accounting      PhysicalAccounting         `json:"accounting"`
+	Summary         PhysicalSummary            `json:"summary"`
+	Caveats         []string                   `json:"caveats"`
 }
 
 // Instant returns the record for one object at one sample of one episode.
@@ -260,7 +267,8 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 	}
 	res := PhysicalResult{
 		Schema: PhysicalScoreSchema, SchemaVersion: PhysicalScoreSchemaVersion, Reference: pr.Identity, Arm: arm.Identity,
-		Accounting: PhysicalAccounting{Components: map[PhysicalComponent]ComponentAccounting{}},
+		ArmCalibrations: arm.CalibrationIDs,
+		Accounting:      PhysicalAccounting{Components: map[PhysicalComponent]ComponentAccounting{}},
 	}
 	for _, e := range pr.instants {
 		res.Instants = append(res.Instants, s.instant(e))
@@ -361,8 +369,9 @@ func (s *physicalScorer) instant(e expectedInstant) PhysicalInstant {
 	unavailable := map[PhysicalComponent]string{
 		ComponentCentre: g.CentreUnavailable, ComponentYaw: g.YawUnavailable,
 		ComponentLength: g.LengthUnavailable, ComponentWidth: g.WidthUnavailable, ComponentHeight: g.HeightUnavailable,
-		ComponentFront: g.FrontUnavailable, ComponentRear: g.RearUnavailable, ComponentEnds: endsUnavailable(g),
-		ComponentBox: g.BoxUnavailable,
+		ComponentFront: signedEndUnavailable(g, g.FrontUnavailable), ComponentRear: signedEndUnavailable(g, g.RearUnavailable),
+		ComponentEnds: endsUnavailable(g),
+		ComponentBox:  g.BoxUnavailable,
 	}
 	for _, c := range PhysicalComponents() {
 		switch {
@@ -384,12 +393,22 @@ func (s *physicalScorer) instant(e expectedInstant) PhysicalInstant {
 	return in
 }
 
+// signedEndUnavailable is why a signed bumper cannot be scored: the
+// geometry's own reason, or a missing yaw, since the bumper's error is taken
+// along the reference axis.
+func signedEndUnavailable(g annotation.PhysicalGeometry, reason string) string {
+	if reason == "" && g.Yaw == nil {
+		return annotation.UnavailableYaw
+	}
+	return reason
+}
+
 func endsUnavailable(g annotation.PhysicalGeometry) string {
 	switch {
 	case len(g.Ends) > 0:
 		return ""
 	case g.CentreUnavailable != "":
-		return annotation.UnavailableCentre
+		return g.CentreUnavailable
 	case g.YawUnavailable != "":
 		return g.YawUnavailable
 	}
@@ -425,7 +444,13 @@ func compare(in *PhysicalInstant, g annotation.PhysicalGeometry, c PhysicalCompo
 	cmp := &in.Comparison
 	switch c {
 	case ComponentCentre:
+		// The distance is kept either way: for a point that is not on the
+		// body it says where that point sits, and is reported only by
+		// prediction reference, never as a body-centre error.
 		cmp.Centre = compareCentre(p, g)
+		if !p.Physical {
+			return ReasonPredictionNotOnBody
+		}
 	case ComponentYaw:
 		if p.Heading == nil {
 			return ReasonPredictionNoHeading
@@ -618,6 +643,13 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 		return set(OutcomeUnknownGeometry, string(out.ReferenceGap.Status))
 	case !hasAxis || !axis.Truth || axis.Yaw == nil || axis.Yaw.Axis != annotation.AxisResolved:
 		return set(OutcomeUnknownGeometry, ReasonFollowerAxisUnavailable)
+	case !e.leaderInEpisode:
+		// The leader is not an object this episode scores, perhaps one in
+		// another split: its reference is not used here.
+		return set(OutcomeUnknownGeometry, ReasonLeaderOutsideEpisode)
+	}
+	if lg, ok := s.pr.geometry[f.LeaderObjectID][e.sample]; !ok || !lg.Truth {
+		return set(OutcomeUnknownGeometry, ReasonNoLeaderKeyframe)
 	}
 	m := s.match(e.sample)
 	fi, followerOK := m.matched[f.FollowerObjectID]
@@ -634,7 +666,7 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 	gap := &PredictedGap{FollowerTrack: fb.TrackKey, LeaderTrack: lb.TrackKey,
 		Axis: "reference_follower_axis", AxisRad: axis.Yaw.Rad}
 	if fb.TimestampNs != lb.TimestampNs {
-		return set(OutcomeMissingPrediction, "prediction_instants_differ")
+		return set(OutcomeMissingPrediction, ReasonPredictionInstantsDiffer)
 	}
 	fx, fy := predictionPosition(fb)
 	path := l8behaviour.StraightPath{
@@ -667,11 +699,7 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 	}
 	out.PredictedGap = gap
 	ref := out.ReferenceGap
-	value := (*ref.LowerM + *ref.UpperM) / 2
-	if ref.ValueM != nil {
-		value = *ref.ValueM
-	}
-	errM, outside := gap.ValueM-value, 0.0
+	errM, outside := gap.ValueM-referenceGapValue(*ref), 0.0
 	switch {
 	case gap.ValueM > *ref.UpperM:
 		outside = gap.ValueM - *ref.UpperM
@@ -680,6 +708,15 @@ func (s *physicalScorer) following(e expectedFollowing) (PhysicalFollowingInstan
 	}
 	out.ErrorM, out.OutsideBoundM = &errM, &outside
 	return set(OutcomeScored, "")
+}
+
+// referenceGapValue is the gap a reference quotes: its value, or the middle
+// of its interval.
+func referenceGapValue(ref annotation.FollowingGap) float64 {
+	if ref.ValueM != nil {
+		return *ref.ValueM
+	}
+	return (*ref.LowerM + *ref.UpperM) / 2
 }
 
 // boxIoU is the intersection over union of two rotated rectangles.
@@ -784,7 +821,9 @@ func summarisePhysical(res PhysicalResult) PhysicalSummary {
 	for _, in := range res.Instants {
 		c := in.Comparison
 		if c.Centre != nil {
-			pool(ComponentCentre).add(c.Centre.ErrorM, c.Centre.ReferenceBoundM, c.Centre.ErrorM <= c.Centre.ReferenceBoundM)
+			if in.Outcomes[ComponentCentre].Category == OutcomeScored {
+				pool(ComponentCentre).add(c.Centre.ErrorM, c.Centre.ReferenceBoundM, c.Centre.ErrorM <= c.Centre.ReferenceBoundM)
+			}
 			if byRef[c.Centre.PredictionReference] == nil {
 				byRef[c.Centre.PredictionReference] = &errorPool{}
 			}
@@ -831,8 +870,11 @@ func summarisePhysical(res PhysicalResult) PhysicalSummary {
 	var gaps errorPool
 	for _, f := range res.Following {
 		if f.ErrorM != nil {
-			half := (*f.ReferenceGap.UpperM - *f.ReferenceGap.LowerM) / 2
-			gaps.add(*f.ErrorM, half, *f.OutsideBoundM == 0)
+			// The quoted value need not be the midpoint: the bound is its
+			// farther distance to either end, as for a dimension.
+			ref := f.ReferenceGap
+			value := referenceGapValue(*ref)
+			gaps.add(*f.ErrorM, math.Max(value-*ref.LowerM, *ref.UpperM-value), *f.OutsideBoundM == 0)
 		}
 	}
 	sum.Following = gaps.summary()
@@ -853,8 +895,9 @@ func physicalCaveats(res PhysicalResult) []string {
 	}
 	if len(offBody) > 0 {
 		sort.Strings(offBody)
-		out = append(out, fmt.Sprintf("Arm %s reports points that are not body centres (%s): their centre errors say how far "+
-			"that point sits from the body centre, not how well a body centre was estimated.", res.Arm.Label, strings.Join(offBody, ", ")))
+		out = append(out, fmt.Sprintf("Arm %s reports points that are not body centres (%s): their centres are counted as "+
+			"missing predictions, and how far each point sits from the body centre is reported only by prediction reference.",
+			res.Arm.Label, strings.Join(offBody, ", ")))
 	}
 	out = append(out,
 		"Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path "+

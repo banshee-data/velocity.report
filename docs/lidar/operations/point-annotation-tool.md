@@ -449,18 +449,27 @@ bin/lidar-ground-truth-eval perframe -pack "$PACK" -split-manifest "$SPLIT" -spl
 | `-physical-reference-revision N` | Score a retained revision; the default is the current one. Both are recorded   |
 | `-physical-gate-metres M`        | How far a prediction's point may be from the reference centre, or anchor (3 m) |
 
-A prediction matches a reference by source (every row's sensor, and the reference's calibration if
-it names one), by capture instant (the frame tolerance), in the pack's frame, and by object: at
-each sample, reviewed keyframes and predictions pair one to one, nearest first, within the gate.
-A component is scored only where the reference has it, reviewed and independent, with its bound.
-Each error is reported beside that bound and beside what the prediction's point was: a medoid's
-distance from the body centre is reported as such. An ambiguous axis gives an axis error and an
-unsigned comparison of both ends, never a signed front or rear error. A box overlap needs a
-complete box on both sides. The gap is the behaviour layer's projected footprint gap, along the
-reference follower's axis. Where that keyframe has no resolved axis, the gap is counted as unknown
-geometry (`follower_axis_unavailable`) rather than measured along the prediction's own heading.
+A prediction matches a reference by source (every row's sensor, and one calibration: the
+reference's, if it names one), by capture instant (the frame tolerance), in the pack's frame, and
+by object: at each sample, reviewed keyframes and predictions pair one to one, nearest first,
+within the gate. Objects the split manifest puts in another split take no part, so another split's
+references never change this one's outcomes; a prediction of such an object, like one of an
+untracked neighbour, may then match a scored object inside the gate.
 
-Every object of every episode is expected at every sample where it has a mask or a keyframe. Each
+A component is scored only where the reference has it, reviewed and independent, with its bound.
+A derived bound adds its inputs' bounds and the chord a yaw bound sweeps with its lever arm. Each
+error is reported beside that bound. Only a body-centre prediction scores the centre: a medoid or
+a visible-box point is counted as a missing prediction, and its distance from the body centre is
+reported only by prediction reference. A signed front or rear needs a scorable yaw, and an
+ambiguous axis gives an axis error and an unsigned comparison of both ends, never a signed front or
+rear error. A box overlap needs a complete box on both sides. The gap is the behaviour layer's
+projected footprint gap, along the reference follower's axis. Where that keyframe has no resolved
+axis, the gap is counted as unknown geometry (`follower_axis_unavailable`) rather than measured
+along the prediction's own heading; so is a gap whose leader the episode does not score
+(`leader_outside_episode`) or has no keyframe for (`no_leader_keyframe`).
+
+Every object of every episode is expected at every sample where it has a mask or a keyframe, and
+every follower once at each sample its following records cover, whichever record speaks for it. Each
 expected instant is **scored**, or counted, per component, as **unknown geometry** (no keyframe
 there, not reviewed, tracker-assisted, or the component unknown, a prior, a lower bound only),
 **unmatched** or **missing prediction**, with its reason. A reviewed `no_leader` or `ambiguous`

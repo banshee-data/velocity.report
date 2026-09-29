@@ -31,7 +31,7 @@ func TestPhysicalGeometryDerivations(t *testing.T) {
 		t.Fatalf("body-centre keyframe: %+v", g)
 	}
 	nearPoint(t, "centre", g.Centre, 10, 0, 0.2)
-	bumper := 0.2 + 0.2/2 + 2.25*math.Sin(0.05)
+	bumper := 0.2 + 0.2/2 + 2.25*2*math.Sin(0.05/2)
 	nearPoint(t, "front", g.Front, 12.25, 0, bumper)
 	nearPoint(t, "rear", g.Rear, 7.75, 0, bumper)
 	if len(g.Ends) != 2 || g.Box == nil || !near(g.Box.LengthM, 4.5) || !near(g.Box.WidthM, 1.8) {
@@ -44,7 +44,7 @@ func TestPhysicalGeometryDerivations(t *testing.T) {
 	// Rear face with a declared offset: the centre is the offset forward of
 	// it, and the rear bumper is the anchor itself.
 	g = car1.Geometry(car1.Keyframes[1])
-	nearPoint(t, "centre from rear face", g.Centre, 13, 0, 0.15+0.2+2.25*math.Sin(0.1))
+	nearPoint(t, "centre from rear face", g.Centre, 13, 0, 0.15+0.2+2.25*2*math.Sin(0.1/2))
 	nearPoint(t, "rear from anchor", g.Rear, 10.75, 0, 0.15)
 	if g.Front != nil || g.FrontUnavailable != string(EvidenceUnknown) {
 		t.Fatalf("an unknown front was placed: %+v %q", g.Front, g.FrontUnavailable)
@@ -120,7 +120,8 @@ func TestPhysicalGeometryFacesAndGaps(t *testing.T) {
 			}},
 		{"yaw a prior", o, func(k *PhysicalKeyframe) { k.Yaw.Status = EvidencePriorOnly },
 			func(g PhysicalGeometry) bool {
-				return g.YawUnavailable == "prior_only" && g.CentreUnavailable == UnavailableYaw && g.Front != nil && g.RearUnavailable == UnavailableYaw
+				return g.YawUnavailable == "prior_only" && g.CentreUnavailable == UnavailableYaw &&
+					g.Front == nil && g.FrontUnavailable == UnavailableYaw && g.RearUnavailable == UnavailableYaw
 			}},
 		{"axis unknown", o, func(k *PhysicalKeyframe) {
 			k.Anchor = PhysicalAnchor{Kind: AnchorBodyCentre}
@@ -150,4 +151,46 @@ func withReview(b *BodyGeometry, status ReviewStatus, origin ReferenceOrigin) *B
 	c := *b
 	c.Review.Status, c.Review.Origin = status, origin
 	return &c
+}
+
+// A yaw bound B lets a point h from the pivot land anywhere on an arc whose
+// chord from the nominal point is 2h sin(B/2), up to the full diameter at
+// B = π. The stated bumper and face-offset centre bounds must cover the
+// farthest point on that arc, not only its lateral part h sin B.
+func TestPhysicalGeometryBoundsCoverTheYawSwing(t *testing.T) {
+	const length = 4.6
+	body := &BodyGeometry{
+		BodyID: "b", AxisConvention: BodyAxisConvention, Review: independentReview(),
+		Length: DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(length), UpperM: fp(length), Support: frames(0)},
+		Width:  DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(1.8), UpperM: fp(1.8), Support: frames(0)},
+		Height: DimensionBound{Status: EvidenceUnknown},
+	}
+	o := PhysicalObject{ObjectID: "o", Body: body}
+	worst := func(h, yaw, b float64) float64 {
+		nx, ny := h*math.Cos(yaw), h*math.Sin(yaw)
+		far := 0.0
+		for i := 0; i <= 1000; i++ {
+			a := yaw - b + 2*b*float64(i)/1000
+			far = math.Max(far, math.Hypot(h*math.Cos(a)-nx, h*math.Sin(a)-ny))
+		}
+		return far
+	}
+	for _, b := range []float64{0.3, 1.0, math.Pi / 2, math.Pi} {
+		k := PhysicalKeyframe{
+			KeyframeID: "k", Anchor: PhysicalAnchor{Kind: AnchorBodyCentre},
+			Position: PositionBound{Status: EvidenceObserved, XM: fp(0), YM: fp(0), BoundM: fp(0), Support: frames(0)},
+			Yaw:      YawBound{Status: EvidenceObserved, Axis: AxisResolved, YawRad: fp(0.4), BoundRad: fp(b), Support: frames(0)},
+			Front:    EndpointEvidence{Status: EvidenceObserved, Support: frames(0)},
+			Rear:     EndpointEvidence{Status: EvidenceObserved, Support: frames(0)},
+			Review:   independentReview(),
+		}
+		g := o.Geometry(k)
+		if g.Front == nil || g.Front.BoundM < worst(length/2, 0.4, b)-1e-9 {
+			t.Errorf("B=%v: front bound %+v does not cover the swing %v", b, g.Front, worst(length/2, 0.4, b))
+		}
+		k.Anchor = PhysicalAnchor{Kind: AnchorRearFace, OffsetM: fp(length / 2), OffsetBoundM: fp(0)}
+		if g = o.Geometry(k); g.Centre == nil || g.Centre.BoundM < worst(length/2, 0.4, b)-1e-9 {
+			t.Errorf("B=%v: centre bound %+v does not cover the swing %v", b, g.Centre, worst(length/2, 0.4, b))
+		}
+	}
 }

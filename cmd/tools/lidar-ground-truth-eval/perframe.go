@@ -144,6 +144,8 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		cfg.Physical = &opts
 	} else if *physicalRevision != 0 {
 		return usageError(fs, stderr, fmt.Errorf("-physical-reference-revision needs -physical-reference"))
+	} else if flagSet(fs, "physical-gate-metres") {
+		return usageError(fs, stderr, fmt.Errorf("-physical-gate-metres needs -physical-reference"))
 	}
 	c, err := perframeeval.Run(cfg)
 	if err != nil {
@@ -203,4 +205,11 @@ func usageError(fs *flag.FlagSet, stderr io.Writer, err error) int {
 	fmt.Fprintf(stderr, "error: %v\n", err)
 	fs.Usage()
 	return 2
+}
+
+// flagSet reports whether the command line set a flag, whatever its value.
+func flagSet(fs *flag.FlagSet, name string) bool {
+	set := false
+	fs.Visit(func(f *flag.Flag) { set = set || f.Name == name })
+	return set
 }
