@@ -132,6 +132,52 @@ func TestTheTrackedReReferenceIsATranslationThatLeavesVelocityAlone(t *testing.T
 	}
 }
 
+func TestHalfExtentStateStartsFromTheTranslatedReReference(t *testing.T) {
+	// Both axes are held at the re-referencing fix, so with the translation
+	// on, the half-extent update there must equal the fixed model's from the
+	// same translated start.
+	atReReference := func(cfg TrackerConfig) SolidBodyReading {
+		tracker := NewTracker(cfg)
+		for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+			tracker.Update(f.clusters, f.at)
+			reading, _ := mainTrack(t, tracker).SolidBody()
+			if reading.Measurement.ReferenceChange == ReferenceToBodyCentre {
+				return reading
+			}
+		}
+		t.Fatal("the shadow never re-referenced")
+		return SolidBodyReading{}
+	}
+	fixed := solidBodyConfig()
+	fixed.SolidBody.ReferenceTranslation = true
+	half := fixed
+	half.SolidBody.HalfExtentState = true
+	a, b := atReReference(fixed), atReReference(half)
+	if math.Abs(float64(a.Estimate.X-b.Estimate.X)) > 1e-4 || math.Abs(float64(a.Estimate.Y-b.Estimate.Y)) > 1e-4 {
+		t.Fatalf("re-referenced at (%v, %v) with half-extents, (%v, %v) without",
+			b.Estimate.X, b.Estimate.Y, a.Estimate.X, a.Estimate.Y)
+	}
+}
+
+func TestNearEdgeTrackingIgnoresHalfExtentState(t *testing.T) {
+	// The tracked filter predicts no half-extents, so a tracked body keeps
+	// them held and its track is the one without the option.
+	with := nearEdgeTrackingConfig()
+	with.SolidBody.HalfExtentState = true
+	on, off := NewTracker(with), NewTracker(nearEdgeTrackingConfig())
+	for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+		on.Update(f.clusters, f.at)
+		off.Update(f.clusters, f.at)
+		if sb := mainTrack(t, on).solidBody; sb.halfLive[0] || sb.halfLive[1] {
+			t.Fatal("a tracked body took a half-extent as state")
+		}
+	}
+	a, b := mainTrack(t, on), mainTrack(t, off)
+	if a.X != b.X || a.Y != b.Y || a.VX != b.VX || a.VY != b.VY || a.P != b.P {
+		t.Fatalf("tracked state differs: (%v, %v) against (%v, %v)", a.X, a.Y, b.X, b.Y)
+	}
+}
+
 func TestTranslateToFacesMovesAlongTheNormalsOnly(t *testing.T) {
 	cluster := WorldCluster{CentroidX: 10, CentroidY: 4}
 	state := [4]float32{9.5, 4.2, 12, -1}

@@ -139,7 +139,7 @@ func TestSolidBodyNeverFeedsBackIntoTheTrackedState(t *testing.T) {
 		"shipped":    {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
 		"continuity": {continuity, SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin}},
 		"remedies": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true, OriginSource: syntheticOrigin,
-			FaceHysteresis: true, FaceEntryConsider: true, CourseAlignedFaces: true}},
+			FaceHysteresis: true, FaceEntryConsider: true, CourseAlignedFaces: true, HalfExtentState: true}},
 		"undeclared": {DefaultTrackerConfig(), SolidBodyOptions{Enabled: true}},
 	} {
 		base := c.base
@@ -952,5 +952,291 @@ func TestCourseAlignedFacesStillAnchorTheStraightPass(t *testing.T) {
 	}
 	if settled := meanOf(lateral[len(lateral)/2:]); settled > 0.15 {
 		t.Fatalf("settled lateral error %.3f m with course-aligned faces, want under 0.15 m", settled)
+	}
+}
+
+// halfExtentBody is a body on its centre with both half-extents live: at
+// x = 10 with the given variance, stationary, and a believed half-length of
+// 2.0 m with the given variance. The half-width is 0.9 m, and settled.
+func halfExtentBody(positionVar, halfLengthVar float32) solidBodyTrack {
+	return solidBodyTrack{
+		seeded:    true,
+		reference: ReferenceBodyCentre,
+		state:     [4]float32{10, 0, 0, 0},
+		p: [16]float32{
+			positionVar, 0, 0, 0,
+			0, positionVar, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		},
+		halfLive:   [2]bool{true, true},
+		halfExtent: [2]float32{2.0, 0.9},
+		halfP:      [4]float32{halfLengthVar, 0, 0, 0.0001},
+		halfBelief: [2]float32{4.0, 1.8},
+	}
+}
+
+var (
+	// Both converged under the lifecycle's bounds, so either can be state.
+	halfTestLength = DimensionBelief{Metres: 4.0, SigmaMetres: 0.5, AdmissibleFrames: 10, Provenance: ProvenanceAccumulated}
+	halfTestWidth  = DimensionBelief{Metres: 1.8, SigmaMetres: 0.02, AdmissibleFrames: 10, Provenance: ProvenanceAccumulated}
+)
+
+func TestHalfExtentStateSharesAnEnteringFacesOffset(t *testing.T) {
+	// The front face's plane is 0.3 m further out than the position and the
+	// believed half-length imply. With the half-length held fixed the whole
+	// offset moves the centre; with it as state, the offset is shared by the
+	// two variances, and a well-known position hardly moves.
+	tracker := NewTracker(solidBodyConfig())
+	r := float64(tracker.Config.MeasurementNoise)
+	sb := halfExtentBody(0.01, 0.09)
+	front := EdgeMeasurement{Face: FaceFront, NormalX: 1, PlaneOffsetMetres: 12.3, HalfExtentMetres: 2.0,
+		HalfExtentProvenance: ProvenanceAccumulated}
+
+	fixed, _, _, _, ok := tracker.applyEdgeMeasurements(sb.state, sb.p, []EdgeMeasurement{front}, nil)
+	if !ok {
+		t.Fatal("fixed half-extent update refused")
+	}
+	if nis, faces, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, []EdgeMeasurement{front}, nil,
+		halfTestLength, halfTestWidth); !ok || faces != faceBit(FaceFront) || !(nis > 0) {
+		t.Fatalf("update refused or misreported: ok %v, faces %v, NIS %v", ok, faces, nis)
+	}
+	s := 0.01 + 0.09 + r
+	wantX, wantH := 10+0.3*0.01/s, 2.0+0.3*0.09/s
+	if math.Abs(float64(sb.state[0])-wantX) > 1e-5 || math.Abs(float64(sb.halfExtent[0])-wantH) > 1e-5 {
+		t.Fatalf("x %v, half-length %v; want %v and %v, the offset shared by variance",
+			sb.state[0], sb.halfExtent[0], wantX, wantH)
+	}
+	// Held fixed, the centre takes the offset by 0.01/(0.01 + r); as state,
+	// by 0.01/(0.01 + 0.09 + r).
+	if got, want := (float64(sb.state[0])-10)/(float64(fixed[0])-10), (0.01+r)/(0.01+0.09+r); math.Abs(got-want) > 1e-3 {
+		t.Fatalf("the centre moved %v of the fixed model's step, want %v", got, want)
+	}
+	if sb.halfExtent[1] != 0.9 || sb.state[1] != 0 {
+		t.Fatalf("a front face moved the half-width (%v) or y (%v)", sb.halfExtent[1], sb.state[1])
+	}
+	if !(sb.halfCross[0*2+0] < 0) {
+		t.Fatalf("x and the half-length covariance %v; a face makes them anticorrelated", sb.halfCross[0])
+	}
+}
+
+func TestHalfExtentStateMeasuresTheLengthWhenTheRearFaceFollowsTheFront(t *testing.T) {
+	// A body 4.5 m long at x = 10, believed 4.0 m long. The front face is
+	// seen once and then the rear face frame after frame. Held fixed, the
+	// half-length error puts the centre 0.25 m forward on the front face and
+	// pulls it 0.25 m back on the rear, so it settles half a metre from where
+	// the front face left it. As state, the two faces measure the length and
+	// the centre settles where it is.
+	tracker := NewTracker(solidBodyConfig())
+	front := EdgeMeasurement{Face: FaceFront, NormalX: 1, PlaneOffsetMetres: 12.25, HalfExtentMetres: 2.0,
+		HalfExtentProvenance: ProvenanceAccumulated}
+	rear := EdgeMeasurement{Face: FaceRear, NormalX: -1, PlaneOffsetMetres: -7.75, HalfExtentMetres: 2.0,
+		HalfExtentProvenance: ProvenanceAccumulated}
+	faces := []EdgeMeasurement{front, rear, rear, rear, rear, rear, rear}
+
+	plain := halfExtentBody(1, 0.25)
+	state, p := plain.state, plain.p
+	var afterFront float32
+	for i, e := range faces {
+		var ok bool
+		state, p, _, _, ok = tracker.applyEdgeMeasurements(state, p, []EdgeMeasurement{e}, nil)
+		if !ok {
+			t.Fatal("fixed half-extent update refused")
+		}
+		if i == 0 {
+			afterFront = state[0]
+		}
+	}
+	if jump := float64(afterFront - state[0]); jump < 0.4 {
+		t.Fatalf("held fixed, the rear face moved the centre %v m; want it near twice the 0.25 m error", jump)
+	}
+
+	sb := halfExtentBody(1, 0.25)
+	for _, e := range faces {
+		if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, []EdgeMeasurement{e}, nil,
+			halfTestLength, halfTestWidth); !ok {
+			t.Fatal("update refused")
+		}
+	}
+	if math.Abs(float64(sb.state[0])-10) > 0.03 || math.Abs(float64(sb.halfExtent[0])-2.25) > 0.03 {
+		t.Fatalf("after both faces x %v and half-length %v; want 10 and 2.25", sb.state[0], sb.halfExtent[0])
+	}
+}
+
+func TestHalfExtentStateFoldsARevisedBeliefAsAMeasurement(t *testing.T) {
+	tracker := NewTracker(solidBodyConfig())
+	sb := halfExtentBody(0.01, 0.09)
+	// No face, and a length belief revised from 4.0 to 4.6 m.
+	revised := halfTestLength
+	revised.Metres = 4.6
+	if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, nil, nil, revised, halfTestWidth); !ok {
+		t.Fatal("fold refused")
+	}
+	r := 0.5 * 0.5 / 4.0
+	want := 2.0 + 0.3*0.09/(0.09+r)
+	if math.Abs(float64(sb.halfExtent[0])-want) > 1e-5 || sb.halfBelief[0] != 4.6 {
+		t.Fatalf("half-length %v after the fold, belief recorded %v; want %v and 4.6", sb.halfExtent[0], sb.halfBelief[0], want)
+	}
+	// Folded once: the same belief again changes nothing.
+	before := sb
+	if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, nil, nil, revised, halfTestWidth); !ok {
+		t.Fatal("second call refused")
+	}
+	if !reflect.DeepEqual(before, sb) {
+		t.Fatal("an unrevised belief was folded again")
+	}
+	// A class-prior belief is not evidence, and is not folded.
+	prior := DimensionBelief{Metres: 4.5, SigmaMetres: 1.5, Provenance: ProvenanceClassPrior}
+	if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, nil, nil, prior, halfTestWidth); !ok {
+		t.Fatal("third call refused")
+	}
+	if !reflect.DeepEqual(before, sb) {
+		t.Fatal("a class prior was folded as evidence")
+	}
+}
+
+func TestHalfExtentStateStartsAfterTheFixThatReReferencesTheBody(t *testing.T) {
+	// The fix that moves a medoid-referenced body onto its centre is a
+	// translation: it is exactly the fixed model's, and the half-extents
+	// become state after it, the half-width tied to the position along the
+	// face that fixed it.
+	tracker := NewTracker(solidBodyConfig())
+	right := EdgeMeasurement{Face: FaceRight, NormalY: -1, PlaneOffsetMetres: 0.5, HalfExtentMetres: 0.9,
+		HalfExtentProvenance: ProvenanceAccumulated}
+	sb := halfExtentBody(1, 0)
+	sb.reference, sb.halfLive, sb.halfExtent, sb.halfP = ReferenceClusterMedoid, [2]bool{}, [2]float32{}, [4]float32{}
+	fixedState, fixedP, _, _, _ := tracker.applyEdgeMeasurements(sb.state, sb.p, []EdgeMeasurement{right}, nil)
+	if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, []EdgeMeasurement{right}, nil,
+		halfTestLength, halfTestWidth); !ok {
+		t.Fatal("fix refused")
+	}
+	if sb.state != fixedState {
+		t.Fatalf("state %v, want the fixed model's %v", sb.state, fixedState)
+	}
+	v := halfTestWidth.SigmaMetres * halfTestWidth.SigmaMetres / 4
+	// Only the width, which a face fixed, becomes state.
+	if sb.halfLive != [2]bool{false, true} || sb.halfExtent != [2]float32{2.0, 0.9} || sb.halfBelief != [2]float32{4.0, 1.8} ||
+		sb.halfP != [4]float32{0, 0, 0, v} {
+		t.Fatalf("started %v %v %v %v", sb.halfLive, sb.halfExtent, sb.halfBelief, sb.halfP)
+	}
+	// The right face's normal is -y, so y's error is +1 times the half-width's.
+	if sb.halfCross != [8]float32{0, 0, 0, v, 0, 0, 0, 0} || math.Abs(float64(sb.p[1*4+1]-(fixedP[1*4+1]+v))) > 1e-7 ||
+		sb.p[0] != fixedP[0] {
+		t.Fatalf("cross %v, y variance %v against %v", sb.halfCross, sb.p[1*4+1], fixedP[1*4+1])
+	}
+}
+
+func TestHalfExtentStateMovesATiedFaceExactlyAsTheFixedModel(t *testing.T) {
+	// Once a face's half-extent is tied to the position, measuring that face
+	// again moves the centre exactly as holding the half-extent fixed does,
+	// and leaves the half-extent where it is.
+	tracker := NewTracker(solidBodyConfig())
+	right := func(plane float32) EdgeMeasurement {
+		return EdgeMeasurement{Face: FaceRight, NormalY: -1, PlaneOffsetMetres: plane, HalfExtentMetres: 0.9,
+			HalfExtentProvenance: ProvenanceAccumulated}
+	}
+	sb := halfExtentBody(1, 0)
+	sb.reference, sb.halfLive = ReferenceClusterMedoid, [2]bool{}
+	state, p := sb.state, sb.p
+	for i, plane := range []float32{0.5, 0.45, 0.62, 0.38, 0.55} {
+		var ok bool
+		state, p, _, _, ok = tracker.applyEdgeMeasurements(state, p, []EdgeMeasurement{right(plane)}, nil)
+		if !ok {
+			t.Fatal("fixed update refused")
+		}
+		if _, _, ok := tracker.applyEdgeMeasurementsWithHalfExtents(&sb, sb.state, sb.p, []EdgeMeasurement{right(plane)}, nil,
+			halfTestLength, halfTestWidth); !ok {
+			t.Fatal("update refused")
+		}
+		if math.Abs(float64(sb.state[1]-state[1])) > 2e-4 || math.Abs(float64(sb.halfExtent[1])-0.9) > 2e-4 {
+			t.Fatalf("frame %d: y %v against the fixed model's %v, half-width %v", i, sb.state[1], state[1], sb.halfExtent[1])
+		}
+	}
+}
+
+func TestHalfExtentCovarianceFollowsThePositionThroughAPrediction(t *testing.T) {
+	// A half-extent does not move, so across dt its covariance with position
+	// gains dt times its covariance with velocity, and nothing else changes.
+	tracker := NewTracker(solidBodyConfig())
+	track := &TrackedObject{}
+	track.solidBody = halfExtentBody(1, 0.09)
+	track.solidBody.halfCross = [8]float32{-0.05, 0.01, 0.02, -0.03, 0.04, 0, 0, 0.06}
+	before := track.solidBody
+	const dt = 0.1
+	tracker.predictSolidBodyStep(track, dt)
+	got := track.solidBody.halfCross
+	want := before.halfCross
+	for j := 0; j < 2; j++ {
+		want[0*2+j] += dt * before.halfCross[2*2+j]
+		want[1*2+j] += dt * before.halfCross[3*2+j]
+	}
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 1e-7 {
+			t.Fatalf("cross-covariance %v after the prediction, want %v", got, want)
+		}
+	}
+	if track.solidBody.halfExtent != before.halfExtent || track.solidBody.halfP != before.halfP {
+		t.Fatal("a prediction moved the half-extents")
+	}
+}
+
+func TestAugmentedUpdateWithoutAHalfExtentTermIsThePositionUpdate(t *testing.T) {
+	// With no half-extent in the measurement and no correlation with one,
+	// the six-state update is exactly the four-state one.
+	x4 := [4]float32{1, 2, 3, -1}
+	p4 := [16]float32{
+		2, 0.3, 0.1, 0,
+		0.3, 1, 0, 0.2,
+		0.1, 0, 0.5, 0,
+		0, 0.2, 0, 0.5,
+	}
+	var x6 [augmentedStates]float64
+	var p6 [augmentedStates * augmentedStates]float64
+	for i := 0; i < 4; i++ {
+		x6[i] = float64(x4[i])
+		for j := 0; j < 4; j++ {
+			p6[i*augmentedStates+j] = float64(p4[i*4+j])
+		}
+	}
+	x6[4], x6[5] = 2.2, 0.9
+	p6[4*augmentedStates+4], p6[5*augmentedStates+5] = 0.1, 0.1
+	want, _ := scalarPositionUpdate(&x4, &p4, 0.6, 0.8, 2.5, 0.05)
+	got, ok := scalarAugmentedUpdate(&x6, &p6, [augmentedStates]float64{0.6, 0.8}, 2.5, 0.05)
+	if !ok || math.Abs(got-want) > 1e-9 {
+		t.Fatalf("NIS %v, want %v", got, want)
+	}
+	for i := 0; i < 4; i++ {
+		if math.Abs(x6[i]-float64(x4[i])) > 1e-5 {
+			t.Fatalf("state %v, want %v", x6, x4)
+		}
+		for j := 0; j < 4; j++ {
+			if math.Abs(p6[i*augmentedStates+j]-float64(p4[i*4+j])) > 1e-5 {
+				t.Fatalf("P[%d][%d] %v, want %v", i, j, p6[i*augmentedStates+j], p4[i*4+j])
+			}
+		}
+	}
+	if x6[4] != 2.2 || x6[5] != 0.9 || p6[4*augmentedStates+4] != 0.1 {
+		t.Fatal("an uncorrelated half-extent moved")
+	}
+}
+
+func TestHalfExtentStateStillAnchorsTheStraightPass(t *testing.T) {
+	cfg := solidBodyConfig()
+	cfg.SolidBody.HalfExtentState = true
+	tracker := NewTracker(cfg)
+	var lateral []float64
+	for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+		tracker.Update(f.clusters, f.at)
+		r, _ := mainTrack(t, tracker).SolidBody()
+		if f.occluded || r.Measurement.Source != MeasurementNearEdgeCandidateV1 {
+			continue
+		}
+		lateral = append(lateral, math.Abs(float64(r.Estimate.Y)-f.truthY))
+	}
+	if len(lateral) < 20 {
+		t.Fatalf("only %d near-edge frames with the half-extent state", len(lateral))
+	}
+	if settled := meanOf(lateral[len(lateral)/2:]); settled > 0.15 {
+		t.Fatalf("settled lateral error %.3f m with the half-extent state, want under 0.15 m", settled)
 	}
 }

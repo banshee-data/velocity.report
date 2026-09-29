@@ -75,7 +75,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyReferenceTranslation}
+		ExperimentSolidBodyHalfExtents, ExperimentSolidBodyReferenceTranslation}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -135,6 +135,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyReferenceTranslation: func(o *l5tracks.SolidBodyOptions) {
 			o.ReferenceTranslation = true
 		},
+		ExperimentSolidBodyHalfExtents: func(o *l5tracks.SolidBodyOptions) { o.HalfExtentState = true },
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
@@ -238,6 +239,7 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 		"with adaptive noise":  append([]string{ExperimentAdaptiveUncertainty}, arm...),
 		"with likelihood cost": append([]string{ExperimentLikelihoodCost}, arm...),
 		"with the smoother":    append([]string{ExperimentFixedLagRTS}, arm...),
+		"with half-extents":    append([]string{ExperimentSolidBodyHalfExtents}, arm...),
 	} {
 		if _, err := trackerConfigFor(l5, "", experiments, nil); err == nil {
 			t.Errorf("near_edge_track %s was accepted", name)

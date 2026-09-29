@@ -228,6 +228,9 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 		{"full_members", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers}},
 		{"t3_course", []string{ExperimentSolidBody, ExperimentSolidBodyCourseFaces}},
 		{"t1_t3", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces}},
+		{"t4_half", []string{ExperimentSolidBody, ExperimentSolidBodyHalfExtents}},
+		{"t1_t3_t4", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces,
+			ExperimentSolidBodyHalfExtents}},
 	}
 	var plain solidBodyArm
 	var table strings.Builder
@@ -262,6 +265,13 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 			a.name, s.NearEdgeFixes, s.FaceStableRuns, s.Fallbacks["face_hysteresis"], s.Fallbacks["no_face_reached_minimum_support"],
 			all.P95Metres, all.P99Metres, all.MaxMetres, face.P95Metres, face.P99Metres, face.MaxMetres,
 			s.AnchorPointsCentred.P99Metres, s.AnchorPointsFaceStable.P99Metres)
+		if a.name == "t1_t3" || a.name == "t1_t3_t4" {
+			b, err := json.MarshalIndent(s.SteadyTransitions, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%s steady-run transitions:\n%s", a.name, b)
+		}
 		if a.name == "t1_t2" {
 			b, err := json.MarshalIndent(s.FaceStableStrata, "", "  ")
 			if err != nil {

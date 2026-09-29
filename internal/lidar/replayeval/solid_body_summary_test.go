@@ -218,3 +218,85 @@ func TestFaceStableStrataLeaveOutTracksThatNeverMoved(t *testing.T) {
 		}
 	}
 }
+
+func TestRowTransitionsNameEachChange(t *testing.T) {
+	fix := func(faces string) transitionRow {
+		return transitionRow{fix: true, faces: mustVisibleFaces(faces), width: 1.8, length: 4.5}
+	}
+	none := transitionRow{width: 1.8, length: 4.5}
+	wider := fix("right")
+	wider.width = 2.0
+	for name, c := range map[string]struct {
+		a, b transitionRow
+		want []string
+	}{
+		"unchanged":            {fix("front,right"), fix("front,right"), nil},
+		"side enters":          {fix("front"), fix("front,right"), []string{TransitionLateralFaceEnters}},
+		"front enters":         {fix("right"), fix("front,right"), []string{TransitionLongitudinalFaceEnters}},
+		"front leaves":         {fix("front,right"), fix("right"), []string{TransitionFaceLeaves}},
+		"front becomes rear":   {fix("front,right"), fix("rear,right"), []string{TransitionFaceSwaps}},
+		"fix lost":             {fix("right"), none, []string{TransitionFaceless, TransitionFaceLeaves}},
+		"fix regained":         {none, fix("right"), []string{TransitionFaceless, TransitionLateralFaceEnters}},
+		"width revised":        {fix("right"), wider, []string{TransitionWidthRevised}},
+		"faceless and unmoved": {none, none, nil},
+	} {
+		got := map[string]bool{}
+		rowTransitions(c.a, c.b, got)
+		want := map[string]bool{}
+		for _, w := range c.want {
+			want[w] = true
+		}
+		if len(got) != len(want) {
+			t.Errorf("%s: %v, want %v", name, got, want)
+			continue
+		}
+		for w := range want {
+			if !got[w] {
+				t.Errorf("%s: %v, want %v", name, got, want)
+			}
+		}
+	}
+}
+
+// The steady-run anatomy names the change behind a tail window: here a rear
+// face that enters track 1's second steady run and moves the body 0.3 m across
+// its course, and a width revision later in the same run.
+func TestSteadyTransitionsAttributeTheTailToTheChangeInsideIt(t *testing.T) {
+	points, bodies := summaryRows()
+	for i := range bodies {
+		b := &bodies[i]
+		if b.CreationSequence != 1 || b.Reading.Measurement.Source != l5tracks.MeasurementNearEdgeCandidateV1 {
+			continue
+		}
+		frame := (b.FrameUnixNanos - bodies[0].FrameUnixNanos) / 100_000_000
+		if frame >= 15 {
+			b.Reading.Measurement.Faces = mustVisibleFaces("rear,right")
+			b.Reading.Estimate.Y += 0.3
+		}
+		if frame >= 18 {
+			b.Reading.Estimate.Width.Metres = 2.0
+		}
+	}
+	s, err := SummariseSolidBodies(points, bodies, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := s.SteadyTransitions
+	if a == nil || a.Windows != s.AnchorBodiesSteady.Windows || a.P99Metres != s.AnchorBodiesSteady.P99Metres {
+		t.Fatalf("anatomy %+v against steady %+v", a, s.AnchorBodiesSteady)
+	}
+	shares := map[string]TransitionShare{}
+	for _, share := range a.Transitions {
+		shares[share.Transition] = share
+	}
+	entry := shares[TransitionLongitudinalFaceEnters]
+	if entry.Windows == 0 || entry.TailWindows == 0 || !(entry.P99WithoutMetres < a.P99Metres) {
+		t.Fatalf("the rear face's entry carries the tail: %+v, overall p99 %v", entry, a.P99Metres)
+	}
+	if shares[TransitionWidthRevised].Windows == 0 || shares[TransitionFaceSwaps].Windows != 0 {
+		t.Fatalf("width revision %+v, swaps %+v", shares[TransitionWidthRevised], shares[TransitionFaceSwaps])
+	}
+	if a.StableWindows == 0 || a.StableP99Metres > 1e-6 {
+		t.Fatalf("stable windows %d with p99 %v, want some and flat", a.StableWindows, a.StableP99Metres)
+	}
+}

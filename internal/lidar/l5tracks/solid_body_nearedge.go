@@ -115,6 +115,17 @@ type SolidBodyOptions struct {
 	// always done; NearEdgeTracking always translates, because there the
 	// velocity the innovation would move is the tracked one. Default false.
 	ReferenceTranslation bool
+	// HalfExtentState is remedy T4: the half-length and half-width behind
+	// the faces join the solid body's state, instead of being held at half
+	// the believed dimensions. A face then measures its own plane, which is
+	// the position along its normal plus the half-extent behind it, so the
+	// offset a face brings when it enters is shared between the two by
+	// their variances rather than all put into the position. Opposite faces
+	// share one half-extent, as a rigid body's do, so a front face followed
+	// by the rear one measures the length instead of moving the centre by
+	// twice its error. A revised extent belief is folded in as a measurement
+	// of the half-extent, not by re-basing the centre. Default false.
+	HalfExtentState bool
 }
 
 // ReferenceChange names a change of the point a solid body's position refers
@@ -294,6 +305,17 @@ type solidBodyTrack struct {
 	// body this frame, whose measurement the gate kept.
 	hasPair        bool
 	pairClusterIdx int
+	// halfExtent is HalfExtentState's part of the state: the half-length
+	// and half-width behind the faces, indexed by halfAxisFor. halfCross is
+	// its covariance with [x, y, vx, vy], row-major 4x2, and halfP its own
+	// 2x2. halfBelief is the pair of believed dimensions last folded into
+	// it. An axis is state only while halfLive says so; otherwise it is held
+	// at half the current belief with no variance, as without the option.
+	halfLive   [2]bool
+	halfExtent [2]float32
+	halfCross  [8]float32
+	halfP      [4]float32
+	halfBelief [2]float32
 
 	// reading is assembled when the state changes, so the estimate, its
 	// lifecycle decision and its class prior all describe the same instant.
@@ -442,6 +464,14 @@ func (t *Tracker) predictSolidBodyStep(track *TrackedObject, dt float32) {
 	sb.state[0] += sb.state[2] * dt
 	sb.state[1] += sb.state[3] * dt
 	sb.p = propagateConstantVelocity(sb.p, dt)
+	if sb.halfLive[0] || sb.halfLive[1] {
+		// A half-extent does not move, so only the position rows of its
+		// covariance with the dynamic state carry forward, as F does.
+		for j := 0; j < 2; j++ {
+			sb.halfCross[0*2+j] += dt * sb.halfCross[2*2+j]
+			sb.halfCross[1*2+j] += dt * sb.halfCross[3*2+j]
+		}
+	}
 	addProcessNoise(&sb.p, t.Config.ProcessNoisePos, t.Config.ProcessNoiseVel, dt, t.Config.CoupledProcessNoise)
 	for i := 0; i < 4; i++ {
 		if sb.p[i*4+i] > t.Config.MaxCovarianceDiag {
@@ -489,6 +519,16 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 			opsf("Solid body %s produced non-finite covariance: track_id=%s dropping solid body", step, track.TrackID)
 			*sb = solidBodyTrack{}
 			return
+		}
+	}
+	if sb.halfLive[0] || sb.halfLive[1] {
+		for i := 0; i < 2; i++ {
+			h, v := float64(sb.halfExtent[i]), float64(sb.halfP[i*2+i])
+			if math.IsNaN(h) || math.IsInf(h, 0) || math.IsNaN(v) || math.IsInf(v, 0) {
+				opsf("Solid body %s produced a non-finite half-extent: track_id=%s dropping solid body", step, track.TrackID)
+				*sb = solidBodyTrack{}
+				return
+			}
 		}
 	}
 	speed := float32(math.Hypot(float64(sb.state[2]), float64(sb.state[3])))
@@ -643,13 +683,28 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		if t.Config.SolidBody.FaceEntryConsider {
 			consider = sb.entryConsider(usable, f.length, f.width)
 		}
-		state, p, nis, faces, ok := t.applyEdgeMeasurements(startState, startP, usable, consider)
+		before := sb.state
+		var nis float32
+		var faces VisibleFaces
+		ok := false
+		// A tracked body's filter carries no half-extents to predict, so
+		// HalfExtentState is the shadow's alone.
+		if t.Config.SolidBody.HalfExtentState && !sb.tracked {
+			nis, faces, ok = t.applyEdgeMeasurementsWithHalfExtents(sb, startState, startP, usable, consider, f.length, f.width)
+		} else {
+			var state [4]float32
+			var p [16]float32
+			state, p, nis, faces, ok = t.applyEdgeMeasurements(startState, startP, usable, consider)
+			if ok {
+				sb.state, sb.p = state, p
+			}
+		}
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
 		}
-		applied = applicationOf(sb.state, startState, usable)
-		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
+		applied = applicationOf(before, startState, usable)
+		sb.reference = ReferenceBodyCentre
 		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
 		m.Rank = len(usable)
@@ -781,6 +836,9 @@ func (t *Tracker) lapseSolidBodyToMedoid(sb *solidBodyTrack, cluster WorldCluste
 	sb.p[0*4+0], sb.p[1*4+1] = bias, bias
 	sb.reference = ReferenceClusterMedoid
 	sb.lastFixFaces = 0
+	// The half-extents are held again, and become state again as they did
+	// the first time.
+	sb.halfLive, sb.halfCross, sb.halfP = [2]bool{}, [8]float32{}, [4]float32{}
 }
 
 // admitFaces advances FaceHysteresis by one frame in which the given faces
@@ -925,6 +983,212 @@ func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges [
 		faces |= faceBit(e.Face)
 	}
 	return next, nextP, float32(nis), faces, true
+}
+
+// augmentedStates is HalfExtentState's state size: [x, y, vx, vy] and the
+// half-length and half-width behind the faces.
+const augmentedStates = 6
+
+// halfAxisFor is the index of the half-extent behind a face: 0 for the
+// half-length behind the front and rear faces, 1 for the half-width behind
+// the left and right.
+func halfAxisFor(f BodyFace) int {
+	if f.IsLongitudinal() {
+		return 0
+	}
+	return 1
+}
+
+// applyEdgeMeasurementsWithHalfExtents is applyEdgeMeasurements under
+// HalfExtentState, where a half-extent can be state. Each face is then a
+// scalar measurement of its own plane, n·(x, y) plus the half-extent behind
+// it, with the tracked filter's noise. startState and startP are the dynamic
+// state and covariance to start from, translated and widened already if this
+// fix re-references the body.
+//
+// An axis's half-extent is held at half the current belief with no variance,
+// which makes its faces' updates exactly the fixed model's, until two things
+// are true: its belief has converged under the lifecycle's bounds, and a fix
+// has used a face on it. That fix is applied with the axis still held, so the
+// fix that moves a body onto its centre stays a translation rather than an
+// innovation (the near-edge plan's invariant 3). After it, the half-extent is
+// state: a quarter of the belief's variance, the same variance added to the
+// position along that face's normal, and the position's error along it tied
+// to minus the half-extent's. A face already tied then moves the centre
+// exactly as the fixed model does and leaves the half-extent alone; only a
+// face entering on an untied axis, the opposite face, or a revised belief
+// behave differently.
+//
+// A belief the extent evidence has revised since it was last folded in is a
+// measurement of a live half-extent before the faces are applied: half the
+// belief, with a quarter of its variance. The belief is a lower bound and
+// each revision re-uses the evidence behind the last, so this is more
+// confident than the evidence strictly is (named in the near-edge plan).
+// Nothing is changed unless every update applied.
+func (t *Tracker) applyEdgeMeasurementsWithHalfExtents(sb *solidBodyTrack, startState [4]float32, startP [16]float32, edges []EdgeMeasurement,
+	consider []float64, length, width DimensionBelief) (float32, VisibleFaces, bool) {
+	beliefs := [2]DimensionBelief{length, width}
+	live, half, cross, hp, belief := sb.halfLive, sb.halfExtent, sb.halfCross, sb.halfP, sb.halfBelief
+	if sb.reference != ReferenceBodyCentre {
+		live = [2]bool{}
+	}
+	for a := range beliefs {
+		if live[a] {
+			continue
+		}
+		half[a], belief[a] = beliefs[a].Metres/2, beliefs[a].Metres
+		hp[a*2+0], hp[a*2+1], hp[0*2+a], hp[1*2+a] = 0, 0, 0, 0
+		for i := 0; i < 4; i++ {
+			cross[i*2+a] = 0
+		}
+	}
+
+	const n = augmentedStates
+	var x [n]float64
+	var p [n * n]float64
+	for i := 0; i < 4; i++ {
+		x[i] = float64(startState[i])
+		for j := 0; j < 4; j++ {
+			p[i*n+j] = float64(startP[i*4+j])
+		}
+		for j := 0; j < 2; j++ {
+			p[i*n+4+j] = float64(cross[i*2+j])
+			p[(4+j)*n+i] = float64(cross[i*2+j])
+		}
+	}
+	for i := 0; i < 2; i++ {
+		x[4+i] = float64(half[i])
+		for j := 0; j < 2; j++ {
+			p[(4+i)*n+4+j] = float64(hp[i*2+j])
+		}
+	}
+
+	for a, d := range beliefs {
+		if !live[a] || !d.Provenance.IsEvidence() || d.Metres == belief[a] {
+			continue
+		}
+		var h [n]float64
+		h[4+a] = 1
+		sigma := float64(d.SigmaMetres) / 2
+		if _, ok := scalarAugmentedUpdate(&x, &p, h, float64(d.Metres)/2, sigma*sigma); !ok {
+			return 0, 0, false
+		}
+		belief[a] = d.Metres
+	}
+
+	var nis float64
+	var faces VisibleFaces
+	for i, e := range edges {
+		r := float64(t.Config.MeasurementNoise)
+		if consider != nil {
+			r += consider[i]
+		}
+		var h [n]float64
+		h[0], h[1] = float64(e.NormalX), float64(e.NormalY)
+		h[4+halfAxisFor(e.Face)] = 1
+		term, ok := scalarAugmentedUpdate(&x, &p, h, float64(e.PlaneOffsetMetres), r)
+		if !ok {
+			return 0, 0, false
+		}
+		nis += term
+		faces |= faceBit(e.Face)
+	}
+
+	// An axis becomes state after a fix on it, once its belief has converged.
+	bounds := DefaultConvergenceBounds()
+	for _, e := range edges {
+		a := halfAxisFor(e.Face)
+		if live[a] || !beliefs[a].IsConverged(bounds.MaxDimensionSigmaMetres, bounds.MinAdmissibleFrames) {
+			continue
+		}
+		v := float64(beliefs[a].SigmaMetres) * float64(beliefs[a].SigmaMetres) / 4
+		nx, ny := float64(e.NormalX), float64(e.NormalY)
+		p[(4+a)*n+4+a] = v
+		p[0*n+4+a], p[(4+a)*n+0] = -nx*v, -nx*v
+		p[1*n+4+a], p[(4+a)*n+1] = -ny*v, -ny*v
+		p[0*n+0] += nx * nx * v
+		p[0*n+1] += nx * ny * v
+		p[1*n+0] += ny * nx * v
+		p[1*n+1] += ny * ny * v
+		live[a] = true
+	}
+
+	for i := 0; i < 4; i++ {
+		sb.state[i] = float32(x[i])
+		for j := 0; j < 4; j++ {
+			sb.p[i*4+j] = float32(p[i*n+j])
+		}
+		for j := 0; j < 2; j++ {
+			sb.halfCross[i*2+j] = float32(p[i*n+4+j])
+		}
+	}
+	for i := 0; i < 2; i++ {
+		sb.halfExtent[i] = float32(x[4+i])
+		for j := 0; j < 2; j++ {
+			sb.halfP[i*2+j] = float32(p[(4+i)*n+4+j])
+		}
+	}
+	sb.halfBelief, sb.halfLive = belief, live
+	return float32(nis), faces, true
+}
+
+// scalarAugmentedUpdate is scalarPositionUpdate over HalfExtentState's six
+// states, for a measurement z = h·x + v with v ~ N(0, r): Joseph form, the
+// update's NIS, and false without changing anything when the innovation
+// variance is not positive.
+func scalarAugmentedUpdate(x *[augmentedStates]float64, p *[augmentedStates * augmentedStates]float64,
+	h [augmentedStates]float64, z, r float64) (float64, bool) {
+	const n = augmentedStates
+	var pht [n]float64
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			pht[i] += p[i*n+j] * h[j]
+		}
+	}
+	s := r
+	var predicted float64
+	for i := 0; i < n; i++ {
+		s += h[i] * pht[i]
+		predicted += h[i] * x[i]
+	}
+	if !(s > 0) || math.IsInf(s, 0) {
+		return 0, false
+	}
+	innovation := z - predicted
+	var k [n]float64
+	for i := range k {
+		k[i] = pht[i] / s
+		x[i] += k[i] * innovation
+	}
+
+	// P' = (I - k h) P (I - k h)ᵀ + r k kᵀ.
+	var a [n * n]float64
+	for i := 0; i < n; i++ {
+		a[i*n+i] = 1
+		for j := 0; j < n; j++ {
+			a[i*n+j] -= k[i] * h[j]
+		}
+	}
+	var ap [n * n]float64
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			var sum float64
+			for m := 0; m < n; m++ {
+				sum += a[i*n+m] * p[m*n+j]
+			}
+			ap[i*n+j] = sum
+		}
+	}
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			var sum float64
+			for m := 0; m < n; m++ {
+				sum += ap[i*n+m] * a[j*n+m]
+			}
+			p[i*n+j] = sum + r*k[i]*k[j]
+		}
+	}
+	return innovation * innovation / s, true
 }
 
 // applyMedoidMeasurement updates a medoid-referenced solid body from the

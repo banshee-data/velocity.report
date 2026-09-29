@@ -1185,6 +1185,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	course := hasExperiment(experiments, ExperimentSolidBodyCourseFaces)
 	translation := hasExperiment(experiments, ExperimentSolidBodyReferenceTranslation)
+	halfExtents := hasExperiment(experiments, ExperimentSolidBodyHalfExtents)
 	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
@@ -1193,10 +1194,10 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
 			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
-			ReferenceTranslation: translation,
+			ReferenceTranslation: translation, HalfExtentState: halfExtents,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
-	} else if hysteresis || consider || course || translation || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+	} else if hysteresis || consider || course || translation || halfExtents || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
@@ -1236,6 +1237,9 @@ func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource)
 			return fmt.Errorf("replay experiment %s needs %s and %s, and %q lacks %s",
 				ExperimentNearEdgeTrack, ExperimentSolidBody, ExperimentSolidBodyFullMembers, experiments, needed)
 		}
+	}
+	if hasExperiment(experiments, ExperimentSolidBodyHalfExtents) {
+		return fmt.Errorf("replay experiment %s does not combine with %s: the tracked filter carries no half-extents to predict", ExperimentNearEdgeTrack, ExperimentSolidBodyHalfExtents)
 	}
 	for _, refused := range []string{ExperimentAdaptiveUncertainty, ExperimentLikelihoodCost} {
 		if hasExperiment(experiments, refused) {
