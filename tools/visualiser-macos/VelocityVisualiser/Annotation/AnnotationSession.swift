@@ -32,6 +32,23 @@ enum AnnotationGuard: Equatable {
     /// A propagation is writing frames; nothing else may move the session.
     case propagating
     case unsavedMembership(sampleID: Int, objectID: String)
+    /// The physical-reference draft differs from what is saved.
+    case unsavedPhysical
+}
+
+/// What a gesture in the orthographic views authors. The two never share a
+/// drag: a lasso stroke never moves a pose, and a placement click never
+/// selects a return.
+enum AnnotationWorkMode: String, CaseIterable, Equatable {
+    case points
+    case physical
+
+    var label: String {
+        switch self {
+        case .points: return "Points"
+        case .physical: return "Physical reference"
+        }
+    }
 }
 
 /// Observable annotation state. `@MainActor` because the selection it holds is
@@ -43,7 +60,82 @@ enum AnnotationGuard: Equatable {
     private let store: SidecarStore
 
     /// The current saved snapshot plus its concurrency token.
-    private var document: SidecarDocument
+    private var document: SidecarDocument {
+        didSet {
+            // Membership changed on disk: the physical references' links are
+            // checked against it, so the physical session has to hear.
+            if physicalStarted, document.loadedDigest != oldValue.loadedDigest {
+                let physical = self.physical
+                Task { await physical.membershipDidChange() }
+            }
+        }
+    }
+
+    /// The exact-byte digest of the membership this window last read or saved.
+    var membershipDigest: String { document.loadedDigest }
+
+    // MARK: Physical references
+
+    /// What a gesture authors. Physical authoring is blind to tracker output:
+    /// entering it stops following the main view, whose boxes would show the
+    /// estimate being judged.
+    @Published var workMode: AnnotationWorkMode = .points {
+        didSet {
+            guard workMode != oldValue else { return }
+            if workMode == .physical {
+                syncWithMainView = false
+                startPhysical()
+                if physical.availability == .notLoaded {
+                    let physical = self.physical
+                    Task { await physical.load() }
+                }
+            }
+            sceneRevision &+= 1
+        }
+    }
+
+    /// The pack's physical-reference draft, saved through the local service.
+    /// Made on first use, so a window that never authors a pose never asks the
+    /// service anything.
+    private(set) lazy var physical: PhysicalReferenceSession = PhysicalReferenceSession(
+        packDirectory: pack.directory, packDigest: pack.manifest.packDigest, sessionID: sessionID,
+        client: physicalClient, membershipDigest: { [unowned self] in self.document.loadedDigest },
+        author: { [unowned self] in self.operatorName })
+    private var physicalStarted = false
+    private let physicalClient: PhysicalReferenceAPIClient
+    private var physicalForward: AnyCancellable?
+
+    /// Starts following the physical draft: the object list and the views
+    /// read it, so a change to it redraws them.
+    private func startPhysical() {
+        guard !physicalStarted else { return }
+        physicalStarted = true
+        physicalForward = physical.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+
+    // MARK: Intensity
+
+    /// Whether the pack's intensity is a measurement at all.
+    var intensityAvailability: IntensityAvailability {
+        IntensityAvailability(hasIntensity: pack.manifest.hasIntensity)
+    }
+
+    /// How the views colour by raw intensity. A display setting: it changes
+    /// no byte, mask, reference or review.
+    @Published var intensityDisplay = IntensityDisplaySpec() {
+        didSet { if intensityDisplay != oldValue { sceneRevision &+= 1 } }
+    }
+
+    /// Whether moving the cursor reads out the return under it.
+    @Published var inspectIntensity = false {
+        didSet { if !inspectIntensity { inspection.clear() } }
+    }
+
+    /// The returns under the cursor and the pinned one. Not published by the
+    /// session: see IntensityInspectionState.
+    let inspection = IntensityInspectionState()
 
     @Published private(set) var sidecar: Sidecar {
         // A review changes no selection and no point, only what a mask is
@@ -223,7 +315,14 @@ enum AnnotationGuard: Equatable {
     /// Keep this window and the main view on the same frame, in both
     /// directions: stepping here seeks the main view, and moving the main view
     /// steps here.
-    @Published var syncWithMainView = true { didSet { if !syncWithMainView { syncStatus = .off } } }
+    @Published var syncWithMainView = true {
+        didSet {
+            // Physical authoring is blind: the main view draws the tracker's
+            // boxes, so it does not follow or lead while a pose is authored.
+            if syncWithMainView, workMode == .physical { syncWithMainView = false }
+            if !syncWithMainView { syncStatus = .off }
+        }
+    }
     @Published private(set) var syncStatus: FrameSyncStatus = .off
     /// While the main view plays, keep it inside this pack's frames: when it
     /// runs past the last one, send it back to the first. A pack is a few
@@ -452,9 +551,11 @@ enum AnnotationGuard: Equatable {
 
     init(
         pack: AnnotationPack, store: SidecarStore? = nil,
-        defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard
+        defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
+        physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient()
     ) throws {
         self.pack = pack
+        self.physicalClient = physicalClient
         self.defaults = defaults
         let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
         self.store = resolvedStore
@@ -755,6 +856,7 @@ enum AnnotationGuard: Equatable {
         currentPoints = (try? pack.points(sampleID: orderedSamples[index].sampleID)) ?? PackPoints()
         pendingCandidates = nil
         hover.clear()
+        inspection.clear()
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         secondViewChecked = false
@@ -777,7 +879,16 @@ enum AnnotationGuard: Equatable {
         {
             return .unsavedMembership(sampleID: sample.sampleID, objectID: objectID)
         }
+        if physicalStarted, physical.isDirty { return .unsavedPhysical }
         return nil
+    }
+
+    /// Discards everything unsaved: the membership of this frame and the
+    /// physical draft. What the discard prompts do once the operator has
+    /// chosen to lose the work.
+    func discardAllUnsaved() {
+        reload()
+        if physicalStarted { physical.discard() }
     }
 
     /// Abandons the in-progress stroke, the explicit way past the guard.

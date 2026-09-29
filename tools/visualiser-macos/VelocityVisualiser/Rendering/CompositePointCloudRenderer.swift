@@ -391,9 +391,17 @@ class CompositePointCloudRenderer {
             let renderBuffer =
                 (isTransitioning ? blendBuffer : backgroundBuffer) ?? backgroundBuffer
             if let bgBuffer = renderBuffer {
+                // A settled snapshot carries no measured intensity, so it is
+                // never coloured from the intensity table: in that mode it is
+                // drawn in its flat class colour instead.
+                var backgroundUniforms = uniforms
+                if backgroundUniforms.padding.x == MetalRenderer.IntensityColouring.table.rawValue {
+                    backgroundUniforms.padding.x = MetalRenderer.IntensityColouring.flat.rawValue
+                }
                 encoder.setVertexBuffer(bgBuffer, offset: 0, index: 0)
                 encoder.setVertexBytes(
-                    &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
+                    &backgroundUniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride,
+                    index: 1)
                 encoder.drawPrimitives(
                     type: .point, vertexStart: 0, vertexCount: backgroundPointCount)
             }

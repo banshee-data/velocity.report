@@ -268,7 +268,10 @@ enum SidecarStoreError: Error, Equatable {
 /// revision from overwriting a newer file.
 struct SidecarDocument {
     var sidecar: Sidecar
-    fileprivate let loadedDigest: String
+    /// The exact-byte digest of the file this snapshot was loaded from or
+    /// saved as, empty for a pack with no annotations yet. The physical
+    /// reference service pins an edit to it.
+    let loadedDigest: String
     fileprivate let loadedRevision: Int
     /// True when no annotations.json existed: an untouched pack starts empty
     /// and the first save must create rather than replace.
