@@ -66,6 +66,9 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 		EstimatorID:      cfg.StateEstimatorID, ObservationModelID: cfg.StateObservationModelID,
 		ParamHash: cfg.StateParameterHash, Stage: sqlite.EstimateStageOnline, MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
+		// What the tracker says the state refers to and rested on this
+		// frame, not what the measurement source would suggest.
+		Reference: track.PositionReference(), Support: track.LastSupport,
 	}
 	pair := sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{
 		EstimateID: estimateID, ObservationID: observationID, PredictedX: residual.PredictedX, PredictedY: residual.PredictedY,

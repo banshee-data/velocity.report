@@ -280,6 +280,10 @@ type SmoothedState struct {
 	Observed    bool
 	Confirmed   bool
 	Observation FilterObservation
+	// Reference and Support are the step's own (FilterStep): smoothing moves
+	// the state, never the point it refers to or what the instant rested on.
+	Reference ReferencePoint
+	Support   ObservationSupport
 	// Online is the filter's posterior; Smoothed is the refined estimate.
 	Online   FilterMoments
 	Smoothed FilterMoments
@@ -700,6 +704,7 @@ func (s *FixedLagSmoother) stateFor(w *smootherWindow, k, j int, mean [4]float64
 		TrackID: step.TrackID, CreationSequence: step.CreationSequence,
 		FrameUnixNanos: step.FrameUnixNanos, StateUnixNanos: step.StateUnixNanos,
 		Lag: s.cfg.Lag, Observed: step.Observed, Confirmed: step.Confirmed, Observation: step.Observation,
+		Reference: step.Reference, Support: step.Support,
 		Online:             online,
 		Smoothed:           moments32(mean, cov),
 		LookaheadSteps:     j - k,

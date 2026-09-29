@@ -100,6 +100,13 @@ type FilterStep struct {
 	Prior       FilterMoments
 	Posterior   FilterMoments
 	Observation FilterObservation
+	// Reference names the point the posterior's position refers to
+	// (TrackedObject.PositionReference), and Support the instant's support
+	// token (TrackedObject.LastSupport), as the tracker stated them at the end
+	// of the frame. A refined estimate persists these rather than inferring
+	// them from the observation's measurement source.
+	Reference ReferencePoint
+	Support   ObservationSupport
 }
 
 // ChainEndReason says why a track's chain of steps ended.
@@ -233,6 +240,7 @@ func (r *filterStepRecorder) endFrame(tracks map[string]*TrackedObject, nowNanos
 			FrameUnixNanos: nowNanos, StateUnixNanos: track.StateUnixNanos,
 			Linked: open, Confirmed: track.TrackState == TrackConfirmed,
 			Posterior: momentsOf(track),
+			Reference: track.PositionReference(), Support: track.LastSupport,
 		}
 		pending := r.pending[id]
 		if open && pending != nil {

@@ -242,7 +242,7 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 		},
 	}
 
-	e.Reference = trackReference(t)
+	e.Reference = t.PositionReference()
 
 	e.Length = dimensionFromBelief(t.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 	e.Width = dimensionFromBelief(t.widthBelief, prior.widthMetres, prior.sigmaMetres)
@@ -261,13 +261,14 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 	return e
 }
 
-// trackReference is the point a track's filtered position refers to: what
+// PositionReference is the point a track's filtered position refers to: what
 // the geometry that last entered the filter was. Neither the medoid nor the
 // centre of the visible box is a place on the body; only a body model with a
 // declared offset, such as the near-edge solid body, may claim the centre.
 // A track not yet measured holds its seed, and a source this code does not
-// know names nothing.
-func trackReference(t *TrackedObject) ReferencePoint {
+// know names nothing. A persisted point estimate states this value; see
+// FilterStep.Reference for the refined stages.
+func (t *TrackedObject) PositionReference() ReferencePoint {
 	if t.solidBody.tracked {
 		// Under NearEdgeTracking the tracked filter is the body's, and its
 		// reference is the body's.

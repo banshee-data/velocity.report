@@ -137,23 +137,27 @@ as observed time: the bounds assume 10 Hz.
 
 ### What a persisted row supports
 
-An estimate row carries pose, velocity and covariance, and nothing of the solid body held beside
-them. The adapter claims no more:
+An estimate row carries pose, velocity and covariance, the reference point and support token its
+writer stated, and nothing of the solid body held beside them. The adapter claims no more:
 
-| Sample field | Read as                                                                                                        |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| Reference    | `visible_obb_centre` when an OBB centre entered the filter; `cluster_medoid` under `medoid_v0` or its fallback |
-| Support      | Observed: rows exist only at associated frames of confirmed tracks                                             |
-| Lifecycle    | `geometry_converging` at or above 0.5 m/s, `initialising` below: no persisted geometry can establish it        |
-| Heading      | None persisted, so front and rear cannot be told apart                                                         |
-| Extents      | None persisted                                                                                                 |
-| Class        | `unknown`: the classifier label is not persisted, and following is defined for rigid vehicles only             |
-| Stage        | The row's own; the only place a sample is `final`                                                              |
-| Acquisition  | The row's `measurement_unix_nanos`, beside the frame's capture time                                            |
+| Sample field | Read as                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------- |
+| Reference    | The row's `reference_point`; never inferred from `measurement_source`                                    |
+| Support      | The row's `support_instant`, which must be `observed`: a row records no last observed time for any other |
+| Lifecycle    | `geometry_converging` at or above 0.5 m/s, `initialising` below: no persisted geometry can establish it  |
+| Heading      | None persisted, so front and rear cannot be told apart                                                   |
+| Extents      | None persisted                                                                                           |
+| Class        | `unknown`: the classifier label is not persisted, and following is defined for rigid vehicles only       |
+| Stage        | The row's own; the only place a sample is `final`                                                        |
+| Acquisition  | The row's `measurement_unix_nanos`, beside the frame's capture time                                      |
 
-Neither reference is a place on the body: the centre of the box around one frame's returns moves
-with what the sensor saw, and the medoid is a point in the cluster. No stage changes that, so no
-follower's path is fitted from point estimates at any stage, and there is no encounter.
+Today's writers state the geometry that entered the filter: `visible_obb_centre` when an OBB centre
+did, `cluster_medoid` under `medoid_v0` or the OBB model's medoid fallback. Migration 000057 gave
+older rows exactly those values and `observed`; a row whose measurement source that mapping does not
+know keeps an empty reference, and the run refuses it. Neither reference is a place on the body:
+the centre of the box around one frame's returns moves with what the sensor saw, and the medoid is
+a point in the cluster. No stage changes that, so no follower's path is fitted from today's point
+estimates at any stage, and there is no encounter. A row that states `body_centre` is read as one.
 
 A solid-body row carries the body itself, and its sample says what the reading says:
 

@@ -29,7 +29,7 @@ is, with the one that decides identity being the biased one.
 | Association           | Mahalanobis of the medoid (or OBB centre) against the tracked prediction, plausibility checks, extent compatibility, fragment guard, exact Hungarian (#600)            |
 | Sensor origin         | `SolidBodyOptions.SensorX/Y`, left at (0, 0) because replay tracks in the sensor frame; nothing declares or checks it                                                  |
 | Member geometry       | `WorldCluster.RetainedPoints`, a uniform subsample capped by `MaxSamplePoints` (at most 1024); the kirk0 field-run test uses 16, the corpus tool 256                   |
-| Persisted reference   | Inferred from `measurement_source` per point-estimate row (#618); the solid-body table stores it per row                                                               |
+| Persisted reference   | Stated per row in both estimate tables: `reference_point` and `support_instant` (point estimates since migration 000057, backfilled from `measurement_source`)         |
 | Refined stages        | The RTS smoother revises point estimates only; no solid body at `fixed_lag` or `final`                                                                                 |
 | Evidence oracle       | The lossless-batch oracle does not cover `lidar_track_solid_bodies`                                                                                                    |
 
@@ -592,5 +592,7 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] S2.1 face-transition remedy chosen
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
-- [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage
+- [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
+      the adapter reads them
+- [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report

@@ -255,7 +255,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 602 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 604 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -778,6 +778,8 @@ The current schema has 602 fields, including generated fields. Newly added rows 
 | `lidar_track_estimates`          | `covariance_json`                   | BLOB          | ✅  | ?   | ?   |
 | `lidar_track_estimates`          | `inserted_at_ns`                    | INTEGER       | ✅  | ?   | ?   |
 | `lidar_track_estimates`          | `state_model`                       | TEXT          | ✅  | ?   | ?   |
+| `lidar_track_estimates`          | `reference_point`                   | TEXT          | ✅  | ?   | ?   |
+| `lidar_track_estimates`          | `support_instant`                   | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_observations`       | `frame_unix_nanos`                  | INTEGER       | ✅  | ?   | ?   |
 | `lidar_track_observations`       | `measurement_source`                | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_residuals`          | `estimate_id`                       | TEXT PK       | ✅  | ?   | ?   |

@@ -67,7 +67,7 @@ func TestNearEdgeTrackingPutsTheTrackedStateOnTheBodyCentre(t *testing.T) {
 			t.Fatalf("the solid body (%v, %v) is not the tracked state (%v, %v)",
 				reading.Estimate.X, reading.Estimate.Y, track.X, track.Y)
 		}
-		if got := trackReference(track); got != reading.Estimate.Reference {
+		if got := track.PositionReference(); got != reading.Estimate.Reference {
 			t.Fatalf("track reference %s, solid body %s", got, reading.Estimate.Reference)
 		}
 		if reading.Measurement.Source != MeasurementNearEdgeCandidateV1 || f.occluded {
@@ -161,7 +161,7 @@ func TestNearEdgeTrackingLapsesToTheMedoidAndComesBack(t *testing.T) {
 	for _, f := range frames[:faceless] {
 		tracker.Update(f.clusters, f.at)
 	}
-	if got := trackReference(mainTrack(t, tracker)); got != ReferenceBodyCentre {
+	if got := mainTrack(t, tracker).PositionReference(); got != ReferenceBodyCentre {
 		t.Fatalf("setup: tracked reference %s before the faceless run", got)
 	}
 	var velocity [2]float32
@@ -180,8 +180,8 @@ func TestNearEdgeTrackingLapsesToTheMedoidAndComesBack(t *testing.T) {
 			}
 			continue
 		}
-		if r.Measurement.ReferenceChange != ReferenceToMedoid || trackReference(track) != ReferenceClusterMedoid {
-			t.Fatalf("after %d faceless frames: %+v, reference %s; want the lapse", cfg.MaxMisses, r.Measurement, trackReference(track))
+		if r.Measurement.ReferenceChange != ReferenceToMedoid || track.PositionReference() != ReferenceClusterMedoid {
+			t.Fatalf("after %d faceless frames: %+v, reference %s; want the lapse", cfg.MaxMisses, r.Measurement, track.PositionReference())
 		}
 		if track.X != f.clusters[0].CentroidX || track.Y != f.clusters[0].CentroidY {
 			t.Fatalf("tracked state lapsed to (%v, %v), not the medoid", track.X, track.Y)
@@ -197,7 +197,7 @@ func TestNearEdgeTrackingLapsesToTheMedoidAndComesBack(t *testing.T) {
 		t.Fatalf("reference changes %+v, want one lapse", got)
 	}
 	tracker.Update(frames[faceless+cfg.MaxMisses].clusters, frames[faceless+cfg.MaxMisses].at)
-	if got := trackReference(mainTrack(t, tracker)); got != ReferenceBodyCentre {
+	if got := mainTrack(t, tracker).PositionReference(); got != ReferenceBodyCentre {
 		t.Fatalf("faces returned but the tracked reference stayed %s", got)
 	}
 }
@@ -240,7 +240,7 @@ func TestATrackedLaneChangeKeepsItsMagnitude(t *testing.T) {
 			continue
 		}
 		track := mainTrack(t, tracker)
-		if trackReference(track) != ReferenceBodyCentre {
+		if track.PositionReference() != ReferenceBodyCentre {
 			continue
 		}
 		at := float64(i) * pass.Interval.Seconds()

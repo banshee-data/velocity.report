@@ -6,6 +6,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func scorecardObservation(t *testing.T, id, source string, frame int64, cx, cy float32, obb *l4perception.OrientedBoundingBox, points int) l4bobserve.DetectionObservation {
@@ -88,7 +89,8 @@ func TestScorecardQueriesReturnADeterministicOrder(t *testing.T) {
 		e := TrackEstimate{EstimateID: id, TrackID: "trk_" + id, ObservationID: observationID, SourceID: source,
 			CalibrationID: "calibration/v1/test", FrameUnixNanos: frame, MeasurementUnixNanos: frame + 1,
 			EstimatorID: "cv_kf_v1", ObservationModelID: "obb_centre_v1", ParamHash: "params/test", Stage: "online",
-			MeasurementSource: "obb_centre_v1", CreationSequence: sequence, X: 1, Y: 2, VX: 3, VY: 4}
+			MeasurementSource: "obb_centre_v1", CreationSequence: sequence, X: 1, Y: 2, VX: 3, VY: 4,
+			Reference: l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved}
 		r := TrackResidual{EstimateID: id, ObservationID: observationID, MeasurementX: 1.5, MeasurementY: 2.5,
 			InnovationX: 0.25, InnovationY: -0.5, NIS: 1.75, Disposition: "accepted", Reason: "association_accepted"}
 		return e, r

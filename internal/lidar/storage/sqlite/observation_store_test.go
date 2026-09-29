@@ -12,6 +12,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestObservationStorePreservesImmutableReplayEvidence(t *testing.T) {
@@ -315,6 +316,7 @@ func testFrameStateEstimate(observationID string, frameUnixNanos int64) FrameSta
 		SourceID: "source/v1/frame", CalibrationID: "calibration/v1/test", FrameUnixNanos: frameUnixNanos,
 		MeasurementUnixNanos: frameUnixNanos + 1, EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v0",
 		ParamHash: "params/frame", Stage: "online", MeasurementSource: "medoid_v0", Covariance: [16]float32{1},
+		Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
 	}
 	return FrameStateEstimate{Estimate: estimate, Residual: TrackResidual{
 		EstimateID: estimate.EstimateID, ObservationID: observationID, Disposition: "accepted", Reason: "association_accepted",

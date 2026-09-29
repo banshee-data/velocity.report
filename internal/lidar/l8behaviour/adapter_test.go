@@ -288,27 +288,27 @@ func TestSampleFromTrack(t *testing.T) {
 }
 
 // persistedRow is a lidar_track_estimates row of the replay's online
-// estimator under the OBB-centre model, moving along +x at vx.
+// estimator under the OBB-centre model, moving along +x at vx: observed, and
+// stating the centre of the visible box as the OBB-centre filter does.
 func persistedRow(track string, frame int, x, vx float32) PersistedEstimate {
 	return PersistedEstimate{
 		TrackID: track, SensorID: "sensor_a",
 		FrameUnixNanos: FixtureBaseUnixNanos + int64(frame)*FixtureFramePeriodNanos,
 		EstimatorID:    "cv_kf_v1", ObsModelID: "obb_centre_v1", ParamHash: "sha256:online", Stage: "online",
-		MeasurementSource: "obb_centre_v1", X: x, VX: vx,
+		Reference: l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved, X: x, VX: vx,
 		Covariance: [16]float32{0.04, 0.01, 0, 0, 0.01, 0.04, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0.25},
 	}
 }
 
 // TestTrajectoriesFromEstimates: a row becomes an observed sample at its own
-// frame, with its own stage, a reference from the geometry that entered the
-// filter, a lifecycle from its speed, and no heading, extent or class,
-// because none is persisted.
+// frame, with its own stage, the reference the row states, a lifecycle from
+// its speed, and no heading, extent or class, because none is persisted.
 func TestTrajectoriesFromEstimates(t *testing.T) {
 	rows := []PersistedEstimate{
 		persistedRow("trk_b", 1, 11, 10), persistedRow("trk_b", 0, 10, 10),
 		persistedRow("trk_a", 0, 0, 0.25), persistedRow("trk_a", 1, 0.025, 0.25),
 	}
-	rows[3].MeasurementSource = "medoid_fallback_v1"
+	rows[3].Reference = l5tracks.ReferenceClusterMedoid
 	rows[0].MeasurementUnixNanos = rows[0].FrameUnixNanos + 4_000_000
 	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
 	if err != nil {
@@ -348,10 +348,34 @@ func TestTrajectoriesFromEstimates(t *testing.T) {
 		t.Errorf("a row below the heading-observability speed is %s, want initialising", a[0].Estimation)
 	}
 	if a[1].Reference != ReferenceClusterMedoid {
-		t.Errorf("a medoid-fallback row refers to %s, want the cluster medoid", a[1].Reference)
+		t.Errorf("a row stating the cluster medoid refers to %s", a[1].Reference)
 	}
 	if b[0].Covariance[1] != float64(float32(0.01)) || b[0].Covariance[10] != 0.25 {
 		t.Errorf("covariance not carried: %v", b[0].Covariance)
+	}
+}
+
+// TestTrajectoriesFromEstimatesReadsTheStatedReference: the sample refers to
+// whatever the row states, a place on the body included, which is how a
+// point estimate under near_edge_track will reach the field run. Nothing the
+// row does not carry is supplied with it: there is still no heading, so no
+// endpoint is projected.
+func TestTrajectoriesFromEstimatesReadsTheStatedReference(t *testing.T) {
+	rows := []PersistedEstimate{persistedRow("trk_a", 0, 0, 10), persistedRow("trk_a", 1, 1, 10)}
+	rows[1].Reference = l5tracks.ReferenceBodyCentre
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := trajectories[0].Samples
+	if s[0].Reference != ReferenceVisibleOBBCentre || s[1].Reference != ReferenceBodyCentre || !s[1].Reference.IsPhysical() {
+		t.Fatalf("references %s and %s, want the rows' own", s[0].Reference, s[1].Reference)
+	}
+	if s[1].Support != SupportObserved || s[1].LastObservedUnixNanos != s[1].CaptureUnixNanos {
+		t.Fatalf("a body-centre row is not an observed sample: %+v", s[1])
+	}
+	if _, reason, err := ProjectBody(fixturePathX(), "trk_a", s[1]); err != nil || reason != ReasonOrientationUnresolved {
+		t.Fatalf("a body-centre row without a heading: reason %s err %v, want %s", reason, err, ReasonOrientationUnresolved)
 	}
 }
 
@@ -394,20 +418,20 @@ func TestTrajectoriesFromEstimatesReadsRefinedStages(t *testing.T) {
 		// R1: a refined stage revises the state it was given, and no stage
 		// turns the visible box centre or the medoid into a place on the
 		// body, so no endpoint is projected from a final row either.
-		for _, source := range []l5tracks.MeasurementSource{l5tracks.MeasurementOBBCentreV1, l5tracks.MeasurementMedoidV0} {
+		for _, reference := range []l5tracks.ReferencePoint{l5tracks.ReferenceVisibleOBBCentre, l5tracks.ReferenceClusterMedoid} {
 			for i := range rows {
-				rows[i].MeasurementSource = string(source)
+				rows[i].Reference = reference
 			}
 			trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
 			if err != nil {
-				t.Fatalf("%s %s: %v", stage, source, err)
+				t.Fatalf("%s %s: %v", stage, reference, err)
 			}
 			s := trajectories[0].Samples[1]
 			if s.Reference.IsPhysical() || s.ProductionReason() != ReasonInsufficientObservation {
-				t.Errorf("a %s %s row refers to %s, production reason %s", stage, source, s.Reference, s.ProductionReason())
+				t.Errorf("a %s %s row refers to %s, production reason %s", stage, reference, s.Reference, s.ProductionReason())
 			}
 			if _, reason, err := ProjectBody(fixturePathX(), "trk_a", s); err != nil || reason != ReasonInsufficientObservation {
-				t.Errorf("a %s %s row projected a body: reason %s err %v", stage, source, reason, err)
+				t.Errorf("a %s %s row projected a body: reason %s err %v", stage, reference, reason, err)
 			}
 		}
 	}
@@ -423,7 +447,11 @@ func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
 	for name, mutate := range map[string]func([]PersistedEstimate){
 		"unknown filter":        func(r []PersistedEstimate) { r[0].EstimatorID, r[1].EstimatorID = "imm_cv_ca_v2", "imm_cv_ca_v2" },
 		"unknown stage":         func(r []PersistedEstimate) { r[0].Stage, r[1].Stage = "smoothed", "smoothed" },
-		"unknown geometry":      func(r []PersistedEstimate) { r[1].MeasurementSource = "legacy_centroid_v0" },
+		"unknown reference":     func(r []PersistedEstimate) { r[1].Reference = l5tracks.ReferenceUnknown },
+		"near-face reference":   func(r []PersistedEstimate) { r[1].Reference = l5tracks.ReferenceNearFaceCentre },
+		"unrecorded support":    func(r []PersistedEstimate) { r[1].Support = l5tracks.SupportUnrecorded },
+		"coasted row":           func(r []PersistedEstimate) { r[1].Support = l5tracks.SupportCoasted },
+		"explained absence":     func(r []PersistedEstimate) { r[1].Support = l5tracks.SupportOccludedInferred },
 		"mixed stages":          func(r []PersistedEstimate) { r[1].Stage = "final" },
 		"mixed parameters":      func(r []PersistedEstimate) { r[1].ParamHash = "sha256:other" },
 		"no sensor":             func(r []PersistedEstimate) { r[0].SensorID, r[1].SensorID = "", "" },
@@ -451,12 +479,12 @@ func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
 	}
 }
 
-// A row near_edge_track wrote on a body-centre frame names the near-edge
-// faces as its source, and its pose is the body centre.
+// A row near_edge_track wrote on a body-centre frame states the body centre,
+// whatever geometry entered the filter, and is read as stated.
 func TestTrajectoriesFromEstimatesReadNearEdgeRowsAsTheBodyCentre(t *testing.T) {
 	rows := []PersistedEstimate{persistedRow("trk", 0, 10, 10), persistedRow("trk", 1, 11, 10)}
 	for i := range rows {
-		rows[i].ObsModelID, rows[i].MeasurementSource = "near_edge_candidate_v1", "near_edge_candidate_v1"
+		rows[i].ObsModelID, rows[i].Reference = "near_edge_candidate_v1", l5tracks.ReferenceBodyCentre
 	}
 	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
 	if err != nil {
