@@ -20,6 +20,12 @@ everything else here produces or feeds it.
 | `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
 | `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.    |
 
+The corpus replays also read `state-estimation-phase01-corpus.json`, the cases, and
+`continuity-coverage.json`, each case's sensor coverage for the continuity experiments.
+`lidar-state-estimation-baseline -survey-coverage` measures and appends each declaration, with its
+statistics in `continuity-coverage.survey.json`; kirk0's is the first. See the
+[coverage survey](../../docs/lidar/operations/state-estimation-phase01-corpus-baseline.md#sensor-coverage-survey).
+
 The scene catalogue being developed in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) reads this index. Its map generator and `make render-scene-map` target are part of a later extraction, not this archive-tooling change. Each scene export is joined to a site
 by the wall clock in its header and inherits that site's position, so a mark
 corrected here moves the marker, the cell and the token on `/scenes/` once

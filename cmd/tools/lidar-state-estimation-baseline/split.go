@@ -16,6 +16,15 @@ type splitRecord struct {
 	HeldOut    bool   `json:"held_out"`
 }
 
+// ids is the corpus's case IDs in replay order.
+func (c corpus) ids() []string {
+	ids := make([]string, len(c.Cases))
+	for i, cc := range c.Cases {
+		ids[i] = cc.ID
+	}
+	return ids
+}
+
 // corpusSplit holds a corpus run to its frozen split. Every selected case
 // must have a role in it; a held-out score replays held-out cases only, and
 // any other run replays none, as annotation.FrozenSplit.CaseRoles rules. A
@@ -33,11 +42,7 @@ func corpusSplit(path string, heldOut bool, selected corpus) (*splitRecord, map[
 	if err != nil {
 		return nil, nil, err
 	}
-	ids := make([]string, len(selected.Cases))
-	for i, c := range selected.Cases {
-		ids[i] = c.ID
-	}
-	roles, err := f.CaseRoles(ids, heldOut)
+	roles, err := f.CaseRoles(selected.ids(), heldOut)
 	if err != nil {
 		return nil, nil, err
 	}

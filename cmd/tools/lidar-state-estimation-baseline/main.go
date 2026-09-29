@@ -91,6 +91,9 @@ type caseSummary struct {
 	SolidBody *replayeval.SolidBodySummary `json:"solid_body,omitempty"`
 	// SplitRole is the case's role in -split-manifest, when one was given.
 	SplitRole string `json:"split_role,omitempty"`
+	// CoverageSurvey is the declaration -survey-coverage measured from the
+	// first run, and its statistics, as added to the declaration set.
+	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
 }
 
 func main() {
@@ -127,7 +130,11 @@ func main() {
 		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
 		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
 		heldOut             = flag.Bool("held-out", false, "declare the run a held-out score: every selected case must be held out in -split-manifest; without it no held-out case may run")
+		survey              surveyFlags
 	)
+	flag.StringVar(&survey.setPath, "survey-coverage", "", "measure each case's continuity coverage from its first run's online estimates and add it to this declaration set (created if absent), with the statistics in <set>.survey.json beside it; needs an evidence output and the default replay")
+	flag.Float64Var(&survey.percentile, "survey-percentile", replayeval.DefaultCoverageRangePercentile, "percentile of the online-estimate horizontal range declared as max_range_m, rounded up to a whole metre; 100 is the maximum")
+	flag.Float64Var(&survey.gap, "survey-min-gap-deg", replayeval.DefaultCoverageMinSectorGapDeg, "narrowest arc without an estimate that makes the declaration a sector rather than the full circle")
 	flag.Parse()
 	experiments, err := replayeval.ParseExperiments(*experimentFlag)
 	if err != nil {
@@ -187,6 +194,9 @@ func main() {
 	}
 	split, splitUses, err := corpusSplit(*splitPath, *heldOut, selected)
 	if err != nil {
+		fatal(err)
+	}
+	if err := survey.validate(experiments, *measurementMode, *surfaceGround, observationDBPath, selected.ids()); err != nil {
 		fatal(err)
 	}
 	index, err := readIndex(*indexPath)
@@ -365,6 +375,17 @@ func main() {
 			fmt.Printf("%s: solid bodies=%d near_edge_fixes=%d (%.1f%%) lapses=%d; lateral p99 point estimates %.3f m, solid bodies %.3f m over %d body-centre windows\n",
 				selectedCase.ID, sb.SolidBodies, sb.NearEdgeFixes, 100*sb.FixShare, sb.Lapses,
 				sb.AnchorPointsCentred.P99Metres, sb.AnchorBodiesCentred.P99Metres, sb.AnchorBodiesCentred.Windows)
+		}
+		if survey.setPath != "" {
+			s, err := survey.survey(first.ObservationDBPath, first.OutDir, selectedCase.ID)
+			if err != nil {
+				fatal(fmt.Errorf("coverage survey %s: %w", selectedCase.ID, err))
+			}
+			summary.CoverageSurvey = s
+			d := s.Declaration
+			fmt.Printf("%s: coverage max_range_m=%g azimuth_centre_deg=%g azimuth_half_width_deg=%g (range p%g %.2f m, max %.2f m; largest arc without an estimate %d deg) added to %s\n",
+				selectedCase.ID, d.MaxRangeMetres, d.AzimuthCentreDeg, d.AzimuthHalfWidthDeg, s.Stats.RangePercentile,
+				s.Stats.RangeAtPercentile, s.Stats.RangeMetres.Max, s.Stats.Azimuth.LargestEmptyArcDeg, survey.setPath)
 		}
 		if *discardEvidence {
 			if err := removeDatabase(first.ObservationDBPath); err != nil {

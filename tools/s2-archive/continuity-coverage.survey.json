@@ -1,0 +1,79 @@
+{
+  "kirk0": {
+    "case_id": "kirk0",
+    "declaration_id": "sha256:cf36748fb9a329d83f4af630aea69171ac5bbb42a69ed9f6fb80475a3b3aab06",
+    "tool": "lidar-state-estimation-baseline -survey-coverage",
+    "build_version": "dev",
+    "build_git_sha": "unknown",
+    "build_stamped": false,
+    "capture_sha256s": [
+      "sha256:2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a"
+    ],
+    "capture_set_sha256": "sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6",
+    "params_sha256": "sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a",
+    "observation_source_id": "source/v1/732226e68c3d7292b8a9cbea7c47b4c3d8eaf707e9c67f297370c571735e0c63",
+    "frames_recorded": 631,
+    "online_estimates": 1952,
+    "tracks": 60,
+    "sensor_origin": {
+      "x_m": 0,
+      "y_m": 0,
+      "source": "tracking_transform:identity"
+    },
+    "horizontal_range_m": {
+      "min": 4.13,
+      "p50": 17.85,
+      "p90": 42.82,
+      "p95": 50.46,
+      "p99": 91.67,
+      "max": 91.72
+    },
+    "range_percentile": 100,
+    "range_at_percentile_m": 91.72,
+    "azimuth": {
+      "occupied_degrees": 188,
+      "largest_empty_arc_from_deg": 257,
+      "largest_empty_arc_deg": 155,
+      "min_sector_gap_deg": 90,
+      "sector": true,
+      "estimates_per_10_deg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        23,
+        384,
+        170,
+        58,
+        107,
+        29,
+        49,
+        39,
+        41,
+        38,
+        25,
+        60,
+        57,
+        44,
+        37,
+        62,
+        89,
+        158,
+        229,
+        185,
+        68,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

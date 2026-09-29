@@ -214,7 +214,8 @@ covariance widened, velocity kept.
 geometry declaration used by both the continuity experiments and `near_edge_track`, with the same
 validation, content id and manifest record. The live pipeline derives the origin from the
 calibration transform used by `TransformToWorld`: identity today, so (0, 0) is exact and recorded
-as such rather than assumed.
+as such rather than assumed. Each corpus case's declaration is measured by the coverage survey
+(see [Evaluation](#evaluation)), not written by hand.
 
 ### Persistence and the adapter
 
@@ -448,6 +449,31 @@ smaller host:
   `results/<test>/`, and pushed. They can then be read and reviewed away from the machine.
 - T0's branch is `claude/upbeat-galileo-4xbaat-s2-t0-results`.
 
+**Sensor geometry.** Every case needs its geometry declared before the continuity arms or
+`near_edge_track` run on it. The corpus tool's `-survey-coverage` measures it from the case's
+default replay: the maximum online-estimate range rounded up to a whole metre, the sector outside
+any arc of 90° or more that no estimate reached (otherwise the full circle), and the origin of the
+frame the tracker ran in. It appends the declaration to
+[continuity-coverage.json](../../tools/s2-archive/continuity-coverage.json), which holds kirk0's,
+and its statistics beside it. On the Mac, one case at a time, from the repository root:
+
+```bash
+CASE=marina-webster-beach
+SURVEY="$HOME/coverage-survey/$CASE"
+STAMP="-X github.com/banshee-data/velocity.report/internal/version.GitSHA=$(git rev-parse HEAD)"
+mkdir -p "$SURVEY"
+go run -tags=pcap -ldflags "$STAMP" ./cmd/tools/lidar-state-estimation-baseline \
+  -pcap-root /Volumes/lidar/lidar -pcap-subdir s2 -case "$CASE" -sample-points 1 \
+  -source-manifest "$SURVEY/source-manifest.json" -out "$SURVEY/out" \
+  -evidence-dir "$SURVEY/evidence" -evidence-per-case -discard-evidence \
+  -survey-coverage tools/s2-archive/continuity-coverage.json
+```
+
+The per-site values come from that run; none is declared until it has been made. Read each case's
+empty arc and per-10° counts before committing, as the
+[survey protocol](../lidar/operations/state-estimation-phase01-corpus-baseline.md#sensor-coverage-survey)
+says: a sector can reflect where traffic went rather than what the sensor sees.
+
 Test T0, the first run, was the shadow at 256 and 1,024 sample points on the tuning and held-out
 cases (arms B1-256 and B1-1024 below), before any S2.1 change. It asked how much of the fix rate
 and the face-transition tail is the sample cap. The answer is none of either; see
@@ -534,6 +560,8 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on kirk0 and the tuning
       partition
 - [ ] S2.1 face-transition remedy chosen
+- [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
+- [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [ ] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [ ] S2.3 A1 ablation on the tuning partition
 - [ ] S2.4 per-row reference and support columns, refined-stage solid bodies, oracle coverage

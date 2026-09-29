@@ -20,7 +20,10 @@ import (
 
 // kirk0Coverage is kirk0's declared coverage: the sensor at the frame's
 // origin, the full circle, out to the measured detection envelope. On the
-// default replay the online estimates reach 91.7 m (p90 42.8 m).
+// default replay the online estimates reach 91.7 m (p90 42.8 m). The
+// coverage survey reproduces that range; its declaration, in
+// tools/s2-archive/continuity-coverage.json, also bounds azimuth. This smoke
+// run keeps the full circle its recorded figures were taken under.
 var kirk0Coverage = ContinuityCoverage{
 	Source:         "measured: kirk0 online track-range envelope, max 91.7 m, default replay",
 	MaxRangeMetres: 92, AzimuthHalfWidthDeg: 180,

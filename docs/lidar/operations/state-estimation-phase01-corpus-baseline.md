@@ -409,3 +409,79 @@ on the archive volume under `state-estimation-phase01-24site-20260917/`, not in 
 document's own preservation contract above. The consolidated source-PCAP manifest is at
 `manifests/state-estimation-phase01-24site-20260917.source-pcaps.json` (21 cases, one per new
 site), built from the per-site manifests each replay already wrote.
+
+## Sensor coverage survey
+
+The continuity experiments (`coast_support`, `class_coast_bounds`, `occlusion_continuity`) and,
+from S2.2, `near_edge_track` need each case's sensor geometry declared: an origin, a range band
+and an azimuth sector ([time-domain model](../architecture/time-domain-model.md)). kirk0's was read
+off a replay by hand. `-survey-coverage` measures one from a case's default replay, so every
+declaration can be reproduced and says how it was made:
+
+- **Range.** `max_range_m` is the maximum horizontal range of the first run's online estimates,
+  the rows its evidence database holds (confirmed tracks associated in their frame), rounded up to
+  the next whole metre. `-survey-percentile` declares a lower percentile instead. `min_range_m`
+  stays 0: the near blind zone is not measured.
+- **Azimuth.** The full circle, unless one arc of at least `-survey-min-gap-deg` (90) holds no
+  estimate in the whole replay; then the sector outside it.
+- **Origin.** (0, 0): the replay tracks in the sensor frame, the solid body's
+  `tracking_transform:identity` origin.
+
+The survey adds the case to a declaration set in the form `-continuity-coverage` reads, and its
+statistics to `<set>.survey.json` beside it: range percentiles, the largest empty arc, estimates
+per 10°, the capture digests and their set digest, the parameter hash and the build. The
+declaration's `source` names the tool, build, capture set digest, parameter hash and percentile.
+It refuses `-experiment`, `-measurement-mode obb_centre_v1`, `-surface-ground`, a run with no
+evidence output, and a case the set already declares, before anything replays.
+
+[continuity-coverage.json](../../../tools/s2-archive/continuity-coverage.json) holds kirk0's
+surveyed declaration. It reproduces the hand reading: a 91.72 m maximum (p90 42.82 m), so
+`max_range_m` is 92. It also finds no estimate in the 155° from 257° to 52°, so it declares the
+sector from 52° to 257° (centre 154.5°, half-width 102.5°) where the hand declaration assumed the
+full circle. The continuity smoke test keeps its in-code full-circle declaration and the figures
+recorded under it. Reproduce kirk0's with the one-case corpus in the tool's test data:
+
+```bash
+go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+  -corpus cmd/tools/lidar-state-estimation-baseline/testdata/kirk0-corpus.json \
+  -index cmd/tools/lidar-state-estimation-baseline/testdata/kirk0-index.json \
+  -pcap-root internal/lidar/perf -pcap-subdir pcap -warmup 20 -sample-points 1 \
+  -source-manifest /tmp/kirk0-survey/source-manifest.json -out /tmp/kirk0-survey/out \
+  -evidence-dir /tmp/kirk0-survey/evidence -evidence-per-case -discard-evidence \
+  -survey-coverage /tmp/kirk0-survey/continuity-coverage.json
+```
+
+`TestMainRunsKirk0UnderAFrozenSplit` runs the same survey and compares it with the committed
+declaration field for field.
+
+### Surveying the S2 corpus on the Mac
+
+Run one case at a time from the repository root, reading captures from `/Volumes/lidar/lidar` and
+writing everything else to the internal disk:
+
+```bash
+CASE=marina-webster-beach
+SURVEY="$HOME/coverage-survey/$CASE"
+STAMP="-X github.com/banshee-data/velocity.report/internal/version.GitSHA=$(git rev-parse HEAD)"
+mkdir -p "$SURVEY"
+go run -tags=pcap -ldflags "$STAMP" ./cmd/tools/lidar-state-estimation-baseline \
+  -pcap-root /Volumes/lidar/lidar -pcap-subdir s2 -case "$CASE" -sample-points 1 \
+  -source-manifest "$SURVEY/source-manifest.json" -out "$SURVEY/out" \
+  -evidence-dir "$SURVEY/evidence" -evidence-per-case -discard-evidence \
+  -survey-coverage tools/s2-archive/continuity-coverage.json
+```
+
+- Each case is appended to the committed set and its statistics, in the checkout. A case already
+  declared is refused, so a re-survey goes to a new set.
+- The `-ldflags` stamp puts the commit in the declaration's source; without it the source says
+  `unstamped`.
+- `-sample-points 1` keeps the per-case database small. The retained sample does not reach the
+  default replay's estimates: kirk0's declaration is byte-identical at 1 and 256 points, and its
+  database 10 MB rather than 60. `-discard-evidence` deletes it once the case is summarised.
+- The warm-up stays at the corpus default, 70 s, and the determinism repeat runs as for any
+  corpus case, so a case takes about twice its replay time.
+- Survey the tuning and held-out cases first (`marina-webster-beach`, `columbus-broadway`,
+  `embarcadero-folsom`), then the screen. Before committing, read each case's statistics:
+  `estimates_per_10_deg` and `largest_empty_arc_deg` show whether a sector is the sensor's view or
+  only where traffic happened to go in that capture. Commit the set and its statistics to a
+  results branch, as the S2 tests' results are.

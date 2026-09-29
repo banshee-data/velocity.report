@@ -3,11 +3,13 @@
 package main
 
 // Excluded from race builds for time, as the replayeval continuity test is:
-// two kirk0 replays. main registers its flags on the process's flag set, so
-// it runs once per test binary, and only here.
+// two whole kirk0 replays, about a minute without the race detector. main
+// registers its flags on the process's flag set, so it runs once per test
+// binary, and only here.
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,21 +44,31 @@ func readJSON(t *testing.T, path string, v any) {
 	}
 }
 
-// The tool end to end on kirk0 as a one-case corpus, under a frozen split
-// that gives kirk0 the tuning role: the summary and the replay manifest both
-// name the split, and the case's role.
+// committedCoverage is the declaration set the corpus tool loads, which
+// holds kirk0's surveyed declaration.
+const committedCoverage = "../../../tools/s2-archive/continuity-coverage.json"
+
+// The tool end to end on kirk0 as a one-case corpus, the whole capture after
+// a 20 s warm-up, as kirk0's coverage was first read by hand:
+//
+//   - under a frozen split that gives kirk0 the tuning role, the summary and
+//     the replay manifest both name the split and the case's role;
+//   - the coverage survey reproduces the hand-made declaration's range, the
+//     online estimates' 91.7 m maximum (p90 42.8 m) rounded up to 92 m, and
+//     the committed declaration, field for field.
 func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	requireKirk0(t)
 	dir := t.TempDir()
 	split, splitPath := writeCaseSplit(t, annotation.SplitCase{CaseID: "kirk0", Role: annotation.SplitRoleTuning})
 	out := filepath.Join(dir, "out")
+	surveyPath := filepath.Join(dir, "continuity-coverage.json")
 	args := []string{
 		"lidar-state-estimation-baseline",
 		"-corpus", "testdata/kirk0-corpus.json", "-index", "testdata/kirk0-index.json",
-		"-pcap-root", "../../../internal/lidar/perf", "-pcap-subdir", "pcap", "-warmup", "20", "-duration", "2",
+		"-pcap-root", "../../../internal/lidar/perf", "-pcap-subdir", "pcap", "-warmup", "20",
 		"-source-manifest", filepath.Join(dir, "source-manifest.json"), "-out", out,
 		"-evidence-dir", filepath.Join(dir, "evidence"), "-evidence-per-case", "-discard-evidence",
-		"-split-manifest", splitPath,
+		"-split-manifest", splitPath, "-survey-coverage", surveyPath,
 	}
 	saved := os.Args
 	os.Args = args
@@ -84,5 +96,36 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "evidence", "kirk0.db")); !os.IsNotExist(err) {
 		t.Fatalf("-discard-evidence left the case database: %v", err)
+	}
+
+	surveyed := summary.Cases[0].CoverageSurvey
+	if surveyed == nil {
+		t.Fatal("the summary carries no coverage survey")
+	}
+	d, st := surveyed.Declaration, surveyed.Stats
+	t.Logf("kirk0 survey: %+v; range %+v; azimuth %+v", d, st.RangeMetres, st.Azimuth)
+	if math.Round(st.RangeMetres.Max*10)/10 != 91.7 || math.Round(st.RangeMetres.P90*10)/10 != 42.8 || d.MaxRangeMetres != 92 {
+		t.Fatalf("range max %.2f m, p90 %.2f m, declared %g m; the hand-made declaration read 91.7 m (p90 42.8 m) and declared 92 m",
+			st.RangeMetres.Max, st.RangeMetres.P90, d.MaxRangeMetres)
+	}
+	set, err := replayeval.LoadContinuityCoverageSet(surveyPath)
+	if err != nil || set["kirk0"] != d {
+		t.Fatalf("surveyed set %+v, %v; want the summary's declaration", set, err)
+	}
+	committed, err := replayeval.LoadContinuityCoverageSet(committedCoverage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCoverage := committed["kirk0"]
+	if !st.BuildStamped {
+		// The committed declaration was surveyed by an unstamped build, as
+		// this test's is, so even its source is reproduced.
+		if d != wantCoverage {
+			t.Fatalf("surveyed %+v\ncommitted %+v", d, wantCoverage)
+		}
+	}
+	d.Source, wantCoverage.Source = "", ""
+	if d != wantCoverage {
+		t.Fatalf("surveyed %+v\ncommitted %+v", d, wantCoverage)
 	}
 }
