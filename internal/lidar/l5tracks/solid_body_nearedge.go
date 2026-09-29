@@ -104,6 +104,52 @@ type SolidBodyOptions struct {
 	// along its length, which holds for vehicles and cyclists and not for a
 	// pedestrian stepping sideways. Default false.
 	CourseAlignedFaces bool
+	// ReferenceTranslation makes the first fix a translation before it is an
+	// update, per the near-edge plan's invariant 3: the medoid-referenced
+	// position moves along each fixing face's normal by the offset between
+	// this frame's reconstructed centre and its medoid, the position
+	// covariance widens by the medoid's bias, and only then do the faces
+	// update the filter, so their innovation is the prediction's error and
+	// not half a body. Velocity is untouched by the translation. Without it
+	// the faces absorb the offset as an innovation, which the shadow has
+	// always done; NearEdgeTracking always translates, because there the
+	// velocity the innovation would move is the tracked one. Default false.
+	ReferenceTranslation bool
+}
+
+// ReferenceChange names a change of the point a solid body's position refers
+// to, recorded on the instant it happened.
+type ReferenceChange uint8
+
+const (
+	// ReferenceUnchanged is every instant on which the reference stayed put.
+	ReferenceUnchanged ReferenceChange = iota
+	// ReferenceToBodyCentre is the first fix after the body was referenced to
+	// the medoid: its seed, or a lapse.
+	ReferenceToBodyCentre
+	// ReferenceToMedoid is a lapse: a body-centre body that went too long
+	// without a usable face, re-seeded where the evidence is.
+	ReferenceToMedoid
+)
+
+// String names the change for diagnostics and summaries; no change is the
+// empty string.
+func (c ReferenceChange) String() string {
+	switch c {
+	case ReferenceToBodyCentre:
+		return "medoid_to_body_centre"
+	case ReferenceToMedoid:
+		return "body_centre_to_medoid"
+	default:
+		return ""
+	}
+}
+
+// SolidBodyReferenceChanges counts the solid bodies' reference changes over a
+// tracker's life, so a replay can report them beside its fixes and lapses.
+type SolidBodyReferenceChanges struct {
+	ToBodyCentre int64
+	ToMedoid     int64
 }
 
 // faceHysteresisFrames is how many consecutive frames a face must be usable
@@ -190,6 +236,8 @@ type SolidBodyMeasurement struct {
 	NIS float32
 	// FallbackReason says why no near-edge fix was made, when none was.
 	FallbackReason string
+	// ReferenceChange is the reference change this instant made, if any.
+	ReferenceChange ReferenceChange
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -234,9 +282,65 @@ type solidBodyTrack struct {
 	// other face as entering.
 	lastFixFaces VisibleFaces
 
+	// tracked says the body has no filter of its own: under NearEdgeTracking
+	// state and p are copies of the tracked filter's, taken whenever the
+	// state machine or a reading needs them, and the step's result is
+	// written back to it.
+	tracked bool
+	// pending is this frame's step under NearEdgeTracking, taken during the
+	// tracked update and completed once the frame's merge flags are known.
+	pending nearEdgePending
+	// hasPair and pairClusterIdx name the cluster association gave a tracked
+	// body this frame, whose measurement the gate kept.
+	hasPair        bool
+	pairClusterIdx int
+
 	// reading is assembled when the state changes, so the estimate, its
 	// lifecycle decision and its class prior all describe the same instant.
 	reading SolidBodyReading
+}
+
+// nearEdgeFrame is the near-edge measurement one associated frame offers the
+// state machine, made before the machine consumes it: by the shadow just
+// before its update, and under NearEdgeTracking once per candidate pair during
+// association, where the same result is kept for the update.
+type nearEdgeFrame struct {
+	// fallback says why no measurement was attempted; empty when one was.
+	fallback string
+	edges    EdgeMeasurementSet
+	// axis is the body axis the faces and spans are taken along, and
+	// axisIsCourse says it is the solid body's course (faceAxis).
+	axis         float32
+	axisIsCourse bool
+	// length and width are the beliefs the half-extents came from.
+	length, width DimensionBelief
+}
+
+// nearEdgeOutcome is what one step of the state machine did to the dynamic
+// state.
+type nearEdgeOutcome uint8
+
+const (
+	// nearEdgeCoast: nothing updated the state. For the body the instant is
+	// a coast although the track was associated.
+	nearEdgeCoast nearEdgeOutcome = iota
+	// nearEdgeFix: the faces updated a body-centre state.
+	nearEdgeFix
+	// nearEdgeLapse: the body-centre claim lapsed and the state was re-seeded
+	// at the medoid.
+	nearEdgeLapse
+	// nearEdgeMedoid: the state is referenced to the medoid, and the medoid
+	// update applies: the shadow's own, or under NearEdgeTracking the
+	// tracked filter's usual one.
+	nearEdgeMedoid
+)
+
+// nearEdgePending carries a tracked step from the update to its completion.
+type nearEdgePending struct {
+	valid   bool
+	frame   nearEdgeFrame
+	m       SolidBodyMeasurement
+	outcome nearEdgeOutcome
 }
 
 // SolidBody returns the track's solid-body estimate at its latest update, and
@@ -278,6 +382,10 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 		support:           SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved},
 	}
 	sb.orientation = orientationFromTrack(track, OrientationBelief{})
+	if t.Config.NearEdgeTracking {
+		sb.tracked = true
+		sb.syncFromTrack(track)
+	}
 	t.publishSolidBody(track, class, SolidBodyMeasurement{
 		Source:         MeasurementMedoidV0,
 		Rank:           2,
@@ -290,7 +398,8 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 // capture gap under CaptureGapPrediction.
 func (t *Tracker) predictSolidBody(track *TrackedObject, dt float32) {
 	sb := &track.solidBody
-	if !sb.seeded {
+	if !sb.seeded || sb.tracked {
+		// A tracked body is predicted with the tracked filter it copies.
 		return
 	}
 	step := t.Config.MaxPredictDt
@@ -378,6 +487,8 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 
 // updateSolidBody updates an associated track's solid body from its cluster.
 // It runs after the tracked update, so it reads this frame's heading decision.
+// Under NearEdgeTracking the tracked update already took the step, with the
+// heading the association measured the pair with, and this completes it.
 func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	if track.TrackState == TrackDeleted {
 		return
@@ -388,60 +499,102 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		t.seedSolidBody(track, cluster)
 		return
 	}
+	if sb.tracked {
+		t.completeTrackedSolidBody(track, cluster)
+		return
+	}
 	class := solidBodyClass(track)
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
 	sb.orientation = orientationFromTrack(track, sb.orientation)
 
-	var m SolidBodyMeasurement
-	var edges EdgeMeasurementSet
-	measured := false
-	// axis is the body axis this frame's faces and spans are taken along,
-	// and axisIsCourse says it is the solid body's course (faceAxis).
-	axis, axisIsCourse := sb.orientation.PsiRad, false
-	// facesCounted records whether this frame's usable faces reached the
-	// hysteresis counts; any frame that did not is a frame without them.
-	facesCounted := false
+	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount)
+	m, outcome := t.stepNearEdge(sb, cluster, prior, frame)
+	measured := outcome != nearEdgeCoast
+	if outcome == nearEdgeMedoid {
+		// Never re-referenced, so the medoid is still what the state
+		// describes, and the tracked filter's own noise applies to it.
+		nis, ok := t.applyMedoidMeasurement(sb, cluster)
+		if ok {
+			m.Source = MeasurementMedoidV0
+			m.Rank = 2
+			m.NIS = nis
+		}
+		measured = ok
+	}
+	t.finishSolidBodyState(track, "update")
+	if !sb.seeded {
+		return
+	}
+	t.completeSolidBodyFrame(track, class, cluster, frame, m, measured)
+}
 
-	// An undeclared origin comes first: it is a configuration fault, and
-	// every row says so rather than only those past the initialisation
-	// window. Phase 2's mitigation: until HitsToConfirm observations have
-	// passed, the heading that selects a face is itself unconverged, so the
-	// medoid is used and the body stays referenced to it.
+// measureNearEdgeFrame makes a frame's near-edge measurement with the solid
+// body's beliefs, predicted at the body's state, or says why none was made.
+// observations is the track's observation count including this frame.
+//
+// An undeclared origin comes first: it is a configuration fault, and every row
+// says so rather than only those past the initialisation window. Phase 2's
+// mitigation: until HitsToConfirm observations have passed, the heading that
+// selects a face is itself unconverged, so the medoid is used and the body
+// stays referenced to it.
+func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, observations int) nearEdgeFrame {
+	f := nearEdgeFrame{axis: sb.orientation.PsiRad}
 	switch {
 	case t.Config.SolidBody.OriginSource == "":
-		m.FallbackReason = "missing_calibrated_sensor_origin"
-	case track.ObservationCount <= t.Config.HitsToConfirm:
-		m.FallbackReason = "initialisation_window"
+		f.fallback = "missing_calibrated_sensor_origin"
+	case observations <= t.Config.HitsToConfirm:
+		f.fallback = "initialisation_window"
 	case sb.orientation.Provenance == ProvenanceNone:
-		m.FallbackReason = "missing_heading"
+		f.fallback = "missing_heading"
 	default:
-		length := dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
-		width := dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
-		axis, axisIsCourse = t.faceAxis(sb)
-		edges = MeasureNearEdge(NearEdgeInput{
+		f.length = dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
+		f.width = dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
+		f.axis, f.axisIsCourse = t.faceAxis(sb)
+		f.edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
 			Points:           nearEdgePoints(cluster),
 			SensorX:          t.Config.SolidBody.SensorX,
 			SensorY:          t.Config.SolidBody.SensorY,
-			HeadingRad:       axis,
-			HalfLength:       length.Metres / 2,
-			HalfWidth:        width.Metres / 2,
-			LengthProvenance: length.Provenance,
-			WidthProvenance:  width.Provenance,
+			HeadingRad:       f.axis,
+			HalfLength:       f.length.Metres / 2,
+			HalfWidth:        f.width.Metres / 2,
+			LengthProvenance: f.length.Provenance,
+			WidthProvenance:  f.width.Provenance,
 			PredictedX:       sb.state[0],
 			PredictedY:       sb.state[1],
 		})
-		if edges.Rank == 0 {
-			m.FallbackReason = edges.FallbackReason
-			break
-		}
+	}
+	return f
+}
+
+// stepNearEdge is the near-edge state machine: one associated frame's
+// transition of a (state, covariance, reference, support) value, shared by the
+// shadow and, under NearEdgeTracking, the tracked filter. From the frame's
+// measurement it makes a fix (re-referencing a medoid-referenced body to its
+// centre first), lets a body-centre claim lapse after too many faceless
+// frames, or leaves a medoid-referenced state for the medoid update, which is
+// the caller's: the shadow applies its own, the tracked filter its usual one.
+// It never touches the track, so the caller decides whose filter sb's state is.
+func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, f nearEdgeFrame) (SolidBodyMeasurement, nearEdgeOutcome) {
+	var m SolidBodyMeasurement
+	outcome := nearEdgeCoast
+	// facesCounted records whether this frame's usable faces reached the
+	// hysteresis counts; any frame that did not is a frame without them.
+	facesCounted := false
+
+	switch {
+	case f.fallback != "":
+		m.FallbackReason = f.fallback
+	case f.edges.Rank == 0:
+		m.FallbackReason = f.edges.FallbackReason
+	default:
 		// Section 8.1: a face whose half-extent is only the class prior
 		// cannot have its dimension-derived bias corrected, so it is excluded
 		// rather than downweighted. It still counts as a seen face for the
-		// extent evidence below, which is how the prior stops being one.
-		usable := evidenceBackedEdges(edges.Edges)
-		inferred := len(usable) < len(edges.Edges)
+		// extent evidence, which is how the prior stops being one.
+		usable := evidenceBackedEdges(f.edges.Edges)
+		inferred := len(usable) < len(f.edges.Edges)
 		if t.Config.SolidBody.FaceHysteresis {
 			found := len(usable)
 			usable = sb.admitFaces(usable)
@@ -457,20 +610,25 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 			m.InferredExtent = true
 			break
 		}
-		startP := sb.p
+		startState, startP := sb.state, sb.p
+		change := ReferenceUnchanged
 		if sb.reference != ReferenceBodyCentre {
 			// The state described a point on the sensor-facing surface. From
 			// this fix on it describes the body centre, and before the fix its
 			// position is uncertain by as much as the medoid was biased.
+			if t.translatesReference(sb) {
+				startState = translateToFaces(startState, usable, cluster)
+			}
 			bias := (prior.widthMetres / 2) * (prior.widthMetres / 2)
 			startP[0*4+0] += bias
 			startP[1*4+1] += bias
+			change = ReferenceToBodyCentre
 		}
 		var consider []float64
 		if t.Config.SolidBody.FaceEntryConsider {
-			consider = sb.entryConsider(usable, length, width)
+			consider = sb.entryConsider(usable, f.length, f.width)
 		}
-		state, p, nis, faces, ok := t.applyEdgeMeasurements(sb.state, startP, usable, consider)
+		state, p, nis, faces, ok := t.applyEdgeMeasurements(startState, startP, usable, consider)
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
@@ -482,14 +640,15 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		m.Faces = faces
 		m.InferredExtent = inferred
 		m.NIS = nis
-		measured = true
+		m.ReferenceChange = change
+		outcome = nearEdgeFix
 	}
 
 	if t.Config.SolidBody.FaceHysteresis && !facesCounted {
 		sb.admitFaces(nil)
 	}
 
-	if !measured && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
+	if outcome == nearEdgeCoast && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
 		// The object is being observed, but not in any way this measurement
 		// model can use, and has been for as long as the tracker lets an
 		// unconfirmed hypothesis go unmeasured. Coasting further would let the
@@ -498,26 +657,43 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		// is, stating the medoid's bias. The next usable face re-references it.
 		t.lapseSolidBodyToMedoid(sb, cluster, prior)
 		m.Source, m.Rank, m.FallbackReason = MeasurementMedoidV0, 2, "body_centre_lapsed"
-		measured = true
+		m.ReferenceChange = ReferenceToMedoid
+		outcome = nearEdgeLapse
 	}
-	if !measured && sb.reference == ReferenceClusterMedoid {
-		// Never re-referenced, so the medoid is still what the state
-		// describes, and the tracked filter's own noise applies to it.
-		nis, ok := t.applyMedoidMeasurement(sb, cluster)
-		if ok {
-			m.Source = MeasurementMedoidV0
-			m.Rank = 2
-			m.NIS = nis
-			measured = true
-		}
+	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
+		outcome = nearEdgeMedoid
 	}
-	t.finishSolidBodyState(track, "update")
-	if !sb.seeded {
-		return
-	}
+	return m, outcome
+}
 
+// translatesReference says whether a re-reference is a translation before it
+// is an update: always for the tracked filter, and for the shadow when asked.
+func (t *Tracker) translatesReference(sb *solidBodyTrack) bool {
+	return sb.tracked || t.Config.SolidBody.ReferenceTranslation
+}
+
+// translateToFaces moves a medoid-referenced position to the body centre this
+// frame's faces imply, along each face's normal only: by the offset between
+// the face's implied centre offset and the medoid's projection on the same
+// normal. A rank-one frame moves nothing across its face, and velocity is not
+// touched. The fixing faces are at most one longitudinal and one lateral, whose
+// normals are perpendicular, so the per-face moves are independent.
+func translateToFaces(state [4]float32, faces []EdgeMeasurement, cluster WorldCluster) [4]float32 {
+	for _, e := range faces {
+		medoid := float64(e.NormalX)*float64(cluster.CentroidX) + float64(e.NormalY)*float64(cluster.CentroidY)
+		shift := float64(e.ImpliedCentreOffset()) - medoid
+		state[0] += float32(shift * float64(e.NormalX))
+		state[1] += float32(shift * float64(e.NormalY))
+	}
+	return state
+}
+
+// completeSolidBodyFrame finishes an associated frame for the solid body once
+// its state is final: extent evidence, support, lifecycle and the reading.
+func (t *Tracker) completeSolidBodyFrame(track *TrackedObject, class MotionClassBelief, cluster WorldCluster, f nearEdgeFrame, m SolidBodyMeasurement, measured bool) {
+	sb := &track.solidBody
 	// Extent evidence comes from every face the model found, used or not.
-	t.admitSolidBodyExtents(track, cluster, edges, axis, axisIsCourse)
+	t.admitSolidBodyExtents(track, cluster, f.edges, f.axis, f.axisIsCourse)
 	if measured {
 		sb.lastObservedNanos = track.LastMeasurementUnixNanos
 		sb.support = SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved}
@@ -527,8 +703,22 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 		sb.support.CoastedFrames++
 		sb.support.Instant = SupportCoasted
 	}
+	switch m.ReferenceChange {
+	case ReferenceToBodyCentre:
+		t.solidBodyReferenceChanges.ToBodyCentre++
+	case ReferenceToMedoid:
+		t.solidBodyReferenceChanges.ToMedoid++
+	}
 	t.advanceSolidBodyLifecycle(track, class, !measured)
 	t.publishSolidBody(track, class, m)
+}
+
+// SolidBodyReferenceChanges returns the solid bodies' reference changes since
+// the tracker was built or reset.
+func (t *Tracker) SolidBodyReferenceChanges() SolidBodyReferenceChanges {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.solidBodyReferenceChanges
 }
 
 // solidBodyFacelessLimit is how many consecutive frames a body-centre solid
@@ -886,7 +1076,10 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	if !sb.seeded {
 		return
 	}
-	if inflation > 0 {
+	if sb.tracked {
+		// The tracked covariance has had the same inflation.
+		sb.syncFromTrack(track)
+	} else if inflation > 0 {
 		sb.p[0*4+0] += inflation
 		sb.p[1*4+1] += inflation
 		if sb.p[0*4+0] > t.Config.MaxCovarianceDiag {

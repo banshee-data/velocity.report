@@ -260,6 +260,13 @@ type Tracker struct {
 	EmptyBoxFrames int64 // Running sum of unmatched active tracks across frames
 	TotalBoxFrames int64 // Running sum of active tracks across frames
 
+	// solidBodyReferenceChanges counts the solid bodies' reference changes;
+	// read via SolidBodyReferenceChanges().
+	solidBodyReferenceChanges SolidBodyReferenceChanges
+	// nearEdgePairs keeps this frame's near-edge measurement per pairing the
+	// A2 gate made, for the update to reuse. Cleared per frame.
+	nearEdgePairs map[nearEdgePairKey]nearEdgeFrame
+
 	// lastAssociations stores the result of the most recent associate() call.
 	// It is a slice indexed by cluster index; each element is the trackID
 	// the cluster was associated with, or "" if unassociated.
@@ -309,6 +316,7 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	defer t.mu.Unlock()
 	previousAxisMode := t.Config.OBBAxisCoherenceEnabled
 	previousSolidBody := t.Config.SolidBody
+	previousNearEdge := t.Config.NearEdgeTracking
 	fn(&t.Config)
 	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
 		for _, track := range t.Tracks {
@@ -316,7 +324,7 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 			track.AxisScoreGap, track.AxisAbstentionRun = 0, 0
 		}
 	}
-	if previousSolidBody != t.Config.SolidBody {
+	if previousSolidBody != t.Config.SolidBody || previousNearEdge != t.Config.NearEdgeTracking {
 		// A solid body built under other options, or no longer maintained,
 		// would be read as current. Each track reseeds at its next
 		// observation if the option is still on.
@@ -361,6 +369,8 @@ func (t *Tracker) Reset() {
 	t.uncertaintySamples = nil
 	t.uncertaintySamplesDropped = 0
 	t.pendingRejections = nil
+	t.solidBodyReferenceChanges = SolidBodyReferenceChanges{}
+	t.nearEdgePairs = nil
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -451,6 +461,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			track := t.Tracks[trackID]
 			t.observeBaselineAssociation(track, true)
 			matchedTracks[trackID] = true
+			t.attachNearEdgePair(track, clusterIdx)
 			if !t.updateMatched(track, clusters[clusterIdx], nowNanos) {
 				continue
 			}

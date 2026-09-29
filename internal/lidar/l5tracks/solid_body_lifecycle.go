@@ -268,6 +268,11 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 // A track not yet measured holds its seed, and a source this code does not
 // know names nothing.
 func trackReference(t *TrackedObject) ReferencePoint {
+	if t.solidBody.tracked {
+		// Under NearEdgeTracking the tracked filter is the body's, and its
+		// reference is the body's.
+		return t.solidBody.reference
+	}
 	if t.ObservationCount <= 0 {
 		return ReferenceClusterMedoid
 	}

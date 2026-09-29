@@ -272,3 +272,80 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 	}
 	t.Logf("kirk0 face remedies (solid body lateral residual over body-centre frames, metres):%s", table.String())
 }
+
+// TestNearEdgeTrackOnKirk0 is S2.2's exit on kirk0: the near_edge_track arm
+// (the solid body's state machine on the tracked filter, A2 association, full
+// members, remedies T1 and T3) runs, and runs identically twice. Unlike the
+// shadow it changes the tracks, so the comparison with the default is logged
+// for the plan rather than required to be equal; the default arm itself is
+// the default replay, which the other kirk0 tests pin.
+func TestNearEdgeTrackOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	experiments := []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers,
+		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces, ExperimentNearEdgeTrack}
+	plain := runSolidBodyArm(t, dir, "default", nil)
+	first := runSolidBodyArm(t, dir, "near_edge_track", experiments)
+	repeat := runSolidBodyArm(t, dir, "near_edge_track_repeat", experiments)
+
+	if !bytes.Equal(first.baseline, repeat.baseline) {
+		t.Fatalf("near_edge_track's tracking baseline differs between two replays:\n%s\n%s", first.baseline, repeat.baseline)
+	}
+	firstFrames, trackFrames := trackFingerprint(t, first.cfg.OutDir)
+	repeatFrames, _ := trackFingerprint(t, repeat.cfg.OutDir)
+	requireSameDecisions(t, "near_edge_track repeat", firstFrames, repeatFrames)
+	if len(first.points) != len(repeat.points) || len(first.bodies) != len(repeat.bodies) {
+		t.Fatalf("repeat wrote %d/%d rows, first %d/%d", len(repeat.points), len(repeat.bodies), len(first.points), len(first.bodies))
+	}
+	for i := range first.points {
+		if a, b := pointContent(first.points[i]), pointContent(repeat.points[i]); a != b {
+			t.Fatalf("point estimate %d differs between replays:\n%s\n%s", i, a, b)
+		}
+	}
+	if first.params == plain.params {
+		t.Error("near_edge_track shares the default's parameter hash")
+	}
+	if len(first.bodies) != len(first.points) {
+		t.Fatalf("%d solid bodies for %d point estimates; want one beside each", len(first.bodies), len(first.points))
+	}
+
+	// Under near_edge_track the solid body is the tracked state, so every
+	// row pair describes one position.
+	type key struct{ seq, frame int64 }
+	bodyAt := map[key]observationsqlite.TrackSolidBody{}
+	for _, sb := range first.bodies {
+		bodyAt[key{sb.CreationSequence, sb.FrameUnixNanos}] = sb
+	}
+	nearEdge := 0
+	for _, p := range first.points {
+		sb, ok := bodyAt[key{p.CreationSequence, p.FrameUnixNanos}]
+		if !ok {
+			t.Fatalf("no solid body beside point estimate %d@%d", p.CreationSequence, p.FrameUnixNanos)
+		}
+		if sb.Reading.Estimate.X != p.X || sb.Reading.Estimate.Y != p.Y || sb.Reading.VX != p.VX || sb.Reading.VY != p.VY {
+			t.Fatalf("track %d at %d: solid body (%v, %v) is not the tracked estimate (%v, %v)",
+				p.CreationSequence, p.FrameUnixNanos, sb.Reading.Estimate.X, sb.Reading.Estimate.Y, p.X, p.Y)
+		}
+		if p.MeasurementSource == string(l5tracks.MeasurementNearEdgeCandidateV1) {
+			nearEdge++
+		}
+	}
+	if nearEdge == 0 {
+		t.Fatal("no tracked estimate was updated by a near-edge fix")
+	}
+
+	summary, err := SummariseSolidBodies(first.points, first.bodies, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.ReReferences == 0 {
+		t.Error("no re-reference counted on kirk0")
+	}
+	plainFrames, plainTrackFrames := trackFingerprint(t, plain.cfg.OutDir)
+	all := summary.AnchorBodiesCentred
+	t.Logf("kirk0 near_edge_track: %d recorded frames (default %d), %d track-frames (default %d); "+
+		"%d fixes of %d rows, %d near-edge point estimates, %d re-references, %d lapses; "+
+		"body-centre lateral p95/p99/max %.3f/%.3f/%.3f m, steady p99 %.3f m, face-stable p99 %.3f m",
+		len(firstFrames), len(plainFrames), trackFrames, plainTrackFrames,
+		summary.NearEdgeFixes, summary.SolidBodies, nearEdge, summary.ReReferences, summary.Lapses,
+		all.P95Metres, all.P99Metres, all.MaxMetres, summary.AnchorBodiesSteady.P99Metres, summary.AnchorBodiesFaceStable.P99Metres)
+}

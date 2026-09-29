@@ -613,6 +613,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if hasExperiment(experiments, ExperimentNearEdgeTrack) && cfg.UncertaintyReport {
+		// The pre-gate report evaluates the medoid gate, which a body-centre
+		// track under near_edge_track no longer uses.
+		return nil, fmt.Errorf("replay experiment %s does not combine with the uncertainty report, whose pre-gate residuals are the medoid gate's", ExperimentNearEdgeTrack)
+	}
 	if hasExperiment(experiments, ExperimentSolidBody) && cfg.ObservationDBPath == "" {
 		// Allowed, because a corpus runner's determinism repeat keeps the
 		// experiment list and drops the database, and the solid body never
@@ -779,7 +784,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := string(l5tracks.MeasurementMedoidV0)
-	if cfg.MeasurementSourceMode == l5tracks.MeasurementOBBCentreV1 {
+	switch {
+	case hasExperiment(experiments, ExperimentNearEdgeTrack):
+		// The tracked state is updated by the near-edge faces once a track is
+		// re-referenced, so its rows name that model.
+		stateObservationModelID = string(l5tracks.MeasurementNearEdgeCandidateV1)
+	case cfg.MeasurementSourceMode == l5tracks.MeasurementOBBCentreV1:
 		stateObservationModelID = string(l5tracks.MeasurementOBBCentreV1)
 	}
 
@@ -1163,18 +1173,58 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	hysteresis := hasExperiment(experiments, ExperimentSolidBodyFaceHysteresis)
 	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	course := hasExperiment(experiments, ExperimentSolidBodyCourseFaces)
+	translation := hasExperiment(experiments, ExperimentSolidBodyReferenceTranslation)
+	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
 			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
+			ReferenceTranslation: translation,
 		}
-	} else if hysteresis || consider || course || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
+	} else if hysteresis || consider || course || translation || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// nearEdgeTrackRefusal refuses near_edge_track in a combination whose meaning
+// it would change without saying so. It runs the solid body it names, from
+// full members (see ExperimentNearEdgeTrack). Its face updates carry the
+// isotropic tracked noise and its gate its own innovation covariance, so it
+// refuses the adaptive noise model and the likelihood cost, whose terms are
+// the medoid update's; it re-references a medoid-referenced state, so it
+// refuses a position model that is not the medoid; and the smoother does not
+// yet end a chain at a reference change.
+func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource) error {
+	if !hasExperiment(experiments, ExperimentNearEdgeTrack) {
+		return nil
+	}
+	for _, needed := range []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers} {
+		if !hasExperiment(experiments, needed) {
+			return fmt.Errorf("replay experiment %s needs %s and %s, and %q lacks %s",
+				ExperimentNearEdgeTrack, ExperimentSolidBody, ExperimentSolidBodyFullMembers, experiments, needed)
+		}
+	}
+	for _, refused := range []string{ExperimentAdaptiveUncertainty, ExperimentLikelihoodCost} {
+		if hasExperiment(experiments, refused) {
+			return fmt.Errorf("replay experiment %s does not combine with %s: the face updates and the A2 gate do not carry its noise model", ExperimentNearEdgeTrack, refused)
+		}
+	}
+	if hasExperiment(experiments, ExperimentFixedLagRTS) {
+		// S2.4: until the smoother ends a chain at a reference change, it
+		// would smooth across the half-body translation as if it were motion.
+		return fmt.Errorf("replay experiment %s does not combine with %s yet: the smoother does not end a chain at a reference change", ExperimentNearEdgeTrack, ExperimentFixedLagRTS)
+	}
+	if mode == l5tracks.MeasurementOBBCentreV1 {
+		return fmt.Errorf("replay experiment %s re-references a medoid-referenced state, so it needs the medoid position model, not %s", ExperimentNearEdgeTrack, mode)
+	}
+	return nil
 }
 
 // OriginTrackingTransformIdentity names the solid body's sensor origin when

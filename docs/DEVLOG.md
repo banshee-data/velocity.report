@@ -6,6 +6,10 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 29, 2026 - The near-edge update reaches the tracked filter
+
+- Built S2.2 of the near-edge plan behind `near_edge_track`, default off. The solid body's state machine is one function over a state, covariance, reference and support value, which the shadow runs on its own filter and the new mode runs on the tracked one: a fix replaces the medoid update with the face updates, a faceless frame leaves the prediction alone, a lapse returns to the medoid, and a body-centre track is associated on the pair's face residual (A2), keeping the gate at two degrees of freedom. A re-reference is a translation before it is an update, so velocity is not kicked by half a body. On kirk0 the default replay and the shadow arms are byte-identical to main, the new arm runs identically twice, and its body-centre lateral p99 is 0.130 m against the default point estimates' 0.309 m, label-free and on one capture.
+
 ## September 28, 2026 - Physical reference tooling joins Sprint 0.5.2.0
 
 - Added the physical reference authoring/scoring dependency to Sprint 0.5.2.0. The Annotation window reviews point membership, class, and identity; optional pose storage does not provide a box editor, and the current reference builder uses visible-mask positions. Planned independent keyframe pose/extent references, component bounds and unknown geometry, separate review, and evaluator/inspector comparisons before the operator geometry and following-pair pass (#625).
