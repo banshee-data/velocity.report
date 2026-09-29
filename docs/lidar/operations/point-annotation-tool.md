@@ -410,6 +410,49 @@ test is refused as observed; state it as inferred.
 A keyframe covers its own sample and nothing else. Frames between keyframes have no reference
 until someone reviews one there.
 
+### Authoring in the window
+
+Physical references are authored in the annotation window, in the **Physical reference** mode at
+the top of the right-hand column. The window never writes `physical-references.json` itself: it
+sends each edit to the local server, which applies the rules below, and shows what the server
+answers. The server must hold the same pack folder the window opened, under its
+`--lidar-annotation-dir`. A pack opened from anywhere else can be viewed, but not saved.
+
+Entering the mode pauses the link with the main view. The main view draws the tracker's boxes, and
+a reference is independent only if its author has not seen them, so keep the main window's boxes
+out of sight while authoring.
+
+1. Choose the object in the list. Membership and identity come first, in Points mode.
+2. **Body · whole object** holds one length, width and height for the whole episode. A new body
+   is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
+   inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
+   external reference it rests on. A partial span is a lower bound only.
+3. **Keyframe · this frame only** holds this frame's pose. Click in the Top view to place its
+   position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
+   say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
+   face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
+   and only after the position exists.
+4. Give each record its method and uncertainty assumptions. The server checks the draft as you
+   edit and says what it would refuse, and which reviews a save would reset.
+5. **Save proposal** saves the draft as a new revision. A save never reviews anything. A changed
+   body dimension is a new body under a new ID, and every keyframe of that object returns to
+   proposed.
+6. Inspect the saved record in both views, then **Review body** and **Review keyframe**,
+   separately. Review is refused while the draft has unsaved changes, because it confirms the
+   saved record.
+
+The object list shows three separate progress lines: membership frames, the body's review, and
+keyframes saved and reviewed. The overlay draws only what a keyframe establishes: a marker and its
+bound for a position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
+box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
+proposed or reviewed, and uses a different line style for each.
+
+Unsaved physical work guards stepping, switching objects, opening another pack and closing the
+window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
+**Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
+them. If a save gets no answer, the window will not save again until it has reloaded, because the
+first save may have committed.
+
 ### Importing and validating
 
 An independent reference measured elsewhere comes in through an import file,
@@ -488,6 +531,25 @@ Physical scoring refuses a held-out split. Its error limits, reference precision
 to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
 and the along-path gap waits for persisted paths.
 
+## Raw intensity
+
+**Intensity (raw 0–255)** in the right-hand column is independent of the modes. It writes nothing,
+and marks nothing unsaved.
+
+- **Reflectivity colour** is off by default. On, it colours the returns in the orthographic views
+  and the 3D view from one 256-entry table, so a code has the same colour in both. The range, ramp,
+  contrast and brightness only change how returns are drawn. A code outside the range is drawn in
+  the end colour, and the column counts how many were clamped in this frame. Off restores the
+  class colours, without the intensity brightening the main view uses.
+- **Inspect returns** reads out the return under the cursor: its stored byte, point index, sample
+  and position. **P** pins it; **N** steps to the next return under the same place. The readout
+  is the stored byte, whatever the colour settings.
+
+A pack declares intensity once, for the whole pack. If `has_intensity` is false, the stored bytes
+are zero-fill: the readout says unavailable and the colour is a distinct "not measured" one. If
+it is true, a frame the source did not measure would still read as zeros. The window cannot tell
+those zeros apart, and says so. The code is the sensor's raw byte, not a calibrated reflectance.
+
 ## Revision history
 
 Every save archives the exact bytes it replaced as a full snapshot, so the history grows by one
@@ -543,3 +605,10 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
+- Physical authoring has no drag handles, history browser or restore control yet. Shared-error
+  notes, following references and tracker-assisted copies can be read and kept, but not
+  authored, in the window. There is no comparison view: reports from the per-frame evaluator are
+  not yet read in the window.
+- The server pins a physical edit to the exact membership revision the operator was looking at.
+  The saved record does not yet store which membership revision a review relied on.
+- Quitting the app is not guarded; closing the annotation window is.
