@@ -186,6 +186,87 @@ func TestSetCaseSession(t *testing.T) {
 	}
 }
 
+// A case notes the session and motion period it was cut from, and the note is
+// never a foreign key (data model review, finding 9). Re-deriving the index
+// replaces sessions and drops their periods; the case keeps its files, its
+// window and its note, even when the note names a period that is gone.
+func TestACaseOutlivesTheSessionItWasCutFrom(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	captures := NewCaptureStore(db)
+	sessionID := seedSession(t, captures)
+	if err := captures.ReplaceSessionPeriods(sessionID, samplePeriods(captureBase)); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+	periods, err := captures.ListSessionPeriods(sessionID)
+	if err != nil || len(periods) != 3 {
+		t.Fatalf("periods = %v (%v), want 3", periods, err)
+	}
+	cutFrom := periods[1]
+
+	cases := NewReplayCaseStore(db)
+	start, duration := cutFrom.StartSecs, cutFrom.EndSecs-cutFrom.StartSecs
+	if err := cases.InsertScene(&ReplayCase{ReplayCaseID: "case-1", SensorID: "hesai-pandar40p",
+		PCAPFile: captureName(0), PCAPStartSecs: &start, PCAPDurationSecs: &duration}); err != nil {
+		t.Fatalf("InsertScene: %v", err)
+	}
+	files := []ReplayCaseFile{{Ordinal: 0, PCAPFile: captureName(0)}, {Ordinal: 1, PCAPFile: captureName(1)}}
+	if err := cases.SetCaseFiles("case-1", files); err != nil {
+		t.Fatalf("SetCaseFiles: %v", err)
+	}
+	if err := cases.SetCaseSession("case-1", sessionID, cutFrom.PeriodID); err != nil {
+		t.Fatalf("SetCaseSession: %v", err)
+	}
+
+	sessions, err := captures.ListSessions("")
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("sessions = %v (%v), want 1", sessions, err)
+	}
+	if _, err := captures.DeriveSessions(sessions[0].RootID); err != nil {
+		t.Fatalf("re-derive: %v", err)
+	}
+	if left, err := captures.ListSessionPeriods(sessionID); err != nil || len(left) != 0 {
+		t.Fatalf("periods after a re-derive = %v (%v), want none", left, err)
+	}
+
+	got, err := cases.GetScene("case-1")
+	if err != nil {
+		t.Fatalf("GetScene: %v", err)
+	}
+	if got.PCAPStartSecs == nil || got.PCAPDurationSecs == nil || *got.PCAPStartSecs != start || *got.PCAPDurationSecs != duration {
+		t.Errorf("window = %v + %v, want %v + %v", got.PCAPStartSecs, got.PCAPDurationSecs, start, duration)
+	}
+	gotFiles, err := cases.CaseFiles("case-1")
+	if err != nil || len(gotFiles) != 2 || gotFiles[0].PCAPFile != captureName(0) || gotFiles[1].PCAPFile != captureName(1) {
+		t.Errorf("files = %+v (%v), want %+v", gotFiles, err, files)
+	}
+	var session, period string
+	if err := db.QueryRow(`SELECT session_id, source_period_id FROM lidar_replay_cases WHERE replay_case_id = 'case-1'`).Scan(&session, &period); err != nil {
+		t.Fatal(err)
+	}
+	if session != sessionID || period != cutFrom.PeriodID {
+		t.Errorf("note = %s / %s, want %s / %s", session, period, sessionID, cutFrom.PeriodID)
+	}
+
+	rows, err := db.Query(`SELECT "from" FROM pragma_foreign_key_list('lidar_replay_cases')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var from string
+		if err := rows.Scan(&from); err != nil {
+			t.Fatal(err)
+		}
+		if from == "session_id" || from == "source_period_id" {
+			t.Errorf("%s is a foreign key; the data model review keeps it a note", from)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 var caseBase = time.Date(2026, 9, 2, 13, 45, 38, 0, time.UTC)
 
 func extentFor(name string, offset, dur time.Duration) CaseSequenceExtent {
