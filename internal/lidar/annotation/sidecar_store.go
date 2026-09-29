@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,17 +61,11 @@ func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
 		return err
 	}
 	defer root.Close()
-	lock, err := root.OpenFile(annotationLock, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
-	if errors.Is(err, os.ErrExist) {
-		lock, err = root.OpenFile(annotationLock, os.O_RDWR, 0o600)
-	}
+	lock, err := lockAnnotations(root)
 	if err != nil {
-		return fmt.Errorf("open annotation lock: %w", err)
+		return err
 	}
 	defer lock.Close() // Closing releases the kernel lock, including after a process exit.
-	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return fmt.Errorf("%w: %v", ErrSidecarBusy, err)
-	}
 	// Never unlink the lock file: a second inode would permit a second writer.
 	previous, err := readAnnotationFile(root, sidecarFile)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -116,23 +111,7 @@ func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
 		return fmt.Errorf("annotation exceeds %d bytes", MaxSidecarBytes)
 	}
 	if parent > 0 {
-		if err := root.MkdirAll(revisionDir, 0o700); err != nil {
-			return err
-		}
-		info, err := root.Lstat(revisionDir)
-		if err != nil || !info.IsDir() {
-			return fmt.Errorf("annotation history must be a real directory")
-		}
-		name := revisionName(parent)
-		archived, err := readAnnotationFile(root, name)
-		switch {
-		case err == nil && !bytes.Equal(archived, previous):
-			return fmt.Errorf("revision %d archive differs; refusing overwrite", parent)
-		case errors.Is(err, os.ErrNotExist):
-			if err := writeAnnotationFile(root, name, previous); err != nil {
-				return fmt.Errorf("archive revision %d: %w", parent, err)
-			}
-		case err != nil:
+		if err := archiveRevision(root, revisionDir, revisionName(parent), previous, parent); err != nil {
 			return err
 		}
 	}
@@ -213,6 +192,49 @@ func RestoreSidecarRevision(p *Pack, current *Sidecar, revision int) error {
 	return nil
 }
 
+// lockAnnotations takes the pack's non-blocking annotation writer lock. The
+// caller closes the file to release it.
+func lockAnnotations(root *os.Root) (*os.File, error) {
+	lock, err := root.OpenFile(annotationLock, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		lock, err = root.OpenFile(annotationLock, os.O_RDWR, 0o600)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("open annotation lock: %w", err)
+	}
+	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		lock.Close()
+		return nil, fmt.Errorf("%w: %v", ErrSidecarBusy, err)
+	}
+	return lock, nil
+}
+
+// archiveRevision retains a head's exact bytes before it is replaced. An
+// archive already present must be those bytes: a retry after a failed commit
+// finds its own archive, and anything else is refused rather than
+// overwritten.
+func archiveRevision(root *os.Root, dir, name string, previous []byte, revision int) error {
+	if err := root.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	info, err := root.Lstat(dir)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("history %s must be a real directory", dir)
+	}
+	archived, err := readAnnotationFile(root, name)
+	switch {
+	case err == nil && !bytes.Equal(archived, previous):
+		return fmt.Errorf("revision %d archive differs; refusing overwrite", revision)
+	case errors.Is(err, os.ErrNotExist):
+		if err := writeAnnotationFile(root, name, previous); err != nil {
+			return fmt.Errorf("archive revision %d: %w", revision, err)
+		}
+	case err != nil:
+		return err
+	}
+	return nil
+}
+
 func revisionName(revision int) string {
 	return fmt.Sprintf("%s/%010d.json", revisionDir, revision)
 }
@@ -278,7 +300,11 @@ func writeAnnotationFile(root *os.Root, name string, b []byte) error {
 		return err
 	}
 	dir := "."
-	if name != sidecarFile {
+	switch {
+	case name == sidecarFile || name == physicalReferenceFile:
+	case strings.HasPrefix(name, physicalRevisionDir+"/"):
+		dir = physicalRevisionDir
+	default:
 		dir = revisionDir
 	}
 	d, err := root.Open(dir)
