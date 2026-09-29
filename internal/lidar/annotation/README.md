@@ -80,6 +80,24 @@ revision 3; restoring revision 2 then produces revision 4. Neither action change
 or converts an algorithm's proposal into a reviewed label. Ordinary saves clear the restore
 marker. This is revision-level recovery, not the future client's unsaved-stroke undo stack.
 
+## Physical references
+
+Body geometry, keyframe poses and following gaps live in `physical-references.json`, with a
+separate review from the masks. The record is documented in the
+[point annotation tool guide](../../../docs/lidar/operations/point-annotation-tool.md#physical-references).
+
+| Entry point                                                         | Contract                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The sidecar's protocol and lock; a save also checks every object against the sidecar       |
+| `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                    |
+| `PhysicalReferenceSet.Validate`, `ValidateLinks`                    | Pack, source, bounds, evidence and provenance; then objects, and spans against their masks |
+| `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                          |
+| `ParsePhysicalImport`, `ImportPhysicalReferences`                   | An independent import, held to the same checks and merged as a new revision                |
+
+A record's origin is fixed when it is created. The store carries every record ID's origin forward
+in `record_origins`, so a tracker-assisted record cannot become independent by review, by editing,
+or by being deleted and added back under its old ID.
+
 ## Scoring against the annotations
 
 | Entry point                     | Contract                                                                                                        |

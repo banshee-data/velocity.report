@@ -32,12 +32,12 @@ centre, yaw, full dimensions, or bumper endpoints. Its rectangle selects points;
 declare a car's physical box. Optional pose fields in the sidecar do not supply that interface,
 and the present reference scorer uses a visible-mask position rather than a physical centre.
 
-Physical geometry review needs the planned
-[0.5.2.0 reference workflow](../../plans/lidar-physical-reference-review-plan.md). It will provide
-keyframe pose/extent authoring or independent import, uncertainty and unknown components, separate
-review, and comparison against tracker output. Until then, completing this point-review flow
-cannot close the physical box or bumper-gap accuracy gates. An unseen bumper remains unknown
-unless independent evidence supports it.
+Physical geometry review is the
+[0.5.2.0 reference workflow](../../plans/lidar-physical-reference-review-plan.md). Its storage and
+independent import exist ([Physical references](#physical-references) below); the macOS editor for
+placing a box at a keyframe does not yet. Until references are authored or imported and reviewed,
+completing this point-review flow cannot close the physical box or bumper-gap accuracy gates. An
+unseen bumper remains unknown unless independent evidence supports it.
 
 ## Words
 
@@ -320,6 +320,87 @@ applied: a mask it does not certify becomes an ignore point, neither found nor m
 
 The **This frame** ring shows the frame's foreground in sixteen 22.5° sectors laid out as the top
 view is: agreed, in question, and not labelled. Click a sector to go to what is left in it.
+
+## Physical references
+
+A mask says which returns belong to an object. A physical reference says what is known about its
+body: where its centre or a named face was, which way it faced, how long, wide and high it is, and
+how each of those is known. The two have separate files and separate reviews. Reviewing a mask
+never reviews a pose, and the sidecar's optional `pose` is not read as a physical reference.
+
+References live beside the sidecar, in `physical-references.json`, with every earlier revision
+kept byte for byte in `physical-reference-revisions/`. The store follows the sidecar's revision
+protocol and takes the same `.annotations.lock`, so a physical save and a membership save never
+interleave. A save is refused if the base revision changed, and it checks every object against
+the sidecar at the moment it commits. Each revision has two digests: one over its exact bytes,
+and a **content digest** over the references alone. Two revisions with the same content share a
+content digest; that is what an evaluation cites.
+
+### The record
+
+The document is `velocity.report/physical-reference`, schema version 1. Unknown fields are refused.
+
+| Field                               | Meaning                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `pack_digest`, `dataset_id`         | The pack. Must match                                                                      |
+| `source`                            | Sensor, VRLOG header and frame digests, coordinate and reference frame, transform, units  |
+| `source.calibration_id`             | Optional calibration identity; evaluation holds each prediction to it                     |
+| `objects[].object_id`               | An object the sidecar declares and has not rejected                                       |
+| `objects[].body`                    | The body belief for the whole episode: `length`, `width`, `height`, axis convention       |
+| `objects[].keyframes[]`             | One reviewed instant: sample, capture time, anchor, position, yaw, front and rear bumpers |
+| `following[]`                       | A leader, `no_leader` or `ambiguous` decision over an interval, with gaps at instants     |
+| `record_origins`                    | Every record ID ever held, with the origin it was created under. The store keeps it       |
+| `revision`, `updated_utc`, `change` | Set by the store                                                                          |
+
+Every component has a **status**: `observed` (the sensor saw it, in named frames), `inferred`
+(from named frames or an external reference), `prior_only` (a named class prior) or `unknown` (no
+value at all). Observed needs supporting frames; a prior must name itself. Bounds are conservative:
+a dimension is `lower_m`/`upper_m` with an optional `value_m`, a position has a horizontal
+`bound_m`, a yaw a `bound_rad`, a gap `lower_m`/`upper_m`. They say what the record's
+`uncertainty_assumptions` state.
+
+- **Span.** A dimension is `full` or `partial`. A partial span is an observation of part of the
+  body and carries only `lower_m`. An observed full dimension is refused when its supporting
+  frames' returns fall short of its lower bound by more than 0.5 m.
+- **Anchor.** A keyframe's position is the `body_centre`, or the centre of the `front_face`,
+  `rear_face`, `left_face` or `right_face`. A face may declare `offset_m` and `offset_bound_m`, the
+  distance from it to the centre; that offset must agree with the body's own bounds. A face with no
+  offset locates the face, not the centre. The anchor is never a mask's centre.
+- **Axis.** Yaw is the direction of the body's front (`x_front_y_left_z_up`). The axis is
+  `resolved`, `front_rear_ambiguous` (known modulo half a turn) or `unknown`. Only a resolved axis
+  may name a bumper or a face.
+- **Shared errors.** `shared_errors` name an observation that several components rest on, such as
+  one outline fit that places the centre and bounds the length. Anything derived from several
+  components is bounded by adding their bounds, which holds however their errors are correlated.
+- **Following.** A gap is `along_follower_axis`: the leader's rear bumper minus the follower's
+  front, along the follower's body axis. It is a straight chord, not the along-path headway arc.
+  A gap is no better known than the weaker of its two bumpers.
+- **Review.** Each body, keyframe and following reference has its own `review`: status, origin,
+  method, author and uncertainty assumptions. A `tracker_assisted` record names the tracker output
+  it came from, and never becomes `independent`: not by review, not by editing its origin, not by
+  deleting it and adding it back under its old ID. Only a reviewed, independent record is truth.
+
+A keyframe covers its own sample and nothing else. Frames between keyframes have no reference
+until someone reviews one there.
+
+### Importing and validating
+
+An independent reference measured elsewhere comes in through an import file,
+`velocity.report/physical-reference-import` version 1. It holds `pack_digest`, `dataset_id`,
+`source`, `objects` and `following` exactly as the record does, without the fields the store sets.
+It passes the same checks as a saved document, then merges into the current references as a new
+revision:
+
+```bash
+velocity lidar annotation-reference validate --pack "$PACK" --file references.json
+velocity lidar annotation-reference import --pack "$PACK" --file references.json --author "$NAME"
+velocity lidar annotation-reference validate --pack "$PACK"
+```
+
+`validate --file` writes nothing. An import that would replace a body, a keyframe at the same
+sample or a following reference is refused unless `--replace` is given. `validate --revision N`
+checks a retained revision. Each command prints the revision, both digests and the counts,
+including how many keyframes are reviewed and independent.
 
 ## Limits
 
