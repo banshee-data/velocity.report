@@ -1,0 +1,819 @@
+# Platform vocabulary and data model: one word per concept across radar and LiDAR
+
+- **Status:** Draft, for review. Seven decision rounds are recorded below; the plan proposes and changes no code and no schema
+- **Layers:** Cross-cutting (SQLite schema, Go stores and APIs for radar and LiDAR, CLI, Svelte pages, macOS visualiser, public site, docs)
+- **Target:** v0.5.8 (layer cleanup + codebase hygiene) for the vocabulary, the renames and the first migrations; v0.6.6 for surveys on the public site and the archive ingest, whose drafts are amended here
+- **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) (superseded by this plan), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-annotation-segment-finder-plan](lidar-annotation-segment-finder-plan.md), [lidar-vrlog-observation-format-plan](lidar-vrlog-observation-format-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md)
+- **Canonical:** [PLATFORM.md](../platform/PLATFORM.md)
+
+A review of the schema and product surfaces that carry sensor data from a port to a report, for
+both sensors. It spells out one noun for each concept, reusing the words the project already
+accepts, and accounts for every table, route, page, command, flag, data structure and on-disk
+file against that vocabulary: what merges, what is dropped, what each change removes, and what
+is lost.
+
+## Motivation
+
+The data has a four-stage life. A **capture** arrives from a sensor as packets and is kept for a
+while. It is processed into **evidence**: the clusters and retained points a vrlog holds, kept as
+long as retention policy allows. The evidence yields **tracks** and **transits**, which are kept
+for good. **Labels** and **annotations** for training are placed on the evidence, not on the
+tracks, so that a track the tracker split in two cannot split the reference it is judged against.
+
+That story is told today with more words than it has stages, and the two sensors tell it in
+different words. "Scene" means five things. "Capture" names a file, a session, a volume, a job
+queue, the evidence-writing act and a time. "Source" has seven meanings. "Session" means a run of
+files on one side and transit grouping on the other. "Site" has thirteen identities, of which
+three pairs are joined. Radar rows carry no sensor identity at all, and radar has no word for a
+static file because it has never had one.
+
+Each word was reasonable when it was added. Together they mean an operator reading the LiDAR
+navigation sees Captures, Replay Cases, Segments and Scene Map and cannot say which holds the
+thing they labelled yesterday; that the same junction is a `site` row, a `lidar_sites` token, an
+archive slug and a public page with no join between them; and that the two v0.6.6 drafts each add
+a window table and a scene table of their own. Without one vocabulary the count goes up with every
+feature, on both sensors.
+
+## Current state
+
+### Storage
+
+The generated [schema](../../internal/db/schema.sql) holds 44 tables: 33 `lidar_`, 7 `radar_`,
+3 `site` and one for migrations. Grouped by the stage they serve:
+
+| Stage     | Tables                                                                                                                                                                                             | Notes                                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Ports     | `radar_serial_config`                                                                                                                                                                              | Serial path and settings for the one enabled radar port. LiDAR ports are flags                                                 |
+| Readings  | `radar_data`, `radar_objects`                                                                                                                                                                      | One serial line each, as JSON in `raw_event`; no sensor, port or site column. `radar_objects` has no primary key               |
+| Transits  | `radar_data_transits`, `radar_transit_links`                                                                                                                                                       | Readings grouped by time gap; `point_count` counts readings                                                                    |
+| Capture   | `lidar_capture_roots`, `lidar_capture_files`, `lidar_capture_sessions`, `lidar_capture_motion_periods`                                                                                             | Files keyed by a hash of root path and relative path; sessions and periods re-derived on every scan                            |
+| Jobs      | `lidar_capture_jobs`, `lidar_segment_clip_jobs`                                                                                                                                                    | One generic queue named for captures, one subject table for the clip kind                                                      |
+| Window    | `lidar_replay_cases`, `lidar_replay_case_files`, `lidar_segment_selections`                                                                                                                        | A case still carries `pcap_file`, `pcap_start_secs`, `pcap_duration_secs` beside its file list; a selection is 1:1 with a case |
+| Run       | `lidar_run_records`, `lidar_run_configs`, `lidar_param_sets`, `lidar_run_tracks`, `lidar_run_missed_regions`, `lidar_replay_evaluations`                                                           | A run names its case, its VRLOG path and its source path                                                                       |
+| Live      | `lidar_tracks`, `lidar_track_observations`, `lidar_clusters`, `lidar_bg_snapshot`, `lidar_bg_regions`                                                                                              | `lidar_clusters` has a store method and no caller outside tests                                                                |
+| Evidence  | `lidar_observations`                                                                                                                                                                               | The legacy `reduced-cluster-sample` JSON profile; no replayed run has written it since August 2026                             |
+| Estimates | `lidar_track_estimates`, `lidar_track_residuals`, `lidar_track_estimate_revisions`, `lidar_track_solid_bodies`, `lidar_interaction_events`, `lidar_interaction_instants`, `lidar_exposure_windows` | The long-term track record; `source_id` names an extraction                                                                    |
+| Reference | `lidar_replay_annotations`                                                                                                                                                                         | Track labels, served as `/api/lidar/labels`; point masks never enter SQLite                                                    |
+| Place     | `site`, `site_config_periods`, `lidar_sites`                                                                                                                                                       | An integer radar site with report fields and map; a text L16-token LiDAR site with a canonical pose; no join                   |
+| Published | `lidar_scenes`, `site_reports`                                                                                                                                                                     | A published recording naming its source as free text and its site by the radar integer; a report row naming a run it never had |
+| Other     | `radar_commands`, `radar_command_log`, `lidar_tuning_sweeps`, `lidar_migration_rejects`, `schema_migrations`                                                                                       | The two command tables have no reader or writer                                                                                |
+
+Migration 020 created a `lidar_scenes` table that migration 031 renamed to `lidar_replay_cases`.
+Migration 039 then created a new `lidar_scenes` for published recordings. The word was renamed away
+from one concept and given to another, and the code rename that 031 was meant to lead never
+happened: the [terminology plan](lidar-replay-case-terminology-alignment-plan.md) stood at
+"Planned for v0.5.8" since v0.5.0.
+
+### On disk
+
+| Artefact                     | Layout                                                                 | Written by                                                                | Lifetime                           |
+| ---------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------- |
+| Capture file                 | PCAP on a configured root                                              | The capture tool, in ~5-minute rolls; radar has none                      | Operator-managed archive           |
+| VRLOG 0.5 recording          | `header.json`, `index.bin`, `frames/chunk_NNNN.pb`                     | The recorder during a run; `lidar_run_records.vrlog_path` names it        | Until the run is deleted           |
+| VRLOG 1.x evidence container | `manifest`, `chunks/`, `generations/`, `current`                       | `pcap-replay --observations DIR`; `--lidar-observation-dir` (default off) | Retention-bounded (VRLOG plan § 6) |
+| Evidence database            | `observations.db` under the evidence directory                         | `lidar-state-estimation-baseline -evidence-dir`; read by the finders      | Per experiment                     |
+| Annotation pack              | `pack/` (points, samples, manifest, background) and `annotations.json` | `annotation-export`, `annotation-clip`, the clip job                      | Durable; keyed by digest           |
+| Web scene export             | `header.json`, `index.json`, `frames/chunk_NNNN.ndjson.gz`             | `velocity scene export`; indexed by `lidar_scenes`                        | Regenerable                        |
+| Archive index                | `site-index.json`, `map-marks.json`, `site-joins.json`                 | Python under `tools/s2-archive/`                                          | Hand-maintained; joined to nothing |
+
+### Surfaces
+
+The navigation shows Dashboard, Sites, Reports, then Lidar Tracks, Captures, Replay Cases,
+Segments, Scene Map, Lidar Runs, Lidar Sweeps, then Settings and Docs. A `/scene` route edits
+published scenes and is not in the navigation. Radar routes sit at the API root
+(`/api/radar_stats`, `/api/events`, `/api/serial/*`, `/api/transit_worker`); LiDAR routes sit
+under `/api/lidar/`, with replay cases served at `/api/lidar/scenes` and annotation packs at
+`/api/annotations/packs`. Three stop paths share one handler. The macOS visualiser calls
+`/api/lidar/runs/*`, `/api/lidar/labels*`, `/api/lidar/vrlog/*` and `/api/lidar/pcap/stop`. The
+full route, table, gRPC, pipeline-stage and command inventory is
+[MATRIX.md](../../data/structures/MATRIX.md); the ledger below maps every row of it.
+
+### Measured facts
+
+| Fact                                                                               | Value                                  | Source                                                      |
+| ---------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------- |
+| Replay cases whose `source_period_id` names a period that no longer exists         | 24 of 31                               | [data model review](../../data/structures/SCHEMA-REVIEW.md) |
+| Replay case files that name a `capture_file_id`                                    | 0 of 117                               | Same                                                        |
+| Completed runs since August 2026 that stored `lidar_observations` rows             | 0 of 67                                | Same                                                        |
+| Callers of `InsertCluster` outside tests                                           | 0                                      | `grep -rn "\.InsertCluster(" --include=*.go`                |
+| Readers or writers of `radar_commands` and `radar_command_log` in Go               | 0                                      | `internal/db`, `internal/serialmux`                         |
+| Radar tables carrying `sensor_id`, a port or a site                                | 0 of 7                                 | Schema                                                      |
+| Distinct site identities across schema, archive, exports and public site           | 13                                     | Geography inventory, § Ledger 7                             |
+| `scene` substrings in non-test Go under `server`, `storage/sqlite`, `sweep`, `cmd` | about 600                              | Upper bound                                                 |
+| `annotation` / `label` substrings in Go, Swift, web, docs                          | 325/1,826, 767/2,346, 5/846, 516/2,013 | Upper bounds                                                |
+| Stop routes sharing `handleReplayStop`                                             | 3                                      | [routes.go](../../internal/lidar/server/routes.go)          |
+| Selection rows per replay case                                                     | at most 1 (`UNIQUE`)                   | Migration 055                                               |
+
+## Findings
+
+| Area                         | Current state                                                                                                                                              | Severity | Release view                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------- |
+| One word, many meanings      | scene (5), capture (7), source (7), session (3), observation (5), site (13 identities), object (4), frame_id (2), profile (2), dataset (2)                 | High     | v0.5.8: the vocabulary below              |
+| No radar identity            | No radar row names its sensor, port or site; a reading reaches a site only by a time-window join on config periods                                         | High     | v0.5.8: sensor_id and deployments         |
+| No radar capture             | Radar has no static file of packets and no replay; `--fixture` repeats one line                                                                            | Medium   | v0.6.x: a serial-line capture kind        |
+| Two sites, no join           | `site` (integer, report fields, map) and `lidar_sites` (L16 token, canonical pose) never meet; `lidar_scenes` points at one, replay cases at the other     | High     | v0.5.8: one sites table                   |
+| Guide contradicted           | `geographic-indexing.md` defines L10 and L13 only and says a cell is not a site; code roots at L16 and keys sites by it, with a 5+N display at every level | Medium   | v0.5.8: amend the guide                   |
+| Segment duplicates case      | `lidar_segment_selections` is 1:1 with `lidar_replay_cases` and adds only how the window was chosen                                                        | High     | v0.5.8: fold into the case                |
+| Case repeats its file        | `pcap_file`, `pcap_start_secs`, `pcap_duration_secs`, advisory `session_id` and `source_period_id` beside the file table                                   | Medium   | v0.5.8: drop; was already due             |
+| Capture identity is a path   | `capture_file_id` derives from the root path; a moved volume gets new rows; the held-out guard compares paths                                              | Medium   | v0.5.8: content digest as identity        |
+| Two job tables, one queue    | `lidar_capture_jobs` serves every kind; `lidar_segment_clip_jobs` gives one kind a subject; `velocity jobs` is a second queue with its own kinds           | Medium   | v0.5.8: one job noun, one subject shape   |
+| Two VRLOG layouts            | 0.5 display stream and 1.x evidence container share the extension; readers refuse each other; the 1.x act of writing is itself called capture              | Medium   | v0.5.8: one container, profile tags       |
+| Label and annotation collide | Track labels persist in a table called annotations, served as labels; point annotations live outside the LiDAR namespace                                   | Medium   | v0.5.8: label = track, annotation = point |
+| Published scene unlinked     | `lidar_scenes` names its source as free text and its site by the radar integer; radar periods have no row at all                                           | Medium   | v0.6.6: surveys                           |
+| Drafts add a third window    | The catalogue plan proposes `lidar_capture_files` (a second table by that name), `lidar_capture_segments` and `lidar_scene_exports`                        | High     | Now: amend the drafts                     |
+
+## Decisions
+
+Seven rounds of questions settled the vocabulary. Each decision is numbered so the ledger can
+cite it.
+
+### The vocabulary
+
+Every noun the platform uses, with its definition, how each sensor meets it, and what it
+replaces. A word not in this table is not a domain noun.
+
+**Sensor, port, packet, reading**
+
+| Noun          | Definition                                                                     | Radar                             | LiDAR                         | Replaces                                                                            | Decision |
+| ------------- | ------------------------------------------------------------------------------ | --------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------- | -------- |
+| **sensor**    | One physical instrument, identified by `sensor_id`; `sensor_model` is its kind | `ops243-a` (no id today)          | `hesai-pandar40p`             | The capabilities key `default`; the CLI default `pcap-replay`                       | V4       |
+| **port**      | The address a listener binds                                                   | A serial device path              | A UDP port number             | `port_path`, "device", `radar_serial_config`                                        | V2       |
+| **listener**  | The open live connection on a port                                             | The serial listener (`SerialMux`) | The UDP listener              | "socket" as a domain word; `SerialPortManager` in prose                             | V2       |
+| **packet**    | The wire unit as the sensor sent it                                            | One serial line                   | One UDP datagram of 10 blocks | line, payload, event, point, record, sample for the wire unit                       | V3       |
+| **reading**   | One decoded measurement                                                        | `{speed, magnitude, uptime}`      | One return (`PointPolar`)     | `radar_data` row, "event", "sample", "point" (radar)                                | V3       |
+| **detection** | The radar sensor's own on-board classifier report of a passage                 | `radar_objects` row               | none                          | "object" in the radar sense; `DetectionObservation`, `DetectionLabel` lose the word | V3, V20  |
+| **frame**     | One LiDAR rotation assembled from packets (L2)                                 | none                              | `LiDARFrame`                  | no change                                                                           | V3       |
+
+**Capture and source**
+
+| Noun                 | Definition                                                                                       | Radar                      | LiDAR                          | Replaces                                                                                    | Decision    |
+| -------------------- | ------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- | ----------- |
+| **capture**          | A static file of packets, identified by its content digest                                       | A serial-line log (future) | A PCAP                         | capture file, `pcap_file`, `--pcap`                                                         | V1          |
+| **capture sequence** | The derived run of abutting captures from one sensor                                             | same                       | `lidar_capture_sessions`       | capture session, `capseq` "sequence" in the API                                             | V1, V7      |
+| **capture period**   | A motion or static stretch of a sequence, derived                                                | same                       | `lidar_capture_motion_periods` | motion period, static segment                                                               | V1, V20     |
+| **capture volume**   | A configured directory that holds captures                                                       | same                       | `lidar_capture_roots`          | root, `--lidar-capture-root`, safe directory                                                | V1          |
+| **capture time**     | The data's own clock: when the sensor captured it, as opposed to wall time                       | `uptime`                   | packet and frame timestamps    | kept as is; `captured_*` and `capture_unix_nanos` columns stay                              | V26         |
+| **source**           | What feeds the pipeline: a listener (`live`), a `capture`, a `vrlog`, or a `synthetic` generator | listener only              | all four                       | pcap as a mode, `pcap_analysis` (becomes `capture_analysis`, derived), every other "source" | V2, V5, V22 |
+
+**Processing**
+
+| Noun              | Definition                                                                                                | Radar                               | LiDAR                                                    | Replaces                                                                    | Decision |
+| ----------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| **run**           | One pass of the pipeline over one source at one configuration                                             | none yet                            | `lidar_run_records`                                      | report run, sweep run, transit run, job run                                 | V6       |
+| **vrlog**         | The container a run writes: stream kinds `observation`, `analysis`, `display`; a profile; capabilities    | none                                | one layout, 1.x                                          | VRLOG 0.5 recording, observation container, "recording" as a noun           | V9       |
+| **evidence**      | The contents of a vrlog's observation stream: clusters and the retained points behind them                | none                                | profiles `foreground-reduced`, `foreground-complete`     | `observations.db`, `lidar_observations`, "observations" as a container name | V9       |
+| **observation**   | One L4 cluster record inside evidence                                                                     | none                                | `FrameRecord.clusters[i]`                                | the L5 per-frame row (becomes track point)                                  | V9       |
+| **extraction**    | The act, configuration and identity of producing evidence from a source (`extractor_id`, `extraction_id`) | none                                | `ExtractionIdentity`                                     | `source_id`, `CaptureSource`, `SourceID()`                                  | V5       |
+| **recording**     | Verb only: writing a vrlog; the REC state                                                                 | none                                | `StartRecording`, `PlaybackInfo.recording`               | recording as a noun for the artefact                                        | V9       |
+| **replay**        | Feeding a capture or a vrlog through the pipeline                                                         | none yet                            | `POST /api/lidar/replay/start`                           | pcap start, vrlog load, three stop paths                                    | V22      |
+| **playback**      | The visualiser's transport over a vrlog: pause, play, seek, rate                                          | none                                | `/api/lidar/playback/*`, gRPC `Pause` … `SetRate`        | "replay" for transport                                                      | V22      |
+| **track**         | The LiDAR tracker's account of one object (L5); a **track point** is one frame's measurement of it        | none                                | `lidar_tracks`, `lidar_run_tracks`, `lidar_track_points` | `lidar_track_observations`, `TrackObservation`                              | V8, V9   |
+| **transit**       | One road user's passage, at report level, for both sensors                                                | grouped readings (`radar_transits`) | a track that completed; `l8behaviour.Transit`            | "passage", "objects or transits" as report wording                          | V8       |
+| **transit build** | The radar worker's pass that groups readings into transits                                                | `TransitController` runs            | none                                                     | sessionisation, transit worker run                                          | V6, V7   |
+| **sweep**         | A set of runs at varied parameters, with rounds and combos                                                | none                                | `lidar_sweeps`                                           | sweep run, auto-tune run                                                    | V6       |
+| **job**           | One unit of background work in either queue: a kind (verb-object), a subject, an output                   | `transit_build`                     | `motion_pass`, `clip`, `benchmark`, `scorecard`          | capture job, clip job, task                                                 | V11      |
+| **worker**        | A process that executes jobs                                                                              | the transit worker                  | `velocity worker`                                        | analysis worker as a separate noun                                          | V11      |
+
+**Reference**
+
+| Noun                     | Definition                                                                                                                            | Stored as                                                    | Replaces                                                      | Decision |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | -------- |
+| **label**                | A person's verdict on one track: a class plus quality flags                                                                           | `lidar_track_labels`, one row per run and track              | `lidar_replay_annotations`, the run-track label columns       | V10, V27 |
+| **class**                | The vocabulary of object kinds (`ObjectClass`: car, bus, pedestrian, …)                                                               | proto enum                                                   | `DetectionLabel`, "label vocabulary"                          | V19, V20 |
+| **quality flag**         | A per-track quality verdict (good, noisy, merge, split, …)                                                                            | `lidar_track_labels.quality_flags`                           | `QualityLabel`, `quality_label`                               | V20      |
+| **annotation**           | A reviewed point mask over a pack, with its object identity and review status                                                         | `annotations.json` beside the pack                           | no change; `/api/annotations/packs` moves under `/api/lidar/` | V10      |
+| **pack**                 | An immutable excerpt of a run's vrlog for annotation, identified by its digest (`pack_id`)                                            | the pack directory                                           | `dataset_id`                                                  | V19      |
+| **gap mark**             | A region and time a person says the pipeline missed                                                                                   | `lidar_run_missed_regions`                                   | missed region as a noun in prose                              | V10      |
+| **replay case**          | A window within a survey chosen for evaluation or annotation, with its selection provenance, reference run and recommended parameters | `lidar_replay_cases`                                         | segment, selection, scene (as case), `pcap_file` trio         | V18      |
+| **selector**, **finder** | A configured way of ranking candidate windows; the algorithm it uses                                                                  | `config/segment-selectors.defaults.json` (renamed selectors) | no change                                                     | V18      |
+
+**Place**
+
+| Noun                     | Definition                                                                                                                 | Stored as                                           | Replaces                                                                        | Decision |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- | -------- |
+| **site**                 | A place, one row for both sensors: surrogate `site_id`, `slug`, `name`, coordinates, and the cell tokens derived from them | `sites`                                             | `site` (radar), `lidar_sites`, archive slug and key, disk prefix, export site   | V14, V25 |
+| **area**                 | An S2 L10 cell, district scale, the filesystem roll-up                                                                     | `s2_l10_token`                                      | `SceneArea`                                                                     | V15      |
+| **neighbourhood**        | An S2 L13 cell, the fine partition for joins and datasets                                                                  | `s2_l13_token`                                      | no change                                                                       | V15      |
+| **site cell**            | An S2 L16 cell, a junction and its approaches; where a site sits, not what it is                                           | `s2_l16_token`                                      | L16 as the site id                                                              | V15      |
+| **coordinates**          | A WGS84 latitude and longitude, with altitude when known                                                                   | `lat`, `lon`, `alt` columns                         | canonical pose, sensor pose, origin, position for lat/lon                       | V16      |
+| **heading**              | Degrees clockwise from north                                                                                               | `heading_deg`                                       | `map_angle`, `north_azimuth_deg`, `rotation_deg` (from east)                    | V16      |
+| **yaw**                  | Rotation about Z inside a named frame, for tracks, boxes and OBBs                                                          | `yaw_rad`                                           | `heading_rad`, `heading_source` on tracks                                       | V16      |
+| **pose**                 | Coordinates plus heading; later roll, pitch and altitude. A **local pose** is x, y, z plus yaw in a named frame            | `pose_json`                                         | `l4perception.Pose` keeps its name as a local pose; the annotation box is a box | V16      |
+| **trajectory**           | Time-stamped local poses with a **placement** pose that maps the local frame to WGS84                                      | route plan's trajectory file                        | no change                                                                       | V16      |
+| **frame** (coordinate)   | One of `sensor`, `site`, `wgs84`; the `frame` column, distinct from `frame_id`                                             | `frame`                                             | `site/<sensor>`, `world`, `ENU`, `local`, reference-batch frame                 | V16, V20 |
+| **deployment**           | One sensor at one site, or on a moving platform, over a period, with its mounting and pose                                 | `deployments`                                       | `site_config_periods`, calibration identity, config period                      | V17      |
+| **survey**               | One deployment's measurement over a period, at a site (static) or along a route (moving); may be published                 | `surveys`                                           | `lidar_scenes`, published scene, survey period as prose only                    | V12, V24 |
+| **report**               | A generated document from a survey                                                                                         | `reports`                                           | `site_reports`, `run_id` on a report                                            | V6, V24  |
+| **vantage**              | A named viewpoint of a site, served by every survey at that site                                                           | `sites.vantages_json` or the site's `vantages.json` | per-scene `vantages.json`                                                       | V23      |
+| **map** (L7)             | The persistent vector map: static geometry, canonical objects, priors, fusion                                              | `l7map` (planned)                                   | L7 Scene, vector scene map                                                      | V13      |
+| **background signature** | The L3 grid hash that recognises a learned background                                                                      | `lidar_bg_regions.grid_hash`                        | scene signature, scene hash                                                     | V13      |
+
+**Product words**
+
+| Noun        | Definition                                                                                       | Replaces                                              | Decision   |
+| ----------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------- | ---------- | -------------------- | ------- |
+| **dataset** | The report parameter naming which rows a report aggregates: `detections`, `readings`, `transits` | `source=radar_objects                                 | radar_data | radar_data_transits` | V5, V19 |
+| **preset**  | A pipeline depth configuration file (`config/presets/detect.json`)                               | config profile                                        | V19        |
+| **profile** | A vrlog's level of detail: `display`, `foreground-reduced`, `foreground-complete`                | evidence profile, legacy-visualisation as a file kind | V9         |
+| **sensors** | The route that reports each sensor's status                                                      | `/api/capabilities`                                   | V19        |
+
+### The rules
+
+| #   | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| V1  | A capture is one static file of packets. The derived grouping is a capture sequence; a stretch of it is a capture period; the directory is a capture volume. Radar captures, when they exist, share the tables with a `kind`                                                                                                                                                                                                                                                                                                                                                                                                         |
+| V2  | Source means what feeds the pipeline and nothing else: a listener, a capture, a vrlog or a synthetic generator. A port is the address; a listener is the open live connection                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| V3  | Packet is the wire unit for both sensors; reading is the decoded measurement for both; detection is the radar on-board report                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| V4  | Every table that stores readings, detections, captures, runs, tracks or transits carries `sensor_id`; `sensor_model` is an attribute of the sensor, never an identity                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| V5  | Columns ending in `_source` that record how a value was established become `_provenance`; the report parameter becomes `dataset`; the evidence identity becomes `extraction_id`                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| V6  | Run is one pipeline pass. A report has a `report_id`. The transit worker performs a transit build. A sweep contains runs. A worker executes jobs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| V7  | Session is retired: capture sequence, transit building, and `replay_case_id` where the proto and Swift said session                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| V8  | Transit is the report-level noun for one road user's passage on both sensors; LiDAR keeps track internally; `l8behaviour.Passage` becomes `Transit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| V9  | Vrlog is the container noun. Its manifest carries stream kinds, a profile and capabilities; readers refuse only what they cannot supply and name it. Evidence is the observation stream's contents; observation is one cluster record; recording is a verb. The 0.5 layout is converted at profile `display` and the recorder retired                                                                                                                                                                                                                                                                                                |
+| V10 | Label is a track verdict (one table); annotation is a point mask on disk; a missed region is a gap mark; packs are listed under `/api/lidar/annotation-packs`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| V11 | Job is any background unit of work in either queue, with `kind`, `subject_kind`, `subject_id`, `output_path`, `output_digest`; worker executes jobs; the transit worker runs the `transit_build` kind                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| V12 | Survey is one deployment's measurement over a period, at a site or along a route. It replaces the published scene; a survey with a public page is a published survey                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| V13 | L7 is Map; scene is retired everywhere: background signature, Sites page, Area, survey player and export, site fit, homepage survey, `*_scenario_test`. A decision record amends the frozen layer name once                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| V14 | One `sites` table with a surrogate id, a required slug, an optional L16 token derived from coordinates, and the radar fields folded in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| V15 | Three named levels: area L10, neighbourhood L13, site cell L16. The guide is amended and the family display made level-aware                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| V16 | Coordinates, heading, yaw, pose, local pose, trajectory, placement as defined above; frames are `sensor`, `site`, `wgs84`; the `frame` column is separate from `frame_id`                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| V17 | Deployment holds the mounting for both sensors: cosine error angle for radar, sensor-to-site transform for LiDAR, plus the pose; `calibration_id` is derived from it                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| V18 | Replay case is a window within a survey; its coordinates move up to the survey; selection provenance folds into the case; the Segments page folds into Replay Cases                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| V19 | Dataset for reports; `pack_id` for packs; config profiles become presets; `/api/capabilities` becomes `/api/sensors`; vrlog keeps capabilities                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| V20 | `frame_id` is the rotation id; `frame` is the coordinate frame. Object is the L6/L7 semantic object and the annotation window's labelled object; `radar_objects` becomes `radar_detections`. `DetectionObservation` becomes `ClusterObservation`. Point is a LiDAR return; radar `point_count` becomes `reading_count`; `TrackPoint` stays. Event is an L8 interaction event; `raw_event` becomes `reading_json`; `LabelEvent` becomes `LabelChange`. Sample is a pack frame; `cluster-retained-sample` becomes `cluster-retained-subset`. Segment is a road segment; `capseq.Segment` becomes `ReadStep`; pcap-split writes periods |
+| V21 | Shared nouns are unprefixed in tables and routes (`sites`, `/api/sites`); sensor-specific ones carry `radar_` or `lidar_` and sit under `/api/radar/` or `/api/lidar/`                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| V22 | Wire values are `live`, `capture`, `vrlog`, `synthetic`, with `capture_analysis` derived; replay feeds, playback transports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| V23 | Commands and flags are renamed to the nouns with one-release aliases that print the new name. Public pages move to `/surveys/` with redirects; vantages belong to the site                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| V24 | A radar survey is authored (deployment, start, end); a report is generated from a survey and references it; existing report rows migrate to one survey per distinct site and period                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| V25 | The merged site keeps `name` as its printed title (absorbing `lidar_sites.label` and non-empty `location` where `name` is empty), `description` (absorbing `site_description`), `surveyor`, `contact`, coordinates, heading, bbox and map; `location` and `address` are dropped                                                                                                                                                                                                                                                                                                                                                      |
+| V26 | Capture time keeps its meaning: the time of capture, the data's own clock. `captured_*` and `capture_unix_nanos` columns stay                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| V27 | Ports hold rows for both sensors (`kind` serial or udp); LiDAR flags seed a row at startup. Track labels are written only through the run-track route and read through `/api/lidar/labels`                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+## Ledger
+
+Every table, route, RPC, page, type, command, flag, file and document, with its target under the
+vocabulary. Actions: keep, rename, merge, fold, drop, new, amend.
+
+### 1. Tables
+
+| Current                          | Target                           | Action | Notes                                                                                                                                                                                                                                                                                                                                   | Decision      |
+| -------------------------------- | -------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `radar_serial_config`            | `ports`                          | rename | `port_id`, `sensor_id`, `kind` (serial, udp), `address` (path or number), `settings_json`, `enabled`, `sensor_model`; LiDAR flags seed a udp row                                                                                                                                                                                        | V2, V27       |
+| `radar_data`                     | `radar_readings`                 | rename | `reading_id`, `sensor_id`, `reading_json`, generated `speed`, `magnitude`, `uptime`                                                                                                                                                                                                                                                     | V3, V4, V20   |
+| `radar_objects`                  | `radar_detections`               | rename | Gains `detection_id` and `sensor_id`; JSON column becomes `reading_json`                                                                                                                                                                                                                                                                | V3, V4, V20   |
+| `radar_data_transits`            | `radar_transits`                 | rename | `point_count` becomes `reading_count`; gains `sensor_id`; `model_version` stays as the transit build version                                                                                                                                                                                                                            | V8, V20       |
+| `radar_transit_links`            | `radar_transit_readings`         | rename | `data_rowid` becomes `reading_id`                                                                                                                                                                                                                                                                                                       | V3            |
+| `radar_commands`                 | dropped                          | drop   | No reader or writer; rows set aside in `migration_rejects`                                                                                                                                                                                                                                                                              | inventory     |
+| `radar_command_log`              | dropped                          | drop   | Same                                                                                                                                                                                                                                                                                                                                    | inventory     |
+| `site`                           | `sites`                          | merge  | With `lidar_sites`: `site_id` (surrogate), `slug`, `name`, `description`, `surveyor`, `contact`, `lat`, `lon`, `coordinates_provenance`, `heading_deg`, `s2_l16_token`, `s2_l13_token`, `s2_l10_token`, bbox, map SVG, marker, `include_map`, `vantages_json`; `location` and `address` dropped                                         | V14, V15, V25 |
+| `lidar_sites`                    | `sites`                          | merge  | Canonical pose becomes the site's coordinates; `label` becomes `name`                                                                                                                                                                                                                                                                   | V14           |
+| `site_config_periods`            | `deployments`                    | rename | `deployment_id`, `site_id` (nullable for a route deployment), `sensor_id`, `start_unix`, `end_unix`, `is_active`, `mounting_json` (cosine error angle or transform), `pose_json`, `pose_provenance`, `notes`                                                                                                                            | V17           |
+| `site_reports`                   | `reports`                        | rename | `report_id` replaces `run_id`; gains `survey_id`; `source` becomes `dataset`                                                                                                                                                                                                                                                            | V6, V19, V24  |
+| `lidar_scenes`                   | `surveys`                        | rename | `survey_id`, `slug`, `deployment_id`, `site_id` (nullable for a route), `sensor_id`, `start_ns`, `end_ns`, `title`, `description`, `lat`, `lon`, `heading_deg`, `pose_provenance`, `trajectory_path`, `run_id`, `published`, `asset_path`, `asset_sha256`; `source_capture` and the radar integer `site_id` dropped                     | V12, V16, V24 |
+| `lidar_capture_roots`            | `capture_volumes`                | rename | Shared; gains nothing                                                                                                                                                                                                                                                                                                                   | V1, V21       |
+| `lidar_capture_files`            | `captures`                       | rename | `capture_id` is the SHA-256 digest computed by the probe; `kind` (pcap, serial_log); `sensor_id`; `volume_id`, `rel_path` as where last seen                                                                                                                                                                                            | V1, V4        |
+| `lidar_capture_sessions`         | `capture_sequences`              | rename | `sequence_id`; derived as today                                                                                                                                                                                                                                                                                                         | V1, V7        |
+| `lidar_capture_motion_periods`   | `capture_periods`                | rename | `sequence_id`; `period_type` stays motion or static                                                                                                                                                                                                                                                                                     | V1            |
+| `lidar_capture_jobs`             | `jobs`                           | rename | `kind`, `subject_kind`, `subject_id`, `output_path`, `output_digest`; kinds `motion_pass`, `clip`, `transit_build`, `benchmark`, `scorecard`, `state_estimation_baseline`                                                                                                                                                               | V11           |
+| `lidar_segment_clip_jobs`        | `jobs`                           | fold   | Pack path and digest become the job's output                                                                                                                                                                                                                                                                                            | V11           |
+| `lidar_replay_cases`             | `lidar_replay_cases`             | keep   | Gains `survey_id`, `selection_json`, `selector_json`, generated `role`, `finder`, `finder_version`, `window_start_ns`, `window_end_ns`; loses `pcap_file`, `pcap_start_secs`, `pcap_duration_secs`, `session_id`, `source_period_id`, `origin_lat`, `origin_lon`, the three tokens, `geographic_source`, `geographic_status`, `site_id` | V18           |
+| `lidar_replay_case_files`        | `lidar_replay_case_captures`     | rename | `capture_id` a foreign key to `captures`, cleared when the capture is forgotten; `rel_path` kept as the fallback                                                                                                                                                                                                                        | V1            |
+| `lidar_segment_selections`       | `lidar_replay_cases`             | fold   | One row per case already                                                                                                                                                                                                                                                                                                                | V18           |
+| `lidar_replay_evaluations`       | `lidar_replay_evaluations`       | keep   | Reference against candidate run                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_run_records`              | `lidar_runs`                     | rename | `source_type` in live, capture, vrlog, synthetic; `source_path`; `vrlog_path`; `replay_case_id`; `survey_id`                                                                                                                                                                                                                            | V6, V22       |
+| `lidar_run_configs`              | `lidar_run_configs`              | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_param_sets`               | `lidar_param_sets`               | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_run_tracks`               | `lidar_run_tracks`               | keep   | Label columns move to `lidar_track_labels`                                                                                                                                                                                                                                                                                              | V10           |
+| `lidar_run_missed_regions`       | `lidar_run_missed_regions`       | keep   | Gap marks                                                                                                                                                                                                                                                                                                                               | V10           |
+| `lidar_replay_annotations`       | `lidar_track_labels`             | rename | Keyed by `run_id`, `track_id`; `class`, `quality_flags`, `notes`, `labelled_by`; the run-track label columns fold in                                                                                                                                                                                                                    | V10, V27      |
+| `lidar_tracks`                   | `lidar_tracks`                   | keep   | `frame_id` stays the rotation id; gains `frame`                                                                                                                                                                                                                                                                                         | V20           |
+| `lidar_track_observations`       | `lidar_track_points`             | rename | `heading_rad` becomes `yaw_rad`; gains `frame`                                                                                                                                                                                                                                                                                          | V9, V16       |
+| `lidar_clusters`                 | dropped                          | drop   | No writer                                                                                                                                                                                                                                                                                                                               | inventory     |
+| `lidar_observations`             | dropped                          | drop   | Legacy JSON profile; rows set aside                                                                                                                                                                                                                                                                                                     | V9            |
+| `lidar_track_estimates`          | `lidar_track_estimates`          | keep   | `source_id` becomes `extraction_id`; `observation_id` stays (a cluster observation)                                                                                                                                                                                                                                                     | V5            |
+| `lidar_track_residuals`          | `lidar_track_residuals`          | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_track_estimate_revisions` | `lidar_track_estimate_revisions` | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_track_solid_bodies`       | `lidar_track_solid_bodies`       | keep   | `source_id` becomes `extraction_id`; `heading_rad` becomes `yaw_rad`                                                                                                                                                                                                                                                                    | V5, V16       |
+| `lidar_interaction_events`       | `lidar_interaction_events`       | keep   | `source_id` becomes `extraction_id`                                                                                                                                                                                                                                                                                                     | V5            |
+| `lidar_interaction_instants`     | `lidar_interaction_instants`     | keep   | `capture_unix_nanos` stays                                                                                                                                                                                                                                                                                                              | V26           |
+| `lidar_exposure_windows`         | `lidar_exposure_windows`         | keep   | `source_id` becomes `extraction_id`                                                                                                                                                                                                                                                                                                     | V5            |
+| `lidar_bg_snapshot`              | `lidar_bg_snapshot`              | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_bg_regions`               | `lidar_bg_regions`               | keep   | `grid_hash` becomes `background_signature`; `source_path` becomes `capture_path`                                                                                                                                                                                                                                                        | V13, V5       |
+| `lidar_tuning_sweeps`            | `lidar_sweeps`                   | rename |                                                                                                                                                                                                                                                                                                                                         | V6            |
+| `lidar_migration_rejects`        | `migration_rejects`              | rename | Shared                                                                                                                                                                                                                                                                                                                                  | V21           |
+| `schema_migrations`              | `schema_migrations`              | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+| `lidar_all_tracks` (view)        | `lidar_all_tracks`               | keep   |                                                                                                                                                                                                                                                                                                                                         |               |
+
+44 tables become 37: six are dropped and one merges. Column-level renames outside this table
+follow V4 (`sensor_id` everywhere), V5 (`_provenance`, `extraction_id`), V16 (`yaw_rad`, `frame`)
+and V20.
+
+### 2. Routes: platform and radar
+
+| Current                                                                                  | Target                                                                                                                                                         | Action | Decision |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- |
+| `GET /api/events`                                                                        | `GET /api/radar/readings`                                                                                                                                      | rename | V3, V21  |
+| `GET /api/radar_stats`                                                                   | `GET /api/radar/stats` (`dataset=` parameter)                                                                                                                  | rename | V19, V21 |
+| `GET /api/commands`, `POST /admin/radar/command`                                         | `GET`, `POST /api/radar/commands`                                                                                                                              | rename | V21      |
+| `GET`, `POST /api/transit_worker`                                                        | `GET`, `POST /api/radar/transit-build`                                                                                                                         | rename | V6, V21  |
+| `/api/serial/configs[/{id}]`, `/models`, `/test`, `/devices`, `/reload`                  | `/api/ports[/{id}]`, `/api/ports/models`, `/test`, `/devices`, `/reload`                                                                                       | rename | V2, V27  |
+| `GET /api/capabilities`                                                                  | `GET /api/sensors`                                                                                                                                             | rename | V19      |
+| `GET`, `POST /api/sites`; `/api/sites/{id}`                                              | same, on the merged table; `{id}` or `{slug}`                                                                                                                  | keep   | V14      |
+| `GET`, `POST /api/site_config_periods`                                                   | `GET`, `POST /api/deployments`; `GET /api/sites/{id}/deployments`                                                                                              | rename | V17      |
+| `GET /api/timeline?site_id`                                                              | `GET /api/sites/{id}/timeline`                                                                                                                                 | rename | V21      |
+| `/api/scenes[/{id}[/headway]]`                                                           | `/api/surveys[/{id}[/headway]]`                                                                                                                                | rename | V12      |
+| `POST /api/generate_report`                                                              | `POST /api/reports` (from a survey)                                                                                                                            | rename | V24      |
+| `/api/reports`, `/reports/site/{id}`, `/reports/{id}[/download/{f}]`                     | same; `/api/surveys/{id}/reports` added                                                                                                                        | keep   | V24      |
+| `/api/charts/timeseries`, `/histogram`, `/comparison`                                    | same, `dataset=` and `survey=` parameters                                                                                                                      | keep   | V19      |
+| `/api/config`, `/api/version`, `/api/db_stats`, `/api/tailscale/*`                       | same                                                                                                                                                           | keep   |          |
+| `/debug/*` (radar server)                                                                | same                                                                                                                                                           | keep   |          |
+| `GET /api/lidar/scene-map`, `PUT /api/lidar/sites/{token}`                               | `GET /api/sites?view=map`, `PUT /api/sites/{id}`                                                                                                               | merge  | V13, V14 |
+| `/api/lidar/capture/roots`, `/files`, `/sessions`, `/periods`, `/scan`, `/session/label` | `/api/capture-volumes`, `/api/captures`, `/api/capture-sequences`, `/api/capture-periods`, `POST /api/captures/scan`, `POST /api/capture-sequences/{id}/label` | rename | V1, V21  |
+| `/api/lidar/capture/jobs`, `/jobs/cancel`                                                | `/api/jobs`, `POST /api/jobs/{id}/cancel`                                                                                                                      | rename | V11, V21 |
+
+### 3. Routes: LiDAR
+
+| Current                                                                                                                                                                                | Target                                                                                                                                             | Action | Decision |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- |
+| `/api/lidar/scenes[/{id}]`                                                                                                                                                             | `/api/lidar/replay-cases[/{id}]`                                                                                                                   | rename | V18      |
+| `POST /api/lidar/scenes/{id}/replay`, `/clip`, `/evaluations`                                                                                                                          | `/api/lidar/replay-cases/{id}/replay`, `/clip`, `/evaluations`                                                                                     | rename | V18      |
+| `POST`, `DELETE /api/lidar/scenes/{id}/location`                                                                                                                                       | `PUT /api/surveys/{id}` (pose fields)                                                                                                              | merge  | V18      |
+| `/api/lidar/segments`, `/segments/strip`, `/segments/finders`, `/segments/selectors`, `POST /segments/{id}/case`                                                                       | `/api/lidar/replay-cases/candidates`, `/candidates/strip`, `/api/lidar/replay-cases/selectors`, `POST /api/lidar/replay-cases` with a candidate id | merge  | V18      |
+| `GET /api/annotations/packs`                                                                                                                                                           | `GET /api/lidar/annotation-packs`                                                                                                                  | rename | V10      |
+| `POST /api/lidar/runs/{id}/annotation-export`                                                                                                                                          | `POST /api/lidar/runs/{id}/pack`                                                                                                                   | rename | V10      |
+| `POST /api/lidar/pcap/start`, `POST /api/lidar/vrlog/load`                                                                                                                             | `POST /api/lidar/replay/start` with `replay_case_id`, `capture` or `vrlog`                                                                         | merge  | V22      |
+| `POST /api/lidar/replay/stop`, `/pcap/stop`, `/vrlog/stop`                                                                                                                             | `POST /api/lidar/replay/stop`                                                                                                                      | merge  | V22      |
+| `POST /api/lidar/pcap/resume_live`                                                                                                                                                     | `POST /api/lidar/replay/resume-live`                                                                                                               | rename | V22      |
+| `GET /api/lidar/data_source`                                                                                                                                                           | `GET /api/lidar/source` (values live, capture, capture_analysis, vrlog)                                                                            | rename | V22      |
+| `GET /api/lidar/pcap/files`                                                                                                                                                            | retired; `/api/captures` serves it                                                                                                                 | drop   | V1       |
+| `/api/lidar/playback/status`, `/pause`, `/play`, `/seek`, `/rate`                                                                                                                      | same                                                                                                                                               | keep   | V22      |
+| `/api/lidar/tracks`, `/active`, `/history`, `/summary`, `/metrics`, `/{id}`, `/clear`                                                                                                  | same                                                                                                                                               | keep   |          |
+| `GET /api/lidar/tracks/{id}/observations`                                                                                                                                              | `GET /api/lidar/tracks/{id}/points`                                                                                                                | rename | V9       |
+| `GET /api/lidar/clusters`, `GET /api/lidar/observations`                                                                                                                               | retired with their tables                                                                                                                          | drop   | V9       |
+| `/api/lidar/runs`, `/{id}`, `/{id}/tracks[/{t}]`, `/{id}/labelling-progress`, `/{id}/reprocess`, `/{id}/evaluate`, `/{id}/missed-regions`, `/runs/clear`                               | same                                                                                                                                               | keep   |          |
+| `PUT /api/lidar/runs/{id}/tracks/{t}/label`, `/flags`                                                                                                                                  | same; the one write path for labels                                                                                                                | keep   | V27      |
+| `GET /api/lidar/labels`, `/labels/export`, `GET /labels/{id}`                                                                                                                          | same, reading `lidar_track_labels`; `POST /api/lidar/labels`, `PUT`, `DELETE /labels/{id}` retired                                                 | keep   | V27      |
+| `/api/lidar/sweep/*`, `/api/lidar/sweeps[/{id}]`, `/sweeps/charts`                                                                                                                     | same                                                                                                                                               | keep   | V6       |
+| `/api/lidar/params`, `/status`, `/monitor`, `/server`, `/persist`, `/snapshot(s)`, `/export_*`, `/traffic`, `/acceptance`, `/grid_*`, `/settling_eval`, `/background/grid`, `/chart/*` | same                                                                                                                                               | keep   |          |
+| `/debug/lidar/*`                                                                                                                                                                       | same                                                                                                                                               | keep   |          |
+| `/health`                                                                                                                                                                              | same                                                                                                                                               | keep   |          |
+
+### 4. gRPC and protobuf
+
+| Current                                                                                                                                              | Target                                                                      | Action | Decision |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------ | -------- |
+| `VisualiserService.StreamFrames`, `Pause`, `Play`, `Seek`, `SetRate`, `SetOverlayModes`, `GetCapabilities`                                           | same                                                                        | keep   | V22      |
+| `StartRecording`, `StopRecording` (unimplemented)                                                                                                    | same names; write a vrlog at the `display` profile                          | keep   | V9       |
+| `SourceMode` LIVE, PCAP, PCAP_ANALYSIS, VRLOG                                                                                                        | LIVE, CAPTURE, CAPTURE_ANALYSIS, VRLOG, SYNTHETIC                           | rename | V22      |
+| `CoordinateFrameInfo{frame_id, reference_frame, origin_*, rotation_deg}`                                                                             | `FrameInfo{frame (sensor, site, wgs84), lat, lon, alt, heading_deg}`        | rename | V16      |
+| `Track.heading`, `heading_source`                                                                                                                    | `yaw`, `yaw_source`                                                         | rename | V16      |
+| `LabelEvent`, `LabelSet.session_id`, `source_file`                                                                                                   | `LabelChange`, `replay_case_id`, `capture`                                  | rename | V7, V20  |
+| `PlaybackInfo.source_mode`, `recording`, `log_start_ns`, `log_end_ns`                                                                                | same (`log_*` become `vrlog_*`)                                             | keep   | V9       |
+| `FrameBundle`, `PointCloudFrame`, `ClusterSet`, `TrackSet`, `BackgroundSnapshot`, `DebugOverlaySet`, `OrientedBoundingBox` (`heading` becomes `yaw`) | same                                                                        | keep   | V16      |
+| recording.proto `CaptureIdentity{capture_uuid, source_type, parent_capture_uuid}`                                                                    | `VrlogIdentity{vrlog_uuid, source_type, parent_vrlog_uuid}`                 | rename | V9       |
+| `CaptureFile{path, sha256}`                                                                                                                          | `Capture{path, sha256}`                                                     | rename | V1       |
+| `SourceWindow`                                                                                                                                       | `Window`                                                                    | rename | V5       |
+| `ExtractionIdentity.source_id`                                                                                                                       | `extraction_id`                                                             | rename | V5       |
+| `CaptureSummary`, `CaptureFailure`                                                                                                                   | `Summary`, `Failure`                                                        | rename | V9       |
+| `StreamKind` OBSERVATION                                                                                                                             | OBSERVATION, ANALYSIS, DISPLAY                                              | amend  | V9       |
+| `RecordingManifest.profile`, `capabilities`, `required_features`                                                                                     | same; profile values `display`, `foreground-reduced`, `foreground-complete` | keep   | V9       |
+| `Calibration{sensor_id, from_frame, to_frame, transform}`                                                                                            | same; frames named `sensor`, `site`                                         | keep   | V16      |
+| `ObjectClass` enum                                                                                                                                   | same; it is the class                                                       | keep   | V20      |
+
+### 5. Web pages, navigation and types
+
+| Current                                                                                  | Target                                                                              | Action | Decision      |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ------------- |
+| Nav: Dashboard, Sites, Reports                                                           | Dashboard, Sites, Surveys, Reports                                                  | amend  | V12           |
+| Nav: Lidar Tracks, Captures, Replay Cases, Segments, Scene Map, Lidar Runs, Lidar Sweeps | Captures (both sensors), LiDAR Replay Cases, LiDAR Runs, LiDAR Tracks, LiDAR Sweeps | merge  | V13, V18      |
+| Nav: Settings (Sensor Serial Ports, Transit Worker, Tailscale)                           | Settings (Ports, Transit build, Tailscale)                                          | amend  | V2, V6        |
+| `/site`, `/site/[id]`                                                                    | `/sites`, `/sites/[id]`: merged fields, deployments, map, S2 view, vantages         | merge  | V14, V17, V25 |
+| `/scene`, `/scene/[id]` (no nav)                                                         | `/surveys`, `/surveys/[id]`: authoring for radar, publishing for LiDAR              | rename | V12, V24      |
+| `/lidar/scene-map`                                                                       | folded into `/sites` as its map view                                                | fold   | V13           |
+| `/lidar/captures`                                                                        | `/captures`: volumes, sequences, periods, jobs, "make replay case"                  | rename | V1            |
+| `/lidar/replay-cases`                                                                    | same, with the candidates panel from Segments                                       | merge  | V18           |
+| `/lidar/segments`                                                                        | folded into Replay Cases                                                            | fold   | V18           |
+| `/lidar/runs`, `/lidar/tracks`, `/lidar/sweeps`                                          | same; the tracks page's "Scene" picker becomes "Replay case"                        | keep   | V18           |
+| `/reports`                                                                               | same; a report is generated from a survey; `dataset` selector                       | amend  | V19, V24      |
+| `/settings`                                                                              | same; Ports lists both sensors                                                      | amend  | V27           |
+| `Scene` type, `getScenes` and kin                                                        | `Survey`, `getSurveys`                                                              | rename | V12           |
+| `LidarReplayCase`, `ReplayCaseFile`                                                      | `ReplayCase`, `ReplayCaseCapture`                                                   | rename | V1, V18       |
+| `CaptureRoot`, `CaptureFile`, `CaptureSession`, `MotionPeriod`, `CaptureJob`             | `CaptureVolume`, `Capture`, `CaptureSequence`, `CapturePeriod`, `Job`               | rename | V1, V11       |
+| `CaseLocation`, `LidarSite`, `SceneArea`, `SceneMapResponse`, `SiteCase`                 | `SurveyPose`, `Site`, `Area`, `SitesMap`, `SiteSurvey`                              | rename | V13, V14, V16 |
+| `Site`, `SiteConfigPeriod`, `TimelineResponse`                                           | `Site` (merged), `Deployment`, `SiteTimeline`                                       | rename | V14, V17      |
+| `Event`, `RadarStats`, report `source`                                                   | `Reading`, `RadarStats`, `dataset`                                                  | rename | V3, V19       |
+| `SerialConfig*`, `SerialDevice`, `SensorModel`                                           | `Port*`, `PortDevice`, `SensorModel`                                                | rename | V2            |
+| `TransitWorkerState`, `TransitRunInfo`                                                   | `TransitBuildState`, `TransitBuildInfo`                                             | rename | V6            |
+| `Track.heading_rad`, `heading_source`, `TrackObservation`                                | `yaw_rad`, `yaw_source`, `TrackPoint`                                               | rename | V9, V16       |
+| `DetectionLabel`, `QualityLabel`                                                         | `ObjectClass`, `QualityFlag`                                                        | rename | V20           |
+| `Segment*`, `SegmentSelector`, `segments.ts`                                             | `Candidate*`, `Selector`, `candidates.ts`                                           | rename | V18           |
+| `web/src/lib/scene/*`, `scene-reader.d.ts`                                               | `web/src/lib/survey/*`, `survey-reader.d.ts`                                        | rename | V12           |
+| `SceneHeadway.svelte`, `DataSourceSelector.svelte`                                       | `SurveyHeadway.svelte`, `DatasetSelector.svelte`                                    | rename | V12, V19      |
+| `GEO_SOURCES`, `SITE_SOURCES`, `position_source`                                         | `POSE_PROVENANCE`, `COORDINATES_PROVENANCE`, `coordinates_provenance`               | rename | V5, V16       |
+| Nav label spelling "Lidar"                                                               | "LiDAR", as the page titles and docs spell it                                       | amend  |               |
+
+### 6. macOS visualiser
+
+| Current                                                                                           | Target                                                                        | Action | Decision  |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------ | --------- |
+| Toolbar "Source" picker Live / Replay; mode badges REPLAY (PCAP), PCAP (ANALYSIS), REPLAY (VRLOG) | same picker; badges REPLAY (CAPTURE), CAPTURE (ANALYSIS), PLAYBACK (VRLOG)    | amend  | V22       |
+| Run browser: columns Run, Date, Case, Duration, Tracks, Labels                                    | Case becomes Replay case; loads a vrlog for playback                          | amend  | V18       |
+| Labels panel: Classification, Flags                                                               | Class, Quality flags                                                          | amend  | V20       |
+| Annotation window, Generate Annotation Pack sheet                                                 | same words: annotation, pack; "Generate from Run" writes a pack               | keep   | V10       |
+| `SourceMode` enum                                                                                 | live, capture, captureAnalysis, vrlog, synthetic                              | rename | V22       |
+| `PlaybackMode` replayNonSeekable, replaySeekable                                                  | replay, playback                                                              | rename | V22       |
+| `RunTrackLabelAPIClient.loadVRLog`, `stopVRLog`, `returnToLive`                                   | `startPlayback` (`/replay/start` with `vrlog`), `stopReplay` (`/replay/stop`) | rename | V22       |
+| `LabelAPIClient` create, update, delete                                                           | retired; labels are written through the run-track route                       | drop   | V27       |
+| `LabelSet.sessionID`, `getLabelsForSession`                                                       | `replayCaseID`, `getLabelsForReplayCase`                                      | rename | V7        |
+| `CoordinateFrameInfo`, `AnnotationPose`                                                           | `FrameInfo`, `AnnotationBox`                                                  | rename | V16       |
+| `HeadingSource`, `Track.heading`                                                                  | `YawSource`, `yaw`                                                            | rename | V16       |
+| `AnnotationExportAPIClient` path                                                                  | `/api/lidar/runs/{id}/pack`                                                   | rename | V10       |
+| README's "Open Recording", "Export Labels" menu items                                             | removed from the README; they do not exist                                    | amend  | inventory |
+
+### 7. CLI and flags
+
+| Current                                                                                                                    | Target                                                                                                                                                                                    | Action                                                                         | Decision  |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------- | ------------------------------ | ------- | ------- | --------------------------------------------------- | ------ | ------- |
+| `velocity lidar pcap-replay`                                                                                               | `velocity lidar replay` (`--capture`, `--vrlog-profile`)                                                                                                                                  | rename                                                                         | V22, V23  |
+| `velocity lidar segments`                                                                                                  | `velocity lidar candidates`                                                                                                                                                               | rename                                                                         | V18       |
+| `velocity lidar annotation-clip`                                                                                           | `velocity lidar clip`                                                                                                                                                                     | rename                                                                         | V23       |
+| `velocity lidar annotation-export`                                                                                         | `velocity lidar pack`                                                                                                                                                                     | rename                                                                         | V10       |
+| `velocity lidar observations verify                                                                                        | inspect                                                                                                                                                                                   | compare                                                                        | recover`  | `velocity lidar vrlog verify   | inspect | compare | recover`, absorbing `vrlog-check`and`vrlog-analyse` | rename | V9      |
+| `velocity lidar pcap-split`                                                                                                | `velocity lidar periods` (writes capture periods)                                                                                                                                         | rename                                                                         | V20       |
+| `velocity lidar settling-eval`                                                                                             | same                                                                                                                                                                                      | keep                                                                           |           |
+| `velocity scene export                                                                                                     | vantages`                                                                                                                                                                                 | `velocity survey export                                                        | vantages` | rename                         | V12     |
+| `velocity data transits analyse                                                                                            | delete                                                                                                                                                                                    | migrate                                                                        | rebuild`  | `velocity radar transits build | analyse | delete  | migrate`                                            | rename | V6, V21 |
+| `velocity data migrate`, `velocity data sql`                                                                               | same                                                                                                                                                                                      | keep                                                                           |           |
+| `velocity report pdf                                                                                                       | headway`                                                                                                                                                                                  | same; `--survey` replaces `--site` plus dates; `--dataset` replaces `--source` | amend     | V19, V24                       |
+| `velocity tune sweep`                                                                                                      | same; `--capture` replaces `--pcap`                                                                                                                                                       | amend                                                                          | V1        |
+| `velocity jobs *`, `velocity worker`                                                                                       | same; kinds renamed per V11                                                                                                                                                               | keep                                                                           | V11       |
+| `velocity serve`, `velocity device *`, `velocity version`                                                                  | same                                                                                                                                                                                      | keep                                                                           |           |
+| `--port`                                                                                                                   | `--radar-port`                                                                                                                                                                            | rename                                                                         | V2        |
+| `--lidar-pcap-dir`, `--lidar-capture-root`                                                                                 | `--capture-dir`, `--capture-volume` (repeatable), both sensors                                                                                                                            | rename                                                                         | V1, V23   |
+| `--lidar-vrlog-dir`, `--lidar-observation-dir`                                                                             | `--lidar-vrlog-dir` plus `--lidar-vrlog-profile display                                                                                                                                   | foreground-complete`                                                           | merge     | V9                             |
+| `--lidar-annotation-dir`                                                                                                   | same                                                                                                                                                                                      | keep                                                                           | V10       |
+| `--lidar-segment-selectors`                                                                                                | `--lidar-selectors`                                                                                                                                                                       | rename                                                                         | V18       |
+| `--lidar-udp-port`, `--lidar-live-udp-port`, `--lidar-udp-rcv-buf`, `--lidar-forward-*`, `--lidar-foreground-forward-*`    | same                                                                                                                                                                                      | keep                                                                           | V2        |
+| `--lidar-plots-dir`, `--lidar-listen`, `--lidar-grpc-listen`, `--lidar-forward-mode`, `--enable-lidar`, `--lidar-no-parse` | same                                                                                                                                                                                      | keep                                                                           |           |
+| Tool flags `-observations-db`, `-evidence-dir`, `-evidence-per-case`                                                       | `-vrlog-dir`, `-vrlog-per-case`                                                                                                                                                           | rename                                                                         | V9        |
+| `LIDAR_EVIDENCE_DIR` Make variable                                                                                         | `LIDAR_VRLOG_DIR`                                                                                                                                                                         | rename                                                                         | V9        |
+| Standalone `cmd/tools/*`                                                                                                   | `scene-export` and `lidar-scene-extract` take the survey noun; `vrlog-check` and `vrlog-analyse` fold into `velocity lidar vrlog`; `pcap-split` and `settling-eval` follow their commands | rename                                                                         | V9, V12   |
+
+Old spellings remain accepted for one release and print the new name.
+
+### 8. On-disk formats and files
+
+| Current                                                                                                                                                                  | Target                                                                                                                                       | Action | Decision |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- |
+| PCAP capture on a root                                                                                                                                                   | a capture on a volume; identity is its digest                                                                                                | keep   | V1       |
+| VRLOG 0.5 (`header.json`, `index.bin`, `frames/`)                                                                                                                        | converted to a 1.x container at profile `display`; recorder retired                                                                          | drop   | V9       |
+| VRLOG 1.x (`manifest`, `chunks/`, `generations/`, `current`, `summary`)                                                                                                  | the vrlog; manifest gains `analysis` and `display` stream kinds                                                                              | keep   | V9       |
+| `observations.db`, `<run>/observations/`                                                                                                                                 | `vrlog/` under the run; the SQLite evidence database is retired once the container is read by the finders                                    | drop   | V9       |
+| Pack: `manifest.json`, `samples.json`, `points.bin`, `backgrounds.json`, `background.bin`, `proposals/`                                                                  | same                                                                                                                                         | keep   | V10      |
+| Pack sidecar: `annotations.json`, `annotation-revisions/`, `.annotations.lock`                                                                                           | same                                                                                                                                         | keep   | V10      |
+| Pack `segment.json`                                                                                                                                                      | `selection.json`                                                                                                                             | rename | V18, V20 |
+| Pack manifest `dataset_id`                                                                                                                                               | `pack_id`                                                                                                                                    | rename | V19      |
+| Survey export: `header.json` (`export`, `site`, `frame_stride`, `coordinate_frame`, `source_vrlog_sha256`), `index.json`, `frames/chunk_NNNN.ndjson.gz`, `timeline.json` | `site` becomes `survey` (slug) and `site` (slug); `coordinate_frame` becomes `frame` and `heading_deg`; tiers `tracks`, `clip`, `background` | amend  | V12, V16 |
+| `vantages.json` per scene                                                                                                                                                | per site                                                                                                                                     | move   | V23      |
+| `background/background.json.gz`                                                                                                                                          | same, `site` becomes the site slug                                                                                                           | amend  | V12      |
+| `config/tuning.defaults.json` `l1.data_source`                                                                                                                           | values `live`, `capture`, `capture_analysis`                                                                                                 | amend  | V22      |
+| `config/profiles/detect.json`, `l3-only.json`                                                                                                                            | `config/presets/`                                                                                                                            | rename | V19      |
+| `config/segment-selectors.defaults.json`, `SELECTORS.md`                                                                                                                 | `config/selectors.defaults.json`, `SELECTORS.md`                                                                                             | rename | V18      |
+| `config/sweep-*.json` `data_source`, `pcap_file`                                                                                                                         | `source`, `capture`                                                                                                                          | amend  | V1, V22  |
+| Archive `site-index.json`, `map-marks.json`, `site-joins.json`                                                                                                           | imported once into `sites` and `surveys`; the Python is retired per the archive-ingest plan                                                  | drop   | V14      |
+| `public_html/scene-sites.json`, `scene-overrides.json`, `src/_data/scenes.json`                                                                                          | `survey-sites.json`, `survey-overrides.json`, `surveys.json`                                                                                 | rename | V12      |
+| Live vrlog name `<UTC>Z-<uuid8>.vrlog`                                                                                                                                   | same                                                                                                                                         | keep   |          |
+| Filename tags `-s2-l10-<tok>` on static captures                                                                                                                         | same; only the canonical token, per the guide                                                                                                | keep   | V15      |
+
+### 9. Go boundary types
+
+| Layer or package     | Current                                                                                                                                                                                                                                                                   | Target                                                                                                                                                                                                                         | Decision                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| L1 network           | `UDPListener`, `UDPSocket`, `PCAPPacket`, `PCAPReader`, `ReadPCAPFile`, `ReadPCAPSequence`, `CountPCAPPackets`                                                                                                                                                            | `UDPListener`, `UDPSocket` (implementation), `CapturePacket`, `CaptureReader`, `ReadCapture`, `ReadCaptureSequence`, `CountCapturePackets`                                                                                     | V1, V2                     |
+| L1 parse             | `Pandar40PParser`, `DataBlock`, `ChannelData`, `PacketTail`                                                                                                                                                                                                               | same                                                                                                                                                                                                                           | V3                         |
+| capseq               | `Sequence`, `Segment`, `Seam`, `SeamGrade`, `ReadStep`                                                                                                                                                                                                                    | `Sequence`, `ReadStep` (was `Segment`), `Seam`, `SeamGrade`                                                                                                                                                                    | V20                        |
+| L2                   | `PointPolar`, `Point`, `LiDARFrame`, `FrameBuilder`                                                                                                                                                                                                                       | same; `PointPolar` documented as a reading                                                                                                                                                                                     | V3                         |
+| L3                   | `BackgroundGrid`, `BackgroundCell`, `Region`, `BackgroundManager`, `SceneSignature()`                                                                                                                                                                                     | same; `BackgroundSignature()`                                                                                                                                                                                                  | V13                        |
+| L4                   | `WorldPoint`, `WorldCluster`, `OrientedBoundingBox`, `Pose`, `FrameID`                                                                                                                                                                                                    | same; `Pose` is a local pose; `FrameID` values `sensor`, `site`                                                                                                                                                                | V16                        |
+| L4b                  | `FrameRecord`, `ClusterRecord`, `DetectionObservation`, `CaptureSource`, `SourceID()`, `Capability`, `ProfileName`                                                                                                                                                        | `FrameRecord`, `ClusterRecord`, `ClusterObservation`, `ExtractionSource`, `ExtractionID()`, `Capability`, `ProfileName`                                                                                                        | V5, V20                    |
+| L5                   | `TrackedObject`, `TrackPoint`, `TrackMeasurement`, `HeadingSource`, `SolidBodyEstimate`, `EstimateStage`                                                                                                                                                                  | same; `YawSource`                                                                                                                                                                                                              | V16                        |
+| L6                   | `ObjectClass`, `ClassificationResult`, `TrackFeatures`                                                                                                                                                                                                                    | same                                                                                                                                                                                                                           | V20                        |
+| L8 behaviour         | `Passage`, `PathLocation`, `PathFrame`, `Trajectory`                                                                                                                                                                                                                      | `Transit`, `PathLocation`, `PathFrame`, `Trajectory` (an object's track)                                                                                                                                                       | V8                         |
+| L9                   | `FrameBundle`, `PlaybackInfo`, `CoordinateFrameInfo`, `Recorder`, `Replayer`, `Publisher`                                                                                                                                                                                 | `FrameBundle`, `PlaybackInfo`, `FrameInfo`; `Recorder` and `Replayer` retired with the 0.5 layout                                                                                                                              | V9, V16                    |
+| storage/vrlog        | `Manifest`, `CaptureIdentity`, `ExtractionIdentity`, `CaptureFile`, `SourceWindow`, `Writer`, `Reader`, `Follower`, `Frontier`, `CaptureState`, `CaptureFailedError`                                                                                                      | `Manifest`, `VrlogIdentity`, `ExtractionIdentity`, `Capture`, `Window`, `Writer`, `Reader`, `Follower`, `Frontier`, `ContainerState`, `ContainerFailedError`                                                                   | V9                         |
+| storage/sqlite       | `ReplayCase`, `ReplayCaseFile`, `CaseLocation`, `SceneArea`, `CaptureRoot`, `CaptureFile`, `CaptureSession`, `MotionPeriod`, `CaptureJob`, `SegmentSelection`, `SegmentClipJob`, `Site`, `SiteCase`, `TrackObservation`, `ObservationStore`, `AnalysisRun`, `SweepRecord` | `ReplayCase` (with `Selection`), `ReplayCaseCapture`, `SurveyPose`, `Area`, `CaptureVolume`, `Capture`, `CaptureSequence`, `CapturePeriod`, `Job`, folded, folded, `Site`, `SiteSurvey`, `TrackPoint`, retired, `Run`, `Sweep` | V1, V9, V11, V13, V14, V18 |
+| storage/sqlite files | `scene_store.go`, `scene_api.go`, `segment_store.go`, `capture_jobs.go`                                                                                                                                                                                                   | `replay_case_store.go`, `replay_case_api.go`, folded, `job_store.go`                                                                                                                                                           | V11, V18                   |
+| internal/db          | `Scene`, `Site`, `SiteConfigPeriod`, `SiteReport`, `SerialConfig`, `RadarObject`, `Event`, `EventAPI`, `TransitWorker`, `TransitController`                                                                                                                               | `Survey`, `Site`, `Deployment`, `Report`, `Port`, `Detection`, `Reading`, `ReadingAPI`, `TransitBuilder`, `TransitBuildController`                                                                                             | V2, V3, V6, V12, V17       |
+| serialmux            | `SerialMux`, `SerialPorter`, `SerialPortManager`, `HandleEvent`, `EventType*`, `ClassifyPayload`                                                                                                                                                                          | `SerialListener`, `SerialPort`, `PortManager`, `HandlePacket`, `PacketKind*`, `ClassifyPacket`                                                                                                                                 | V2, V3                     |
+| server (lidar)       | `SourceMode`, `DataSource`, `PipelineState`, `ReplayConfig{ReplayFiles}`, `ReturnToLive`, `ParkFinishedReplay`                                                                                                                                                            | `SourceMode` (values per V22), retired, `PipelineState`, `ReplayConfig{Captures}`, same, same                                                                                                                                  | V22                        |
+| server (radar)       | `Server`, `LidarLabelAPI`                                                                                                                                                                                                                                                 | `Server`, `TrackLabelAPI`                                                                                                                                                                                                      | V10                        |
+| annotation           | package `annotation`, `SourceProvenance`, `CoordinateContract`, `Pose`, `SplitManifest`                                                                                                                                                                                   | same package; `CoordinateContract{frame, heading_deg}`, `Box`, `SplitManifest`                                                                                                                                                 | V10, V16                   |
+| segments             | package `segments`, `Window`, `Finder`, `Selector`, `Capture` field                                                                                                                                                                                                       | package `candidates`, `Window`, `Finder`, `Selector`, `capture_id` field                                                                                                                                                       | V18                        |
+| geoindex             | `LevelCoarse`, `LevelFine`, `LevelPrecise`, `Tokens`, `FamilyDisplay`                                                                                                                                                                                                     | `LevelArea`, `LevelNeighbourhood`, `LevelSiteCell`, `Tokens`, `FamilyDisplay` (level-aware)                                                                                                                                    | V15                        |
+| internal/scene       | package `scene`, `Header.Site`, `ManifestSite`, `Vantage`, `CoordinateFrame`                                                                                                                                                                                              | package `survey`, `Header.Survey`, `ManifestSurvey`, `Vantage`, `Frame`                                                                                                                                                        | V12, V16                   |
+| report               | `Config.Source`, `SiteData`                                                                                                                                                                                                                                               | `Config.Dataset`, `SiteData` (name, description, surveyor, contact)                                                                                                                                                            | V19, V25                   |
+| config               | `L1Config{Sensor, DataSource}`                                                                                                                                                                                                                                            | `L1Config{Sensor, Source}`                                                                                                                                                                                                     | V22                        |
+
+### 10. Docs to amend
+
+| Document                                                                                                                          | Change                                                                                                                                             | Decision         |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `docs/platform/PLATFORM.md`                                                                                                       | Gains the vocabulary as its terminology section when this plan graduates; a `docs/platform/architecture/vocabulary.md` hub if it outgrows the page | all              |
+| `docs/lidar/LIDAR.md` § Terminology                                                                                               | Scene and Run rows replaced by the vocabulary                                                                                                      | V6, V13          |
+| `docs/lidar/operations/tuning-guide.md` § Glossary                                                                                | Scene row removed; Run row aligned                                                                                                                 | V6, V13          |
+| `docs/lidar/architecture/geographic-indexing.md`                                                                                  | Three named levels, level-aware display, site cell versus site, provenance values                                                                  | V15, V16         |
+| `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`, `ARCHITECTURE.md`                                                                | L7 Map; the frozen-name rule amended by decision record; radar parsing lives in `serialmux`; `/api/events` shape corrected                         | V13              |
+| `docs/lidar/architecture/time-domain-model.md`                                                                                    | Capture time stated as the time sense beside capture the file                                                                                      | V26              |
+| `docs/lidar/architecture/vector-scene-map.md`                                                                                     | Renamed `vector-map.md`                                                                                                                            | V13              |
+| `docs/plans/lidar-l7-scene-plan.md`                                                                                               | Renamed `lidar-l7-map-plan.md`                                                                                                                     | V13              |
+| `docs/plans/lidar-scene-catalogue-publishing-plan.md`                                                                             | Renamed `survey-catalogue-publishing-plan.md`; § 3 uses `captures`, `capture_periods`, `surveys`; no new tables                                    | V12              |
+| `docs/plans/lidar-web-scene-export-plan.md`                                                                                       | Renamed `survey-export-plan.md`; vantages per site                                                                                                 | V12, V23         |
+| `docs/plans/archive-ingest-in-go-plan.md`                                                                                         | Imports the archive JSON into `sites` and `surveys`; capture identity is the digest                                                                | V1, V14          |
+| `docs/plans/lidar-static-scene-local-fit-plan.md`, `static-pose-alignment.md`                                                     | Renamed site fit; pose vocabulary                                                                                                                  | V13, V16         |
+| `docs/plans/lidar-route-capture-plan.md`, `motion-capture.md`                                                                     | Trajectory, placement, local pose, heading and yaw as defined; survey along a route; survey walk becomes geometry walk                             | V12, V16         |
+| `docs/plans/lidar-vrlog-observation-format-plan.md`, `data/structures/VRLOG_FORMAT.md`                                            | One container; profile `display`; capture nouns renamed to vrlog nouns                                                                             | V9               |
+| `docs/plans/lidar-point-annotation-and-object-dataset-plan.md`, `point-annotation-tool.md`, `internal/lidar/annotation/README.md` | Pack identity `pack_id`; `selection.json`; the words table                                                                                         | V10, V18, V19    |
+| `docs/plans/lidar-annotation-segment-finder-plan.md`                                                                              | Candidates and selectors; no segment noun                                                                                                          | V18              |
+| `docs/platform/architecture/metrics-registry.md`                                                                                  | Source-mode vocabulary `live`, `capture`, `capture_analysis`, `vrlog`                                                                              | V22              |
+| `docs/radar/architecture/site-config-cosine-correction-spec.md`, `speed-limit-schedules.md`, `serial-configuration-*.md`          | Deployment, survey, ports, readings                                                                                                                | V2, V3, V17, V24 |
+| `docs/ui/PDF_REPORT_DESIGN.md`                                                                                                    | The title block prints the site name                                                                                                               | V25              |
+| `data/structures/DATA_STRUCTURES.md`, `MATRIX.md`, `SCHEMA-REVIEW.md`                                                             | Vocabulary link; sections and rows renamed; watchlist items closed by V14 and V17                                                                  | all              |
+| `docs/DECISIONS.md`                                                                                                               | D-27 amends the frozen L7 name; D-28 records the vocabulary                                                                                        | V13              |
+| `docs/BACKLOG.md`                                                                                                                 | One line per scope item below                                                                                                                      |                  |
+
+### 11. Public site
+
+| Current                                                                   | Target                                                           | Action | Decision |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ | -------- |
+| `/scenes/` index "LiDAR scenes"; `/scenes/<id>/` pages                    | `/surveys/` "Surveys"; `/surveys/<slug>/`; `/scenes/*` redirects | rename | V12, V23 |
+| `src/_layouts/scene.njk`, `src/js/scene-*.js`, `hero-scene.js`            | `survey.njk`, `survey-*.js`, `hero-survey.js`                    | rename | V12      |
+| Page controls "Grid offset (degrees)", "Sensor zero clockwise from north" | "Grid offset", "Sensor heading"                                  | amend  | V16      |
+| `assets/manifest.json` `site{id, title}`                                  | `survey{slug, title}`, `site{slug, name}`                        | amend  | V12      |
+| `scene-sites.json` `archive_site`, `position_source`                      | `survey-sites.json`, `site_slug`, `coordinates_provenance`       | rename | V5, V14  |
+| Timeline legend and colours                                               | same                                                             | keep   |          |
+
+## What is lost
+
+- **A breaking API and route move on both sensors.** Radar routes move under `/api/radar/` and
+  `/api/ports`; LiDAR case, segment, capture, job and replay routes move. The web client, the
+  visualiser's replay and label clients, the sweep dashboard tests and the integration tests move
+  together; one-release aliases cover the stop routes and the CLI only.
+- **Wire values change.** `pcap` becomes `capture` in `SourceMode`, `data_source`, run
+  `source_type` and the vrlog manifest. Recorded 0.5 files are converted, not read in place; the
+  Swift enum and the sweep dashboard change with it.
+- **Conditional constraints on cases.** Once the selection lives on the case its `CHECK`s become
+  `selection_json IS NULL OR ...`; the API keeps the rule that a finder-made case has one.
+- **Motion-period provenance.** `source_period_id` is dropped; it is already lost for 24 of 31
+  cases.
+- **Index-first captures.** Content identity needs a probe before a case can name a capture by
+  identity; the relative path stays as the fallback and is linked when the probe runs.
+- **Rows in dropped tables.** `lidar_observations`, `lidar_clusters`, `radar_commands` and
+  `radar_command_log` are set aside in `migration_rejects`, never deleted.
+- **Live cluster persistence** stays opt-in until live evidence capture is default-on.
+- **Radar site fields.** `location` and `address` go; a `location` that was the only title moves
+  into `name`. Reports print the name.
+- **A radar survey must be declared.** Ad-hoc report ranges remain as unsaved previews; a saved
+  report belongs to a survey.
+- **Renaming reach.** About 600 Go and 640 web `scene` identifiers, 1,100 `annotation` references
+  stay as they are, and the heading-to-yaw rename touches the tracker, the proto, Swift and the
+  heading-coherence work. Each item below carries its own estimate.
+- **The frozen layer name.** "L7 is Scene forever" is amended once, by decision record, to Map.
+- **Migrations with data movement.** The case rebuild (000057), the sites merge and deployments
+  (000058), surveys and reports (000059), readings and detections (000060), ports and jobs
+  (000061). Each follows the 000055 pattern: verdicts in a temporary table, rejects kept whole, a
+  down migration that restores every row, and a row-accounting test.
+
+## What does not change, and why
+
+- `lidar_tracks` and `lidar_run_tracks` stay separate, per the
+  [consolidation decision](../lidar/architecture/track-storage-consolidation.md).
+- The estimate tables keep their repeated identity columns; a shared parent key is a separate
+  audit on the SCHEMA-REVIEW watchlist.
+- Capture time keeps its name and its columns (V26).
+- The annotation pack format, sidecar and revision protocol are unchanged apart from
+  `selection.json` and `pack_id` (V10, V19).
+- The label and class vocabularies (car, bus, pedestrian, …; good, noisy, merge, …) are unchanged;
+  only the type names move to class and quality flag.
+- Public survey URLs keep their slugs; `/scenes/` redirects.
+
+## Scope
+
+### Item 1: vocabulary and drafts
+
+**Summary:** Publish the vocabulary where contributors look; amend the drafts that would add
+tables the vocabulary retires.
+
+**Steps:**
+
+1. Terminology in `PLATFORM.md`, `LIDAR.md`, the tuning glossary and `DATA_STRUCTURES.md`.
+2. Decision records D-27 (L7 Map) and D-28 (vocabulary).
+3. Amend the catalogue, export, archive-ingest, route-capture and VRLOG plans per § Ledger 10;
+   rename the plan and architecture files listed there.
+4. Mark the terminology alignment plan superseded (done in this PR).
+
+**Milestone:** this PR for the plan; v0.5.8 for the hub updates.
+
+### Item 2: finish the scene rename and retire scene (V13, V18)
+
+**Summary:** Replay cases are called replay cases in every layer; scene survives nowhere.
+
+**Steps:**
+
+1. Go store and API: `replay_case_store.go`, `replay_case_api.go`, handlers, response keys,
+   error strings, sweep interfaces, `internal/cmd` wiring.
+2. Web: `api.ts`, the Replay Cases, Runs and Tracks pages, the dashboard tests.
+3. `BackgroundSignature()`, `Area`, `*_scenario_test.go`, `internal/survey`, `web/src/lib/survey`.
+4. Docs sweep.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 3: sources, ports, listeners and wire values (V2, V22, V27)
+
+**Summary:** One source vocabulary on the wire, one replay route family, ports for both sensors.
+
+**Steps:**
+
+1. `SourceMode` and every `source_type` take `live`, `capture`, `vrlog`, `synthetic`;
+   `capture_analysis` derived; the Swift enum and sweep dashboard follow.
+2. `POST /api/lidar/replay/start` and `/stop`; `/resume-live`; `/source`; aliases for one
+   release.
+3. `ports` table and routes; LiDAR flags seed a udp row; Settings lists both.
+4. `serialmux` renames: listener, port, packet.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 4: sensor identity, readings, detections, transits (V3, V4, V8, V20)
+
+**Summary:** Radar rows name their sensor; the radar tables take the nouns.
+
+**Steps:**
+
+1. Migration 000060: `radar_readings`, `radar_detections` (with a primary key),
+   `radar_transits`, `radar_transit_readings`; `sensor_id` on each, defaulted from the enabled
+   port; `reading_json`, `reading_count`; `radar_commands` and `radar_command_log` set aside.
+2. `internal/db` types and the transit builder; `/api/radar/*` routes; `dataset` parameter.
+3. `l8behaviour.Transit`; report wording.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 5: captures, sequences, periods, volumes, jobs (V1, V11, V21)
+
+**Summary:** The capture index and the job queue take the shared nouns and content identity.
+
+**Steps:**
+
+1. Migration 000061: `captures` keyed by digest, `capture_sequences`, `capture_periods`,
+   `capture_volumes`, `jobs` with subject and output; `lidar_segment_clip_jobs` folds in.
+2. Probe computes the digest; a moved volume re-associates rows.
+3. Routes under `/api/captures`, `/api/capture-sequences`, `/api/capture-periods`,
+   `/api/capture-volumes`, `/api/jobs`; the Captures page serves both sensors.
+4. `velocity jobs` kinds renamed; the transit worker runs `transit_build`.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 6: sites, cells, deployments, poses (V14, V15, V16, V17, V25)
+
+**Summary:** One site, one deployment row per mounting, one pose vocabulary.
+
+**Steps:**
+
+1. Migration 000058: `sites` merged (radar fields, `slug`, tokens, coordinates, heading,
+   vantages); `deployments` from `site_config_periods` with mounting and pose; `location` and
+   `address` dropped after the `name` backfill.
+2. `geoindex` levels and level-aware display; the guide amended.
+3. `heading_deg` and `yaw_rad`; `FrameInfo`; the `frame` column; `CoordinateContract`.
+4. Sites page with map view and deployments; `/api/sites`, `/api/deployments`.
+5. LiDAR calibration derived from the deployment; `extraction_id` in the evidence tables.
+
+**Milestone:** v0.5.8. `L`
+
+### Item 7: surveys and reports (V12, V24)
+
+**Summary:** A survey row for both sensors; reports generated from surveys; the public site
+serves surveys.
+
+**Steps:**
+
+1. Migration 000059: `surveys` from `lidar_scenes` plus one survey per distinct report site and
+   period; `reports` with `report_id` and `survey_id`; replay case poses move to their survey.
+2. Surveys page: authoring for radar, publishing for LiDAR; Reports page generates from a survey.
+3. `velocity survey export|vantages`; `/surveys/` on the public site with redirects; vantages per
+   site.
+4. Headway and charts take `survey=`.
+
+**Milestone:** v0.6.6 for the public site; v0.5.8 for the table. `L`
+
+### Item 8: replay cases and candidates (V18, V19)
+
+**Summary:** The selection folds into the case; the Segments page folds into Replay Cases.
+
+**Steps:**
+
+1. Migration 000057: selection columns on the case with conditional `CHECK`s; the `pcap_file`
+   trio and advisory columns dropped; `lidar_replay_case_captures` with a digest foreign key.
+2. `/api/lidar/replay-cases/candidates`, `/selectors`; the candidates panel on the page.
+3. `pack_id`, `selection.json`, `config/selectors.defaults.json`, `config/presets/`.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 9: one vrlog (V9)
+
+**Summary:** One container with profile tags; the 0.5 recorder retired; evidence tools take the
+vrlog noun.
+
+**Steps:**
+
+1. Manifest gains `analysis` and `display` stream kinds; the display adapter derives
+   `FrameBundle`s from a container; a converter writes a 1.x container from a 0.5 recording at
+   profile `display`.
+2. The recorder and replayer are replaced by the writer and reader; `StartRecording` writes a
+   vrlog; playback reads one.
+3. `velocity lidar vrlog verify|inspect|compare|recover` absorbs `vrlog-check` and
+   `vrlog-analyse`; `--lidar-vrlog-profile`; `VrlogIdentity` and kin in the proto.
+4. `lidar_observations` and `lidar_clusters` dropped; `lidar_track_points`.
+
+**Milestone:** v0.5.8 for the nouns and the converter; the VRLOG plan owns the Pi and power-loss
+gates. `L`
+
+### Item 10: labels (V10, V27)
+
+**Summary:** One track label table and one write path; annotation packs under the LiDAR
+namespace.
+
+**Steps:**
+
+1. Migration: `lidar_track_labels` from `lidar_replay_annotations` and the run-track columns.
+2. `POST`, `PUT`, `DELETE /api/lidar/labels` retired; the Swift `LabelAPIClient` write methods
+   removed.
+3. `/api/lidar/annotation-packs`, `/runs/{id}/pack`, `velocity lidar pack|clip`.
+4. `ObjectClass` and `QualityFlag` type names in Go, TS and Swift.
+
+**Milestone:** v0.5.8. `M`
+
+### Item 11: CLI, flags and Make (V23)
+
+**Summary:** Every command and flag says the noun; old spellings print the new name for one
+release.
+
+**Milestone:** v0.5.8, alongside the items it names. `S`
+
+## Dependencies
+
+- Item 8 depends on Item 5 (the capture digest and the jobs table).
+- Item 7 depends on Item 6 (surveys reference sites and deployments).
+- Item 9's converter depends on the VRLOG plan's display adapter; its live gates are not a
+  dependency.
+- Item 4's `sensor_id` default depends on Item 3's ports row.
+- The archive ingest plan imports into `sites` and `surveys`, so it follows Items 6 and 7.
+- The [multi-file cases plan](lidar-captures-multi-file-cases-plan.md) scheduled the `pcap_file`
+  retirement for v0.6.6 with an external-consumer check; Item 8 brings it forward.
+
+## Risks
+
+| Risk                                                          | Likelihood | Impact | Mitigation                                                                                                                          |
+| ------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Five migrations with data movement land close together        | Medium     | High   | One per item, each with the 000055 pattern and a row-accounting test; an audit of the development database before each              |
+| A recorded 0.5 vrlog cannot be converted losslessly           | Low        | Medium | The converter writes profile `display` and records the loss in the manifest; the original is kept until the converted file verifies |
+| The heading-to-yaw rename disturbs the heading-coherence work | Medium     | Medium | Rename after that sprint's evidence is captured; the maths docs keep "heading" for the physical quantity with the frame stated      |
+| Operators lose a radar report workflow they rely on           | Medium     | Medium | Ad-hoc ranges stay as previews; a survey is one form; existing reports keep their downloads                                         |
+| Public links break                                            | Low        | Medium | `/scenes/*` redirects for every existing page; slugs unchanged                                                                      |
+| The rename touches 2,000 identifiers and something is missed  | Medium     | Medium | Rename by package with `gopls`, run each surface's tests per item, grep for retired words last (a CI check lists them)              |
+| "Survey" and "surveyed" confuse a reader                      | Low        | Low    | The vocabulary states both: a survey is a period; surveyed is how coordinates were established                                      |
+
+## Checklist
+
+### Complete
+
+- [x] Inventory of the 44 tables, every route on both servers, the gRPC service and both protos,
+      the web pages and types, the macOS surfaces, the public site, the CLI, the flags, the
+      on-disk formats and the place vocabulary
+- [x] Seven decision rounds recorded as V1 to V27
+
+### Outstanding
+
+- [ ] Item 1: vocabulary in the hub docs; decision records; drafts amended (`S`)
+- [ ] Item 2: scene rename and retirement (`M`)
+- [ ] Item 3: sources, ports, listeners, wire values (`M`)
+- [ ] Item 4: sensor identity and the radar tables (`M`)
+- [ ] Item 5: captures, sequences, periods, volumes, jobs (`M`)
+- [ ] Item 6: sites, cells, deployments, poses (`L`)
+- [ ] Item 7: surveys and reports (`L`)
+- [ ] Item 8: replay cases and candidates (`M`)
+- [ ] Item 9: one vrlog (`L`)
+- [ ] Item 10: labels (`M`)
+- [ ] Item 11: CLI, flags and Make (`S`)
+
+### Deferred
+
+- [ ] A radar capture kind (a serial-line log) and radar replay: the tables and nouns are ready;
+      the reader is not planned
+- [ ] A shared parent key for the four estimate tables: SCHEMA-REVIEW watchlist
+- [ ] Live evidence capture as the default: the VRLOG plan's Pi and power-loss gates
+- [ ] A frozen labelled dataset noun: named when the first object-disjoint split is frozen
+
+### Accepted residuals (no action planned)
+
+- [ ] "Survey" and "surveyed" share a root with different meanings; both are defined
+- [ ] "Capture" has a time sense (capture time) beside the file sense; both are defined
+- [ ] `lidar_tracks` and `lidar_run_tracks` stay two tables
+- [ ] Cited paper titles and the Waymo scene-type names keep the word scene
