@@ -66,7 +66,7 @@ older entries stay put, however tempting hindsight may be.
 - Landed the held-out per-frame evaluation harness (#598): reviewed references, split manifests, paired-arm comparison, IDF1, and the evaluator-side exact-assignment wrapper now pin how reassociation changes will be scored. The final acceptance run still depends on frozen reviewed splits from the annotation work.
 - Landed the foreground-complete observation log (#599, #604, and #609): lineage-preserving L4 frame records, the VRLOG 1.1 commit chain, recovery, and opt-in live capture through `--lidar-observation-dir`. The live writer remained experimental pending Pi and power-loss evidence.
 - Stopped `TestHesaiLiDAR_PCAPIntegration` holding every decoded frame in memory (#601), cutting the race-run peak from about 13.6 GB to under 1 GB so the LiDAR CI job no longer died by hosted-runner OOM.
-- Merged the state-estimation branch: reproducible evidence, the measurement baseline, and the heading fixes that could be validated without it, with headway put first in the plans (#559).
+- Landed state estimation: reproducible evidence, the measurement baseline, and the heading fixes that could be validated without it, with headway put first in the plans (#559).
 - Regenerated the web VRLOG scenes with the current build and tuning hashes (#610).
 
 ## September 24, 2026 - State estimation: the OBB centre stays opt-in, and the branch against main
