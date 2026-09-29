@@ -9,6 +9,9 @@
 -- lidar_segment_clip_jobs, so its session_id stays empty. For a motion pass
 -- session_id remains a note with no foreign key: sessions are re-derived from
 -- the capture index, and a key would make a re-derive fail or erase the job.
+-- The platform vocabulary plan turns this table into one jobs queue in its
+-- Items 3, 9 and 11; each of its migrations that renames or adds a kind
+-- replaces these triggers first.
 --
 -- A motion period ends no earlier than it starts, and duration_ns is
 -- end_ns - start_ns. start_secs and end_secs count from the first frame the
