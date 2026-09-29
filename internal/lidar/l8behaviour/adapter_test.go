@@ -423,7 +423,7 @@ func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
 	for name, mutate := range map[string]func([]PersistedEstimate){
 		"unknown filter":        func(r []PersistedEstimate) { r[0].EstimatorID, r[1].EstimatorID = "imm_cv_ca_v2", "imm_cv_ca_v2" },
 		"unknown stage":         func(r []PersistedEstimate) { r[0].Stage, r[1].Stage = "smoothed", "smoothed" },
-		"unknown geometry":      func(r []PersistedEstimate) { r[1].MeasurementSource = "near_edge_candidate_v1" },
+		"unknown geometry":      func(r []PersistedEstimate) { r[1].MeasurementSource = "legacy_centroid_v0" },
 		"mixed stages":          func(r []PersistedEstimate) { r[1].Stage = "final" },
 		"mixed parameters":      func(r []PersistedEstimate) { r[1].ParamHash = "sha256:other" },
 		"no sensor":             func(r []PersistedEstimate) { r[0].SensorID, r[1].SensorID = "", "" },
@@ -448,5 +448,23 @@ func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
 	}
 	if _, err := PersistedStateModel("cv_kf_v1+" + l5tracks.SmootherID); err != nil {
 		t.Errorf("a smoother over cv_kf_v1 keeps its layout: %v", err)
+	}
+}
+
+// A row near_edge_track wrote on a body-centre frame names the near-edge
+// faces as its source, and its pose is the body centre.
+func TestTrajectoriesFromEstimatesReadNearEdgeRowsAsTheBodyCentre(t *testing.T) {
+	rows := []PersistedEstimate{persistedRow("trk", 0, 10, 10), persistedRow("trk", 1, 11, 10)}
+	for i := range rows {
+		rows[i].ObsModelID, rows[i].MeasurementSource = "near_edge_candidate_v1", "near_edge_candidate_v1"
+	}
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, s := range trajectories[0].Samples {
+		if s.Reference != ReferenceBodyCentre {
+			t.Errorf("sample %d reference %s, want the body centre", i, s.Reference)
+		}
 	}
 }

@@ -20,6 +20,8 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				return
 			}
 			t.clampVelocity(track)
+			a := track.solidBody.pending.applied
+			shiftHistory(track, a.shiftX, a.shiftY)
 			measurement = t.recordTrackedNearEdgeResidual(track, predicted, cluster, measurement)
 			t.recordUpdate(track, cluster, measurement)
 			return

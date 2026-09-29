@@ -458,12 +458,20 @@ are exactly the default's. On kirk0 the default replay and the shadow arms (plai
 from full members) are byte-identical to main: tracking baseline, point estimates and solid-body
 rows.
 
+Every associated frame writes an estimate row. A fix records what the faces applied: its
+prediction is the position they updated, after any translation, and its measurement that position
+moved to each face's implied centre along the face's normal, so a translation is never an
+innovation. A faceless frame (`not_applied`) and a lapse (`reference_changed`) record the medoid
+the association saw, with A2's two-degree-of-freedom distance as their NIS. A reference change
+translates the track's trail with its position, so it is not counted as distance or as a turn.
+The tracked residual bands and the scorecard's two-degree-of-freedom NIS describe
+medoid-referenced updates only; a fix's NIS has the fix's rank.
+
 On kirk0 the arm with T1, T3 and full members runs identically twice (the exit). Label-free, and on
-one capture, its body-centre lateral p99 is 0.130 m (p95 0.050 m, max 0.246 m), face-stable 0.043
-m, over 880 fixes of 1,877 rows with 64 re-references and 49 lapses; the default's point estimates
-reached 0.309 m (#614). The tracks change: 3,439 track-frames against the default's 3,286. A
-faceless frame updates nothing, so like a missed frame it writes no estimate row. Whether A2
-keeps identity is gate 3's question, on the held-out case.
+one capture, its body-centre lateral p99 is 0.130 m (p95 0.051 m, max 0.246 m), face-stable 0.043
+m, over 880 fixes of 1,926 rows with 64 re-references and 49 lapses; the default's point estimates
+reached 0.309 m (#614). The tracks change: 3,439 track-frames against the default's 3,286. Whether
+A2 keeps identity is gate 3's question, on the held-out case.
 
 ### S2.3: the A1 ablation arm
 

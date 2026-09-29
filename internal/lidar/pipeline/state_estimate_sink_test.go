@@ -135,3 +135,24 @@ func TestPersistOnlineStateEstimateNeverDropsASolidBodySilently(t *testing.T) {
 		t.Fatalf("option off: %v", err)
 	}
 }
+
+// A frame the tracker decided without applying its observation files its
+// residual with the tracker's disposition and reason; an ordinary update is
+// accepted.
+func TestOnlineStateEstimateFilesTheTrackersDisposition(t *testing.T) {
+	track, frame := trackedVehicle(t, false)
+	pair, err := onlineStateEstimate(estimateIdentityConfig(), track, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.Residual.Disposition != "accepted" || pair.Residual.Reason != "association_accepted" {
+		t.Fatalf("an ordinary update filed %s/%s", pair.Residual.Disposition, pair.Residual.Reason)
+	}
+	track.LastResidual.Disposition, track.LastResidual.Reason = l5tracks.ResidualNotApplied, "face_hysteresis"
+	if pair, err = onlineStateEstimate(estimateIdentityConfig(), track, frame); err != nil {
+		t.Fatal(err)
+	}
+	if pair.Residual.Disposition != l5tracks.ResidualNotApplied || pair.Residual.Reason != "face_hysteresis" {
+		t.Fatalf("a frame not applied filed %s/%s", pair.Residual.Disposition, pair.Residual.Reason)
+	}
+}

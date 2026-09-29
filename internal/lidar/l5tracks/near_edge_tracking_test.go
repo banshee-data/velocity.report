@@ -495,3 +495,104 @@ func TestTheIdentitySceneIsUnchangedWithoutFaces(t *testing.T) {
 		t.Fatalf("tracked state differs without faces: (%v, %v) against (%v, %v)", a.X, a.Y, b.X, b.Y)
 	}
 }
+
+func TestTheTrackedRecordMatchesWhatTheStepApplied(t *testing.T) {
+	// Every associated frame leaves a residual: a fix records the faces'
+	// measurement at the position they updated, so the re-reference
+	// translation is never an innovation and nothing moves across a face;
+	// a faceless frame and a lapse say the observation was not applied.
+	cfg := nearEdgeTrackingConfig()
+	tracker := NewTracker(cfg)
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	sawReReference := false
+	var previousY float32
+	for _, f := range frames[:14] {
+		tracker.Update(f.clusters, f.at)
+		track := mainTrack(t, tracker)
+		lastY := previousY
+		previousY = track.Y
+		r, _ := track.SolidBody()
+		res := track.LastResidual
+		if track.ObservationCount <= 1 {
+			continue // born this frame: seeded, not updated
+		}
+		if !res.Valid {
+			t.Fatalf("an associated frame left no residual (%+v)", r.Measurement)
+		}
+		if r.Measurement.Source != MeasurementNearEdgeCandidateV1 {
+			continue
+		}
+		if res.Disposition != "" || res.Measurement.Source != MeasurementNearEdgeCandidateV1 || res.NIS != r.Measurement.NIS {
+			t.Fatalf("fix residual %+v for measurement %+v", res, r.Measurement)
+		}
+		// The synthetic body is seen side-on: its one face constrains y.
+		if r.Measurement.Rank == 1 && math.Abs(float64(res.InnovationX)) > 1e-5 {
+			t.Fatalf("a rank-one fix recorded an innovation of %v across its face", res.InnovationX)
+		}
+		if r.Measurement.ReferenceChange == ReferenceToBodyCentre {
+			sawReReference = true
+			// Untranslated, the innovation would be the whole move from the
+			// medoid-referenced position to the implied centre; translated,
+			// it is only the prediction's error against the medoid.
+			whole := res.Measurement.Y - lastY
+			t.Logf("re-reference: recorded innovation %.3f m, whole move %.3f m, translation %.3f m",
+				res.InnovationY, whole, res.PredictedY-lastY)
+			if math.Abs(float64(res.InnovationY)) >= math.Abs(float64(whole)) {
+				t.Fatalf("the re-reference recorded %v m of innovation for a %v m move: the translation was counted", res.InnovationY, whole)
+			}
+		}
+	}
+	if !sawReReference {
+		t.Fatal("no re-reference in the first fourteen frames")
+	}
+	lengthBefore := mainTrack(t, tracker).TrackLengthMeters
+	for i, f := range frames[14 : 14+cfg.MaxMisses] {
+		for c := range f.clusters {
+			f.clusters[c].RetainedPoints = nil
+		}
+		tracker.Update(f.clusters, f.at)
+		track := mainTrack(t, tracker)
+		res := track.LastResidual
+		want := ResidualNotApplied
+		if i == cfg.MaxMisses-1 {
+			want = ResidualReferenceChanged
+		}
+		if !res.Valid || res.Disposition != want || res.Reason == "" || !(res.NIS > 0) {
+			t.Fatalf("faceless frame %d: residual %+v, want disposition %s with a reason and an A2 distance", i, res, want)
+		}
+	}
+	// The lapse translated the trail with the position, so the track did
+	// not travel the half-body it moved by.
+	track := mainTrack(t, tracker)
+	travelled := track.TrackLengthMeters - lengthBefore
+	elapsed := float32(cfg.MaxMisses) * 0.1
+	if travelled > 12*elapsed*1.2 {
+		t.Fatalf("the track travelled %.2f m in %.1f s at 12 m/s: a reference change was counted as motion", travelled, elapsed)
+	}
+	last := track.History[len(track.History)-1]
+	if last.X != track.X || last.Y != track.Y {
+		t.Fatalf("the trail ends at (%v, %v), the track is at (%v, %v)", last.X, last.Y, track.X, track.Y)
+	}
+}
+
+func TestShiftHistoryMovesTheWholeTrail(t *testing.T) {
+	track := &TrackedObject{History: []TrackPoint{{X: 1, Y: 2}, {X: 3, Y: 4}}}
+	shiftHistory(track, 0, 0)
+	if track.History[0].X != 1 {
+		t.Fatal("a zero shift moved the trail")
+	}
+	shiftHistory(track, 0.5, -1)
+	if track.History[0].X != 1.5 || track.History[0].Y != 1 || track.History[1].X != 3.5 || track.History[1].Y != 3 {
+		t.Fatalf("trail %+v after a (0.5, -1) shift", track.History)
+	}
+}
+
+func TestApplicationOfRecordsTheTranslationAndTheFacesMeasurement(t *testing.T) {
+	face := EdgeMeasurement{Face: FaceRight, NormalX: 0, NormalY: -1, PlaneOffsetMetres: -0.3, HalfExtentMetres: 0.9}
+	a := applicationOf([4]float32{3, 0, 12, 0}, [4]float32{3, 1, 12, 0}, []EdgeMeasurement{face})
+	// The face implies the centre at y = 1.2 along -Y; from the start at
+	// y = 1 that is 0.2 m along the normal and nothing in x.
+	if a.shiftX != 0 || a.shiftY != 1 || a.startY != 1 || a.measuredX != 3 || math.Abs(float64(a.measuredY)-1.2) > 1e-6 {
+		t.Fatalf("application %+v", a)
+	}
+}

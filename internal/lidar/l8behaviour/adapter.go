@@ -366,11 +366,14 @@ type PersistedEstimate struct {
 var persistedStateModels = map[string]string{"cv_kf_v1": StateModelCVCartesianV1}
 
 // persistedReferences maps the geometry that entered the filter to the point
-// the filtered pose refers to.
+// the filtered pose refers to. Near-edge faces enter only a tracked filter
+// that near_edge_track has re-referenced to the body centre, and a faceless
+// frame there keeps the last source, so every such row is on the centre.
 var persistedReferences = map[string]l5tracks.ReferencePoint{
-	string(l5tracks.MeasurementOBBCentreV1):      l5tracks.ReferenceVisibleOBBCentre,
-	string(l5tracks.MeasurementMedoidV0):         l5tracks.ReferenceClusterMedoid,
-	string(l5tracks.MeasurementMedoidFallbackV1): l5tracks.ReferenceClusterMedoid,
+	string(l5tracks.MeasurementOBBCentreV1):         l5tracks.ReferenceVisibleOBBCentre,
+	string(l5tracks.MeasurementMedoidV0):            l5tracks.ReferenceClusterMedoid,
+	string(l5tracks.MeasurementMedoidFallbackV1):    l5tracks.ReferenceClusterMedoid,
+	string(l5tracks.MeasurementNearEdgeCandidateV1): l5tracks.ReferenceBodyCentre,
 }
 
 // PersistedStateModel is the dynamic state layout of an estimator's rows, or

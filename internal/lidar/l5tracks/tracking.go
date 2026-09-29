@@ -327,7 +327,10 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	if previousSolidBody != t.Config.SolidBody || previousNearEdge != t.Config.NearEdgeTracking {
 		// A solid body built under other options, or no longer maintained,
 		// would be read as current. Each track reseeds at its next
-		// observation if the option is still on.
+		// observation if the option is still on. A tracked state already on
+		// the body centre keeps its position: the reseeded body is on the
+		// medoid, so its next fix translates by the little that remains.
+		// Nothing switches these options at runtime today.
 		for _, track := range t.Tracks {
 			track.solidBody = solidBodyTrack{}
 		}

@@ -72,8 +72,8 @@ func (t *Tracker) stepTrackedNearEdge(track *TrackedObject, cluster WorldCluster
 	}
 	sb.hasPair = false
 	sb.syncFromTrack(track)
-	m, outcome := t.stepNearEdge(sb, cluster, nearEdgePriorFor(track), frame)
-	sb.pending = nearEdgePending{valid: true, frame: frame, m: m, outcome: outcome}
+	m, outcome, applied := t.stepNearEdge(sb, cluster, nearEdgePriorFor(track), frame)
+	sb.pending = nearEdgePending{valid: true, frame: frame, m: m, outcome: outcome, applied: applied}
 	if outcome == nearEdgeMedoid {
 		return false
 	}
@@ -81,58 +81,71 @@ func (t *Tracker) stepTrackedNearEdge(track *TrackedObject, cluster WorldCluster
 	return true
 }
 
-// recordTrackedNearEdgeResidual records what entered the tracked filter on a
-// frame the state machine decided, as the medoid update records its own, and
-// returns the measurement the frame's bookkeeping names. predicted is the
-// track before the step.
+// recordTrackedNearEdgeResidual records a frame the state machine decided, as
+// the medoid update records its own, so an estimate row is written for every
+// associated frame of either kind, and returns the measurement the frame's
+// bookkeeping names. predicted is the track before the step.
 //
-// A fix's measurement is the reconstructed centre, with the step's NIS over
-// its rank; along a direction no face constrained that centre is the
-// prediction, so the innovation there is zero. A lapse's is the medoid it
-// returned to, with the medoid's NIS against the prediction. A faceless frame
-// updated nothing, so it records no residual and keeps the last source: the
-// estimate sinks write a row for a frame the filter was updated on.
+//   - A fix records what the faces applied: its prediction is the position
+//     they updated, after any re-reference translation, and its measurement
+//     that position moved to each applied face's implied centre offset along
+//     the face's normal, so the innovation is zero across the faces and the
+//     translation is never counted as one (invariant 3). Its NIS is the
+//     step's, with the fix's rank as its degrees of freedom.
+//   - A lapse and a faceless frame did not apply the observation: their
+//     disposition says so, the measurement is the medoid the association
+//     saw, and the NIS is A2's two-degree-of-freedom distance between that
+//     medoid and the prediction, loosened by the half-extents, which is what
+//     the gate compared. A faceless frame keeps the last source.
 func (t *Tracker) recordTrackedNearEdgeResidual(track *TrackedObject, predicted trackedPrediction, cluster WorldCluster, medoid PositionMeasurement) PositionMeasurement {
 	pending := track.solidBody.pending
+	r := FilterResidual{Valid: true, GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise)}
 	measurement := medoid
-	var nis float32
 	switch pending.outcome {
 	case nearEdgeFix:
-		measurement.X, measurement.Y = pending.frame.edges.CentreX, pending.frame.edges.CentreY
+		a := pending.applied
+		measurement.X, measurement.Y = a.measuredX, a.measuredY
 		measurement.Source = MeasurementNearEdgeCandidateV1
-		nis = pending.m.NIS
+		r.PredictedX, r.PredictedY = a.startX, a.startY
+		r.NIS = pending.m.NIS
 	case nearEdgeLapse:
-		nis = positionNIS(predicted, medoid, t.Config.MeasurementNoise)
+		r.PredictedX, r.PredictedY = predicted.x, predicted.y
+		r.NIS = t.faceResidualDistanceSquaredAt(predicted, &track.solidBody, nearEdgePriorFor(track), cluster,
+			nearEdgeFrame{fallback: "lapse", axis: pending.frame.axis})
+		r.Disposition, r.Reason = ResidualReferenceChanged, "body_centre_lapsed"
 	default:
 		measurement.Source = track.LastMeasurementSource
-		return measurement
+		r.PredictedX, r.PredictedY = predicted.x, predicted.y
+		r.NIS = t.faceResidualDistanceSquaredAt(predicted, &track.solidBody, nearEdgePriorFor(track), cluster,
+			nearEdgeFrame{fallback: "coast", axis: pending.frame.axis})
+		r.Disposition, r.Reason = ResidualNotApplied, pending.m.FallbackReason
+		if r.Reason == "" {
+			r.Reason = "no_usable_face"
+		}
 	}
-	track.LastResidual = FilterResidual{
-		Valid: true, PredictedX: predicted.x, PredictedY: predicted.y, Measurement: measurement,
-		InnovationX: measurement.X - predicted.x, InnovationY: measurement.Y - predicted.y, NIS: nis,
-		GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise),
-	}
+	r.Measurement = measurement
+	r.InnovationX, r.InnovationY = measurement.X-r.PredictedX, measurement.Y-r.PredictedY
+	track.LastResidual = r
 	return measurement
+}
+
+// shiftHistory translates a track's trail by a reference change, so the
+// trail keeps describing one point on the body and the translation is never
+// counted as distance travelled or as a turn.
+func shiftHistory(track *TrackedObject, dx, dy float32) {
+	if dx == 0 && dy == 0 {
+		return
+	}
+	for i := range track.History {
+		track.History[i].X += dx
+		track.History[i].Y += dy
+	}
 }
 
 // trackedPrediction is the tracked position and covariance before a step.
 type trackedPrediction struct {
 	x, y float32
 	p    [16]float32
-}
-
-// positionNIS is a position measurement's normalised innovation squared
-// against a prediction, with isotropic noise r, and zero when the innovation
-// covariance is not positive definite.
-func positionNIS(predicted trackedPrediction, m PositionMeasurement, r float32) float32 {
-	s00, s01 := float64(predicted.p[0*4+0]+r), float64(predicted.p[0*4+1])
-	s10, s11 := float64(predicted.p[1*4+0]), float64(predicted.p[1*4+1]+r)
-	det := s00*s11 - s01*s10
-	if !(det > 0) {
-		return 0
-	}
-	dx, dy := float64(m.X-predicted.x), float64(m.Y-predicted.y)
-	return float32((dx*(s11*dx-s01*dy) + dy*(s00*dy-s10*dx)) / det)
 }
 
 // completeTrackedSolidBody finishes a tracked body's frame once the tracked
@@ -206,17 +219,22 @@ func (t *Tracker) gateDistanceSquared(track *TrackedObject, clusters []WorldClus
 // both directions are the body axes. The residual covariance adds the
 // prediction's position covariance projected onto the same directions.
 func (t *Tracker) faceResidualDistanceSquared(track *TrackedObject, cluster WorldCluster, f nearEdgeFrame) float32 {
-	sb := &track.solidBody
+	return t.faceResidualDistanceSquaredAt(trackedPrediction{x: track.X, y: track.Y, p: track.P},
+		&track.solidBody, nearEdgePriorFor(track), cluster, f)
+}
+
+// faceResidualDistanceSquaredAt is faceResidualDistanceSquared against a
+// given prediction, with the body's beliefs and class prior.
+func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) float32 {
 	length, width := f.length, f.width
 	if f.fallback != "" {
-		prior := nearEdgePriorFor(track)
 		length = dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
 		width = dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
 	}
 	halfLength, halfWidth := float64(length.Metres)/2, float64(width.Metres)/2
 	axisX, axisY := math.Cos(float64(f.axis)), math.Sin(float64(f.axis))
 	r := float64(t.Config.MeasurementNoise)
-	x, y := float64(track.X), float64(track.Y)
+	x, y := float64(predicted.x), float64(predicted.y)
 	medoidX, medoidY := float64(cluster.CentroidX), float64(cluster.CentroidY)
 
 	type direction struct{ hx, hy, residual, variance float64 }
@@ -249,7 +267,7 @@ func (t *Tracker) faceResidualDistanceSquared(track *TrackedObject, cluster Worl
 
 	// S = H P Hᵀ + diag(variance), with H's rows the two directions over
 	// position.
-	p := func(i, j int) float64 { return float64(track.P[i*4+j]) }
+	p := func(i, j int) float64 { return float64(predicted.p[i*4+j]) }
 	project := func(a, b direction) float64 {
 		return a.hx*(p(0, 0)*b.hx+p(0, 1)*b.hy) + a.hy*(p(1, 0)*b.hx+p(1, 1)*b.hy)
 	}

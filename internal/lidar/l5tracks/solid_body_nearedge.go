@@ -341,6 +341,20 @@ type nearEdgePending struct {
 	frame   nearEdgeFrame
 	m       SolidBodyMeasurement
 	outcome nearEdgeOutcome
+	applied nearEdgeApplication
+}
+
+// nearEdgeApplication is what a step did to the position, for the record the
+// tracked filter keeps of it. shiftX and shiftY are a reference change's
+// translation: to the implied centre before a fix, or back to the medoid on
+// a lapse. startX and startY are the position the faces updated, after any
+// translation, and measuredX and measuredY that position moved along each
+// applied face's normal to the face's implied centre offset: the measurement
+// the fix applied, at its rank, with nothing across the faces.
+type nearEdgeApplication struct {
+	shiftX, shiftY       float32
+	startX, startY       float32
+	measuredX, measuredY float32
 }
 
 // SolidBody returns the track's solid-body estimate at its latest update, and
@@ -509,7 +523,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	sb.orientation = orientationFromTrack(track, sb.orientation)
 
 	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount)
-	m, outcome := t.stepNearEdge(sb, cluster, prior, frame)
+	m, outcome, _ := t.stepNearEdge(sb, cluster, prior, frame)
 	measured := outcome != nearEdgeCoast
 	if outcome == nearEdgeMedoid {
 		// Never re-referenced, so the medoid is still what the state
@@ -576,8 +590,9 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 // frames, or leaves a medoid-referenced state for the medoid update, which is
 // the caller's: the shadow applies its own, the tracked filter its usual one.
 // It never touches the track, so the caller decides whose filter sb's state is.
-func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, f nearEdgeFrame) (SolidBodyMeasurement, nearEdgeOutcome) {
+func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, f nearEdgeFrame) (SolidBodyMeasurement, nearEdgeOutcome, nearEdgeApplication) {
 	var m SolidBodyMeasurement
+	var applied nearEdgeApplication
 	outcome := nearEdgeCoast
 	// facesCounted records whether this frame's usable faces reached the
 	// hysteresis counts; any frame that did not is a frame without them.
@@ -633,6 +648,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			m.FallbackReason = "singular_innovation"
 			break
 		}
+		applied = applicationOf(sb.state, startState, usable)
 		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
 		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
@@ -655,7 +671,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		// body drift from evidence that is arriving every frame, so the
 		// body-centre claim lapses and the body is re-seeded where the evidence
 		// is, stating the medoid's bias. The next usable face re-references it.
+		before := sb.state
 		t.lapseSolidBodyToMedoid(sb, cluster, prior)
+		applied.shiftX, applied.shiftY = sb.state[0]-before[0], sb.state[1]-before[1]
+		applied.startX, applied.startY = sb.state[0], sb.state[1]
+		applied.measuredX, applied.measuredY = sb.state[0], sb.state[1]
 		m.Source, m.Rank, m.FallbackReason = MeasurementMedoidV0, 2, "body_centre_lapsed"
 		m.ReferenceChange = ReferenceToMedoid
 		outcome = nearEdgeLapse
@@ -663,7 +683,22 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
 		outcome = nearEdgeMedoid
 	}
-	return m, outcome
+	return m, outcome, applied
+}
+
+// applicationOf records a fix: the translation from the state before it to
+// the state the faces updated, and the measurement the faces applied there.
+func applicationOf(before, start [4]float32, faces []EdgeMeasurement) nearEdgeApplication {
+	a := nearEdgeApplication{
+		shiftX: start[0] - before[0], shiftY: start[1] - before[1],
+		startX: start[0], startY: start[1], measuredX: start[0], measuredY: start[1],
+	}
+	for _, e := range faces {
+		along := float64(e.ImpliedCentreOffset()) - (float64(e.NormalX)*float64(start[0]) + float64(e.NormalY)*float64(start[1]))
+		a.measuredX += float32(along * float64(e.NormalX))
+		a.measuredY += float32(along * float64(e.NormalY))
+	}
+	return a
 }
 
 // translatesReference says whether a re-reference is a translation before it
