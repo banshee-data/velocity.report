@@ -82,6 +82,57 @@ that episode. That is how a tuning object that shares frames with a held-out one
 held-out number. Split by object, not frame: every frame and revision of an object stays in the
 partition it was frozen into.
 
+### Freezing a split
+
+A version 1 manifest is written by hand. It says what is held out, but nothing checks that its
+objects finished review, it pins the annotation revision only if its author did, and nothing
+notices when the pack's manifest, selection record or a retained revision is edited later. A held
+out result scored from one carries a caveat saying so. A **frozen split** (schema version 2)
+closes those gaps, over one or more packs:
+
+```bash
+velocity lidar annotation-split freeze --draft splits/kirk0-draft.json --author "$OPERATOR" \
+  --output splits/kirk0-split-r1.json
+velocity lidar annotation-split verify --split splits/kirk0-split-r1.json --pack "$PACK"
+```
+
+The draft (`velocity.report/annotation-split-draft` version 1) lists `packs`, each a `dir`
+relative to the draft and either an existing version 1 `split_manifest` or inline `splits`,
+`episodes` and an optional `sidecar_revision`; and optionally `cases`, corpus case IDs with a role
+of `tuning`, `held_out` or `screen`. A pack may name its `case_id`.
+
+| Freezing refuses                                                                          | Why                                                               |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| An object not reviewed, with a proposed mask, or a reviewed mask of unstated completeness | Membership review is not complete; every such object is listed    |
+| An episode object with no reviewed mask in the episode's frames                           | Nothing there to score                                            |
+| Two packs of one capture within `--guard-seconds` (30) of each other in two partitions    | Object IDs are pack-local, so one vehicle could sit on both sides |
+| A held-out object from a pack whose `segment.json` role is `tuning`                       | That window may have been chosen by where the tracker failed      |
+| A pack whose case role differs from its partitions' role; a pack of a `screen` case       | A case's references take its role; nothing is tuned on a screen   |
+| A successor (`--supersedes`) that holds out an object or case its predecessor tuned on    | Tuned is tuned                                                    |
+
+The frozen split pins, per pack, the pack digest, the digest of `manifest.json` (source
+provenance, coverage and coordinates live there, outside the pack digest), the digest of
+`segment.json`, and the annotation revision with the digest of its exact bytes. It records the
+author, the time, the freezing build, and optionally `--for-config-hash` and `--for-params-hash`,
+the configuration it was frozen to judge. Geometry review is recorded per object beside membership
+review, as `none`, `proposed`, `partial` or `complete`, counted from the optional per-mask pose; it
+is not a physical reference and never blocks a freeze. The file's `split_digest` is the SHA-256 of
+its canonical content. A file edited after freezing no longer matches it and is refused, and the
+file is written once.
+
+The per-frame evaluator reads either version. Given a frozen split it binds the pack through every
+pin before scoring: a changed manifest, selection record or pinned revision is refused, and the
+reference identity records `split_digest` and `split_revision`. Editing a reference after freezing
+saves a new annotation revision; the frozen split keeps scoring the revision it pinned, and
+`verify` reports the newer one. Scoring it takes a new split revision, frozen with
+`--supersedes`, never a silently different split.
+
+The corpus tool (`lidar-state-estimation-baseline`) and `lidar-refinement-eval` take a frozen
+split as `-split-manifest` with the case's role in it: a `held_out` case replays only with
+`-held-out`, and `-held-out` takes held-out cases only. Both record the split's digest, revision
+and the case's role in each `replay_manifest.json` (`split`), and the corpus tool in
+`phase0-summary.json` as well.
+
 ## The arms
 
 An arm is one of two sources, and both arms of a comparison must be the same kind.
@@ -231,8 +282,8 @@ candidate twin.
 ## What remains
 
 - **The held-out acceptance run itself.** It needs reviewed held-out episodes (kirk0 has four
-  reviewed objects and 292 reviewed masks; the three corpus sites have no pack) and a frozen split
-  manifest for each pack.
+  reviewed objects and 292 reviewed masks; the three corpus sites have no pack) frozen into a
+  split. The freeze step exists; the review it certifies is operator work.
 - **A promoted final stage.** Offline fixed-assignment `final` estimates exist, but no horizon has
   passed G-SMO-1, so every run is still a declared baseline and says so.
 - **Coordinate frames.** The harness does not check that the pack and the estimates share a frame.

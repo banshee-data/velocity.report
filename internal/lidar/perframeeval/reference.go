@@ -43,6 +43,11 @@ type ReferenceIdentity struct {
 	HeldOut             bool                       `json:"held_out"`
 	Policy              annotation.ReferencePolicy `json:"policy"`
 	Episodes            []string                   `json:"episodes"`
+	// SplitDigest and SplitRevision identify a frozen split (schema version
+	// 2), whose pins were checked before scoring. Both are empty for a
+	// version 1 manifest, so its reference digest is what it always was.
+	SplitDigest   string `json:"split_digest,omitempty"`
+	SplitRevision int    `json:"split_revision,omitempty"`
 	// Digest is SHA-256 over the canonical encoding of the fields above and
 	// every episode's reference series. Equal digests mean equal truth.
 	Digest string `json:"digest"`
@@ -86,7 +91,9 @@ type Reference struct {
 
 // LoadReference opens the pack, the split manifest and the annotation
 // revision it pins (or the current one), binds them together, and builds each
-// selected episode's reference. Every disagreement is a refusal.
+// selected episode's reference. Every disagreement is a refusal. A frozen
+// split is bound through its own pins: the pack's manifest and selection
+// record, the pinned revision's bytes and the review it certified.
 func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	if opts.Split == "" {
 		return nil, fmt.Errorf("no split named: say which partition to score")
@@ -95,20 +102,16 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open pack: %w", err)
 	}
-	manifest, err := annotation.LoadSplitManifest(opts.SplitManifestPath)
+	manifest, frozen, err := annotation.LoadAnySplit(opts.SplitManifestPath)
 	if err != nil {
 		return nil, err
 	}
 	var sidecar *annotation.Sidecar
-	if manifest.SidecarRevision > 0 {
-		sidecar, err = annotation.LoadSidecarRevision(pack, manifest.SidecarRevision)
-	} else {
-		sidecar, err = annotation.LoadSidecar(pack)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("load annotation: %w", err)
-	}
-	if err := manifest.ValidateAgainst(pack, sidecar); err != nil {
+	if frozen != nil {
+		if manifest, sidecar, err = frozen.Bind(pack); err != nil {
+			return nil, err
+		}
+	} else if sidecar, err = loadPinnedSidecar(pack, manifest); err != nil {
 		return nil, err
 	}
 	episodes, err := manifest.SelectEpisodes(opts.Split, opts.Episodes, !opts.AllowTuningSplit)
@@ -150,12 +153,34 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 		Policy:              opts.Policy,
 		Episodes:            ids,
 	}
+	if frozen != nil {
+		ref.Identity.SplitDigest, ref.Identity.SplitRevision = frozen.SplitDigest, frozen.Revision
+	}
 	digest, err := referenceDigest(ref.Identity, ref.Episodes)
 	if err != nil {
 		return nil, err
 	}
 	ref.Identity.Digest = digest
 	return ref, nil
+}
+
+// loadPinnedSidecar loads the annotation revision a version 1 manifest pins,
+// or the current one, and binds the manifest to it.
+func loadPinnedSidecar(pack *annotation.Pack, manifest *annotation.SplitManifest) (*annotation.Sidecar, error) {
+	var sidecar *annotation.Sidecar
+	var err error
+	if manifest.SidecarRevision > 0 {
+		sidecar, err = annotation.LoadSidecarRevision(pack, manifest.SidecarRevision)
+	} else {
+		sidecar, err = annotation.LoadSidecar(pack)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load annotation: %w", err)
+	}
+	if err := manifest.ValidateAgainst(pack, sidecar); err != nil {
+		return nil, err
+	}
+	return sidecar, nil
 }
 
 func buildEpisode(pack *annotation.Pack, ep annotation.Episode, bySample map[int][]annotation.ReferencePoint,

@@ -30,6 +30,9 @@ func RenderMarkdown(c Comparison) string {
 	row("Frame tolerance", fmt.Sprintf("%g ms", float64(c.FrameToleranceNanos)/1e6))
 	row("Reference digest", "`"+ref.Digest+"`")
 	row("Split manifest", "`"+ref.SplitManifestDigest+"`")
+	if ref.SplitDigest != "" {
+		row("Frozen split", fmt.Sprintf("`%s`, revision %d", ref.SplitDigest, ref.SplitRevision))
+	}
 	b.WriteString("\n")
 
 	b.WriteString("| Arm | Kind | Database | Source or run | Estimator | Observation model | Parameter hash | Stage | Declared baseline | Tracks |\n")

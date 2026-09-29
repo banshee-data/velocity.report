@@ -51,7 +51,7 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("lidar-ground-truth-eval perframe", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	packDir := fs.String("pack", "", "annotation pack directory (required)")
-	manifestPath := fs.String("split-manifest", "", "object-disjoint split manifest JSON (required)")
+	manifestPath := fs.String("split-manifest", "", "object-disjoint split manifest JSON: a frozen split, or a version 1 manifest (required)")
 	split := fs.String("split", "", "split to score (required)")
 	episodes := fs.String("episodes", "", "comma-separated episode IDs (default: every episode of the split)")
 	allowTuning := fs.Bool("allow-tuning-split", false, "score a split whose role is not held_out; the output says it is not held out")
@@ -162,6 +162,9 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	t := c.Total
 	fmt.Fprintf(stderr, "reference %s: split %s (held_out=%v), %d episode(s), %d reference points\n",
 		c.Reference.Digest, c.Reference.Split, c.Reference.HeldOut, len(c.Paired), t.A.NumGT)
+	if c.Reference.SplitDigest != "" {
+		fmt.Fprintf(stderr, "frozen split %s, revision %d\n", c.Reference.SplitDigest, c.Reference.SplitRevision)
+	}
 	for _, arm := range []struct {
 		label string
 		s     perframeeval.Summary

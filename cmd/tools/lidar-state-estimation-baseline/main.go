@@ -89,6 +89,8 @@ type caseSummary struct {
 	// SolidBody is the first run's solid-body evidence, read back from its
 	// database, when the solid_body experiment ran with one.
 	SolidBody *replayeval.SolidBodySummary `json:"solid_body,omitempty"`
+	// SplitRole is the case's role in -split-manifest, when one was given.
+	SplitRole string `json:"split_role,omitempty"`
 }
 
 func main() {
@@ -123,6 +125,8 @@ func main() {
 		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
 		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
 		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
+		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
+		heldOut             = flag.Bool("held-out", false, "declare the run a held-out score: every selected case must be held out in -split-manifest; without it no held-out case may run")
 	)
 	flag.Parse()
 	experiments, err := replayeval.ParseExperiments(*experimentFlag)
@@ -180,6 +184,10 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
+	}
+	split, splitUses, err := corpusSplit(*splitPath, *heldOut, selected)
+	if err != nil {
+		fatal(err)
 	}
 	index, err := readIndex(*indexPath)
 	if err != nil {
@@ -241,6 +249,7 @@ func main() {
 		if c, ok := coverage[selectedCase.ID]; ok {
 			first.ContinuityCoverage = &c
 		}
+		first.Split = splitUses[selectedCase.ID]
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
 			if err != nil {
@@ -320,6 +329,9 @@ func main() {
 			TimeDomain:            firstResult.TimeDomain,
 			Continuity:            firstResult.Continuity,
 		}
+		if use := first.Split; use != nil {
+			summary.SplitRole = use.Role
+		}
 		td := firstResult.TimeDomain
 		fmt.Printf("%s: capture time frames=%d backward=%d duplicate=%d clamped_gaps=%d max_gap=%.3fs\n",
 			selectedCase.ID, td.Frames, td.BackwardTimestamps, td.DuplicateTimestamps, td.ClampedGaps, td.MaxGapSecs)
@@ -371,8 +383,9 @@ func main() {
 	b, err := json.MarshalIndent(struct {
 		SchemaVersion        int           `json:"schema_version"`
 		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
+		Split                *splitRecord  `json:"split,omitempty"`
 		Cases                []caseSummary `json:"cases"`
-	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Cases: summaries}, "", "  ")
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split, Cases: summaries}, "", "  ")
 	if err != nil {
 		fatal(err)
 	}

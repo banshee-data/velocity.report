@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
@@ -24,6 +27,50 @@ func TestFlagValidation(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-h"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("-h exited %d", code)
+	}
+}
+
+// A frozen split holds the replayed case to its role before anything replays:
+// the use is refused with exit 2, or announced and recorded. The capture
+// here does not exist, so an accepted use ends in the replay's own failure.
+func TestFrozenSplitHoldsTheCaseToItsRole(t *testing.T) {
+	dir := t.TempDir()
+	f, err := annotation.FreezeSplit(annotation.FreezeOptions{
+		Draft: &annotation.SplitDraft{Schema: annotation.SplitDraftSchema, SchemaVersion: annotation.SplitDraftSchemaVersion,
+			Cases: []annotation.SplitCase{{CaseID: "kirk0", Role: annotation.SplitRoleTuning}, {CaseID: "held", Role: annotation.SplitRoleHeldOut}}},
+		Author: "operator", Now: time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC), BuildVersion: "test", BuildGitSHA: "abc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	splitPath := filepath.Join(dir, "split.json")
+	if err := annotation.WriteFrozenSplit(splitPath, f); err != nil {
+		t.Fatal(err)
+	}
+	base := []string{"-pcap", filepath.Join(dir, "absent.pcap"), "-out", filepath.Join(dir, "out"), "-evidence-db", filepath.Join(dir, "e.db")}
+	for name, extra := range map[string][]string{
+		"split without a case": {"-split-manifest", splitPath},
+		"held out, no split":   {"-case", "kirk0", "-held-out"},
+		"missing split":        {"-case", "kirk0", "-split-manifest", filepath.Join(dir, "none.json")},
+		"held-out case":        {"-case", "held", "-split-manifest", splitPath},
+		"tuning case held out": {"-case", "kirk0", "-split-manifest", splitPath, "-held-out"},
+	} {
+		args := append(append([]string(nil), base...), extra...)
+		if name == "split without a case" {
+			args = []string{"-pcap", "x", "-out", "y", "-split-manifest", splitPath}
+		}
+		var stdout, stderr bytes.Buffer
+		if code := run(args, &stdout, &stderr); code != 2 {
+			t.Errorf("%s: exit %d, want 2 (%s)", name, code, stderr.String())
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	args := append(append([]string(nil), base...), "-case", "kirk0", "-split-manifest", splitPath)
+	if code := run(args, &stdout, &stderr); code != 1 {
+		t.Fatalf("accepted use: exit %d, want the replay's failure (%s)", code, stderr.String())
+	}
+	if want := "case kirk0 is tuning in frozen split " + f.SplitDigest + " (revision 1)"; !strings.Contains(stdout.String(), want) {
+		t.Fatalf("stdout %q lacks %q", stdout.String(), want)
 	}
 }
 

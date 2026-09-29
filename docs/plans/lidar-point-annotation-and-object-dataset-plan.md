@@ -280,6 +280,10 @@ The frozen form of a partition is a split manifest (`velocity.report/annotation-
 evaluator refuses to score a tuning split as held out, and ignores any other object that shares an
 episode's frames. Field table and refusals:
 [per-frame evaluation](../lidar/operations/per-frame-evaluation.md#held-out-episodes-the-split-manifest).
+Version 2, written by `velocity lidar annotation-split freeze`, spans several packs, refuses
+incomplete membership review and one capture in two partitions, and pins pack, manifest, selection
+and annotation-revision digests
+([freezing a split](../lidar/operations/per-frame-evaluation.md#freezing-a-split)).
 
 ## 8. Compatibility with SOTracker and D-04
 
@@ -339,9 +343,9 @@ in one frame by hand took a median of six seconds, which for the 1,954 larger ob
 that pack is three to six hours: the reason the unit of work became the object.
 
 Not delivered: region growth, depth-aware picking, reattachment of labels to regenerated points,
-frozen dataset splits (§7; the manifest format, its reader and the evaluator that enforces it are
-delivered, the splits themselves are operator work), and pruning of retained revisions, which grow
-by a full snapshot a save.
+frozen dataset splits (§7; the manifest format, its reader, the freeze step and the evaluator that
+enforces it are delivered, the splits themselves are operator work), and pruning of retained
+revisions, which grow by a full snapshot a save.
 The proposer clusters the pack's points itself instead of reading the run's clusters, because a
 recording keeps cluster boxes and not their membership, and the tracker's identities would bring
 its fragmentation with them.

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 )
 
@@ -121,17 +119,9 @@ func (e Episode) ContainsSample(sampleID int) bool {
 // LoadSplitManifest reads and structurally validates a manifest. It does not
 // know the pack; ValidateAgainst binds it to one.
 func LoadSplitManifest(path string) (*SplitManifest, error) {
-	f, err := os.Open(path)
+	b, err := readSplitFile(path, "split manifest")
 	if err != nil {
-		return nil, fmt.Errorf("open split manifest: %w", err)
-	}
-	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, MaxSplitManifestBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read split manifest: %w", err)
-	}
-	if len(b) > MaxSplitManifestBytes {
-		return nil, fmt.Errorf("split manifest exceeds %d bytes", MaxSplitManifestBytes)
+		return nil, err
 	}
 	return ParseSplitManifest(b)
 }

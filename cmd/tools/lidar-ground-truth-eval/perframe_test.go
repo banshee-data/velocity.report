@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
@@ -106,6 +108,38 @@ func TestPerFrameKnownScenario(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "held_out=true") || !strings.Contains(stderr.String(), "B: MOTA 0.5556  IDSW 1  FM 1") {
 		t.Fatalf("summary on stderr:\n%s", stderr.String())
+	}
+}
+
+// A frozen split is read in place of a version 1 manifest, and named in both
+// the comparison and the summary.
+func TestPerFrameRecordsTheFrozenSplit(t *testing.T) {
+	f := perFrameFixture(t)
+	draft := f.FrozenDraft()
+	frozen, err := annotation.FreezeSplit(annotation.FreezeOptions{
+		Draft: &draft, Author: "operator", Now: time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC),
+		BuildVersion: "test", BuildGitSHA: "abc", GuardSeconds: annotation.DefaultSplitGuardSeconds,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "frozen.json")
+	if err := annotation.WriteFrozenSplit(path, frozen); err != nil {
+		t.Fatal(err)
+	}
+	args := perFrameArgs(f)
+	for i := range args {
+		if args[i] == f.SplitManifestPath {
+			args[i] = path
+		}
+	}
+	code, c, stderr := runPerFrameCapture(t, args)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	if c.Reference.SplitDigest != frozen.SplitDigest || c.Reference.SplitRevision != 1 ||
+		!strings.Contains(stderr, "frozen split "+frozen.SplitDigest+", revision 1") {
+		t.Fatalf("reference %+v, summary:\n%s", c.Reference, stderr)
 	}
 }
 

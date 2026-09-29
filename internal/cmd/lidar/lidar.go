@@ -30,6 +30,9 @@ Commands:
                   reference identity is not itself a tracker output
   segments        Rank candidate annotation windows from an evidence DB or run
   annotation-clip Replay one capture window and cut its annotation pack
+  annotation-split
+                  Freeze a reviewed, object-disjoint split over annotation
+                  packs with digests, or verify a frozen one against its packs
   observations    Verify, inspect or compare VRLOG 1.x observation containers
                   (written by pcap-replay --observations)
 
@@ -56,6 +59,8 @@ func Main(args []string) int {
 		return SegmentsMain(args[1:])
 	case "annotation-clip":
 		return AnnotationClipMain(args[1:])
+	case "annotation-split":
+		return AnnotationSplitMain(args[1:])
 	case "observations":
 		return ObservationsMain(args[1:])
 	case "help", "-h", "--help":

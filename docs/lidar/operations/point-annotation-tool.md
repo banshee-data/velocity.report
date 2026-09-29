@@ -318,6 +318,11 @@ applied: a mask it does not certify becomes an ignore point, neither found nor m
 - A frame records how its points got there (`footprint_carry`, `cluster_chain`,
   `persistent_voxels`, or none for by hand), and keeps that through a review.
 
+A held-out number needs a frozen split as well
+([freezing a split](per-frame-evaluation.md#freezing-a-split)). Freezing refuses an object with a
+frame still proposed, or a reviewed frame whose completeness was never stated, and pins the
+revision it froze: review every frame of an object before putting it in a split.
+
 The **This frame** ring shows the frame's foreground in sixteen 22.5° sectors laid out as the top
 view is: agreed, in question, and not labelled. Click a sector to go to what is left in it.
 

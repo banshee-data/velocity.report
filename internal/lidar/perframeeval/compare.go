@@ -130,6 +130,10 @@ func caveats(c Comparison) []string {
 	if !c.Reference.HeldOut {
 		out = append(out, fmt.Sprintf("Split %q has role %q: this is not a held-out result and must not be quoted as one.",
 			c.Reference.Split, c.Reference.SplitRole))
+	} else if c.Reference.SplitDigest == "" {
+		out = append(out, "The split manifest is version 1, not frozen: nothing certified that its objects finished "+
+			"membership review, or pinned its pack manifest, selection record and annotation bytes. Freeze it "+
+			"(velocity lidar annotation-split freeze) before quoting a held-out gate result.")
 	}
 	if c.Reference.Policy.Status != annotation.ReferenceReviewedOnly {
 		out = append(out, fmt.Sprintf("The reference policy is %q: proposed masks nobody reviewed are scored as truth.",
