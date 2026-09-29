@@ -783,15 +783,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// change under test. Determinism matters more than throughput offline.
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
-	stateObservationModelID := string(l5tracks.MeasurementMedoidV0)
-	switch {
-	case hasExperiment(experiments, ExperimentNearEdgeTrack):
-		// The tracked state is updated by the near-edge faces once a track is
-		// re-referenced, so its rows name that model.
-		stateObservationModelID = string(l5tracks.MeasurementNearEdgeCandidateV1)
-	case cfg.MeasurementSourceMode == l5tracks.MeasurementOBBCentreV1:
-		stateObservationModelID = string(l5tracks.MeasurementOBBCentreV1)
-	}
+	stateObservationModelID := stateObservationModelFor(experiments, cfg.MeasurementSourceMode)
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -1191,6 +1183,21 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// stateObservationModelFor names the observation model the online estimate
+// rows record: the near-edge faces under near_edge_track, which update the
+// tracked state once a track is re-referenced, and otherwise the position
+// model the replay runs.
+func stateObservationModelFor(experiments []string, mode l5tracks.MeasurementSource) string {
+	switch {
+	case hasExperiment(experiments, ExperimentNearEdgeTrack):
+		return string(l5tracks.MeasurementNearEdgeCandidateV1)
+	case mode == l5tracks.MeasurementOBBCentreV1:
+		return string(l5tracks.MeasurementOBBCentreV1)
+	default:
+		return string(l5tracks.MeasurementMedoidV0)
+	}
 }
 
 // nearEdgeTrackRefusal refuses near_edge_track in a combination whose meaning

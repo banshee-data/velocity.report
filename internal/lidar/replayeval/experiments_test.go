@@ -260,3 +260,20 @@ func TestNearEdgeTrackRefusesTheUncertaintyReport(t *testing.T) {
 		t.Fatalf("got %v, want the uncertainty-report refusal", err)
 	}
 }
+
+func TestEstimateRowsNameTheModelThatUpdatedThem(t *testing.T) {
+	for _, tc := range []struct {
+		experiments []string
+		mode        l5tracks.MeasurementSource
+		want        l5tracks.MeasurementSource
+	}{
+		{nil, "", l5tracks.MeasurementMedoidV0},
+		{nil, l5tracks.MeasurementOBBCentreV1, l5tracks.MeasurementOBBCentreV1},
+		{[]string{ExperimentSolidBody}, "", l5tracks.MeasurementMedoidV0},
+		{[]string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack}, "", l5tracks.MeasurementNearEdgeCandidateV1},
+	} {
+		if got := stateObservationModelFor(tc.experiments, tc.mode); got != string(tc.want) {
+			t.Errorf("%v with mode %q: rows name %s, want %s", tc.experiments, tc.mode, got, tc.want)
+		}
+	}
+}

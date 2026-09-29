@@ -596,3 +596,56 @@ func TestApplicationOfRecordsTheTranslationAndTheFacesMeasurement(t *testing.T) 
 		t.Fatalf("application %+v", a)
 	}
 }
+
+func TestAFacelessRecordAlwaysGivesAReason(t *testing.T) {
+	tracker := NewTracker(nearEdgeTrackingConfig())
+	track := a2Track()
+	track.solidBody.pending = nearEdgePending{valid: true, outcome: nearEdgeCoast}
+	tracker.recordTrackedNearEdgeResidual(track, trackedPrediction{p: track.P}, WorldCluster{CentroidX: 1}, PositionMeasurement{X: 1})
+	if r := track.LastResidual; r.Disposition != ResidualNotApplied || r.Reason != "no_usable_face" {
+		t.Fatalf("a faceless frame without a fallback reason filed %s/%q", r.Disposition, r.Reason)
+	}
+}
+
+func TestA2CountsOneFacePerDirection(t *testing.T) {
+	// Two faces along the same axis cannot both be near faces; if a
+	// measurement ever offered them, the first stands and the other is not
+	// a second constraint on the same direction.
+	tracker := NewTracker(nearEdgeTrackingConfig())
+	track := a2Track()
+	right := EdgeMeasurement{Face: FaceRight, NormalX: 0, NormalY: -1, PlaneOffsetMetres: 0.9, HalfExtentMetres: 0.9,
+		HalfExtentProvenance: ProvenanceAccumulated}
+	left := right
+	left.Face, left.NormalY, left.PlaneOffsetMetres = FaceLeft, 1, 5
+	one := nearEdgeFrame{edges: EdgeMeasurementSet{Rank: 1, Edges: []EdgeMeasurement{right}},
+		length: DimensionBelief{Metres: 4.5}, width: DimensionBelief{Metres: 1.8}}
+	both := one
+	both.edges = EdgeMeasurementSet{Rank: 1, Edges: []EdgeMeasurement{right, left}}
+	cluster := WorldCluster{CentroidX: 2, CentroidY: -0.9}
+	if a, b := tracker.faceResidualDistanceSquared(track, cluster, one), tracker.faceResidualDistanceSquared(track, cluster, both); a != b {
+		t.Fatalf("a second face across the body changed d² from %v to %v", a, b)
+	}
+}
+
+func TestTheShadowDropsABodyWhoseUpdateIsNotFinite(t *testing.T) {
+	tracker := NewTracker(solidBodyConfig())
+	frames := syntheticPassFrames(t, l4perception.DefaultSyntheticPass())
+	for _, f := range frames[:15] {
+		tracker.Update(f.clusters, f.at)
+	}
+	track := mainTrack(t, tracker)
+	track.solidBody.p[0] = float32(math.NaN())
+	tracker.updateSolidBody(track, frames[15].clusters[0])
+	if _, ok := track.SolidBody(); ok {
+		t.Fatal("a non-finite shadow update kept its solid body")
+	}
+}
+
+func TestAFrameWithoutAHeadingMeasuresNothing(t *testing.T) {
+	tracker := NewTracker(solidBodyConfig())
+	sb := &solidBodyTrack{}
+	f := tracker.measureNearEdgeFrame(sb, WorldCluster{}, dimensionPriorFor(MotionUnknown), tracker.Config.HitsToConfirm+1)
+	if f.fallback != "missing_heading" || len(f.edges.Edges) != 0 {
+		t.Fatalf("frame %+v without a heading", f)
+	}
+}
