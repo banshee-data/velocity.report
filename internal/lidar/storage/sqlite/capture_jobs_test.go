@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -297,5 +298,36 @@ func TestCaptureStoreListJobs(t *testing.T) {
 	}
 	if all, err := store.ListJobs("", 0); err != nil || len(all) != 2 {
 		t.Errorf("ListJobs across sessions returned %d (%v), want 2", len(all), err)
+	}
+}
+
+// The capture writers keep to the rules migration 000057 holds, and the
+// shipped schema holds them too, not only the migrations: a motion pass names
+// its session, and a timeline's periods agree with their bounds. Clip jobs are
+// covered by the segment store tests, which run on the same schema.
+func TestTheCaptureWritersKeepTheShippedSchemaRules(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewCaptureStore(db)
+	sessionID := seedSession(t, store)
+
+	if err := store.ReplaceSessionPeriods(sessionID, samplePeriods(captureBase)); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+	if _, err := store.EnqueueJob(JobKindMotionPass, sessionID, "root-1", ""); err != nil {
+		t.Fatalf("EnqueueJob: %v", err)
+	}
+
+	if _, err := store.EnqueueJob("sweep", sessionID, "root-1", ""); err == nil || !strings.Contains(err.Error(), "motion_pass or a vrlog_record") {
+		t.Fatalf("a job of another kind: %v", err)
+	}
+	askew := samplePeriods(captureBase)
+	askew[1].DurationNs++
+	if err := store.ReplaceSessionPeriods(sessionID, askew); err == nil || !strings.Contains(err.Error(), "lasts end_ns - start_ns") {
+		t.Fatalf("a period that disagrees with its bounds: %v", err)
+	}
+	// A refused pass leaves the timeline before it.
+	if got, err := store.ListSessionPeriods(sessionID); err != nil || len(got) != 3 {
+		t.Fatalf("periods after a refused pass = %d (%v), want 3", len(got), err)
 	}
 }
