@@ -181,7 +181,7 @@ func (b *oracleBuilder) readEstimates(db *sql.DB) error {
 	// replays of the same input. One observation carries one online estimate
 	// but may also carry refined ones (fixed_lag, final), so the version key
 	// breaks the tie; with online rows alone the order is unchanged.
-	rows, err := db.Query(`SELECT estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json
+	rows, err := db.Query(`SELECT estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, reference_point, support_instant
 		FROM lidar_track_estimates ORDER BY source_id, frame_unix_nanos, observation_id, estimator_id, observation_model_id, param_hash, stage`)
 	if err != nil {
 		return fmt.Errorf("query estimates: %w", err)
@@ -190,7 +190,7 @@ func (b *oracleBuilder) readEstimates(db *sql.DB) error {
 	for rows.Next() {
 		var estimateID, trackID string
 		var row oracleEstimateRow
-		if err := rows.Scan(&estimateID, &trackID, &row.ObservationID, &row.SourceID, &row.CalibrationID, &row.FrameUnixNanos, &row.MeasurementUnixNanos, &row.EstimatorID, &row.ObservationModelID, &row.ParamHash, &row.Stage, &row.MeasurementSource, &row.CreationSequence, &row.X, &row.Y, &row.VX, &row.VY, &row.CovarianceJSON); err != nil {
+		if err := rows.Scan(&estimateID, &trackID, &row.ObservationID, &row.SourceID, &row.CalibrationID, &row.FrameUnixNanos, &row.MeasurementUnixNanos, &row.EstimatorID, &row.ObservationModelID, &row.ParamHash, &row.Stage, &row.MeasurementSource, &row.CreationSequence, &row.X, &row.Y, &row.VX, &row.VY, &row.CovarianceJSON, &row.ReferencePoint, &row.SupportInstant); err != nil {
 			return fmt.Errorf("scan estimate: %w", err)
 		}
 		observation, ok := b.observations[row.ObservationID]
@@ -308,6 +308,11 @@ type oracleEstimateRow struct {
 	VX                   float64 `json:"vx"`
 	VY                   float64 `json:"vy"`
 	CovarianceJSON       []byte  `json:"covariance_json"`
+	// ReferencePoint and SupportInstant are hashed as stored, not parsed: the
+	// oracle compares what two runs wrote, and a reader's refusal of a value
+	// is not the oracle's to make.
+	ReferencePoint string `json:"reference_point"`
+	SupportInstant string `json:"support_instant"`
 }
 
 // oracleResidualRow is the hashed content of one residual. estimate_id is

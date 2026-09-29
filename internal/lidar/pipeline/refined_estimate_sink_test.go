@@ -25,6 +25,9 @@ func releasedState() l5tracks.SmoothedState {
 			InnovationX: 0.25, InnovationY: -0.5, NIS: 2.5, HasInnovation: true,
 			GeometryCovariance: l5tracks.MeasurementCovariance{XX: 0.1, XY: 0.01, YY: 0.2},
 		},
+		// A body centre measured from a medoid: the row must state the
+		// former, which the measurement source cannot supply.
+		Reference: l5tracks.ReferenceBodyCentre, Support: l5tracks.SupportObserved,
 		Online:   l5tracks.FilterMoments{X: 5, Y: 6, VX: 10},
 		Smoothed: l5tracks.FilterMoments{X: 5.1, Y: 6, VX: 10.5, P: [16]float32{0.02}},
 		Revision: l5tracks.Revision{
@@ -79,6 +82,9 @@ func TestRefinedStateEstimateSharesTheOnlineIdentities(t *testing.T) {
 	}
 	if e.X != 5.1 || e.VX != 10.5 || e.CreationSequence != 7 || e.MeasurementUnixNanos != 1_010 {
 		t.Fatalf("estimate values %+v", e)
+	}
+	if e.Reference != l5tracks.ReferenceBodyCentre || e.Support != l5tracks.SupportObserved || e.MeasurementSource != "medoid_v0" {
+		t.Fatalf("the row states %s and %q from %s, not the smoother's own", e.Reference, e.Support, e.MeasurementSource)
 	}
 	if r.PredictedX != 4.75 || r.PredictedY != 6.5 || r.NIS != 2.5 || r.GeometryCovYY != 0.2 || r.Reason != "fixed_assignment" {
 		t.Fatalf("residual %+v", r)

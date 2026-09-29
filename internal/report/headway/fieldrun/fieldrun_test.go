@@ -43,9 +43,13 @@ var online = version{"cv_kf_v1", "obb_centre_v1", "sha256:online", "online", "ob
 // seed writes a scenario's poses as persisted estimates of one version, each
 // linked to an immutable observation row, as a replay's evidence store
 // would. Only what a row carries is taken: position, velocity and
-// covariance.
+// covariance. Each row states the reference a filter measured from the
+// version's geometry states, and observed support, as the online sink does.
 func seed(t *testing.T, database sqlite.DBClient, trajectories []l8behaviour.Trajectory, v version) {
 	t.Helper()
+	measured := l5tracks.TrackedObject{}
+	measured.ObservationCount = 1
+	measured.LastMeasurementSource = l5tracks.MeasurementSource(v.measurement)
 	for _, tr := range trajectories {
 		for _, s := range tr.Samples {
 			obs := fmt.Sprintf("observation/%s/%d", tr.Passage.TrackID, s.CaptureUnixNanos)
@@ -66,7 +70,7 @@ func seed(t *testing.T, database sqlite.DBClient, trajectories []l8behaviour.Tra
 				CalibrationID: "calibration/test", FrameUnixNanos: s.CaptureUnixNanos, MeasurementUnixNanos: s.CaptureUnixNanos,
 				EstimatorID: v.estimator, ObservationModelID: v.obsModel, ParamHash: v.paramHash, Stage: v.stage,
 				MeasurementSource: v.measurement, X: float32(s.X), Y: float32(s.Y), VX: float32(s.VX), VY: float32(s.VY),
-				Covariance: cov,
+				Covariance: cov, Reference: measured.PositionReference(), Support: l5tracks.SupportObserved,
 			}
 			r := sqlite.TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}
 			if err := sqlite.InsertStateEstimate(database, e, r); err != nil {

@@ -140,7 +140,7 @@ func seedHeadwayEvidence(t *testing.T) string {
 				CalibrationID: "calibration/test", FrameUnixNanos: s.CaptureUnixNanos, MeasurementUnixNanos: s.CaptureUnixNanos,
 				EstimatorID: "cv_kf_v1", ObservationModelID: "obb_centre_v1", ParamHash: "sha256:online", Stage: "online",
 				MeasurementSource: "obb_centre_v1", X: float32(s.X), Y: float32(s.Y), VX: float32(s.VX), VY: float32(s.VY),
-				Covariance: cov,
+				Covariance: cov, Reference: l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved,
 			}, sqlite.TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}); err != nil {
 				t.Fatal(err)
 			}

@@ -29,7 +29,7 @@ func (s *StateEstimateStore) ListVersionEstimates(key EstimateVersionKey) ([]Est
 		     , e.frame_unix_nanos, e.measurement_unix_nanos, e.estimator_id
 		     , e.observation_model_id, e.param_hash, e.stage, e.measurement_source
 		     , e.creation_sequence, e.x, e.y, e.vx, e.vy, e.covariance_json
-		     , o.sensor_id
+		     , e.reference_point, e.support_instant, o.sensor_id
 		  FROM lidar_track_estimates e
 		  LEFT JOIN lidar_observations o ON o.observation_id = e.observation_id
 		 WHERE e.source_id = ? AND e.estimator_id = ? AND e.observation_model_id = ?
@@ -45,17 +45,22 @@ func (s *StateEstimateStore) ListVersionEstimates(key EstimateVersionKey) ([]Est
 		var r EstimateWithSensor
 		e := &r.TrackEstimate
 		var covariance []byte
+		var reference, support string
 		var sensor sql.NullString
 		if err := rows.Scan(
 			&e.EstimateID, &e.TrackID, &e.ObservationID, &e.SourceID, &e.CalibrationID,
 			&e.FrameUnixNanos, &e.MeasurementUnixNanos, &e.EstimatorID,
 			&e.ObservationModelID, &e.ParamHash, &e.Stage, &e.MeasurementSource,
-			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance, &sensor,
+			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance,
+			&reference, &support, &sensor,
 		); err != nil {
 			return nil, fmt.Errorf("scan estimate: %w", err)
 		}
 		if !sensor.Valid || sensor.String == "" {
 			return nil, fmt.Errorf("estimate %s names observation %s, which is not stored", e.EstimateID, e.ObservationID)
+		}
+		if err := readEstimateStatement(e, reference, support); err != nil {
+			return nil, err
 		}
 		r.SensorID = sensor.String
 		if err := json.Unmarshal(covariance, &e.Covariance); err != nil {

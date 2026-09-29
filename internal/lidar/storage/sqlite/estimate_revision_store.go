@@ -186,6 +186,7 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 		     , e.frame_unix_nanos, e.measurement_unix_nanos, e.estimator_id
 		     , e.observation_model_id, e.param_hash, e.stage, e.measurement_source
 		     , e.creation_sequence, e.x, e.y, e.vx, e.vy, e.covariance_json
+		     , e.reference_point, e.support_instant
 		     , r.observation_id, r.predicted_x, r.predicted_y, r.measurement_x, r.measurement_y
 		     , r.innovation_x, r.innovation_y, r.nis
 		     , r.geometry_cov_xx, r.geometry_cov_xy, r.geometry_cov_yy
@@ -212,12 +213,13 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 		var item RevisedStateEstimate
 		e, res, r := &item.Estimate, &item.Residual, &item.Revision
 		var covariance []byte
-		var flags string
+		var flags, reference, support string
 		if err := rows.Scan(
 			&e.EstimateID, &e.TrackID, &e.ObservationID, &e.SourceID, &e.CalibrationID,
 			&e.FrameUnixNanos, &e.MeasurementUnixNanos, &e.EstimatorID,
 			&e.ObservationModelID, &e.ParamHash, &e.Stage, &e.MeasurementSource,
 			&e.CreationSequence, &e.X, &e.Y, &e.VX, &e.VY, &covariance,
+			&reference, &support,
 			&res.ObservationID, &res.PredictedX, &res.PredictedY, &res.MeasurementX, &res.MeasurementY,
 			&res.InnovationX, &res.InnovationY, &res.NIS,
 			&res.GeometryCovXX, &res.GeometryCovXY, &res.GeometryCovYY,
@@ -230,6 +232,9 @@ func (s *StateEstimateStore) ListRevisedEstimates(key EstimateVersionKey) ([]Rev
 			&r.StrongestEvidenceObservationID, &r.StrongestEvidenceNIS,
 		); err != nil {
 			return nil, fmt.Errorf("scan revised estimate: %w", err)
+		}
+		if err := readEstimateStatement(e, reference, support); err != nil {
+			return nil, err
 		}
 		if err := json.Unmarshal(covariance, &e.Covariance); err != nil {
 			return nil, fmt.Errorf("unmarshal estimate covariance %s: %w", e.EstimateID, err)
