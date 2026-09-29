@@ -197,6 +197,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  check-docs-format    Check Markdown formatting with the pinned prettier"
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
@@ -1951,7 +1952,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
+.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
 lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
@@ -1961,6 +1962,21 @@ check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break P
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
+
+# The check-only twin of format-docs: the same files, the same ignore list and the
+# prettier that web/package.json pins. It does not fall back to a bare `npx prettier`
+# as format-docs does, because that could check against a different version than the
+# pre-commit hook writes with.
+check-docs-format: ensure-web-cache ## [gated] Check Markdown formatting with the pinned prettier (check-only twin of format-docs)
+	@if command -v pnpm >/dev/null 2>&1; then \
+		echo "Checking Markdown formatting with prettier $$(pnpm --dir $(WEB_DIR) exec prettier --version)..."; \
+		pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --check '../**/*.md'; status=$$?; \
+		if [ $$status -eq 1 ]; then echo "Markdown is not prettier-formatted. Run 'make format-docs' and commit the result."; fi; \
+		exit $$status; \
+	else \
+		echo "pnpm not found; cannot run the pinned prettier (install pnpm and retry)"; \
+		exit 2; \
+	fi
 
 check-prose-width: ## Advisory: report prose lines over 99 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
@@ -1977,7 +1993,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

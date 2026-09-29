@@ -12,12 +12,20 @@ on:
       - "scripts/check-backtick-paths.py"
       - ".github/workflows/markdown-ci.yml"
       - "Makefile"
+      # The formatting job runs the prettier that web/ pins, over what
+      # .prettierignore leaves in, so changing either re-runs the check.
+      - ".prettierignore"
+      - "web/package.json"
+      - "web/pnpm-lock.yaml"
   push:
     branches: [main]
     paths:
       - "**/*.md"
       - "scripts/check-relative-links.py"
       - "scripts/check-backtick-paths.py"
+      - ".prettierignore"
+      - "web/package.json"
+      - "web/pnpm-lock.yaml"
 
 concurrency:
   group: markdown-${{ github.ref }}
@@ -53,3 +61,21 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Suppress known-stale references with \`<!-- link-ignore -->\`." >> $GITHUB_STEP_SUMMARY
+
+  md-format:
+    # A hard gate: unlike md-links above, this job is not continue-on-error, so
+    # unformatted Markdown fails it.
+    name: "🎨 Prettier formatting"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Installs web/'s locked dependencies, which is where prettier is pinned.
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Check Markdown formatting (prettier)
+        run: make check-docs-format
