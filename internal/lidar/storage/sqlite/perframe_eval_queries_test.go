@@ -3,6 +3,8 @@ package sqlite
 import (
 	"fmt"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func perFrameEstimate(t *testing.T, store *StateEstimateStore, id, track string, seq, frame int64, param, stage string, x float32) {
@@ -12,6 +14,7 @@ func perFrameEstimate(t *testing.T, store *StateEstimateStore, id, track string,
 		CalibrationID: "calibration/v1/test", FrameUnixNanos: frame, MeasurementUnixNanos: frame + 5,
 		EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v1", ParamHash: param, Stage: stage,
 		MeasurementSource: "medoid_v1", CreationSequence: seq, X: x, Y: -x,
+		Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
 	}
 	r := TrackResidual{EstimateID: id, ObservationID: e.ObservationID, Disposition: "accepted", Reason: "association_accepted"}
 	if err := store.Insert(e, r); err != nil {

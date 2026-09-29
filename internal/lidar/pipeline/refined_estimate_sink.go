@@ -105,6 +105,7 @@ func RefinedStateEstimate(id RefinedEstimateIdentity, paramHash string, state l5
 		CreationSequence: state.CreationSequence, EstimatorID: estimatorID, ObservationModelID: id.ObservationModelID,
 		ParamHash: paramHash, Stage: stage, MeasurementSource: string(obs.Source),
 		X: m.X, Y: m.Y, VX: m.VX, VY: m.VY, Covariance: m.P,
+		Reference: state.Reference, Support: state.Support,
 	}
 	// The residual row is the association evidence the estimate was computed
 	// under, which fixed assignment leaves exactly as the filter measured it.

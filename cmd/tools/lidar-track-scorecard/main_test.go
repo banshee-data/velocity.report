@@ -10,6 +10,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -64,7 +65,8 @@ func writeEvidenceFor(t *testing.T, path, trackID, model string, obbOffsetY floa
 		estimate := observationsqlite.TrackEstimate{EstimateID: estimateID, TrackID: trackID, ObservationID: id,
 			SourceID: source, CalibrationID: "calibration/v1/test", FrameUnixNanos: ts, MeasurementUnixNanos: ts + 3,
 			EstimatorID: "cv_kf_v1", ObservationModelID: model, ParamHash: "params/test", Stage: "online",
-			MeasurementSource: model, CreationSequence: 1, X: x, Y: 12, VX: 5, VY: 0}
+			MeasurementSource: model, CreationSequence: 1, X: x, Y: 12, VX: 5, VY: 0,
+			Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved}
 		residual := observationsqlite.TrackResidual{EstimateID: estimateID, ObservationID: id,
 			MeasurementX: x, MeasurementY: 12, InnovationX: 0.1, InnovationY: 0.05, NIS: 1.5,
 			Disposition: "accepted", Reason: "association_accepted"}

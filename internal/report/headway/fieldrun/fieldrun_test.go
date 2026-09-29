@@ -2,6 +2,7 @@ package fieldrun
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,9 +44,13 @@ var online = version{"cv_kf_v1", "obb_centre_v1", "sha256:online", "online", "ob
 // seed writes a scenario's poses as persisted estimates of one version, each
 // linked to an immutable observation row, as a replay's evidence store
 // would. Only what a row carries is taken: position, velocity and
-// covariance.
+// covariance. Each row states the reference a filter measured from the
+// version's geometry states, and observed support, as the online sink does.
 func seed(t *testing.T, database sqlite.DBClient, trajectories []l8behaviour.Trajectory, v version) {
 	t.Helper()
+	measured := l5tracks.TrackedObject{}
+	measured.ObservationCount = 1
+	measured.LastMeasurementSource = l5tracks.MeasurementSource(v.measurement)
 	for _, tr := range trajectories {
 		for _, s := range tr.Samples {
 			obs := fmt.Sprintf("observation/%s/%d", tr.Passage.TrackID, s.CaptureUnixNanos)
@@ -66,7 +71,7 @@ func seed(t *testing.T, database sqlite.DBClient, trajectories []l8behaviour.Tra
 				CalibrationID: "calibration/test", FrameUnixNanos: s.CaptureUnixNanos, MeasurementUnixNanos: s.CaptureUnixNanos,
 				EstimatorID: v.estimator, ObservationModelID: v.obsModel, ParamHash: v.paramHash, Stage: v.stage,
 				MeasurementSource: v.measurement, X: float32(s.X), Y: float32(s.Y), VX: float32(s.VX), VY: float32(s.VY),
-				Covariance: cov,
+				Covariance: cov, Reference: measured.PositionReference(), Support: l5tracks.SupportObserved,
 			}
 			r := sqlite.TrackResidual{EstimateID: id, ObservationID: obs, Disposition: "accepted", Reason: "association_accepted"}
 			if err := sqlite.InsertStateEstimate(database, e, r); err != nil {
@@ -438,6 +443,150 @@ func TestRunWithoutAnEncounter(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// estimateReferences reads one version through the store and the adapter and
+// returns each sample's reference, track by track in frame order.
+func estimateReferences(t *testing.T, database sqlite.DBClient, key sqlite.EstimateVersionKey) ([]string, error) {
+	t.Helper()
+	trajectories, err := estimateTrajectories(sqlite.NewStateEstimateStore(database), key)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, tr := range trajectories {
+		for _, s := range tr.Samples {
+			out = append(out, s.Reference.String())
+		}
+	}
+	return out, nil
+}
+
+// TestRunReadsTheStatedReference: every row here was measured at the OBB
+// centre, and each sample refers to whatever its row's reference_point
+// states, never what that measurement source would suggest. A row whose
+// support is not observed is refused rather than read with a last observed
+// time the row does not carry.
+func TestRunReadsTheStatedReference(t *testing.T) {
+	database := openDB(t)
+	seed(t, database, steadyApproach(), online)
+	key := sqlite.EstimateVersionKey{SourceID: testSource, EstimatorID: online.estimator, ObservationModelID: online.obsModel,
+		ParamHash: online.paramHash, Stage: online.stage}
+	for _, stated := range []l5tracks.ReferencePoint{l5tracks.ReferenceVisibleOBBCentre, l5tracks.ReferenceClusterMedoid,
+		l5tracks.ReferenceBodyCentre} {
+		if _, err := database.Exec(`UPDATE lidar_track_estimates SET reference_point = ?`, stated.String()); err != nil {
+			t.Fatal(err)
+		}
+		references, err := estimateReferences(t, database, key)
+		if err != nil {
+			t.Fatalf("%s: %v", stated, err)
+		}
+		if len(references) == 0 {
+			t.Fatal("no samples")
+		}
+		for i, got := range references {
+			if got != stated.String() {
+				t.Fatalf("stated %s: sample %d refers to %s", stated, i, got)
+			}
+		}
+	}
+	if _, err := database.Exec(`UPDATE lidar_track_estimates SET support_instant = 'coasted' WHERE frame_unix_nanos = ?`,
+		l8behaviour.FixtureBaseUnixNanos); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Run(database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline}); err == nil ||
+		!strings.Contains(err.Error(), `support "coasted"`) {
+		t.Errorf("a coasted row: error %v", err)
+	}
+}
+
+// TestRunReadsAMigratedDatabaseAsBefore: rows written before migration
+// 000057, when the adapter inferred the reference from measurement_source,
+// read after it exactly as the adapter read them then. An OBB centre is the
+// visible box centre, a medoid or the OBB model's medoid fallback is the
+// cluster medoid, and every row is observed. A row whose source that mapping
+// did not know was refused then and is refused now.
+func TestRunReadsAMigratedDatabaseAsBefore(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "legacy.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	legacy := &db.DB{DB: sqlDB}
+	migrations := os.DirFS(filepath.Join("..", "..", "..", "db", "migrations"))
+	if err := legacy.MigrateTo(migrations, 56); err != nil {
+		t.Fatal(err)
+	}
+	// One version under the OBB-centre model, whose rows alternate between the
+	// OBB centre and its medoid fallback; one under the medoid model; one
+	// whose measurement source no mapping knows.
+	sources := map[string][]string{
+		"obb_centre_v1":          {"obb_centre_v1", "medoid_fallback_v1"},
+		"medoid_v0":              {"medoid_v0"},
+		"near_edge_candidate_v1": {"near_edge_candidate_v1"},
+	}
+	for model, measured := range sources {
+		for i, tr := range steadyApproach() {
+			for j, s := range tr.Samples {
+				obs := fmt.Sprintf("observation/%s/%s/%d", model, tr.Passage.TrackID, s.CaptureUnixNanos)
+				if _, err := legacy.Exec(`INSERT INTO lidar_observations
+					(observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos,
+					 cluster_unix_nanos, cluster_id, record_json, inserted_at_ns)
+					VALUES (?, 1, ?, 'calibration/test', 'sensor_test', 'frame', ?, ?, 1, '{}', 1)`,
+					obs, testSource, s.CaptureUnixNanos, s.CaptureUnixNanos); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := legacy.Exec(`INSERT INTO lidar_track_estimates
+					(estimate_id, track_id, creation_sequence, observation_id, source_id, calibration_id, frame_unix_nanos,
+					 measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source,
+					 x, y, vx, vy, covariance_json, inserted_at_ns)
+					VALUES (?, ?, ?, ?, ?, 'calibration/test', ?, ?, 'cv_kf_v1', ?, 'sha256:online', 'online', ?, ?, ?, ?, ?,
+					        '[0.04,0,0,0,0,0.04,0,0,0,0,0.25,0,0,0,0,0.25]', 1)`,
+					"estimate/"+obs, tr.Passage.TrackID, i+1, obs, testSource, s.CaptureUnixNanos, s.CaptureUnixNanos,
+					model, measured[j%len(measured)], s.X, s.Y, s.VX, s.VY); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	if err := legacy.MigrateUp(migrations); err != nil {
+		t.Fatal(err)
+	}
+	key := func(model string) sqlite.EstimateVersionKey {
+		return sqlite.EstimateVersionKey{SourceID: testSource, EstimatorID: "cv_kf_v1", ObservationModelID: model,
+			ParamHash: "sha256:online", Stage: "online"}
+	}
+	obb, err := estimateReferences(t, legacy, key("obb_centre_v1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	medoid, err := estimateReferences(t, legacy, key("medoid_v0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(obb) == 0 || len(obb) != len(medoid) {
+		t.Fatalf("%d and %d samples", len(obb), len(medoid))
+	}
+	// Each track's rows alternate from its first frame, and samples come
+	// back track by track in frame order.
+	var want []string
+	for _, tr := range steadyApproach() {
+		for j := range tr.Samples {
+			want = append(want, []string{"visible_obb_centre", "cluster_medoid"}[j%2])
+		}
+	}
+	if strings.Join(obb, ",") != strings.Join(want, ",") {
+		t.Errorf("OBB-centre version reads %v, want %v", obb, want)
+	}
+	for i, r := range medoid {
+		if r != "cluster_medoid" {
+			t.Fatalf("medoid version sample %d refers to %s", i, r)
+		}
+	}
+	if _, err := estimateReferences(t, legacy, key("near_edge_candidate_v1")); err == nil ||
+		!strings.Contains(err.Error(), `unknown reference point ""`) {
+		t.Errorf("a row whose measurement source no mapping knows: error %v", err)
 	}
 }
 
