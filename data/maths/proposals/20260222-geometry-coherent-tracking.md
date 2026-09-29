@@ -130,7 +130,7 @@ residual dimension and the validity of the assumed distribution.
 
 ### 2.4 Exponential moving average update
 
-After selecting the best interpretation $\mathbf{z}^* = (L^*, W^*, H^*, \theta^*)$, update the geometry estimate:
+After selecting the best interpretation $\mathbf{z}^\ast = (L^\ast, W^\ast, H^\ast, \theta^\ast)$, update the geometry estimate:
 
 $$
 \begin{aligned}
