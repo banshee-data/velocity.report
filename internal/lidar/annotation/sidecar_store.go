@@ -239,6 +239,10 @@ func revisionName(revision int) string {
 	return fmt.Sprintf("%s/%010d.json", revisionDir, revision)
 }
 
+// Digest is the SHA-256 of the exact bytes this revision was loaded from or
+// saved as, empty for a sidecar never saved.
+func (s *Sidecar) Digest() string { return s.baseDigest }
+
 func decodeSidecar(p *Pack, b []byte) (*Sidecar, error) {
 	var s Sidecar
 	if err := json.Unmarshal(b, &s); err != nil {
