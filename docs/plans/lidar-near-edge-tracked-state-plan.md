@@ -195,8 +195,9 @@ p99 about 2.5 times the face-stable p99 on every site. T2 changes nothing on kir
 half-extent's error is a bias and softening one update only delays it. A third remedy, T3, takes
 the face axis from the solid body's course (see [T3](#t3-course-aligned-faces)). It removes the
 turning tail and raises the fix rate; with T1 the gap is 2.1 to 2.4 on the tuning sites and 1.9
-on the held-out case (see [F4](#f4-the-held-out-score)). T4, next, estimates each face's
-half-extent error instead of holding it fixed.
+on the held-out case (see [F4](#f4-the-held-out-score)). T4 estimates each face's half-extent
+error instead of holding it fixed (see [T4](#t4-the-half-extents-as-state)). On the tuning sites
+it moves the body-centre p99 by 5 to 6 mm and leaves the gap at 2.0 to 2.3.
 
 ### Seeding and re-reference
 
@@ -282,9 +283,9 @@ The code is in replay behind four experiments that qualify `solid_body`:
   identity tracking transform and recorded in the manifest.
 
 Test F2 ran on the Mac (Apple M1 Pro, 24 minutes and under 1 GB per arm): the full-member solid
-body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. F1, which
-runs T2 on the tuning partition, finished but its results are not yet published. Solid-body
-lateral residual p99, in metres:
+body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. Test F1
+ran T2 on the tuning partition (see [F1](#f1-consider-on-entry)). Solid-body lateral residual p99,
+in metres:
 
 | Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
 | ---------------------- | ------------ | -----: | -----: | -----------------: | ---------------: | --: |
@@ -312,6 +313,31 @@ Against the exit:
   identical to T0's 256-point arm on both sites. p95 and p99 move by 2 mm or less.
 - **Refusal: met.** A solid body without a declared origin makes no fix and says
   `missing_calibrated_sensor_origin` on every row (unit test).
+
+#### F1: consider on entry
+
+Test F1 ran T2, alone and with T1, on the tuning partition at `9fb80e61`. That was before full
+members, so it used the 256-point sample. It ran on the Mac, taking 20 to 26 minutes and under
+1 GB per arm. Solid-body lateral residual p99, in metres:
+
+| Site                   | Arm        |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
+| ---------------------- | ---------- | -----: | -----: | -----------------: | ---------------: | --: |
+| `marina-webster-beach` | solid body | 14,557 |    402 |              0.231 |            0.074 | 3.1 |
+| `marina-webster-beach` | T2         | 14,457 |    406 |              0.221 |            0.077 | 2.9 |
+| `marina-webster-beach` | T1         | 13,570 |    587 |              0.166 |            0.068 | 2.5 |
+| `marina-webster-beach` | T1, T2     | 13,570 |    587 |              0.169 |            0.069 | 2.4 |
+| `columbus-broadway`    | solid body | 40,630 |    898 |              0.388 |            0.193 | 2.0 |
+| `columbus-broadway`    | T2         | 40,630 |    898 |              0.336 |            0.198 | 1.7 |
+| `columbus-broadway`    | T1         | 37,130 |  1,363 |              0.336 |            0.140 | 2.4 |
+| `columbus-broadway`    | T1, T2     | 37,130 |  1,363 |              0.307 |            0.135 | 2.3 |
+
+The summaries are on `claude/upbeat-galileo-4xbaat-s2-f1-results`, under `results/s2-f1/`.
+
+- **T2 trims the body-centre tail and not the face-stable one.** Alone, it lowers the body-centre
+  p99 by 4 % on marina and 13 % on columbus, and the face-stable p99 does not improve. With T1 it
+  adds 3 mm on marina and takes 9 % off columbus.
+- **T2 costs replay time:** 31 % more wall clock per arm (1,544 against 1,180 seconds).
+- **T2 was not carried forward.** T3 was measured next, and no later arm includes T2.
 
 #### T3: course-aligned faces
 
@@ -401,6 +427,63 @@ buy. If it closed the gap completely the held-out body-centre p99 would fall to 
 0.118 m, still above gate 2's 0.102 m, so the within-run tail must shrink too, or gate 2's bar
 be reviewed; see [Risks](#risks).
 
+#### T4: the half-extents as state
+
+`solid_body_half_extent_state` makes the half-length and half-width behind the faces part of the
+solid body's filter. A face then measures its own plane: the position along its normal plus the
+half-extent behind it. The offset a face brings when it enters is shared between the two by
+their variances. Opposite faces share a half-extent, so a rear face after the front one measures
+the length. An axis stays held at half its belief, which is exactly the fixed model, until its
+belief has converged and a fix has used a face on it; a lapse holds both axes again.
+
+T4 runs in the shadow only. The tracked filter predicts no half-extents, so `near_edge_track`
+refuses T4. With `solid_body_reference_translation` on, T4 starts from the translated state, as
+the fixed model does.
+
+Test F5 ran T1 with T3 and full members, with and without T4, on the tuning partition at
+`040aa247`. It ran on the Mac, reading the captures from the NAS. The T4 arm took 176 minutes and
+under 1 GB; the other arm's wall clock is not a throughput figure, because the host ran out of
+swap during it. The T1 with T3 arm reproduced F4's tuning rows exactly, and the default replay
+was byte-equal on both cases. Lateral residual p99 in metres:
+
+| Site                   | Arm        |  Fixes | Lapses | Body-centre frames: point / body | Face-stable runs: point / body | Gap |
+| ---------------------- | ---------- | -----: | -----: | -------------------------------- | ------------------------------ | --: |
+| `marina-webster-beach` | T1, T3     | 16,722 |    676 | 0.183 / 0.158                    | 0.150 / 0.065                  | 2.4 |
+| `marina-webster-beach` | T1, T3, T4 | 16,724 |    675 | 0.183 / 0.152                    | 0.150 / 0.066                  | 2.3 |
+| `columbus-broadway`    | T1, T3     | 43,106 |  1,695 | 0.226 / 0.280                    | 0.188 / 0.141                  | 2.0 |
+| `columbus-broadway`    | T1, T3, T4 | 43,107 |  1,696 | 0.226 / 0.275                    | 0.188 / 0.140                  | 2.0 |
+
+The summary now also attributes the steady runs' tail to what changed in each window
+(`steady_run_transitions`). For each kind of transition it reports the steady p99 over the windows
+without that transition. Transition kinds overlap. Steady-run p99 in metres, T1 with T3 / with T4:
+
+| Site                   | All windows   | No transition | Without lateral face entries | Without width revisions | Without length revisions | Without face exits |
+| ---------------------- | ------------- | ------------- | ---------------------------- | ----------------------- | ------------------------ | ------------------ |
+| `marina-webster-beach` | 0.135 / 0.135 | 0.052 / 0.052 | 0.101 / 0.101                | 0.111 / 0.111           | 0.110 / 0.103            | 0.112 / 0.112      |
+| `columbus-broadway`    | 0.280 / 0.275 | 0.111 / 0.109 | 0.180 / 0.177                | 0.206 / 0.196           | 0.240 / 0.233            | 0.240 / 0.228      |
+
+The summaries are on `claude/upbeat-galileo-4xbaat-s2-f5-results`, under `results/s2-f5/`.
+
+- **T4 changes little.** The body-centre p99 falls 6 mm on marina and 5 mm on columbus. Fixes,
+  lapses and the face-stable p99 barely move, and the gap stays at 2.3 and 2.0, against 1.25. On
+  columbus the body is still 1.22 times the point estimate over body-centre frames.
+- **Lateral face entries carry the most tail.** On both sites, dropping the windows where a
+  lateral face enters lowers the steady p99 the most: by a quarter on marina and by a third on
+  columbus. Those windows are 7 % and 12 % of the steady windows. Width revisions come next.
+- **T4 does not reach them.** Its effect is on the revision windows. On marina, the p99 without
+  length revisions falls from 0.110 to 0.103 m; on columbus, the p99 without width revisions falls
+  from 0.206 to 0.196 m. The lateral-entry figure moves by 3 mm at most. A lateral face that enters
+  before its width belief has converged is applied exactly as in the fixed model, so T4 cannot
+  share that face's offset.
+
+#### Open decision: the remedy after T4
+
+T1 with T3 is still the best arm measured, and T4 adds at most 6 mm. The options are:
+
+1. Take T1 with T3 into S2.2's corpus arms, and carry the gap and gate 2's reach as named risks.
+2. Try a remedy aimed at lateral face entries, the largest attributed part of the tail.
+3. Relax the exit. Not recommended before an entry-aimed remedy has been measured.
+
 ### S2.2: the tracked near-edge update
 
 **Summary:** `near_edge_track` updates the tracked filter through the shared state machine, with
@@ -447,8 +530,9 @@ A2 association.
   plausibility checks run first and unchanged. The pair's measurement is kept for the frame and
   reused by the update.
 - **Refusals.** `near_edge_track` refuses `adaptive_uncertainty` and `likelihood_cost`, whose
-  terms are the medoid update's, the OBB-centre position model, and the uncertainty report, whose
-  pre-gate residuals are the medoid gate's. Estimate rows under it name `near_edge_candidate_v1`
+  terms are the medoid update's, the OBB-centre position model, the uncertainty report, whose
+  pre-gate residuals are the medoid gate's, and `solid_body_half_extent_state`, whose half-extents
+  the tracked filter does not predict. Estimate rows under it name `near_edge_candidate_v1`
   as their observation model.
 
 Unit tests cover the plan's list: a rank-one translation moves nothing across its face and no
@@ -610,11 +694,11 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.1 T1 and T2 on the solid body; heading-rate and range strata
 - [x] S2.1 full member geometry to the tracker; declared origin with refusal
 - [x] F2: full members, with and without T1, on the tuning partition, on the Mac
-- [ ] F1: T2 on the tuning partition (run, not yet published)
+- [x] F1: T2, alone and with T1, on the tuning partition, on the Mac
 - [x] S2.1 T3 course-aligned faces; F3 on the tuning partition, on the Mac
 - [x] F4: T1 with T3, held-out score and tuning re-run, on the Mac; gate 2's reach not met
-- [ ] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on kirk0 and the tuning
-      partition
+- [x] S2.1 T4 half-extent state on the solid body, on kirk0; F5 with T1 and T3 on the tuning
+      partition, on the Mac; the gap is unmet
 - [ ] S2.1 face-transition remedy chosen
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac

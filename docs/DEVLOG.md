@@ -6,6 +6,12 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 29, 2026 - Half-extents as solid-body state, and the F1 and F5 scores
+
+- {claude/upbeat-galileo-4xbaat-s2-1-t4-f5} Added remedy T4 behind `solid_body_half_extent_state`: the half-length and half-width behind the faces join the shadow solid body's filter once an axis's belief has converged, so an entering face's offset is shared between position and half-extent, and a rear face after the front measures the length. Rebased onto S2.2, it starts from the translated state on a re-reference, and `near_edge_track` refuses it because the tracked filter predicts no half-extents. The corpus summary now attributes the steady runs' tail to each kind of transition (`steady_run_transitions`).
+- {claude/upbeat-galileo-4xbaat-s2-1-t4-f5} Scored T4 with hysteresis and course-aligned faces on the tuning sites (F5, on the Mac, captures read from the NAS). It moves the body-centre p99 by 6 mm on marina-webster-beach and 5 mm on columbus-broadway and leaves the gap at 2.3 and 2.0. Lateral face entries carry the largest part of the steady tail: without their windows the steady p99 falls by a quarter and a third, and T4 moves that by 3 mm at most. The next remedy is an open decision.
+- {claude/upbeat-galileo-4xbaat-s2-1-t4-f5} Recorded F1, which had run but was never written up: consider-on-entry (T2) trims the body-centre p99 by 4 % to 13 % alone, but leaves the face-stable p99 no better and costs 31 % more replay time; no later arm carries it.
+
 ## September 29, 2026 - A frozen reviewed split and measured sensor coverage
 
 - Froze the reviewed split: `velocity lidar annotation-split freeze` certifies membership review, pins each pack, its manifest, selection record and annotation revision by digest, and binds every corpus case to its captures by SHA-256, so a pack cut from a held-out capture cannot be tuned on under another name. A revision carries the whole history of what was tuned on, by capture span as well as by pack, so no later revision can hold out a car that an earlier one tuned on, whether the pack was dropped and re-added or re-cut wider. The evaluators given `-split-manifest` hold each case to its role, check the replayed capture against the case, and record the split; the digest is unkeyed, so it catches accidental edits, not deliberate ones (#636).
