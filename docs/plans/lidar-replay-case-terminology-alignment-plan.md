@@ -1,6 +1,6 @@
 # LiDAR replay case terminology alignment
 
-- **Status:** Planned for v0.5.8 (layer cleanup + codebase hygiene)
+- **Status:** Superseded by [platform-vocabulary-and-data-model-plan](platform-vocabulary-and-data-model-plan.md), which carries these rename batches as its Item 2 and adds the schema merge they were missing
 - **Design Phase:** Nomenclature standardisation
 - **Scope:** Rename "scene" → "replay case" across Go API, store layer, sweep interfaces, Web routes, and Svelte components.
 - **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
