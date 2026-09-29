@@ -109,6 +109,7 @@ full route, table, gRPC, pipeline-stage and command inventory is
 | `annotation` / `label` substrings in Go, Swift, web, docs                          | 325/1,826, 767/2,346, 5/846, 516/2,013 | Upper bounds                                                |
 | Stop routes sharing `handleReplayStop`                                             | 3                                      | [routes.go](../../internal/lidar/server/routes.go)          |
 | Selection rows per replay case                                                     | at most 1 (`UNIQUE`)                   | Migration 055                                               |
+| Capture files indexed twice under two paths (a nested volume, a symlink)           | 190 of 407                             | Data model review, second audit                             |
 
 ## Findings
 
@@ -336,10 +337,10 @@ vocabulary and the release it lands in. Actions: keep, rename, merge, fold, drop
 | `site_reports`                   | `reports`                        | rename | v0.6.6                         | `report_id` replaces `run_id`; gains `survey_id`; `source` becomes `dataset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | V6, V19, V24       |
 | `lidar_scenes`                   | `surveys`                        | rename | v0.6.6                         | `survey_id`, `slug`, `deployment_id`, `site_id` (nullable for a route), `sensor_id`, `start_ns`, `end_ns`, `title`, `description`, `lat`, `lon`, `heading_deg`, `pose_provenance`, `trajectory_path` (never exported), `run_id`, `published`, `asset_path`, `asset_sha256`; `source_capture` and the radar integer `site_id` dropped                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | V12, V16, V24, V28 |
 | `lidar_capture_roots`            | `capture_volumes`                | rename | v0.5.8                         | Shared; metadata rename                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | V1, V21            |
-| `lidar_capture_files`            | `captures`                       | rename | v0.5.8                         | `sha256` added, filled by the probe; `kind` (pcap, serial_log) and `sensor_id` added; the row key stays until v0.6.7, when `capture_id` becomes the digest                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | V1, V4, V29        |
+| `lidar_capture_files`            | `captures`                       | rename | v0.5.8                         | `sha256` added, filled by the probe; `kind` (pcap, serial_log) and `sensor_id` added; the row key stays until v0.6.7, when `capture_id` becomes the digest. The probe already adds `earliest_packet_ns`, `latest_packet_ns` and `backward_steps` beside the file-order `first_packet_ns` and `last_packet_ns` (D-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | V1, V4, V29        |
 | `lidar_capture_sessions`         | `capture_sequences`              | rename | v0.5.8                         | `sequence_id`; derived as today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | V1, V7             |
 | `lidar_capture_motion_periods`   | `capture_periods`                | rename | v0.5.8                         | `sequence_id`; `period_type` stays motion or static                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | V1                 |
-| `lidar_capture_jobs`             | `jobs`                           | rename | v0.5.8, v0.5.11                | `subject_kind`, `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added in v0.5.8; the distributed queue moves onto it in v0.5.11; kinds `motion_pass`, `pack`, `radar_track_build`, `benchmark`, `scorecard`, `state_estimation_baseline`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | V11                |
+| `lidar_capture_jobs`             | `jobs`                           | rename | v0.5.8, v0.5.11                | `subject_kind`, `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added in v0.5.8; the distributed queue moves onto it in v0.5.11; kinds `motion_pass`, `pack`, `radar_track_build`, `benchmark`, `scorecard`, `state_estimation_baseline`; migration 000057's triggers hold today's two kinds, and each migration that renames or adds a kind replaces them first (D-27)                                                                                                                                                                                                                                                                                                                                                                                               | V11                |
 | `lidar_segment_clip_jobs`        | `jobs`                           | fold   | v0.5.9                         | Pack path and digest become the job's output                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | V11                |
 | `lidar_replay_cases`             | `lidar_clips`                    | rename | v0.5.8, v0.5.9, v0.6.6, v0.6.7 | v0.5.8: metadata rename, `replay_case_id` renamed `clip_id`. v0.5.9: `survey_id` (nullable until surveys exist), `selection_json` with its `CHECK`s, `selector_json`, and `role`, `finder`, `finder_version` generated `VIRTUAL` from `selection_json` (NULL for a hand-made clip) added; `pcap_start_secs` and `pcap_duration_secs` renamed `start_secs` and `duration_secs`, the stored window every clip has; `pcap_file` kept as a read-only projection of the first capture. v0.6.6: coordinates and tokens move to the survey. v0.6.7: `pcap_file`, `session_id`, `source_period_id`, `origin_lat`, `origin_lon`, the three tokens, `geographic_source`, `geographic_status`, `site_id` dropped. Absolute bounds are derived on read from the first capture's probed `first_packet_ns`, never stored | V18, V29           |
 | `lidar_replay_case_files`        | `lidar_clip_captures`            | rename | v0.5.8, v0.5.9, v0.6.7         | v0.5.8: metadata rename. v0.5.9: a new `capture_id` column, the digest, a foreign key to `captures` cleared when the capture is forgotten, added beside the never-populated `capture_file_id`; `rel_path` kept as the fallback. v0.6.7: `capture_file_id` dropped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | V1, V18, V29       |
@@ -371,7 +372,7 @@ vocabulary and the release it lands in. Actions: keep, rename, merge, fold, drop
 
 44 tables become 39: four are dropped and one merges. Column-level renames outside this table
 follow V4 (`sensor_id` everywhere), V5 (`_provenance`, `extraction_id`), V16 (`yaw_rad`, `frame`)
-and V20. The two command tables, dropped in an earlier draft, are kept and populated (V35). Migration numbers are assigned in item order at implementation, starting at 000057.
+and V20. The two command tables, dropped in an earlier draft, are kept and populated (V35). Migration numbers are assigned in item order at implementation, starting at the next free number: 000057 holds the capture queue's kinds and the motion period bounds of the [data model review](../../data/structures/SCHEMA-REVIEW.md).
 
 ### 2. Routes: platform and radar
 
@@ -729,13 +730,14 @@ tables the vocabulary retires; align the typed-UUID prefixes.
 **Steps:**
 
 1. Terminology in `PLATFORM.md`, `LIDAR.md`, the tuning glossary and `DATA_STRUCTURES.md`.
-2. Decision record D-27: the vocabulary and the forward-compatibility rule.
+2. Decision record D-28: the vocabulary and the forward-compatibility rule. D-27 records the
+   data model review's capture decisions, which this plan's capture and job items follow.
 3. Amend the catalogue, export, archive-ingest, route-capture, VRLOG and typed-UUID plans per
    § Ledger 10; rename the plan files listed there.
 4. Mark the terminology alignment plan superseded (done in this PR).
 
 **Acceptance:** every companion plan names the tables and nouns of this plan and no other;
-`geographic-indexing.md` defines three levels; D-27 exists.
+`geographic-indexing.md` defines three levels; D-28 exists.
 
 #### Item 2: scene retired from product surfaces; clip named (v0.5.8, `M`)
 
@@ -766,15 +768,19 @@ identity and a subject, without a rebuild.
    `jobs`, and the other v0.5.8 renames of § Ledger 1 (`lidar_sweeps`, `migration_rejects`,
    `capture_path`); `sha256`, `kind`, `sensor_id` added to captures; `subject_kind`,
    `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added to
-   jobs; the kind `vrlog_record` rewritten as `pack`.
-2. The probe computes the digest; the held-out guard indexes `(role, finder, capture_id)` once
-   Item 6 lands.
-3. Routes under `/api/captures`, `/api/capture-sequences`, `/api/capture-periods`,
+   jobs; migration 000057's kind triggers replaced with the V11 kinds, then the kind `vrlog_record`
+   rewritten as `pack`.
+2. The probe computes the digest on the pass that finds the extent (D-27); the held-out guard
+   indexes `(role, finder, capture_id)` once Item 6 lands.
+3. Decide how rows that share a digest resolve before v0.6.7 makes the digest the key: merged
+   into one capture, or kept as its locations. The development database has 190, all one file
+   reached through a nested volume or a symlink.
+4. Routes under `/api/captures`, `/api/capture-sequences`, `/api/capture-periods`,
    `/api/capture-volumes`, `/api/jobs`, with the old paths aliased; the Captures page serves
    both sensors and says "make clip".
 
-**Acceptance:** a re-scanned volume at a new mount point yields no new capture rows once
-probed; every job row names a subject; the migration is a metadata change that runs under a
+**Acceptance:** a re-scanned volume at a new mount point yields no new capture identities once
+probed: its rows share their digests with the old ones; every job row names a subject; the migration is a metadata change that runs under a
 second on a Pi copy.
 
 #### Item 4: CLI and flags with aliases (v0.5.8, `S`)
@@ -812,7 +818,9 @@ Settings page shows a serial and a udp port; the visualiser's badges name captur
    `selection_json`, NULL for a hand-made clip, and indexed; `pcap_start_secs` and
    `pcap_duration_secs` renamed `start_secs` and `duration_secs` and kept as the stored window,
    copied without computation; `pcap_file` kept as a read-only projection; a new `capture_id`
-   digest column with a foreign key on `lidar_clip_captures`; `lidar_segment_selections` and
+   digest column with a foreign key on `lidar_clip_captures`; a `capture_id` on the clip,
+   generated `VIRTUAL` from `selection_json`, which names the ranked capture by digest in place of
+   today's path, so the held-out guard's index sits on one table; `lidar_segment_selections` and
    `lidar_segment_clip_jobs` copied in and dropped, which V29 permits because no release carried
    them. A selection whose absolute window disagrees with its clip's offsets, where the first
    capture is probed, is set aside in `migration_rejects`.
@@ -874,7 +882,8 @@ stay renames and aliases.
 1. `internal/db/transit_worker.go`, `transit_controller.go` and `transits_cli.go` move to
    `internal/radar/tracker` as `Tracker` and `Controller`, keeping the gap threshold and
    `model_version`; the controller records each pass as a `radar_track_build` row on `jobs`
-   (executor `inprocess`, per Item 3's columns) and runs it in process as today. The row is
+   (executor `inprocess`, per Item 3's columns) and runs it in process as today; the migration
+   first adds `radar_track_build` to the kind triggers of 000057. The row is
    inserted already claimed (`state` running, `claimed_by` `radar_tracker`, `claimed_at`), and
    the in-process runner's two queries gain `AND claimed_by IS NULL`, because today that
    runner claims the oldest queued row of any kind, fails a kind it does not know, and requeues
@@ -924,7 +933,7 @@ profile its vrlog was written at.
 **Steps:**
 
 1. `velocity worker` and `velocity jobs` read and write `jobs`; kinds renamed per V11;
-   `executor` fixed per kind.
+   `executor` fixed per kind; the kind triggers of 000057 extended to the worker's kinds.
 2. The claim `UPDATE`; the in-process queue and the worker never read each other's kinds; the
    radar tracker's `radar_track_build` is claimed like any other in-process kind.
 
@@ -1040,8 +1049,9 @@ the published free space; every duplicate is in `migration_rejects`.
 
 1. Old routes, CLI spellings, flag names, the `pcap` wire value, the `transits` dataset value,
    the `session_id` proto field.
-2. `pcap_file`, `session_id`, `source_period_id` and the geographic columns on clips; the label
-   columns on run tracks; `/api/lidar/pcap/files`.
+2. `pcap_file`, `session_id`, `source_period_id` and the geographic columns on clips, with the
+   test that holds the two notes (`TestACaseOutlivesTheSessionItWasCutFrom`); the label columns
+   on run tracks; `/api/lidar/pcap/files`.
 
 **Acceptance:** a grep for every alias returns nothing; the row-accounting test covers the
 dropped columns.
@@ -1049,6 +1059,8 @@ dropped columns.
 ## Dependencies
 
 - Item 6 depends on Item 3 (the capture digest and the jobs columns).
+- Items 3, 9 and 11 each replace the kind triggers of migration 000057 before they write a new
+  kind ([data model review](../../data/structures/SCHEMA-REVIEW.md), D-27).
 - Item 8's `sensor_id` default depends on Item 5's ports row; Item 9's `port_id` on the same.
 - Item 9's job rows depend on Item 3's columns; until Item 11 lands they run in process.
 - Item 11 depends on Item 3's columns.

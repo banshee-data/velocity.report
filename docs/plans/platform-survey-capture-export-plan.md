@@ -48,7 +48,7 @@ surveys are never published, or are published as files nobody can use.
 | Static and motion stretches of a sequence are `capture_periods` (today `lidar_capture_motion_periods`), classified by `pcap-split`'s motion classifier over a 60-second window                                                                                                                                                  | [classifier.go](../../internal/lidar/pcapsplit/classifier.go)                                                                                            |
 | L1 opens captures with libpcap's offline reader, which reads both classic pcap and pcapng                                                                                                                                                                                                                                       | [pcap_realtime.go](../../internal/lidar/l1packets/network/pcap_realtime.go) `pcap.OpenOffline`                                                           |
 | Hesai packets carry an optional UDP sequence number in the tail; the foreground forwarder sorts by it; the frame builder consumes packets in file order                                                                                                                                                                         | [extract.go](../../internal/lidar/l1packets/parse/extract.go), [foreground_forwarder.go](../../internal/lidar/l1packets/network/foreground_forwarder.go) |
-| A probed capture records `first_packet_ns`, `last_packet_ns`, `packet_count`, `udp_port`; the content digest is added by Item 3 of the vocabulary plan                                                                                                                                                                          | [capture_store.go](../../internal/lidar/storage/sqlite/capture_store.go)                                                                                 |
+| A probed capture records `first_packet_ns`, `last_packet_ns`, `packet_count`, `udp_port`; the content digest is added by Item 3 of the vocabulary plan, and the earliest and latest packet and a count of backward clock steps by the data model review (D-27)                                                                  | [capture_store.go](../../internal/lidar/storage/sqlite/capture_store.go)                                                                                 |
 | At the manual's rates a 300-second part is about 0.7 GB single return or 1.4 GB dual return before container framing; 20 Hz changes points per rotation, not the packet rate                                                                                                                                                    | Async tracking plan § 5                                                                                                                                  |
 | Hugging Face recommends splitting files above 20 GB. This is the operator's figure; the site was not reachable from the review environment                                                                                                                                                                                      | Decision round, 2026-09-29                                                                                                                               |
 | A route survey's trajectory never leaves the device; a published route survey carries only aggregates on road segments, and its raw parts only by opt-in with trimmed ends                                                                                                                                                      | Vocabulary plan V28                                                                                                                                      |
@@ -120,7 +120,8 @@ flowchart LR
 5. **Contiguity.** A capture seam that `capseq` grades as anything but `seamless`, or a run of
    missing frames longer than one rotation, closes the part; the next part starts at the next
    frame boundary and ends on the grid. `acceptable` is not enough, because L2 drops the
-   revolution that straddles any join that is not seamless.
+   revolution that straddles any join that is not seamless. A backward clock step inside a
+   capture, which the probe counts in `backward_steps` (D-27), closes the part the same way.
 6. **Bytes as captured.** Packet bytes and their capture timestamps are copied as they are. The
    cutter never re-times, re-orders or drops a packet, and a straggler stays where the capture
    wrote it. Item 1 counts the false frames stragglers cause; a non-zero count files an L2
@@ -215,8 +216,8 @@ settle Q10.
 **Steps:**
 
 1. A script over the 24 static captures that applies rules 1 to 5 without writing files:
-   anchors, grid boundaries, the packet holding each wrap, seam grades, bytes per part, and
-   large-jump frame completions under 10,000 points in the source and in each would-be part.
+   anchors, grid boundaries, the packet holding each wrap, seam grades, backward clock steps,
+   bytes per part, and large-jump frame completions under 10,000 points in the source and in each would-be part.
 2. The results recorded in this plan; an L2 backlog item filed if the false-frame count is not
    zero; Q10 decided from the seam grades and straggler counts.
 

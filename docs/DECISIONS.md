@@ -124,7 +124,7 @@ Ship the radar binary as a fully-static linux/{amd64,arm64} ELF via `make build-
 
 ### D-27 — Capture identity and the capture index's rules
 
-A capture file is identified by its content tag (SHA-256 of its size and its first and last MiB), not by its path. A replay case's session and motion period are notes, never foreign keys. The probe records a capture's earliest and latest packet and counts backward clock steps. The capture queue keeps its two job kinds without subject tables, and migration 57 holds them — [data model review](../data/structures/SCHEMA-REVIEW.md#decisions-on-the-remaining-findings)
+A capture is identified by the SHA-256 of its whole file, computed by the probe: the capture digest of the platform vocabulary plan. The content tag stays the scan's check that a file has not changed. A replay case's session and motion period are notes, never foreign keys, until the vocabulary plan drops them in v0.6.7. The probe keeps its first and last packet in file order and adds the earliest and latest packet and a count of backward clock steps. Migration 57 holds the capture queue's two job kinds until the vocabulary plan's one job queue names every job's subject — [data model review](../data/structures/SCHEMA-REVIEW.md#decisions-on-the-remaining-findings), [vocabulary plan](plans/platform-vocabulary-and-data-model-plan.md)
 
 ### Milestone Rationale
 
