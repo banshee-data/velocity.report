@@ -133,7 +133,7 @@ Implemented chart surfaces:
 6. **Encounter evidence** (headway report) — one pair's spatial gap and net
    time gap over time, with unsupported intervals shaded and the review-only
    predicted gap drawn apart; see
-   [DESIGN.md §4.4](../../ui/DESIGN.md#44-following-evidence-charts).
+   [DESIGN.md §4.4](../../ui/DESIGN.md#44-following-evidence-and-headway-distribution-charts).
 
 Typst consumes these SVG artefacts directly via `#image()`, so no SVG-to-PDF
 conversion pass is needed.

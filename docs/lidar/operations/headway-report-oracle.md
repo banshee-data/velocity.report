@@ -5,7 +5,7 @@ persisted estimates, what each shows, and what neither claims.
 
 - **Status:** Synthetic oracle (sprint 0.5.2.3) and provisional field run (sprint 0.5.2.4) implemented; field promotion is not built
 - **Layers:** L8 Analytics, L9 Endpoints (PDF report)
-- **Related:** [Behaviour analytics plan, Section 10.4](../../plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [Following metrics](../../platform/architecture/metrics-registry.md#following-metrics), [Label vocabulary](../architecture/label-vocabulary.md), [PDF reporting](../../platform/operations/pdf-reporting.md), [Following-evidence charts](../../ui/DESIGN.md#44-following-evidence-charts), [Refinement criteria](retrospective-refinement-criteria.md)
+- **Related:** [Behaviour analytics plan, Section 10.4](../../plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [Following metrics](../../platform/architecture/metrics-registry.md#following-metrics), [Label vocabulary](../architecture/label-vocabulary.md), [PDF reporting](../../platform/operations/pdf-reporting.md), [Following-evidence and headway distribution charts](../../ui/DESIGN.md#44-following-evidence-and-headway-distribution-charts), [Refinement criteria](retrospective-refinement-criteria.md)
 - **Code:** [headway](../../../internal/report/headway/doc.go), [field run](../../../internal/report/headway/fieldrun/fieldrun.go), [persisted-estimate adapter](../../../internal/lidar/l8behaviour/adapter.go), [following charts](../../../internal/report/chart/following.go), [headway.typ](../../../internal/report/typst/templates/headway.typ), [CLI](../../../internal/cmd/server/headway.go)
 
 ## Generate it
