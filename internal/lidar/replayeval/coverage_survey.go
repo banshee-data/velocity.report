@@ -371,7 +371,10 @@ func readCoverageSurveyFiles(setPath string) (map[string]ContinuityCoverage, map
 // encode with sorted keys, so a set reads the same whatever order its cases
 // were surveyed in.
 func writeJSONFile(path string, v any) error {
-	b, _ := json.MarshalIndent(v, "", "  ")
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, append(b, '\n'), 0o644); err != nil {
 		return err

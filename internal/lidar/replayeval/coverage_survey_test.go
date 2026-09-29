@@ -407,3 +407,19 @@ func TestAddCoverageSurveyRefusesDamagedTargets(t *testing.T) {
 		})
 	}
 }
+
+// A value that cannot be encoded leaves the previous file whole, as a failed
+// write does.
+func TestWriteJSONFileKeepsTheFileOnAnEncodingError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "set.json")
+	if err := writeJSONFile(path, map[string]int{"kept": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSONFile(path, math.NaN()); err == nil {
+		t.Fatal("a NaN was encoded")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(b), "kept") {
+		t.Fatalf("the previous file was replaced: %q, %v", b, err)
+	}
+}
