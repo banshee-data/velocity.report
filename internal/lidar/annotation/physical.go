@@ -153,8 +153,9 @@ const (
 )
 
 // GapAlongFollowerAxis is the only gap definition version 1 reads: the
-// leader's rear bumper minus the follower's front bumper, measured along the
-// follower's body axis at that instant. It is a straight chord, not the
+// leader's rear extreme minus the follower's front extreme, projected onto
+// the follower's body axis at that instant; for aligned bodies, bumper to
+// bumper. It is a straight chord, not the
 // along-path arc the headway metric uses; the two agree on a straight road
 // and must never be quoted as each other on a bend.
 const GapAlongFollowerAxis = "along_follower_axis"

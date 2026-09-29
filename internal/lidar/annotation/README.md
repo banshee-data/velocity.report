@@ -92,6 +92,7 @@ separate review from the masks. The record is documented in the
 | `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                    |
 | `PhysicalReferenceSet.Validate`, `ValidateLinks`                    | Pack, source, bounds, evidence and provenance; then objects, and spans against their masks |
 | `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                          |
+| `PhysicalObject.Geometry`, `PhysicalReferenceSet.Geometries`        | A keyframe's centre, bumpers and box with conservative bounds, or why each is unavailable  |
 | `ParsePhysicalImport`, `ImportPhysicalReferences`                   | An independent import, held to the same checks and merged as a new revision                |
 
 A record's origin is fixed when it is created. The store carries every record ID's origin forward
