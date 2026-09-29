@@ -122,6 +122,10 @@ Ship the radar binary as a fully-static linux/{amd64,arm64} ELF via `make build-
 
 **Other cgo binaries (cmd/sweep, cmd/tools/pcap-analyse, cmd/tools/settling-eval):** dev-host-only by policy. They are never shipped to a Pi and have no cross-compile target. If that changes, they get the same static treatment.
 
+### D-27 — Capture identity and the capture index's rules
+
+A capture file is identified by its content tag (SHA-256 of its size and its first and last MiB), not by its path. A replay case's session and motion period are notes, never foreign keys. The probe records a capture's earliest and latest packet and counts backward clock steps. The capture queue keeps its two job kinds without subject tables, and migration 57 holds them — [data model review](../data/structures/SCHEMA-REVIEW.md#decisions-on-the-remaining-findings)
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |
