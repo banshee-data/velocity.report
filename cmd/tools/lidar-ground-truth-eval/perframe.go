@@ -62,6 +62,9 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	gateMetres := fs.Float64("gate-metres", 1.0, "fixed gate, or the footprint gate's slack, in metres")
 	toleranceMs := fs.Float64("frame-tolerance-ms", 10, "how far a hypothesis point may move in time onto a reference frame")
 	maxUnaligned := fs.Float64("max-unaligned-fraction", 0.01, "refuse an arm when more than this share of its points inside an episode lands on no frame")
+	physical := fs.Bool("physical-reference", false, "also score each estimate arm against the pack's physical references (centre, yaw, dimensions, bumpers, box, following gap); a held-out split is refused")
+	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one); recorded either way")
+	physicalGate := fs.Float64("physical-gate-metres", perframeeval.DefaultPhysicalGateMetres, "how far a prediction's point may be from a reference body centre (or anchor) and still correspond to it")
 	jsonPath := fs.String("json", "", "comparison JSON path (default: stdout)")
 	markdownPath := fs.String("markdown", "", "comparison Markdown path (optional)")
 	armA := registerArm(fs, "a", "A")
@@ -123,7 +126,7 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	c, err := perframeeval.Run(perframeeval.Config{
+	cfg := perframeeval.Config{
 		Reference: perframeeval.ReferenceOptions{
 			PackDir: *packDir, SplitManifestPath: *manifestPath, Split: *split, Episodes: episodeIDs,
 			AllowTuningSplit: *allowTuning, Policy: policy,
@@ -131,7 +134,20 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		Score: score,
 		A:     armA.spec(),
 		B:     armB.spec(),
-	})
+	}
+	if *physical {
+		opts := perframeeval.DefaultPhysicalOptions()
+		opts.Revision, opts.GateMetres, opts.FrameToleranceNanos = *physicalRevision, *physicalGate, score.FrameToleranceNanos
+		if err := opts.Validate(); err != nil {
+			return usageError(fs, stderr, err)
+		}
+		cfg.Physical = &opts
+	} else if *physicalRevision != 0 {
+		return usageError(fs, stderr, fmt.Errorf("-physical-reference-revision needs -physical-reference"))
+	} else if flagSet(fs, "physical-gate-metres") {
+		return usageError(fs, stderr, fmt.Errorf("-physical-gate-metres needs -physical-reference"))
+	}
+	c, err := perframeeval.Run(cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
@@ -169,6 +185,16 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: MOTA %.4f  IDSW %d  FM %d  HOTA %.4f  IDF1 %.4f\n",
 			arm.label, arm.s.MOTA, arm.s.IDSwitches, arm.s.Fragmentations, arm.s.HOTA, arm.s.IDF1)
 	}
+	if p := c.Physical; p != nil {
+		fmt.Fprintf(stderr, "physical references: revision %d, content %s, %d expected instants\n",
+			p.Reference.PhysicalRevision, p.Reference.PhysicalContentDigest, p.Reference.ExpectedInstants)
+		for _, arm := range []perframeeval.PhysicalResult{p.A, p.B} {
+			centre, yaw := arm.Summary.Components[perframeeval.ComponentCentre], arm.Summary.Components[perframeeval.ComponentYaw]
+			fmt.Fprintf(stderr, "%s physical: centre %d scored, mean %.3f m  yaw %d scored, mean %.3f rad  gap %d scored, mean %.3f m\n",
+				arm.Arm.Label, centre.Scored, centre.MeanAbsError, yaw.Scored, yaw.MeanAbsError,
+				arm.Summary.Following.Scored, arm.Summary.Following.MeanAbsError)
+		}
+	}
 	for _, cv := range c.Caveats {
 		fmt.Fprintf(stderr, "caveat: %s\n", cv)
 	}
@@ -179,4 +205,11 @@ func usageError(fs *flag.FlagSet, stderr io.Writer, err error) int {
 	fmt.Fprintf(stderr, "error: %v\n", err)
 	fs.Usage()
 	return 2
+}
+
+// flagSet reports whether the command line set a flag, whatever its value.
+func flagSet(fs *flag.FlagSet, name string) bool {
+	set := false
+	fs.Visit(func(f *flag.Flag) { set = set || f.Name == name })
+	return set
 }

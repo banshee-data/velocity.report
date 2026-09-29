@@ -94,6 +94,7 @@ separate review from the masks. The record is documented in the
 | `PhysicalReferenceSet.Validate`                                     | Pack, source, bounds, evidence, provenance, gap bumpers and conflicting following records |
 | `ValidateLinks`, `LinkProblems`                                     | Objects declared, cited frames holding them, observed claims borne out by the returns     |
 | `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                         |
+| `PhysicalObject.Geometry`, `PhysicalReferenceSet.Geometries`        | A keyframe's centre, bumpers and box with conservative bounds, or why each is unavailable |
 | `ParsePhysicalImport`, `PreparePhysicalImport`                      | An independent import merged with the stored references and checked as a save; no write   |
 | `ImportPhysicalReferences`                                          | The prepared import, saved as a new revision                                              |
 
