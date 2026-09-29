@@ -25,30 +25,56 @@ func (c corpus) ids() []string {
 	return ids
 }
 
+// corpusSplitUse is a corpus run's frozen split: the split, its record for
+// the summary, and each selected case's use of it.
+type corpusSplitUse struct {
+	split  *annotation.FrozenSplit
+	record *splitRecord
+	uses   map[string]*replayeval.SplitUse
+}
+
 // corpusSplit holds a corpus run to its frozen split. Every selected case
 // must have a role in it; a held-out score replays held-out cases only, and
 // any other run replays none, as annotation.FrozenSplit.CaseRoles rules. A
 // held-out claim without a split is refused: it would name nothing it was
 // held out of. With no split the run is as it always was, and the summary
-// says so by carrying no split.
-func corpusSplit(path string, heldOut bool, selected corpus) (*splitRecord, map[string]*replayeval.SplitUse, error) {
+// says so by carrying no split; nothing then stops a held-out case from
+// replaying, so the held-out guarantee covers only runs given a split.
+func corpusSplit(path string, heldOut bool, selected corpus) (corpusSplitUse, error) {
 	if path == "" {
 		if heldOut {
-			return nil, nil, fmt.Errorf("-held-out needs -split-manifest: a held-out score names the frozen split it was held out of")
+			return corpusSplitUse{}, fmt.Errorf("-held-out needs -split-manifest: a held-out score names the frozen split it was held out of")
 		}
-		return nil, nil, nil
+		return corpusSplitUse{}, nil
 	}
 	f, err := annotation.LoadFrozenSplit(path)
 	if err != nil {
-		return nil, nil, err
+		return corpusSplitUse{}, err
 	}
 	roles, err := f.CaseRoles(selected.ids(), heldOut)
 	if err != nil {
-		return nil, nil, err
+		return corpusSplitUse{}, err
 	}
 	uses := make(map[string]*replayeval.SplitUse, len(roles))
 	for id, role := range roles {
 		uses[id] = &replayeval.SplitUse{SplitDigest: f.SplitDigest, Revision: f.Revision, CaseID: id, Role: string(role), HeldOut: heldOut}
 	}
-	return &splitRecord{Digest: f.SplitDigest, Revision: f.Revision, FileSHA256: f.FileDigest, HeldOut: heldOut}, uses, nil
+	return corpusSplitUse{split: f, uses: uses,
+		record: &splitRecord{Digest: f.SplitDigest, Revision: f.Revision, FileSHA256: f.FileDigest, HeldOut: heldOut}}, nil
+}
+
+// checkCaptures holds every resolved case's captures to the split: a case's
+// role binds to its captures, so a capture the index resolves for a case
+// must be one of the captures the split names for it. Without a split there
+// is nothing to check.
+func (u corpusSplitUse) checkCaptures(cases []resolvedCorpusCase) error {
+	if u.split == nil {
+		return nil
+	}
+	for _, c := range cases {
+		if err := u.split.CheckCaseCaptures(c.corpusCase.ID, c.paths); err != nil {
+			return err
+		}
+	}
+	return nil
 }

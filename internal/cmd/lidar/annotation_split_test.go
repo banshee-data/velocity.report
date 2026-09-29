@@ -17,6 +17,9 @@ import (
 
 var splitNow = func() time.Time { return time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC) }
 
+// kirk0Digest stands in for the kirk0 capture's SHA-256 in a draft.
+const kirk0Digest = "sha256:2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a"
+
 // reviewedPack writes a three-sample pack whose two objects, obj_a and obj_b,
 // are reviewed cars with reviewed masks in every sample.
 func reviewedPack(t *testing.T, dir string, startNs int64) *annotation.Pack {
@@ -74,7 +77,8 @@ func saveReview(t *testing.T, p *annotation.Pack, note string) {
 func writeDraft(t *testing.T, dir string, packs ...annotation.DraftPack) string {
 	t.Helper()
 	d := annotation.SplitDraft{Schema: annotation.SplitDraftSchema, SchemaVersion: annotation.SplitDraftSchemaVersion,
-		Cases: []annotation.SplitCase{{CaseID: "kirk0", Role: annotation.SplitRoleTuning}}, Packs: packs}
+		Cases: []annotation.SplitCase{{CaseID: "kirk0", Role: annotation.SplitRoleTuning,
+			Captures: []annotation.CaseCapture{{Basename: "kirk0.pcapng", SHA256: kirk0Digest}}}}, Packs: packs}
 	b, err := json.Marshal(d)
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +155,8 @@ func TestAnnotationSplitFreezeThenVerify(t *testing.T) {
 	}
 	for _, want := range []string{
 		"frozen split: " + out, "split " + f.SplitDigest + ", revision 1\n", "frozen by operator at 2026-09-29T10:00:00Z",
-		"case kirk0: tuning", "objects tune 2; 1 episode(s); geometry review none 2", "objects hold 2",
+		"case kirk0: tuning, captures kirk0.pcapng", "tuned in this lineage: 1 pack(s), 1 case(s)",
+		"objects tune 2; 1 episode(s); geometry review none 2", "objects hold 2",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("freeze output lacks %q:\n%s", want, stdout)
@@ -184,6 +189,16 @@ func TestAnnotationSplitFreezeThenVerify(t *testing.T) {
 	code, stdout, stderr = runSplit("freeze", "-draft", draft, "-author", "operator", "-output", next, "-supersedes", out)
 	if code != 0 || !strings.Contains(stdout, "revision 2, supersedes "+f.SplitDigest) {
 		t.Fatalf("successor: exit %d\n%s\n%s", code, stdout, stderr)
+	}
+	// Its successor cannot hold out the pack revision 1 tuned on.
+	undo := filepath.Join(t.TempDir(), "undo")
+	if err := os.Mkdir(undo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	undoDraft := writeDraft(t, undo, draftPack(tuned.Dir, []string{"obj_a", "obj_b"}))
+	code, _, stderr = runSplit("freeze", "-draft", undoDraft, "-author", "operator", "-output", filepath.Join(undo, "frozen-3.json"), "-supersedes", next)
+	if code != 1 || !strings.Contains(stderr, "but revision 1 of this split's lineage tuned on it") {
+		t.Fatalf("holding out a tuned pack: exit %d, %s", code, stderr)
 	}
 }
 

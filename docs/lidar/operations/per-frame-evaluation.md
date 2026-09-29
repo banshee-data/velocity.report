@@ -99,16 +99,25 @@ velocity lidar annotation-split verify --split splits/kirk0-split-r1.json --pack
 The draft (`velocity.report/annotation-split-draft` version 1) lists `packs`, each a `dir`
 relative to the draft and either an existing version 1 `split_manifest` or inline `splits`,
 `episodes` and an optional `sidecar_revision`; and optionally `cases`, corpus case IDs with a role
-of `tuning`, `held_out` or `screen`. A pack may name its `case_id`.
+of `tuning`, `held_out` or `screen`, each naming the `captures` it replays by `basename` and
+`sha256` (the file's SHA-256, from `sha256sum`). A pack may name its `case_id`, which adds the
+pack's capture to the case by basename.
 
-| Freezing refuses                                                                          | Why                                                               |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| An object not reviewed, with a proposed mask, or a reviewed mask of unstated completeness | Membership review is not complete; every such object is listed    |
-| An episode object with no reviewed mask in the episode's frames                           | Nothing there to score                                            |
-| Two packs of one capture within `--guard-seconds` (30) of each other in two partitions    | Object IDs are pack-local, so one vehicle could sit on both sides |
-| A held-out object from a pack whose `segment.json` role is `tuning`                       | That window may have been chosen by where the tracker failed      |
-| A pack whose case role differs from its partitions' role; a pack of a `screen` case       | A case's references take its role; nothing is tuned on a screen   |
-| A successor (`--supersedes`) that holds out an object or case its predecessor tuned on    | Tuned is tuned                                                    |
+A case's role binds to its captures, not to its name. A pack records only its capture's basename
+(`pcap_basename` in `manifest.json`), so a pack cut from a case's capture takes the case's role by
+basename, whether or not it names the case. A replay under the split is checked by content: the
+capture it replays must have a SHA-256 the case declares, or, for a capture the case has only from
+a pack, its basename.
+
+| Freezing refuses                                                                                         | Why                                                               |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| An object not reviewed, with a proposed mask, or a reviewed mask of unstated completeness                | Membership review is not complete; every such object is listed    |
+| An episode object with no reviewed mask in the episode's frames                                          | Nothing there to score                                            |
+| Two packs of one capture in two partitions, overlapping or at most `--guard-seconds` (30) apart          | Object IDs are pack-local, so one vehicle could sit on both sides |
+| A held-out object from a pack whose `segment.json` role is `tuning`                                      | That window may have been chosen by where the tracker failed      |
+| A pack cut from a case's capture in a partition of another role, named or not; a pack of a `screen` case | A case's references take its role; nothing is tuned on a screen   |
+| A case with no capture, a declared capture without its `sha256`, or one capture in cases of two roles    | A role binds to captures, so each capture has exactly one role    |
+| Holding out anything the lineage tuned on, including what a later revision dropped (see below)           | Tuned is tuned                                                    |
 
 The frozen split pins, per pack, the pack digest, the digest of `manifest.json` (source
 provenance, coverage and coordinates live there, outside the pack digest), the digest of
@@ -120,18 +129,41 @@ is not a physical reference and never blocks a freeze. The file's `split_digest`
 its canonical content. A file edited after freezing no longer matches it and is refused, and the
 file is written once.
 
+A split's `tuned` record is its lineage's cumulative tuning: each tuning pack's source, capture
+span, guard and tuned objects, and each tuning case's captures, with the revision that first tuned
+on it. A revision frozen with `--supersedes` inherits its predecessor's record and adds its own, so
+what it drops stays tuned. Its held-out partitions and cases may not hold anything in the record: a
+tuned object, a pack of the same capture within the wider of the two guards of a tuned pack (a
+re-cut of a tuned stretch holds the same vehicles under new IDs), a pack of a tuned case's capture,
+a tuned case by ID or by capture, or a case one of whose captures a tuned pack was cut from. A
+revision frozen without `--supersedes` starts a new lineage whose record is its own tuning.
+
 The per-frame evaluator reads either version. Given a frozen split it binds the pack through every
 pin before scoring: a changed manifest, selection record or pinned revision is refused, and the
-reference identity records `split_digest` and `split_revision`. Editing a reference after freezing
-saves a new annotation revision; the frozen split keeps scoring the revision it pinned, and
-`verify` reports the newer one. Scoring it takes a new split revision, frozen with
-`--supersedes`, never a silently different split.
+reference identity records `split_digest` and `split_revision`. It also derives again, from the
+pinned bytes, what the file copies from them (the selection record's role and finder, the source
+and capture span, each object's class, reviewed masks and geometry review), and refuses a
+disagreement. Editing a reference after freezing saves a new annotation revision; the frozen split
+keeps scoring the revision it pinned, and `verify` reports the newer one. Scoring it takes a new
+split revision, frozen with `--supersedes`, never a silently different split.
+
+`split_digest` is unkeyed: it catches an accidental edit, not a deliberate one, since whoever edits
+the file can recompute it. What the evaluator derives from pinned bytes cannot be changed that way;
+the partitions and their roles, the episodes, the cases and their captures, the `tuned` record and
+the freeze record are the operator's statement, and rest on how the frozen file is kept.
 
 The corpus tool (`lidar-state-estimation-baseline`) and `lidar-refinement-eval` take a frozen
 split as `-split-manifest` with the case's role in it: a `held_out` case replays only with
-`-held-out`, and `-held-out` takes held-out cases only. Both record the split's digest, revision
-and the case's role in each `replay_manifest.json` (`split`), and the corpus tool in
-`phase0-summary.json` as well.
+`-held-out`, and `-held-out` takes held-out cases only. Every capture replayed must be one of the
+case's captures (the corpus tool checks each capture the index resolves; `lidar-refinement-eval`
+checks `-pcap` against `-case`). Both record the split's digest, revision and the case's role in
+each `replay_manifest.json` (`split`), and the corpus tool in `phase0-summary.json` and in the
+pooled `uncertainty-calibration.json` as well.
+
+The held-out guarantee covers only runs given `-split-manifest`. A replay or evaluation run without
+one is not checked against any split and records none: nothing stops it replaying or tuning on a
+held-out case, and its outputs cannot be quoted as held out. Keep held-out captures out of runs
+made without the split.
 
 ## The arms
 

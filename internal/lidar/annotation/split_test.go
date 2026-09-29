@@ -108,10 +108,20 @@ func TestSplitManifestStructuralRefusals(t *testing.T) {
 			t.Fatalf("error = %v, want an unknown-field refusal", err)
 		}
 	})
-	t.Run("trailing data", func(t *testing.T) {
-		b := append(marshalManifest(t, validSplitManifest("sha256:abc")), []byte(" {}")...)
-		if _, err := ParseSplitManifest(b); err == nil || !strings.Contains(err.Error(), "trailing") {
-			t.Fatalf("error = %v, want a trailing-data refusal", err)
+	// A stray closing brace or bracket is trailing data too: Decoder.More
+	// alone reports nothing more before one.
+	for _, trailing := range []string{" {}", "}", "\n]]]", " 1"} {
+		t.Run("trailing "+strings.TrimSpace(trailing), func(t *testing.T) {
+			b := append(marshalManifest(t, validSplitManifest("sha256:abc")), []byte(trailing)...)
+			if _, err := ParseSplitManifest(b); err == nil || !strings.Contains(err.Error(), "trailing") {
+				t.Fatalf("error = %v, want a trailing-data refusal", err)
+			}
+		})
+	}
+	t.Run("trailing whitespace", func(t *testing.T) {
+		b := append(marshalManifest(t, validSplitManifest("sha256:abc")), []byte(" \n\t")...)
+		if _, err := ParseSplitManifest(b); err != nil {
+			t.Fatalf("trailing whitespace refused: %v", err)
 		}
 	})
 }

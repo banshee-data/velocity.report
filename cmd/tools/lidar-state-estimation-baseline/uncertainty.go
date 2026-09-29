@@ -63,12 +63,18 @@ func pooledUncertaintyReport(cases []uncertaintyCase) (l8analytics.UncertaintyRe
 	})
 }
 
-func writePooledUncertaintyReport(outDir string, cases []uncertaintyCase) error {
+// writePooledUncertaintyReport writes the pooled report, naming the frozen
+// split the run was made under when there was one: a table fitted on a
+// held-out score's cases says so wherever it is loaded from.
+func writePooledUncertaintyReport(outDir string, cases []uncertaintyCase, split *splitRecord) error {
 	report, err := pooledUncertaintyReport(cases)
 	if err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(report, "", "  ")
+	b, err := json.MarshalIndent(struct {
+		l8analytics.UncertaintyReport
+		Split *splitRecord `json:"split,omitempty"`
+	}{report, split}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal pooled uncertainty report: %w", err)
 	}

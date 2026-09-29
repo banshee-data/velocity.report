@@ -203,8 +203,13 @@ func writeSplitSummary(w io.Writer, f *annotation.FrozenSplit) {
 	}
 	fmt.Fprintf(w, "\nfrozen by %s at %s, build %s (%s)\n", f.Frozen.Author, f.Frozen.FrozenUTC, f.Frozen.BuildVersion, f.Frozen.BuildGitSHA)
 	for _, c := range f.Cases {
-		fmt.Fprintf(w, "case %s: %s\n", c.CaseID, c.Role)
+		names := make([]string, len(c.Captures))
+		for i, cp := range c.Captures {
+			names[i] = cp.Basename
+		}
+		fmt.Fprintf(w, "case %s: %s, captures %s\n", c.CaseID, c.Role, strings.Join(names, ", "))
 	}
+	fmt.Fprintf(w, "tuned in this lineage: %d pack(s), %d case(s)\n", len(f.Tuned.Spans), len(f.Tuned.Cases))
 	for _, p := range f.Packs {
 		partitions := map[string]int{}
 		geometry := map[string]int{}

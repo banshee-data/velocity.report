@@ -59,7 +59,12 @@ const committedCoverage = "../../../tools/s2-archive/continuity-coverage.json"
 func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	requireKirk0(t)
 	dir := t.TempDir()
-	split, splitPath := writeCaseSplit(t, annotation.SplitCase{CaseID: "kirk0", Role: annotation.SplitRoleTuning})
+	kirk0SHA, err := fileSHA256(kirk0Capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	split, splitPath := writeCaseSplit(t, annotation.SplitCase{CaseID: "kirk0", Role: annotation.SplitRoleTuning,
+		Captures: []annotation.CaseCapture{{Basename: "kirk0.pcapng", SHA256: kirk0SHA}}})
 	out := filepath.Join(dir, "out")
 	surveyPath := filepath.Join(dir, "continuity-coverage.json")
 	args := []string{

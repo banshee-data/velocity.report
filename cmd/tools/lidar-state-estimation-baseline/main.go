@@ -192,7 +192,7 @@ func main() {
 			fatal(err)
 		}
 	}
-	split, splitUses, err := corpusSplit(*splitPath, *heldOut, selected)
+	split, err := corpusSplit(*splitPath, *heldOut, selected)
 	if err != nil {
 		fatal(err)
 	}
@@ -205,6 +205,9 @@ func main() {
 	}
 	resolvedCases, err := resolveCorpusCases(selected, index, *pcapRoot, *pcapSubdir)
 	if err != nil {
+		fatal(err)
+	}
+	if err := split.checkCaptures(resolvedCases); err != nil {
 		fatal(err)
 	}
 	var sourceManifestSHA256 string
@@ -259,7 +262,7 @@ func main() {
 		if c, ok := coverage[selectedCase.ID]; ok {
 			first.ContinuityCoverage = &c
 		}
-		first.Split = splitUses[selectedCase.ID]
+		first.Split = split.uses[selectedCase.ID]
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
 			if err != nil {
@@ -395,7 +398,7 @@ func main() {
 		summaries = append(summaries, summary)
 	}
 	if *uncertaintyReport {
-		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases); err != nil {
+		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases, split.record); err != nil {
 			fatal(err)
 		}
 		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
@@ -406,7 +409,7 @@ func main() {
 		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
 		Split                *splitRecord  `json:"split,omitempty"`
 		Cases                []caseSummary `json:"cases"`
-	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split, Cases: summaries}, "", "  ")
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split.record, Cases: summaries}, "", "  ")
 	if err != nil {
 		fatal(err)
 	}

@@ -95,6 +95,12 @@ func onePartition(p *Pack, prefix, name string, role SplitRole) DraftPack {
 	}
 }
 
+// splitCase declares a corpus case replaying one capture, <id>.pcap, whose
+// content digest is a digest of the ID.
+func splitCase(id string, role SplitRole) SplitCase {
+	return SplitCase{CaseID: id, Role: role, Captures: []CaseCapture{{Basename: id + ".pcap", SHA256: sha256Hex([]byte(id))}}}
+}
+
 var freezeTime = time.Date(2026, 9, 29, 12, 0, 0, 0, time.FixedZone("BST", 3600))
 
 func freezeOptions(packs ...DraftPack) FreezeOptions {
@@ -314,9 +320,11 @@ func TestFreezeSplitKeepsOneSourceInOnePartition(t *testing.T) {
 	f.Packs[0].Source.PCAPBasename, f.Packs[1].Source.PCAPBasename = "", ""
 	f.Packs[1].Source.VRLOGFramesSHA = f.Packs[0].Source.VRLOGFramesSHA
 	f.Packs[1].Source.FirstSampleNs, f.Packs[1].Source.LastSampleNs = 2e9, 4e9
+	f.Tuned = mergeLedgers(f.ownTuning())
 	wantError(t, f.validate(), "are cut from vrlog:sha256:frames-")
 	// And with neither, nothing relates them.
 	f.Packs[0].Source.VRLOGFramesSHA, f.Packs[1].Source.VRLOGFramesSHA = "", ""
+	f.Tuned = mergeLedgers(f.ownTuning())
 	if err := f.validate(); err != nil {
 		t.Fatalf("packs with no declared source were related: %v", err)
 	}
@@ -404,8 +412,7 @@ func TestFreezeSplitHoldsPacksToTheirCaseRole(t *testing.T) {
 	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
 	reviewSplitPack(t, p, nil)
 	cases := []SplitCase{
-		{CaseID: "tuning-site", Role: SplitRoleTuning}, {CaseID: "held-site", Role: SplitRoleHeldOut},
-		{CaseID: "screen-site", Role: SplitRoleScreen},
+		splitCase("tuning-site", SplitRoleTuning), splitCase("held-site", SplitRoleHeldOut), splitCase("screen-site", SplitRoleScreen),
 	}
 	freeze := func(dp DraftPack) (*FrozenSplit, error) {
 		opts := freezeOptions(dp)
@@ -435,13 +442,18 @@ func TestFreezeSplitHoldsPacksToTheirCaseRole(t *testing.T) {
 	if f.Packs[0].CaseID != "held-site" || len(f.Cases) != 3 || f.Cases[0].CaseID != "held-site" {
 		t.Fatalf("cases %+v, pack case %q; want them sorted by id", f.Cases, f.Packs[0].CaseID)
 	}
+	// The pack gave its case its capture, by the basename it records.
+	want := []CaseCapture{{Basename: "cap.pcap"}, cases[1].Captures[0]}
+	if fmt.Sprint(f.Cases[0].Captures) != fmt.Sprint(want) {
+		t.Fatalf("held-site captures %+v, want %+v", f.Cases[0].Captures, want)
+	}
 }
 
 // A split of corpus cases alone is the label-free partition: nothing to
 // review, but every case has a role.
 func TestFreezeSplitOfCasesAlone(t *testing.T) {
 	opts := freezeOptions()
-	opts.Draft.Cases = []SplitCase{{CaseID: "b", Role: SplitRoleHeldOut}, {CaseID: "a", Role: SplitRoleTuning}}
+	opts.Draft.Cases = []SplitCase{splitCase("b", SplitRoleHeldOut), splitCase("a", SplitRoleTuning)}
 	f := mustFreeze(t, opts)
 	loaded, _ := writeAndLoad(t, f)
 	if len(loaded.Packs) != 0 || len(loaded.Partitions) != 0 || len(loaded.Cases) != 2 || loaded.Cases[0].CaseID != "a" {
@@ -556,7 +568,12 @@ func TestFrozenSplitRefusesChangesAfterFreezing(t *testing.T) {
 		edited.Packs[0].Episodes = []Episode{
 			{EpisodeID: "e", Split: "hold", ObjectIDs: []string{"obj_a"}, FrameIntervals: []FrameInterval{{0, 2}}},
 		}
+		// Left as it was, the tuned record no longer holds the pack's tuning.
 		_, err := ParseFrozenSplit(marshalFrozen(t, &edited))
+		wantError(t, err, "the tuned record does not hold pack")
+		// Made consistent, the edit is still not what was frozen.
+		edited.Tuned = mergeLedgers(edited.ownTuning())
+		_, err = ParseFrozenSplit(marshalFrozen(t, &edited))
 		wantError(t, err, "it was edited after freezing")
 	})
 
@@ -676,16 +693,25 @@ func TestBindChecksTheFrozenClaimsAgainstThePinnedRevision(t *testing.T) {
 }
 
 // A later revision may give a held-out object to tuning, once it has been
-// looked at, but never the reverse: tuned is tuned.
+// looked at, but never the reverse: tuned is tuned. The tuned record carries
+// forward and says which revision first tuned on each thing.
 func TestFreezeSplitSupersedes(t *testing.T) {
 	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
 	reviewSplitPack(t, p, nil)
 	opts := freezeOptions(splitDraftPack(p, "p1"))
-	opts.Draft.Cases = []SplitCase{{CaseID: "site", Role: SplitRoleTuning}, {CaseID: "held", Role: SplitRoleHeldOut}}
+	opts.Draft.Cases = []SplitCase{splitCase("site", SplitRoleTuning), splitCase("held", SplitRoleHeldOut)}
 	first := mustFreeze(t, opts)
+	wantFirst := TunedLedger{
+		Spans: []TunedSpan{{Revision: 1, PackDigest: p.Manifest.PackDigest, Source: "pcap:cap.pcap", FirstSampleNs: 1e9, LastSampleNs: 3e9,
+			GuardSeconds: DefaultSplitGuardSeconds, ObjectIDs: []string{"obj_a"}}},
+		Cases: []TunedCase{{Revision: 1, CaseID: "site", Captures: splitCase("site", SplitRoleTuning).Captures}},
+	}
+	if fmt.Sprint(first.Tuned) != fmt.Sprint(wantFirst) {
+		t.Fatalf("revision 1 tuned %+v, want %+v", first.Tuned, wantFirst)
+	}
 
 	next := freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning))
-	next.Draft.Cases = []SplitCase{{CaseID: "site", Role: SplitRoleTuning}, {CaseID: "held", Role: SplitRoleTuning}}
+	next.Draft.Cases = []SplitCase{splitCase("site", SplitRoleTuning), splitCase("held", SplitRoleTuning)}
 	next.Supersedes = first
 	second := mustFreeze(t, next)
 	if second.Revision != 2 || second.Supersedes != first.SplitDigest || second.SplitDigest == first.SplitDigest {
@@ -695,17 +721,312 @@ func TestFreezeSplitSupersedes(t *testing.T) {
 	if loaded.Supersedes != first.SplitDigest {
 		t.Fatalf("supersedes did not read back: %q", loaded.Supersedes)
 	}
+	if s := loaded.Tuned.Spans; len(s) != 1 || s[0].Revision != 1 || fmt.Sprint(s[0].ObjectIDs) != "[obj_a obj_b]" {
+		t.Fatalf("revision 2 tuned spans %+v, want obj_a and obj_b, first tuned in revision 1", s)
+	}
+	if c := loaded.Tuned.Cases; len(c) != 2 || c[0].CaseID != "held" || c[0].Revision != 2 || c[1].CaseID != "site" || c[1].Revision != 1 {
+		t.Fatalf("revision 2 tuned cases %+v", c)
+	}
 
 	undo := freezeOptions(onePartition(p, "p1", "hold", SplitRoleHeldOut))
 	undo.Supersedes = second
 	_, err := FreezeSplit(undo)
-	wantError(t, err, "was a tuning object in revision 2 and cannot be held out")
+	wantError(t, err, "object obj_a is held out, but revision 1 of this split's lineage tuned on it")
 
 	caseUndo := freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning))
-	caseUndo.Draft.Cases = []SplitCase{{CaseID: "site", Role: SplitRoleHeldOut}}
+	caseUndo.Draft.Cases = []SplitCase{splitCase("site", SplitRoleHeldOut)}
 	caseUndo.Supersedes = second
 	_, err = FreezeSplit(caseUndo)
-	wantError(t, err, "case site was tuning in revision 2 and cannot be held out")
+	wantError(t, err, `case "site" is held out, but revision 1 of this split's lineage tuned on it`)
+
+	// A pack held out in revision 1 beside a tuned one in the same frames
+	// stays held out when its successor keeps the partition as it was.
+	same := freezeOptions(splitDraftPack(p, "p1"))
+	same.Draft.Cases = opts.Draft.Cases
+	same.Supersedes = first
+	if kept := mustFreeze(t, same); fmt.Sprint(kept.Tuned) != fmt.Sprint(first.Tuned) {
+		t.Fatalf("an unchanged successor's tuned record %+v, want revision 1's %+v", kept.Tuned, first.Tuned)
+	}
+
+	// A case whose capture was replaced keeps both in the record: the one
+	// tuned on is not forgotten because the file changed.
+	replaced := freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning))
+	replaced.Draft.Cases = []SplitCase{{CaseID: "site", Role: SplitRoleTuning,
+		Captures: []CaseCapture{{Basename: "site.pcap", SHA256: sha256Hex([]byte("site, recaptured"))}}}}
+	replaced.Supersedes = second
+	third := mustFreeze(t, replaced)
+	if c := third.Tuned.Cases[1]; c.CaseID != "site" || len(c.Captures) != 2 || c.Captures[0].SHA256 > c.Captures[1].SHA256 {
+		t.Fatalf("site's tuned captures %+v, want both, ordered by digest", c.Captures)
+	}
+
+	// Without --supersedes a freeze starts a new lineage, whose record is its
+	// own tuning alone.
+	fresh := mustFreeze(t, freezeOptions(onePartition(p, "p1", "hold", SplitRoleHeldOut)))
+	if fresh.Revision != 1 || len(fresh.Tuned.Spans) != 0 || len(fresh.Tuned.Cases) != 0 {
+		t.Fatalf("a new lineage inherited a tuned record: %+v", fresh.Tuned)
+	}
+}
+
+// What a revision drops stays tuned: revision 1 tunes a pack and a case,
+// revision 2 drops both, and revision 3 cannot hold either out.
+func TestSupersedesRemembersWhatARevisionDropped(t *testing.T) {
+	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
+	q := splitPack(t, "q1", "other.pcap", 500e9, 3)
+	reviewSplitPack(t, p, nil)
+	reviewSplitPack(t, q, nil)
+	o1 := freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning))
+	o1.Draft.Cases = []SplitCase{splitCase("site", SplitRoleTuning)}
+	r1 := mustFreeze(t, o1)
+
+	o2 := freezeOptions(onePartition(q, "q1", "tune", SplitRoleTuning))
+	o2.Supersedes = r1
+	r2 := mustFreeze(t, o2)
+	if len(r2.Tuned.Spans) != 2 || len(r2.Tuned.Cases) != 1 || r2.Tuned.Cases[0].CaseID != "site" {
+		t.Fatalf("revision 2 forgot what revision 1 tuned on: %+v", r2.Tuned)
+	}
+	r2, _ = writeAndLoad(t, r2)
+
+	o3 := freezeOptions(onePartition(p, "p1", "hold", SplitRoleHeldOut))
+	o3.Supersedes = r2
+	_, err := FreezeSplit(o3)
+	wantError(t, err, "object obj_a is held out, but revision 1 of this split's lineage tuned on it")
+
+	o3 = freezeOptions(onePartition(q, "q1", "tune", SplitRoleTuning))
+	o3.Draft.Cases = []SplitCase{splitCase("site", SplitRoleHeldOut)}
+	o3.Supersedes = r2
+	_, err = FreezeSplit(o3)
+	wantError(t, err, `case "site" is held out, but revision 1 of this split's lineage tuned on it`)
+}
+
+// Object IDs are pack-local, so a pack cut again from a tuned stretch of the
+// same capture holds the tuned vehicles under new IDs: it cannot be held out,
+// under the wider of the two revisions' guards. Nor can a pack cut from a
+// tuned case's capture, a case whose capture a tuned pack was cut from, or a
+// renamed case replaying a tuned case's capture.
+func TestSupersedesRefusesToHoldOutWhatWasTunedUnderAnotherName(t *testing.T) {
+	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)       // 1-3 s
+	recut := splitPack(t, "p1b", "cap.pcap", 1e9, 4)  // 1-4 s
+	near := splitPack(t, "near", "cap.pcap", 23e9, 3) // 20 s after p
+	far := splitPack(t, "far", "cap.pcap", 100e9, 3)
+	caseCut := splitPack(t, "case", "site.pcap", 7e9, 3)
+	other := splitPack(t, "other", "other.pcap", 300e9, 3)
+	for _, q := range []*Pack{p, recut, near, far, caseCut, other} {
+		reviewSplitPack(t, q, nil)
+	}
+	o1 := freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning))
+	o1.Draft.Cases = []SplitCase{splitCase("site", SplitRoleTuning)}
+	r1 := mustFreeze(t, o1)
+
+	for _, tc := range []struct {
+		name  string
+		draft DraftPack
+		cases []SplitCase
+		guard float64
+		want  string
+	}{
+		{"a re-cut of the tuned pack", onePartition(recut, "p1b", "hold", SplitRoleHeldOut), nil, DefaultSplitGuardSeconds,
+			"holds out object obj_a, but pack " + p.Manifest.PackDigest + ", tuned on in revision 1, is cut from pcap:cap.pcap within 30s of it"},
+		{"a pack within the tuned guard, under a narrower one", onePartition(near, "near", "hold", SplitRoleHeldOut), nil, 0,
+			"is cut from pcap:cap.pcap within 30s of it"},
+		{"a pack of a tuned case's capture", onePartition(caseCut, "case", "hold", SplitRoleHeldOut), nil, DefaultSplitGuardSeconds,
+			`it is cut from capture site.pcap of case "site", tuned on in revision 1`},
+		{"a renamed case replaying a tuned capture", onePartition(other, "other", "tune", SplitRoleTuning),
+			[]SplitCase{{CaseID: "renamed", Role: SplitRoleHeldOut, Captures: []CaseCapture{{Basename: "copy.pcap", SHA256: sha256Hex([]byte("site"))}}}},
+			DefaultSplitGuardSeconds, `case "renamed" is held out, but its capture copy.pcap is case "site"'s, tuned on in revision 1`},
+		{"a case whose capture a tuned pack was cut from", onePartition(other, "other", "tune", SplitRoleTuning),
+			[]SplitCase{{CaseID: "cap", Role: SplitRoleHeldOut, Captures: []CaseCapture{{Basename: "cap.pcap", SHA256: sha256Hex([]byte("cap"))}}}},
+			DefaultSplitGuardSeconds, `case "cap" is held out, but pack ` + p.Manifest.PackDigest + ", tuned on in revision 1, is cut from its capture cap.pcap"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := freezeOptions(tc.draft)
+			o.Draft.Cases, o.GuardSeconds, o.Supersedes = tc.cases, tc.guard, r1
+			_, err := FreezeSplit(o)
+			wantError(t, err, tc.want)
+		})
+	}
+
+	// Far enough from everything tuned, a pack of the same capture can be
+	// held out.
+	o := freezeOptions(onePartition(far, "far", "hold", SplitRoleHeldOut))
+	o.Supersedes = r1
+	mustFreeze(t, o)
+}
+
+// A case's role binds to its captures: a pack cut from a case's capture takes
+// the case's role whether or not it names the case, and a capture cannot
+// belong to cases of two roles.
+func TestFreezeSplitBindsCasesToTheirCaptures(t *testing.T) {
+	kirk := splitPack(t, "kirk", "kirk0.pcap", 1e9, 3)
+	anon := splitPack(t, "anon", "", 1e9, 3)
+	for _, q := range []*Pack{kirk, anon} {
+		reviewSplitPack(t, q, nil)
+	}
+	kirk0 := splitCase("kirk0", SplitRoleHeldOut)
+	freeze := func(cases []SplitCase, packs ...DraftPack) (*FrozenSplit, error) {
+		opts := freezeOptions(packs...)
+		opts.Draft.Cases = cases
+		return FreezeSplit(opts)
+	}
+
+	// The review's scenario: kirk0 is held out, and a pack cut from its
+	// capture that does not name it is refused a tuning partition.
+	_, err := freeze([]SplitCase{kirk0}, onePartition(kirk, "kirk", "tune", SplitRoleTuning))
+	wantError(t, err, `object "obj_a" is in tuning partition "tune", but case "kirk0" is held_out: a pack cut from a case's capture (kirk0.pcap)`)
+	f, err := freeze([]SplitCase{kirk0}, onePartition(kirk, "kirk", "hold", SplitRoleHeldOut))
+	if err != nil || f.Packs[0].CaseID != "" {
+		t.Fatalf("a held-out pack of a held-out case's capture: %+v, %v", f, err)
+	}
+	_, err = freeze([]SplitCase{splitCase("kirk0", SplitRoleScreen)}, onePartition(kirk, "kirk", "hold", SplitRoleHeldOut))
+	wantError(t, err, `is cut from capture "kirk0.pcap" of case "kirk0", a screen case`)
+
+	for _, tc := range []struct {
+		name  string
+		cases []SplitCase
+		packs []DraftPack
+		want  string
+	}{
+		{"an undeclared digest", []SplitCase{{CaseID: "kirk0", Role: SplitRoleTuning, Captures: []CaseCapture{{Basename: "kirk0.pcap"}}}},
+			nil, `draft case "kirk0" capture "kirk0.pcap" has no sha256`},
+		{"no capture", []SplitCase{{CaseID: "kirk0", Role: SplitRoleTuning}}, nil, `case "kirk0" names no capture`},
+		{"one basename, two roles", []SplitCase{kirk0, {CaseID: "copy", Role: SplitRoleTuning,
+			Captures: []CaseCapture{{Basename: "kirk0.pcap", SHA256: sha256Hex([]byte("copy"))}}}},
+			nil, `capture "kirk0.pcap" is in tuning case "copy" and held_out case "kirk0"`},
+		{"one digest, two roles", []SplitCase{kirk0, {CaseID: "copy", Role: SplitRoleTuning,
+			Captures: []CaseCapture{{Basename: "copy.pcap", SHA256: kirk0.Captures[0].SHA256}}}},
+			nil, "one capture cannot take two roles"},
+		{"a pack naming another case's capture", []SplitCase{kirk0, splitCase("other", SplitRoleTuning)},
+			[]DraftPack{func() DraftPack {
+				d := onePartition(kirk, "kirk", "tune", SplitRoleTuning)
+				d.CaseID = "other"
+				return d
+			}()},
+			"one capture cannot take two roles"},
+		{"a pack naming a case with no capture of its own", []SplitCase{kirk0},
+			[]DraftPack{func() DraftPack {
+				d := onePartition(anon, "anon", "hold", SplitRoleHeldOut)
+				d.CaseID = "kirk0"
+				return d
+			}()},
+			`the pack names case "kirk0" but records no capture file`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := freeze(tc.cases, tc.packs...)
+			wantError(t, err, tc.want)
+		})
+	}
+
+	// Cases of one role may share a capture.
+	shared := SplitCase{CaseID: "kirk0-late", Role: SplitRoleHeldOut, Captures: kirk0.Captures}
+	if _, err := freeze([]SplitCase{kirk0, shared}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A replay under a split is checked against the case's captures: by content
+// where the case declares a digest, by basename where it has only a pack's.
+func TestCheckCaseCaptures(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, content string) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	kirk0 := write("kirk0.pcap", "kirk0 capture")
+	renamed := write("renamed.pcap", "kirk0 capture")
+	impostor := write("impostor.pcap", "another capture")
+	if err := os.Mkdir(filepath.Join(dir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sameName := write("sub/kirk0.pcap", "another capture")
+	held := write("held.pcap", "held capture")
+
+	p := splitPack(t, "p1", "derived.pcap", 1e9, 3)
+	reviewSplitPack(t, p, nil)
+	dp := onePartition(p, "p1", "tune", SplitRoleTuning)
+	dp.CaseID = "derived"
+	opts := freezeOptions(dp)
+	sum := func(path string) string {
+		s, err := captureFileSHA256(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	opts.Draft.Cases = []SplitCase{
+		{CaseID: "kirk0", Role: SplitRoleTuning, Captures: []CaseCapture{{Basename: "kirk0.pcap", SHA256: sum(kirk0)}}},
+		{CaseID: "held", Role: SplitRoleHeldOut, Captures: []CaseCapture{{Basename: "held.pcap", SHA256: sum(held)}}},
+		{CaseID: "derived", Role: SplitRoleTuning},
+	}
+	f := mustFreeze(t, opts)
+
+	for _, ok := range []struct {
+		caseID string
+		paths  []string
+	}{
+		{"kirk0", []string{kirk0}},
+		{"kirk0", []string{renamed}},                                        // by content, whatever its name
+		{"derived", []string{filepath.Join(dir, "absent", "derived.pcap")}}, // by basename, unread
+	} {
+		if err := f.CheckCaseCaptures(ok.caseID, ok.paths); err != nil {
+			t.Errorf("%s %v: %v", ok.caseID, ok.paths, err)
+		}
+	}
+	for _, tc := range []struct {
+		caseID string
+		paths  []string
+		want   string
+	}{
+		{"kirk0", []string{held}, `is not one of case "kirk0"'s captures`}, // a held-out capture under a tuning name
+		{"kirk0", []string{sameName}, `is not one of case "kirk0"'s captures`},
+		{"kirk0", []string{kirk0, impostor}, "impostor.pcap"},
+		{"derived", []string{impostor}, `is not one of case "derived"'s captures`},
+		{"kirk0", []string{filepath.Join(dir, "absent.pcap")}, "hash capture"},
+		{"kirk0", []string{filepath.Join(dir, "sub")}, "hash capture"},
+		{"kirk0", nil, "no capture to check"},
+		{"columbus", []string{kirk0}, `case "columbus" has no role`},
+	} {
+		if err := f.CheckCaseCaptures(tc.caseID, tc.paths); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s %v: error %v, want one mentioning %q", tc.caseID, tc.paths, err, tc.want)
+		}
+	}
+}
+
+// Bind derives again what the file copies from pinned bytes, so a file edited
+// with its digest recomputed cannot change the selection record's role, the
+// capture span or an object's review counts.
+func TestBindDerivesWhatTheFileCopies(t *testing.T) {
+	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
+	reviewSplitPack(t, p, nil)
+	writeSegmentRecord(t, p, "tuning")
+	f := mustFreeze(t, freezeOptions(onePartition(p, "p1", "tune", SplitRoleTuning)))
+	for _, tc := range []struct {
+		name  string
+		forge func(*FrozenPack)
+		want  string
+	}{
+		{"selection role", func(fp *FrozenPack) {
+			fp.Selection = &FrozenSelection{SHA256: fp.Selection.SHA256, Role: "held_out", Finder: "random"}
+		},
+			"is not the pinned record's"},
+		{"capture span", func(fp *FrozenPack) { fp.Source.FirstSampleNs += 60e9 }, "is not the pack's"},
+		{"capture file", func(fp *FrozenPack) { fp.Source.PCAPBasename = "other.pcap" }, "is not the pack's"},
+		{"review counts", func(fp *FrozenPack) {
+			fp.Objects[0].ReviewedMasks, fp.Objects[0].Class = 2, "truck"
+		}, "but the pinned revision gives"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			forged := *f
+			pk := f.Packs[0]
+			pk.Objects = append([]FrozenObject(nil), pk.Objects...)
+			tc.forge(&pk)
+			forged.Packs = []FrozenPack{pk}
+			forged.SplitDigest = forged.contentDigest()
+			_, _, err := forged.Bind(p)
+			wantError(t, err, tc.want)
+		})
+	}
 }
 
 // Every structural rule refuses on read, with its digest recomputed so the
@@ -714,9 +1035,10 @@ func TestFrozenSplitStructuralRefusals(t *testing.T) {
 	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
 	reviewSplitPack(t, p, nil)
 	opts := freezeOptions(splitDraftPack(p, "p1"))
-	opts.Draft.Cases = []SplitCase{{CaseID: "site", Role: SplitRoleTuning}}
+	opts.Draft.Cases = []SplitCase{splitCase("site", SplitRoleTuning)}
 	base := mustFreeze(t, opts)
 
+	siteCapture := base.Cases[0].Captures[0]
 	cases := []struct {
 		name   string
 		mutate func(*FrozenSplit)
@@ -755,12 +1077,44 @@ func TestFrozenSplitStructuralRefusals(t *testing.T) {
 		{"negative pose count", func(f *FrozenSplit) { f.Packs[0].Objects[0].Geometry.ProposedPoses = -1 }, "reviewed masks"},
 		{"geometry status", func(f *FrozenSplit) { f.Packs[0].Objects[0].Geometry.Status = GeometryComplete }, "but the counts make it"},
 		{"episode scoring another partition", func(f *FrozenSplit) { f.Packs[0].Episodes[0].Split = "hold" }, "scores object"},
+		{"case with no capture", func(f *FrozenSplit) { f.Cases[0].Captures = nil }, `case "site" names no capture`},
+		{"capture twice", func(f *FrozenSplit) { f.Cases[0].Captures = []CaseCapture{siteCapture, siteCapture} }, `names capture "site.pcap" twice`},
+		{"capture path", func(f *FrozenSplit) {
+			f.Cases[0].Captures = []CaseCapture{{Basename: "dir/site.pcap", SHA256: siteCapture.SHA256}}
+		}, "is not a file name"},
+		{"short capture digest", func(f *FrozenSplit) {
+			f.Cases[0].Captures = []CaseCapture{{Basename: "site.pcap", SHA256: "sha256:abc"}}
+		}, "is not a sha256:<64 hex> digest"},
+		{"capture digest not hex", func(f *FrozenSplit) {
+			f.Cases[0].Captures = []CaseCapture{{Basename: "site.pcap", SHA256: "sha256:" + strings.Repeat("g", 64)}}
+		}, "is not a sha256:<64 hex> digest"},
+		{"pack naming a case it was not cut from", func(f *FrozenSplit) { f.Packs[0].CaseID = "site" }, `its capture "cap.pcap" is not one of the case's captures`},
+		{"tuned span revision", func(f *FrozenSplit) { f.Tuned.Spans[0].Revision = 2 }, "tuned span 0: revision 2 is outside this lineage's 1 to 1"},
+		{"tuned span digest", func(f *FrozenSplit) { f.Tuned.Spans[0].PackDigest = "abc" }, "tuned span 0: pack_digest"},
+		{"tuned span backwards", func(f *FrozenSplit) { f.Tuned.Spans[0].FirstSampleNs = 4e9 }, "ends before it starts"},
+		{"tuned span guard", func(f *FrozenSplit) { f.Tuned.Spans[0].GuardSeconds = -1 }, "tuned span 0: guard_seconds"},
+		{"tuned span without objects", func(f *FrozenSplit) { f.Tuned.Spans[0].ObjectIDs = nil }, "names no tuned object"},
+		{"tuned object twice", func(f *FrozenSplit) { f.Tuned.Spans[0].ObjectIDs = []string{"obj_a", "obj_a"} }, "must be distinct and non-empty"},
+		{"tuned span twice", func(f *FrozenSplit) { f.Tuned.Spans = append(f.Tuned.Spans, f.Tuned.Spans[0]) }, "tuned span 1 repeats pack"},
+		{"tuned case revision", func(f *FrozenSplit) { f.Tuned.Cases[0].Revision = 0 }, "tuned case 0: revision 0"},
+		{"tuned case without id", func(f *FrozenSplit) { f.Tuned.Cases[0].CaseID = " " }, "tuned case 0 has no id"},
+		{"tuned case twice", func(f *FrozenSplit) { f.Tuned.Cases = append(f.Tuned.Cases, f.Tuned.Cases[0]) }, `tuned case "site" is recorded twice`},
+		{"tuned case without capture", func(f *FrozenSplit) { f.Tuned.Cases[0].Captures = nil }, `tuned case "site" names no capture`},
+		{"tuned case capture", func(f *FrozenSplit) { f.Tuned.Cases[0].Captures = []CaseCapture{{}} }, `tuned case "site": capture basename`},
+		{"own tuning missing", func(f *FrozenSplit) { f.Tuned.Spans = nil }, "the tuned record does not hold pack"},
+		{"own guard narrowed", func(f *FrozenSplit) { f.Tuned.Spans[0].GuardSeconds = 0 }, "the tuned record does not hold pack"},
+		{"own tuned object missing", func(f *FrozenSplit) { f.Tuned.Spans[0].ObjectIDs = []string{"obj_z"} }, "the tuned record does not hold pack"},
+		{"own tuned case missing", func(f *FrozenSplit) { f.Tuned.Cases = nil }, `the tuned record does not hold case "site"`},
+		{"own tuned capture missing", func(f *FrozenSplit) {
+			f.Tuned.Cases[0].Captures = []CaseCapture{{Basename: "elsewhere.pcap"}}
+		}, `the tuned record does not hold case "site"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			f := *base
 			f.Partitions = append([]SplitPartition(nil), base.Partitions...)
 			f.Cases = append([]SplitCase(nil), base.Cases...)
+			f.Tuned = TunedLedger{Spans: append([]TunedSpan(nil), base.Tuned.Spans...), Cases: append([]TunedCase(nil), base.Tuned.Cases...)}
 			pk := base.Packs[0]
 			pk.Objects = append([]FrozenObject(nil), pk.Objects...)
 			pk.Episodes = append([]Episode(nil), pk.Episodes...)
@@ -775,15 +1129,19 @@ func TestFrozenSplitStructuralRefusals(t *testing.T) {
 	b := marshalFrozen(t, base)
 	_, err := ParseFrozenSplit(append([]byte(`{"splits": [],`), b[1:]...))
 	wantError(t, err, "unknown field")
-	_, err = ParseFrozenSplit(append(b, []byte(" {}")...))
-	wantError(t, err, "trailing data")
+	for _, trailing := range []string{" {}", "}", "\n]]]"} {
+		_, err = ParseFrozenSplit(append(append([]byte(nil), b...), trailing...))
+		wantError(t, err, "trailing data")
+	}
+	if _, err := ParseFrozenSplit(append(append([]byte(nil), b...), "\n"...)); err != nil {
+		t.Fatalf("a trailing newline was refused: %v", err)
+	}
 }
 
 func TestCaseRolesRefuseWhatTheSplitForbids(t *testing.T) {
 	opts := freezeOptions()
 	opts.Draft.Cases = []SplitCase{
-		{CaseID: "marina", Role: SplitRoleTuning}, {CaseID: "embarcadero", Role: SplitRoleHeldOut},
-		{CaseID: "ashbury", Role: SplitRoleScreen},
+		splitCase("marina", SplitRoleTuning), splitCase("embarcadero", SplitRoleHeldOut), splitCase("ashbury", SplitRoleScreen),
 	}
 	f := mustFreeze(t, opts)
 
@@ -821,6 +1179,8 @@ func TestLoadSplitDraft(t *testing.T) {
 	for name, tc := range map[string]struct{ content, want string }{
 		"unknown":  {`{"schema": "velocity.report/annotation-split-draft", "schema_version": 1, "pack": []}`, "unknown field"},
 		"trailing": {`{"schema": "velocity.report/annotation-split-draft", "schema_version": 1} {}`, "trailing data"},
+		"brace":    {`{"schema": "velocity.report/annotation-split-draft", "schema_version": 1}}`, "trailing data"},
+		"brackets": {`{"schema": "velocity.report/annotation-split-draft", "schema_version": 1}]]]`, "trailing data"},
 		"schema":   {`{"schema": "velocity.report/annotation-split", "schema_version": 1}`, "split draft schema"},
 	} {
 		_, err := LoadSplitDraft(write(name+".json", tc.content))
@@ -846,7 +1206,7 @@ func TestLoadAnySplitReadsBothVersions(t *testing.T) {
 	wantError(t, err, "is version 1, not frozen")
 
 	opts := freezeOptions()
-	opts.Draft.Cases = []SplitCase{{CaseID: "a", Role: SplitRoleTuning}}
+	opts.Draft.Cases = []SplitCase{splitCase("a", SplitRoleTuning)}
 	_, path := writeAndLoad(t, mustFreeze(t, opts))
 	v1, frozen, err = LoadAnySplit(path)
 	if err != nil || v1 != nil || frozen == nil {
@@ -877,7 +1237,7 @@ func (failingSplitOutput) Close() error { return nil }
 // failed write leaves nothing behind.
 func TestWriteFrozenSplitIsWriteOnce(t *testing.T) {
 	opts := freezeOptions()
-	opts.Draft.Cases = []SplitCase{{CaseID: "a", Role: SplitRoleTuning}}
+	opts.Draft.Cases = []SplitCase{splitCase("a", SplitRoleTuning)}
 	f := mustFreeze(t, opts)
 	_, path := writeAndLoad(t, f)
 	wantError(t, WriteFrozenSplit(path, f), "create frozen split")

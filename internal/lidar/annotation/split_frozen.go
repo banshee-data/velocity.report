@@ -2,6 +2,8 @@ package annotation
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -34,13 +37,23 @@ import (
 //     proposal, and every reviewed mask states its completeness;
 //   - every episode's objects have a reviewed mask inside its frames;
 //   - no physical object can sit in two partitions: object IDs are disjoint
-//     within a pack, and packs cut from overlapping stretches of one source,
-//     each widened by GuardSeconds, feed a single partition between them;
+//     within a pack, and two packs of one source whose capture spans come
+//     within GuardSeconds of each other (the gap between them is at most
+//     GuardSeconds, overlap included) feed a single partition between them;
 //   - a pack whose selection record says it was chosen for tuning feeds no
 //     held-out partition, since its window may have been chosen by where the
 //     tracker failed;
-//   - a pack cut from a declared corpus case feeds only partitions of that
-//     case's role.
+//   - every corpus case names the captures it replays, and a pack cut from
+//     one of them feeds only partitions of that case's role, whether or not
+//     the pack names the case;
+//   - nothing held out was tuned on anywhere in the split's lineage (Tuned).
+//
+// A case is bound to its captures, not to its name. A capture a draft
+// declares carries its file's SHA-256, which is what a replay under the split
+// is checked against (CheckCaseCaptures). A pack records only its capture's
+// basename (manifest.json pcap_basename), so packs are matched to cases by
+// basename, and a capture a case gains only from a pack that names it is
+// matched by basename too.
 //
 // It pins, per pack, the pack digest; the digest of manifest.json, which
 // holds the source provenance, coverage and coordinate contract outside the
@@ -55,10 +68,32 @@ import (
 // sidecar carries today, and says whether anyone reviewed a pose, not whether
 // an independent physical reference exists; that record is separate work.
 //
-// Bind re-checks every pin against the pack an evaluator opens. Editing a
-// reference after freezing saves a new annotation revision. The frozen split
-// keeps scoring the revision it pinned; scoring the new one takes a new split
-// revision (Supersedes), never a silently different split.
+// Bind re-checks every pin against the pack an evaluator opens, and derives
+// again from the pinned bytes everything the file copies from them: the
+// selection record's role, finder and segment, the source provenance and
+// capture span, and each object's class, reviewed masks and geometry review.
+// Editing a reference after freezing saves a new annotation revision. The
+// frozen split keeps scoring the revision it pinned; scoring the new one
+// takes a new split revision (Supersedes), never a silently different split.
+//
+// Tuned is the lineage's cumulative record of what it tuned on: each tuning
+// pack's source, capture span and tuned objects, and each tuning case's
+// captures. A revision's record is its predecessor's plus its own tuning, so
+// a pack or case a later revision drops stays in it. A held-out object is
+// refused if the record holds it, or holds a pack of the same source within
+// the guard of its pack, or a tuned case's capture its pack was cut from; a
+// held-out case is refused if the record holds it by ID or by capture, or a
+// tuned pack cut from one of its captures. A revision frozen without
+// Supersedes starts a new lineage whose record is its own tuning alone.
+//
+// What the digest does not do. SplitDigest is unkeyed: it detects an
+// accidental edit, not a deliberate one, since whoever edits the file can
+// recompute it. Everything Bind can derive from pinned bytes it derives, so
+// such an edit cannot change them; what remains is the operator's own
+// statement: the partitions and their roles, the episodes, the cases and
+// their captures, the Tuned record and the freeze record. And the held-out
+// guarantee binds only a run given the split: a replay or evaluation run
+// without one is not checked against it, and records no split.
 
 // FrozenSplitSchemaVersion is the frozen split's layout version. Version 1,
 // SplitSchemaVersion, remains the hand-written single-pack manifest.
@@ -105,6 +140,9 @@ type FrozenSplit struct {
 	Partitions   []SplitPartition `json:"partitions,omitempty"`
 	Cases        []SplitCase      `json:"cases,omitempty"`
 	Packs        []FrozenPack     `json:"packs,omitempty"`
+	// Tuned is everything this split's lineage has tuned on, up to and
+	// including this revision.
+	Tuned TunedLedger `json:"tuned"`
 	// SplitDigest is the SHA-256 of the canonical encoding of every field
 	// above. It is what an evaluator records and what a later revision cites.
 	SplitDigest string `json:"split_digest"`
@@ -132,10 +170,57 @@ type SplitPartition struct {
 	Role SplitRole `json:"role"`
 }
 
-// SplitCase gives a replay corpus case its role: tuning, held_out or screen.
+// SplitCase gives a replay corpus case its role, tuning, held_out or screen,
+// and names the captures the case replays: the role binds to them, not to
+// the ID.
 type SplitCase struct {
-	CaseID string    `json:"case_id"`
-	Role   SplitRole `json:"role"`
+	CaseID   string        `json:"case_id"`
+	Role     SplitRole     `json:"role"`
+	Captures []CaseCapture `json:"captures,omitempty"`
+}
+
+// CaseCapture is one capture file of a case.
+type CaseCapture struct {
+	// Basename is the capture file's name, as a pack's manifest.json records
+	// it (pcap_basename): what matches a pack to the case.
+	Basename string `json:"basename"`
+	// SHA256 is the capture file's SHA-256 ("sha256:<hex>"). A draft
+	// declares it for every capture it names; a capture the case gains only
+	// from a pack that names the case has none, since a pack records only
+	// the basename. With it, a replay is checked by content; without it, by
+	// basename.
+	SHA256 string `json:"sha256,omitempty"`
+}
+
+// TunedLedger is a split lineage's cumulative record of what it tuned on.
+type TunedLedger struct {
+	Spans []TunedSpan `json:"spans,omitempty"`
+	Cases []TunedCase `json:"cases,omitempty"`
+}
+
+// TunedSpan is one pack's tuned objects and the stretch of capture they were
+// seen in.
+type TunedSpan struct {
+	// Revision is the first revision of the lineage that tuned on the pack.
+	Revision   int    `json:"revision"`
+	PackDigest string `json:"pack_digest"`
+	// Source is the recording the pack was cut from, pcap:<basename> or
+	// vrlog:<frames SHA-256>; empty when the pack names neither.
+	Source        string `json:"source,omitempty"`
+	FirstSampleNs int64  `json:"first_sample_ns"`
+	LastSampleNs  int64  `json:"last_sample_ns"`
+	// GuardSeconds is the widest guard any revision tuned the pack under;
+	// a held-out pack is kept at least this far from it.
+	GuardSeconds float64  `json:"guard_seconds"`
+	ObjectIDs    []string `json:"object_ids"`
+}
+
+// TunedCase is a case the lineage tuned on, and its captures.
+type TunedCase struct {
+	// Revision is the first revision of the lineage that tuned on the case.
+	Revision int           `json:"revision"`
+	CaseID   string        `json:"case_id"`
+	Captures []CaseCapture `json:"captures"`
 }
 
 // FrozenPack is one pack's frozen partition and the pins that bind it.
@@ -263,7 +348,7 @@ func LoadSplitDraft(path string) (*SplitDraft, error) {
 	if err := dec.Decode(&d); err != nil {
 		return nil, fmt.Errorf("parse split draft: %w", err)
 	}
-	if dec.More() {
+	if !atEndOfJSON(dec) {
 		return nil, fmt.Errorf("parse split draft: trailing data after the draft object")
 	}
 	if d.Schema != SplitDraftSchema || d.SchemaVersion != SplitDraftSchemaVersion {
@@ -315,7 +400,7 @@ func ParseFrozenSplit(b []byte) (*FrozenSplit, error) {
 	if err := dec.Decode(&f); err != nil {
 		return nil, fmt.Errorf("parse frozen split: %w", err)
 	}
-	if dec.More() {
+	if !atEndOfJSON(dec) {
 		return nil, fmt.Errorf("parse frozen split: trailing data after the split object")
 	}
 	if err := f.validate(); err != nil {
@@ -359,8 +444,9 @@ func packManifestDigest(dir string) (string, error) {
 // contentDigest is the SHA-256 of the split's canonical encoding without its
 // digest. encoding/json writes struct fields in declaration order, and every
 // list is written in the order freezing sorted it, so the encoding is stable.
-// Encoding these types cannot fail: they hold only strings, numbers, bools
-// and slices of the same.
+// Encoding these types cannot fail: they hold only strings, finite numbers
+// (validate refuses the rest, and JSON cannot carry them), bools and slices
+// of the same.
 func (f FrozenSplit) contentDigest() string {
 	f.SplitDigest = ""
 	b, _ := json.Marshal(f)
@@ -395,7 +481,7 @@ func (f *FrozenSplit) validate() error {
 	if f.Frozen.BuildVersion == "" || f.Frozen.BuildGitSHA == "" {
 		return fmt.Errorf("frozen build version and git SHA are required, even when unstamped")
 	}
-	if math.IsNaN(f.GuardSeconds) || f.GuardSeconds < 0 || f.GuardSeconds > maxSplitGuardSeconds {
+	if !validGuard(f.GuardSeconds) {
 		return fmt.Errorf("guard_seconds %g must be between 0 and %d", f.GuardSeconds, maxSplitGuardSeconds)
 	}
 	if len(f.Packs) == 0 && len(f.Cases) == 0 {
@@ -415,7 +501,7 @@ func (f *FrozenSplit) validate() error {
 		}
 		roles[p.Name] = p.Role
 	}
-	cases, err := caseRoles(f.Cases)
+	cases, err := validateCases(f.Cases)
 	if err != nil {
 		return err
 	}
@@ -440,9 +526,26 @@ func (f *FrozenSplit) validate() error {
 			episodes[e.EpisodeID] = p.PackDigest
 		}
 	}
-	return checkSourceDisjoint(f.Packs, f.GuardSeconds)
+	if err := checkSourceDisjoint(f.Packs, f.GuardSeconds); err != nil {
+		return err
+	}
+	return f.checkTuned()
 }
 
+func validGuard(seconds float64) bool {
+	return !math.IsNaN(seconds) && seconds >= 0 && seconds <= maxSplitGuardSeconds
+}
+
+// splitCases is a split's cases, by ID and by capture basename.
+type splitCases struct {
+	byID map[string]SplitCase
+	// byBasename maps a capture basename to a case that replays it. Cases
+	// that share a capture share a role, so any of them will do.
+	byBasename map[string]SplitCase
+}
+
+// caseRoles is each case's role by ID. It refuses what validateCases
+// refuses of the IDs and roles alone.
 func caseRoles(cases []SplitCase) (map[string]SplitRole, error) {
 	out := make(map[string]SplitRole, len(cases))
 	for i, c := range cases {
@@ -461,7 +564,83 @@ func caseRoles(cases []SplitCase) (map[string]SplitRole, error) {
 	return out, nil
 }
 
-func (p FrozenPack) validate(roles, cases map[string]SplitRole) error {
+// validateCases checks the cases and their captures: every case names at
+// least one, and no capture, by basename or by content, belongs to two cases
+// of different roles, since a pack or a replay of it could then take either.
+func validateCases(cases []SplitCase) (splitCases, error) {
+	out := splitCases{byID: map[string]SplitCase{}, byBasename: map[string]SplitCase{}}
+	if _, err := caseRoles(cases); err != nil {
+		return out, err
+	}
+	bySHA := map[string]SplitCase{}
+	for _, c := range cases {
+		out.byID[c.CaseID] = c
+		if len(c.Captures) == 0 {
+			return out, fmt.Errorf("case %q names no capture: a case's role binds to its captures, so declare them "+
+				"(basename and sha256), or cut a pack that names the case from one", c.CaseID)
+		}
+		seen := map[string]bool{}
+		for _, cp := range c.Captures {
+			if err := cp.validate(); err != nil {
+				return out, fmt.Errorf("case %q: %w", c.CaseID, err)
+			}
+			if seen[cp.Basename] {
+				return out, fmt.Errorf("case %q names capture %q twice", c.CaseID, cp.Basename)
+			}
+			seen[cp.Basename] = true
+			if other, ok := out.byBasename[cp.Basename]; ok && other.Role != c.Role {
+				return out, fmt.Errorf("capture %q is in %s case %q and %s case %q: one capture cannot take two roles",
+					cp.Basename, other.Role, other.CaseID, c.Role, c.CaseID)
+			}
+			out.byBasename[cp.Basename] = c
+			if cp.SHA256 == "" {
+				continue
+			}
+			if other, ok := bySHA[cp.SHA256]; ok && other.Role != c.Role {
+				return out, fmt.Errorf("capture %s is in %s case %q and %s case %q: one capture cannot take two roles",
+					cp.SHA256, other.Role, other.CaseID, c.Role, c.CaseID)
+			}
+			bySHA[cp.SHA256] = c
+		}
+	}
+	return out, nil
+}
+
+func (c CaseCapture) validate() error {
+	if c.Basename == "" || c.Basename == "." || c.Basename == ".." || strings.ContainsAny(c.Basename, `/\`) {
+		return fmt.Errorf("capture basename %q is not a file name", c.Basename)
+	}
+	if c.SHA256 != "" && !isSHA256Digest(c.SHA256) {
+		return fmt.Errorf("capture %q sha256 %q is not a sha256:<64 hex> digest", c.Basename, c.SHA256)
+	}
+	return nil
+}
+
+// isSHA256Digest reports whether s is "sha256:" and 64 lower-case hex digits.
+func isSHA256Digest(s string) bool {
+	hexPart, ok := strings.CutPrefix(s, "sha256:")
+	if !ok || len(hexPart) != 64 {
+		return false
+	}
+	for _, r := range hexPart {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// hasBasename reports whether the case names a capture of that basename.
+func (c SplitCase) hasBasename(basename string) bool {
+	for _, cp := range c.Captures {
+		if cp.Basename == basename {
+			return true
+		}
+	}
+	return false
+}
+
+func (p FrozenPack) validate(roles map[string]SplitRole, cases splitCases) error {
 	for name, digest := range map[string]string{
 		"pack_digest": p.PackDigest, "manifest_sha256": p.ManifestSHA256, "sidecar_sha256": p.SidecarSHA256,
 	} {
@@ -475,12 +654,9 @@ func (p FrozenPack) validate(roles, cases map[string]SplitRole) error {
 	if p.SidecarRevision < 1 {
 		return fmt.Errorf("sidecar_revision %d: a frozen split pins a saved revision", p.SidecarRevision)
 	}
-	caseRole, hasCase := cases[p.CaseID]
-	if p.CaseID != "" && !hasCase {
-		return fmt.Errorf("case %q is not declared in the split's cases", p.CaseID)
-	}
-	if hasCase && caseRole == SplitRoleScreen {
-		return fmt.Errorf("case %q is a screen case: a screen site holds no reference partition", p.CaseID)
+	bound, err := p.boundCase(cases)
+	if err != nil {
+		return err
 	}
 	if s := p.Selection; s != nil {
 		if !strings.HasPrefix(s.SHA256, "sha256:") {
@@ -518,12 +694,40 @@ func (p FrozenPack) validate(roles, cases map[string]SplitRole) error {
 		if role == SplitRoleHeldOut && p.Selection != nil && p.Selection.Role == string(SplitRoleTuning) {
 			return fmt.Errorf("object %q is held out, but the pack was selected for tuning (finder %s)", o.ObjectID, p.Selection.Finder)
 		}
-		if hasCase && role != caseRole {
-			return fmt.Errorf("object %q is in %s partition %q, but case %q is %s: a case's references take its role",
-				o.ObjectID, role, o.Partition, p.CaseID, caseRole)
+		if bound != nil && role != bound.Role {
+			return fmt.Errorf("object %q is in %s partition %q, but case %q is %s: a pack cut from a case's capture (%s) takes the case's role",
+				o.ObjectID, role, o.Partition, bound.CaseID, bound.Role, p.Source.PCAPBasename)
 		}
 	}
 	return nil
+}
+
+// boundCase is the case whose role the pack's objects take: the case it
+// names, which must name the pack's capture, or else any case that replays
+// the capture the pack was cut from. A screen case holds no references.
+func (p FrozenPack) boundCase(cases splitCases) (*SplitCase, error) {
+	var bound *SplitCase
+	if p.CaseID != "" {
+		c, ok := cases.byID[p.CaseID]
+		if !ok {
+			return nil, fmt.Errorf("case %q is not declared in the split's cases", p.CaseID)
+		}
+		if p.Source.PCAPBasename == "" {
+			return nil, fmt.Errorf("the pack names case %q but records no capture file (manifest.json pcap_basename), "+
+				"so nothing binds it to the case's captures", p.CaseID)
+		}
+		if !c.hasBasename(p.Source.PCAPBasename) {
+			return nil, fmt.Errorf("the pack names case %q, but its capture %q is not one of the case's captures", p.CaseID, p.Source.PCAPBasename)
+		}
+		bound = &c
+	} else if c, ok := cases.byBasename[p.Source.PCAPBasename]; ok && p.Source.PCAPBasename != "" {
+		bound = &c
+	}
+	if bound != nil && bound.Role == SplitRoleScreen {
+		return nil, fmt.Errorf("the pack is cut from capture %q of case %q, a screen case: a screen site holds no reference partition",
+			p.Source.PCAPBasename, bound.CaseID)
+	}
+	return bound, nil
 }
 
 func (g GeometryReview) validate(reviewedMasks int) error {
@@ -561,13 +765,20 @@ func (s FrozenSource) sourceKey() string {
 	return ""
 }
 
-// checkSourceDisjoint refuses two packs of one source whose capture spans,
-// widened by the guard, overlap, unless every object of both sits in one
-// partition. Object IDs are pack-local, so nothing else can say whether a
-// car in one pack is a car in the other; while their spans could share a
+// withinGuard reports whether two capture spans come within guardSeconds of
+// each other: they overlap, or the gap between them is at most the guard.
+// Only one span is widened, so the guard is the largest gap still refused.
+func withinGuard(aFirst, aLast, bFirst, bLast int64, guardSeconds float64) bool {
+	guard := int64(guardSeconds * 1e9)
+	return aFirst-guard <= bLast && bFirst-guard <= aLast
+}
+
+// checkSourceDisjoint refuses two packs of one source whose capture spans
+// come within the guard of each other, unless every object of both sits in
+// one partition. Object IDs are pack-local, so nothing else can say whether
+// a car in one pack is a car in the other; while their spans could share a
 // vehicle, they may only share a partition.
 func checkSourceDisjoint(packs []FrozenPack, guardSeconds float64) error {
-	guard := int64(guardSeconds * 1e9)
 	for i := range packs {
 		for j := i + 1; j < len(packs); j++ {
 			a, b := packs[i], packs[j]
@@ -575,7 +786,7 @@ func checkSourceDisjoint(packs []FrozenPack, guardSeconds float64) error {
 			if key == "" || key != b.Source.sourceKey() {
 				continue
 			}
-			if a.Source.FirstSampleNs-guard > b.Source.LastSampleNs || b.Source.FirstSampleNs-guard > a.Source.LastSampleNs {
+			if !withinGuard(a.Source.FirstSampleNs, a.Source.LastSampleNs, b.Source.FirstSampleNs, b.Source.LastSampleNs, guardSeconds) {
 				continue
 			}
 			partitions := map[string]bool{}
@@ -632,6 +843,10 @@ func FreezeSplit(opts FreezeOptions) (*FrozenSplit, error) {
 	if opts.Now.IsZero() {
 		return nil, fmt.Errorf("no freezing time")
 	}
+	cases, err := draftCases(opts.Draft.Cases)
+	if err != nil {
+		return nil, err
+	}
 	f := &FrozenSplit{
 		Schema: SplitSchema, SchemaVersion: FrozenSplitSchemaVersion, Revision: 1,
 		Frozen: FreezeRecord{
@@ -639,10 +854,8 @@ func FreezeSplit(opts FreezeOptions) (*FrozenSplit, error) {
 			BuildVersion: opts.BuildVersion, BuildGitSHA: opts.BuildGitSHA,
 			ForConfigHash: opts.ForConfigHash, ForParamsHash: opts.ForParamsHash,
 		},
-		Note: opts.Draft.Note, GuardSeconds: opts.GuardSeconds,
-		Cases: append([]SplitCase(nil), opts.Draft.Cases...),
+		Note: opts.Draft.Note, GuardSeconds: opts.GuardSeconds, Cases: cases,
 	}
-	sort.Slice(f.Cases, func(i, j int) bool { return f.Cases[i].CaseID < f.Cases[j].CaseID })
 
 	roles := map[string]SplitRole{}
 	var problems []string
@@ -669,18 +882,337 @@ func FreezeSplit(opts FreezeOptions) (*FrozenSplit, error) {
 	}
 	sort.Slice(f.Partitions, func(i, j int) bool { return f.Partitions[i].Name < f.Partitions[j].Name })
 	sort.Slice(f.Packs, func(i, j int) bool { return f.Packs[i].PackDigest < f.Packs[j].PackDigest })
+	f.deriveCaseCaptures()
 
+	// The record of what the lineage tuned on carries forward, so what a
+	// revision drops stays tuned; validate then refuses to hold any of it
+	// out.
+	var inherited TunedLedger
 	if prev := opts.Supersedes; prev != nil {
-		if err := checkSupersedes(prev, f); err != nil {
-			return nil, err
-		}
 		f.Revision, f.Supersedes = prev.Revision+1, prev.SplitDigest
+		inherited = prev.Tuned
 	}
+	f.Tuned = mergeLedgers(inherited, f.ownTuning())
 	if err := f.validate(); err != nil {
 		return nil, err
 	}
 	f.SplitDigest = f.contentDigest()
 	return f, nil
+}
+
+// draftCases copies the draft's cases, sorted by ID. A capture the draft
+// declares names the SHA-256 of its file: it is what a replay under the
+// split is checked against, and the operator freezing the split has the file
+// to hash.
+func draftCases(in []SplitCase) ([]SplitCase, error) {
+	var out []SplitCase
+	for _, c := range in {
+		for _, cp := range c.Captures {
+			if cp.SHA256 == "" {
+				return nil, fmt.Errorf("draft case %q capture %q has no sha256: declare the SHA-256 of each capture file "+
+					"(sha256sum), which every replay of the case under the split is checked against", c.CaseID, cp.Basename)
+			}
+		}
+		c.Captures = append([]CaseCapture(nil), c.Captures...)
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CaseID < out[j].CaseID })
+	return out, nil
+}
+
+// deriveCaseCaptures gives a case the capture of every pack that names it,
+// by basename, the only identity a pack records, and sorts each case's
+// captures. A pack that names an undeclared case, or records no capture, is
+// left for validate to refuse.
+func (f *FrozenSplit) deriveCaseCaptures() {
+	index := map[string]int{}
+	for i, c := range f.Cases {
+		index[c.CaseID] = i
+	}
+	for _, p := range f.Packs {
+		i, ok := index[p.CaseID]
+		if !ok || p.Source.PCAPBasename == "" || f.Cases[i].hasBasename(p.Source.PCAPBasename) {
+			continue
+		}
+		f.Cases[i].Captures = append(f.Cases[i].Captures, CaseCapture{Basename: p.Source.PCAPBasename})
+	}
+	for i := range f.Cases {
+		sortCaptures(f.Cases[i].Captures)
+	}
+}
+
+func sortCaptures(captures []CaseCapture) {
+	sort.Slice(captures, func(i, j int) bool {
+		if captures[i].Basename != captures[j].Basename {
+			return captures[i].Basename < captures[j].Basename
+		}
+		return captures[i].SHA256 < captures[j].SHA256
+	})
+}
+
+// ownTuning is what this revision tunes on, stamped with its revision: each
+// pack's tuning objects with the pack's source and capture span, and each
+// tuning case with its captures.
+func (f *FrozenSplit) ownTuning() TunedLedger {
+	roles := map[string]SplitRole{}
+	for _, p := range f.Partitions {
+		roles[p.Name] = p.Role
+	}
+	var l TunedLedger
+	for _, p := range f.Packs {
+		var ids []string
+		for _, o := range p.Objects {
+			if roles[o.Partition] == SplitRoleTuning {
+				ids = append(ids, o.ObjectID)
+			}
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		sort.Strings(ids)
+		l.Spans = append(l.Spans, TunedSpan{Revision: f.Revision, PackDigest: p.PackDigest, Source: p.Source.sourceKey(),
+			FirstSampleNs: p.Source.FirstSampleNs, LastSampleNs: p.Source.LastSampleNs, GuardSeconds: f.GuardSeconds, ObjectIDs: ids})
+	}
+	for _, c := range f.Cases {
+		if c.Role == SplitRoleTuning {
+			l.Cases = append(l.Cases, TunedCase{Revision: f.Revision, CaseID: c.CaseID, Captures: append([]CaseCapture(nil), c.Captures...)})
+		}
+	}
+	return l
+}
+
+// key identifies a tuned span: one pack, as cut from one source.
+func (s TunedSpan) key() string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d", s.PackDigest, s.Source, s.FirstSampleNs, s.LastSampleNs)
+}
+
+// mergeLedgers is the union of tuned records: a span or case in both keeps
+// the earlier revision, the wider guard and every object and capture either
+// names. The result is sorted, so it encodes the same whatever the order of
+// its parts.
+func mergeLedgers(ledgers ...TunedLedger) TunedLedger {
+	spans := map[string]*TunedSpan{}
+	cases := map[string]*TunedCase{}
+	for _, l := range ledgers {
+		for _, s := range l.Spans {
+			if have, ok := spans[s.key()]; ok {
+				have.Revision, have.GuardSeconds = min(have.Revision, s.Revision), max(have.GuardSeconds, s.GuardSeconds)
+				have.ObjectIDs = unionSorted(have.ObjectIDs, s.ObjectIDs)
+				continue
+			}
+			s.ObjectIDs = unionSorted(nil, s.ObjectIDs)
+			spans[s.key()] = &s
+		}
+		for _, c := range l.Cases {
+			if have, ok := cases[c.CaseID]; ok {
+				have.Revision = min(have.Revision, c.Revision)
+				have.Captures = unionCaptures(have.Captures, c.Captures)
+				continue
+			}
+			c.Captures = unionCaptures(nil, c.Captures)
+			cases[c.CaseID] = &c
+		}
+	}
+	var out TunedLedger
+	for _, k := range sortedMapKeys(spans) {
+		out.Spans = append(out.Spans, *spans[k])
+	}
+	for _, k := range sortedMapKeys(cases) {
+		out.Cases = append(out.Cases, *cases[k])
+	}
+	return out
+}
+
+func sortedMapKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func unionSorted(a, b []string) []string {
+	set := map[string]bool{}
+	for _, s := range append(append([]string(nil), a...), b...) {
+		set[s] = true
+	}
+	return sortedMapKeys(set)
+}
+
+func unionCaptures(a, b []CaseCapture) []CaseCapture {
+	var out []CaseCapture
+	for _, c := range append(append([]CaseCapture(nil), a...), b...) {
+		if !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+	sortCaptures(out)
+	return out
+}
+
+func capturesHaveBasename(captures []CaseCapture, basename string) bool {
+	for _, c := range captures {
+		if c.Basename == basename {
+			return true
+		}
+	}
+	return false
+}
+
+// sameCapture reports whether two captures are one file: by content when
+// both name it, else by basename.
+func sameCapture(a, b CaseCapture) bool {
+	if a.SHA256 != "" && b.SHA256 != "" {
+		return a.SHA256 == b.SHA256
+	}
+	return a.Basename == b.Basename
+}
+
+// checkTuned checks the Tuned record: well formed, holding this revision's
+// own tuning, and holding nothing this revision holds out.
+func (f *FrozenSplit) checkTuned() error {
+	spans := map[string]TunedSpan{}
+	for i, s := range f.Tuned.Spans {
+		if err := s.validate(f.Revision); err != nil {
+			return fmt.Errorf("tuned span %d: %w", i, err)
+		}
+		if _, dup := spans[s.key()]; dup {
+			return fmt.Errorf("tuned span %d repeats pack %s over the same capture span", i, s.PackDigest)
+		}
+		spans[s.key()] = s
+	}
+	cases := map[string]TunedCase{}
+	for i, c := range f.Tuned.Cases {
+		if c.Revision < 1 || c.Revision > f.Revision {
+			return fmt.Errorf("tuned case %d: revision %d is outside this lineage's 1 to %d", i, c.Revision, f.Revision)
+		}
+		if strings.TrimSpace(c.CaseID) == "" {
+			return fmt.Errorf("tuned case %d has no id", i)
+		}
+		if _, dup := cases[c.CaseID]; dup {
+			return fmt.Errorf("tuned case %q is recorded twice", c.CaseID)
+		}
+		if len(c.Captures) == 0 {
+			return fmt.Errorf("tuned case %q names no capture", c.CaseID)
+		}
+		for _, cp := range c.Captures {
+			if err := cp.validate(); err != nil {
+				return fmt.Errorf("tuned case %q: %w", c.CaseID, err)
+			}
+		}
+		cases[c.CaseID] = c
+	}
+	own := f.ownTuning()
+	for _, s := range own.Spans {
+		have, ok := spans[s.key()]
+		if !ok || have.GuardSeconds < s.GuardSeconds || len(unionSorted(have.ObjectIDs, s.ObjectIDs)) != len(have.ObjectIDs) {
+			return fmt.Errorf("the tuned record does not hold pack %s's tuning in this revision", s.PackDigest)
+		}
+	}
+	for _, c := range own.Cases {
+		have, ok := cases[c.CaseID]
+		if !ok || len(unionCaptures(have.Captures, c.Captures)) != len(have.Captures) {
+			return fmt.Errorf("the tuned record does not hold case %q, tuned on in this revision", c.CaseID)
+		}
+	}
+	return f.checkHeldOutAgainstTuned()
+}
+
+func (s TunedSpan) validate(revision int) error {
+	if s.Revision < 1 || s.Revision > revision {
+		return fmt.Errorf("revision %d is outside this lineage's 1 to %d", s.Revision, revision)
+	}
+	if !strings.HasPrefix(s.PackDigest, "sha256:") {
+		return fmt.Errorf("pack_digest %q is not a sha256: digest", s.PackDigest)
+	}
+	if s.FirstSampleNs > s.LastSampleNs {
+		return fmt.Errorf("capture span [%d, %d] ends before it starts", s.FirstSampleNs, s.LastSampleNs)
+	}
+	if !validGuard(s.GuardSeconds) {
+		return fmt.Errorf("guard_seconds %g must be between 0 and %d", s.GuardSeconds, maxSplitGuardSeconds)
+	}
+	if len(s.ObjectIDs) == 0 {
+		return fmt.Errorf("pack %s names no tuned object", s.PackDigest)
+	}
+	if ids := unionSorted(nil, s.ObjectIDs); len(ids) != len(s.ObjectIDs) || ids[0] == "" {
+		return fmt.Errorf("pack %s's tuned object ids must be distinct and non-empty", s.PackDigest)
+	}
+	return nil
+}
+
+// checkHeldOutAgainstTuned refuses to hold out anything the lineage tuned
+// on: an object it holds, a pack of the same source within the guard of a
+// tuned pack, a pack cut from a tuned case's capture, a tuned case by ID or
+// by capture, and a case one of whose captures a tuned pack was cut from.
+func (f *FrozenSplit) checkHeldOutAgainstTuned() error {
+	roles := map[string]SplitRole{}
+	for _, p := range f.Partitions {
+		roles[p.Name] = p.Role
+	}
+	for _, p := range f.Packs {
+		var held []string
+		for _, o := range p.Objects {
+			if roles[o.Partition] == SplitRoleHeldOut {
+				held = append(held, o.ObjectID)
+			}
+		}
+		if len(held) == 0 {
+			continue
+		}
+		key := p.Source.sourceKey()
+		for _, s := range f.Tuned.Spans {
+			if s.PackDigest == p.PackDigest {
+				for _, id := range held {
+					if slices.Contains(s.ObjectIDs, id) {
+						return fmt.Errorf("pack %s object %s is held out, but revision %d of this split's lineage tuned on it: "+
+							"no later revision can make it unseen", p.PackDigest, id, s.Revision)
+					}
+				}
+				continue
+			}
+			guard := max(f.GuardSeconds, s.GuardSeconds)
+			if key != "" && key == s.Source &&
+				withinGuard(p.Source.FirstSampleNs, p.Source.LastSampleNs, s.FirstSampleNs, s.LastSampleNs, guard) {
+				return fmt.Errorf("pack %s holds out object %s, but pack %s, tuned on in revision %d, is cut from %s within %gs of it: "+
+					"the same physical object could have been tuned on", p.PackDigest, held[0], s.PackDigest, s.Revision, key, guard)
+			}
+		}
+		for _, c := range f.Tuned.Cases {
+			if b := p.Source.PCAPBasename; b != "" && capturesHaveBasename(c.Captures, b) {
+				return fmt.Errorf("pack %s holds out object %s, but it is cut from capture %s of case %q, tuned on in revision %d",
+					p.PackDigest, held[0], b, c.CaseID, c.Revision)
+			}
+		}
+	}
+	for _, c := range f.Cases {
+		if c.Role != SplitRoleHeldOut {
+			continue
+		}
+		for _, t := range f.Tuned.Cases {
+			if t.CaseID == c.CaseID {
+				return fmt.Errorf("case %q is held out, but revision %d of this split's lineage tuned on it: "+
+					"no later revision can make it unseen", c.CaseID, t.Revision)
+			}
+			for _, a := range c.Captures {
+				for _, b := range t.Captures {
+					if sameCapture(a, b) {
+						return fmt.Errorf("case %q is held out, but its capture %s is case %q's, tuned on in revision %d",
+							c.CaseID, a.Basename, t.CaseID, t.Revision)
+					}
+				}
+			}
+		}
+		for _, s := range f.Tuned.Spans {
+			for _, a := range c.Captures {
+				if s.Source == "pcap:"+a.Basename {
+					return fmt.Errorf("case %q is held out, but pack %s, tuned on in revision %d, is cut from its capture %s",
+						c.CaseID, s.PackDigest, s.Revision, a.Basename)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // freezePack opens one draft pack, pins it and checks its review. It returns
@@ -741,16 +1273,9 @@ func freezePack(dp DraftPack, baseDir string) (FrozenPack, map[string]SplitRole,
 	if err != nil {
 		return FrozenPack{}, nil, nil, err
 	}
-	src := pack.Manifest.Source
-	first, last := sampleSpan(pack.Samples)
 	p := FrozenPack{
 		PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, CaseID: dp.CaseID,
-		ManifestSHA256: manifestDigest, Selection: selection,
-		Source: FrozenSource{
-			PCAPBasename: src.PCAPBasename, VRLOGHeaderSHA: src.VRLOGHeaderSHA, VRLOGFramesSHA: src.VRLOGFramesSHA,
-			SensorID: src.SensorID, ConfigHash: src.ConfigHash, ParamsHash: src.ParamsHash, BuildGitSHA: src.BuildGitSHA,
-			FirstSampleNs: first, LastSampleNs: last,
-		},
+		ManifestSHA256: manifestDigest, Selection: selection, Source: frozenSource(pack),
 		SidecarRevision: s.Revision, SidecarSHA256: s.baseDigest, Episodes: m.Episodes,
 	}
 	roles := map[string]SplitRole{}
@@ -762,6 +1287,18 @@ func freezePack(dp DraftPack, baseDir string) (FrozenPack, map[string]SplitRole,
 	}
 	sort.Slice(p.Objects, func(i, j int) bool { return p.Objects[i].ObjectID < p.Objects[j].ObjectID })
 	return p, roles, reviewProblems(pack.Manifest.PackDigest, s, m), nil
+}
+
+// frozenSource is the pack's source as its manifest declares it, with the
+// capture span of its samples.
+func frozenSource(pack *Pack) FrozenSource {
+	src := pack.Manifest.Source
+	first, last := sampleSpan(pack.Samples)
+	return FrozenSource{
+		PCAPBasename: src.PCAPBasename, VRLOGHeaderSHA: src.VRLOGHeaderSHA, VRLOGFramesSHA: src.VRLOGFramesSHA,
+		SensorID: src.SensorID, ConfigHash: src.ConfigHash, ParamsHash: src.ParamsHash, BuildGitSHA: src.BuildGitSHA,
+		FirstSampleNs: first, LastSampleNs: last,
+	}
 }
 
 func sampleSpan(samples []Sample) (first, last int64) {
@@ -881,48 +1418,15 @@ func reviewProblems(packDigest string, s *Sidecar, m *SplitManifest) []string {
 	return out
 }
 
-// checkSupersedes refuses a revision that would hold out what an earlier
-// revision gave to tuning. A tuned object, or a tuned case, has been looked
-// at; no later revision can make it unseen.
-func checkSupersedes(prev, next *FrozenSplit) error {
-	tuned := map[string]bool{}
-	prevRoles := map[string]SplitRole{}
-	for _, p := range prev.Partitions {
-		prevRoles[p.Name] = p.Role
-	}
-	for _, p := range prev.Packs {
-		for _, o := range p.Objects {
-			if prevRoles[o.Partition] == SplitRoleTuning {
-				tuned[p.PackDigest+"/"+o.ObjectID] = true
-			}
-		}
-	}
-	nextRoles := map[string]SplitRole{}
-	for _, p := range next.Partitions {
-		nextRoles[p.Name] = p.Role
-	}
-	for _, p := range next.Packs {
-		for _, o := range p.Objects {
-			if tuned[p.PackDigest+"/"+o.ObjectID] && nextRoles[o.Partition] == SplitRoleHeldOut {
-				return fmt.Errorf("pack %s object %s was a tuning object in revision %d and cannot be held out in its successor",
-					p.PackDigest, o.ObjectID, prev.Revision)
-			}
-		}
-	}
-	prevCases, _ := caseRoles(prev.Cases)
-	for _, c := range next.Cases {
-		if prevCases[c.CaseID] == SplitRoleTuning && c.Role == SplitRoleHeldOut {
-			return fmt.Errorf("case %s was tuning in revision %d and cannot be held out in its successor", c.CaseID, prev.Revision)
-		}
-	}
-	return nil
-}
-
 // Bind checks the frozen split against one of its packs, as an evaluator
 // opens it, and returns that pack's partition in version 1 form with the
 // annotation revision it pins. Every pin is re-checked: the pack's manifest
 // and selection record, the pinned revision's bytes, the objects that
 // revision still carries, and the membership review the freeze certified.
+// What the file copies from those pinned bytes, the selection record's
+// content, the source and capture span and each object's review counts, is
+// derived from them again and must agree, so an edit that recomputed the
+// split digest cannot change it.
 func (f *FrozenSplit) Bind(p *Pack) (*SplitManifest, *Sidecar, error) {
 	var entry *FrozenPack
 	for i := range f.Packs {
@@ -944,12 +1448,20 @@ func (f *FrozenSplit) Bind(p *Pack) (*SplitManifest, *Sidecar, error) {
 		return nil, nil, fmt.Errorf("pack %s manifest.json changed after freezing (%s, now %s)",
 			entry.PackDigest, entry.ManifestSHA256, manifestDigest)
 	}
+	if source := frozenSource(p); source != entry.Source {
+		return nil, nil, fmt.Errorf("pack %s: the frozen split's source %+v is not the pack's %+v, which its pinned manifest and samples give",
+			entry.PackDigest, entry.Source, source)
+	}
 	selection, err := readSelection(p)
 	if err != nil {
 		return nil, nil, err
 	}
 	if (selection == nil) != (entry.Selection == nil) || (selection != nil && selection.SHA256 != entry.Selection.SHA256) {
 		return nil, nil, fmt.Errorf("pack %s selection record changed after freezing", entry.PackDigest)
+	}
+	if selection != nil && *selection != *entry.Selection {
+		return nil, nil, fmt.Errorf("pack %s: the frozen split's selection %+v is not the pinned record's %+v",
+			entry.PackDigest, *entry.Selection, *selection)
 	}
 	s, err := LoadSidecarRevision(p, entry.SidecarRevision)
 	if err != nil {
@@ -966,6 +1478,12 @@ func (f *FrozenSplit) Bind(p *Pack) (*SplitManifest, *Sidecar, error) {
 	}
 	if problems := reviewProblems(entry.PackDigest, s, view); len(problems) > 0 {
 		return nil, nil, fmt.Errorf("the pinned revision does not support the frozen review:\n  %s", strings.Join(problems, "\n  "))
+	}
+	for _, o := range entry.Objects {
+		if derived := frozenObject(s, o.ObjectID, o.Partition); derived != o {
+			return nil, nil, fmt.Errorf("pack %s object %s: the frozen split records %+v, but the pinned revision gives %+v",
+				entry.PackDigest, o.ObjectID, o, derived)
+		}
 	}
 	return view, s, nil
 }
@@ -992,6 +1510,84 @@ func (f *FrozenSplit) CaseRoles(caseIDs []string, heldOut bool) (map[string]Spli
 		out[id] = role
 	}
 	return out, nil
+}
+
+// CheckCaseCaptures refuses a replay of the named case unless every capture
+// file it replays is one of the case's captures: by SHA-256 when the case
+// declares it, by basename only for a capture the case gained from a pack.
+// A case's role binds to its captures, so a capture replayed under another
+// case's name cannot take that case's role. Files are hashed only when the
+// case declares a digest to compare against.
+func (f *FrozenSplit) CheckCaseCaptures(caseID string, paths []string) error {
+	var c *SplitCase
+	for i := range f.Cases {
+		if f.Cases[i].CaseID == caseID {
+			c = &f.Cases[i]
+		}
+	}
+	if c == nil {
+		return fmt.Errorf("case %q has no role in frozen split %s", caseID, f.SplitDigest)
+	}
+	if len(paths) == 0 {
+		return fmt.Errorf("case %q: no capture to check against frozen split %s", caseID, f.SplitDigest)
+	}
+	hash := false
+	for _, cp := range c.Captures {
+		hash = hash || cp.SHA256 != ""
+	}
+	for _, path := range paths {
+		file := CaseCapture{Basename: filepath.Base(path)}
+		if hash {
+			sum, err := captureFileSHA256(path)
+			if err != nil {
+				return fmt.Errorf("case %q: hash capture: %w", caseID, err)
+			}
+			file.SHA256 = sum
+		}
+		if !c.replays(file) {
+			return fmt.Errorf("capture %s (%s %s) is not one of case %q's captures in frozen split %s (%s): "+
+				"a case's role binds to its captures, not to its name", path, file.Basename, file.SHA256, caseID, f.SplitDigest, describeCaptures(c.Captures))
+		}
+	}
+	return nil
+}
+
+// replays reports whether the file, its basename and (when the case declares
+// any digest) its SHA-256, is one of the case's captures. A declared digest
+// must match; a capture with none matches by basename.
+func (c SplitCase) replays(file CaseCapture) bool {
+	for _, cp := range c.Captures {
+		if (cp.SHA256 != "" && cp.SHA256 == file.SHA256) || (cp.SHA256 == "" && cp.Basename == file.Basename) {
+			return true
+		}
+	}
+	return false
+}
+
+func describeCaptures(captures []CaseCapture) string {
+	parts := make([]string, len(captures))
+	for i, cp := range captures {
+		parts[i] = cp.Basename
+		if cp.SHA256 != "" {
+			parts[i] += " " + cp.SHA256
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// captureFileSHA256 is the SHA-256 of a capture file's content, as
+// "sha256:<hex>", streamed: a capture runs to hundreds of megabytes.
+func captureFileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, file); err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // splitOutput is the file WriteFrozenSplit writes through.

@@ -85,7 +85,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if *splitPath != "" || *heldOut {
-		if cfg.Split, err = caseSplitUse(*splitPath, *caseID, *heldOut); err != nil {
+		if cfg.Split, err = caseSplitUse(*splitPath, *caseID, *heldOut, *pcap); err != nil {
 			fmt.Fprintf(stderr, "lidar-refinement-eval: %v\n", err)
 			return 2
 		}
@@ -155,8 +155,9 @@ func fileLabel(lag string) string { return strings.ReplaceAll(lag, ".", "p") }
 
 // caseSplitUse holds the replayed case to its role in a frozen split, by the
 // rules the corpus tool applies: a held-out case replays only as a declared
-// held-out score, and a held-out score only a held-out case.
-func caseSplitUse(path, caseID string, heldOut bool) (*replayeval.SplitUse, error) {
+// held-out score, and a held-out score only a held-out case. The role binds
+// to the case's captures, so the capture replayed must be one of them.
+func caseSplitUse(path, caseID string, heldOut bool, pcap string) (*replayeval.SplitUse, error) {
 	if path == "" || caseID == "" {
 		return nil, fmt.Errorf("-split-manifest and -case go together, and -held-out needs both")
 	}
@@ -166,6 +167,9 @@ func caseSplitUse(path, caseID string, heldOut bool) (*replayeval.SplitUse, erro
 	}
 	roles, err := f.CaseRoles([]string{caseID}, heldOut)
 	if err != nil {
+		return nil, err
+	}
+	if err := f.CheckCaseCaptures(caseID, []string{pcap}); err != nil {
 		return nil, err
 	}
 	return &replayeval.SplitUse{SplitDigest: f.SplitDigest, Revision: f.Revision, CaseID: caseID,

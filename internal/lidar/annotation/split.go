@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -134,7 +135,7 @@ func ParseSplitManifest(b []byte) (*SplitManifest, error) {
 	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("parse split manifest: %w", err)
 	}
-	if dec.More() {
+	if !atEndOfJSON(dec) {
 		return nil, fmt.Errorf("parse split manifest: trailing data after the manifest object")
 	}
 	if err := m.validateStructure(); err != nil {
@@ -142,6 +143,14 @@ func ParseSplitManifest(b []byte) (*SplitManifest, error) {
 	}
 	m.Digest = sha256Hex(b)
 	return &m, nil
+}
+
+// atEndOfJSON reports whether nothing but whitespace follows the value the
+// decoder has read. Decoder.More is not enough: it reports false before a
+// stray closing '}' or ']', so a file with one appended would read as whole.
+func atEndOfJSON(dec *json.Decoder) bool {
+	_, err := dec.Token()
+	return errors.Is(err, io.EOF)
 }
 
 func (m *SplitManifest) validateStructure() error {
