@@ -254,6 +254,15 @@ type TrackerConfig struct {
 	// solid_body_nearedge.go.
 	SolidBody SolidBodyOptions
 
+	// NearEdgeTracking runs the solid body's near-edge state machine on the
+	// tracked filter instead of on a shadow of it: fixes, re-references and
+	// lapses move the tracked state, association gates a body-centre track
+	// on the pair's face residual (A2), and the solid body reads the tracked
+	// state. It needs SolidBody, which carries the origin, the remedies and
+	// the beliefs; without it nothing changes. Like SolidBody it is a Go-level
+	// option and not a tuning key. Default off; see near_edge_tracking.go.
+	NearEdgeTracking bool
+
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
 	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)

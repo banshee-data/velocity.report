@@ -478,3 +478,21 @@ func TestTrajectoriesFromEstimatesRefusesWhatARowCannotSay(t *testing.T) {
 		t.Errorf("a smoother over cv_kf_v1 keeps its layout: %v", err)
 	}
 }
+
+// A row near_edge_track wrote on a body-centre frame states the body centre,
+// whatever geometry entered the filter, and is read as stated.
+func TestTrajectoriesFromEstimatesReadNearEdgeRowsAsTheBodyCentre(t *testing.T) {
+	rows := []PersistedEstimate{persistedRow("trk", 0, 10, 10), persistedRow("trk", 1, 11, 10)}
+	for i := range rows {
+		rows[i].ObsModelID, rows[i].Reference = "near_edge_candidate_v1", l5tracks.ReferenceBodyCentre
+	}
+	trajectories, err := TrajectoriesFromEstimates(rows, l5tracks.DefaultConvergenceBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, s := range trajectories[0].Samples {
+		if s.Reference != ReferenceBodyCentre {
+			t.Errorf("sample %d reference %s, want the body centre", i, s.Reference)
+		}
+	}
+}

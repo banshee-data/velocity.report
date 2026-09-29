@@ -80,6 +80,15 @@ type SyntheticVehicle struct {
 	SpeedMps float64
 	// StartXMetres is the body centre's X at frame zero.
 	StartXMetres float64
+	// LaneChangeMetres moves the centreline by this much in Y, starting at
+	// LaneChangeStartSecs and taking LaneChangeDurationSecs, along a
+	// half-cosine; zero is a straight pass. The body stays axis-aligned: the
+	// few degrees of yaw a real lane change has are not modelled, so what
+	// changes is the lateral position the anchor must follow and nothing the
+	// heading could explain.
+	LaneChangeMetres       float64
+	LaneChangeStartSecs    float64
+	LaneChangeDurationSecs float64
 }
 
 // DefaultSyntheticVehicle is Section 3.1's vehicle: a 4.5 x 1.8 x 1.5 m box
@@ -98,7 +107,20 @@ func DefaultSyntheticVehicle() SyntheticVehicle {
 // CentreAt is the true body centre at a frame index, given the frame interval.
 func (v SyntheticVehicle) CentreAt(frame int, interval time.Duration) (x, y, z float64) {
 	t := float64(frame) * interval.Seconds()
-	return v.StartXMetres + v.SpeedMps*t, v.LateralOffsetMetres, v.Height / 2
+	return v.StartXMetres + v.SpeedMps*t, v.LateralOffsetMetres + v.laneChangeAt(t), v.Height / 2
+}
+
+// laneChangeAt is the lane change's lateral displacement t seconds into the
+// pass.
+func (v SyntheticVehicle) laneChangeAt(t float64) float64 {
+	switch {
+	case v.LaneChangeMetres == 0 || t <= v.LaneChangeStartSecs:
+		return 0
+	case v.LaneChangeDurationSecs <= 0 || t >= v.LaneChangeStartSecs+v.LaneChangeDurationSecs:
+		return v.LaneChangeMetres
+	}
+	phase := (t - v.LaneChangeStartSecs) / v.LaneChangeDurationSecs
+	return v.LaneChangeMetres * (1 - math.Cos(math.Pi*phase)) / 2
 }
 
 // SyntheticOccluder deletes an azimuth wedge from a range of frames, modelling

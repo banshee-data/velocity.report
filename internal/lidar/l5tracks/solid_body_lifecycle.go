@@ -269,6 +269,11 @@ func SolidBodyFromTrack(t *TrackedObject, class MotionClassBelief, bounds Conver
 // know names nothing. A persisted point estimate states this value; see
 // FilterStep.Reference for the refined stages.
 func (t *TrackedObject) PositionReference() ReferencePoint {
+	if t.solidBody.tracked {
+		// Under NearEdgeTracking the tracked filter is the body's, and its
+		// reference is the body's.
+		return t.solidBody.reference
+	}
 	if t.ObservationCount <= 0 {
 		return ReferenceClusterMedoid
 	}

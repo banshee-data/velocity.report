@@ -66,7 +66,22 @@ type FilterResidual struct {
 	InnovationX, InnovationY float32
 	NIS                      float32
 	GeometryCovariance       MeasurementCovariance
+	// Disposition and Reason say what became of the measurement when the
+	// filter did not apply it as an update: empty for an accepted update,
+	// the only kind outside NearEdgeTracking.
+	Disposition, Reason string
 }
+
+// Residual dispositions for a frame NearEdgeTracking decided without an
+// update. The estimate sinks record an accepted update's as "accepted".
+const (
+	// ResidualNotApplied: the track was associated, but no usable face
+	// reached the filter, which kept its prediction.
+	ResidualNotApplied = "not_applied"
+	// ResidualReferenceChanged: the body-centre claim lapsed and the
+	// position was translated back to the medoid.
+	ResidualReferenceChanged = "reference_changed"
+)
 
 // measurementForCluster is the production measurement: the default mode,
 // applied alike to association, initialisation and the Kalman update.

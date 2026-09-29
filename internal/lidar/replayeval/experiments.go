@@ -96,6 +96,19 @@ const (
 	// faces from the members rather than the retained evidence sample. It
 	// qualifies solid_body like the remedies, and changes no tracked decision.
 	ExperimentSolidBodyFullMembers = "solid_body_full_members"
+	// ExperimentSolidBodyReferenceTranslation qualifies solid_body with
+	// SolidBodyOptions.ReferenceTranslation: the first fix translates the
+	// medoid-referenced position to the body centre before the faces update
+	// it (the near-edge plan's invariant 3). near_edge_track always does.
+	ExperimentSolidBodyReferenceTranslation = "solid_body_reference_translation"
+	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
+	// S2.2 of the near-edge plan: the solid body's state machine runs on the
+	// tracked filter, with A2 face-residual association, so unlike the
+	// shadow it changes the tracks. It names the solid body it runs, so it
+	// needs solid_body, and solid_body_full_members, because the tracked
+	// decisions then depend on the face geometry and the determinism repeat
+	// runs without the observation database that holds the retained sample.
+	ExperimentNearEdgeTrack = "near_edge_track"
 )
 
 var knownExperiments = map[string]bool{
@@ -119,6 +132,9 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyFaceConsider:   true,
 	ExperimentSolidBodyCourseFaces:    true,
 	ExperimentSolidBodyFullMembers:    true,
+
+	ExperimentSolidBodyReferenceTranslation: true,
+	ExperimentNearEdgeTrack:                 true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.
