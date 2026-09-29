@@ -19,10 +19,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.2 - Tailgating metric + distribution (052)
 
-The [remaining sprint plan](plans/lidar-052-mvp-sprint-plan.md) orders these items after
-the [#596–609/#611 review](lidar/operations/0.5.2-sprint-review.md). First deliver a replayable,
-inspectable provisional MVP on the Mac; promotion retains the physical and metric gates.
-
 #### Sprint 0.5.2.0: Trustworthy replay evidence
 
 - Physical reference authoring and scoring: add macOS keyframe pose/box editing or a validated independent import, component uncertainty and observed/inferred/unknown geometry, separate reference review, and evaluator/inspector comparisons against versioned tracker output. Optional pose storage alone does not provide this workflow; it is an engineering dependency of physical and following qualification, while provisional MVP work can continue: [plan](plans/lidar-physical-reference-review-plan.md) `L` {frontend} {math}
