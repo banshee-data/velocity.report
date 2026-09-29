@@ -81,13 +81,53 @@ func TestPhysicalValidationRefusesUnnamedRecordsAndOtherUnits(t *testing.T) {
 // a mask at a sample the pack does not have cannot be read for its span.
 func TestPhysicalLinksAgainstUnvalidatedInputs(t *testing.T) {
 	p := physPack(t)
+	s := physSidecar(t, p)
+	s.Masks = append(s.Masks, mask("car-1", 99, 0))
 	r := validPhysical(p)
 	r.Objects[0].Body.Height = DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(1), UpperM: fp(2), Support: frames(99)}
-	s := NewSidecar(p)
-	s.Objects = []Object{reviewedObject("car-1", "car"), reviewedObject("car-2", "car")}
-	s.Masks = []FrameMask{mask("car-1", 99, 0)}
-	if err := r.ValidateLinks(p, s); err == nil {
-		t.Fatal("a span was read from a sample outside the pack")
+	if err := r.ValidateLinks(p, s); err == nil || !strings.Contains(err.Error(), "outside the pack") {
+		t.Fatalf("a span was read from a sample outside the pack: %v", err)
+	}
+	// Likewise a bumper checked at a keyframe outside the pack.
+	r = validPhysical(p)
+	k := &r.Objects[0].Keyframes[0]
+	k.SampleID = 99
+	k.Position.Support, k.Yaw.Support, k.Front.Support, k.Rear.Support = frames(99), frames(99), frames(99), frames(99)
+	if err := r.ValidateLinks(p, s); err == nil || !strings.Contains(err.Error(), "outside the pack") {
+		t.Fatalf("a bumper was checked at a sample outside the pack: %v", err)
+	}
+}
+
+// A rejected mask holds no returns for the object, and a side face with its
+// offset places the centre a bumper is checked from.
+func TestPhysicalLinksReadOnlyLiveMasksAndSideFaces(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 2 {
+			s.Masks[i].Status = StatusRejected
+		}
+	}
+	r := validPhysical(p)
+	if err := r.ValidateLinks(p, s); err == nil || !strings.Contains(err.Error(), `yaw cites frame 2, where "car-1" has no returns`) {
+		t.Fatalf("a rejected mask counted as returns: %v", err)
+	}
+	s = physSidecar(t, physPack(t))
+	for _, side := range []struct {
+		kind AnchorKind
+		y    float64
+	}{{AnchorLeftFace, 0.9}, {AnchorRightFace, -0.9}} {
+		r := validPhysical(p)
+		k := &r.Objects[0].Keyframes[0]
+		k.Anchor = PhysicalAnchor{Kind: side.kind, OffsetM: fp(0.9), OffsetBoundM: fp(0.1)}
+		*k.Position.YM = side.y
+		if err := r.ValidateLinks(p, s); err != nil {
+			t.Errorf("bumpers from the %s: %v", side.kind, err)
+		}
+		*k.Position.XM = 16
+		if err := r.ValidateLinks(p, s); err == nil {
+			t.Errorf("a front 6 m beyond the returns was observed from the %s", side.kind)
+		}
 	}
 }
 

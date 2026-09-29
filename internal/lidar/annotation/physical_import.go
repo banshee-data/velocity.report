@@ -67,7 +67,10 @@ func ParsePhysicalImport(b []byte) (*PhysicalReferenceImport, error) {
 }
 
 // Document is the import as a stand-alone document at revision 1, with its
-// origin ledger taken from its own records.
+// origin ledger taken from its own records. It is for display and digests:
+// an import may add a keyframe to a body already stored, so it is validated
+// merged with the stored references, as it would be saved
+// (PreparePhysicalImport), never on its own.
 func (imp *PhysicalReferenceImport) Document() *PhysicalReferenceSet {
 	r := &PhysicalReferenceSet{
 		Schema: PhysicalReferenceSchema, SchemaVersion: PhysicalReferenceSchemaVersion,
@@ -79,31 +82,18 @@ func (imp *PhysicalReferenceImport) Document() *PhysicalReferenceSet {
 	return r
 }
 
-// Validate puts the import through the document's own checks: against the
-// pack, then against the sidecar's objects and masks.
-func (imp *PhysicalReferenceImport) Validate(p *Pack, s *Sidecar) error {
-	doc := imp.Document()
-	if err := doc.Validate(p); err != nil {
-		return fmt.Errorf("import: %w", err)
-	}
-	if err := doc.ValidateLinks(p, s); err != nil {
-		return fmt.Errorf("import: %w", err)
-	}
-	return nil
-}
-
 // MergeInto adds the import's records to a loaded document. A body, a
 // keyframe at a sample, or a following reference the document already has is
 // refused unless replace is set, in which case the imported record replaces
 // it. The merged document is not saved and not yet validated as a whole.
 func (imp *PhysicalReferenceImport) MergeInto(doc *PhysicalReferenceSet, replace bool) error {
 	if imp.PackDigest != doc.PackDigest || imp.DatasetID != doc.DatasetID {
-		return fmt.Errorf("import is for pack %s (dataset %q); the document is for %s (dataset %q)",
+		return fmt.Errorf("import was written against pack %s (dataset %q); these references are for %s (dataset %q)",
 			imp.PackDigest, imp.DatasetID, doc.PackDigest, doc.DatasetID)
 	}
-	// A document that has never held a record takes the import's source,
-	// which Validate has already held to the pack; its calibration identity
-	// is the one thing the pack cannot supply.
+	// A document that has never held a record takes the import's source; the
+	// merged document is then held to the pack like any other. Its
+	// calibration identity is the one thing the pack cannot supply.
 	if doc.baseDigest == "" && len(doc.Objects) == 0 && len(doc.Following) == 0 {
 		doc.Source = imp.Source
 	}
@@ -160,26 +150,52 @@ func (imp *PhysicalReferenceImport) MergeInto(doc *PhysicalReferenceSet, replace
 	return nil
 }
 
-// ImportPhysicalReferences validates an import against the pack and the
-// current sidecar, merges it into the current document and saves the result
-// as a new revision. change names who imported it and from where; each
-// record keeps its own review and provenance.
-func ImportPhysicalReferences(p *Pack, imp *PhysicalReferenceImport, change Provenance, replace bool) (*PhysicalReferenceSet, error) {
-	if strings.TrimSpace(change.Author) == "" {
-		return nil, fmt.Errorf("an import must name who ran it")
-	}
+// PreparePhysicalImport is an import without the write: it merges the import
+// into the current references and puts the merged document through every
+// check a save makes against the current state (the whole document against
+// the pack, the stored origin ledger, and the links against the current
+// sidecar). ImportPhysicalReferences saves what it returns, and the save
+// repeats those checks under the lock.
+func PreparePhysicalImport(p *Pack, imp *PhysicalReferenceImport, replace bool) (*PhysicalReferenceSet, error) {
 	sidecar, err := LoadSidecar(p)
 	if err != nil {
 		return nil, fmt.Errorf("load annotation: %w", err)
-	}
-	if err := imp.Validate(p, sidecar); err != nil {
-		return nil, err
 	}
 	doc, err := LoadPhysicalReferences(p)
 	if err != nil {
 		return nil, err
 	}
 	if err := imp.MergeInto(doc, replace); err != nil {
+		return nil, err
+	}
+	merged := *doc
+	merged.Objects, merged.Following = clonePhysicalObjects(doc.Objects), cloneFollowing(doc.Following)
+	merged.RecordOrigins = make(map[string]ReferenceOrigin, len(doc.RecordOrigins))
+	for key, origin := range doc.RecordOrigins {
+		merged.RecordOrigins[key] = origin
+	}
+	if err := mergeOrigins(merged.RecordOrigins, merged.currentOrigins()); err != nil {
+		return nil, fmt.Errorf("import: %w", err)
+	}
+	merged.canonicalise()
+	if err := merged.Validate(p); err != nil {
+		return nil, fmt.Errorf("import merged with the stored references: %w", err)
+	}
+	if err := merged.ValidateLinks(p, sidecar); err != nil {
+		return nil, fmt.Errorf("import merged with the stored references: %w", err)
+	}
+	return doc, nil
+}
+
+// ImportPhysicalReferences prepares an import as PreparePhysicalImport does
+// and saves the result as a new revision. change names who imported it and
+// from where; each record keeps its own review and provenance.
+func ImportPhysicalReferences(p *Pack, imp *PhysicalReferenceImport, change Provenance, replace bool) (*PhysicalReferenceSet, error) {
+	if strings.TrimSpace(change.Author) == "" {
+		return nil, fmt.Errorf("an import must name who ran it")
+	}
+	doc, err := PreparePhysicalImport(p, imp, replace)
+	if err != nil {
 		return nil, err
 	}
 	if change.Operation == "" {

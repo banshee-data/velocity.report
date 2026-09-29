@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"sort"
 )
@@ -366,7 +367,23 @@ type PhysicalReferenceSet struct {
 	// baseDigest is the optimistic concurrency token: the SHA-256 of the
 	// exact bytes this document was loaded from.
 	baseDigest string
+	// stale lists the records that no longer hold against the membership
+	// sidecar read when this document was loaded, at staleAgainst's
+	// revision. A later membership save can invalidate references this
+	// document committed; the load says which, and the next save refuses
+	// them until they are repaired or removed.
+	stale        []LinkProblem
+	staleAgainst int
 }
+
+// Stale lists the records that did not hold against the annotation revision
+// current when this document was loaded, which StaleAgainst names. Empty
+// means every link held.
+func (r *PhysicalReferenceSet) Stale() []LinkProblem { return r.stale }
+
+// StaleAgainst is the annotation revision Stale was checked against; zero for
+// a document not loaded from storage.
+func (r *PhysicalReferenceSet) StaleAgainst() int { return r.staleAgainst }
 
 // NewPhysicalReferenceSet starts an empty document whose source is the
 // pack's own.
@@ -560,7 +577,9 @@ func decodePhysicalJSON(b []byte, into any, what string) error {
 	if err := dec.Decode(into); err != nil {
 		return fmt.Errorf("parse %s: %w", what, err)
 	}
-	if dec.More() {
+	// Anything after the document but whitespace is refused. More() alone
+	// would pass a stray closing brace or bracket, which ends no value.
+	if _, err := dec.Token(); err != io.EOF {
 		return fmt.Errorf("parse %s: trailing data after the document", what)
 	}
 	return nil

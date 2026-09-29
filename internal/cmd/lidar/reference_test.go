@@ -45,6 +45,10 @@ func referencePack(t *testing.T) (*annotation.Pack, string) {
 	s := annotation.NewSidecar(pack)
 	s.Change = annotation.Provenance{Author: "op"}
 	s.Objects = []annotation.Object{{ObjectID: "car", Class: "car", Confidence: 1, Status: annotation.StatusReviewed}}
+	for i := 0; i < 2; i++ {
+		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: []int{0, 1},
+			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
+	}
 	if err := annotation.SaveSidecar(pack, s); err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +183,62 @@ func TestAnnotationReferenceRefusals(t *testing.T) {
 	}
 	if code, _, stderr := runReference("import", "--pack", pack.Dir, "--file", bad, "--author", "a"); !strings.Contains(stderr, "sample 7 is not in the pack") {
 		t.Errorf("exited %d without naming the frame: %s", code, stderr)
+	}
+	if code, _, _ := runReference("validate", "--pack", pack.Dir, "--replace"); code != 2 {
+		t.Error("--replace without --file was accepted")
+	}
+}
+
+// validate --file is a dry run of the import itself: what it passes, the
+// import passes, and what the import would refuse, it refuses, writing
+// nothing either way.
+func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
+	pack, file := referencePack(t)
+	head := filepath.Join(pack.Dir, "physical-references.json")
+
+	code, stdout, _ := runReference("validate", "--pack", pack.Dir)
+	if code != 0 || !strings.Contains(stdout, "no physical references stored") || strings.Contains(stdout, "revision") {
+		t.Fatalf("an empty store reported a revision: exit %d: %s", code, stdout)
+	}
+	code, stdout, _ = runReference("validate", "--pack", pack.Dir, "--file", file)
+	if code != 0 || !strings.Contains(stdout, "(none stored); importing would save revision 1") || strings.Contains(stdout, "revision digest") {
+		t.Fatalf("dry run on an empty store: exit %d: %s", code, stdout)
+	}
+	if code, _, stderr := runReference("import", "--pack", pack.Dir, "--file", file, "--author", "a"); code != 0 {
+		t.Fatalf("import: %s", stderr)
+	}
+	before, err := os.ReadFile(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same file again collides with what is stored: the dry run says so
+	// rather than calling it valid.
+	if code, _, stderr := runReference("validate", "--pack", pack.Dir, "--file", file); code != 1 || !strings.Contains(stderr, "would replace existing records") {
+		t.Fatalf("dry run of a colliding import: exit %d: %s", code, stderr)
+	}
+	code, stdout, _ = runReference("validate", "--pack", pack.Dir, "--file", file, "--replace")
+	if code != 0 || !strings.Contains(stdout, "(current revision 1); importing would save revision 2") {
+		t.Fatalf("dry run with --replace: exit %d: %s", code, stdout)
+	}
+	if after, _ := os.ReadFile(head); !bytes.Equal(before, after) {
+		t.Fatal("a dry run wrote the references")
+	}
+
+	// A later membership edit rejects the car: the references no longer hold,
+	// and validate names them.
+	s, err := annotation.LoadSidecar(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Objects[0].Status = annotation.StatusRejected
+	s.Change.Operation = "reject"
+	if err := annotation.SaveSidecar(pack, s); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := runReference("validate", "--pack", pack.Dir)
+	if code != 1 || !strings.Contains(stderr, "1 record(s) that do not hold against annotation revision 2") ||
+		!strings.Contains(stderr, `object "car": object "car" is rejected`) {
+		t.Fatalf("stale references: exit %d: %s", code, stderr)
 	}
 	if err := os.WriteFile(filepath.Join(pack.Dir, "annotations.json"), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)

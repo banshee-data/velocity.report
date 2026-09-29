@@ -86,17 +86,24 @@ Body geometry, keyframe poses and following gaps live in `physical-references.js
 separate review from the masks. The record is documented in the
 [point annotation tool guide](../../../docs/lidar/operations/point-annotation-tool.md#physical-references).
 
-| Entry point                                                         | Contract                                                                                   |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The sidecar's protocol and lock; a save also checks every object against the sidecar       |
-| `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                    |
-| `PhysicalReferenceSet.Validate`, `ValidateLinks`                    | Pack, source, bounds, evidence and provenance; then objects, and spans against their masks |
-| `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                          |
-| `ParsePhysicalImport`, `ImportPhysicalReferences`                   | An independent import, held to the same checks and merged as a new revision                |
+| Entry point                                                         | Contract                                                                                  |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The sidecar's protocol and lock; a save refuses any record whose links do not hold        |
+| `PhysicalReferenceSet.Stale`, `StaleAgainst`                        | The records a later membership edit invalidated, found by the load, and the revision      |
+| `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                   |
+| `PhysicalReferenceSet.Validate`                                     | Pack, source, bounds, evidence, provenance, gap bumpers and conflicting following records |
+| `ValidateLinks`, `LinkProblems`                                     | Objects declared, cited frames holding them, observed claims borne out by the returns     |
+| `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                         |
+| `ParsePhysicalImport`, `PreparePhysicalImport`                      | An independent import merged with the stored references and checked as a save; no write   |
+| `ImportPhysicalReferences`                                          | The prepared import, saved as a new revision                                              |
 
 A record's origin is fixed when it is created. The store carries every record ID's origin forward
 in `record_origins`, so a tracker-assisted record cannot become independent by review, by editing,
 or by being deleted and added back under its old ID.
+
+Membership saves do not read the references, and the macOS client makes them without this
+package, so a later edit can invalidate a saved reference. Loads find those records and list them
+in `Stale`; saves refuse them. No file is rewritten to mark them.
 
 ## Scoring against the annotations
 

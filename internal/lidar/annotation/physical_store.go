@@ -17,10 +17,18 @@ import (
 // errors mean the same here: ErrSidecarBusy is another writer, and
 // ErrSidecarConflict is a changed base to reload and reconcile.
 //
-// The lock is the sidecar's own, so a save of physical references and a save
-// of membership never interleave. That is what makes the link check hold at
-// commit: an object cannot be deleted from the sidecar between this store
-// reading it and writing a reference to it.
+// The lock is the sidecar's own. A save here and a membership save by a
+// writer that takes the same lock do not interleave, so the links are checked
+// against the sidecar as it stands at this commit. The lock says nothing about
+// later membership saves, which do not read these references: rejecting an
+// object or removing a mask a reference cites can invalidate it afterwards.
+// Nothing here refuses such a save, because the macOS client saves the
+// sidecar without this code, so a refusal here would be a guarantee that
+// half the writers ignore. Instead every load re-checks the links against
+// the current sidecar and lists the records that no longer hold (Stale), and
+// the next save refuses them until they are repaired or removed. No file is
+// rewritten to mark them, so the sidecar, the references and their history
+// keep their bytes.
 
 const (
 	physicalReferenceFile = "physical-references.json"
@@ -66,7 +74,7 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 
 	// The sidecar is read under the lock that its own writers take, so the
 	// objects checked here are the objects at commit.
-	sidecar, err := sidecarUnderLock(p, root)
+	sidecar, err := readSidecar(p, root)
 	if err != nil {
 		return err
 	}
@@ -134,6 +142,7 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 		return fmt.Errorf("commit physical references (reload before retry): %w", err)
 	}
 	next.baseDigest = sha256Hex(b)
+	next.stale, next.staleAgainst = nil, sidecar.Revision
 	*r = next
 	return nil
 }
@@ -149,9 +158,11 @@ func mergeOrigins(dst, src map[string]ReferenceOrigin) error {
 	return nil
 }
 
-// LoadPhysicalReferences opens the bounded, validated current document. An
-// untouched pack starts empty. Missing current data with existing history is
-// an error, not permission to restart revision numbering.
+// LoadPhysicalReferences opens the bounded, validated current document and
+// checks its links against the current sidecar; records a later membership
+// edit invalidated are listed by Stale, not refused, so they can be seen and
+// repaired. An untouched pack starts empty. Missing current data with
+// existing history is an error, not permission to restart revision numbering.
 func LoadPhysicalReferences(p *Pack) (*PhysicalReferenceSet, error) {
 	root, err := os.OpenRoot(p.Dir)
 	if err != nil {
@@ -168,7 +179,25 @@ func LoadPhysicalReferences(p *Pack) (*PhysicalReferenceSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decodePhysical(p, b)
+	r, err := decodePhysical(p, b)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.markStale(p, root); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// markStale checks the document's links against the current sidecar and
+// records what no longer holds.
+func (r *PhysicalReferenceSet) markStale(p *Pack, root *os.Root) error {
+	sidecar, err := readSidecar(p, root)
+	if err != nil {
+		return fmt.Errorf("check physical reference links: %w", err)
+	}
+	r.stale, r.staleAgainst = r.LinkProblems(p, sidecar), sidecar.Revision
+	return nil
 }
 
 // LoadPhysicalReferenceRevision reads a retained revision. Its token is
@@ -197,6 +226,9 @@ func LoadPhysicalReferenceRevision(p *Pack, revision int) (*PhysicalReferenceSet
 	}
 	if r.Revision != revision {
 		return nil, fmt.Errorf("archive revision does not match requested revision %d", revision)
+	}
+	if err := r.markStale(p, root); err != nil {
+		return nil, err
 	}
 	return r, nil
 }
@@ -235,9 +267,10 @@ func decodePhysical(p *Pack, b []byte) (*PhysicalReferenceSet, error) {
 	return &r, nil
 }
 
-// sidecarUnderLock reads the current sidecar through an open root. An
-// untouched pack has an empty one.
-func sidecarUnderLock(p *Pack, root *os.Root) (*Sidecar, error) {
+// readSidecar reads the current sidecar through an open root. An untouched
+// pack has an empty one. A caller that needs it to stay current holds the
+// annotation lock.
+func readSidecar(p *Pack, root *os.Root) (*Sidecar, error) {
 	b, err := readAnnotationFile(root, sidecarFile)
 	if errors.Is(err, os.ErrNotExist) {
 		if _, historyErr := root.Stat(revisionDir); !errors.Is(historyErr, os.ErrNotExist) {
