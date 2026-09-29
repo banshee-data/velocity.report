@@ -92,15 +92,16 @@ type CoverageSurveyStats struct {
 	BuildVersion  string `json:"build_version"`
 	BuildGitSHA   string `json:"build_git_sha"`
 	BuildStamped  bool   `json:"build_stamped"`
-	// CaptureSetSHA256 is the SHA-256 of the case's capture digests, in
-	// order, one per line: the case's source, independent of where it lives.
-	CaptureSHA256s      []string `json:"capture_sha256s"`
-	CaptureSetSHA256    string   `json:"capture_set_sha256"`
-	ParamsSHA256        string   `json:"params_sha256"`
-	ObservationSourceID string   `json:"observation_source_id"`
-	FramesRecorded      int      `json:"frames_recorded"`
-	OnlineEstimates     int      `json:"online_estimates"`
-	Tracks              int      `json:"tracks"`
+	// CaptureSHA256s are the case's capture digests, in order.
+	CaptureSHA256s []string `json:"capture_sha256s"`
+	// CaptureSetSHA256 is the SHA-256 of CaptureSHA256s, one per line: the
+	// case's source, independent of where it lives.
+	CaptureSetSHA256    string `json:"capture_set_sha256"`
+	ParamsSHA256        string `json:"params_sha256"`
+	ObservationSourceID string `json:"observation_source_id"`
+	FramesRecorded      int    `json:"frames_recorded"`
+	OnlineEstimates     int    `json:"online_estimates"`
+	Tracks              int    `json:"tracks"`
 	SensorOrigin        struct {
 		XMetres float64 `json:"x_m"`
 		YMetres float64 `json:"y_m"`
