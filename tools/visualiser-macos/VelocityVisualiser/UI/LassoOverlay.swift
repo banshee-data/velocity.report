@@ -62,17 +62,32 @@ struct LassoOverlay: View {
             ZStack(alignment: .topLeading) {
                 // Underneath everything and the only layer that takes input:
                 // the layers above are drawings of the session's state.
+                // In physical-reference mode the left button places the
+                // keyframe's anchor with a click and pans with a drag: a
+                // stroke is never also a placement.
                 ViewportInputLayer(
-                    strokesEnabled: editable, onStrokeChanged: strokeChanged,
-                    onStrokeEnded: strokeEnded,
+                    strokesEnabled: editable && session.workMode == .points,
+                    onStrokeChanged: strokeChanged, onStrokeEnded: strokeEnded,
                     onPan: { session.pan(basisStandard, size: viewport.size, byPoints: $0) },
                     onZoom: { factor, anchor in
                         session.zoom(
                             basisStandard, size: viewport.size, by: factor, aboutScreenPoint: anchor
                         )
-                    }, onClick: { _ in if !editable { session.makeEditingView(basisStandard) } },
+                    },
+                    onClick: { location in
+                        if !editable {
+                            session.makeEditingView(basisStandard)
+                        } else if session.workMode == .physical {
+                            session.placePhysicalAnchor(
+                                in: basisStandard, at: viewport.worldPoint(from: location))
+                        }
+                    },
                     onHover: { location in
-                        guard editable else { return }
+                        if session.inspectIntensity {
+                            session.inspectReturns(
+                                in: basisStandard, viewport: viewport, at: location)
+                        }
+                        guard editable, session.workMode == .points else { return }
                         session.hover(
                             atViewPoint: location.map { viewport.worldPoint(from: $0) },
                             pickDistance: metresPerPoint * 12)
@@ -383,6 +398,17 @@ struct LassoOverlay: View {
     // all four arrows, and without one they step frames and move the ground —
     // is one readable function rather than a switch inside a view.
     private func handleKey(_ key: ViewportKey) -> Bool {
+        if session.inspectIntensity {
+            switch key {
+            case .inspectPin:
+                session.inspection.pin()
+                return true
+            case .inspectNext:
+                session.inspection.next()
+                return true
+            default: break
+            }
+        }
         guard editable else { return false }
         switch key.meaning(carrying: session.carried != nil) {
         case .nudgeCarried(let right, let up, let coarse):

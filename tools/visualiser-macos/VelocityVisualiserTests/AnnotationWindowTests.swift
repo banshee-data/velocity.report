@@ -20,8 +20,8 @@ struct AnnotationFramingTests {
     /// A 4 m by 2 m box of points centred on (10, 5) in the top view.
     private func boxPoints() -> PackPoints {
         PackPoints(
-            x: [8, 12, 8, 12], y: [4, 4, 6, 6], z: [0, 0, 1, 1],
-            intensity: [0, 0, 0, 0], classification: [0, 0, 0, 0])
+            x: [8, 12, 8, 12], y: [4, 4, 6, 6], z: [0, 0, 1, 1], intensity: [0, 0, 0, 0],
+            classification: [0, 0, 0, 0])
     }
 
     @Test func extentIsTheCentreAndHalfSpanInTheViewPlane() throws {
@@ -151,7 +151,8 @@ struct AnnotationFramingTests {
         // this, so a nil extent here is a blank editing surface.
         let extent = try #require(
             annotationExtent(of: session.currentPoints, basis: OrthoViewBasis(.top)))
-        #expect(annotationFramingHalfHeight(extent: extent, size: CGSize(width: 800, height: 600)) > 0)
+        #expect(
+            annotationFramingHalfHeight(extent: extent, size: CGSize(width: 800, height: 600)) > 0)
     }
 
     @Test func openingASecondPackReplacesTheFirst() throws {
@@ -259,10 +260,9 @@ struct AnnotationWiringTests {
     @Test func theWindowReachesThePaneTheOverlayAndThePicker() throws {
         let window = try source("UI/AnnotationWindow.swift")
         // Each of these was unreferenced before the wiring landed.
-        for symbol in ["AnnotationPane(session:", "LassoOverlay(", "NSOpenPanel(", "AnnotationPack.open("]
-        {
-            #expect(window.contains(symbol), "AnnotationWindow does not use \(symbol)")
-        }
+        for symbol in [
+            "AnnotationPane(session:", "LassoOverlay(", "NSOpenPanel(", "AnnotationPack.open(",
+        ] { #expect(window.contains(symbol), "AnnotationWindow does not use \(symbol)") }
     }
 
     @Test func thePickerChoosesADirectoryNotAFile() throws {
@@ -281,8 +281,7 @@ struct AnnotationWiringTests {
         #expect(
             window.contains("ForEach(OrthoViewBasis.Standard.elevations"),
             "the four elevations are not all mounted")
-        #expect(
-            window.contains("standard: .top"), "the top view is not mounted on its own")
+        #expect(window.contains("standard: .top"), "the top view is not mounted on its own")
         #expect(
             window.contains("editable: standard == session.viewStandard"),
             "an elevation other than the editing view accepts strokes")
@@ -310,11 +309,8 @@ struct AnnotationWiringTests {
         let window = try source("UI/AnnotationWindow.swift")
         for guarded in [
             "guardedNavigate { showGenerateSheet = true }",
-            "guardedNavigate { controller.choosePack() }",
-            "guardedNavigate { controller.close() }",
-        ] {
-            #expect(window.contains(guarded), "not routed through guardedNavigate: \(guarded)")
-        }
+            "guardedNavigate { controller.choosePack() }", "guardedNavigate { controller.close() }",
+        ] { #expect(window.contains(guarded), "not routed through guardedNavigate: \(guarded)") }
     }
 
     @Test func theGuardChecksNavigationGuardBeforeActing() throws {
@@ -325,14 +321,19 @@ struct AnnotationWiringTests {
     @Test func discardingCallsReloadBeforeThePendingAction() throws {
         // Order matters: the action (opening a different pack, or closing)
         // must run against a session that has already discarded its unsaved
-        // membership, not before — reload() is what makes navigationGuard()
-        // return nil again afterward.
+        // membership and physical draft, not before — discardAllUnsaved()
+        // reloads membership and drops the draft, which is what makes
+        // navigationGuard() return nil again afterward.
         let window = try source("UI/AnnotationWindow.swift")
-        let reloadIndex = window.range(of: "session.reload()")
+        let reloadIndex = window.range(of: "session.discardAllUnsaved()")
         let actionIndex = window.range(of: "action?()")
-        let reload = try #require(reloadIndex, "Discard and Continue does not call session.reload()")
+        let reload = try #require(
+            reloadIndex, "Discard and Continue does not call session.discardAllUnsaved()")
         let action = try #require(actionIndex, "the pending action is never invoked")
-        #expect(reload.lowerBound < action.lowerBound, "reload() must run before the pending action")
+        #expect(
+            reload.lowerBound < action.lowerBound, "discarding must run before the pending action")
+        let session = try source("Annotation/AnnotationSession.swift")
+        #expect(session.contains("func discardAllUnsaved() {\n        reload()"))
     }
 
     @Test func keepEditingClearsThePendingActionRatherThanRunningIt() throws {

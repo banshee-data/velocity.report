@@ -57,31 +57,53 @@ struct AnnotationPane: View {
                     Divider()
                     objectSection
                 case .editing:
+                    modePicker
+                    Divider()
                     displaySection
                     Divider()
-                    selectionSection
+                    IntensityInspectorSection(session: session)
                     Divider()
-                    slabSection
-                    if session.activeObjectID != nil {
-                        Divider()
-                        propagationSection
+                    if session.workMode == .physical {
+                        PhysicalReferencePane(session: session)
+                    } else {
+                        pointsEditingSections
                     }
-                    if session.carried != nil {
-                        Divider()
-                        carriedSection
-                    }
-                    Divider()
-                    reviewSection
                 }
             }.padding(12)
         }.frame(width: AnnotationPane.columnWidth).alert(
-            "Unsaved membership", isPresented: $showDiscardPrompt
+            "Unsaved changes", isPresented: $showDiscardPrompt
         ) {
             Button("Keep editing", role: .cancel) {}
-            Button("Discard and reload", role: .destructive) { session.reload() }
+            Button("Discard and reload", role: .destructive) { session.discardAllUnsaved() }
         } message: {
-            Text("This frame has unsaved changes. Save it, or discard them, before moving on.")
+            Text(
+                "There are unsaved changes: this frame's membership or the physical-reference "
+                    + "draft. Save them, or discard them, before moving on.")
         }
+    }
+
+    // What a gesture authors. Switching keeps the object, the frame and both
+    // drafts; only a stroke in progress holds it.
+    private var modePicker: some View {
+        Picker("Mode", selection: $session.workMode) {
+            ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
+        }.pickerStyle(.segmented).labelsHidden().disabled(session.strokeInProgress)
+    }
+
+    @ViewBuilder private var pointsEditingSections: some View {
+        selectionSection
+        Divider()
+        slabSection
+        if session.activeObjectID != nil {
+            Divider()
+            propagationSection
+        }
+        if session.carried != nil {
+            Divider()
+            carriedSection
+        }
+        Divider()
+        reviewSection
     }
 
     // MARK: Source
@@ -490,6 +512,11 @@ struct AnnotationPane: View {
                         + "\(session.samples.count) frames · "
                         + "\(session.reviewedSampleCount(objectID: object.objectID)) reviewed"
                 ).font(.caption2).foregroundStyle(.secondary).help(object.objectID)
+                // Membership, body and keyframes are three reviews, shown as
+                // three, so a reviewed mask never reads as a reviewed pose.
+                if let physical = session.physicalProgress(objectID: object.objectID) {
+                    Text(physical).font(.caption2).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             // Of its frames, not of the object record: an object marked
