@@ -117,8 +117,8 @@ func TestHeldOutComparisonHandCounted(t *testing.T) {
 	if al.AlignedPoints != 40 || al.UnalignedPoints != 0 || al.MaxOffsetNanos != evalfixture.EstimateOffsetNs || al.Tracks != 4 {
 		t.Fatalf("alignment %+v", al)
 	}
-	if len(c.Caveats) != 1 || !strings.Contains(c.Caveats[0], "upper bound") {
-		t.Fatalf("caveats %q, want only the false-positive bound", c.Caveats)
+	if len(c.Caveats) != 2 || !strings.Contains(c.Caveats[0], "not frozen") || !strings.Contains(c.Caveats[1], "upper bound") {
+		t.Fatalf("caveats %q, want the unfrozen split and the false-positive bound", c.Caveats)
 	}
 
 	md := RenderMarkdown(*c)

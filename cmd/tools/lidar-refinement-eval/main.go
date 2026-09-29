@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
@@ -44,6 +45,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	caseID := fs.String("case", "", "replay case ID for the evidence source identity (required with -evidence-db)")
 	samplePoints := fs.Int("sample-points", 64, "retained points per stored observation (1-1024) with -evidence-db")
 	coverageFile := fs.String("continuity-coverage", "", "sensor coverage declaration (JSON) for the experiments that classify absences")
+	splitPath := fs.String("split-manifest", "", "frozen split giving -case a role; recorded in the replay manifest (needs -case)")
+	heldOut := fs.Bool("held-out", false, "declare the replay a held-out score: -case must be held out in -split-manifest")
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: lidar-refinement-eval -pcap FILE -out DIR [-evidence-db DB -case ID] [flags]\n\n")
 		fmt.Fprintf(stderr, "Replays a capture once and compares the online estimate with fixed-assignment RTS at\n")
@@ -80,6 +83,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "lidar-refinement-eval: %v\n", err)
 			return 2
 		}
+	}
+	if *splitPath != "" || *heldOut {
+		if cfg.Split, err = caseSplitUse(*splitPath, *caseID, *heldOut, *pcap); err != nil {
+			fmt.Fprintf(stderr, "lidar-refinement-eval: %v\n", err)
+			return 2
+		}
+		fmt.Fprintf(stdout, "case %s is %s in frozen split %s (revision %d)\n", cfg.Split.CaseID, cfg.Split.Role,
+			cfg.Split.SplitDigest, cfg.Split.Revision)
 	}
 	if *evidenceDB != "" {
 		cfg.ObservationDBPath = *evidenceDB
@@ -141,6 +152,29 @@ func perFrameCommands(dbPath string, report *replayeval.RefinementReport) []stri
 }
 
 func fileLabel(lag string) string { return strings.ReplaceAll(lag, ".", "p") }
+
+// caseSplitUse holds the replayed case to its role in a frozen split, by the
+// rules the corpus tool applies: a held-out case replays only as a declared
+// held-out score, and a held-out score only a held-out case. The role binds
+// to the case's captures, so the capture replayed must be one of them.
+func caseSplitUse(path, caseID string, heldOut bool, pcap string) (*replayeval.SplitUse, error) {
+	if path == "" || caseID == "" {
+		return nil, fmt.Errorf("-split-manifest and -case go together, and -held-out needs both")
+	}
+	f, err := annotation.LoadFrozenSplit(path)
+	if err != nil {
+		return nil, err
+	}
+	roles, err := f.CaseRoles([]string{caseID}, heldOut)
+	if err != nil {
+		return nil, err
+	}
+	if err := f.CheckCaseCaptures(caseID, []string{pcap}); err != nil {
+		return nil, err
+	}
+	return &replayeval.SplitUse{SplitDigest: f.SplitDigest, Revision: f.Revision, CaseID: caseID,
+		Role: string(roles[caseID]), HeldOut: heldOut}, nil
+}
 
 func identityCalibration(sensorID string) l4bobserve.Calibration {
 	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -66,17 +67,31 @@ func TestPooledUncertaintyReport(t *testing.T) {
 		t.Error("the pooled table depends on case order")
 	}
 
-	dir := t.TempDir()
-	if err := writePooledUncertaintyReport(dir, []uncertaintyCase{a, b}); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := os.ReadFile(filepath.Join(dir, pooledUncertaintyFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	cal, err := l8analytics.ParseNoiseCalibration(raw)
-	if err != nil || cal.ID != pooled.Fit.Calibration.ID {
-		t.Errorf("pooled file does not load as its table: %v", err)
+	// With a frozen split, the pooled file names it; without one, it is as it
+	// was. Either way it loads as its table.
+	record := &splitRecord{Digest: "sha256:split", Revision: 2, FileSHA256: "sha256:file", HeldOut: true}
+	for _, split := range []*splitRecord{nil, record} {
+		dir := t.TempDir()
+		if err := writePooledUncertaintyReport(dir, []uncertaintyCase{a, b}, split); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, pooledUncertaintyFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cal, err := l8analytics.ParseNoiseCalibration(raw)
+		if err != nil || cal.ID != pooled.Fit.Calibration.ID {
+			t.Errorf("pooled file does not load as its table: %v", err)
+		}
+		var named struct {
+			Split *splitRecord `json:"split"`
+		}
+		if err := json.Unmarshal(raw, &named); err != nil {
+			t.Fatal(err)
+		}
+		if (split == nil) != (named.Split == nil) || (split != nil && *named.Split != *split) {
+			t.Errorf("pooled file names split %+v, want %+v", named.Split, split)
+		}
 	}
 }
 

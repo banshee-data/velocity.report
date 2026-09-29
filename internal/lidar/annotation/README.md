@@ -111,9 +111,14 @@ in `Stale`; saves refuse them. No file is rewritten to mark them.
 | Entry point                     | Contract                                                                                                        |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `BuildReference`                | One reference point per mask under a recorded policy: position rule, review status, road-user classes, partials |
-| `LoadSplitManifest`             | Read a frozen split; refuse shared objects and episodes that score another partition's objects                  |
+| `LoadSplitManifest`             | Read a hand-written version 1 split; refuse shared objects and episodes that score another partition's objects  |
 | `SplitManifest.ValidateAgainst` | Bind it to one pack digest, dataset, pinned revision and the objects that revision still carries                |
 | `SplitManifest.SelectEpisodes`  | Return a split's episodes; with held-out scoring requested, refuse a tuning split with `ErrNotHeldOut`          |
+| `FreezeSplit`                   | Freeze a draft over packs; refuse unfinished review, one capture in two roles, and holding out anything tuned   |
+| `LoadAnySplit`                  | Read either version; a version 2 file whose content no longer matches its `split_digest` is refused             |
+| `FrozenSplit.Bind`              | Re-check a frozen split's pins against a pack, derive again what it copies, and return its version 1 form       |
+| `FrozenSplit.CaseRoles`         | A corpus case's role; a held-out case replays only as a held-out score, which takes no other                    |
+| `FrozenSplit.CheckCaseCaptures` | Refuse a replay of a case unless each capture is the case's: by SHA-256 where declared, else by basename        |
 
 Masks a person did not certify become ignore points rather than truth: unreviewed, not a road user,
 not visible, only uncertain returns, or completeness never stated. Rejected and empty masks are
@@ -132,6 +137,6 @@ through the frames), carries an accepted mask forwards and back until the fit is
 would not have accepted, and lets a review reach the masks. Masks made that way record the
 algorithm that made them and stay proposed until a person reviews them. What remains is operator
 work rather than engineering: reviewed masks across a site's keyframes, and the frozen
-object-disjoint dataset splits derived from them. The
+object-disjoint dataset splits derived from them (`velocity lidar annotation-split freeze`). The
 [annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md) owns
 that; the three-day demo's descriptor model and seeded tracker remain separate follow-ons.

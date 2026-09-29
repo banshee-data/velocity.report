@@ -209,6 +209,22 @@ type Config struct {
 	// adaptive_uncertainty experiment; its table ID is folded into the
 	// parameter hash and written to the manifest.
 	UncertaintyCalibrationFile string
+	// Split names the frozen split the replay runs under and the role its
+	// case holds there, and is written to the manifest. It is provenance
+	// only: it changes no estimate and no hash.
+	Split *SplitUse
+}
+
+// SplitUse is a replay's place in a frozen split: the split's digest and
+// revision, the case and its role, and whether the run was declared a
+// held-out score. The caller checks the use against the split's rules
+// (annotation.FrozenSplit.CaseRoles) before replaying.
+type SplitUse struct {
+	SplitDigest string `json:"split_digest"`
+	Revision    int    `json:"revision"`
+	CaseID      string `json:"case_id"`
+	Role        string `json:"role"`
+	HeldOut     bool   `json:"held_out"`
 }
 
 // Result summarises a completed replay.
@@ -1053,6 +1069,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		manifest["continuity_coverage"] = c
 		manifest["continuity_coverage_id"] = c.ID()
 		manifest["continuity_coverage_applied"] = coverageApplied
+	}
+	if cfg.Split != nil {
+		manifest["split"] = cfg.Split
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID

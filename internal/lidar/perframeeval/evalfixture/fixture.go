@@ -187,6 +187,20 @@ func (f *Fixture) Manifest() annotation.SplitManifest {
 	}
 }
 
+// FrozenDraft is the fixture's split as a draft that can be frozen. The
+// proposed pedestrian cannot be frozen into a partition, so the held-out
+// partition holds the two reviewed objects, and its episode scores the car;
+// the pedestrian's masks are ignored as outside the episode instead.
+func (f *Fixture) FrozenDraft() annotation.SplitDraft {
+	m := f.Manifest()
+	m.Splits[1].ObjectIDs = []string{CarA, Noise}
+	m.Episodes[0].ObjectIDs = []string{CarA}
+	return annotation.SplitDraft{
+		Schema: annotation.SplitDraftSchema, SchemaVersion: annotation.SplitDraftSchemaVersion,
+		Packs: []annotation.DraftPack{{Dir: f.PackDir, Splits: m.Splits, Episodes: m.Episodes}},
+	}
+}
+
 // WriteSplitManifest writes a manifest as JSON.
 func WriteSplitManifest(path string, m annotation.SplitManifest) error {
 	b, err := json.MarshalIndent(m, "", "  ")

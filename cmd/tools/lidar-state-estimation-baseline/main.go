@@ -89,6 +89,11 @@ type caseSummary struct {
 	// SolidBody is the first run's solid-body evidence, read back from its
 	// database, when the solid_body experiment ran with one.
 	SolidBody *replayeval.SolidBodySummary `json:"solid_body,omitempty"`
+	// SplitRole is the case's role in -split-manifest, when one was given.
+	SplitRole string `json:"split_role,omitempty"`
+	// CoverageSurvey is the declaration -survey-coverage measured from the
+	// first run, and its statistics, as added to the declaration set.
+	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
 }
 
 func main() {
@@ -123,7 +128,13 @@ func main() {
 		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
 		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
 		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
+		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
+		heldOut             = flag.Bool("held-out", false, "declare the run a held-out score: every selected case must be held out in -split-manifest; without it no held-out case may run")
+		survey              surveyFlags
 	)
+	flag.StringVar(&survey.setPath, "survey-coverage", "", "measure each case's continuity coverage from its first run's online estimates and add it to this declaration set (created if absent), with the statistics in <set>.survey.json beside it; needs an evidence output and the default replay")
+	flag.Float64Var(&survey.percentile, "survey-percentile", replayeval.DefaultCoverageRangePercentile, "percentile of the online-estimate horizontal range declared as max_range_m, rounded up to a whole metre; 100 is the maximum")
+	flag.Float64Var(&survey.gap, "survey-min-gap-deg", replayeval.DefaultCoverageMinSectorGapDeg, "narrowest arc without an estimate that makes the declaration a sector rather than the full circle")
 	flag.Parse()
 	experiments, err := replayeval.ParseExperiments(*experimentFlag)
 	if err != nil {
@@ -181,12 +192,22 @@ func main() {
 			fatal(err)
 		}
 	}
+	split, err := corpusSplit(*splitPath, *heldOut, selected)
+	if err != nil {
+		fatal(err)
+	}
+	if err := survey.validate(experiments, *measurementMode, *surfaceGround, observationDBPath, selected.ids()); err != nil {
+		fatal(err)
+	}
 	index, err := readIndex(*indexPath)
 	if err != nil {
 		fatal(err)
 	}
 	resolvedCases, err := resolveCorpusCases(selected, index, *pcapRoot, *pcapSubdir)
 	if err != nil {
+		fatal(err)
+	}
+	if err := split.checkCaptures(resolvedCases); err != nil {
 		fatal(err)
 	}
 	var sourceManifestSHA256 string
@@ -241,6 +262,7 @@ func main() {
 		if c, ok := coverage[selectedCase.ID]; ok {
 			first.ContinuityCoverage = &c
 		}
+		first.Split = split.uses[selectedCase.ID]
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
 			if err != nil {
@@ -320,6 +342,9 @@ func main() {
 			TimeDomain:            firstResult.TimeDomain,
 			Continuity:            firstResult.Continuity,
 		}
+		if use := first.Split; use != nil {
+			summary.SplitRole = use.Role
+		}
 		td := firstResult.TimeDomain
 		fmt.Printf("%s: capture time frames=%d backward=%d duplicate=%d clamped_gaps=%d max_gap=%.3fs\n",
 			selectedCase.ID, td.Frames, td.BackwardTimestamps, td.DuplicateTimestamps, td.ClampedGaps, td.MaxGapSecs)
@@ -354,6 +379,17 @@ func main() {
 				selectedCase.ID, sb.SolidBodies, sb.NearEdgeFixes, 100*sb.FixShare, sb.Lapses,
 				sb.AnchorPointsCentred.P99Metres, sb.AnchorBodiesCentred.P99Metres, sb.AnchorBodiesCentred.Windows)
 		}
+		if survey.setPath != "" {
+			s, err := survey.survey(first.ObservationDBPath, first.OutDir, selectedCase.ID)
+			if err != nil {
+				fatal(fmt.Errorf("coverage survey %s: %w", selectedCase.ID, err))
+			}
+			summary.CoverageSurvey = s
+			d := s.Declaration
+			fmt.Printf("%s: coverage max_range_m=%g azimuth_centre_deg=%g azimuth_half_width_deg=%g (range p%g %.2f m, max %.2f m; largest arc without an estimate %d deg) added to %s\n",
+				selectedCase.ID, d.MaxRangeMetres, d.AzimuthCentreDeg, d.AzimuthHalfWidthDeg, s.Stats.RangePercentile,
+				s.Stats.RangeAtPercentile, s.Stats.RangeMetres.Max, s.Stats.Azimuth.LargestEmptyArcDeg, survey.setPath)
+		}
 		if *discardEvidence {
 			if err := removeDatabase(first.ObservationDBPath); err != nil {
 				fatal(fmt.Errorf("discard evidence %s: %w", selectedCase.ID, err))
@@ -362,7 +398,7 @@ func main() {
 		summaries = append(summaries, summary)
 	}
 	if *uncertaintyReport {
-		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases); err != nil {
+		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases, split.record); err != nil {
 			fatal(err)
 		}
 		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
@@ -371,8 +407,9 @@ func main() {
 	b, err := json.MarshalIndent(struct {
 		SchemaVersion        int           `json:"schema_version"`
 		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
+		Split                *splitRecord  `json:"split,omitempty"`
 		Cases                []caseSummary `json:"cases"`
-	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Cases: summaries}, "", "  ")
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split.record, Cases: summaries}, "", "  ")
 	if err != nil {
 		fatal(err)
 	}

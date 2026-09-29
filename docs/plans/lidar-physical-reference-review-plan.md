@@ -75,6 +75,8 @@ manufacture confidence through frame count alone.
 7. Freeze object-disjoint references and split digests. Run the selected estimator version and
    inspect a separate prediction overlay and the scored differences. A reference changed after
    scoring creates a new revision and evaluation result.
+   `velocity lidar annotation-split freeze` freezes membership review today and records geometry
+   review from the optional pose beside it; P0's reference record should be pinned there too.
 
 Reference authoring defaults to a blind view. Tracker boxes may be shown for diagnosis after the
 reference is recorded, or copied as an explicitly tracker-assisted proposal; they never become

@@ -6,6 +6,11 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 29, 2026 - A frozen reviewed split and measured sensor coverage
+
+- Froze the reviewed split: `velocity lidar annotation-split freeze` certifies membership review, pins each pack, its manifest, selection record and annotation revision by digest, and binds every corpus case to its captures by SHA-256, so a pack cut from a held-out capture cannot be tuned on under another name. A revision carries the whole history of what was tuned on, by capture span as well as by pack, so no later revision can hold out a car that an earlier one tuned on, whether the pack was dropped and re-added or re-cut wider. The evaluators given `-split-manifest` hold each case to its role, check the replayed capture against the case, and record the split; the digest is unkeyed, so it catches accidental edits, not deliberate ones (#636).
+- Measured sensor coverage instead of declaring it by hand: `-survey-coverage` replays a case's default configuration and declares its range and azimuth sector from the online estimates. On kirk0 it reproduces the hand-declared 92 m range and finds no estimate in the 155° behind the sensor, which the hand declaration had assumed was covered (#636).
+
 ## September 29, 2026 - Physical references can be recorded and scored
 
 - Gave a pack an independent physical reference beside its annotation sidecar: per-object body dimensions and keyframes with explicit anchors, position and yaw bounds, an axis that may be front-rear ambiguous, bumper evidence and following gaps, each component with its evidence status and its own review, and an origin ledger that stops a tracker-assisted record from ever becoming independent. An `observed` claim is held to the mask's returns and keyframes, and a later membership edit marks the records it invalidates as stale. `velocity lidar annotation-reference import|validate` imports, or dry-runs an import, through the same checks (#635).

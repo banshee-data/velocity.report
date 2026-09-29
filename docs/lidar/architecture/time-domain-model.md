@@ -278,6 +278,11 @@ circle). It is folded into the parameter hash when applied, and the replay manif
 `lidar-refinement-eval -continuity-coverage FILE` takes one declaration;
 `lidar-state-estimation-baseline -continuity-coverage FILE` takes an object from case ID to
 declaration, and a case without an entry is refused if its experiments need one.
+`lidar-state-estimation-baseline -survey-coverage FILE` measures a case's declaration from its
+default replay and adds it to such a set
+([coverage survey](../operations/state-estimation-phase01-corpus-baseline.md#sensor-coverage-survey)).
+[continuity-coverage.json](../../../tools/s2-archive/continuity-coverage.json) holds kirk0's: the
+same 92 m, and a sector where the hand declaration above assumed the full circle.
 
 ### Synthetic evidence
 
@@ -429,7 +434,7 @@ is an open question for L7; see
 
 | Item                                                                                                                                                         | Owner                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Declare coverage for each corpus site, then choose continuity values against held-out scenes                                                                 | State-estimation plan, Sprint 0.5.2.2 continuity work |
+| Survey coverage for each corpus site on the Mac, then choose continuity values against held-out scenes                                                       | State-estimation plan, Sprint 0.5.2.2 continuity work |
 | Explain occlusion by static structure from the L3 background range at the predicted azimuth                                                                  | State-estimation plan, Sprint 0.5.2.2 continuity work |
 | Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                                  | Visualiser trails plan; state-estimation plan         |
 | Answer Q3 on the corpus with `-experiment measurement_time`                                                                                                  | State-estimation plan, question Q3                    |
