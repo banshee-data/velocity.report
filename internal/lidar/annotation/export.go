@@ -158,7 +158,17 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		if err != nil {
 			return nil, fmt.Errorf("frame %d (ordinal): %w", ordinal-1, err)
 		}
-		if len(pc.Intensity) > 0 {
+		// The replayer hands back the legacy FrameBundle, whose point cloud
+		// has no column-presence bit: an absent column decodes as length 0
+		// and a present one as one byte per point. Nothing in between is
+		// either, and the block would zero-fill the rest under a flag that
+		// promised measurements, so it is refused rather than guessed.
+		intensityPresent := len(pc.Intensity) == len(pc.X)
+		if !intensityPresent && len(pc.Intensity) != 0 {
+			return nil, fmt.Errorf("frame %d (ordinal): intensity column holds %d values for %d points, "+
+				"which is neither present nor absent", ordinal-1, len(pc.Intensity), len(pc.X))
+		}
+		if intensityPresent {
 			hasInten = true
 		}
 		if len(pc.Classification) > 0 {
@@ -198,6 +208,7 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			TimestampNs:   ts,
 			SensorID:      header.SensorID,
 			PointCount:    len(pc.X),
+			HasIntensity:  boolPtr(intensityPresent),
 		})
 		blocks = append(blocks, block)
 
@@ -269,6 +280,10 @@ func Export(cfg ExportConfig) (*Pack, error) {
 // classForeground is the recorder's per-point class for a foreground return
 // (visualiser.proto: background=0, foreground=1, ground=2).
 const classForeground = 1
+
+// boolPtr gives each sample its own flag rather than a share of a loop
+// variable's address.
+func boolPtr(v bool) *bool { return &v }
 
 func frameID(f *l9endpoints.FrameBundle) uint64 {
 	if f.PointCloud != nil {

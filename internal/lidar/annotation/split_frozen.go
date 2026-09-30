@@ -19,7 +19,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
-// Frozen splits (split manifest schema version 2).
+// Frozen splits (split manifest schema versions 2 and 3).
 //
 // A version 1 manifest partitions one pack's objects, and a person writes it
 // by hand. It says what is held out; it does not say whether anyone finished
@@ -68,6 +68,22 @@ import (
 // sidecar carries today, and says whether anyone reviewed a pose, not whether
 // an independent physical reference exists; that record is separate work.
 //
+// Physical references (physical.go) are pinned beside the sidecar, from
+// version 3. A pack with a physical-reference document is frozen with the
+// revision the draft names, or its head: the revision number, the SHA-256 of
+// its exact bytes and of its content, and a summary of what it reviews and
+// leaves unknown, per object: the body's review and origin, the keyframes by
+// review and origin, and how many reviewed keyframes leave each component
+// unknown, prior-only or partial. The summary is derived from the pinned
+// bytes and re-derived by BindPhysical, as the membership summaries are. A
+// pack with no physical references is frozen with no pin, as a version 2
+// split was. Freezing refuses a document whose links do not hold against the
+// pinned annotation revision, or whose reviews were made against other
+// membership than the pinned revision in a frame they rest on (ReviewDrift);
+// a component honestly stated unknown refuses nothing. A version 2 split,
+// frozen before physical pins existed, still parses, binds and scores as it
+// did, and carries no pin.
+//
 // Bind re-checks every pin against the pack an evaluator opens, and derives
 // again from the pinned bytes everything the file copies from them: the
 // selection record's role, finder and segment, the source provenance and
@@ -95,9 +111,19 @@ import (
 // guarantee binds only a run given the split: a replay or evaluation run
 // without one is not checked against it, and records no split.
 
-// FrozenSplitSchemaVersion is the frozen split's layout version. Version 1,
+// FrozenSplitSchemaVersion is the layout FreezeSplit writes. Version 1,
 // SplitSchemaVersion, remains the hand-written single-pack manifest.
-const FrozenSplitSchemaVersion = 2
+const FrozenSplitSchemaVersion = 3
+
+// FrozenSplitSchemaVersionMembershipOnly is the version 2 layout, frozen
+// before physical-reference pins existed. It is still read, and carries no
+// physical pin.
+const FrozenSplitSchemaVersionMembershipOnly = 2
+
+// isFrozenSchemaVersion reports whether v is a frozen split layout.
+func isFrozenSchemaVersion(v int) bool {
+	return v == FrozenSplitSchemaVersion || v == FrozenSplitSchemaVersionMembershipOnly
+}
 
 // SplitRoleScreen is a corpus case replayed as a label-free regression
 // screen: nothing is tuned on it and nothing is held out from it. Only a case
@@ -238,6 +264,96 @@ type FrozenPack struct {
 	SidecarSHA256   string         `json:"sidecar_sha256"`
 	Objects         []FrozenObject `json:"objects"`
 	Episodes        []Episode      `json:"episodes"`
+	// Physical pins the pack's physical-reference revision. Nil for a pack
+	// with no physical references, and for every pack of a version 2 split.
+	Physical *FrozenPhysical `json:"physical,omitempty"`
+}
+
+// FrozenPhysical pins one pack's physical references: the revision, the
+// digest of its exact bytes, the digest of its content, and what that
+// document reviews and leaves unknown. The summaries are derived from the
+// pinned bytes; BindPhysical derives them again and refuses a disagreement.
+type FrozenPhysical struct {
+	Revision      int    `json:"revision"`
+	SHA256        string `json:"sha256"`
+	ContentSHA256 string `json:"content_sha256"`
+	// Objects summarises every object of the document, sorted by ID.
+	Objects []FrozenPhysicalObject `json:"objects,omitempty"`
+}
+
+// PhysicalBodyReview is an object's body record as the pin summarises it:
+// PhysicalBodyNone for an object without one, else the body's review status.
+type PhysicalBodyReview string
+
+// PhysicalBodyNone: the object has no body record.
+const PhysicalBodyNone PhysicalBodyReview = "none"
+
+// FrozenPhysicalObject is one object's physical review and coverage. It is
+// separate from GeometryReview, which counts sidecar poses.
+type FrozenPhysicalObject struct {
+	ObjectID string             `json:"object_id"`
+	Body     PhysicalBodyReview `json:"body"`
+	// BodyIndependent is whether the body was authored without tracker
+	// output; false for an object without a body.
+	BodyIndependent bool                   `json:"body_independent"`
+	Keyframes       PhysicalKeyframeCounts `json:"keyframes"`
+	// MissingEvidence counts, over the object's reviewed keyframes, the
+	// components each leaves without scorable evidence.
+	MissingEvidence PhysicalEvidenceGaps `json:"missing_evidence"`
+}
+
+// PhysicalKeyframeCounts counts an object's keyframes by review and origin.
+// A tracker-assisted keyframe is counted under its review status as well.
+type PhysicalKeyframeCounts struct {
+	Total           int `json:"total"`
+	Reviewed        int `json:"reviewed"`
+	Proposed        int `json:"proposed"`
+	TrackerAssisted int `json:"tracker_assisted"`
+}
+
+// PhysicalEvidenceGaps is, per component, how many reviewed keyframes leave
+// it without scorable evidence, by the reason the reference layer gives
+// (PhysicalObject.Geometry). A dimension a body-level reason withholds (no
+// body, or a body not reviewed or not independent) is not a gap in the
+// evidence and is not counted here; the body's review says so.
+type PhysicalEvidenceGaps struct {
+	Position MissingEvidence `json:"position"`
+	Yaw      MissingEvidence `json:"yaw"`
+	Length   MissingEvidence `json:"length"`
+	Width    MissingEvidence `json:"width"`
+	Height   MissingEvidence `json:"height"`
+	Front    MissingEvidence `json:"front"`
+	Rear     MissingEvidence `json:"rear"`
+}
+
+// MissingEvidence counts one component's reviewed keyframes without scorable
+// evidence: stated unknown (for a yaw, an unknown axis too), stated as a
+// class prior only, or a partial span that is only a lower bound.
+type MissingEvidence struct {
+	Unknown   int `json:"unknown"`
+	PriorOnly int `json:"prior_only"`
+	Partial   int `json:"partial"`
+}
+
+// count adds one keyframe's unavailability reason for a component. Reasons
+// that follow from another component, or from the body's review, are the
+// other component's or the body's to report.
+func (m *MissingEvidence) count(reason string) {
+	switch reason {
+	case string(EvidenceUnknown), UnavailableAxisUnknown:
+		m.Unknown++
+	case string(EvidencePriorOnly):
+		m.PriorOnly++
+	case UnavailableLowerBoundOnly:
+		m.Partial++
+	}
+}
+
+func (m MissingEvidence) validate() error {
+	if m.Unknown < 0 || m.PriorOnly < 0 || m.Partial < 0 {
+		return fmt.Errorf("negative count %+v", m)
+	}
+	return nil
 }
 
 // FrozenSource is the pack's declared source, copied from its manifest so a
@@ -313,9 +429,13 @@ type DraftPack struct {
 	// draft file, frozen as it stands.
 	SplitManifest string `json:"split_manifest,omitempty"`
 	// SidecarRevision pins an annotation revision; zero freezes the current.
-	SidecarRevision int       `json:"sidecar_revision,omitempty"`
-	Splits          []Split   `json:"splits,omitempty"`
-	Episodes        []Episode `json:"episodes,omitempty"`
+	SidecarRevision int `json:"sidecar_revision,omitempty"`
+	// PhysicalRevision pins a physical-reference revision; zero, or the
+	// field absent, freezes the pack's current one. A pack with no physical
+	// references freezes with no pin, and cannot name a revision.
+	PhysicalRevision int       `json:"physical_revision,omitempty"`
+	Splits           []Split   `json:"splits,omitempty"`
+	Episodes         []Episode `json:"episodes,omitempty"`
 }
 
 // FreezeOptions is everything FreezeSplit needs besides the packs.

@@ -436,3 +436,120 @@ func TestOpenPackRefusesATamperedBackground(t *testing.T) {
 		t.Errorf("opened a pack whose background was altered: %v", err)
 	}
 }
+
+// writeIntensityVRLOG records one four-point frame per entry of columnLens,
+// whose intensity column holds that many bytes: 4 is a measured column, 0 an
+// absent one, and anything between is a column the exporter must refuse.
+// Measured bytes are non-zero so a zero-filled block is telling.
+func writeIntensityVRLOG(t *testing.T, columnLens ...int) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "vrlog")
+	rec, err := recorder.NewRecorder(dir, "synthetic")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	const n = 4
+	for i, colLen := range columnLens {
+		pc := &l9endpoints.PointCloudFrame{
+			FrameID: uint64(i), TimestampNanos: int64(i+1) * 1000, SensorID: "synthetic",
+			X: make([]float32, n), Y: make([]float32, n), Z: make([]float32, n),
+			Intensity: make([]uint8, colLen), Classification: make([]uint8, n),
+			PointCount: n,
+		}
+		for j := range pc.X {
+			pc.X[j] = float32(j)
+		}
+		for j := range pc.Intensity {
+			pc.Intensity[j] = uint8(100 + j)
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
+			t.Fatalf("record frame %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close recorder: %v", err)
+	}
+	return dir
+}
+
+// The manifest flag says some sample was measured. It cannot say which, and
+// the block zero-fills the ones that were not, so a reader given only the
+// manifest would take zeros for readings. Each sample now says for itself.
+func TestExportRecordsIntensityPresencePerSample(t *testing.T) {
+	src := writeIntensityVRLOG(t, 4, 0, 4)
+	out := filepath.Join(t.TempDir(), "pack")
+	if _, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull}); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	pack, err := OpenPack(out)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if !pack.Manifest.HasIntensity {
+		t.Error("manifest has_intensity = false with two measured samples")
+	}
+	if !pack.IntensityPresenceIsPerSample() {
+		t.Error("an export did not record presence on every sample")
+	}
+	for sampleID, want := range []bool{true, false, true} {
+		if got := pack.SampleHasIntensity(sampleID); got != want {
+			t.Errorf("sample %d has intensity = %v, want %v", sampleID, got, want)
+		}
+		pts, err := pack.PointsAt(sampleID)
+		if err != nil {
+			t.Fatalf("points at %d: %v", sampleID, err)
+		}
+		for j, v := range pts.Intensity {
+			if want && v != uint8(100+j) {
+				t.Errorf("sample %d point %d intensity = %d, want %d", sampleID, j, v, 100+j)
+			}
+			if !want && v != 0 {
+				t.Errorf("sample %d point %d intensity = %d, want a zero-filled absent column", sampleID, j, v)
+			}
+		}
+	}
+	// A false is written, not omitted: absence of the key means "not
+	// recorded", and that is a different statement from "not measured".
+	raw, err := os.ReadFile(filepath.Join(out, samplesFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(raw), `"has_intensity": false`); got != 1 {
+		t.Errorf("samples.json carries %d explicit false flags, want 1:\n%s", got, raw)
+	}
+}
+
+func TestExportWithoutIntensityIsFalseEverywhere(t *testing.T) {
+	src := writeIntensityVRLOG(t, 0, 0)
+	out := filepath.Join(t.TempDir(), "pack")
+	pack, err := Export(ExportConfig{VRLOGPath: src, OutDir: out, Coverage: CoverageFull})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	if pack.Manifest.HasIntensity {
+		t.Error("manifest has_intensity = true with no measured sample")
+	}
+	if !pack.IntensityPresenceIsPerSample() {
+		t.Error("presence was not recorded per sample")
+	}
+	for sampleID := range pack.Samples {
+		if pack.SampleHasIntensity(sampleID) {
+			t.Errorf("sample %d reports intensity it never had", sampleID)
+		}
+	}
+}
+
+// A column shorter than the frame is neither measured nor absent. Encoding it
+// would zero-fill the tail under a flag promising readings, so it is refused.
+func TestExportRefusesAPartialIntensityColumn(t *testing.T) {
+	src := writeIntensityVRLOG(t, 4, 2)
+	_, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "pack"), Coverage: CoverageFull,
+	})
+	if err == nil {
+		t.Fatal("exported a frame whose intensity column covers half its points")
+	}
+	if !strings.Contains(err.Error(), "intensity column holds 2 values for 4 points") {
+		t.Errorf("error does not say what is wrong: %v", err)
+	}
+}
