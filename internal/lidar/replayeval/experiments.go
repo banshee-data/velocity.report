@@ -120,6 +120,12 @@ const (
 	// decisions then depend on the face geometry and the determinism repeat
 	// runs without the observation database that holds the retained sample.
 	ExperimentNearEdgeTrack = "near_edge_track"
+	// ExperimentNearEdgeTrackA1 is S2.3's ablation arm
+	// (l5tracks.TrackerConfig.NearEdgeMedoidGate): near_edge_track with its
+	// body-centre tracks gated on the medoid against the predicted centre, as
+	// a medoid-referenced track is, instead of A2's face residual. It
+	// qualifies near_edge_track and is refused without it.
+	ExperimentNearEdgeTrackA1 = "near_edge_track_a1"
 )
 
 var knownExperiments = map[string]bool{
@@ -148,6 +154,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyRankOneMedoid:        true,
 	ExperimentSolidBodyRankOneMedoidTight:   true,
 	ExperimentNearEdgeTrack:                 true,
+	ExperimentNearEdgeTrackA1:               true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

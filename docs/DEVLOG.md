@@ -25,6 +25,9 @@ older entries stay put, however tempting hindsight may be.
   side-face fixes, where the medoid's slide along the body would reach the speed. On a synthetic
   vehicle seen from behind changing lane by 2 m, the worst tracked lateral error falls from 0.534
   to 0.247 m. F7 runs it on the tuning partition.
+- Built S2.3's ablation arm, A1 (`near_edge_track_a1`): the tracked arm with its body-centre tracks
+  gated on the medoid, as a medoid-referenced track is, instead of A2's face residual. It is the
+  do-nothing option that shows what A2 buys in identity, and it runs once on the tuning partition.
 
 ## September 29, 2026 - The half-extent state does not close the transition tail
 
