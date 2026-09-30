@@ -307,6 +307,25 @@ struct AnnotationWorkspace: View {
         }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
     }
 
+    // S saves and X saves and goes to the next frame, in whichever mode is
+    // active. Two unmodified keys side by side, bound nowhere else in the
+    // app; like the bracket keys they give way to a text field. The buttons
+    // that do the same show the letter underlined.
+    private var saveKeys: some View {
+        Group {
+            Button("Save") { saveFromKey(advance: false) }.keyboardShortcut("s", modifiers: [])
+            Button("Save and next") { saveFromKey(advance: true) }.keyboardShortcut(
+                "x", modifiers: [])
+        }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+    }
+
+    private func saveFromKey(advance: Bool) {
+        Task {
+            // A refusal is explained in the pane; the beep says the key was heard.
+            if !(await session.saveCurrent(advance: advance)) { NSSound.beep() }
+        }
+    }
+
     // A large 3D view over three small orthographic ones, between two
     // sidebars: what is being labelled on the left, how on the right.
     //
@@ -396,7 +415,7 @@ struct AnnotationWorkspace: View {
                     Button("Close") { guardedNavigate { controller.close() } }
                 }.padding(8)
             }.frame(width: AnnotationPane.columnWidth)
-        }.background { brushSizeKeys }.background {
+        }.background { brushSizeKeys }.background { saveKeys }.background {
             WindowCloseGuard(blocked: session.navigationGuard() != nil)
         }.focusedSceneValue(\.annotationSession, session).alert(
             "Unsaved changes", isPresented: showDiscardPrompt
@@ -815,4 +834,24 @@ struct WindowCloseGuard: NSViewRepresentable {
     static func dismantleNSView(_ view: NSView, coordinator: ()) {
         view.window?.standardWindowButton(.closeButton)?.isEnabled = true
     }
+}
+
+// MARK: - Shortcut labels
+
+/// A title split around the first occurrence of a shortcut's letter, either
+/// case, or nil when the title does not contain it.
+func shortcutSplit(
+    _ title: String, key: Character
+) -> (before: String, letter: String, after: String)? {
+    guard let i = title.firstIndex(where: { $0.lowercased() == key.lowercased() }) else {
+        return nil
+    }
+    return (String(title[..<i]), String(title[i]), String(title[title.index(after: i)...]))
+}
+
+/// A title with its single-key shortcut underlined, as menus once showed
+/// them. A title without that letter is returned plain.
+func shortcutLabel(_ title: String, key: Character) -> Text {
+    guard let part = shortcutSplit(title, key: key) else { return Text(title) }
+    return Text(part.before) + Text(part.letter).underline() + Text(part.after)
 }

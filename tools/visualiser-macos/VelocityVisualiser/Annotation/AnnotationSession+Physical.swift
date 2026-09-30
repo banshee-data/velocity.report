@@ -108,3 +108,23 @@ extension AnnotationSession {
             })
     }
 }
+
+// MARK: - Save keys
+
+extension AnnotationSession {
+    /// What S and X do, in whichever mode is active: save the current work,
+    /// and with `advance`, step to the next frame once it is saved.
+    ///
+    /// Returns false when something was refused: the save, or the step. In
+    /// physical mode a draft with nothing unsaved is not a failed save, so X
+    /// still moves on.
+    @discardableResult func saveCurrent(advance: Bool) async -> Bool {
+        switch workMode {
+        case .points: guard save() else { return false }
+        case .physical: if physical.isDirty { guard await physical.save() else { return false } }
+        }
+        guard advance else { return true }
+        guard sampleIndex < samples.count - 1 else { return false }
+        return stepForward() == nil
+    }
+}

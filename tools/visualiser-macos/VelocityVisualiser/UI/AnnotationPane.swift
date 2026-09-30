@@ -875,11 +875,16 @@ struct AnnotationPane: View {
             Toggle("Checked from another view", isOn: $session.secondViewChecked).font(.caption)
 
             HStack {
-                Button("Save points") { _ = session.save() }.keyboardShortcut(
-                    "s", modifiers: .command)
-                Button("Save and next") {
+                Button {
+                    _ = session.save()
+                } label: {
+                    shortcutLabel("Save points", key: "s")
+                }.keyboardShortcut("s", modifiers: .command).help("S or ⌘S")
+                Button {
                     if session.save() { handleStep { session.stepForward() } }
-                }.disabled(session.sampleIndex >= session.samples.count - 1)
+                } label: {
+                    shortcutLabel("Save and next", key: "x")
+                }.disabled(session.sampleIndex >= session.samples.count - 1).help("X")
             }
             HStack {
                 Button("Review this frame") {

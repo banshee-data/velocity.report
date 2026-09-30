@@ -29,7 +29,7 @@ struct IntensityInspectorSection: View {
                 )
             if spec.enabled { rampControls }
             Toggle("Inspect returns", isOn: $session.inspectIntensity).font(.caption).help(
-                "Read out the return under the cursor. P pins it; N steps to the next one under the same place."
+                "Read out the return under the cursor. M pins it; N steps to the next one under the same place."
             )
             if session.inspectIntensity { readout }
             Text(session.intensityAvailability.caveat).font(.caption2).foregroundStyle(
