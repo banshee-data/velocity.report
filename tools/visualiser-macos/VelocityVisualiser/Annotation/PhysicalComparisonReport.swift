@@ -395,10 +395,68 @@ struct ReportComponentAccounting: Decodable, Equatable {
     var unscored: [String: [String: Int]]
 }
 
+/// One follower at one instant: the reference gap, the estimate's, and the
+/// scored difference or why there is none.
+struct ReportFollowingInstant: Decodable, Equatable {
+    struct ReferenceGap: Decodable, Equatable {
+        var status: PhysicalEvidence
+        var lower: Double?
+        var upper: Double?
+        var value: Double?
+        enum CodingKeys: String, CodingKey {
+            case status
+            case lower = "lower_m"
+            case upper = "upper_m"
+            case value = "value_m"
+        }
+    }
+    struct PredictedGap: Decodable, Equatable {
+        var value: Double
+        var sigma: Double
+        var followerTrack: String
+        var leaderTrack: String
+        enum CodingKeys: String, CodingKey {
+            case value = "value_m"
+            case sigma = "sigma_m"
+            case followerTrack = "follower_track"
+            case leaderTrack = "leader_track"
+        }
+    }
+
+    var episodeID: String
+    var followingID: String
+    var followerObjectID: String
+    var leaderObjectID: String?
+    var decision: String?
+    var sampleID: Int
+    var timestampNs: Int64
+    var referenceGap: ReferenceGap?
+    var predictedGap: PredictedGap?
+    var error: Double?
+    var outsideBound: Double?
+    var outcome: ReportOutcome
+
+    enum CodingKeys: String, CodingKey {
+        case episodeID = "episode_id"
+        case followingID = "following_id"
+        case followerObjectID = "follower_object_id"
+        case leaderObjectID = "leader_object_id"
+        case decision
+        case sampleID = "sample_id"
+        case timestampNs = "timestamp_ns"
+        case referenceGap = "reference_gap"
+        case predictedGap = "predicted_gap"
+        case error = "error_m"
+        case outsideBound = "outside_bound_m"
+        case outcome
+    }
+}
+
 struct ReportArm: Decodable, Equatable {
     var reference: ReportReferenceIdentity
     var arm: ReportArmIdentity
     var instants: [ReportInstant]
+    var following: [ReportFollowingInstant]
     var accounting: [String: ReportComponentAccounting]
     var caveats: [String]
 
@@ -406,6 +464,7 @@ struct ReportArm: Decodable, Equatable {
         case reference
         case arm
         case instants
+        case following
         case accounting
         case caveats
     }
@@ -417,6 +476,7 @@ struct ReportArm: Decodable, Equatable {
         reference = try c.decode(ReportReferenceIdentity.self, forKey: .reference)
         arm = try c.decode(ReportArmIdentity.self, forKey: .arm)
         instants = try c.decode([ReportInstant].self, forKey: .instants)
+        following = try c.decodeIfPresent([ReportFollowingInstant].self, forKey: .following) ?? []
         let a = try c.nestedContainer(keyedBy: AccountingKeys.self, forKey: .accounting)
         accounting = try a.decode([String: ReportComponentAccounting].self, forKey: .components)
         caveats = try c.decodeIfPresent([String].self, forKey: .caveats) ?? []
@@ -447,6 +507,7 @@ struct PhysicalComparisonReport: Equatable {
     var arms: [ReportArm]
     /// Instants by arm, then by sample.
     private var index: [[Int: [ReportInstant]]]
+    private var followingIndex: [[Int: [ReportFollowingInstant]]]
 
     var reference: ReportReferenceIdentity { arms[0].reference }
 
@@ -474,7 +535,14 @@ struct PhysicalComparisonReport: Equatable {
                 report: arms[0].reference.packDigest, open: packDigest)
         }
         return PhysicalComparisonReport(
-            arms: arms, index: arms.map { Dictionary(grouping: $0.instants, by: \.sampleID) })
+            arms: arms, index: arms.map { Dictionary(grouping: $0.instants, by: \.sampleID) },
+            followingIndex: arms.map { Dictionary(grouping: $0.following, by: \.sampleID) })
+    }
+
+    /// Every following instant the report scored at this sample for this arm.
+    func following(arm: Int, sampleID: Int) -> [ReportFollowingInstant] {
+        guard followingIndex.indices.contains(arm) else { return [] }
+        return followingIndex[arm][sampleID] ?? []
     }
 
     /// Every instant the report scored at this sample for this arm. Two

@@ -140,6 +140,9 @@ enum PhysicalHandle: Equatable {
     case move
     /// Turns the yaw about the centre (or the anchor); position and size are held.
     case turn
+    /// Revises the body's persistent length along the axis; the anchor is
+    /// held. A body change resets every keyframe's review when saved.
+    case length
 }
 
 enum PhysicalHandles {
@@ -151,19 +154,46 @@ enum PhysicalHandles {
     /// Where the handles are on screen, for drawing and for hit testing.
     static func positions(
         _ g: PhysicalGeometry, basis: OrthoViewBasis, viewport: OrthoViewport
-    ) -> (move: CGPoint?, turn: CGPoint?) {
+    ) -> (move: CGPoint?, turn: CGPoint?, length: CGPoint?) {
         func screen(_ x: Double, _ y: Double) -> CGPoint {
             viewport.screenPoint(from: basis.project(simd_float3(Float(x), Float(y), 0)))
         }
         let move = g.anchorPoint.map { screen($0.x, $0.y) }
-        guard let yaw = g.yaw, let origin = g.centre ?? g.anchorPoint else { return (move, nil) }
+        guard let yaw = g.yaw, let origin = g.centre ?? g.anchorPoint else {
+            return (move, nil, nil)
+        }
         let o = screen(origin.x, origin.y)
         let t = screen(origin.x + cos(yaw.rad), origin.y + sin(yaw.rad))
         let n = max(hypot(t.x - o.x, t.y - o.y), 0.001)
-        return (
-            move,
-            CGPoint(x: o.x + (t.x - o.x) / n * axisReach, y: o.y + (t.y - o.y) / n * axisReach)
-        )
+        let turn = CGPoint(
+            x: o.x + (t.x - o.x) / n * axisReach, y: o.y + (t.y - o.y) / n * axisReach)
+        let length = lengthHandlePoint(g).map { screen($0.x, $0.y) }
+        return (move, turn, length)
+    }
+
+    /// Where the length handle sits: the end of the body farthest from the
+    /// anchor along the axis, when a full-span length is known. A face anchor
+    /// on a side, or an axis without a front, has no such end to pull.
+    static func lengthHandlePoint(_ g: PhysicalGeometry) -> PhysicalPlanar? {
+        guard let yaw = g.yaw, yaw.axis == .resolved, g.length != nil else { return nil }
+        switch g.anchorKind {
+        case .bodyCentre, .rearFace: return g.front
+        case .frontFace: return g.rear
+        case .leftFace, .rightFace: return nil
+        }
+    }
+
+    /// The length a drag to `pointer` asks for: the distance from the held
+    /// anchor to the pointer's projection on the axis, doubled for a centre
+    /// anchor, whose two ends move together.
+    static func draggedLength(
+        anchor: PhysicalPlanar, anchorKind: PhysicalAnchorKind, yawRad: Double, pointer: simd_float2
+    ) -> Double {
+        let along =
+            (Double(pointer.x) - anchor.x) * cos(yawRad) + (Double(pointer.y) - anchor.y)
+            * sin(yawRad)
+        let reach = abs(along)
+        return max(anchorKind == .bodyCentre ? reach * 2 : reach, 0.1)
     }
 }
 
@@ -184,6 +214,7 @@ extension AnnotationSession {
         func near(_ p: CGPoint?) -> Bool {
             p.map { hypot($0.x - screen.x, $0.y - screen.y) <= PhysicalHandles.pickRadius } ?? false
         }
+        if near(at.length) { return .length }
         if near(at.turn) { return .turn }
         if near(at.move) { return .move }
         return nil
@@ -203,6 +234,21 @@ extension AnnotationSession {
         let world = worldPoint(in: .top, viewPoint: viewPoint)
         let from = worldPoint(in: .top, viewPoint: startPoint)
         let origin = g.centre ?? g.anchorPoint
+        if handle == .length {
+            guard let anchor = g.anchorPoint, let yaw = g.yaw,
+                let startBody = physical.gestureStartBody(objectID: objectID),
+                startBody.length.bounded
+            else { return }
+            let length = PhysicalHandles.draggedLength(
+                anchor: anchor, anchorKind: g.anchorKind, yawRad: yaw.rad,
+                pointer: simd_float2(world.x, world.y))
+            physical.updateGesture { objects in
+                PhysicalDraft.updateBody(objectID: objectID, in: &objects) {
+                    PhysicalDraft.setLength(length, of: &$0.length, from: startBody.length)
+                }
+            }
+            return
+        }
         physical.updateGesture { objects in
             PhysicalDraft.updateKeyframe(
                 objectID: objectID, sampleID: sample.sampleID, in: &objects
@@ -217,6 +263,7 @@ extension AnnotationSession {
                     let rad = atan2(Double(world.y) - origin.y, Double(world.x) - origin.x)
                     k.yaw.yawRad = PhysicalUnits.radians(
                         PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))
+                case .length: break
                 }
             }
         }

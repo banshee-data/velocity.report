@@ -30,11 +30,16 @@ struct IntensityInspectorSection: View {
     enum DistributionSource: String, CaseIterable, Identifiable {
         case savedMask
         case selection
+        /// The chosen proposal's returns. The proposer clusters the pack's own
+        /// points and records every member, so this is exact membership; it
+        /// is an algorithm's suggestion, not the tracker's and not a review.
+        case proposal
         var id: String { rawValue }
         var label: String {
             switch self {
             case .savedMask: return "Saved mask"
             case .selection: return "Unsaved selection"
+            case .proposal: return "Proposal"
             }
         }
     }
@@ -198,6 +203,14 @@ struct IntensityInspectorSection: View {
         case .selection:
             indices = Array(session.history.current)
             describe = "The selection on screen, not saved"
+        case .proposal:
+            if let proposal = session.selectedProposal {
+                indices = session.proposalIndices
+                describe =
+                    "Proposal \(proposal.id) (\(proposal.classGuess) guess): the proposer's exact members, not a review"
+            } else {
+                describe = "No proposal chosen"
+            }
         }
         let result = Result {
             try IntensityPopulation(

@@ -132,7 +132,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
 
     /// Whether the pack's intensity is a measurement at all.
     var intensityAvailability: IntensityAvailability {
-        IntensityAvailability(hasIntensity: pack.manifest.hasIntensity)
+        IntensityAvailability(
+            hasIntensity: pack.manifest.hasIntensity, sample: currentSample?.hasIntensity)
     }
 
     /// How the views colour by raw intensity. A display setting: it changes

@@ -45,9 +45,32 @@ struct PhysicalCompareOverlay: View {
             viewport.size.height > 0
             ? Double(viewport.halfHeight * 2) / Double(viewport.size.height) : 0
         return Canvas { context, size in
-            guard metresPerPoint > 0, standard == .top else { return }
+            guard metresPerPoint > 0 else { return }
             func screen(_ x: Double, _ y: Double) -> CGPoint {
                 viewport.screenPoint(from: basis.project(simd_float3(Float(x), Float(y), 0)))
+            }
+            if standard != .top {
+                // An elevation has no height for either layer: the report
+                // records planar geometry. Each is a vertical at its planar
+                // position, in the half-space this view looks into.
+                for mark in CompareElevationMarks.marks(instants, basis: basis) {
+                    let x = screen(mark.x, mark.y).x
+                    var line = Path()
+                    line.move(to: CGPoint(x: x, y: 0))
+                    line.addLine(to: CGPoint(x: x, y: size.height))
+                    let colour = mark.isPrediction ? Self.predictionColour : Self.referenceColour
+                    context.stroke(
+                        line, with: .color(colour.opacity(0.8)),
+                        style: StrokeStyle(
+                            lineWidth: 1, dash: mark.isPrediction ? [4, 3] : [3, 3]))
+                    context.draw(
+                        Text(
+                            (names[mark.objectID] ?? mark.objectID)
+                                + (mark.isPrediction ? " · \(armLabel)" : " · ref")
+                        ).font(.system(size: 9)).foregroundColor(colour),
+                        at: CGPoint(x: x, y: mark.isPrediction ? 26 : 14))
+                }
+                return
             }
             func circle(_ x: Double, _ y: Double, _ r: Double) -> Path {
                 let c = screen(x, y)
@@ -247,12 +270,51 @@ struct PhysicalComparePane: View {
         let sample = session.currentSample
         let instants =
             sample.map { report.instants(arm: inspector.arm, sampleID: $0.sampleID) } ?? []
+        let following =
+            sample.map { report.following(arm: inspector.arm, sampleID: $0.sampleID) } ?? []
         Text("This frame").font(.caption.bold())
-        if instants.isEmpty {
+        if instants.isEmpty && following.isEmpty {
             Text("The report expected nothing at this frame.").font(.caption2).foregroundStyle(
                 .secondary)
         }
+        ForEach(Array(following.enumerated()), id: \.offset) { _, f in followingView(f) }
         ForEach(Array(instants.enumerated()), id: \.offset) { _, instant in instantView(instant) }
+    }
+
+    /// A following instant: a chord along the follower's axis between the
+    /// projected footprint extremes, not an along-path headway.
+    private func followingView(_ f: ReportFollowingInstant) -> some View {
+        func m(_ v: Double) -> String { String(format: "%.2f m", v) }
+        let follower = session.displayName(objectID: f.followerObjectID)
+        let leader = f.leaderObjectID.map(session.displayName(objectID:))
+        return VStack(alignment: .leading, spacing: 1) {
+            Text("\(follower) following " + (leader ?? "(\(f.decision ?? "no leader"))")).font(
+                .caption.bold())
+            if let g = f.referenceGap {
+                Text(
+                    "reference gap " + (g.value.map(m) ?? "—")
+                        + (g.lower != nil && g.upper != nil
+                            ? " [\(m(g.lower!)), \(m(g.upper!))]" : "")
+                        + " · \(g.status.label.lowercased())"
+                ).font(.caption2)
+            }
+            if let p = f.predictedGap {
+                Text(
+                    "estimate gap \(m(p.value)) ± \(m(p.sigma)) · \(p.followerTrack) → \(p.leaderTrack)"
+                ).font(.caption2)
+            }
+            if let error = f.error {
+                Text(
+                    "error \(m(error))" + (f.outsideBound.map { " · outside bound \(m($0))" } ?? "")
+                ).font(.caption2)
+            }
+            if f.outcome.category != "scored" {
+                Text("\(f.outcome.category)\(f.outcome.reason.map { " (\($0))" } ?? "")").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            }
+        }.padding(6).background(
+            Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
     }
 
     private func instantView(_ i: ReportInstant) -> some View {
@@ -310,5 +372,31 @@ struct PhysicalComparePane: View {
             }
         }.padding(6).background(
             Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+/// What an elevation shows of a report's instants: one vertical per layer,
+/// at each layer's own planar position, only where the view looks.
+enum CompareElevationMarks {
+    struct Mark: Equatable {
+        var objectID: String
+        var x: Double
+        var y: Double
+        var isPrediction: Bool
+    }
+
+    static func marks(_ instants: [ReportInstant], basis: OrthoViewBasis) -> [Mark] {
+        var out: [Mark] = []
+        for instant in instants {
+            if let g = instant.reference?.geometry, let p = g.centre ?? g.anchorPoint,
+                basis.shows(simd_float3(Float(p.x), Float(p.y), 0))
+            {
+                out.append(Mark(objectID: instant.objectID, x: p.x, y: p.y, isPrediction: false))
+            }
+            if let p = instant.prediction, basis.shows(simd_float3(Float(p.x), Float(p.y), 0)) {
+                out.append(Mark(objectID: instant.objectID, x: p.x, y: p.y, isPrediction: true))
+            }
+        }
+        return out
     }
 }
