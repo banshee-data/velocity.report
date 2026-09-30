@@ -1,0 +1,97 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f7b/control/source-manifest.json (sha256:fc2622eb01b282a83d76d46523ac2f330ddb808b87c2fe777091ff6dbb9c8b44)
+marina-webster-beach: first run across 4 capture(s)
+2026/09/30 05:26:09 ran database initialisation script
+2026/09/30 05:26:09 [migrate] 1/u original_schema (234.25µs)
+2026/09/30 05:26:09 [migrate] 2/u json_and_write_timestamp (27.845875ms)
+2026/09/30 05:26:09 [migrate] 3/u rename_tables (29.013584ms)
+2026/09/30 05:26:09 [migrate] 4/u create_lidar_bg_snapshot (29.18575ms)
+2026/09/30 05:26:09 [migrate] 5/u create_radar_data_transits (29.291708ms)
+2026/09/30 05:26:09 [migrate] 6/u create_radar_transit_links (29.399708ms)
+2026/09/30 05:26:09 [migrate] 7/u create_site_table (29.651583ms)
+2026/09/30 05:26:09 [migrate] 8/u create_site_reports (29.720666ms)
+2026/09/30 05:26:09 [migrate] 9/u add_velocity_report_prefix (29.800208ms)
+2026/09/30 05:26:09 [migrate] 10/u create_lidar_tracks (30.180708ms)
+2026/09/30 05:26:09 [migrate] 11/u create_lidar_analysis_runs (30.597417ms)
+2026/09/30 05:26:09 [migrate] 12/u add_track_quality_metrics (32.679917ms)
+2026/09/30 05:26:09 [migrate] 13/u create_site_config_periods (5.4355ms)
+2026/09/30 05:26:09 [migrate] 14/u remove_site_config_fields (5.329125ms)
+2026/09/30 05:26:09 [migrate] 15/u add_site_map_fields (6.595125ms)
+2026/09/30 05:26:09 [migrate] 16/u lidar_labels (6.600625ms)
+2026/09/30 05:26:09 [migrate] 17/u create_lidar_bg_regions (6.633ms)
+2026/09/30 05:26:09 [migrate] 18/u add_quality_label (6.816209ms)
+2026/09/30 05:26:09 [migrate] 19/u add_lidar_labels_scene_source (7.359208ms)
+2026/09/30 05:26:09 [migrate] 20/u create_lidar_scenes (7.449666ms)
+2026/09/30 05:26:09 [migrate] 21/u create_lidar_missed_regions (7.194792ms)
+2026/09/30 05:26:09 [migrate] 22/u create_lidar_sweeps (7.0005ms)
+2026/09/30 05:26:09 [migrate] 23/u add_vrlog_path (4.992084ms)
+2026/09/30 05:26:09 [migrate] 24/u add_sweep_metadata (7.123584ms)
+2026/09/30 05:26:09 [migrate] 25/u add_label_source (6.421875ms)
+2026/09/30 05:26:09 [migrate] 26/u update_label_taxonomy (5.159667ms)
+2026/09/30 05:26:09 [migrate] 27/u add_sweep_checkpoint (6.432125ms)
+2026/09/30 05:26:09 [migrate] 28/u create_lidar_evaluations (6.437375ms)
+2026/09/30 05:26:09 [migrate] 29/u expand_label_vocabulary (6.141666ms)
+2026/09/30 05:26:09 [migrate] 30/u schema_simplification (26.838209ms)
+2026/09/30 05:26:09 [migrate] 31/u table_naming (41.431708ms)
+2026/09/30 05:26:09 [migrate] 32/u create_lidar_all_tracks_view (41.466708ms)
+2026/09/30 05:26:09 [migrate] 33/u replay_annotations_and_eval_integrity (43.236333ms)
+2026/09/30 05:26:09 [migrate] 34/u schema_hardening_pre_v050 (61.197042ms)
+2026/09/30 05:26:09 [migrate] 35/u lidar_immutable_run_config (62.640666ms)
+2026/09/30 05:26:09 [migrate] 36/u drop_legacy_params_json (68.988083ms)
+2026/09/30 05:26:09 [migrate] 37/u seed_config_period_pi_day (69.993875ms)
+2026/09/30 05:26:09 [migrate] 38/u create_radar_serial_config (68.818041ms)
+2026/09/30 05:26:09 [migrate] 39/u create_lidar_scenes (68.931625ms)
+2026/09/30 05:26:09 [migrate] 40/u add_scene_vantages (69.468125ms)
+2026/09/30 05:26:09 [migrate] 41/u drop_scene_vantages (50.589291ms)
+2026/09/30 05:26:09 [migrate] 42/u create_lidar_capture_index (36.459166ms)
+2026/09/30 05:26:09 [migrate] 43/u create_lidar_capture_jobs (36.727708ms)
+2026/09/30 05:26:09 [migrate] 44/u replay_case_files (36.363792ms)
+2026/09/30 05:26:09 [migrate] 45/u replay_case_geography (22.685666ms)
+2026/09/30 05:26:09 [migrate] 46/u lidar_sites (19.79625ms)
+2026/09/30 05:26:09 [migrate] 47/u lidar_observations (14.624458ms)
+2026/09/30 05:26:09 [migrate] 48/u lidar_track_estimates (13.711292ms)
+2026/09/30 05:26:09 [migrate] 49/u lidar_track_residuals (13.634417ms)
+2026/09/30 05:26:09 [migrate] 50/u lidar_track_estimate_revisions (13.369083ms)
+2026/09/30 05:26:09 [migrate] 51/u lidar_interaction_persistence (13.543583ms)
+2026/09/30 05:26:09 [migrate] 52/u lidar_track_solid_bodies (12.236041ms)
+2026/09/30 05:26:09 [migrate] 53/u lidar_solid_body_support (14.160375ms)
+2026/09/30 05:26:09 [migrate] 54/u lidar_segments (13.980125ms)
+2026/09/30 05:26:09 [migrate] 55/u lidar_segment_constraints (18.899583ms)
+2026/09/30 05:26:09 [migrate] 56/u lidar_segment_selectors (15.634292ms)
+2026/09/30 05:26:09 [migrate] 57/u lidar_track_estimate_reference_support (16.764625ms)
+2026/09/30 05:26:09 Database baselined at version 57
+2026/09/30 05:26:09 replaying 4 capture file(s) (port 2369) through the perception pipeline
+marina-webster-beach: repeat run
+2026/09/30 05:32:42 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 05:32:42 replaying 4 capture file(s) (port 2369) through the perception pipeline
+marina-webster-beach: capture time frames=11446 backward=0 duplicate=0 clamped_gaps=17 max_gap=4.200s
+marina-webster-beach: continuity born=1800 confirmed=519 reacquired=4358 expired misses=1808 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+marina-webster-beach: solid bodies=39399 near_edge_fixes=16722 (42.4%) lapses=676; lateral p99 point estimates 0.183 m, solid bodies 0.158 m over 5586 body-centre windows
+columbus-broadway: first run across 7 capture(s)
+2026/09/30 05:40:52 ran database initialisation script
+2026/09/30 05:40:52 Database baselined at version 57
+2026/09/30 05:40:52 replaying 7 capture file(s) (port 2369) through the perception pipeline
+columbus-broadway: repeat run
+2026/09/30 05:55:03 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 05:55:04 replaying 7 capture file(s) (port 2369) through the perception pipeline
+columbus-broadway: capture time frames=20308 backward=0 duplicate=0 clamped_gaps=45 max_gap=5.900s
+columbus-broadway: continuity born=7500 confirmed=2459 reacquired=9882 expired misses=7496 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+columbus-broadway: solid bodies=77949 near_edge_fixes=43106 (55.3%) lapses=1695; lateral p99 point estimates 0.226 m, solid bodies 0.280 m over 6809 body-centre windows
+wrote 2 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f7b/control/out
+     2683.21 real      1717.97 user       218.23 sys
+           981581824  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             1211177  page reclaims
+                2629  page faults
+                   0  swaps
+                  28  block input operations
+                 293  block output operations
+                   0  messages sent
+                   0  messages received
+              365998  signals received
+             1162596  voluntary context switches
+            34122631  involuntary context switches
+      18219877625191  instructions retired
+       5290752757516  cycles elapsed
+          1060376128  peak memory footprint
