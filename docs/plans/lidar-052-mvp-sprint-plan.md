@@ -41,6 +41,12 @@ driver score is needed. Complete the offline Mac path before expanding live depl
 independent live L5 worker, bounded reassociation experiment, wider corpus and Pi/power-loss work
 remain agreed backlog items, with the scope split below; they are not silently retired.
 
+The proposed [facet registration experiment](lidar-facet-registration-experiment-plan.md) may run
+alongside this sprint with separate capacity, sharing S0 references and the following scorer.
+It adds no dependency to exit A. Pull a facet measurement into exit B only if independent evidence
+shows it resolves a physical-gate failure of the simpler tracked model; otherwise its conditional
+integration belongs with v0.5.6 perception work.
+
 ## Delivery order
 
 Each row is an independently reviewable implementation increment. The S sequence is the sprint's
