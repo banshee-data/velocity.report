@@ -8,8 +8,8 @@ summaries; the supervised three-site pilot establishes a workflow, not tracker a
 - **Status:** Increments A–D built on this branch: authoring, Compare, frozen-split physical pins with `verify-bundle`, and a native Freeze action previewed through the service. The evaluator refuses drifted reviews, intensity presence is per frame, and the length handle, following instants, elevations in Compare and the proposal population are in. Not yet exercised by the operator pilot. E not started.
 - **Target:** Native macOS annotation pilot, followed by complete P1 and the P2 inspector
 - **Layers:** L10 Clients, annotation storage, and offline evaluation
-- **Canonical:** [Physical reference review](docs/plans/lidar-physical-reference-review-plan.md)
-- **Related:** [Point annotation tool](docs/lidar/operations/point-annotation-tool.md), [MVP sprint](docs/plans/lidar-052-mvp-sprint-plan.md), [Annotation datasets](docs/plans/lidar-point-annotation-and-object-dataset-plan.md)
+- **Canonical:** [Physical reference review](lidar-physical-reference-review-plan.md)
+- **Related:** [Point annotation tool](../lidar/operations/point-annotation-tool.md), [MVP sprint](lidar-052-mvp-sprint-plan.md), [Annotation datasets](lidar-point-annotation-and-object-dataset-plan.md)
 
 ## 1. Outcome and working boundary
 
@@ -23,53 +23,49 @@ Svelte remains the existing segment-selection surface; this work does not add a 
 application there. The native editing views use SwiftUI Canvas and `OrthoViewport`; the adjacent
 3D view uses Metal. Reuse that split so drawing and interaction share one projection.
 
-This document is in the repository root at the user's request. It expands the Swift execution
-scope of the canonical physical-reference plan, without replacing its evidence contract. Update
-that plan and the operator guide as increments ship; do not maintain competing contract copies.
+This document began in the repository root and now lives in `docs/plans`. It owns the Swift
+execution sequence. The [recording-domain extension plan](lidar-vrlog-observation-format-plan.md#73-persistent-features-and-revisioned-shape-beliefs-proposed)
+owns the proposed shared feature contract; Swift and backend experiments consume that one model.
+The physical-reference plan continues to own independent body/pose evidence.
 
-Work starts in the existing root checkout on `dd/lidar/physical-pose-ui-929`, inspected at
-`0b5406770`. Use that checkout directly. Do not change branches or create a worktree. Leave the
-pre-existing BuildInfo stash untouched. Writing this plan does not authorise implementation,
-commits, pushes, or a pull request; implementation needs a subsequent instruction in this chat.
+Continue in the root checkout on `dd/lidar/physical-pose-ui-929`, now inspected at `ddea4159d`.
+The original planning baseline was `0b5406770`; subsequent commits delivered the pose workflow.
+Use this checkout directly and leave the preserved BuildInfo stash untouched. This update is
+now accompanied by a user-authorised, approximately two-hour local implementation sprint.
+Do not commit, push, merge, move checkouts, or change the stash as part of that sprint.
 
 ## 2. What exists and what remains
 
-The following was checked against the root checkout during planning on September 29, 2026.
-These are source-inspection findings, not fresh build or test results.
+The committed baseline was inspected on September 30, 2026 at `ddea4159d`. The local feature
+sprint adds the bounded proposal path described in section 11. Desktop/unit evidence is separate
+from the still outstanding operator pilot, multi-site accuracy and device qualification.
 
-| Area                                                                                                | Delivered behaviour                                                                                                                                                | Remaining work                                                                             |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Membership and identity                                                                             | Local pack reader, proposals, object editing, point selection, orthographic views, separate membership review, revision-safe sidecar                               | Coordinate physical drafts and stale links with these existing operations                  |
-| P0, merged in [#635](https://github.com/banshee-data/velocity.report/pull/635)                      | Version 1 physical-reference document; component bounds and support; independent import; revision history; origin ledger; validation against points and membership | Swift models, authoring, and an application-facing integration boundary                    |
-| P2, merged in [#637](https://github.com/banshee-data/velocity.report/pull/637)                      | Physical scoring; source checks; centre, axis, dimension, endpoint, box, and chord-gap comparisons; missing-evidence accounting                                    | Native report reader, separate overlays, comparison controls, and frozen-split integration |
-| Frozen membership split, merged in [#636](https://github.com/banshee-data/velocity.report/pull/636) | Source and selection pins, exact sidecar revision, object/capture partition rules, tuning lineage                                                                  | Pin physical references and record their review independently of legacy pose counts        |
-| Segment tooling                                                                                     | Pack queue and selection provenance                                                                                                                                | Resolve the two outstanding windows and verify the three actual packs                      |
+| Area               | Current branch evidence                                                                          | Remaining prerequisite                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Membership         | Local pack/sidecar, selections, uncertain points, identity and review                            | Preserve all existing labels and exact point ordering                                                 |
+| Physical authoring | `PhysicalReferenceSession`, controls, overlays, and Go physical-reference API exist              | Run the actual pack save/reopen smoke test; feature anchors remain unresolved                         |
+| Compare/intensity  | Report inspector, intensity display/distribution, per-frame intensity availability               | Operator validation; retain the explicit zero-versus-missing requirement below                        |
+| Freeze             | Native Freeze sheet, physical pins, `verify-bundle`, and `BindPhysical` exist                    | Verify current source/revision behaviour on the pilot packs                                           |
+| Feature candidates | Local `features.proto`, Go revision store/API, sphere authoring and translation proposal preview | Complete validation and operator smoke test; body anchors and rotation registration remain follow-ons |
 
-Two integration details affect the critical path:
-
-1. `perframeeval.LoadReference` uses `LoadAnySplit` and binds frozen splits. In contrast,
-   `LoadPhysicalReference` currently calls `LoadSplitManifest`, which accepts the older version 1
-   single-pack format. A physical evaluation cannot yet be assumed to accept the frozen split
-   used by membership evaluation. Share the validated binding path before claiming that workflow.
-2. The frozen split's geometry summary comes from the optional per-mask `pose`. It is not a review
-   summary or pin of `physical-references.json`. Extending that summary without pinning the new
-   document would leave evaluation free to read a different reference revision.
+The earlier split-loader and physical-pin gaps were closed by `93a733d0d` and related commits.
+Physical scoring now uses the shared split binding and physical pins. Sections describing those
+increments below remain their design/acceptance criteria, not a claim that they are still absent.
+The existing pose editor is therefore an available prerequisite on this branch, but its operator
+pilot remains unverified. A checkout lacking those commits cannot deliver the full feature pilot
+in three days without separately restoring/building that prerequisite.
 
 Physical evaluation also deliberately refuses held-out splits. No persisted contract yet freezes
 the physical error limits, reference precision, and coverage requirements learned on tuning data.
 Preserve that refusal until the separate qualification work in section 10 is complete.
 
-The local `dd/lidar/annotation-929` branch points to the same inspected commit; it has no extra
-pose editor to recover. Earlier annotation/segment branches are historical context, not a reason
-to transplant their changes. At inspection,
-[#641](https://github.com/banshee-data/velocity.report/pull/641) concerned estimator experiments;
-[#631](https://github.com/banshee-data/velocity.report/pull/631) concerned capture/job constraints.
-Both were open. Neither supplies this UI or blocks the proposed file contract.
-Recheck their state when implementation begins, especially Xcode project and shared-doc overlap.
+The facet research plan merged as `00d8b1ca3` (#657) on `origin/main`, after this branch's base.
+Its document is brought into this checkout for the coordinated plan update, without merging code
+or changing branches. Recheck integration conflicts before a later merge.
 
 ## 3. Three-site review scope
 
-The operator intends to annotate these recordings on September 30, 2026:
+The pilot retains the three recordings selected for the September 30, 2026 review:
 
 | Site               | Recording scope                         | Role     | Preparation still needed                                                    |
 | ------------------ | --------------------------------------- | -------- | --------------------------------------------------------------------------- |
@@ -275,27 +271,29 @@ selected point keeps a readable inspector value when the pointer moves away.
 
 **Explicit colour toggle.** Add an on/off **Reflectivity colour** control, off by default. Off
 preserves the normal annotation/object palette with no intensity-driven colour or brightness.
-On maps native 0–255 intensity to a visible spectrum on the points. Keep this independent of the
-Points/Physical reference/Compare workflow modes and of histogram visibility. Preserve object
+On gives **measured zero its own fixed colour**, maps **1–255** through the adjustable spectrum,
+and uses a third unavailable style when intensity was not measured. Keep this independent of the
+Object Points/Feature Candidates/Physical/Compare workflow modes and of histogram visibility. Preserve object
 selection and review cues through outlines, labels, or other non-colour marks.
 
-The current [Metal shader](tools/visualiser-macos/VelocityVisualiser/Rendering/Shaders/PointCloud.metal)
+The current [Metal shader](../../tools/visualiser-macos/VelocityVisualiser/Rendering/Shaders/PointCloud.metal)
 uses intensity for subtle foreground, ground, and background colour modulation, while annotation
 palette entries ignore it. Explicit off therefore needs a defined renderer path that bypasses
 that modulation for the annotation views, not an assumption that it was absent. Scope the new
 toggle to annotation views, including their companion 3D view; do not change unrelated live-view
 defaults. SwiftUI Canvas and Metal must honour the same mode, ramp, and missing-value behaviour.
 
-**Ramp controls and legend.** Start with the full 0–255 range. Provide lower/upper raw-code limits,
+**Ramp controls and legend.** Start the gradient at 1 and end at 255; zero is a separate swatch. Provide lower/upper raw-code limits,
 a ramp/palette selector, a contrast or gamma control, and brightness control for the dark
-background, plus Reset to full range/default ramp. Keep numeric bounds ordered and in range.
+background, plus Reset to the full 1–255 gradient/default ramp. Keep numeric bounds ordered and in range.
 Explore a bright, starburst-like spectrum as a design direction, not a prescribed palette or
 physical lighting effect. Check visibility of low values and selection marks on the actual dark
 background. Do not silently rescale between frames.
 
 The legend shows the active ramp, raw-code endpoints, intermediate labels reflecting any nonlinear
 mapping, and out-of-range clipping. Clamp display colours at the selected limits and identify
-clipped values; retain their exact raw readout. Range, gamma, and brightness are display transforms
+clipped nonzero values; retain their exact raw readout. Zero must not be folded into the lower
+gradient endpoint or reported as a clipped nonzero measurement. Range, gamma, and brightness are display transforms
 only: they do not change histogram populations, bin edges, peak calculations, source bytes, or
 review state. Missing intensity uses a distinct neutral style and an unavailable label, separate
 from the valid colour assigned to zero. Toggle off restores the normal palette exactly; remembered
@@ -354,12 +352,12 @@ comparison exposure rules and stay out of Embarcadero's blind pilot workflow.
 
 **No VRLOG format change is required to display existing raw intensity.** Source inspection finds:
 
-| Existing layer                 | Intensity representation                                                                                                                                                                                                                               | Work for this feature                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Legacy FrameBundle point cloud | [PointCloudFrame](proto/velocity_visualiser/v1/visualiser.proto) has packed repeated `uint32 intensity`, documented as 0–255                                                                                                                           | Preserve point indexing, presence, and the native integer values                         |
-| VRLOG 1.x observations         | [RetainedPoints](proto/velocity_recording/v1/recording.proto) has one intensity byte per point and explicit column presence                                                                                                                            | Respect presence and retained-point domain                                               |
-| Annotation packs               | [Manifest and point blocks](internal/lidar/annotation/pack.go) carry `has_intensity` and byte intensity alongside coordinates                                                                                                                          | Read availability and expose the stored byte without renormalising it                    |
-| Native client                  | [Swift point models](tools/visualiser-macos/VelocityVisualiser/Models/Models.swift) and pack reader ingest bytes; [MetalRenderer](tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift) uses intensity divided by 255 for rendering | Keep the raw integer for readout/statistics; rendering normalisation must not replace it |
+| Existing layer                 | Intensity representation                                                                                                                                                                                                                                           | Work for this feature                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Legacy FrameBundle point cloud | [PointCloudFrame](../../proto/velocity_visualiser/v1/visualiser.proto) has packed repeated `uint32 intensity`, documented as 0–255                                                                                                                                 | Preserve point indexing, presence, and the native integer values                         |
+| VRLOG 1.x observations         | [RetainedPoints](../../proto/velocity_recording/v1/recording.proto) has one intensity byte per point and explicit column presence                                                                                                                                  | Respect presence and retained-point domain                                               |
+| Annotation packs               | [Manifest and point blocks](../../internal/lidar/annotation/pack.go) carry `has_intensity` and byte intensity alongside coordinates                                                                                                                                | Read availability and expose the stored byte without renormalising it                    |
+| Native client                  | [Swift point models](../../tools/visualiser-macos/VelocityVisualiser/Models/Models.swift) and pack reader ingest bytes; [MetalRenderer](../../tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift) uses intensity divided by 255 for rendering | Keep the raw integer for readout/statistics; rendering normalisation must not replace it |
 
 There is a presence caveat in the existing annotation export: `has_intensity` becomes true if any
 exported sample supplies intensity, while the fixed-size point encoding can zero-fill absent
@@ -382,17 +380,17 @@ Keep persistence and evidence rules out of SwiftUI view bodies. Use a dedicated 
 associated with the active annotation pack/object/sample, with observable UI state on the main
 actor and file/network work off it.
 
-| Existing seam                                                                                                          | Proposed change                                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [AnnotationSession.swift](tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationSession.swift)                | Coordinate active object/sample, membership save notifications, navigation guards, and physical-session lifetime |
-| [AnnotationSidecar.swift](tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationSidecar.swift)                | Keep membership ownership and file format; never repurpose optional `AnnotationPose` as the new reference        |
-| [AnnotationWindow.swift](tools/visualiser-macos/VelocityVisualiser/UI/AnnotationWindow.swift)                          | Compose modes, retain drafts during navigation, and apply blind-view rules                                       |
-| [AnnotationPane.swift](tools/visualiser-macos/VelocityVisualiser/UI/AnnotationPane.swift)                              | Add physical controls and separate progress/review actions, preferably in extracted views                        |
-| [AnnotationViewports.swift](tools/visualiser-macos/VelocityVisualiser/UI/AnnotationViewports.swift)                    | Draw reference/proposal/comparison layers using the existing coordinate mapping                                  |
-| [OrthoViewport.swift](tools/visualiser-macos/VelocityVisualiser/Annotation/OrthoViewport.swift)                        | Reuse projection for hit testing and drawing; test rotation, zoom, pan, and elevation                            |
-| [AnnotationFrameSync.swift](tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationFrameSync.swift)            | Hold dirty drafts and reject mismatched frame updates                                                            |
-| [PackFolderAccess.swift](tools/visualiser-macos/VelocityVisualiser/Annotation/PackFolderAccess.swift)                  | Preserve user-granted local pack access; do not assume a remote server path is locally readable                  |
-| [AnnotationExportAPIClient.swift](tools/visualiser-macos/VelocityVisualiser/Labelling/AnnotationExportAPIClient.swift) | Follow its local API/error conventions in a separate physical-reference client                                   |
+| Existing seam                                                                                                                | Proposed change                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [AnnotationSession.swift](../../tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationSession.swift)                | Coordinate active object/sample, membership save notifications, navigation guards, and physical-session lifetime |
+| [AnnotationSidecar.swift](../../tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationSidecar.swift)                | Keep membership ownership and file format; never repurpose optional `AnnotationPose` as the new reference        |
+| [AnnotationWindow.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/AnnotationWindow.swift)                          | Compose modes, retain drafts during navigation, and apply blind-view rules                                       |
+| [AnnotationPane.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/AnnotationPane.swift)                              | Add physical controls and separate progress/review actions, preferably in extracted views                        |
+| [AnnotationViewports.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/AnnotationViewports.swift)                    | Draw reference/proposal/comparison layers using the existing coordinate mapping                                  |
+| [OrthoViewport.swift](../../tools/visualiser-macos/VelocityVisualiser/Annotation/OrthoViewport.swift)                        | Reuse projection for hit testing and drawing; test rotation, zoom, pan, and elevation                            |
+| [AnnotationFrameSync.swift](../../tools/visualiser-macos/VelocityVisualiser/Annotation/AnnotationFrameSync.swift)            | Hold dirty drafts and reject mismatched frame updates                                                            |
+| [PackFolderAccess.swift](../../tools/visualiser-macos/VelocityVisualiser/Annotation/PackFolderAccess.swift)                  | Preserve user-granted local pack access; do not assume a remote server path is locally readable                  |
+| [AnnotationExportAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/AnnotationExportAPIClient.swift) | Follow its local API/error conventions in a separate physical-reference client                                   |
 
 Proposed new responsibilities, with final filenames chosen during implementation:
 
@@ -513,15 +511,12 @@ the difference and offer an explicit new evaluation. Never splice new references
 
 ## 9. Freeze and reproducibility
 
-### 9.1 Required pilot compatibility fix
+### 9.1 Delivered compatibility prerequisite
 
-Make physical scoring share membership scoring's validated `LoadAnySplit`/`Bind` path. Both paths
-must use the same pack, sidecar revision, partition, and episodes. Preserve existing version 1
-inputs. Add a physical evaluation regression using an actual frozen membership split; command-line
-help alone is not evidence that the combination works.
-
-This corrects an earlier planning assumption: passing a frozen split alongside
-`-physical-reference-revision` is not currently sufficient without this compatibility work.
+The branch now routes physical scoring through the shared validated split binding and
+`BindPhysical`. Retain regression coverage for legacy version 1 and frozen membership inputs,
+exact per-pack pins, history after head changes, and source drift. The earlier split-loader
+mismatch is resolved in source; actual pilot-pack reproducibility still needs its own evidence.
 
 ### 9.2 Supervised pilot freeze
 
@@ -537,9 +532,9 @@ even if the store has not yet moved it into history. A repeat run must verify al
 any changed input. Supply a small verification runner if the product freeze extension is deferred;
 an unchecked list of hashes is not enforcement.
 
-This is a supervised reproducibility route, not a claim that the frozen split itself contains
-physical pins. If it cannot be completed safely in the timebox, deliver authoring only and mark
-frozen physical evaluation unfinished.
+The current native Freeze path and versioned split can retain physical pins. The bundle remains
+useful audit evidence alongside that product path. Do not infer successful pilot reproduction
+merely from the existence of the controls.
 
 ### 9.3 Complete freeze integration
 
@@ -586,41 +581,112 @@ P2 does not yet score leader-choice correctness, and along-path gaps need persis
 capability is implied by drawing bumpers. Full P3 requires independent pair/manoeuvre references
 and a broader reviewed queue; the three-clip authoring pilot alone does not close it.
 
-## 11. Delivery increments and realistic timebox
+## 11. Next three engineering days: Swift feature authoring
 
-One implementer is assumed. Estimates are planning allowances, not measured task durations or a
-promise of overnight completion. Existing pack availability, local-server access, and estimate
-artifacts must be checked before committing to a review start time.
+This is an annotation and inspection slice over the existing physical editor. It is separate from
+F0–F5 in the [facet research plan](lidar-facet-registration-experiment-plan.md#6-work-packages-and-effort).
+That plan budgets **15–25 engineer-days** to a research decision and **35–60 engineer-days** through
+conditional integration and robustness. Its upper bound is 60 engineer-days; it is not a claim
+that basic manual feature authoring needs three months. This three-day slice does not close H1–H5.
 
-| Increment                            | Work                                                                                                                                   | Exit evidence                                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| A: contract and first saved keyframe | Confirm real packs; Swift models/client; Go load/save/validate/review; conflict tokens; one object's body and pose                     | Swift saves, Go validates, reopening preserves values/status/history, and masks are unchanged         |
-| B: usable authoring                  | Numeric controls, click placement, both-view overlays, evidence/bounds, undo, draft guards, blind mode, dependent-review invalidation  | Operator authors and separately reviews one car at several keyframes without direct JSON editing      |
-| C: comparison and pilot freeze       | Report import, identity-bound overlays, unavailable outcomes, frozen-split loader compatibility, explicit revision verification bundle | Tuning comparison reopens at exact instants and reruns against unchanged pins after the head advances |
-| D: complete product flow             | Versioned physical pins in frozen splits, CLI enforcement, native Freeze, history/recovery UI, inspector hardening                     | Reproducibility and stale/source/version tests pass through the normal UI/CLI path                    |
-| E: qualification and broader review  | Acceptance-contract persistence, held-out scoring gate, following editor, broader operator queue                                       | Independent frozen evidence supports the separately defined physical/following gates                  |
+### 11.1 Two-hour local sprint: a bounded proposal loop
 
-Allow approximately **8–12 engineering hours** for a narrow supervised A–C attempt, with numeric
-controls and imported reports. The newly identified split-loader mismatch and revision enforcement
-are part of that risk, not reasons to skip validation. Allow roughly **another 1–2 engineering
-days** for D, subject to findings. Estimate E separately after agreeing the acceptance contract.
+The authorised sprint prioritises a usable, reviewable path:
 
-That estimate predates the added reflectivity scope. Include raw-value readout, explicit colour
-toggle/ramp controls, and availability checks in B, with histogram/peak inspection alongside C.
-Allow a further **4–8 engineering hours** provisionally for those controls, cross-renderer parity,
-distribution helpers, and tests; re-estimate if mixed-source intensity presence needs repair.
-This addition makes the overnight A–C target less certain. If time runs short, deliver raw-value
-and colour inspection first and report histogram/peak work as unfinished rather than silently
-dropping it from the requested scope. Descriptor persistence remains outside the pilot.
+1. Save whole-object membership in **Object Points** mode. Switch visibly to **Feature Candidates**;
+   the sphere now selects a subset of the saved, definite active-object domain. Other-object and
+   uncertain claims are excluded. A feature gesture cannot add, subtract, or review object points.
+2. Seed an adjustable sphere at a real return. Default **radius is 0.20 m**, diameter 0.40 m;
+   the controls label both. Inspect orange draft support in top and elevation views. Store a
+   persistent feature ID, distinct from the fresh per-sample return indices.
+3. Enter a geometric type (unknown, edge, corner, patch, protrusion) and an optional semantic hint.
+   A corner is geometry; “headlight” is a tentative meaning. Overlapping features are permitted.
+   These labels do not run a detector or validate a geometric template.
+4. Accept and save, reject, mark missing/occluded, or cancel. Acceptance saves a **proposal**,
+   not independent physical truth. Go validates the shared protobuf under the annotation lock,
+   checks feature and membership tokens, archives exact prior bytes, and atomically replaces the
+   feature head. Whole-object membership and physical review remain unchanged.
+5. Reopen the same local pack. The service must identify the same folder, not merely a copy with
+   matching bytes. Without the local service, a saved feature file can be inspected read-only.
+   This workflow needs no Internet service, but authoritative writes require the local Go process.
+6. Preview the next consecutive source frame. Use whole-object centroid translation and a bounded
+   local footprint search, constrained to that same object's saved target domain. Recompute fresh
+   target indices. Preview does not write; each frame requires an explicit decision. Stop on gaps,
+   missing/sparse support, implausible movement, competing fits, changed membership, an already
+   annotated next frame, or a navigation guard. Cancel stops the sequence without a write.
 
-Approximately **2–3 operator hours** is an initial allowance only for the small focal-car/keyframe
-queue with membership largely reviewed. Re-estimate after the first car. Full membership,
-identity, and pose annotation over 5.5 minutes may take substantially longer.
+The current footprint has a 0.25 m voxel pitch and searches horizontal residual translation
+around the three-axis centroid displacement. That is a coarse proposal aid for a 0.20 m sphere,
+not a full local 6DOF registration result or a claim that the same physical surface was measured.
+Partial visibility can move the object's observed centroid. The operator must correct or reject
+such a preview. No automatic mask propagation is invoked and no frame is silently skipped.
 
-Cut advanced drag handles, temporal propagation, live evaluation jobs, 3D manipulation, and history
-UI first. Preserve save correctness, separate review, unknown evidence, blind held-out authoring,
-and exact source/revision binding. If A–C misses the timebox, state whether the delivered tool is
-authoring-only or includes verified tuning inspection. Do not call an editable box a finished loop.
+The first shared document is `velocity.report/feature-proposals` version 1, stored as
+`feature-proposals.pb`, with exact-byte SHA-256 tokens and `feature-proposal-revisions` history.
+The pilot explicitly uses `legacy_pack` point identity; it invents no retained 1.x point IDs.
+Part `body` has an **unknown** relation and the metric anchor remains absent. The reserved anchor
+message is refused by the pilot writer until transform and physical-revision validation exist.
+Provenance distinguishes human proposals from assisted proposals; neither claims reviewed truth.
+
+Save errors retain the draft. An uncertain commit forces deliberate cancel/reload before another
+write, because a missing response is not evidence that the server did nothing. Historical support
+keeps its original membership revision; changed observations require the current membership pin.
+
+### 11.2 Three-day delivery sequence
+
+| Day | Focus                                                                                                                                           | Concrete exit evidence                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Complete the sprint loop, wire-contract fixtures, failure handling, visible mode separation, operator guide                                     | Seed/edit/save/reopen on a real tuning pack; cancelled and rejected proposals never modify masks; source and revision conflicts fail closed                                |
+| 2   | Manual linking across samples, explicit stable body/part-frame anchor authoring under usable physical poses, uncertainty and stale-link display | Same persistent feature ID with fresh point support; known transform/revision pinned; unresolved axes or parts stay unresolved; extended bounds do not move metric anchors |
+| 3   | Inspection polish, three-site queue, reproducible annotation export and backend consumption fixture                                             | Export pins source maps, membership, physical and feature revisions; another reader interprets the same records; operator records failures, missing intervals and timings  |
+
+One implementer and existing physical authoring are assumed. The three days are a planning
+allowance, conditional on usable packs and body poses, not a guaranteed deadline. Do not spend
+them on a second tracker, automatic semantic detection, general articulation, a mesh, or model
+classification. If body poses are unavailable, ship observed feature support with unresolved
+anchors and name the missing dependency. Preserve the current held-out scoring refusal.
+
+### 11.3 Eight-hour follow-on: matching and body anchoring
+
+“Identification” here means following an operator-seeded persistent feature across adjacent
+frames, not identifying a vehicle make/model or recognising arbitrary mirrors. Local registration
+and placement along the body are distinct tasks. A useful eight-hour attempt can cover a narrow
+rotation-aware matching experiment **and** a body-anchor inspection path if the current proposal
+loop is validated and suitable physical body/keyframe poses already exist. It cannot promise
+production six-degree-of-freedom tracking for arbitrary geometry.
+
+| Allowance      | Work and dependency                                                                                                                         | Acceptance or stop condition                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 hour         | Pin examples, coordinate conventions, source/target domains and current baseline; agree a observable corner/patch example                   | Known translation and three-axis rotation fixtures; clear no-match and ambiguous examples                                                                             |
+| 2–3 hours      | Bounded local rigid-registration proposal, initialised by existing motion; full three-axis rotation and translation where data support them | Recover declared fixture transforms within separate positional/angular tolerances; show residual and support; retain alternatives and refuse underconstrained results |
+| 1–2 hours      | Feature-to-body anchor controls and readouts under a pinned usable body/pose revision                                                       | Longitudinal/lateral/height metric coordinates; optional derived percentages; unknown front/rear explicit; changing dimensions does not move stored anchors           |
+| 1–2 hours      | Review UI, serialization and failure fixtures, operator smoke test on tuning examples                                                       | Accept/edit/reject each frame, save/reopen consistency, no mask edits, honest occlusion and unresolved anchors                                                        |
+| Remaining time | Fix findings and record evidence                                                                                                            | Reduce the delivered slice rather than remove rejection or persistence checks                                                                                         |
+
+These ranges consume roughly 5–8 hours before unexpected repairs. If the pose model cannot
+provide the required orientation or stable part frame, the anchor work needs additional design;
+ship a labelled preview or unresolved anchor, not guessed coordinates. A directed longitudinal
+axis is needed to say “from the front”; an undirected axis can only report an explicit axis-relative
+coordinate. Height needs a supported vertical origin. Full 6DOF fitting needs non-degenerate
+geometry: an edge can slide or rotate, a plane leaves tangent motion unresolved, and a sparse
+corner may lack enough support. Report data observability separately from motion-prior prediction.
+
+Potential presets are later proposals: box-truck right-angle edge, approximately 90/90/90
+three-plane corner, headlight corner, mirror protrusion/concavity, and wheel-well curved recess.
+Current controls provide only the five geometric labels and free-text semantic hint. Define
+size tolerance (possibly an initial ±10%), angular tolerance in degrees, fit residual in metres,
+minimum support and alternative-match separation independently. A universal “10% match” has no
+meaning across angles, size, visibility and sensor noise; translation/rotation invariance does
+not establish semantic identity. Curved or concave examples may require a different model.
+
+### 11.4 Operator and research time remain separate
+
+Allow initially **2–3 operator hours** for a small focal-car/keyframe queue whose membership is
+mostly reviewed, then re-estimate after the first car. Full membership, identity, pose and feature
+annotation across the three clips can take substantially longer. Kirk Zero is the approximately
+83-second tuning clip; Columbus–Broadway and Embarcadero–Folsom still require exact approximately
+two-minute window/pack selection. Embarcadero remains blind held-out evidence. Feature proposals
+are not frozen independent references merely because they can be reopened.
 
 ## 12. Acceptance criteria and verification
 
@@ -654,7 +720,8 @@ Intensity-specific acceptance is required in addition to the pose matrix:
   `has_intensity = false` with zero-filled storage and a mixed-presence export with the flag true.
 - Toggle colour on/off repeatedly in Canvas and the annotation 3D view. Off must bypass existing
   intensity modulation and restore the object palette. On must match the legend for identical
-  codes in both renderers. Check full/default range, narrowed range, invalid limits, clipping,
+  codes in both renderers. Zero needs its own invariant swatch, distinct from both code 1 and
+  unavailable. Check the 1–255 default gradient, narrowed range, invalid limits, clipping,
   gamma/brightness, reset, missing style, and readable points on the dark background.
 - Prove all display controls leave point bytes, membership, sidecar/physical revisions, draft
   dirtiness, and review states unchanged. Changing the display range must not filter histogram
@@ -715,15 +782,15 @@ Intensity-specific acceptance is required in addition to the pose matrix:
 | Body edits affect every pose under version 1                     | Use conservative dependent-review invalidation; defer selective preservation until proved             |
 | Membership changes keep valid links but alter evidence           | Record/recheck support revision and require affected review; structural link validity is insufficient |
 | Cross-language geometry differs                                  | Use shared fixtures; keep scoring in Go and compare preview derivations                               |
-| Frozen physical evaluation is assumed to exist                   | Fix split loading first; verify the pilot bundle or finish the versioned pin extension                |
+| Frozen physical evaluation is assumed to exist                   | Retain delivered split binding; verify current pins and pilot bundle on real inputs                   |
 | One day is insufficient                                          | Deliver the proven increment, preserve the queue, and state the missing gate                          |
 | Held-out pressure encourages a bypass                            | Retain refusal and report insufficient evidence until the tuning contract is frozen                   |
 
 Documentation shipped with the implementation should update the canonical physical-reference
 plan, the point-annotation operator guide, and the macOS component guide. Record completed work
-and limitations in the backlog/devlog as appropriate, preserving historical entries. This root
-plan remains a proposed execution document until those increments have evidence behind them.
+and limitations in the backlog/devlog as appropriate, preserving historical entries. The local feature
+slice must record automated and operator evidence separately; a passing build does not close it.
 
-The next implementation instruction should name the desired scope: A–C for the supervised pilot,
-or A–D for the complete authoring, inspection, and freeze flow. Neither includes a claim that the
-physical estimator, held-out following gate, multi-site accuracy, or device qualification passed.
+The authorised local sprint is bounded by section 11.1. The three-day and eight-hour extensions
+remain estimates and scope recommendations. None establishes physical estimator accuracy, the
+held-out following gate, multi-site transfer, or device qualification.

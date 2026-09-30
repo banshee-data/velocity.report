@@ -639,6 +639,36 @@ before, since the loss may lie there.
 - Additive protobuf fields unknown to a reader are ignored; anything a reader must not ignore is
   a required feature.
 
+### Planned feature annotations: references to evidence, not new observations
+
+Persistent physical-feature proposals are a planned annotation/analysis extension, not a field
+already present in `FrameRecord`. Their shared design is defined in the
+[observation-format plan](../../docs/plans/lidar-vrlog-observation-format-plan.md#73-persistent-features-and-revisioned-shape-beliefs-proposed).
+That design separates immutable retained observations, revisioned shape/association beliefs,
+and time-specific estimated pose. It is consumed by both Swift authoring and Go experiments.
+
+The recording protobuf remains the authority for retained point identity and classifications.
+`visualiser.proto` describes the display projection and legacy 0.5 snapshots; a display snapshot
+cannot substitute for a 1.x observation. Frame-local cluster membership remains a partition.
+Overlapping support for a persistent edge, corner, or patch belongs to a separate relation keyed
+by capture/extraction, frame, retained-point identity, and explicit selection/decimation mapping.
+Legacy pack-only labels retain their own source domain when no exact parent mapping exists.
+
+The local pilot feature writer uses a revisioned annotation sidecar defined by
+[`features.proto`](../../proto/velocity_recording/v1/features.proto) in the shared recording domain. It does not mutate captures, add a stream kind to the current observation
+container, or change the meaning of existing classifications. Body/part anchors and pose links
+are revisioned interpretations; an unseen endpoint propagated by a model is not a fresh return.
+Current readers gain no implicit feature-annotation capability from this specification note.
+
+The pilot uses `velocity.report/feature-proposals` schema version 1, exact-byte digest tokens,
+revision history and generated Go/Swift types. Its `legacy_pack` point domain deliberately claims
+no retained-point mapping. Anchor and richer part semantics remain proposed and are refused by
+the pilot writer. Future extensions must define presence and unsupported-reader behaviour. Preserve field
+numbers and reserve retired fields. Meaning-changing requirements need explicit capability/version
+gates; incapable editors must refuse lossy writes. Any future embedding as a container stream
+needs its own kind and required-feature/compatibility tests. The sibling annotation messages
+allocate their own field numbers, change no observation wire version, and leave captures unchanged.
+
 ## Related
 
 - [Recording-domain schema](../../proto/velocity_recording/v1/recording.proto): VRLOG 1.x payloads
