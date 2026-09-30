@@ -25,6 +25,31 @@ The exporter refuses `full` coverage when every classed point is foreground. Tod
 keep foreground returns and periodic background snapshots, so their packs are `foreground_only`
 with a background behind them.
 
+### Intensity presence
+
+Every point block is a fixed size, so a frame that carried no intensity column is written with
+zero bytes where measurements would be. A zero byte cannot say which it is, and nothing may infer
+presence from the bytes. Presence is recorded instead, at two levels:
+
+| Field                                       | Meaning                                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `manifest.json` `has_intensity`             | Some sample's intensity bytes are measurements. It cannot say which                                 |
+| `samples.json` `has_intensity` (per sample) | This sample's bytes are measurements. Written `true` or `false` on every sample the exporter writes |
+
+Read presence through `Pack.SampleHasIntensity`: the sample's own flag when recorded, else the
+manifest's, which is the most a pack written before the field existed can say. Check
+`Pack.IntensityPresenceIsPerSample` first when every byte read must be a measurement rather than
+some sample's; it is false for a legacy pack and for one that records the flag on some samples only.
+When every sample records its flag, the manifest must equal their disjunction. `WritePack` refuses
+to write the contradiction and `OpenPack` refuses to read it, since the manifest sits outside the
+pack digest and an edit to it passes every digest check.
+
+The exporter reads the legacy `FrameBundle` point cloud, which has no column-presence bit: a
+frame is present when its column holds one byte per point and absent when it holds none. A column
+of any other length is refused, because zero-filling its tail under a `true` flag would be a lie
+and dropping it under `false` would discard readings. Samples in packs written before this field
+carry no key, so their bytes and digests are unchanged.
+
 ## Revision-safe storage
 
 | Entry point              | Contract                                                                                                                |

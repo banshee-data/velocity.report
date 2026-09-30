@@ -207,6 +207,48 @@ type Sample struct {
 	PointCount    int    `json:"point_count"`
 	// ByteOffset locates this sample's block in points.bin.
 	ByteOffset int64 `json:"byte_offset"`
+	// HasIntensity records whether this sample's intensity bytes were
+	// measured. The block is fixed-size and zero-fills an absent column, so
+	// a zero byte cannot say which it is; only this flag can. Nil means the
+	// pack predates per-sample presence and only the manifest's pack-wide
+	// flag is known. Read it through Pack.SampleHasIntensity.
+	HasIntensity *bool `json:"has_intensity,omitempty"`
+}
+
+// SamplesRecordIntensityPresence reports whether every sample states its own
+// intensity presence. False for a pack written before the field existed, and
+// for one that records it on some samples only, in which case the manifest's
+// pack-wide flag is all the others have.
+func SamplesRecordIntensityPresence(samples []Sample) bool {
+	if len(samples) == 0 {
+		return false
+	}
+	for _, s := range samples {
+		if s.HasIntensity == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// checkIntensityPresence refuses a manifest that contradicts the samples.
+// The manifest flag means "any sample was measured", so when every sample
+// records its own flag the two are bound: a pack-wide true over samples that
+// all say false would send a reader to zero bytes as if they were readings.
+// A pack that records presence on some samples only is not checked, since
+// the manifest is then the only word on the rest.
+func checkIntensityPresence(m Manifest, samples []Sample) error {
+	if !SamplesRecordIntensityPresence(samples) {
+		return nil
+	}
+	any := false
+	for _, s := range samples {
+		any = any || *s.HasIntensity
+	}
+	if any != m.HasIntensity {
+		return fmt.Errorf("manifest has_intensity=%t but the samples' own flags say %t", m.HasIntensity, any)
+	}
+	return nil
 }
 
 // Points is one sample's decoded point arrays.
@@ -350,6 +392,9 @@ func WritePackWithBackground(
 		points = append(points, blocks[i]...)
 	}
 
+	if err := checkIntensityPresence(m, samples); err != nil {
+		return err
+	}
 	samplesJSON, err := json.MarshalIndent(samples, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal samples: %w", err)
@@ -474,6 +519,11 @@ func OpenPack(dir string) (*Pack, error) {
 			return nil, fmt.Errorf("sample %d spans bytes [%d,%d) of a %d-byte file", i, s.ByteOffset, end, len(raw))
 		}
 	}
+	// The manifest is outside the pack digest, so an edit to its flag would
+	// otherwise pass every digest check above.
+	if err := checkIntensityPresence(m, samples); err != nil {
+		return nil, err
+	}
 
 	pack := &Pack{Dir: dir, Manifest: m, Samples: samples, raw: raw}
 	if m.BackgroundCount > 0 {
@@ -547,6 +597,28 @@ func (p *Pack) BackgroundInForce(sampleID int) (Background, bool) {
 		found, ok = b, true
 	}
 	return found, ok
+}
+
+// SampleHasIntensity reports whether a sample's intensity bytes are
+// measurements: the sample's own flag when it recorded one, else the
+// manifest's pack-wide flag, which is the most a legacy pack can say. It is
+// never inferred from the bytes. Out-of-range samples are reported absent.
+func (p *Pack) SampleHasIntensity(sampleID int) bool {
+	if sampleID < 0 || sampleID >= len(p.Samples) {
+		return false
+	}
+	if flag := p.Samples[sampleID].HasIntensity; flag != nil {
+		return *flag
+	}
+	return p.Manifest.HasIntensity
+}
+
+// IntensityPresenceIsPerSample reports whether SampleHasIntensity is answering
+// from each sample's own record rather than falling back to the pack-wide
+// flag for any of them. A reader that needs to know every byte it reads was
+// measured, not merely that some sample's were, checks this first.
+func (p *Pack) IntensityPresenceIsPerSample() bool {
+	return SamplesRecordIntensityPresence(p.Samples)
 }
 
 func trimTrailingNewline(b []byte) []byte {
