@@ -29,6 +29,8 @@ import (
 //	POST /api/annotations/physical/validate
 //	POST /api/annotations/physical/save
 //	POST /api/annotations/physical/review
+//	GET  /api/annotations/physical/history?pack=<handle>&pack_digest=<d>
+//	POST /api/annotations/physical/restore
 
 // maxPhysicalRequestBytes bounds a request body. A pilot pack's references
 // are kilobytes; the sidecar cap is a ceiling for the stored document, not a
@@ -62,19 +64,22 @@ func (ws *Server) writePhysicalError(w http.ResponseWriter, status int, code, ms
 // document, its revision and exact-byte token, and the membership it was
 // checked against.
 type physicalPackState struct {
-	Pack             string                           `json:"pack"`
-	PackDir          string                           `json:"pack_dir"`
-	DatasetID        string                           `json:"dataset_id"`
-	PackDigest       string                           `json:"pack_digest"`
-	Exists           bool                             `json:"exists"`
-	Revision         int                              `json:"revision"`
-	Digest           string                           `json:"digest"`
-	ContentDigest    string                           `json:"content_digest"`
-	Head             bool                             `json:"head"`
-	MembershipDigest string                           `json:"membership_digest"`
-	MembershipRev    int                              `json:"membership_revision"`
-	Stale            []annotation.LinkProblem         `json:"stale"`
-	Document         *annotation.PhysicalReferenceSet `json:"document"`
+	Pack             string                   `json:"pack"`
+	PackDir          string                   `json:"pack_dir"`
+	DatasetID        string                   `json:"dataset_id"`
+	PackDigest       string                   `json:"pack_digest"`
+	Exists           bool                     `json:"exists"`
+	Revision         int                      `json:"revision"`
+	Digest           string                   `json:"digest"`
+	ContentDigest    string                   `json:"content_digest"`
+	Head             bool                     `json:"head"`
+	MembershipDigest string                   `json:"membership_digest"`
+	MembershipRev    int                      `json:"membership_revision"`
+	Stale            []annotation.LinkProblem `json:"stale"`
+	// ReviewDrift lists reviewed records whose membership changed, in the
+	// frames they rest on, after they were reviewed.
+	ReviewDrift []annotation.LinkProblem         `json:"review_drift"`
+	Document    *annotation.PhysicalReferenceSet `json:"document"`
 }
 
 type physicalEditRequest struct {
@@ -167,12 +172,16 @@ func physicalStateOf(pack *annotation.Pack, handle string, doc, head *annotation
 	if stale == nil {
 		stale = []annotation.LinkProblem{}
 	}
+	drift := doc.ReviewDrift(pack, sidecar)
+	if drift == nil {
+		drift = []annotation.LinkProblem{}
+	}
 	return &physicalPackState{
 		Pack: handle, PackDir: pack.Dir, DatasetID: pack.Manifest.DatasetID, PackDigest: pack.Manifest.PackDigest,
 		Exists: doc.Digest() != "", Revision: doc.Revision, Digest: doc.Digest(), ContentDigest: content,
 		Head:             doc.Revision == head.Revision && doc.Digest() == head.Digest(),
 		MembershipDigest: sidecar.Digest(), MembershipRev: sidecar.Revision,
-		Stale: stale, Document: doc,
+		Stale: stale, ReviewDrift: drift, Document: doc,
 	}, nil
 }
 
@@ -326,6 +335,63 @@ func (ws *Server) writeSavedState(w http.ResponseWriter, pack *annotation.Pack, 
 		return
 	}
 	ws.writeJSON(w, http.StatusOK, wrap(state))
+}
+
+type physicalRestoreRequest struct {
+	Pack             string `json:"pack"`
+	PackDigest       string `json:"pack_digest"`
+	BaseRevision     int    `json:"base_revision"`
+	BaseDigest       string `json:"base_digest"`
+	MembershipDigest string `json:"membership_digest"`
+	Revision         int    `json:"revision"`
+	Author           string `json:"author"`
+	Session          string `json:"session"`
+}
+
+func (ws *Server) handlePhysicalHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writePhysicalError(w, http.StatusMethodNotAllowed, physicalCodeBadRequest, "this endpoint only accepts GET requests")
+		return
+	}
+	pack, handle, ok := ws.resolvePhysicalPack(w, r.URL.Query().Get("pack"), r.URL.Query().Get("pack_digest"))
+	if !ok {
+		return
+	}
+	history, err := annotation.PhysicalReferenceHistory(pack)
+	if err != nil {
+		ws.writePhysicalFailure(w, err)
+		return
+	}
+	ws.writeJSON(w, http.StatusOK, map[string]any{"pack": handle, "revisions": history})
+}
+
+// handlePhysicalRestore makes a retained revision current as a new revision.
+func (ws *Server) handlePhysicalRestore(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writePhysicalError(w, http.StatusMethodNotAllowed, physicalCodeBadRequest, "this endpoint only accepts POST requests")
+		return
+	}
+	var req physicalRestoreRequest
+	if !ws.decodePhysicalRequest(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Author) == "" || req.Revision < 1 {
+		ws.writePhysicalError(w, http.StatusBadRequest, physicalCodeBadRequest, "author and a positive revision are required")
+		return
+	}
+	pack, handle, ok := ws.resolvePhysicalPack(w, req.Pack, req.PackDigest)
+	if !ok {
+		return
+	}
+	saved, err := annotation.RestorePhysicalRevision(pack, annotation.PhysicalRestoreRequest{
+		BaseRevision: req.BaseRevision, BaseDigest: req.BaseDigest, MembershipDigest: req.MembershipDigest,
+		Revision: req.Revision, Author: req.Author, Session: req.Session,
+	})
+	if err != nil {
+		ws.writePhysicalFailure(w, err)
+		return
+	}
+	ws.writeSavedState(w, pack, handle, saved, func(state *physicalPackState) any { return state })
 }
 
 // decodePhysicalRequest is a bounded, strict decode: unknown fields and

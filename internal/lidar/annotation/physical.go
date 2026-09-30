@@ -277,6 +277,18 @@ type PhysicalReview struct {
 	TrackerSource          string     `json:"tracker_source,omitempty"`
 	UncertaintyAssumptions string     `json:"uncertainty_assumptions,omitempty"`
 	Provenance             Provenance `json:"provenance"`
+	// ReviewedAgainst is the membership the reviewer was looking at when the
+	// record was reviewed. A later membership save can keep every link valid
+	// and still change the returns the judgement rested on; this is what lets
+	// a load say so. Set only on a reviewed record, and only by review.
+	ReviewedAgainst *MembershipPin `json:"reviewed_against,omitempty"`
+}
+
+// MembershipPin names one membership sidecar revision by number and by the
+// digest of its exact bytes.
+type MembershipPin struct {
+	Revision int    `json:"revision"`
+	Digest   string `json:"digest"`
 }
 
 // PhysicalKeyframe is one reviewed instant of an object's pose. It covers

@@ -487,3 +487,103 @@ func TestPhysicalStateRefusesAnUndigestableDocument(t *testing.T) {
 		t.Fatalf("an undigestable saved document answered %d", rec.Code)
 	}
 }
+
+// History lists revisions; restore makes an old one current as a new
+// revision; the state reports review drift after a membership change.
+func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
+	root := t.TempDir()
+	p := physicalTestPack(t, root, "run-a")
+	ws := &Server{annotationPacksDir: root}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := physicalClient{t: t, base: srv.URL}
+	digest := url.QueryEscape(p.Manifest.PackDigest)
+
+	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	if drift := state["review_drift"].([]any); len(drift) != 0 {
+		t.Fatalf("drift on an empty pack: %v", drift)
+	}
+	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
+		t.Fatalf("save: %d %v", status, out)
+	}
+	state = c.load("run-a/pack", p.Manifest.PackDigest)
+	status, reviewed := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+		"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": state["revision"], "base_digest": state["digest"],
+		"membership_digest": state["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
+	if status != 200 {
+		t.Fatalf("review: %d %v", status, reviewed)
+	}
+
+	status, history := c.do(http.MethodGet, "/api/annotations/physical/history?pack=run-a/pack&pack_digest="+digest, nil)
+	revisions, _ := history["revisions"].([]any)
+	if status != 200 || len(revisions) != 2 || revisions[0].(map[string]any)["head"] != true {
+		t.Fatalf("history: %d %v", status, history)
+	}
+
+	restore := func(s map[string]any, body map[string]any) (int, map[string]any) {
+		req := map[string]any{"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": s["revision"],
+			"base_digest": s["digest"], "membership_digest": s["membership_digest"], "revision": 1, "author": "op"}
+		for k, v := range body {
+			req[k] = v
+		}
+		return c.do(http.MethodPost, "/api/annotations/physical/restore", req)
+	}
+	if status, out := restore(reviewed, map[string]any{"author": ""}); status != 400 {
+		t.Fatalf("anonymous restore: %d %v", status, out)
+	}
+	if status, out := restore(state, nil); status != 409 {
+		t.Fatalf("restore from a stale base: %d %v", status, out)
+	}
+	status, restored := restore(reviewed, nil)
+	if status != 200 || restored["revision"] != float64(3) {
+		t.Fatalf("restore: %d %v", status, restored)
+	}
+	if status, out := restore(restored, map[string]any{"revision": 9}); status != 500 {
+		t.Fatalf("restore of a missing revision: %d %v", status, out)
+	}
+
+	// Re-review, then change the keyframe's own sample in membership: drift.
+	status, reviewed = c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+		"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": restored["revision"], "base_digest": restored["digest"],
+		"membership_digest": restored["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
+	if status != 200 {
+		t.Fatalf("second review: %d %v", status, reviewed)
+	}
+	s, err := annotation.LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Masks[0].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+	s.Change = annotation.Provenance{Author: "op", Operation: "label"}
+	if err := annotation.SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	drifted := c.load("run-a/pack", p.Manifest.PackDigest)
+	if drift := drifted["review_drift"].([]any); len(drift) != 1 {
+		t.Fatalf("drift after a membership change at the keyframe's sample: %v", drift)
+	}
+
+	for _, tc := range []struct {
+		method, path string
+		body         any
+		status       int
+	}{
+		{http.MethodPost, "/api/annotations/physical/history", nil, 405},
+		{http.MethodGet, "/api/annotations/physical/history?pack=nope&pack_digest=d", nil, 404},
+		{http.MethodGet, "/api/annotations/physical/restore", nil, 405},
+		{http.MethodPost, "/api/annotations/physical/restore", "{", 400},
+		{http.MethodPost, "/api/annotations/physical/restore", map[string]any{"pack": "nope", "pack_digest": "d", "revision": 1, "author": "a"}, 404},
+	} {
+		if status, out := c.do(tc.method, tc.path, tc.body); status != tc.status {
+			t.Fatalf("%s %s: %d %v, want %d", tc.method, tc.path, status, out, tc.status)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(p.Dir, "physical-references.json"), []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if status, out := c.do(http.MethodGet, "/api/annotations/physical/history?pack=run-a/pack&pack_digest="+digest, nil); status != 500 {
+		t.Fatalf("history over a damaged head: %d %v", status, out)
+	}
+}
