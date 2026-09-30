@@ -305,9 +305,11 @@ func writeAnnotationFile(root *os.Root, name string, b []byte) error {
 	}
 	dir := "."
 	switch {
-	case name == sidecarFile || name == physicalReferenceFile:
+	case name == sidecarFile || name == physicalReferenceFile || name == featureFile:
 	case strings.HasPrefix(name, physicalRevisionDir+"/"):
 		dir = physicalRevisionDir
+	case strings.HasPrefix(name, featureHistory+"/"):
+		dir = featureHistory
 	default:
 		dir = revisionDir
 	}
