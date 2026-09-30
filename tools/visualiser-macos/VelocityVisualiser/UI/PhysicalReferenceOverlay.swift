@@ -119,11 +119,22 @@ struct PhysicalReferenceOverlay: View {
                                 ellipseIn: CGRect(x: t.x - 4.5, y: t.y - 4.5, width: 9, height: 9)),
                             with: .color(colour))
                     }
+                    if let l = at.length {
+                        var diamond = Path()
+                        diamond.move(to: CGPoint(x: l.x, y: l.y - 6))
+                        diamond.addLine(to: CGPoint(x: l.x + 6, y: l.y))
+                        diamond.addLine(to: CGPoint(x: l.x, y: l.y + 6))
+                        diamond.addLine(to: CGPoint(x: l.x - 6, y: l.y))
+                        diamond.closeSubpath()
+                        context.fill(diamond, with: .color(colour))
+                    }
                     if at.move != nil {
                         context.draw(
-                            Text("drag ■ to move, size held · drag ● to turn").font(
-                                .system(size: 9)
-                            ).foregroundColor(.secondary),
+                            Text(
+                                "drag ■ to move, size held · drag ● to turn"
+                                    + (at.length != nil
+                                        ? " · drag ◆ to resize length, anchor held" : "")
+                            ).font(.system(size: 9)).foregroundColor(.secondary),
                             at: CGPoint(x: size.width / 2, y: size.height - 12))
                     }
                 }

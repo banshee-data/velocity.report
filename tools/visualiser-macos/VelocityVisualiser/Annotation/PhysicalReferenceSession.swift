@@ -261,6 +261,11 @@ import Foundation
         gestureStart?.first { $0.objectID == objectID }?.keyframe(sampleID: sampleID)
     }
 
+    /// An object's body as it was when the current drag began.
+    func gestureStartBody(objectID: String) -> PhysicalBody? {
+        gestureStart?.first { $0.objectID == objectID }?.body
+    }
+
     // MARK: Exposure
 
     /// Records that the operator has seen an estimate for these objects. It
@@ -651,6 +656,20 @@ enum PhysicalDraft {
             // Only an observation can be partial.
             dimension.span = .full
         }
+    }
+
+    /// Moves a full-span dimension to a new value, carrying its interval
+    /// with it: the bounds keep their distances from the value they had (or
+    /// from the interval's midpoint), so a drag revises the belief and not
+    /// the stated uncertainty.
+    static func setLength(
+        _ value: Double, of dimension: inout PhysicalDimension, from start: PhysicalDimension
+    ) {
+        guard let lo = start.lowerM, let hi = start.upperM else { return }
+        let was = start.valueM ?? (lo + hi) / 2
+        dimension.valueM = value
+        dimension.lowerM = max(value - (was - lo), 0)
+        dimension.upperM = value + (hi - was)
     }
 
     static func setSpan(_ span: PhysicalSpan, of dimension: inout PhysicalDimension) {

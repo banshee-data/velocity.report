@@ -31,7 +31,8 @@ enum SyntheticPack {
 
     static func write(
         _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
-        intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil
+        intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
+        sampleIntensity: [Bool?]? = nil
     ) throws -> URL {
         var bytes = Data()
         var entries: [String] = []
@@ -50,11 +51,13 @@ enum SyntheticPack {
             bytes.append(
                 contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
+            let presence =
+                (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
             entries.append(
                 """
                 {"sample_id": \(id), "source_ordinal": \(2 * id + 1), "source_frame_id": \(100 + id), \
                 "timestamp_ns": \(1_000_000_000 + id * 100_000_000), "sensor_id": "synthetic", \
-                "point_count": \(points.count), "byte_offset": \(offset)}
+                "point_count": \(points.count), "byte_offset": \(offset)\(presence)}
                 """)
         }
         let samplesJSON = "[" + entries.joined(separator: ",") + "]"
