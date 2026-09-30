@@ -1,0 +1,826 @@
+{
+  "schema_version": 1,
+  "source_manifest_sha256": "sha256:fc2622eb01b282a83d76d46523ac2f330ddb808b87c2fe777091ff6dbb9c8b44",
+  "cases": [
+    {
+      "id": "marina-webster-beach",
+      "captures": 4,
+      "duration_seconds": 0,
+      "first_run_frames": 11320,
+      "repeat_run_frames": 11320,
+      "baseline_equal": true,
+      "observation_source_id": "source/v1/5516bf03519802d38a6b27a8bb1d5ab8c42bf8866ae4673797afec0824b22538",
+      "measurement_source_mode": "medoid_v0",
+      "experiments": [
+        "near_edge_track",
+        "solid_body",
+        "solid_body_course_faces",
+        "solid_body_face_hysteresis",
+        "solid_body_full_members",
+        "solid_body_rank_one_medoid_tight"
+      ],
+      "time_domain": {
+        "frames": 11446,
+        "advanced_frames": 0,
+        "duplicate_timestamps": 0,
+        "backward_timestamps": 0,
+        "max_backward_step_secs": 0,
+        "last_gap_secs": 0.100075,
+        "max_gap_secs": 4.199813,
+        "clamped_gaps": 17,
+        "truncated_gap_predictions": 0,
+        "measurement_intervals_clamped": 0,
+        "expired_by_misses": 1951,
+        "expired_by_coast_age": 0
+      },
+      "continuity": {
+        "tracks_born": 1838,
+        "tracks_confirmed": 540,
+        "support_instants": {
+          "observed": 42461,
+          "coasted": 21918,
+          "occluded_inferred": 0,
+          "missed_unknown": 0,
+          "out_of_fov": 0
+        },
+        "expired_by_reason": {
+          "misses": 1846,
+          "coast_age": 0,
+          "missed_unknown": 0,
+          "occluded_inferred": 0,
+          "out_of_fov": 0,
+          "non_finite": 0
+        },
+        "coast_age_at_expiry": {
+          "upper_edges_secs": [
+            0.2,
+            0.5,
+            1,
+            1.5,
+            2,
+            3,
+            5
+          ],
+          "counts": [
+            0,
+            1283,
+            10,
+            270,
+            272,
+            7,
+            2,
+            2
+          ],
+          "max_secs": 9.100214
+        },
+        "reacquisitions": 4366,
+        "reacquired_coast_age": {
+          "upper_edges_secs": [
+            0.2,
+            0.5,
+            1,
+            1.5,
+            2,
+            3,
+            5
+          ],
+          "counts": [
+            1183,
+            2571,
+            470,
+            125,
+            11,
+            4,
+            1,
+            1
+          ],
+          "max_secs": 5.2995358
+        },
+        "reacquisitions_refused_larger": 0,
+        "reacquisitions_refused_smaller": 0,
+        "reacquisitions_ambiguous": 0
+      },
+      "solid_body": {
+        "point_estimates": 39326,
+        "solid_bodies": 39326,
+        "near_edge_fixes": 14327,
+        "fix_share": 0.36431368560240046,
+        "sources": {
+          "medoid_v0": 23826,
+          "near_edge_candidate_v1": 14327,
+          "none": 1173
+        },
+        "references": {
+          "body_centre": 15500,
+          "cluster_medoid": 23826
+        },
+        "ranks": {
+          "0": 1173,
+          "1": 5254,
+          "2": 32899
+        },
+        "faces": {
+          "front": 595,
+          "front,left": 2053,
+          "front,right": 1253,
+          "left": 2292,
+          "rear": 993,
+          "rear,left": 3132,
+          "rear,right": 2635,
+          "right": 1374
+        },
+        "fallbacks": {
+          "body_centre_lapsed": 613,
+          "class_prior_extent": 4374,
+          "face_hysteresis": 1061,
+          "initialisation_window": 463,
+          "no_face_reached_minimum_support": 18488
+        },
+        "lapses": 613,
+        "re_references": 812,
+        "tracks": 581,
+        "tracks_with_accumulated_width": 348,
+        "tracks_width_converged": 240,
+        "tracks_established": 8,
+        "final_width_median_m": 1.625,
+        "final_length_median_m": 3.625,
+        "anchor_point_estimates_all": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 213,
+          "scored_tracks": 203,
+          "windows": 6744,
+          "p50_m": 0.006695729286336736,
+          "p95_m": 0.14667917359390986,
+          "p99_m": 0.3735865315937244,
+          "max_m": 1.682633686839025,
+          "tracks_with_excursion": 32,
+          "excursion_share": 0.15763546798029557
+        },
+        "anchor_point_estimates_body_centre_frames": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 198,
+          "scored_tracks": 187,
+          "windows": 5053,
+          "p50_m": 0.0036075754329050486,
+          "p95_m": 0.042933387114027895,
+          "p99_m": 0.11905393122066243,
+          "max_m": 1.1793819857829828,
+          "tracks_with_excursion": 6,
+          "excursion_share": 0.03208556149732621
+        },
+        "anchor_solid_bodies_body_centre_frames": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 198,
+          "scored_tracks": 187,
+          "windows": 5053,
+          "p50_m": 0.0036075754329050486,
+          "p95_m": 0.042933387114027895,
+          "p99_m": 0.11905393122066243,
+          "max_m": 1.1793819857829828,
+          "tracks_with_excursion": 6,
+          "excursion_share": 0.03208556149732621
+        },
+        "anchor_point_estimates_steady_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 360,
+          "scored_tracks": 275,
+          "windows": 4983,
+          "p50_m": 0.003540672916186157,
+          "p95_m": 0.0407406872010267,
+          "p99_m": 0.110860154907007,
+          "max_m": 0.8287184546078998,
+          "tracks_with_excursion": 5,
+          "excursion_share": 0.01818181818181818
+        },
+        "anchor_solid_bodies_steady_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 360,
+          "scored_tracks": 275,
+          "windows": 4983,
+          "p50_m": 0.003540672916186157,
+          "p95_m": 0.0407406872010267,
+          "p99_m": 0.110860154907007,
+          "max_m": 0.8287184546078998,
+          "tracks_with_excursion": 5,
+          "excursion_share": 0.01818181818181818
+        },
+        "steady_runs": 812,
+        "anchor_point_estimates_face_stable_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 1253,
+          "scored_tracks": 384,
+          "windows": 3404,
+          "p50_m": 0.002486871681025575,
+          "p95_m": 0.025697102918931396,
+          "p99_m": 0.056446184552261316,
+          "max_m": 0.5606236429468875,
+          "tracks_with_excursion": 1,
+          "excursion_share": 0.0026041666666666665
+        },
+        "anchor_solid_bodies_face_stable_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 1253,
+          "scored_tracks": 384,
+          "windows": 3404,
+          "p50_m": 0.002486871681025575,
+          "p95_m": 0.025697102918931396,
+          "p99_m": 0.056446184552261316,
+          "max_m": 0.5606236429468875,
+          "tracks_with_excursion": 1,
+          "excursion_share": 0.0026041666666666665
+        },
+        "face_stable_runs": 3717,
+        "face_stable_strata": [
+          {
+            "axis": "heading_rate",
+            "bin": "lt_5_deg_s",
+            "point_estimates": {
+              "windows": 1135,
+              "p50_m": 0.003107868561429048,
+              "p95_m": 0.027856133911811624,
+              "p99_m": 0.07392997289050575,
+              "max_m": 0.5606236429468875
+            },
+            "solid_bodies": {
+              "windows": 1135,
+              "p50_m": 0.003107868561429048,
+              "p95_m": 0.027856133911811624,
+              "p99_m": 0.07392997289050575,
+              "max_m": 0.5606236429468875
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "5_to_15_deg_s",
+            "point_estimates": {
+              "windows": 1674,
+              "p50_m": 0.0019820970032954494,
+              "p95_m": 0.021391025364623766,
+              "p99_m": 0.052045070271777266,
+              "max_m": 0.19986444046662938
+            },
+            "solid_bodies": {
+              "windows": 1674,
+              "p50_m": 0.0019820970032954494,
+              "p95_m": 0.021391025364623766,
+              "p99_m": 0.052045070271777266,
+              "max_m": 0.19986444046662938
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "ge_15_deg_s",
+            "point_estimates": {
+              "windows": 595,
+              "p50_m": 0.003386667791570018,
+              "p95_m": 0.028830296214146175,
+              "p99_m": 0.059239206884216834,
+              "max_m": 0.13273915704491232
+            },
+            "solid_bodies": {
+              "windows": 595,
+              "p50_m": 0.003386667791570018,
+              "p95_m": 0.028830296214146175,
+              "p99_m": 0.059239206884216834,
+              "max_m": 0.13273915704491232
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "unknown",
+            "point_estimates": {
+              "windows": 0,
+              "p50_m": 0,
+              "p95_m": 0,
+              "p99_m": 0,
+              "max_m": 0
+            },
+            "solid_bodies": {
+              "windows": 0,
+              "p50_m": 0,
+              "p95_m": 0,
+              "p99_m": 0,
+              "max_m": 0
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "lt_20_m",
+            "point_estimates": {
+              "windows": 2952,
+              "p50_m": 0.002385168370578478,
+              "p95_m": 0.024071893882064304,
+              "p99_m": 0.04881963732796762,
+              "max_m": 0.5606236429468875
+            },
+            "solid_bodies": {
+              "windows": 2952,
+              "p50_m": 0.002385168370578478,
+              "p95_m": 0.024071893882064304,
+              "p99_m": 0.04881963732796762,
+              "max_m": 0.5606236429468875
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "20_to_40_m",
+            "point_estimates": {
+              "windows": 406,
+              "p50_m": 0.0030697942496626233,
+              "p95_m": 0.04085474067173081,
+              "p99_m": 0.09817351516440731,
+              "max_m": 0.1315308730849618
+            },
+            "solid_bodies": {
+              "windows": 406,
+              "p50_m": 0.0030697942496626233,
+              "p95_m": 0.04085474067173081,
+              "p99_m": 0.09817351516440731,
+              "max_m": 0.1315308730849618
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "ge_40_m",
+            "point_estimates": {
+              "windows": 46,
+              "p50_m": 0.009196572279288204,
+              "p95_m": 0.025105405418671862,
+              "p99_m": 0.0442060110333908,
+              "max_m": 0.0442060110333908
+            },
+            "solid_bodies": {
+              "windows": 46,
+              "p50_m": 0.009196572279288204,
+              "p95_m": 0.025105405418671862,
+              "p99_m": 0.0442060110333908,
+              "max_m": 0.0442060110333908
+            }
+          }
+        ],
+        "steady_run_transitions": {
+          "windows": 4983,
+          "p99_m": 0.110860154907007,
+          "tail_threshold_m": 0.0407406872010267,
+          "stable_windows": 2763,
+          "stable_p99_m": 0.04867405443926273,
+          "transitions": [
+            {
+              "transition": "faceless",
+              "windows": 561,
+              "tail_windows": 55,
+              "p99_without_m": 0.10598339403746854
+            },
+            {
+              "transition": "lateral_face_enters",
+              "windows": 466,
+              "tail_windows": 85,
+              "p99_without_m": 0.07719550058870304
+            },
+            {
+              "transition": "longitudinal_face_enters",
+              "windows": 855,
+              "tail_windows": 91,
+              "p99_without_m": 0.09863617144043435
+            },
+            {
+              "transition": "face_leaves",
+              "windows": 1286,
+              "tail_windows": 127,
+              "p99_without_m": 0.10061518957446364
+            },
+            {
+              "transition": "face_swaps",
+              "windows": 0,
+              "tail_windows": 0,
+              "p99_without_m": 0.110860154907007
+            },
+            {
+              "transition": "width_revised",
+              "windows": 301,
+              "tail_windows": 52,
+              "p99_without_m": 0.0972387680381587
+            },
+            {
+              "transition": "length_revised",
+              "windows": 917,
+              "tail_windows": 88,
+              "p99_without_m": 0.08435836773192638
+            }
+          ]
+        },
+        "retained_sample_points": 256
+      }
+    },
+    {
+      "id": "columbus-broadway",
+      "captures": 7,
+      "duration_seconds": 0,
+      "first_run_frames": 20320,
+      "repeat_run_frames": 20320,
+      "baseline_equal": true,
+      "observation_source_id": "source/v1/ef3f460b21e93335f0a7cfb103b1fca9c0b98c894602e8cbf34192d4bd1a93b4",
+      "measurement_source_mode": "medoid_v0",
+      "experiments": [
+        "near_edge_track",
+        "solid_body",
+        "solid_body_course_faces",
+        "solid_body_face_hysteresis",
+        "solid_body_full_members",
+        "solid_body_rank_one_medoid_tight"
+      ],
+      "time_domain": {
+        "frames": 20308,
+        "advanced_frames": 0,
+        "duplicate_timestamps": 0,
+        "backward_timestamps": 0,
+        "max_backward_step_secs": 0,
+        "last_gap_secs": 0.100012,
+        "max_gap_secs": 5.899666,
+        "clamped_gaps": 45,
+        "truncated_gap_predictions": 0,
+        "measurement_intervals_clamped": 0,
+        "expired_by_misses": 7978,
+        "expired_by_coast_age": 0
+      },
+      "continuity": {
+        "tracks_born": 7548,
+        "tracks_confirmed": 2506,
+        "support_instants": {
+          "observed": 91258,
+          "coasted": 75369,
+          "occluded_inferred": 0,
+          "missed_unknown": 0,
+          "out_of_fov": 0
+        },
+        "expired_by_reason": {
+          "misses": 7544,
+          "coast_age": 0,
+          "missed_unknown": 0,
+          "occluded_inferred": 0,
+          "out_of_fov": 0,
+          "non_finite": 0
+        },
+        "coast_age_at_expiry": {
+          "upper_edges_secs": [
+            0.2,
+            0.5,
+            1,
+            1.5,
+            2,
+            3,
+            5
+          ],
+          "counts": [
+            0,
+            5012,
+            9,
+            1195,
+            1260,
+            35,
+            26,
+            7
+          ],
+          "max_secs": 8.099708
+        },
+        "reacquisitions": 9656,
+        "reacquired_coast_age": {
+          "upper_edges_secs": [
+            0.2,
+            0.5,
+            1,
+            1.5,
+            2,
+            3,
+            5
+          ],
+          "counts": [
+            2620,
+            5664,
+            948,
+            387,
+            31,
+            4,
+            2,
+            0
+          ],
+          "max_secs": 4.899991
+        },
+        "reacquisitions_refused_larger": 0,
+        "reacquisitions_refused_smaller": 0,
+        "reacquisitions_ambiguous": 0
+      },
+      "solid_body": {
+        "point_estimates": 77716,
+        "solid_bodies": 77716,
+        "near_edge_fixes": 41490,
+        "fix_share": 0.533866899994853,
+        "sources": {
+          "medoid_v0": 33969,
+          "near_edge_candidate_v1": 41490,
+          "none": 2257
+        },
+        "references": {
+          "body_centre": 43747,
+          "cluster_medoid": 33969
+        },
+        "ranks": {
+          "0": 2257,
+          "1": 8751,
+          "2": 66708
+        },
+        "faces": {
+          "front": 1371,
+          "front,left": 5065,
+          "front,right": 5135,
+          "left": 2619,
+          "rear": 1719,
+          "rear,left": 10409,
+          "rear,right": 12130,
+          "right": 3042
+        },
+        "fallbacks": {
+          "body_centre_lapsed": 2087,
+          "class_prior_extent": 9751,
+          "face_hysteresis": 3531,
+          "initialisation_window": 2305,
+          "no_face_reached_minimum_support": 18552
+        },
+        "lapses": 2087,
+        "re_references": 3059,
+        "tracks": 2726,
+        "tracks_with_accumulated_width": 1748,
+        "tracks_width_converged": 487,
+        "tracks_established": 20,
+        "final_width_median_m": 0.625,
+        "final_length_median_m": 1.375,
+        "anchor_point_estimates_all": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 529,
+          "scored_tracks": 499,
+          "windows": 9500,
+          "p50_m": 0.01668066799547679,
+          "p95_m": 0.20607820602914362,
+          "p99_m": 0.45736608589822386,
+          "max_m": 1.3065324159011347,
+          "tracks_with_excursion": 57,
+          "excursion_share": 0.11422845691382766
+        },
+        "anchor_point_estimates_body_centre_frames": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 479,
+          "scored_tracks": 428,
+          "windows": 6167,
+          "p50_m": 0.009219751183256762,
+          "p95_m": 0.09920919205584573,
+          "p99_m": 0.2474835679114203,
+          "max_m": 0.8890832413818728,
+          "tracks_with_excursion": 9,
+          "excursion_share": 0.02102803738317757
+        },
+        "anchor_solid_bodies_body_centre_frames": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 479,
+          "scored_tracks": 428,
+          "windows": 6167,
+          "p50_m": 0.009219751183256762,
+          "p95_m": 0.09920919205584573,
+          "p99_m": 0.2474835679114203,
+          "max_m": 0.8890832413818728,
+          "tracks_with_excursion": 9,
+          "excursion_share": 0.02102803738317757
+        },
+        "anchor_point_estimates_steady_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 848,
+          "scored_tracks": 581,
+          "windows": 6050,
+          "p50_m": 0.00901104191220171,
+          "p95_m": 0.09798941339937563,
+          "p99_m": 0.24615490502632906,
+          "max_m": 0.8890832413818728,
+          "tracks_with_excursion": 9,
+          "excursion_share": 0.01549053356282272
+        },
+        "anchor_solid_bodies_steady_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 848,
+          "scored_tracks": 581,
+          "windows": 6050,
+          "p50_m": 0.00901104191220171,
+          "p95_m": 0.09798941339937563,
+          "p99_m": 0.24615490502632906,
+          "max_m": 0.8890832413818728,
+          "tracks_with_excursion": 9,
+          "excursion_share": 0.01549053356282272
+        },
+        "steady_runs": 3059,
+        "anchor_point_estimates_face_stable_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 2680,
+          "scored_tracks": 546,
+          "windows": 3489,
+          "p50_m": 0.005860924415282041,
+          "p95_m": 0.05424052097839999,
+          "p99_m": 0.12661727914826165,
+          "max_m": 0.43611796522904056,
+          "tracks_with_excursion": 0,
+          "excursion_share": 0
+        },
+        "anchor_solid_bodies_face_stable_runs": {
+          "method": "five_point_time_xy_fit_v1",
+          "moving_tracks": 2680,
+          "scored_tracks": 546,
+          "windows": 3489,
+          "p50_m": 0.005860924415282041,
+          "p95_m": 0.05424052097839999,
+          "p99_m": 0.12661727914826165,
+          "max_m": 0.43611796522904056,
+          "tracks_with_excursion": 0,
+          "excursion_share": 0
+        },
+        "face_stable_runs": 9781,
+        "face_stable_strata": [
+          {
+            "axis": "heading_rate",
+            "bin": "lt_5_deg_s",
+            "point_estimates": {
+              "windows": 1137,
+              "p50_m": 0.00545408977635342,
+              "p95_m": 0.05636582152773164,
+              "p99_m": 0.1328476605216142,
+              "max_m": 0.3494080815314279
+            },
+            "solid_bodies": {
+              "windows": 1137,
+              "p50_m": 0.00545408977635342,
+              "p95_m": 0.05636582152773164,
+              "p99_m": 0.1328476605216142,
+              "max_m": 0.3494080815314279
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "5_to_15_deg_s",
+            "point_estimates": {
+              "windows": 1337,
+              "p50_m": 0.005567844541940775,
+              "p95_m": 0.04935645822090811,
+              "p99_m": 0.11483562754758102,
+              "max_m": 0.43611796522904056
+            },
+            "solid_bodies": {
+              "windows": 1337,
+              "p50_m": 0.005567844541940775,
+              "p95_m": 0.04935645822090811,
+              "p99_m": 0.11483562754758102,
+              "max_m": 0.43611796522904056
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "ge_15_deg_s",
+            "point_estimates": {
+              "windows": 1015,
+              "p50_m": 0.007334739738839761,
+              "p95_m": 0.05683657738999187,
+              "p99_m": 0.15285530567756875,
+              "max_m": 0.2598407666582316
+            },
+            "solid_bodies": {
+              "windows": 1015,
+              "p50_m": 0.007334739738839761,
+              "p95_m": 0.05683657738999187,
+              "p99_m": 0.15285530567756875,
+              "max_m": 0.2598407666582316
+            }
+          },
+          {
+            "axis": "heading_rate",
+            "bin": "unknown",
+            "point_estimates": {
+              "windows": 0,
+              "p50_m": 0,
+              "p95_m": 0,
+              "p99_m": 0,
+              "max_m": 0
+            },
+            "solid_bodies": {
+              "windows": 0,
+              "p50_m": 0,
+              "p95_m": 0,
+              "p99_m": 0,
+              "max_m": 0
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "lt_20_m",
+            "point_estimates": {
+              "windows": 2951,
+              "p50_m": 0.00635388047173746,
+              "p95_m": 0.05683657738999187,
+              "p99_m": 0.13483943291152453,
+              "max_m": 0.43611796522904056
+            },
+            "solid_bodies": {
+              "windows": 2951,
+              "p50_m": 0.00635388047173746,
+              "p95_m": 0.05683657738999187,
+              "p99_m": 0.13483943291152453,
+              "max_m": 0.43611796522904056
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "20_to_40_m",
+            "point_estimates": {
+              "windows": 508,
+              "p50_m": 0.0038813838546988577,
+              "p95_m": 0.03561533163067215,
+              "p99_m": 0.07073418365258742,
+              "max_m": 0.24035873543970218
+            },
+            "solid_bodies": {
+              "windows": 508,
+              "p50_m": 0.0038813838546988577,
+              "p95_m": 0.03561533163067215,
+              "p99_m": 0.07073418365258742,
+              "max_m": 0.24035873543970218
+            }
+          },
+          {
+            "axis": "range",
+            "bin": "ge_40_m",
+            "point_estimates": {
+              "windows": 30,
+              "p50_m": 0.008356345316041857,
+              "p95_m": 0.03245541256123484,
+              "p99_m": 0.03427054859794718,
+              "max_m": 0.03427054859794718
+            },
+            "solid_bodies": {
+              "windows": 30,
+              "p50_m": 0.008356345316041857,
+              "p95_m": 0.03245541256123484,
+              "p99_m": 0.03427054859794718,
+              "max_m": 0.03427054859794718
+            }
+          }
+        ],
+        "steady_run_transitions": {
+          "windows": 6050,
+          "p99_m": 0.24615490502632906,
+          "tail_threshold_m": 0.09798941339937563,
+          "stable_windows": 2623,
+          "stable_p99_m": 0.09933505552309309,
+          "transitions": [
+            {
+              "transition": "faceless",
+              "windows": 850,
+              "tail_windows": 65,
+              "p99_without_m": 0.24239732201805858
+            },
+            {
+              "transition": "lateral_face_enters",
+              "windows": 783,
+              "tail_windows": 144,
+              "p99_without_m": 0.15607527315129852
+            },
+            {
+              "transition": "longitudinal_face_enters",
+              "windows": 1393,
+              "tail_windows": 121,
+              "p99_without_m": 0.23619660211719457
+            },
+            {
+              "transition": "face_leaves",
+              "windows": 2056,
+              "tail_windows": 178,
+              "p99_without_m": 0.19468596575838024
+            },
+            {
+              "transition": "face_swaps",
+              "windows": 0,
+              "tail_windows": 0,
+              "p99_without_m": 0.24615490502632906
+            },
+            {
+              "transition": "width_revised",
+              "windows": 892,
+              "tail_windows": 124,
+              "p99_without_m": 0.18566829510996322
+            },
+            {
+              "transition": "length_revised",
+              "windows": 1378,
+              "tail_windows": 130,
+              "p99_without_m": 0.2007961797395265
+            }
+          ]
+        },
+        "retained_sample_points": 256
+      }
+    }
+  ]
+}
