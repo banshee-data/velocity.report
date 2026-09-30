@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built; T4 did not close the face-transition tail (F5), and F6 runs the tracked arm on the tuning partition
+- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is next (F7), and the screen sites are running (F6s).
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -470,6 +470,77 @@ done
 Each arm writes `out/phase0-summary.json`; the results go to
 `claude/upbeat-galileo-4xbaat-s2-f6-results` under `results/s2-f6/`, as F4's and F5's did.
 
+#### F6: the tracked arm
+
+Test F6 ran three arms on the tuning partition (marina-webster-beach, columbus-broadway), from
+main at 0b540677, on the Mac: track, which is S2a with the anatomy; control, which is T1 with T3;
+and translate, which is control plus `solid_body_reference_translation`. The arms were not run one
+at a time. Control and translate ran on the internal disk while track wrote its evidence to the
+USB drive, so wall clocks are not comparable: track ran in 8.2 hours against about 20 minutes for
+the others. The default replay was byte-equal in every case and arm, and the figures stand.
+Control's run log was truncated to one line.
+
+Lateral residual p99 in metres, five-point fit over body-centre frames, steady runs and face-stable
+runs:
+
+| Site                   | Arm       |  Fixes | Lapses | Re-references | Body-centre frames: point / body | Steady runs: body | Face-stable runs: point / body | Gap |
+| ---------------------- | --------- | -----: | -----: | ------------: | -------------------------------- | ----------------: | ------------------------------ | --: |
+| `marina-webster-beach` | track     | 14,412 |    573 |           773 | 0.132 / 0.132                    |             0.120 | 0.056 / 0.056                  | 2.3 |
+| `marina-webster-beach` | control   | 16,722 |    676 |           841 | 0.183 / 0.158                    |             0.135 | 0.150 / 0.065                  | 2.4 |
+| `marina-webster-beach` | translate | 16,724 |    676 |           841 | 0.183 / 0.155                    |             0.139 | 0.150 / 0.068                  | 2.3 |
+| `columbus-broadway`    | track     | 41,439 |  2,091 |         3,057 | 0.260 / 0.260                    |             0.260 | 0.127 / 0.127                  | 2.0 |
+| `columbus-broadway`    | control   | 43,106 |  1,695 |         2,577 | 0.226 / 0.280                    |             0.280 | 0.188 / 0.141                  | 2.0 |
+| `columbus-broadway`    | translate | 43,103 |  1,695 |         2,576 | 0.226 / 0.290                    |             0.294 | 0.188 / 0.142                  | 2.0 |
+
+Full tables and summaries are on `claude/upbeat-galileo-4xbaat-s2-f6-results` under
+`results/s2-f6/`.
+
+- **The tracked arm lowers every p99, by less than it looks.** Body-centre p99 falls 26 mm on marina
+  (0.158 to 0.132 m) and 20 mm on columbus (0.280 to 0.260 m). Steady runs fall 15 and 20 mm and
+  face-stable runs 9 and 14 mm, so the gap barely moves (2.3 and 2.0). In the tracked arm the point estimate is the tracked
+  filter's, so the body and point figures are one series. The five-point residual rewards a smooth
+  series, and a filter is smooth by construction, so a lower residual here is not by itself a more
+  accurate centre. Against the control's per-frame point estimate, the tracked series is 0.72 times
+  it on marina and 1.15 times it on columbus, so on columbus the tracked state is still less steady
+  than the raw per-frame estimate. Physical references (P2) or reviewed labels are what can tell
+  accuracy from smoothness.
+- **Costs.** On columbus, lapses rise 23 % (1,695 to 2,091) and re-references 19 % (2,577 to 3,057);
+  on marina both fall. The tracked arm leans on the class prior more: `class_prior_extent` fallbacks
+  are 4,369 against 1,491 on marina and 9,879 against 8,821 on columbus, and fixes fall 14 % and 4 %.
+  Tracks confirmed rise 4 % on marina (519 to 540) and 2 % on columbus (2,459 to 2,508), and births
+  per confirmation fall slightly (3.47 to 3.41, and 3.05 to 3.01). Whether that is recall or
+  fragmentation is gate 3's question on labels.
+- **The side-face entry survives the filter.** Removing the steady-run windows in which a lateral
+  face enters lowers the tracked arm's steady p99 by 49 mm on marina (0.120 to 0.071 m) and 107 mm
+  on columbus (0.260 to 0.153 m). That is more than it lowers the control's (34 and 100 mm). Those
+  windows are 99 of the tracked arm's tail windows on marina, against 78 of the control's. Every
+  other transition shrinks under tracking, so what is left of the steady tail is more nearly the
+  side-face entry alone. This is what the rank-one drift hypothesis predicts: the filter carries the
+  unconstrained direction on its prediction, and the side face corrects it in one step.
+- **Translation buys nothing.** Translate moves body-centre p99 by −3 mm on marina and +10 mm on
+  columbus, and steady p99 by +4 and +14 mm. The side-face row does not move. It acts only on
+  re-references, and a side face mostly enters while another face is fixed.
+- **`re_references` equals `steady_runs` by construction.** A steady run is a track's body-centre rows
+  between rows that are not on the body centre, so each run starts at a re-reference; see
+  `internal/lidar/replayeval/solid_body_summary.go`.
+
+#### Decision: T5, the rank-one medoid (F7)
+
+Translation is dropped as a remedy; the shadow option stays, so a shadow arm can match the tracked
+arm's state machine. `near_edge_track` stays default-off.
+
+Next is T5: at a rank-one fix, update the unconstrained direction (the face's tangent) from the
+cluster medoid, with R plus the believed half-extent squared that way. That is A2's loose term, used
+by the update as well as the gate, so the drift is bounded before the second face arrives.
+Invariant 2 holds for the default and every other arm; T5 is its declared exception.
+
+F7 runs T5 on the tuning partition, on the tracked arm and on the shadow, beside the tracked arm
+without it. It passes if the steady p99 falls towards the "without lateral-face entries" figures
+(about 0.07 m on marina and 0.15 m on columbus) without columbus's lapses rising further.
+
+F6s, running on the Mac, screens `near_edge_track` against the control on the 21 screen sites
+(gate 3's identity screen), then surveys sensor coverage on all 24 sites.
+
 ### S2.2: the tracked near-edge update
 
 **Summary:** `near_edge_track` updates the tracked filter through the shared state machine, with
@@ -685,7 +756,10 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on the tuning partition
       (F5): 5 mm, not kept; the steady-run anatomy moves to main
 - [ ] S2.1 face-transition remedy chosen
-- [ ] F6: `near_edge_track` (S2a) and the T1 with T3 control on the tuning partition, on the Mac
+- [x] F6: `near_edge_track` (S2a) and the T1 with T3 control on the tuning partition, on the Mac:
+      lower p99 on both sites, the lateral-entry tail survives, translation buys nothing
+- [ ] T5 rank-one medoid across the unconstrained direction; F7 on the tuning partition
+- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
