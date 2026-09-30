@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649); F7 runs it on the tuning partition, and F6s screens the tracked arm on the screen sites.
+- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649) and is not promoted: small on the tuning pair and mixed on the screen sites (F7b). The tracked arm holds on 17 screen sites and A2 beats A1 (F6s, S2.3); the held-out score is next.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -612,7 +612,73 @@ for arm in "track:$BASE,near_edge_track" \
 done
 ```
 
-The results go to `claude/upbeat-galileo-4xbaat-s2-f7b-results` under `results/s2-f7b/`.
+The results are in `results/s2-f7b/` (see [What the Mac runs show](#what-the-mac-runs-show)).
+
+#### What the Mac runs show
+
+Three Mac runs report together. F7b ran the five arms above on the tuning partition, applied the plan's
+rule, and ran the chosen arm on the screen sites (20 of 21 so far). F6s runs the control and the
+tracked arm on the screen sites (17 of 21 so far, with the coverage survey still to come). S2.3 ran A1
+once on the tuning partition. The results are in `results/s2-f7b/`, `results/s2-f6s/` and
+`results/s2-a1/`. The default replay was byte-equal in every case. F7b's tracked arm and control
+reproduce F6 to the last digit, because T5 is off in both. Runs that shared the USB drive and the NAS with other builds and replays ran far slower than one alone (the first T5 arm took 4 hours 19 minutes against about 20 minutes), so the runs are one replay at a time, and evidence databases go to the internal disk.
+
+Lateral residual p99 in metres on the tuning pair, with the steady-run p99 that the rule reads:
+
+| Site                   | Arm                   | Body-centre frames | Steady runs | Face-stable runs | Gap | Lapses |  Fixes | Confirmed |
+| ---------------------- | --------------------- | -----------------: | ----------: | ---------------: | --: | -----: | -----: | --------: |
+| `marina-webster-beach` | control (T1 with T3)  |              0.158 |       0.135 |            0.065 | 2.4 |    676 | 16,722 |       519 |
+| `marina-webster-beach` | tracked, A2 (S2a)     |              0.132 |       0.120 |            0.056 | 2.3 |    573 | 14,412 |       540 |
+| `marina-webster-beach` | tracked, A2, T5       |              0.119 |       0.109 |            0.056 | 2.1 |    609 | 14,357 |       541 |
+| `marina-webster-beach` | tracked, A2, T5 tight |              0.119 |       0.111 |            0.056 | 2.1 |    613 | 14,327 |       540 |
+| `marina-webster-beach` | shadow, T5            |              0.135 |       0.122 |            0.068 | 2.0 |    681 | 16,714 |       519 |
+| `marina-webster-beach` | tracked, A1           |              0.232 |       0.212 |            0.096 | 2.4 |  1,298 | 12,855 |       581 |
+| `columbus-broadway`    | control (T1 with T3)  |              0.280 |       0.280 |            0.141 | 2.0 |  1,695 | 43,106 |     2,459 |
+| `columbus-broadway`    | tracked, A2 (S2a)     |              0.260 |       0.260 |            0.127 | 2.0 |  2,091 | 41,439 |     2,508 |
+| `columbus-broadway`    | tracked, A2, T5       |              0.247 |       0.246 |            0.127 | 1.9 |  2,101 | 41,369 |     2,509 |
+| `columbus-broadway`    | tracked, A2, T5 tight |              0.247 |       0.246 |            0.127 | 1.9 |  2,087 | 41,490 |     2,506 |
+| `columbus-broadway`    | shadow, T5            |              0.276 |       0.278 |            0.141 | 2.0 |  1,694 | 43,114 |     2,459 |
+| `columbus-broadway`    | tracked, A1           |              0.338 |       0.330 |            0.145 | 2.3 |  3,903 | 36,430 |     2,534 |
+
+The per-site screen tables are `results/s2-f6s/progress.md` and `results/s2-f7b/screen-progress.md`.
+
+- **T5 passes the rule and buys little.** On the tracked arm it lowers the steady p99 by 11 mm on
+  marina and 14 mm on columbus, and columbus lapses rise 0.5 %, so it passes F7's bar; the tight
+  setting is the same within 2 mm, and the rule chose the plain one. But the steady p99 without the
+  lateral-face-entry windows is unchanged (0.073 and 0.154 m), so T5 closes 11 of the 49 mm to it
+  on marina and 14 of the 107 mm on columbus, about a fifth and an eighth. The gap to the
+  face-stable p99 stays near 2, against S2.1's exit of 1.25, and marina's lapses rise 6 % (573 to
+  609). On the shadow, T5 lowers the steady p99 by 13 mm on marina and 2 mm on columbus.
+- **T5 does not hold uniformly on the screen sites.** Against the tracked arm on the 17 sites that F6s
+  has also run, T5 is lower on 10 and higher on 7, by a median of 7 mm lower. The worst are
+  fulton-divisadero (0.350 to 0.439 m), laguna-eddy (+37 mm), bush-powell (+34 mm) and
+  columbus-north-point (+27 mm); the best are franklin-mcallister (0.232 to 0.187 m),
+  hyde-ofarrell and broadway-gough (−23 and −22 mm). Confirmed tracks and births per confirmation stay within 0.5 % of the tracked arm's. So the rank-one drift the plan named is at most a small
+  part of the lateral-entry tail, and T5 is not shown to be worth keeping.
+- **The tracked arm holds on the screen sites.** Against the control its steady p99 is lower on all 17
+  sites, by a median of 87 mm (pierce-haight 0.428 to 0.230 m, franklin-mcallister 0.442 to
+  0.232 m). Gate 3's label-free identity counts pass on all 17: confirmed tracks are up by between
+  0.1 % and 4.4 %, and births per confirmation are within 5 %, so no site is near the 10 % screen
+  bar. Two cautions stand. The summary has no mean confirmed duration, and without labels more
+  confirmed tracks cannot be told from fragments. And the five-point residual favours any smoothing
+  filter, so a lower p99 is not by itself a more accurate centre.
+- **A2's face-residual gate is what matters.** Against A1 (gating on the medoid), A2 has 56 % and 46 %
+  fewer lapses, a steady p99 lower by 43 % and 21 %, and 12 % and 14 % more fixes. A1 confirms
+  slightly more tracks with fewer births per confirmation (3.20 against 3.41, and 2.96 against
+  3.01), so A2's value shows in the body's state and not in confirmed-track counts; whether A1's
+  extra confirmations are fragments needs labels.
+
+What this settles, and what is next:
+
+1. S2a (`near_edge_track`, A2, with T1, T3 and full members) is the candidate, and stays default-off.
+   T5 stays default-off too. The per-face bias state bought 5 mm, reference translation nothing, and T5 11 to 14 mm, so the lateral-entry tail is not mainly any of the things they model.
+2. The next measurement that can separate accuracy from smoothness is the physical reference
+   (P2) or reviewed labels, not another label-free remedy. If the tail is attacked again, the
+   untried option is the midpoint of the fixing face's own visible span along its tangent, which is
+   unbiased while the face is unoccluded, unlike the medoid.
+3. F8, next: the held-out score of S2a without T5, once, on `embarcadero-folsom`, against gates 1 to 5.
+   F6s's last four sites and its coverage survey, and F7b's last screen site, finish in the
+   background.
 
 ### S2.2: the tracked near-edge update
 
@@ -849,13 +915,16 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       lower p99 on both sites, the lateral-entry tail survives, translation buys nothing
 - [x] T5 rank-one medoid across the body at an end-face fix (`solid_body_rank_one_medoid` and its
       tight setting), default-off, on the shadow and the tracked filter
-- [ ] F7: T5 on the tracked arm and the shadow, on the tuning partition, on the Mac
-- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac
+- [x] F7 (run as F7b): T5 on the tracked arm and the shadow, on the tuning partition, on the Mac:
+      11 and 14 mm, mixed on the screen sites; not promoted
+- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 17 of 21 sites run,
+      tracked arm lower on all 17 and gate 3's counts pass; four sites and the survey remain
+- [ ] F8: the held-out score of S2a without T5, once, on the Mac
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [x] S2.3 A1 ablation arm (`near_edge_track_a1`), default-off
-- [ ] S2.3 A1 ablation on the tuning partition, on the Mac
+- [x] S2.3 A1 ablation on the tuning partition, on the Mac: A2 has 56 % and 46 % fewer lapses
 - [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
       the adapter reads them
 - [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`
