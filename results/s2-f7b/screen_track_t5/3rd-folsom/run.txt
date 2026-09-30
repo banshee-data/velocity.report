@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f7b/screen_track_t5/3rd-folsom/source-manifest.json (sha256:a556eab1b98831f61d3c582f73a38c4f96d81570ca8b51d7de6030dc617cfed2)
+3rd-folsom: first run across 4 capture(s)
+2026/09/30 13:11:43 ran database initialisation script
+2026/09/30 13:11:43 [migrate] 1/u original_schema (307.791µs)
+2026/09/30 13:11:43 [migrate] 2/u json_and_write_timestamp (1.386167ms)
+2026/09/30 13:11:43 [migrate] 3/u rename_tables (2.388042ms)
+2026/09/30 13:11:43 [migrate] 4/u create_lidar_bg_snapshot (2.487625ms)
+2026/09/30 13:11:43 [migrate] 5/u create_radar_data_transits (2.72425ms)
+2026/09/30 13:11:43 [migrate] 6/u create_radar_transit_links (2.76475ms)
+2026/09/30 13:11:43 [migrate] 7/u create_site_table (3.057375ms)
+2026/09/30 13:11:43 [migrate] 8/u create_site_reports (3.236ms)
+2026/09/30 13:11:43 [migrate] 9/u add_velocity_report_prefix (3.263625ms)
+2026/09/30 13:11:43 [migrate] 10/u create_lidar_tracks (3.651459ms)
+2026/09/30 13:11:43 [migrate] 11/u create_lidar_analysis_runs (4.109042ms)
+2026/09/30 13:11:43 [migrate] 12/u add_track_quality_metrics (5.991334ms)
+2026/09/30 13:11:43 [migrate] 13/u create_site_config_periods (5.325ms)
+2026/09/30 13:11:43 [migrate] 14/u remove_site_config_fields (5.372833ms)
+2026/09/30 13:11:43 [migrate] 15/u add_site_map_fields (6.631208ms)
+2026/09/30 13:11:43 [migrate] 16/u lidar_labels (6.636584ms)
+2026/09/30 13:11:43 [migrate] 17/u create_lidar_bg_regions (6.634792ms)
+2026/09/30 13:11:43 [migrate] 18/u add_quality_label (6.678583ms)
+2026/09/30 13:11:43 [migrate] 19/u add_lidar_labels_scene_source (7.1705ms)
+2026/09/30 13:11:43 [migrate] 20/u create_lidar_scenes (7.233833ms)
+2026/09/30 13:11:43 [migrate] 21/u create_lidar_missed_regions (6.990875ms)
+2026/09/30 13:11:43 [migrate] 22/u create_lidar_sweeps (6.795042ms)
+2026/09/30 13:11:43 [migrate] 23/u add_vrlog_path (4.848334ms)
+2026/09/30 13:11:43 [migrate] 24/u add_sweep_metadata (6.95675ms)
+2026/09/30 13:11:43 [migrate] 25/u add_label_source (6.252834ms)
+2026/09/30 13:11:43 [migrate] 26/u update_label_taxonomy (5.02425ms)
+2026/09/30 13:11:43 [migrate] 27/u add_sweep_checkpoint (6.228791ms)
+2026/09/30 13:11:43 [migrate] 28/u create_lidar_evaluations (6.243333ms)
+2026/09/30 13:11:43 [migrate] 29/u expand_label_vocabulary (5.975208ms)
+2026/09/30 13:11:43 [migrate] 30/u schema_simplification (28.184042ms)
+2026/09/30 13:11:43 [migrate] 31/u table_naming (42.950083ms)
+2026/09/30 13:11:43 [migrate] 32/u create_lidar_all_tracks_view (43.044167ms)
+2026/09/30 13:11:43 [migrate] 33/u replay_annotations_and_eval_integrity (44.881917ms)
+2026/09/30 13:11:43 [migrate] 34/u schema_hardening_pre_v050 (59.240583ms)
+2026/09/30 13:11:43 [migrate] 35/u lidar_immutable_run_config (60.231917ms)
+2026/09/30 13:11:43 [migrate] 36/u drop_legacy_params_json (66.044333ms)
+2026/09/30 13:11:43 [migrate] 37/u seed_config_period_pi_day (66.989292ms)
+2026/09/30 13:11:43 [migrate] 38/u create_radar_serial_config (65.875417ms)
+2026/09/30 13:11:43 [migrate] 39/u create_lidar_scenes (65.991291ms)
+2026/09/30 13:11:43 [migrate] 40/u add_scene_vantages (66.509833ms)
+2026/09/30 13:11:43 [migrate] 41/u drop_scene_vantages (46.115417ms)
+2026/09/30 13:11:43 [migrate] 42/u create_lidar_capture_index (28.977792ms)
+2026/09/30 13:11:44 [migrate] 43/u create_lidar_capture_jobs (84.901292ms)
+2026/09/30 13:11:44 [migrate] 44/u replay_case_files (86.47825ms)
+2026/09/30 13:11:44 [migrate] 45/u replay_case_geography (76.729875ms)
+2026/09/30 13:11:44 [migrate] 46/u lidar_sites (74.188708ms)
+2026/09/30 13:11:44 [migrate] 47/u lidar_observations (69.490917ms)
+2026/09/30 13:11:44 [migrate] 48/u lidar_track_estimates (68.61225ms)
+2026/09/30 13:11:44 [migrate] 49/u lidar_track_residuals (68.506208ms)
+2026/09/30 13:11:44 [migrate] 50/u lidar_track_estimate_revisions (68.380875ms)
+2026/09/30 13:11:44 [migrate] 51/u lidar_interaction_persistence (68.411125ms)
+2026/09/30 13:11:44 [migrate] 52/u lidar_track_solid_bodies (67.198917ms)
+2026/09/30 13:11:44 [migrate] 53/u lidar_solid_body_support (69.231709ms)
+2026/09/30 13:11:44 [migrate] 54/u lidar_segments (13.6915ms)
+2026/09/30 13:11:44 [migrate] 55/u lidar_segment_constraints (23.597542ms)
+2026/09/30 13:11:44 [migrate] 56/u lidar_segment_selectors (20.463583ms)
+2026/09/30 13:11:44 [migrate] 57/u lidar_track_estimate_reference_support (21.647208ms)
+2026/09/30 13:11:44 Database baselined at version 57
+2026/09/30 13:11:44 replaying 4 capture file(s) (port 2369) through the perception pipeline
+3rd-folsom: repeat run
+2026/09/30 13:22:42 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 13:22:43 replaying 4 capture file(s) (port 2369) through the perception pipeline
+3rd-folsom: capture time frames=11414 backward=0 duplicate=0 clamped_gaps=39 max_gap=4.400s
+3rd-folsom: continuity born=4285 confirmed=1416 reacquired=4758 expired misses=4283 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+3rd-folsom: solid bodies=38663 near_edge_fixes=19914 (51.5%) lapses=845; lateral p99 point estimates 0.247 m, solid bodies 0.247 m over 2449 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f7b/screen_track_t5/3rd-folsom/out
+     1344.31 real       690.38 user        99.14 sys
+           986824704  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             1901711  page reclaims
+                2270  page faults
+                   0  swaps
+                  70  block input operations
+                 142  block output operations
+                   0  messages sent
+                   0  messages received
+              212183  signals received
+              383175  voluntary context switches
+            13578015  involuntary context switches
+       6799302532413  instructions retired
+       1994401219584  cycles elapsed
+           993529280  peak memory footprint
