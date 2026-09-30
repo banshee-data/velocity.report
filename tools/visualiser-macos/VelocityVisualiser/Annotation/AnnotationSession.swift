@@ -42,11 +42,14 @@ enum AnnotationGuard: Equatable {
 enum AnnotationWorkMode: String, CaseIterable, Equatable {
     case points
     case physical
+    /// Read-only: a report's reference and an estimate at one instant.
+    case compare
 
     var label: String {
         switch self {
         case .points: return "Points"
-        case .physical: return "Physical reference"
+        case .physical: return "Physical"
+        case .compare: return "Compare"
         }
     }
 }
@@ -82,7 +85,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published var workMode: AnnotationWorkMode = .points {
         didSet {
             guard workMode != oldValue else { return }
-            if workMode == .physical {
+            if workMode == .compare { exposeComparedObjects() }
+            if workMode == .physical || workMode == .compare {
                 syncWithMainView = false
                 startPhysical()
                 if physical.availability == .notLoaded {
@@ -105,6 +109,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private let physicalClient: PhysicalReferenceAPIClient
     private var physicalForward: AnyCancellable?
 
+    func startPhysicalIfNeeded() { startPhysical() }
+
     /// Starts following the physical draft: the object list and the views
     /// read it, so a change to it redraws them.
     private func startPhysical() {
@@ -116,6 +122,13 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     // MARK: Intensity
+
+    /// The pack's role from segment.json, "tuning" or "held_out", or nil for
+    /// a pack cut without one.
+    private(set) var packRole: String?
+
+    /// The evaluation report open for comparison.
+    let reportInspector = PhysicalReportInspector()
 
     /// Whether the pack's intensity is a measurement at all.
     var intensityAvailability: IntensityAvailability {
@@ -143,8 +156,13 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             labelRevision &+= 1
             summaries = nil
+            pointClaimConflicts = sidecar.pointClaimConflicts()
         }
     }
+
+    /// Returns two objects claim in one sample. Go's tools refuse a pack with
+    /// any, so the pane lists them for repair.
+    @Published private(set) var pointClaimConflicts: [PointClaimConflict] = []
 
     /// What the object list shows of each object, worked out once per change
     /// to the sidecar. The list is redrawn on every publish, and counting an
@@ -319,7 +337,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             // Physical authoring is blind: the main view draws the tracker's
             // boxes, so it does not follow or lead while a pose is authored.
-            if syncWithMainView, workMode == .physical { syncWithMainView = false }
+            if syncWithMainView, workMode != .points { syncWithMainView = false }
             if !syncWithMainView { syncStatus = .off }
         }
     }
@@ -562,6 +580,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         self.document = try resolvedStore.load(
             packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
         self.sidecar = document.sidecar
+        self.pointClaimConflicts = document.sidecar.pointClaimConflicts()
         self.orderedSamples = pack.chronologicalSamples
         self.heightBand = pack.manifest.source.heightBand ?? .pipelineDefault
         self.heightBandIsAssumed = pack.manifest.source.heightBand == nil
@@ -624,6 +643,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             }
             if !remaining.frames.isEmpty { proposals.append(remaining) }
         }
+        UnsavedWorkRegistry.shared.register(self)
+        struct Role: Decodable { let role: String? }
+        packRole = (try? Data(contentsOf: pack.directory.appendingPathComponent("segment.json")))
+            .flatMap { try? JSONDecoder().decode(Role.self, from: $0).role }
         let segmentURL = pack.directory.appendingPathComponent("segment.json")
         if let data = try? Data(contentsOf: segmentURL),
             let record = try? JSONDecoder().decode(SegmentOpening.self, from: data),
@@ -816,7 +839,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             edited.sidecar.objects[index].provenance = change
         }
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
             refreshFrameProgress()
             return reviewed
@@ -857,6 +880,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         pendingCandidates = nil
         hover.clear()
         inspection.clear()
+        if workMode == .compare { exposeComparedObjects() }
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         secondViewChecked = false
@@ -1508,7 +1532,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
             dirtySamples.remove(here.sampleID)
             savedSelection = history.current
@@ -1686,7 +1710,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             edited.sidecar.datasetID = pack.manifest.datasetID
             for mask in pending { edited.sidecar.upsert(mask: mask) }
             do {
-                document = try store.save(edited, change: change)
+                document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 refreshFrameProgress()
             } catch let error as SidecarStoreError {
@@ -1862,7 +1886,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         if !dismissed.contains(key) { dismissed.append(key) }
         edited.sidecar.dismissedProposals = dismissed
         do {
-            document = try store.save(
+            document = try commit(
                 edited,
                 change: Provenance(
                     author: operatorName, session: sessionID,
@@ -1946,7 +1970,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -2041,7 +2065,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.objects.removeAll { others.contains($0.objectID) }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -2197,7 +2221,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
 
         do {
-            document = try store.save(edited, change: byHand)
+            document = try commit(edited, change: byHand)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -2478,7 +2502,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             edited.sidecar.upsert(mask: mask)
 
             do {
-                document = try store.save(edited, change: change)
+                document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 dirtySamples.remove(sample.sampleID)
                 savedSelection = Set(validated)
@@ -2513,6 +2537,17 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             loadSelectionForCurrentSample()
             refreshFrameProgress()
         } catch { lastError = "\(error)" }
+    }
+
+    /// Every membership write goes through here. It refuses a save that would
+    /// make two objects claim one return, which Go's sidecar validation
+    /// refuses outright. A pack that already has such a return can still be
+    /// saved, so the operator can repair it: only a new one is refused.
+    private func commit(_ edited: SidecarDocument, change: Provenance) throws -> SidecarDocument {
+        let existing = Set(document.sidecar.pointClaimConflicts().map(\.key))
+        let introduced = edited.sidecar.pointClaimConflicts().filter { !existing.contains($0.key) }
+        if !introduced.isEmpty { throw PointClaimError(conflicts: introduced) }
+        return try store.save(edited, change: change)
     }
 
     static func describe(_ error: SidecarStoreError) -> String {

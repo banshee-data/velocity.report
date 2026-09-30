@@ -143,6 +143,9 @@ struct PhysicalReview: Codable, Equatable {
     var trackerSource: String?
     var uncertaintyAssumptions: String?
     var provenance: Provenance = Provenance()
+    /// The membership the reviewer was looking at. Set by the service on
+    /// review, cleared by it on any edit; this client never writes one.
+    var reviewedAgainst: PhysicalMembershipPin?
 
     enum CodingKeys: String, CodingKey {
         case status
@@ -151,7 +154,14 @@ struct PhysicalReview: Codable, Equatable {
         case trackerSource = "tracker_source"
         case uncertaintyAssumptions = "uncertainty_assumptions"
         case provenance
+        case reviewedAgainst = "reviewed_against"
     }
+}
+
+/// One membership sidecar revision, by number and exact-byte digest.
+struct PhysicalMembershipPin: Codable, Equatable {
+    var revision: Int
+    var digest: String
 }
 
 /// An object's persistent body belief, apart from any keyframe's pose.
@@ -377,6 +387,9 @@ struct PhysicalPackState: Codable, Equatable {
     var membershipDigest: String
     var membershipRevision: Int
     var stale: [PhysicalLinkProblem]
+    /// Reviewed records whose membership changed, in frames they rest on,
+    /// after their review.
+    var reviewDrift: [PhysicalLinkProblem] = []
     var document: PhysicalReferenceDocument
 
     enum CodingKeys: String, CodingKey {
@@ -392,7 +405,78 @@ struct PhysicalPackState: Codable, Equatable {
         case membershipDigest = "membership_digest"
         case membershipRevision = "membership_revision"
         case stale
+        case reviewDrift = "review_drift"
         case document
+    }
+
+    init(
+        pack: String, packDir: String, datasetID: String, packDigest: String, exists: Bool,
+        revision: Int, digest: String, contentDigest: String, head: Bool, membershipDigest: String,
+        membershipRevision: Int, stale: [PhysicalLinkProblem],
+        reviewDrift: [PhysicalLinkProblem] = [], document: PhysicalReferenceDocument
+    ) {
+        self.pack = pack
+        self.packDir = packDir
+        self.datasetID = datasetID
+        self.packDigest = packDigest
+        self.exists = exists
+        self.revision = revision
+        self.digest = digest
+        self.contentDigest = contentDigest
+        self.head = head
+        self.membershipDigest = membershipDigest
+        self.membershipRevision = membershipRevision
+        self.stale = stale
+        self.reviewDrift = reviewDrift
+        self.document = document
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        pack = try c.decode(String.self, forKey: .pack)
+        packDir = try c.decode(String.self, forKey: .packDir)
+        datasetID = try c.decode(String.self, forKey: .datasetID)
+        packDigest = try c.decode(String.self, forKey: .packDigest)
+        exists = try c.decode(Bool.self, forKey: .exists)
+        revision = try c.decode(Int.self, forKey: .revision)
+        digest = try c.decode(String.self, forKey: .digest)
+        contentDigest = try c.decode(String.self, forKey: .contentDigest)
+        head = try c.decode(Bool.self, forKey: .head)
+        membershipDigest = try c.decode(String.self, forKey: .membershipDigest)
+        membershipRevision = try c.decode(Int.self, forKey: .membershipRevision)
+        stale = try c.decode([PhysicalLinkProblem].self, forKey: .stale)
+        // A service from before review pins reports no drift field.
+        reviewDrift = try c.decodeIfPresent([PhysicalLinkProblem].self, forKey: .reviewDrift) ?? []
+        document = try c.decode(PhysicalReferenceDocument.self, forKey: .document)
+    }
+}
+
+/// One retained revision, for the history list.
+struct PhysicalRevisionSummary: Codable, Equatable, Identifiable {
+    var revision: Int
+    var updatedUTC: String
+    var change: Provenance
+    var restoredFrom: Int?
+    var digest: String
+    var contentDigest: String
+    var head: Bool
+    var objects: Int
+    var keyframes: Int
+    var reviewed: Int
+
+    var id: Int { revision }
+
+    enum CodingKeys: String, CodingKey {
+        case revision
+        case updatedUTC = "updated_utc"
+        case change
+        case restoredFrom = "restored_from"
+        case digest
+        case contentDigest = "content_digest"
+        case head
+        case objects
+        case keyframes
+        case reviewed
     }
 }
 

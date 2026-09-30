@@ -65,6 +65,8 @@ struct AnnotationPane: View {
                     Divider()
                     if session.workMode == .physical {
                         PhysicalReferencePane(session: session)
+                    } else if session.workMode == .compare {
+                        PhysicalComparePane(session: session)
                     } else {
                         pointsEditingSections
                     }
@@ -106,6 +108,41 @@ struct AnnotationPane: View {
         reviewSection
     }
 
+    // MARK: Points claimed twice
+
+    // Go's tools refuse a pack in which one return belongs to two objects in
+    // a frame, the physical-reference service included. The window refuses
+    // to make a new one; these are ones already saved, to take out of one of
+    // the two objects.
+    @ViewBuilder private var pointClaimBanner: some View {
+        let conflicts = session.pointClaimConflicts
+        if !conflicts.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(
+                    "\(conflicts.count) return\(conflicts.count == 1 ? "" : "s") claimed by two objects",
+                    systemImage: "exclamationmark.triangle"
+                ).font(.caption.bold()).foregroundStyle(.orange)
+                ForEach(Array(conflicts.prefix(4).enumerated()), id: \.offset) { _, c in
+                    HStack {
+                        Text(
+                            "sample \(c.sampleID) point \(c.point): \(session.displayName(objectID: c.first)) and "
+                                + session.displayName(objectID: c.second)
+                        ).font(.caption2)
+                        if let index = session.samples.firstIndex(where: {
+                            $0.sampleID == c.sampleID
+                        }) {
+                            Button("Go") { handleStep { session.step(to: index) } }.controlSize(
+                                .mini)
+                        }
+                    }
+                }
+                Text("Go's tools refuse this pack until each is in one object only.").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     // MARK: Source
 
     // The main view's words, for the things that are the same thing: a run,
@@ -129,6 +166,7 @@ struct AnnotationPane: View {
             // ignorance of that reads as a stronger claim than it is.
             Text(session.pack.coverageCaveat).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+            pointClaimBanner
 
             if let sample = session.currentSample {
                 // The run's own frame number first: it is the one the main

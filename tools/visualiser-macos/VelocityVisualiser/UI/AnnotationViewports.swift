@@ -100,6 +100,9 @@ struct ViewportInputLayer: NSViewRepresentable {
     var onDepthStep: (Int) -> Void = { _ in }
     /// A key the view may have a use for. Returns true when it did.
     var onKey: (ViewportKey) -> Bool = { _ in false }
+    /// Whether a press here, where strokes are off, starts a drag of its own
+    /// (a handle) rather than a pan.
+    var claimsDrag: (CGPoint) -> Bool = { _ in false }
 
     func makeNSView(context: Context) -> ViewportInputView {
         let view = ViewportInputView()
@@ -135,6 +138,12 @@ final class ViewportInputView: NSView {
         window?.makeFirstResponder(self)
         let point = location(of: event)
         let strokes = layer_?.strokesEnabled ?? false
+        if !strokes, !event.modifierFlags.contains(.control), layer_?.claimsDrag(point) == true {
+            pressedAt = nil
+            drag = .stroke(start: point)
+            layer_?.onStrokeChanged(ViewportStroke(startLocation: point, location: point))
+            return
+        }
         pressedAt = strokes ? nil : point
         if !strokes || event.modifierFlags.contains(.control) {
             drag = .pan(last: point)

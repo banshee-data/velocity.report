@@ -37,6 +37,8 @@ struct PhysicalReferencePane: View {
                 }
                 Divider()
                 saveSection
+                Divider()
+                historySection
             }
         }
     }
@@ -77,11 +79,24 @@ struct PhysicalReferencePane: View {
             if !physical.staleProblems.isEmpty {
                 Text("Records that no longer hold against membership").font(.caption.bold())
                     .foregroundStyle(.orange)
-                ForEach(physical.staleProblems, id: \.self) { problem in
+                ForEach(physical.staleProblems, id: \.self) { problem in staleRow(problem) }
+            }
+            if !physical.driftProblems.isEmpty {
+                Text("Reviewed, but membership changed since").font(.caption.bold())
+                    .foregroundStyle(.orange)
+                ForEach(physical.driftProblems, id: \.self) { problem in
                     Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(
                         .orange
                     ).fixedSize(horizontal: false, vertical: true)
                 }
+                Text("Check each against the new points, then review it again.").font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if let seen = session.activeObjectID.flatMap({ physical.exposure[$0] }) {
+                Text(
+                    "You have seen this object's estimate (\(seen)). Edits to it are saved as tracker-assisted."
+                ).font(.caption2).foregroundStyle(.orange).fixedSize(
+                    horizontal: false, vertical: true)
             }
             if let error = physical.lastError {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(
@@ -137,8 +152,10 @@ struct PhysicalReferencePane: View {
                                 kind: .body, objectID: objectID, recordID: saved.bodyID)
                         }
                     }.disabled(
-                        saved == nil || saved?.review.status == .reviewed || physical.isDirty
-                            || !physical.canEdit
+                        saved == nil
+                            || (saved?.review.status == .reviewed
+                                && !physical.hasDrift(record: saved?.bodyID))
+                            || physical.isDirty || !physical.canEdit
                     ).help(
                         "Confirms the saved body. Save first; an unsaved edit cannot be reviewed.")
                     Spacer()
@@ -240,8 +257,10 @@ struct PhysicalReferencePane: View {
                                 kind: .keyframe, objectID: objectID, recordID: saved.keyframeID)
                         }
                     }.disabled(
-                        saved == nil || saved?.review.status == .reviewed || physical.isDirty
-                            || !physical.canEdit
+                        saved == nil
+                            || (saved?.review.status == .reviewed
+                                && !physical.hasDrift(record: saved?.keyframeID))
+                            || physical.isDirty || !physical.canEdit
                     ).help("Confirms the saved keyframe. It does not review the mask or the body.")
                     Spacer()
                     Button("Remove keyframe", role: .destructive) {
@@ -255,6 +274,22 @@ struct PhysicalReferencePane: View {
                 Text("Click in the Top view to place this frame's position, or add it empty.").font(
                     .caption2
                 ).foregroundStyle(.secondary)
+                if let object = physical.object(objectID),
+                    let source = PhysicalDraft.nearestKeyframe(of: object, to: sample)
+                {
+                    Button("Copy keyframe from sample \(source.sampleID)") {
+                        let author = session.operatorName
+                        let id = session.sessionID
+                        physical.edit { objects in
+                            let i = PhysicalDraft.index(of: objectID, in: &objects)
+                            objects[i].keyframes.append(
+                                PhysicalDraft.copy(source, to: sample, author: author, session: id))
+                        }
+                    }.controlSize(.small).disabled(!physical.canEdit).help(
+                        "A proposal: what the source observed becomes inferred from its frames. "
+                            + "Check it against this frame's returns before claiming anything observed."
+                    )
+                }
                 Button("Add keyframe at this frame") {
                     let author = session.operatorName
                     let id = session.sessionID
@@ -395,6 +430,8 @@ struct PhysicalReferencePane: View {
                     .foregroundStyle(.secondary)
             }
 
+            sharedErrorEditor(objectID: objectID, k: k, sample: sample)
+
             derivedSummary(objectID: objectID, k: k)
 
             recordReviewFields(
@@ -496,6 +533,147 @@ struct PhysicalReferencePane: View {
                 "Edit → Save proposal → inspect in both views → Review. Reviewing a mask does not review a pose."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: Repair
+
+    /// A record that no longer holds against membership, with the two
+    /// repairs: remove it, or move the object's references to another object.
+    private func staleRow(_ problem: PhysicalLinkProblem) -> some View {
+        let objectID = problem.record.split(separator: "\"").dropFirst().first.map(String.init)
+        return VStack(alignment: .leading, spacing: 2) {
+            Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Remove record", role: .destructive) {
+                    physical.edit { _ = PhysicalDraft.remove(problem: problem, from: &$0) }
+                }
+                if let objectID {
+                    Menu("Move to object…") {
+                        ForEach(
+                            session.sidecar.objects.filter {
+                                $0.objectID != objectID && $0.status != .rejected
+                            }
+                        ) { target in
+                            Button(session.displayName(objectID: target.objectID)) {
+                                var refusal: String?
+                                physical.edit {
+                                    refusal = PhysicalDraft.reassign(
+                                        from: objectID, to: target.objectID, in: &$0)
+                                }
+                                if let refusal { physical.refuse(refusal) }
+                            }
+                        }
+                    }.menuStyle(.borderlessButton).fixedSize()
+                }
+            }.controlSize(.mini).disabled(!physical.canEdit)
+        }
+    }
+
+    // MARK: Shared errors
+
+    private static let components = [
+        "position", "yaw", "anchor_offset", "length", "width", "height", "front", "rear",
+    ]
+
+    /// Names the observations several components rest on, so a reader can see
+    /// that separate fields are not independent evidence.
+    private func sharedErrorEditor(
+        objectID: String, k: PhysicalKeyframe, sample: AnnotationSample
+    ) -> some View {
+        func update(_ change: @escaping (inout [PhysicalSharedError]) -> Void) {
+            physical.edit { objects in
+                PhysicalDraft.updateKeyframe(
+                    objectID: objectID, sampleID: sample.sampleID, in: &objects
+                ) {
+                    var list = $0.sharedErrors ?? []
+                    change(&list)
+                    $0.sharedErrors = list.isEmpty ? nil : list
+                }
+            }
+        }
+        let list = k.sharedErrors ?? []
+        return DisclosureGroup("Shared errors (\(list.count))") {
+            ForEach(Array(list.enumerated()), id: \.offset) { index, item in
+                VStack(alignment: .leading, spacing: 2) {
+                    TextField(
+                        "Observation",
+                        text: Binding(
+                            get: { item.observation },
+                            set: { v in update { $0[index].observation = v } })
+                    ).textFieldStyle(.roundedBorder).font(.caption2)
+                    FlowToggles(options: Self.components, selected: Set(item.components)) {
+                        component, on in
+                        update {
+                            var set = Set($0[index].components)
+                            if on { set.insert(component) } else { set.remove(component) }
+                            $0[index].components = set.sorted()
+                        }
+                    }
+                    if item.components.count < 2 {
+                        Text("Link at least two components.").font(.caption2).foregroundStyle(
+                            .orange)
+                    }
+                    Button("Remove", role: .destructive) { update { $0.remove(at: index) } }
+                        .controlSize(.mini)
+                }
+            }
+            Button("Add shared error") {
+                update { $0.append(PhysicalSharedError(observation: "", components: [])) }
+            }.controlSize(.mini)
+        }.font(.caption).disabled(!physical.canEdit)
+    }
+
+    // MARK: History
+
+    @State private var showHistory = false
+    @State private var confirmRestore: Int?
+
+    private var historySection: some View {
+        DisclosureGroup("History", isExpanded: $showHistory) {
+            if physical.history.isEmpty {
+                Text("No saved revisions.").font(.caption2).foregroundStyle(.secondary)
+            }
+            ForEach(physical.history) { r in
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(
+                            "r\(r.revision)\(r.head ? " · current" : "") · \(r.change.operation ?? "")"
+                        ).font(.caption2.bold())
+                        Text("\(r.change.author) · \(r.updatedUTC.prefix(19))").font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(
+                            "\(r.objects) objects · \(r.keyframes) keyframes · \(r.reviewed) reviewed"
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !r.head {
+                        Button("Restore") { confirmRestore = r.revision }.controlSize(.mini)
+                            .disabled(!physical.canEdit || physical.isDirty)
+                    }
+                }
+            }
+        }.font(.caption).onChange(of: showHistory) { _, open in
+            if open { Task { await physical.loadHistory() } }
+        }.onChange(of: physical.state?.revision) { _, _ in
+            if showHistory { Task { await physical.loadHistory() } }
+        }.alert(
+            "Restore revision \(confirmRestore ?? 0)?",
+            isPresented: Binding(
+                get: { confirmRestore != nil }, set: { if !$0 { confirmRestore = nil } })
+        ) {
+            Button("Cancel", role: .cancel) { confirmRestore = nil }
+            Button("Restore as a new revision") {
+                if let revision = confirmRestore {
+                    Task { await physical.restore(revision: revision) }
+                }
+                confirmRestore = nil
+            }
+        } message: {
+            Text(
+                "The current revision stays in history. Restored records keep their review, origin and the membership they were reviewed against."
+            )
         }
     }
 
@@ -640,5 +818,26 @@ struct PhysicalReferencePane: View {
                     }
                 }
             })
+    }
+}
+
+/// A wrapping row of toggles, one per option.
+struct FlowToggles: View {
+    let options: [String]
+    let selected: Set<String>
+    let set: (String, Bool) -> Void
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 78), alignment: .leading)], alignment: .leading,
+            spacing: 2
+        ) {
+            ForEach(options, id: \.self) { option in
+                Toggle(
+                    option.replacingOccurrences(of: "_", with: " "),
+                    isOn: Binding(get: { selected.contains(option) }, set: { set(option, $0) })
+                ).toggleStyle(.checkbox).font(.caption2)
+            }
+        }
     }
 }
