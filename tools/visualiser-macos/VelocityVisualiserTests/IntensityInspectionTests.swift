@@ -18,8 +18,26 @@ import simd
 struct IntensityDisplaySpecTests {
     @Test func offByDefaultOverTheFullRange() {
         let spec = IntensityDisplaySpec()
-        #expect(!spec.enabled && spec.lower == 0 && spec.upper == 255 && spec.isDefaultRange)
+        #expect(!spec.enabled && spec.lower == 1 && spec.upper == 255 && spec.isDefaultRange)
         #expect(spec.gamma == 1 && spec.brightness == 1 && spec.ramp == .starburst)
+    }
+
+    @Test func zeroRemainsDistinctFromNonzeroAndMissingUnderEveryDisplayTransform() {
+        for ramp in IntensityRamp.allCases {
+            for brightness in [0.5, 1.0, 2.0] {
+                var spec = IntensityDisplaySpec()
+                spec.ramp = ramp
+                spec.setBrightness(brightness)
+                spec.setGamma(2)
+                spec.setLower(50)
+                spec.setUpper(200)
+                #expect(spec.colour(of: 0) == IntensityDisplaySpec.zeroColour)
+                #expect(spec.colour(of: 0) != IntensityDisplaySpec.missingColour)
+                for code in 1...255 { #expect(spec.colour(of: UInt8(code)) != spec.colour(of: 0)) }
+                #expect(spec.position(of: 0).clip == .none)
+                #expect(spec.clipCounts([0, 0] as [UInt8]).below == 0)
+            }
+        }
     }
 
     @Test func limitsStayOrderedAndInRange() {
@@ -27,7 +45,7 @@ struct IntensityDisplaySpecTests {
         spec.setLower(300)
         #expect(spec.lower == 254 && spec.upper == 255)
         spec.setUpper(-5)
-        #expect(spec.upper == 1 && spec.lower == 0)
+        #expect(spec.upper == 2 && spec.lower == 1)
         spec.setLower(40)
         #expect(spec.lower == 40 && spec.upper == 41)
         spec.setUpper(200)
@@ -48,23 +66,23 @@ struct IntensityDisplaySpecTests {
         #expect(spec.position(of: 100).clip == .none && spec.position(of: 100).t == 0)
         #expect(spec.position(of: 200).clip == .none && spec.position(of: 200).t == 1)
         #expect(abs(spec.position(of: 150).t - 0.5) < 1e-6)
-        #expect(spec.colour(of: 0) == spec.colour(of: 100))
+        #expect(spec.colour(of: 0) == IntensityDisplaySpec.zeroColour)
         #expect(spec.colour(of: 255) == spec.colour(of: 200))
         let counts = spec.clipCounts([0, 99, 100, 150, 200, 201, 255] as [UInt8])
-        #expect(counts.below == 2 && counts.above == 2)
+        #expect(counts.below == 1 && counts.above == 2)
     }
 
     @Test func gammaMovesTheLegendTicksNotTheValues() {
         var spec = IntensityDisplaySpec()
         let linear = spec.legendTicks()
-        #expect(linear.map(\.raw) == [0, 63.75, 127.5, 191.25, 255])
+        #expect(linear.map(\.raw) == [1, 64.5, 128, 191.5, 255])
         spec.setGamma(2)
         let curved = spec.legendTicks()
-        #expect(curved.first?.raw == 0 && curved.last?.raw == 255)
+        #expect(curved.first?.raw == 1 && curved.last?.raw == 255)
         // Halfway along the bar is t = 0.5, which gamma 2 reaches at a
         // linear fraction of sqrt(0.5).
-        #expect(abs(curved[2].raw - 255 * 0.5.squareRoot()) < 1e-9)
-        #expect(abs(Double(spec.position(of: 180).t) - pow(180.0 / 255, 2)) < 1e-6)
+        #expect(abs(curved[2].raw - (1 + 254 * 0.5.squareRoot())) < 1e-9)
+        #expect(abs(Double(spec.position(of: 180).t) - pow(179.0 / 254, 2)) < 1e-6)
     }
 
     @Test func theTableHasOneColourPerCodeAndMissingIsItsOwnColour() {

@@ -1,0 +1,444 @@
+import Foundation
+import SwiftProtobuf
+import Testing
+import simd
+
+@testable import VelocityVisualiser
+
+private func featurePoints(_ positions: [SIMD3<Float>]) -> PackPoints {
+    PackPoints(x: positions.map(\.x), y: positions.map(\.y), z: positions.map(\.z))
+}
+
+struct FeatureSelectionTests {
+    @Test func sphereSelectsOnlyCanonicalSavedObjectReturns() {
+        let points = featurePoints([
+            .zero, SIMD3(0.1, 0, 0), SIMD3(0.19, 0, 0), SIMD3(0.21, 0, 0), SIMD3(.nan, 0, 0),
+        ])
+        let sphere = FeatureSphere(centre: .zero, radius: 0.2)
+        #expect(
+            FeatureSelection.indices(
+                points: points, domain: [4, 3, 1, 0, 0, -1, 99], sphere: sphere) == [0, 1])
+        #expect(
+            FeatureSelection.indices(
+                points: points, domain: [0], sphere: FeatureSphere(centre: .zero, radius: .nan)
+            ).isEmpty)
+        #expect(
+            FeatureSelection.indices(
+                points: points, domain: [0],
+                sphere: FeatureSphere(centre: SIMD3(.nan, 0, 0), radius: 0.2)
+            ).isEmpty)
+    }
+
+    @Test func proposalUsesFreshTargetIndicesAndIgnoresAnotherObject() throws {
+        let source = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
+        // Return 0 belongs to a different object even though it is inside the sphere.
+        let target = featurePoints([
+            SIMD3(1.07, 0.07, 1), SIMD3(1.1, 0.1, 1.05), SIMD3(1.05, 0.05, 1),
+        ])
+        var observation = FeatureObservation()
+        observation.pointIndices = [0, 1]
+        observation.sphere = FeatureSphere(centre: SIMD3(0.075, 0.075, 1.025), radius: 0.2)
+        let sphere = try FeatureSelection.propose(
+            source: observation, sourcePoints: source, sourceDomain: [0, 1], targetPoints: target,
+            targetDomain: [1, 2], seconds: 0.1)
+        #expect(simd_distance(sphere.centre, observation.sphere.centre + SIMD3(1, 0, 0)) < 0.001)
+        #expect(
+            FeatureSelection.indices(points: target, domain: [1, 2], sphere: sphere) == [1, 2])
+    }
+
+    @Test func sparseMissingGapsAndImplausibleMovementStop() {
+        let p = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
+        var o = FeatureObservation()
+        o.pointIndices = [0, 1]
+        o.sphere = FeatureSphere(centre: SIMD3(0.075, 0.075, 1.025), radius: 0.2)
+        for time in [0.0, -0.1, 0.6, Double.nan] {
+            #expect(throws: (any Error).self) {
+                try FeatureSelection.propose(
+                    source: o, sourcePoints: p, sourceDomain: [0, 1], targetPoints: p,
+                    targetDomain: [0, 1], seconds: time)
+            }
+        }
+        #expect(throws: (any Error).self) {
+            try FeatureSelection.propose(
+                source: o, sourcePoints: p, sourceDomain: [0, 1], targetPoints: p, targetDomain: [],
+                seconds: 0.1)
+        }
+        let far = featurePoints([SIMD3(50, 0, 1), SIMD3(50.1, 0, 1)])
+        #expect(throws: (any Error).self) {
+            try FeatureSelection.propose(
+                source: o, sourcePoints: p, sourceDomain: [0, 1], targetPoints: far,
+                targetDomain: [0, 1], seconds: 0.1)
+        }
+        o.pointIndices = [0]
+        #expect(throws: (any Error).self) {
+            try FeatureSelection.propose(
+                source: o, sourcePoints: p, sourceDomain: [0, 1], targetPoints: p,
+                targetDomain: [0, 1], seconds: 0.1)
+        }
+    }
+
+    @Test func sparseOrCompetingLocalFitsDoNotBecomeAcceptedObservations() {
+        let source = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
+        var o = FeatureObservation()
+        o.pointIndices = [0, 1]
+        o.sphere = FeatureSphere(centre: SIMD3(0.075, 0.075, 1.025), radius: 0.2)
+        let twins = featurePoints([
+            SIMD3(-0.2, 0.05, 1), SIMD3(-0.15, 0.1, 1.05), SIMD3(0.3, 0.05, 1),
+            SIMD3(0.35, 0.1, 1.05),
+        ])
+        #expect(throws: (any Error).self) {
+            try FeatureSelection.propose(
+                source: o, sourcePoints: source, sourceDomain: [0, 1], targetPoints: twins,
+                targetDomain: [0, 1, 2, 3], seconds: 0.1)
+        }
+        let sparse = featurePoints([SIMD3(0.05, 0.05, 1)])
+        #expect(throws: (any Error).self) {
+            try FeatureSelection.propose(
+                source: o, sourcePoints: source, sourceDomain: [0, 1], targetPoints: sparse,
+                targetDomain: [0], seconds: 0.1)
+        }
+    }
+}
+
+/// The shared wire contract, with request counting and an uncertain commit.
+/// Storage validation itself is covered by the Go tests against real packs.
+private final class FakeFeatureService: @unchecked Sendable {
+    private let lock = NSLock()
+    var state: FeatureState
+    var posts = 0
+    var failAfterCommit = false
+    var refuse = false
+
+    init(pack: AnnotationPack) {
+        state = FeatureState()
+        state.document.schema = "velocity.report/feature-proposals"
+        state.document.schemaVersion = 1
+        state.document.packDigest = pack.manifest.packDigest
+        state.document.datasetID = pack.manifest.datasetID
+        state.document.pointDomain = "legacy_pack"
+        state.membershipDigest = "sha256:members"
+        state.packDirectory = pack.directory.path
+    }
+
+    func handle(_ request: URLRequest) throws -> (HTTPURLResponse, Data) {
+        lock.lock()
+        defer { lock.unlock() }
+        if refuse { throw URLError(.cannotConnectToHost) }
+        if request.httpMethod == "POST" {
+            posts += 1
+            var bytes = request.httpBody ?? Data()
+            if let stream = request.httpBodyStream {
+                stream.open()
+                defer { stream.close() }
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                while stream.hasBytesAvailable {
+                    let count = stream.read(&buffer, maxLength: buffer.count)
+                    if count <= 0 { break }
+                    bytes.append(buffer, count: count)
+                }
+            }
+            let edit = try Velocity_Recording_V1_FeatureEdit(serializedBytes: bytes)
+            guard edit.baseDigest == state.digest, edit.membershipDigest == state.membershipDigest
+            else {
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 409, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"revision changed"}"#.utf8)
+                )
+            }
+            state.document = edit.document
+            state.document.revision += 1
+            state.digest = "sha256:revision-\(state.document.revision)"
+            if failAfterCommit { throw URLError(.networkConnectionLost) }
+        }
+        return (
+            HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+            try state.serializedData()
+        )
+    }
+}
+
+@MainActor private func featureSetup() throws -> (
+    AnnotationPack, FeatureAPIClient, FakeFeatureService
+) {
+    let pack = try AnnotationPack.open(directory: PackFixture.write())
+    let (session, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+    let service = FakeFeatureService(pack: pack)
+    register { try service.handle($0) }
+    return (pack, FeatureAPIClient(baseURL: baseURL, session: session), service)
+}
+
+private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
+    var observation = FeatureObservation()
+    observation.sampleID = 0
+    observation.timestampNs = pack.samples[0].timestampNs
+    observation.pointIndices = [0, 1]
+    observation.membershipRevision = 1
+    observation.membershipDigest = "sha256:members"
+    observation.method = "manual_sphere"
+    observation.origin = "human_proposal"
+    observation.sphere = FeatureSphere(centre: SIMD3(1.25, 1.125, 0.625), radius: 0.4)
+    return observation
+}
+
+@MainActor struct FeatureAuthoringTests {
+    @Test func seedEditSaveReopenAndCancelNeverWriteMembership() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let authoring = FeatureAuthoring(pack: pack, client: client)
+        await authoring.load()
+        #expect(authoring.canEdit)
+        authoring.name = "Mirror?"
+        authoring.geometry = .protrusion
+        authoring.semanticHint = "wing mirror"
+        authoring.seed(featureSeed(pack), objectID: "car")
+        #expect(service.posts == 0 && authoring.isDirty)
+        authoring.choose("other")
+        #expect(authoring.activeID.isEmpty)
+        #expect(
+            await authoring.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        let id = authoring.activeID
+        #expect(!id.isEmpty && !authoring.isDirty && service.posts == 1)
+        let reopened = FeatureAuthoring(pack: pack, client: client)
+        await reopened.load()
+        reopened.choose(id)
+        #expect(reopened.active?.name == "Mirror?")
+        #expect(reopened.active?.observations.first?.pointIndices == [0, 1])
+        #expect(reopened.active?.observations.first?.decision == .acceptedProposal)
+        #expect(reopened.active?.hasAnchor == false)
+        #expect(reopened.active?.partRelation == "unknown")
+        reopened.seed(featureSeed(pack), objectID: "car")
+        reopened.cancel()
+        #expect(!reopened.isDirty && service.posts == 1)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: pack.directory.appendingPathComponent("annotations.json").path))
+    }
+
+    @Test func rejectedMissingAndOccludedSaveNoMeasuredSupport() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        for decision in [FeatureDecision.rejected, .missing, .occluded] {
+            a.seed(featureSeed(pack), objectID: "car")
+            #expect(
+                await a.save(
+                    decision: decision, author: "op",
+                    membershipDigest: service.state.membershipDigest))
+            #expect(a.active?.observations[0].pointIndices.isEmpty == true)
+            #expect(a.active?.observations[0].decision == decision)
+        }
+    }
+
+    @Test func uncertainSaveRetainsDraftAndRequiresReloadWithoutRetry() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: " ",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(
+            !(await a.save(decision: .acceptedProposal, author: "op", membershipDigest: "changed")))
+        #expect(service.posts == 0)
+        service.failAfterCommit = true
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(a.isDirty && a.readOnly && service.posts == 1)
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(service.posts == 1)
+        a.cancel()
+        service.failAfterCommit = false
+        await a.load()
+        #expect(a.canEdit && a.state?.document.revision == 1)
+    }
+
+    @Test func differentFolderAndFutureSchemaAreNotWritable() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        service.state.packDirectory += "-copy"
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        #expect(a.readOnly && !a.canEdit)
+        service.state.packDirectory = pack.directory.path
+        service.state.document.schemaVersion = 2
+        await a.load()
+        #expect(a.readOnly && !a.canEdit)
+    }
+
+    @Test func localDocumentReopensReadOnlyWithoutService() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        try service.state.document.serializedData().write(
+            to: pack.directory.appendingPathComponent("feature-proposals.pb"))
+        service.refuse = true
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        #expect(a.state != nil && a.readOnly && !a.canEdit)
+    }
+
+    @Test func featureModeGuardsNavigationAndCannotSaveObjectMasks() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let session = try AnnotationSession(pack: pack, featureClient: client)
+        session.workMode = .features
+        await session.features.load()
+        session.features.seed(featureSeed(pack), objectID: "car")
+        #expect(session.navigationGuard() == .unsavedFeature)
+        #expect(session.stepForward() == .unsavedFeature)
+        #expect(!(await session.saveCurrent(advance: false)))
+        #expect(session.sidecar.masks.isEmpty && service.posts == 0)
+        session.features.cancel()
+        #expect(session.navigationGuard() == nil)
+        #expect(AnnotationWorkMode.points.label == "Object Points")
+        #expect(AnnotationWorkMode.features.label == "Feature Candidates")
+    }
+}
+
+struct FeatureSharedWireTests {
+    @Test func goAndSwiftShareExactPresenceIdentityAndTimestampBytes() throws {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bytes = try Data(
+            contentsOf: repo.appendingPathComponent(
+                "proto/velocity_recording/v1/testdata/feature-proposals.pb"))
+        let doc = try FeatureDocument(serializedBytes: bytes)
+        #expect(doc.schema == "velocity.report/feature-proposals" && doc.schemaVersion == 1)
+        #expect(doc.pointDomain == "legacy_pack" && doc.revision == 2)
+        let feature = try #require(doc.features.first)
+        #expect(feature.featureID == "persistent-corner" && feature.geometry == .corner)
+        #expect(feature.semanticHint == "headlight" && !feature.hasAnchor)
+        let o = try #require(feature.observations.first)
+        #expect(o.timestampNs == 9_007_199_254_740_993)
+        #expect(o.hasProposedFromSample && o.proposedFromSample == 0)
+        #expect(o.pointIndices == [0, 17] && o.uncertainIndices == [18])
+        #expect(o.sphere.radiusM == 0.2 && o.sphere.yM == -2.5)
+        #expect(o.origin == "assisted_proposal")
+        #expect(!doc.features[1].observations[0].hasProposedFromSample)
+        #expect(doc.features[1].observations[0].pointIndices == [17])
+        #expect(try doc.serializedData() == bytes)
+        var future = bytes
+        future.append(contentsOf: [0xa0, 0x06, 0x01])
+        #expect(try FeatureDocument(serializedBytes: future).serializedData() == future)
+    }
+}
+
+@MainActor struct FeatureSessionWorkflowTests {
+    @Test func sphereThenOneFramePreviewEditRejectAndOcclusionKeepMaskBytes() async throws {
+        let source: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1), (3, 0, 1, 1)]
+        let target = source.map { ($0.x + 1, $0.y, $0.z, $0.classification) }
+        let dir = try SyntheticPack.write([source, target, []], sourceStride: 1)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let client = FeatureAPIClient(baseURL: baseURL, session: urlSession)
+        let s = try AnnotationSession(pack: pack, featureClient: client)
+        s.operatorName = "operator"
+        let object = s.createObject(objectClass: "car")
+        let all = SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(5, 2))
+        #expect(s.select(polygon: all, mode: .replace))
+        #expect(s.save())
+        #expect(s.stepForward() == nil)
+        #expect(s.select(polygon: all, mode: .replace))
+        #expect(s.save())
+        #expect(s.stepBackward() == nil)
+        service.state.membershipDigest = s.membershipDigest
+        let before = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        s.workMode = .features
+        await s.features.load()
+        let viewport = s.viewport(for: .top, size: CGSize(width: 600, height: 400))
+        let pixel = viewport.screenPoint(from: s.basis(.top).project(SIMD3(0.05, 0.05, 1)))
+        s.seedFeature(in: .top, viewport: viewport, at: pixel)
+        #expect(s.features.draft?.pointIndices == [0, 1])
+        #expect(s.features.radius == 0.2 && service.posts == 0)
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        let id = s.features.activeID
+        s.proposeNextFeature()
+        #expect(s.currentSample?.sampleID == 1 && s.features.isDirty)
+        #expect(s.features.draft?.pointIndices == [0, 1])
+        #expect(s.features.draft?.hasProposedFromSample == true)
+        #expect(s.features.draft?.proposedFromSample == 0)
+        #expect(s.features.draft?.origin == "assisted_proposal")
+        #expect(service.posts == 1, "preview must not write")
+        #expect(s.stepForward() == .unsavedFeature)
+        s.resizeFeature(0.15)
+        #expect(s.features.draft?.method == "object_translation_edited")
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        #expect(s.features.activeID == id && s.features.active?.observations.count == 2)
+        s.editCurrentFeature()
+        #expect(s.features.isDirty && s.features.draft?.origin == "assisted_proposal")
+        #expect(
+            await s.features.save(
+                decision: .rejected, author: s.operatorName, membershipDigest: s.membershipDigest))
+        #expect(s.features.active?.observations[1].pointIndices.isEmpty == true)
+        #expect(s.stepForward() == nil && s.currentPoints.count == 0)
+        s.stageFeatureAbsence()
+        #expect(s.features.draft?.hasSphere == false)
+        #expect(
+            await s.features.save(
+                decision: .occluded, author: s.operatorName, membershipDigest: s.membershipDigest))
+        #expect(s.features.active?.observations.last?.decision == .occluded)
+        #expect(s.features.active?.objectID == object.objectID)
+        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == before)
+        let reopened = FeatureAuthoring(pack: pack, client: client)
+        await reopened.load()
+        reopened.choose(id)
+        #expect(
+            reopened.active?.observations.map(\.decision) == [
+                .acceptedProposal, .rejected, .occluded,
+            ])
+    }
+
+    @Test func skippedSourceFrameCannotBePropagatedEvenIfSampleIDsAreAdjacent() async throws {
+        let points: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1)]
+        let dir = try SyntheticPack.write([points, points])  // source ordinals 1 and 3
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: baseURL, session: urlSession))
+        s.operatorName = "operator"
+        let object = s.createObject(objectClass: "car")
+        #expect(
+            s.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(1, 1)), mode: .replace)
+        )
+        #expect(s.save())
+        service.state.membershipDigest = s.membershipDigest
+        s.workMode = .features
+        await s.features.load()
+        var observation = s.featureObservation(sample: try #require(s.currentSample))
+        observation.sphere = FeatureSphere(centre: SIMD3(0.05, 0.05, 1), radius: 0.2)
+        observation.pointIndices = [0, 1]
+        observation.method = "manual_sphere"
+        s.features.seed(observation, objectID: object.objectID)
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        s.proposeNextFeature()
+        #expect(s.sampleIndex == 0 && !s.features.isDirty && service.posts == 1)
+        #expect(s.features.message?.contains("skipped") == true)
+    }
+}

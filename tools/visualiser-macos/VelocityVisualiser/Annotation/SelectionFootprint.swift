@@ -106,8 +106,8 @@ struct SelectionFootprint: Equatable {
     /// at a corner of the search.
     func fit(
         in points: PackPoints, near prediction: simd_float3, searchRadius: Float = 2,
-        step: Float = SelectionFootprint.pitch, among candidates: [Int]? = nil,
-        where include: (Int) -> Bool
+        step: Float = SelectionFootprint.pitch, rivalDistance: Float = FootprintFit.rivalDistance,
+        among candidates: [Int]? = nil, where include: (Int) -> Bool
     ) -> FootprintFit {
         guard !isEmpty, step > 0 else { return FootprintFit(offset: prediction) }
         // Only returns the footprint could reach at some offset in the search.
@@ -179,7 +179,8 @@ struct SelectionFootprint: Equatable {
             }
         }
         best.runnerUp = SelectionFootprint.rival(
-            to: best.offset - prediction, in: scores, side: 2 * steps + 1, step: step)
+            to: best.offset - prediction, in: scores, side: 2 * steps + 1, step: step,
+            minimumDistance: rivalDistance)
         return best
     }
 
@@ -193,7 +194,7 @@ struct SelectionFootprint: Equatable {
     /// the rival's own, which is what two objects look like and one does not.
     static func rival(
         to bestDelta: simd_float3, in scores: [(delta: simd_float3, count: Int)], side: Int,
-        step: Float
+        step: Float, minimumDistance: Float = FootprintFit.rivalDistance
     ) -> Int {
         guard side > 0, scores.count == side * side else { return 0 }
         func score(_ ix: Int, _ iy: Int) -> Int {
@@ -211,7 +212,7 @@ struct SelectionFootprint: Equatable {
                 guard here > runnerUp, ix != bx || iy != by else { continue }
                 let distance =
                     Float((ix - bx) * (ix - bx) + (iy - by) * (iy - by)).squareRoot() * step
-                guard distance >= FootprintFit.rivalDistance else { continue }
+                guard distance >= minimumDistance else { continue }
                 // A peak of its own.
                 var isPeak = true
                 for dx in -1...1 {
