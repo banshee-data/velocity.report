@@ -457,7 +457,10 @@ first save may have committed.
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  and the dot at the end of the axis to turn it with the position held. A drag is one undo step.
+  the dot at the end of the axis to turn it with the position held, and the diamond at the far end
+  of the body to revise its length with the anchor held. A length drag moves the stated interval
+  with the value, keeping its width, and is a body change: saving it makes a new body and returns
+  every keyframe of the object to proposed. A drag is one undo step.
 - **Copy keyframe from sample N** starts this frame's keyframe from the nearest one. The copy is
   a proposal: whatever the source observed becomes inferred from the source's frames, and its
   origin stays the source's. Check it against this frame's returns before claiming anything
@@ -496,6 +499,12 @@ this mode.
   errors against the reference bounds, and why any component was not scored. It also compares
   the reference's movement since the previous frame with the estimate's, so a real turn is not
   read as jitter. A medoid or visible-return centre is labelled as that, never as a body centre.
+  Following instants at the frame show the reference gap, the estimate's gap and the error. In
+  the elevations each layer is a vertical at its own planar position: the report records no
+  heights.
+- A reviewed record whose membership changed after its review is shown by the evaluator and not
+  scored, with its own reason, and the report's caveats name it. Review it again against the
+  scored membership and run a new evaluation.
 - **Seeing is recorded.** Once an estimate for an object has been shown, any later edit of that
   object's reference is saved as tracker-assisted, naming the estimate, in any mode. A record
   saved as independent is not relabelled. The edit becomes a new record, and the independent one
@@ -592,8 +601,10 @@ and marks nothing unsaved.
   the end colour, and the column counts how many were clamped in this frame. Off restores the
   class colours, without the intensity brightening the main view uses.
 - **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved
-  mask at this frame (definite members; uncertain points are counted as excluded), or of the
-  unsaved selection. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
+  mask at this frame (definite members; uncertain points are counted as excluded), of the unsaved
+  selection, or of the chosen proposal. A proposal is the proposer's own clustering of the pack's
+  points, with every member recorded, so it is exact membership; it is an algorithm's suggestion
+  and not a review, and not the tracker's output. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
   with a centre and width (the mean and spread of the raw codes in it), a support count and a
   fraction of all measured returns. A peak is not a surface or a material, and changing the colour
   range does not change it.
@@ -601,10 +612,12 @@ and marks nothing unsaved.
   and position. **M** pins it; **N** steps to the next return under the same place. The readout
   is the stored byte, whatever the colour settings.
 
-A pack declares intensity once, for the whole pack. If `has_intensity` is false, the stored bytes
-are zero-fill: the readout says unavailable and the colour is a distinct "not measured" one. If
-it is true, a frame the source did not measure would still read as zeros. The window cannot tell
-those zeros apart, and says so. The code is the sensor's raw byte, not a calibrated reflectance.
+A pack declares intensity for the whole pack, and packs cut since presence was recorded also say
+it per frame (`has_intensity` on each sample). If a frame's source carried no intensity column,
+its stored bytes are zero-fill: the readout says unavailable and every return is drawn in a
+distinct "not measured" colour, whatever the pack-wide flag says. A pack cut before that was
+recorded has only the pack-wide flag, and the column says that a frame the source did not measure
+would read as zeros. The code is the sensor's raw byte, not a calibrated reflectance.
 
 ## Revision history
 
@@ -661,6 +674,6 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
-- Following references are read and kept, but not authored, in the window. Drag handles move and
-  turn a keyframe; length is set numerically.
+- Following references are read and kept, but not authored, in the window. Width and height are
+  set numerically; only length has a handle.
 - Compare opens a saved report; it does not start an evaluation.
