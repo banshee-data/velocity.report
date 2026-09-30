@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f7b/screen_track_t5/van-ness-sacramento/source-manifest.json (sha256:b4943bff6c662335220b1e976293a06ff9b9cbf440db47f9d6d6bdfc6c427808)
+van-ness-sacramento: first run across 5 capture(s)
+2026/09/30 10:14:45 ran database initialisation script
+2026/09/30 10:14:45 [migrate] 1/u original_schema (30.219667ms)
+2026/09/30 10:14:45 [migrate] 2/u json_and_write_timestamp (31.333208ms)
+2026/09/30 10:14:45 [migrate] 3/u rename_tables (32.398167ms)
+2026/09/30 10:14:45 [migrate] 4/u create_lidar_bg_snapshot (32.494083ms)
+2026/09/30 10:14:45 [migrate] 5/u create_radar_data_transits (32.732333ms)
+2026/09/30 10:14:45 [migrate] 6/u create_radar_transit_links (32.777541ms)
+2026/09/30 10:14:45 [migrate] 7/u create_site_table (32.894125ms)
+2026/09/30 10:14:45 [migrate] 8/u create_site_reports (33.157667ms)
+2026/09/30 10:14:45 [migrate] 9/u add_velocity_report_prefix (33.0755ms)
+2026/09/30 10:14:45 [migrate] 10/u create_lidar_tracks (3.60075ms)
+2026/09/30 10:14:45 [migrate] 11/u create_lidar_analysis_runs (33.94175ms)
+2026/09/30 10:14:45 [migrate] 12/u add_track_quality_metrics (5.91525ms)
+2026/09/30 10:14:45 [migrate] 13/u create_site_config_periods (5.188ms)
+2026/09/30 10:14:45 [migrate] 14/u remove_site_config_fields (5.16125ms)
+2026/09/30 10:14:45 [migrate] 15/u add_site_map_fields (6.426834ms)
+2026/09/30 10:14:45 [migrate] 16/u lidar_labels (6.430292ms)
+2026/09/30 10:14:45 [migrate] 17/u create_lidar_bg_regions (6.4525ms)
+2026/09/30 10:14:45 [migrate] 18/u add_quality_label (6.635625ms)
+2026/09/30 10:14:45 [migrate] 19/u add_lidar_labels_scene_source (7.356708ms)
+2026/09/30 10:14:45 [migrate] 20/u create_lidar_scenes (7.498958ms)
+2026/09/30 10:14:45 [migrate] 21/u create_lidar_missed_regions (7.268833ms)
+2026/09/30 10:14:45 [migrate] 22/u create_lidar_sweeps (7.089875ms)
+2026/09/30 10:14:45 [migrate] 23/u add_vrlog_path (5.184292ms)
+2026/09/30 10:14:45 [migrate] 24/u add_sweep_metadata (7.254792ms)
+2026/09/30 10:14:45 [migrate] 25/u add_label_source (6.600417ms)
+2026/09/30 10:14:45 [migrate] 26/u update_label_taxonomy (5.37725ms)
+2026/09/30 10:14:45 [migrate] 27/u add_sweep_checkpoint (6.60175ms)
+2026/09/30 10:14:45 [migrate] 28/u create_lidar_evaluations (6.612042ms)
+2026/09/30 10:14:45 [migrate] 29/u expand_label_vocabulary (6.340959ms)
+2026/09/30 10:14:45 [migrate] 30/u schema_simplification (25.983792ms)
+2026/09/30 10:14:45 [migrate] 31/u table_naming (40.010625ms)
+2026/09/30 10:14:45 [migrate] 32/u create_lidar_all_tracks_view (40.027583ms)
+2026/09/30 10:14:45 [migrate] 33/u replay_annotations_and_eval_integrity (41.722125ms)
+2026/09/30 10:14:45 [migrate] 34/u schema_hardening_pre_v050 (56.173209ms)
+2026/09/30 10:14:45 [migrate] 35/u lidar_immutable_run_config (57.575417ms)
+2026/09/30 10:14:45 [migrate] 36/u drop_legacy_params_json (63.556708ms)
+2026/09/30 10:14:45 [migrate] 37/u seed_config_period_pi_day (64.438541ms)
+2026/09/30 10:14:45 [migrate] 38/u create_radar_serial_config (63.269625ms)
+2026/09/30 10:14:45 [migrate] 39/u create_lidar_scenes (63.370167ms)
+2026/09/30 10:14:45 [migrate] 40/u add_scene_vantages (63.844625ms)
+2026/09/30 10:14:45 [migrate] 41/u drop_scene_vantages (45.900792ms)
+2026/09/30 10:14:45 [migrate] 42/u create_lidar_capture_index (32.117417ms)
+2026/09/30 10:14:45 [migrate] 43/u create_lidar_capture_jobs (32.3255ms)
+2026/09/30 10:14:45 [migrate] 44/u replay_case_files (31.945584ms)
+2026/09/30 10:14:45 [migrate] 45/u replay_case_geography (21.927167ms)
+2026/09/30 10:14:45 [migrate] 46/u lidar_sites (19.094709ms)
+2026/09/30 10:14:45 [migrate] 47/u lidar_observations (14.21875ms)
+2026/09/30 10:14:45 [migrate] 48/u lidar_track_estimates (13.359208ms)
+2026/09/30 10:14:45 [migrate] 49/u lidar_track_residuals (13.321708ms)
+2026/09/30 10:14:45 [migrate] 50/u lidar_track_estimate_revisions (13.22ms)
+2026/09/30 10:14:45 [migrate] 51/u lidar_interaction_persistence (13.267834ms)
+2026/09/30 10:14:45 [migrate] 52/u lidar_track_solid_bodies (11.734875ms)
+2026/09/30 10:14:45 [migrate] 53/u lidar_solid_body_support (14.037208ms)
+2026/09/30 10:14:45 [migrate] 54/u lidar_segments (13.882708ms)
+2026/09/30 10:14:45 [migrate] 55/u lidar_segment_constraints (18.952666ms)
+2026/09/30 10:14:45 [migrate] 56/u lidar_segment_selectors (15.411042ms)
+2026/09/30 10:14:45 [migrate] 57/u lidar_track_estimate_reference_support (16.477875ms)
+2026/09/30 10:14:45 Database baselined at version 57
+2026/09/30 10:14:45 replaying 5 capture file(s) (port 2369) through the perception pipeline
+van-ness-sacramento: repeat run
+2026/09/30 10:26:16 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 10:26:16 replaying 5 capture file(s) (port 2369) through the perception pipeline
+van-ness-sacramento: capture time frames=12486 backward=0 duplicate=0 clamped_gaps=2 max_gap=6.800s
+van-ness-sacramento: continuity born=4735 confirmed=1635 reacquired=6135 expired misses=4735 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+van-ness-sacramento: solid bodies=47163 near_edge_fixes=24267 (51.5%) lapses=1084; lateral p99 point estimates 0.245 m, solid bodies 0.245 m over 3023 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f7b/screen_track_t5/van-ness-sacramento/out
+     1427.71 real       770.44 user       106.09 sys
+          1014841344  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             3794067  page reclaims
+                3306  page faults
+                   0  swaps
+                  17  block input operations
+                 106  block output operations
+                   0  messages sent
+                   0  messages received
+              177417  signals received
+              475175  voluntary context switches
+            14192986  involuntary context switches
+       8382554600826  instructions retired
+       2493504717276  cycles elapsed
+          1028787648  peak memory footprint
