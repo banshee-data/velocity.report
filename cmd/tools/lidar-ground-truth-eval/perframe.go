@@ -126,7 +126,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	toleranceMs := fs.Float64("frame-tolerance-ms", 10, "how far a hypothesis point may move in time onto a reference frame")
 	maxUnaligned := fs.Float64("max-unaligned-fraction", 0.01, "refuse an arm when more than this share of its points inside an episode lands on no frame")
 	physical := fs.Bool("physical-reference", false, "also score each estimate arm against the pack's physical references (centre, yaw, dimensions, bumpers, box, following gap); a held-out split is refused")
-	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one); recorded either way")
+	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one, or the revision a frozen split pins, which this must then equal); recorded either way")
 	physicalGate := fs.Float64("physical-gate-metres", perframeeval.DefaultPhysicalGateMetres, "how far a prediction's point may be from a reference body centre (or anchor) and still correspond to it")
 	bundleDir := fs.String("physical-bundle-dir", "", "write a verification bundle of the physical scoring to this new or empty directory: pinned inputs, options and outputs (needs -physical-reference; check it with verify-bundle)")
 	jsonPath := fs.String("json", "", "comparison JSON path (default: stdout)")
@@ -233,8 +233,12 @@ func printPerFrameSummary(stderr io.Writer, c *perframeeval.Comparison) {
 			arm.label, arm.s.MOTA, arm.s.IDSwitches, arm.s.Fragmentations, arm.s.HOTA, arm.s.IDF1)
 	}
 	if p := c.Physical; p != nil {
-		fmt.Fprintf(stderr, "physical references: revision %d, content %s, %d expected instants\n",
-			p.Reference.PhysicalRevision, p.Reference.PhysicalContentDigest, p.Reference.ExpectedInstants)
+		pinned := ""
+		if p.Reference.PhysicalPinned {
+			pinned = ", pinned by the frozen split"
+		}
+		fmt.Fprintf(stderr, "physical references: revision %d, content %s, %d expected instants%s\n",
+			p.Reference.PhysicalRevision, p.Reference.PhysicalContentDigest, p.Reference.ExpectedInstants, pinned)
 		for _, arm := range []perframeeval.PhysicalResult{p.A, p.B} {
 			centre, yaw := arm.Summary.Components[perframeeval.ComponentCentre], arm.Summary.Components[perframeeval.ComponentYaw]
 			fmt.Fprintf(stderr, "%s physical: centre %d scored, mean %.3f m  yaw %d scored, mean %.3f rad  gap %d scored, mean %.3f m\n",
