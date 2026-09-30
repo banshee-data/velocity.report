@@ -137,5 +137,5 @@ qualification remain separately tracked under the persistence and deployment pla
 - [x] P0: versioned physical-reference contract, independent import, and revision-safe round trip
 - [ ] P1: macOS pose/extent authoring with component bounds, ambiguity, and separate review (built on `dd/lidar/physical-pose-ui-929`: numeric and click authoring, separate body and keyframe review, and raw intensity inspection, all through one Go writer; not yet exercised by the operator pilot)
 - [x] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting (Go; the macOS Compare mode reads its per-instant record, and physical scoring binds frozen splits with a verifiable bundle)
-- [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits
+- [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits (frozen splits now pin each pack's physical revision, digests and review coverage, and the window freezes through the service; the pilot and the pair references remain)
 - [ ] Physical gates scored against the frozen references; insufficient evidence remains visible

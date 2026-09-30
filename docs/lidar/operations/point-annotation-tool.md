@@ -512,6 +512,21 @@ this mode.
 - A pack whose `segment.json` role is `held_out`, or a report of a held-out split, is not
   compared.
 
+### Freezing from the window
+
+**Freeze Split…** (beneath the editing column) freezes a reviewed split through the service. The
+window does not author the split: choose a draft file in the CLI's format
+(`velocity.report/split-draft`), naming each pack by its folder beneath the service's annotation
+folder, as the physical-reference service names packs. **Preview** shows what the service would
+pin: for each pack its membership revision and digest, its physical revision and digests (or that
+it has no physical references, in which case the split pins membership only), each object's
+partition, each object's body and keyframe review, the components that reviewed keyframes leave
+unavailable, and every problem that stops the freeze. **Freeze** is enabled only when the preview
+is of the chosen draft and says it would freeze; it writes the split once, under the name you
+give, into `splits/` beneath the annotation folder, and refuses to overwrite. A new revision of an
+existing split names it under **Supersedes**. The same rules refuse a freeze on the command line;
+the button is not where they are enforced.
+
 ### Importing and validating
 
 An independent reference measured elsewhere comes in through an import file,

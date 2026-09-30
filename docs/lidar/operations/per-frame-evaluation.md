@@ -87,8 +87,9 @@ partition it was frozen into.
 A version 1 manifest is written by hand. It says what is held out, but nothing checks that its
 objects finished review, it pins the annotation revision only if its author did, and nothing
 notices when the pack's manifest, selection record or a retained revision is edited later. A held
-out result scored from one carries a caveat saying so. A **frozen split** (schema version 2)
-closes those gaps, over one or more packs:
+out result scored from one carries a caveat saying so. A **frozen split** (schema version 3;
+version 2, frozen before physical pins existed, still reads) closes those gaps, over one or more
+packs:
 
 ```bash
 velocity lidar annotation-split freeze --draft splits/kirk0-draft.json --author "$OPERATOR" \
@@ -98,10 +99,12 @@ velocity lidar annotation-split verify --split splits/kirk0-split-r1.json --pack
 
 The draft (`velocity.report/annotation-split-draft` version 1) lists `packs`, each a `dir`
 relative to the draft and either an existing version 1 `split_manifest` or inline `splits`,
-`episodes` and an optional `sidecar_revision`; and optionally `cases`, corpus case IDs with a role
-of `tuning`, `held_out` or `screen`, each naming the `captures` it replays by `basename` and
-`sha256` (the file's SHA-256, from `sha256sum`). A pack may name its `case_id`, which adds the
-pack's capture to the case by basename.
+`episodes` and an optional `sidecar_revision`; optionally a `physical_revision`, the
+physical-reference revision to pin (absent or 0: the pack's current one; a pack with no physical
+references pins none and may not name one); and optionally `cases`, corpus case IDs with a role of
+`tuning`, `held_out` or `screen`, each naming the `captures` it replays by `basename` and `sha256`
+(the file's SHA-256, from `sha256sum`). A pack may name its `case_id`, which adds the pack's
+capture to the case by basename.
 
 A case's role binds to its captures, not to its name. A pack records only its capture's basename
 (`pcap_basename` in `manifest.json`), so a pack cut from a case's capture takes the case's role by
@@ -118,6 +121,13 @@ a pack, its basename.
 | A pack cut from a case's capture in a partition of another role, named or not; a pack of a `screen` case | A case's references take its role; nothing is tuned on a screen   |
 | A case with no capture, a declared capture without its `sha256`, or one capture in cases of two roles    | A role binds to captures, so each capture has exactly one role    |
 | Holding out anything the lineage tuned on, including what a later revision dropped (see below)           | Tuned is tuned                                                    |
+| A physical reference whose links do not hold against the pinned annotation revision                      | The record cites returns that revision does not give it           |
+| A physical review made against other membership, in a frame the record rests on                          | The reviewer judged different returns; review it again            |
+| A `physical_revision` the pack does not retain, or one named for a pack with no physical references      | Nothing to pin                                                    |
+
+Physical problems are listed beside membership problems, every record at once. A component
+honestly stated `unknown`, `prior_only` or as a partial span refuses nothing: the pin records the
+gap.
 
 The frozen split pins, per pack, the pack digest, the digest of `manifest.json` (source
 provenance, coverage and coordinates live there, outside the pack digest), the digest of
@@ -129,6 +139,18 @@ is not a physical reference and never blocks a freeze. The file's `split_digest`
 its canonical content. A file edited after freezing no longer matches it and is refused, and the
 file is written once.
 
+A pack with physical references is pinned under `physical`: the `revision`, the `sha256` of its
+exact bytes, the `content_sha256` of its references alone, and two summaries derived from it. Per
+object, `body` gives the body record's review `status` (`none`, `proposed`, `reviewed`,
+`rejected`) and whether it is `independent` of the tracker, and `keyframes` counts `total`,
+`reviewed`, `proposed` and `tracker_assisted`. `coverage` counts, per component (`position`,
+`yaw`, `length`, `width`, `height`, `front`, `rear`), the reviewed independent keyframes the
+reference layer can score (`scorable`) and those it cannot (`unavailable`), whatever the reason.
+Neither summary is read from the sidecar's pose review, which stays what it was. The pin is part
+of `split_digest`. A pack with no physical references has no `physical` entry, as no pack of a
+version 2 split has. The freeze summary prints, per pack, the physical revision pinned or
+`no physical references`.
+
 A split's `tuned` record is its lineage's cumulative tuning: each tuning pack's source, capture
 span, guard and tuned objects, and each tuning case's captures, with the revision that first tuned
 on it. A revision frozen with `--supersedes` inherits its predecessor's record and adds its own, so
@@ -138,7 +160,7 @@ re-cut of a tuned stretch holds the same vehicles under new IDs), a pack of a tu
 a tuned case by ID or by capture, or a case one of whose captures a tuned pack was cut from. A
 revision frozen without `--supersedes` starts a new lineage whose record is its own tuning.
 
-The per-frame evaluator reads either version. Given a frozen split it binds the pack through every
+The per-frame evaluator reads every version. Given a frozen split it binds the pack through every
 pin before scoring: a changed manifest, selection record or pinned revision is refused, and the
 reference identity records `split_digest` and `split_revision`. It also derives again, from the
 pinned bytes, what the file copies from them (the selection record's role and finder, the source
@@ -147,10 +169,28 @@ disagreement. Editing a reference after freezing saves a new annotation revision
 keeps scoring the revision it pinned, and `verify` reports the newer one. Scoring it takes a new
 split revision, frozen with `--supersedes`, never a silently different split.
 
+Physical scoring (`-physical-reference`) through a split with a `physical` pin scores the pinned
+revision, loaded from where it is retained and held to the pin: its exact bytes and content must
+have the pinned digests, its links must hold against the pinned annotation revision, its reviews
+must rest on that membership, and its summaries must derive again from it. The head is never
+consulted, so a membership or physical save after freezing changes nothing the split scores.
+`-physical-reference-revision` must then be absent or equal to the pin; another revision is refused
+by name. The physical identity records `physical_pinned: true`, and a verification bundle written
+under the split verifies at the pin however far the heads have moved. Through a frozen split with
+no pin for the pack (a pack that had no physical references, or any version 2 split), physical
+scoring takes the current revision as it always did, and the result carries a caveat that the
+split pins no physical revision.
+
 `split_digest` is unkeyed: it catches an accidental edit, not a deliberate one, since whoever edits
 the file can recompute it. What the evaluator derives from pinned bytes cannot be changed that way;
 the partitions and their roles, the episodes, the cases and their captures, the `tuned` record and
 the freeze record are the operator's statement, and rest on how the frozen file is kept.
+
+A client that offers a Freeze action previews it with the same code (`annotation.PreviewFreeze`):
+per pack, what would be pinned, the physical pin with its summaries or `null`, and the objects
+with their partitions; the `membership_problems` and `physical_problems` a freeze would list; and
+`would_freeze` with the `split_digest` the split would have. The preview writes nothing, and a
+freeze from the same draft and options gives the same digest.
 
 The corpus tool (`lidar-state-estimation-baseline`) and `lidar-refinement-eval` take a frozen
 split as `-split-manifest` with the case's role in it: a `held_out` case replays only with
