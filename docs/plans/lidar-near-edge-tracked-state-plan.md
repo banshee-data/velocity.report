@@ -575,6 +575,10 @@ F6s, running on the Mac, screens `near_edge_track` against the control on the 21
   m), along-track error and speed are the same with and without it. A side-on 3.5 m lane change
   keeps 93 % of its magnitude, as it does without T5. Off the axes, with correlated position and
   velocity, the face and the loose term in turn are exactly the joint two-dimensional update.
+- **kirk0.** On the shadow with T1 and T3, one capture, T5 leaves the tracks, the point estimates
+  and the face-stable runs exactly as they were, and moves the body-centre residual both ways: p95
+  from 0.093 to 0.065 m and the maximum from 0.708 to 0.565 m, but p99 from 0.404 to 0.418 m. One
+  capture's p99 rests on a few dozen windows, so the tuning partition decides.
 
 An earlier build of T5 also acted at side-face fixes and beside found side faces. The review of #649
 found both unsound, for the reasons above, and F7 as first started in `s2-f7` ran that build; it is
