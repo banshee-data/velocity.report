@@ -28,6 +28,12 @@ older entries stay put, however tempting hindsight may be.
 - Built S2.3's ablation arm, A1 (`near_edge_track_a1`): the tracked arm with its body-centre tracks
   gated on the medoid, as a medoid-referenced track is, instead of A2's face residual. It is the
   do-nothing option that shows what A2 buys in identity, and it runs once on the tuning partition.
+- The Mac runs are in. The tracked arm is lower than the control on all 17 screen sites run so far (a
+  median of 87 mm lower steady p99), and its confirmed tracks and births per confirmation stay
+  within gate 3's 5 % on every one. A1, gating on the medoid, has 56 % and 46 % more lapses than A2 on
+  the tuning pair. T5 lowers the tuning pair's steady p99 by 11 and 14 mm but is better on 10 and
+  worse on 7 of 17 screen sites, so it stays off: the rank-one drift is a small part of the
+  lateral-entry tail. Next is the held-out score of the tracked arm without T5.
 
 ## September 29, 2026 - The half-extent state does not close the transition tail
 
