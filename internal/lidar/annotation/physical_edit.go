@@ -450,6 +450,29 @@ func PhysicalReferenceHistory(p *Pack) ([]PhysicalRevisionSummary, error) {
 // reviewing again. A record reviewed against a membership revision that is
 // no longer retained is listed too, since nothing can show it unchanged.
 func (r *PhysicalReferenceSet) ReviewDrift(p *Pack, current *Sidecar) []LinkProblem {
+	var out []LinkProblem
+	for _, d := range r.reviewDrift(p, current) {
+		out = append(out, d.problem)
+	}
+	return out
+}
+
+// DriftedRecords is ReviewDrift keyed as the origin ledger keys records:
+// "body/<id>" and "keyframe/<id>".
+func (r *PhysicalReferenceSet) DriftedRecords(p *Pack, current *Sidecar) map[string]bool {
+	out := map[string]bool{}
+	for _, d := range r.reviewDrift(p, current) {
+		out[d.key] = true
+	}
+	return out
+}
+
+type driftEntry struct {
+	key     string
+	problem LinkProblem
+}
+
+func (r *PhysicalReferenceSet) reviewDrift(p *Pack, current *Sidecar) []driftEntry {
 	cache := map[int]*Sidecar{current.Revision: current}
 	membership := func(rev int) *Sidecar {
 		if s, ok := cache[rev]; ok {
@@ -462,22 +485,22 @@ func (r *PhysicalReferenceSet) ReviewDrift(p *Pack, current *Sidecar) []LinkProb
 		cache[rev] = s
 		return s
 	}
-	var out []LinkProblem
-	check := func(record, object string, review PhysicalReview, frames []int) {
+	var out []driftEntry
+	check := func(key, record, object string, review PhysicalReview, frames []int) {
 		pin := review.ReviewedAgainst
 		if review.Status != StatusReviewed || pin == nil || pin.Digest == current.baseDigest {
 			return
 		}
 		then := membership(pin.Revision)
 		if then == nil || then.baseDigest != pin.Digest {
-			out = append(out, LinkProblem{Record: record, Problem: fmt.Sprintf(
-				"reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision)})
+			out = append(out, driftEntry{key, LinkProblem{Record: record, Problem: fmt.Sprintf(
+				"reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision)}})
 			return
 		}
 		for _, f := range frames {
 			if !sameMask(then.mask(object, f), current.mask(object, f)) {
-				out = append(out, LinkProblem{Record: record, Problem: fmt.Sprintf(
-					"membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision)})
+				out = append(out, driftEntry{key, LinkProblem{Record: record, Problem: fmt.Sprintf(
+					"membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision)}})
 				return
 			}
 		}
@@ -485,16 +508,34 @@ func (r *PhysicalReferenceSet) ReviewDrift(p *Pack, current *Sidecar) []LinkProb
 	for _, o := range r.Objects {
 		if o.Body != nil {
 			b := o.Body
-			check(fmt.Sprintf("object %q body %q", o.ObjectID, b.BodyID), o.ObjectID, b.Review,
+			check("body/"+b.BodyID, fmt.Sprintf("object %q body %q", o.ObjectID, b.BodyID), o.ObjectID, b.Review,
 				supportFrames(b.Length.Support, b.Width.Support, b.Height.Support))
 		}
 		for _, k := range o.Keyframes {
 			frames := supportFrames(k.Position.Support, k.Yaw.Support, k.Front.Support, k.Rear.Support)
 			frames = append(frames, k.SampleID)
-			check(fmt.Sprintf("object %q keyframe %q", o.ObjectID, k.KeyframeID), o.ObjectID, k.Review, frames)
+			check("keyframe/"+k.KeyframeID, fmt.Sprintf("object %q keyframe %q", o.ObjectID, k.KeyframeID), o.ObjectID, k.Review, frames)
 		}
 	}
 	return out
+}
+
+// UnpinnedReviews counts reviewed records that carry no membership pin:
+// reviewed before pins were recorded, or imported. Their review cannot be
+// checked for drift, which a reader of a score should know.
+func (r *PhysicalReferenceSet) UnpinnedReviews() int {
+	n := 0
+	for _, o := range r.Objects {
+		if o.Body != nil && o.Body.Review.Status == StatusReviewed && o.Body.Review.ReviewedAgainst == nil {
+			n++
+		}
+		for _, k := range o.Keyframes {
+			if k.Review.Status == StatusReviewed && k.Review.ReviewedAgainst == nil {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 func supportFrames(s ...EvidenceSupport) []int {

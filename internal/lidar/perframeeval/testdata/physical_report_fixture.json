@@ -4087,7 +4087,8 @@
         "Split \"tune-physical\" has role \"tuning\": physical scores are tuning evidence, not a held-out result.",
         "Arm exact scores online-stage estimates as a declared baseline.",
         "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc; leader choice is not scored.",
-        "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage."
+        "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage.",
+        "10 reviewed record(s) carry no membership pin (reviewed before pins were recorded, or imported): a membership change since their review cannot be detected."
       ]
     },
     "arm_b": {
@@ -6986,7 +6987,8 @@
         "Split \"tune-physical\" has role \"tuning\": physical scores are tuning evidence, not a held-out result.",
         "Arm face_bias scores online-stage estimates as a declared baseline.",
         "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc; leader choice is not scored.",
-        "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage."
+        "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage.",
+        "10 reviewed record(s) carry no membership pin (reviewed before pins were recorded, or imported): a membership change since their review cannot be detected."
       ]
     }
   }
