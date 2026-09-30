@@ -1,0 +1,359 @@
+package annotation
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
+	"google.golang.org/protobuf/proto"
+)
+
+func featureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
+	p := physPack(t)
+	s := physSidecar(t, p)
+	state, err := LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := &pb.FeatureObservation{SampleId: 0, TimestampNs: physTime(0), SourceOrdinal: 0,
+		PointIndices: []uint32{0, 1}, Sphere: &pb.FeatureSphere{XM: 7.75, YM: -0.9, ZM: 0.9, RadiusM: 0.7},
+		Decision: pb.FeatureDecision_FEATURE_DECISION_ACCEPTED_PROPOSAL, Method: "manual_sphere", Origin: "human_proposal", Author: "operator",
+		MembershipRevision: uint64(s.Revision), MembershipDigest: s.Digest()}
+	state.Document.Author = "operator"
+	state.Document.Features = []*pb.FeatureCandidate{{FeatureId: "mirror", ObjectId: "car-1", Name: "Mirror?",
+		Geometry: pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION, PartId: "body", PartRelation: "unknown", Observations: []*pb.FeatureObservation{o}}}
+	return p, &pb.FeatureEdit{Document: state.Document, MembershipDigest: state.MembershipDigest}
+}
+
+func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
+	p, edit := featureFixture(t)
+	maskBefore, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
+	state, err := SaveFeatures(p, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Document.Revision != 1 || state.Digest == "" {
+		t.Fatal(state)
+	}
+	first, _ := os.ReadFile(filepath.Join(p.Dir, featureFile))
+	loaded, err := LoadFeatures(p)
+	if err != nil || !proto.Equal(state, loaded) {
+		t.Fatalf("load: %v %+v", err, loaded)
+	}
+	// Overlapping feature support is allowed, unlike whole-object membership.
+	next := proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	second := proto.Clone(next.Features[0]).(*pb.FeatureCandidate)
+	second.FeatureId = "edge"
+	next.Features = append(next.Features, second)
+	newState, err := SaveFeatures(p, &pb.FeatureEdit{Document: next, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest})
+	if err != nil || newState.Document.Revision != 2 {
+		t.Fatalf("overlap: %v", err)
+	}
+	archived, _ := os.ReadFile(filepath.Join(p.Dir, featureRevisionName(1)))
+	if !bytes.Equal(first, archived) {
+		t.Fatal("history changed")
+	}
+	maskAfter, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
+	if !bytes.Equal(maskBefore, maskAfter) {
+		t.Fatal("feature save changed membership")
+	}
+	// Current membership changes do not erase the interpretation of revision 1.
+	s, _ := LoadSidecar(p)
+	s.Masks[0].PointIndices = []int{2, 3}
+	if err = SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = LoadFeatures(p); err != nil {
+		t.Fatalf("historical evidence: %v", err)
+	}
+	if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: newState.Document, BaseDigest: newState.Digest, MembershipDigest: state.MembershipDigest}); !errors.Is(err, ErrMembershipChanged) {
+		t.Fatal(err)
+	}
+}
+
+func TestFeatureConflictAndIdentity(t *testing.T) {
+	p, e := featureFixture(t)
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = SaveFeatures(p, e); !errors.Is(err, ErrSidecarConflict) {
+		t.Fatal(err)
+	}
+	e.Document = s.Document
+	e.BaseDigest = s.Digest
+	e.Document.Features[0].PartId = "different"
+	if _, err = SaveFeatures(p, e); err == nil {
+		t.Fatal("reassigned feature part")
+	}
+	if _, err = SaveFeatures(p, nil); err == nil {
+		t.Fatal("nil edit")
+	}
+	e.Document.Features[0].PartId = "body"
+	e.Document.Author = " "
+	if _, err = SaveFeatures(p, e); err == nil {
+		t.Fatal("unnamed save")
+	}
+}
+
+func TestFeatureValidationRefusals(t *testing.T) {
+	p, original := featureFixture(t)
+	cases := []struct {
+		name   string
+		change func(*pb.FeatureAnnotations)
+	}{
+		{"schema", func(d *pb.FeatureAnnotations) { d.SchemaVersion++ }},
+		{"source", func(d *pb.FeatureAnnotations) { d.PackDigest = "wrong" }},
+		{"unknown document", func(d *pb.FeatureAnnotations) { d.ProtoReflect().SetUnknown([]byte{0x78, 1}) }},
+		{"duplicate feature", func(d *pb.FeatureAnnotations) { d.Features = append(d.Features, d.Features[0]) }},
+		{"nil feature", func(d *pb.FeatureAnnotations) { d.Features = append(d.Features, nil) }},
+		{"geometry", func(d *pb.FeatureAnnotations) { d.Features[0].Geometry = 99 }},
+		{"anchor", func(d *pb.FeatureAnnotations) { d.Features[0].Anchor = &pb.FeatureAnchor{} }},
+		{"duplicate sample", func(d *pb.FeatureAnnotations) {
+			f := d.Features[0]
+			f.Observations = append(f.Observations, f.Observations[0])
+		}},
+		{"sample", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].SampleId = 99 }},
+		{"time", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].TimestampNs++ }},
+		{"author", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].Author = "" }},
+		{"decision", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].Decision = 0 }},
+		{"source sample", func(d *pb.FeatureAnnotations) { v := uint32(0); d.Features[0].Observations[0].ProposedFromSample = &v }},
+		{"membership revision", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].MembershipRevision = 0 }},
+		{"missing revision", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].MembershipRevision = 99 }},
+		{"membership digest", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].MembershipDigest = "wrong" }},
+		{"object", func(d *pb.FeatureAnnotations) { d.Features[0].ObjectId = "ghost" }},
+		{"rejected points", func(d *pb.FeatureAnnotations) {
+			d.Features[0].Observations[0].Decision = pb.FeatureDecision_FEATURE_DECISION_REJECTED
+		}},
+		{"sphere", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].Sphere.RadiusM = math.NaN() }},
+		{"finite", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].Sphere.XM = math.Inf(1) }},
+		{"empty", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].PointIndices = nil }},
+		{"wrong object point", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].PointIndices = []uint32{8} }},
+		{"duplicate point", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].PointIndices = []uint32{0, 0} }},
+		{"outside sphere", func(d *pb.FeatureAnnotations) { d.Features[0].Observations[0].Sphere.RadiusM = 0.01 }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := proto.Clone(original.Document).(*pb.FeatureAnnotations)
+			tc.change(d)
+			if err := ValidateFeatures(p, d); err == nil {
+				t.Fatal("accepted invalid document")
+			}
+		})
+	}
+	for _, decision := range []pb.FeatureDecision{pb.FeatureDecision_FEATURE_DECISION_REJECTED, pb.FeatureDecision_FEATURE_DECISION_MISSING, pb.FeatureDecision_FEATURE_DECISION_OCCLUDED} {
+		d := proto.Clone(original.Document).(*pb.FeatureAnnotations)
+		o := d.Features[0].Observations[0]
+		o.PointIndices = nil
+		o.Decision = decision
+		if err := ValidateFeatures(p, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFeatureDamagedHeadAndArchive(t *testing.T) {
+	p, e := featureFixture(t)
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), []byte{0xff}, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = LoadFeatures(p); err == nil {
+		t.Fatal("corrupt head accepted")
+	}
+	b, _ := proto.Marshal(s.Document)
+	os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600)
+	os.MkdirAll(filepath.Join(p.Dir, featureHistory), 0700)
+	os.WriteFile(filepath.Join(p.Dir, featureRevisionName(1)), []byte("wrong"), 0600)
+	if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: s.MembershipDigest}); err == nil {
+		t.Fatal("history overwritten")
+	}
+	os.Remove(filepath.Join(p.Dir, featureFile))
+	if _, err = LoadFeatures(p); err == nil {
+		t.Fatal("lost head became new")
+	}
+}
+
+func TestFeatureFilesystemAndValidationFailures(t *testing.T) {
+	t.Run("missing root", func(t *testing.T) {
+		p, e := featureFixture(t)
+		p.Dir = filepath.Join(p.Dir, "absent")
+		if _, err := LoadFeatures(p); err == nil {
+			t.Fatal("missing root loaded")
+		}
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("missing root saved")
+		}
+	})
+	t.Run("damaged membership", func(t *testing.T) {
+		p, e := featureFixture(t)
+		os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+		if _, err := LoadFeatures(p); err == nil {
+			t.Fatal("bad membership loaded")
+		}
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("bad membership saved")
+		}
+	})
+	t.Run("bad feature file", func(t *testing.T) {
+		p, e := featureFixture(t)
+		os.Mkdir(filepath.Join(p.Dir, featureFile), 0700)
+		if _, err := LoadFeatures(p); err == nil {
+			t.Fatal("directory loaded")
+		}
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("directory overwritten")
+		}
+		os.Remove(filepath.Join(p.Dir, featureFile))
+		e.Document.SchemaVersion++
+		b, _ := proto.Marshal(e.Document)
+		os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600)
+		if _, err := LoadFeatures(p); err == nil {
+			t.Fatal("future document loaded")
+		}
+	})
+	t.Run("busy", func(t *testing.T) {
+		p, e := featureFixture(t)
+		r, err := os.OpenRoot(p.Dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		lock, err := lockAnnotations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer lock.Close()
+		if _, err := SaveFeatures(p, e); !errors.Is(err, ErrSidecarBusy) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("exhausted revision", func(t *testing.T) {
+		p, e := featureFixture(t)
+		e.Document.Revision = math.MaxInt32
+		b, _ := proto.Marshal(e.Document)
+		os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600)
+		e.BaseDigest = sha256Hex(b)
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("exhausted revision saved")
+		}
+	})
+	t.Run("invalid edit", func(t *testing.T) {
+		p, e := featureFixture(t)
+		e.Document.Features[0].Observations[0].Origin = "independent"
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("unsupported origin saved")
+		}
+	})
+	t.Run("marshal and size", func(t *testing.T) {
+		p, e := featureFixture(t)
+		e.Document.Features[0].Name = string([]byte{0xff})
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("invalid UTF-8 saved")
+		}
+		e.Document.Features[0].Name = strings.Repeat("x", MaxSidecarBytes)
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("oversize document saved")
+		}
+	})
+	t.Run("unwritable head", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root bypasses directory permissions")
+		}
+		p, e := featureFixture(t)
+		if _, err := SaveFeatures(p, e); err != nil {
+			t.Fatal(err)
+		}
+		os.Remove(filepath.Join(p.Dir, featureFile))
+		os.Chmod(p.Dir, 0500)
+		defer os.Chmod(p.Dir, 0700)
+		if _, err := SaveFeatures(p, e); err == nil {
+			t.Fatal("unwritable head saved")
+		}
+	})
+	t.Run("nonfinite source support", func(t *testing.T) {
+		p, e := featureFixture(t)
+		binary.LittleEndian.PutUint32(p.raw, math.Float32bits(float32(math.NaN())))
+		if err := ValidateFeatures(p, e.Document); err == nil {
+			t.Fatal("nonfinite support accepted")
+		}
+	})
+	t.Run("uncertain object support", func(t *testing.T) {
+		p, e := featureFixture(t)
+		s, _ := LoadSidecar(p)
+		s.Masks[0].PointIndices = []int{0, 2, 3, 4, 5, 6, 7}
+		s.Masks[0].UncertainIndices = []int{1}
+		if err := SaveSidecar(p, s); err != nil {
+			t.Fatal(err)
+		}
+		o := e.Document.Features[0].Observations[0]
+		o.MembershipRevision = uint64(s.Revision)
+		o.MembershipDigest = s.Digest()
+		if err := ValidateFeatures(p, e.Document); err == nil {
+			t.Fatal("uncertain object return became definite feature")
+		}
+	})
+	if err := ValidateFeatures(nil, nil); err == nil {
+		t.Fatal("nil document accepted")
+	}
+}
+
+func TestFeatureHistoricalEvidenceCannotBeChangedAgainstOldMembership(t *testing.T) {
+	p, e := featureFixture(t)
+	first, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := LoadSidecar(p)
+	s.Change.Operation = "updated evidence"
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	next := &pb.FeatureEdit{Document: proto.Clone(first.Document).(*pb.FeatureAnnotations), BaseDigest: first.Digest, MembershipDigest: s.Digest()}
+	// Metadata-only edits retain the original immutable support pin.
+	next.Document.Features[0].Name = "renamed feature"
+	second, err := SaveFeatures(p, next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next.Document = second.Document
+	next.BaseDigest = second.Digest
+	next.Document.Features[0].Observations[0].Note = "changed evidence interpretation"
+	if _, err := SaveFeatures(p, next); !errors.Is(err, ErrMembershipChanged) {
+		t.Fatalf("old support edit: %v", err)
+	}
+}
+
+func TestConcurrentFeatureEditorsDoNotLoseAnAcceptedRevision(t *testing.T) {
+	p, e := featureFixture(t)
+	results := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() { _, err := SaveFeatures(p, e); results <- err }()
+	}
+	accepted := 0
+	for i := 0; i < 2; i++ {
+		err := <-results
+		if err == nil {
+			accepted++
+		} else if !errors.Is(err, ErrSidecarBusy) && !errors.Is(err, ErrSidecarConflict) {
+			t.Fatal(err)
+		}
+	}
+	if accepted != 1 {
+		t.Fatalf("accepted %d concurrent edits", accepted)
+	}
+	s, err := LoadFeatures(p)
+	if err != nil || s.Document.Revision != 1 {
+		t.Fatalf("lost revision: %+v %v", s, err)
+	}
+}

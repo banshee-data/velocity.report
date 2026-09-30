@@ -222,6 +222,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))
 	mux.HandleFunc("/api/annotations/packs", ws.handleAnnotationPacks)
 	mux.HandleFunc("/api/annotations/physical", ws.handlePhysicalReferences)
+	mux.HandleFunc("/api/annotations/features", ws.handleFeatureAnnotations)
 	mux.HandleFunc("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
 	mux.HandleFunc("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
 	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
