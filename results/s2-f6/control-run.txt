@@ -1,0 +1,1 @@
+lidar-state-estimation-baseline: output directory must be empty: /Volumes/lidar/evidence/s2-f6/control/out
