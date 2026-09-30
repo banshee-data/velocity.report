@@ -57,17 +57,33 @@ final class FakeSplitService: @unchecked Sendable {
                         [
                             "pack_digest": "sha256:p", "dataset_id": "ds", "sidecar_revision": 3,
                             "sidecar_sha256": "sha256:s",
-                            "objects": [["object_id": "obj_a", "partition": "tune"]],
+                            "objects": [
+                                [
+                                    "object_id": "obj_a", "partition": "tune", "class": "car",
+                                    "reviewed_masks": 3,
+                                ]
+                            ], "episodes": 1,
                             "physical": [
                                 "revision": 2, "sha256": "sha256:x", "content_sha256": "sha256:c",
                                 "objects": [
                                     [
-                                        "object_id": "obj_a", "body": "reviewed",
-                                        "body_independent": true, "keyframes": 3,
-                                        "reviewed_keyframes": 2, "proposed_keyframes": 1,
-                                        "tracker_assisted_keyframes": 0,
+                                        "object_id": "obj_a",
+                                        "body": ["status": "reviewed", "independent": true],
+                                        "keyframes": [
+                                            "total": 3, "reviewed": 2, "proposed": 1,
+                                            "tracker_assisted": 0,
+                                        ],
                                     ]
-                                ], "coverage": ["front": 1],
+                                ],
+                                "coverage": [
+                                    "position": ["scorable": 2, "unavailable": 0],
+                                    "yaw": ["scorable": 2, "unavailable": 0],
+                                    "length": ["scorable": 2, "unavailable": 0],
+                                    "width": ["scorable": 2, "unavailable": 0],
+                                    "height": ["scorable": 0, "unavailable": 2],
+                                    "front": ["scorable": 1, "unavailable": 1],
+                                    "rear": ["scorable": 2, "unavailable": 0],
+                                ],
                             ],
                         ]
                     ], "membership_problems": wouldFreeze ? [] : ["object obj_b is proposed"],
@@ -124,8 +140,11 @@ final class FakeSplitService: @unchecked Sendable {
         #expect(preview.wouldFreeze && preview.splitDigest == "sha256:split")
         #expect(
             preview.packs[0].physical?.revision == 2
-                && preview.packs[0].physical?.objects[0].reviewedKeyframes == 2)
-        #expect(preview.packs[0].physical?.coverage == ["front": 1])
+                && preview.packs[0].physical?.objects[0].keyframes.reviewed == 2)
+        #expect(
+            preview.packs[0].physical?.coverage.front.unavailable == 1
+                && preview.packs[0].physical?.coverage.height.scorable == 0)
+        #expect(preview.packs[0].objects[0].reviewedMasks == 3 && preview.packs[0].episodes == 1)
         let sent = try #require(fake.last("/api/annotations/split/preview"))
         let sentDraft = sent["draft"] as? [String: Any]
         #expect((sentDraft?["packs"] as? [[String: Any]])?.first?["dir"] as? String == "run-a/pack")
