@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f6s/control/fulton-divisadero/source-manifest.json (sha256:a7d1e9c48cc2fbbc854e88a1a7e9f3972bc0d778613c6395d123a6332f0e0e20)
+fulton-divisadero: first run across 5 capture(s)
+2026/09/30 03:37:06 ran database initialisation script
+2026/09/30 03:37:06 [migrate] 1/u original_schema (915.459µs)
+2026/09/30 03:37:06 [migrate] 2/u json_and_write_timestamp (1.850042ms)
+2026/09/30 03:37:06 [migrate] 3/u rename_tables (2.917833ms)
+2026/09/30 03:37:06 [migrate] 4/u create_lidar_bg_snapshot (3.014875ms)
+2026/09/30 03:37:06 [migrate] 5/u create_radar_data_transits (3.980375ms)
+2026/09/30 03:37:06 [migrate] 6/u create_radar_transit_links (3.47925ms)
+2026/09/30 03:37:06 [migrate] 7/u create_site_table (3.473792ms)
+2026/09/30 03:37:06 [migrate] 8/u create_site_reports (3.825667ms)
+2026/09/30 03:37:06 [migrate] 9/u add_velocity_report_prefix (3.864625ms)
+2026/09/30 03:37:06 [migrate] 10/u create_lidar_tracks (4.190542ms)
+2026/09/30 03:37:06 [migrate] 11/u create_lidar_analysis_runs (5.171958ms)
+2026/09/30 03:37:06 [migrate] 12/u add_track_quality_metrics (5.944916ms)
+2026/09/30 03:37:06 [migrate] 13/u create_site_config_periods (5.152542ms)
+2026/09/30 03:37:06 [migrate] 14/u remove_site_config_fields (5.138958ms)
+2026/09/30 03:37:06 [migrate] 15/u add_site_map_fields (6.406334ms)
+2026/09/30 03:37:06 [migrate] 16/u lidar_labels (6.423334ms)
+2026/09/30 03:37:06 [migrate] 17/u create_lidar_bg_regions (6.447292ms)
+2026/09/30 03:37:06 [migrate] 18/u add_quality_label (6.641917ms)
+2026/09/30 03:37:06 [migrate] 19/u add_lidar_labels_scene_source (7.171541ms)
+2026/09/30 03:37:06 [migrate] 20/u create_lidar_scenes (7.275333ms)
+2026/09/30 03:37:06 [migrate] 21/u create_lidar_missed_regions (7.061833ms)
+2026/09/30 03:37:06 [migrate] 22/u create_lidar_sweeps (6.867834ms)
+2026/09/30 03:37:06 [migrate] 23/u add_vrlog_path (4.917208ms)
+2026/09/30 03:37:06 [migrate] 24/u add_sweep_metadata (6.989834ms)
+2026/09/30 03:37:06 [migrate] 25/u add_label_source (6.308333ms)
+2026/09/30 03:37:06 [migrate] 26/u update_label_taxonomy (5.081875ms)
+2026/09/30 03:37:06 [migrate] 27/u add_sweep_checkpoint (6.320666ms)
+2026/09/30 03:37:06 [migrate] 28/u create_lidar_evaluations (6.312791ms)
+2026/09/30 03:37:06 [migrate] 29/u expand_label_vocabulary (6.027916ms)
+2026/09/30 03:37:06 [migrate] 30/u schema_simplification (25.808708ms)
+2026/09/30 03:37:06 [migrate] 31/u table_naming (39.509292ms)
+2026/09/30 03:37:06 [migrate] 32/u create_lidar_all_tracks_view (39.512ms)
+2026/09/30 03:37:06 [migrate] 33/u replay_annotations_and_eval_integrity (41.089417ms)
+2026/09/30 03:37:06 [migrate] 34/u schema_hardening_pre_v050 (54.755958ms)
+2026/09/30 03:37:06 [migrate] 35/u lidar_immutable_run_config (55.962167ms)
+2026/09/30 03:37:06 [migrate] 36/u drop_legacy_params_json (61.805291ms)
+2026/09/30 03:37:06 [migrate] 37/u seed_config_period_pi_day (62.695833ms)
+2026/09/30 03:37:06 [migrate] 38/u create_radar_serial_config (61.518917ms)
+2026/09/30 03:37:06 [migrate] 39/u create_lidar_scenes (61.639166ms)
+2026/09/30 03:37:06 [migrate] 40/u add_scene_vantages (62.127583ms)
+2026/09/30 03:37:06 [migrate] 41/u drop_scene_vantages (44.153583ms)
+2026/09/30 03:37:06 [migrate] 42/u create_lidar_capture_index (30.731709ms)
+2026/09/30 03:37:06 [migrate] 43/u create_lidar_capture_jobs (30.919708ms)
+2026/09/30 03:37:06 [migrate] 44/u replay_case_files (30.691958ms)
+2026/09/30 03:37:06 [migrate] 45/u replay_case_geography (21.206542ms)
+2026/09/30 03:37:06 [migrate] 46/u lidar_sites (18.574459ms)
+2026/09/30 03:37:06 [migrate] 47/u lidar_observations (13.840875ms)
+2026/09/30 03:37:06 [migrate] 48/u lidar_track_estimates (12.999458ms)
+2026/09/30 03:37:06 [migrate] 49/u lidar_track_residuals (12.917083ms)
+2026/09/30 03:37:06 [migrate] 50/u lidar_track_estimate_revisions (12.812042ms)
+2026/09/30 03:37:06 [migrate] 51/u lidar_interaction_persistence (12.876ms)
+2026/09/30 03:37:06 [migrate] 52/u lidar_track_solid_bodies (11.534542ms)
+2026/09/30 03:37:06 [migrate] 53/u lidar_solid_body_support (13.698417ms)
+2026/09/30 03:37:06 [migrate] 54/u lidar_segments (13.558209ms)
+2026/09/30 03:37:06 [migrate] 55/u lidar_segment_constraints (18.6825ms)
+2026/09/30 03:37:06 [migrate] 56/u lidar_segment_selectors (15.274083ms)
+2026/09/30 03:37:06 [migrate] 57/u lidar_track_estimate_reference_support (16.485833ms)
+2026/09/30 03:37:06 Database baselined at version 57
+2026/09/30 03:37:06 replaying 5 capture file(s) (port 2369) through the perception pipeline
+fulton-divisadero: repeat run
+2026/09/30 03:44:24 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 03:44:24 replaying 5 capture file(s) (port 2369) through the perception pipeline
+fulton-divisadero: capture time frames=13607 backward=0 duplicate=0 clamped_gaps=88 max_gap=8.100s
+fulton-divisadero: continuity born=4714 confirmed=1684 reacquired=7940 expired misses=4716 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+fulton-divisadero: solid bodies=46599 near_edge_fixes=12289 (26.4%) lapses=726; lateral p99 point estimates 0.268 m, solid bodies 0.446 m over 1418 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f6s/control/fulton-divisadero/out
+      993.78 real       714.23 user       100.18 sys
+           975831040  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              733231  page reclaims
+                2139  page faults
+                   0  swaps
+                  21  block input operations
+                 131  block output operations
+                   0  messages sent
+                   0  messages received
+              221523  signals received
+              491560  voluntary context switches
+            16215750  involuntary context switches
+       7962641310069  instructions retired
+       2267092215517  cycles elapsed
+           975703360  peak memory footprint

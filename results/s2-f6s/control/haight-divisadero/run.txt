@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f6s/control/haight-divisadero/source-manifest.json (sha256:16a0fa1a2a47999d509b6f97aab97af4b49c15f6dade591a03a069b6d4c93478)
+haight-divisadero: first run across 4 capture(s)
+2026/09/29 21:48:22 ran database initialisation script
+2026/09/29 21:48:23 [migrate] 1/u original_schema (54.40275ms)
+2026/09/29 21:48:23 [migrate] 2/u json_and_write_timestamp (55.757667ms)
+2026/09/29 21:48:23 [migrate] 3/u rename_tables (56.66325ms)
+2026/09/29 21:48:23 [migrate] 4/u create_lidar_bg_snapshot (56.812416ms)
+2026/09/29 21:48:23 [migrate] 5/u create_radar_data_transits (56.930167ms)
+2026/09/29 21:48:23 [migrate] 6/u create_radar_transit_links (57.187667ms)
+2026/09/29 21:48:23 [migrate] 7/u create_site_table (57.334584ms)
+2026/09/29 21:48:23 [migrate] 8/u create_site_reports (57.494625ms)
+2026/09/29 21:48:23 [migrate] 9/u add_velocity_report_prefix (57.440875ms)
+2026/09/29 21:48:23 [migrate] 10/u create_lidar_tracks (4.053708ms)
+2026/09/29 21:48:23 [migrate] 11/u create_lidar_analysis_runs (58.379041ms)
+2026/09/29 21:48:23 [migrate] 12/u add_track_quality_metrics (6.118792ms)
+2026/09/29 21:48:23 [migrate] 13/u create_site_config_periods (5.36625ms)
+2026/09/29 21:48:23 [migrate] 14/u remove_site_config_fields (5.38875ms)
+2026/09/29 21:48:23 [migrate] 15/u add_site_map_fields (6.60975ms)
+2026/09/29 21:48:23 [migrate] 16/u lidar_labels (6.5995ms)
+2026/09/29 21:48:23 [migrate] 17/u create_lidar_bg_regions (6.628417ms)
+2026/09/29 21:48:23 [migrate] 18/u add_quality_label (6.767416ms)
+2026/09/29 21:48:23 [migrate] 19/u add_lidar_labels_scene_source (7.2785ms)
+2026/09/29 21:48:23 [migrate] 20/u create_lidar_scenes (7.366042ms)
+2026/09/29 21:48:23 [migrate] 21/u create_lidar_missed_regions (7.07ms)
+2026/09/29 21:48:23 [migrate] 22/u create_lidar_sweeps (6.868209ms)
+2026/09/29 21:48:23 [migrate] 23/u add_vrlog_path (4.83375ms)
+2026/09/29 21:48:23 [migrate] 24/u add_sweep_metadata (6.759333ms)
+2026/09/29 21:48:23 [migrate] 25/u add_label_source (6.138167ms)
+2026/09/29 21:48:23 [migrate] 26/u update_label_taxonomy (4.9475ms)
+2026/09/29 21:48:23 [migrate] 27/u add_sweep_checkpoint (6.2125ms)
+2026/09/29 21:48:23 [migrate] 28/u create_lidar_evaluations (6.22225ms)
+2026/09/29 21:48:23 [migrate] 29/u expand_label_vocabulary (5.954708ms)
+2026/09/29 21:48:23 [migrate] 30/u schema_simplification (25.17875ms)
+2026/09/29 21:48:23 [migrate] 31/u table_naming (38.486792ms)
+2026/09/29 21:48:23 [migrate] 32/u create_lidar_all_tracks_view (38.493833ms)
+2026/09/29 21:48:23 [migrate] 33/u replay_annotations_and_eval_integrity (40.017958ms)
+2026/09/29 21:48:23 [migrate] 34/u schema_hardening_pre_v050 (55.530042ms)
+2026/09/29 21:48:23 [migrate] 35/u lidar_immutable_run_config (56.625959ms)
+2026/09/29 21:48:23 [migrate] 36/u drop_legacy_params_json (62.223833ms)
+2026/09/29 21:48:23 [migrate] 37/u seed_config_period_pi_day (63.098583ms)
+2026/09/29 21:48:23 [migrate] 38/u create_radar_serial_config (61.881125ms)
+2026/09/29 21:48:23 [migrate] 39/u create_lidar_scenes (61.976875ms)
+2026/09/29 21:48:23 [migrate] 40/u add_scene_vantages (62.444666ms)
+2026/09/29 21:48:23 [migrate] 41/u drop_scene_vantages (44.922042ms)
+2026/09/29 21:48:23 [migrate] 42/u create_lidar_capture_index (31.889042ms)
+2026/09/29 21:48:23 [migrate] 43/u create_lidar_capture_jobs (32.07075ms)
+2026/09/29 21:48:23 [migrate] 44/u replay_case_files (31.818541ms)
+2026/09/29 21:48:23 [migrate] 45/u replay_case_geography (20.188958ms)
+2026/09/29 21:48:23 [migrate] 46/u lidar_sites (17.6785ms)
+2026/09/29 21:48:23 [migrate] 47/u lidar_observations (13.19475ms)
+2026/09/29 21:48:23 [migrate] 48/u lidar_track_estimates (12.352916ms)
+2026/09/29 21:48:23 [migrate] 49/u lidar_track_residuals (12.290583ms)
+2026/09/29 21:48:23 [migrate] 50/u lidar_track_estimate_revisions (12.187541ms)
+2026/09/29 21:48:23 [migrate] 51/u lidar_interaction_persistence (35.381541ms)
+2026/09/29 21:48:23 [migrate] 52/u lidar_track_solid_bodies (34.099667ms)
+2026/09/29 21:48:23 [migrate] 53/u lidar_solid_body_support (36.457ms)
+2026/09/29 21:48:23 [migrate] 54/u lidar_segments (36.397208ms)
+2026/09/29 21:48:23 [migrate] 55/u lidar_segment_constraints (71.599542ms)
+2026/09/29 21:48:23 [migrate] 56/u lidar_segment_selectors (68.582792ms)
+2026/09/29 21:48:23 [migrate] 57/u lidar_track_estimate_reference_support (69.807333ms)
+2026/09/29 21:48:23 Database baselined at version 57
+2026/09/29 21:48:23 replaying 4 capture file(s) (port 2369) through the perception pipeline
+haight-divisadero: repeat run
+2026/09/29 22:25:01 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/29 22:25:01 replaying 4 capture file(s) (port 2369) through the perception pipeline
+haight-divisadero: capture time frames=8850 backward=0 duplicate=0 clamped_gaps=120 max_gap=12.499s
+haight-divisadero: continuity born=1389 confirmed=383 reacquired=1713 expired misses=1379 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+haight-divisadero: solid bodies=16389 near_edge_fixes=9542 (58.2%) lapses=219; lateral p99 point estimates 0.237 m, solid bodies 0.211 m over 844 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f6s/control/haight-divisadero/out
+    15828.37 real       638.24 user       128.64 sys
+          1079541760  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+            11076753  page reclaims
+                2466  page faults
+                   0  swaps
+                  18  block input operations
+                 194  block output operations
+                   0  messages sent
+                   0  messages received
+              207334  signals received
+              180870  voluntary context switches
+            13711935  involuntary context switches
+       7748906940297  instructions retired
+       2287042405506  cycles elapsed
+          1095290560  peak memory footprint

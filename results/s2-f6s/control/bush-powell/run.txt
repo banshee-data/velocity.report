@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f6s/control/bush-powell/source-manifest.json (sha256:0b5eb2860ec8d39f9f51c64a09c57d98ae50b5eb42d053f71f2e8974f241656f)
+bush-powell: first run across 4 capture(s)
+2026/09/30 12:13:03 ran database initialisation script
+2026/09/30 12:13:03 [migrate] 1/u original_schema (193.75µs)
+2026/09/30 12:13:03 [migrate] 2/u json_and_write_timestamp (1.2475ms)
+2026/09/30 12:13:03 [migrate] 3/u rename_tables (2.2245ms)
+2026/09/30 12:13:03 [migrate] 4/u create_lidar_bg_snapshot (2.313375ms)
+2026/09/30 12:13:03 [migrate] 5/u create_radar_data_transits (2.533ms)
+2026/09/30 12:13:03 [migrate] 6/u create_radar_transit_links (2.595041ms)
+2026/09/30 12:13:03 [migrate] 7/u create_site_table (2.748334ms)
+2026/09/30 12:13:03 [migrate] 8/u create_site_reports (2.88ms)
+2026/09/30 12:13:03 [migrate] 9/u add_velocity_report_prefix (2.925875ms)
+2026/09/30 12:13:03 [migrate] 10/u create_lidar_tracks (3.270083ms)
+2026/09/30 12:13:03 [migrate] 11/u create_lidar_analysis_runs (3.71975ms)
+2026/09/30 12:13:03 [migrate] 12/u add_track_quality_metrics (5.738708ms)
+2026/09/30 12:13:03 [migrate] 13/u create_site_config_periods (5.092833ms)
+2026/09/30 12:13:03 [migrate] 14/u remove_site_config_fields (5.124125ms)
+2026/09/30 12:13:03 [migrate] 15/u add_site_map_fields (6.415625ms)
+2026/09/30 12:13:03 [migrate] 16/u lidar_labels (6.438542ms)
+2026/09/30 12:13:03 [migrate] 17/u create_lidar_bg_regions (6.46775ms)
+2026/09/30 12:13:03 [migrate] 18/u add_quality_label (6.675541ms)
+2026/09/30 12:13:03 [migrate] 19/u add_lidar_labels_scene_source (7.301667ms)
+2026/09/30 12:13:03 [migrate] 20/u create_lidar_scenes (7.418333ms)
+2026/09/30 12:13:03 [migrate] 21/u create_lidar_missed_regions (7.214292ms)
+2026/09/30 12:13:03 [migrate] 22/u create_lidar_sweeps (7.043917ms)
+2026/09/30 12:13:03 [migrate] 23/u add_vrlog_path (5.129167ms)
+2026/09/30 12:13:03 [migrate] 24/u add_sweep_metadata (7.317708ms)
+2026/09/30 12:13:03 [migrate] 25/u add_label_source (6.705125ms)
+2026/09/30 12:13:03 [migrate] 26/u update_label_taxonomy (5.462083ms)
+2026/09/30 12:13:03 [migrate] 27/u add_sweep_checkpoint (6.829583ms)
+2026/09/30 12:13:03 [migrate] 28/u create_lidar_evaluations (6.844875ms)
+2026/09/30 12:13:03 [migrate] 29/u expand_label_vocabulary (6.560834ms)
+2026/09/30 12:13:03 [migrate] 30/u schema_simplification (28.265ms)
+2026/09/30 12:13:03 [migrate] 31/u table_naming (43.970833ms)
+2026/09/30 12:13:03 [migrate] 32/u create_lidar_all_tracks_view (44.014333ms)
+2026/09/30 12:13:03 [migrate] 33/u replay_annotations_and_eval_integrity (45.673625ms)
+2026/09/30 12:13:03 [migrate] 34/u schema_hardening_pre_v050 (59.49825ms)
+2026/09/30 12:13:03 [migrate] 35/u lidar_immutable_run_config (55.990959ms)
+2026/09/30 12:13:03 [migrate] 36/u drop_legacy_params_json (62.466708ms)
+2026/09/30 12:13:03 [migrate] 37/u seed_config_period_pi_day (63.59425ms)
+2026/09/30 12:13:03 [migrate] 38/u create_radar_serial_config (63.817666ms)
+2026/09/30 12:13:03 [migrate] 39/u create_lidar_scenes (64.081208ms)
+2026/09/30 12:13:03 [migrate] 40/u add_scene_vantages (64.688166ms)
+2026/09/30 12:13:03 [migrate] 41/u drop_scene_vantages (46.821666ms)
+2026/09/30 12:13:03 [migrate] 42/u create_lidar_capture_index (31.395083ms)
+2026/09/30 12:13:03 [migrate] 43/u create_lidar_capture_jobs (31.545875ms)
+2026/09/30 12:13:03 [migrate] 44/u replay_case_files (31.167834ms)
+2026/09/30 12:13:03 [migrate] 45/u replay_case_geography (21.417416ms)
+2026/09/30 12:13:03 [migrate] 46/u lidar_sites (18.749541ms)
+2026/09/30 12:13:03 [migrate] 47/u lidar_observations (13.929625ms)
+2026/09/30 12:13:03 [migrate] 48/u lidar_track_estimates (13.009542ms)
+2026/09/30 12:13:03 [migrate] 49/u lidar_track_residuals (12.939041ms)
+2026/09/30 12:13:03 [migrate] 50/u lidar_track_estimate_revisions (12.859333ms)
+2026/09/30 12:13:03 [migrate] 51/u lidar_interaction_persistence (12.970458ms)
+2026/09/30 12:13:03 [migrate] 52/u lidar_track_solid_bodies (11.684667ms)
+2026/09/30 12:13:03 [migrate] 53/u lidar_solid_body_support (14.152792ms)
+2026/09/30 12:13:03 [migrate] 54/u lidar_segments (14.073583ms)
+2026/09/30 12:13:03 [migrate] 55/u lidar_segment_constraints (19.441167ms)
+2026/09/30 12:13:03 [migrate] 56/u lidar_segment_selectors (16.213833ms)
+2026/09/30 12:13:03 [migrate] 57/u lidar_track_estimate_reference_support (17.419ms)
+2026/09/30 12:13:03 Database baselined at version 57
+2026/09/30 12:13:03 replaying 4 capture file(s) (port 2369) through the perception pipeline
+bush-powell: repeat run
+2026/09/30 12:24:26 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 12:24:27 replaying 4 capture file(s) (port 2369) through the perception pipeline
+bush-powell: capture time frames=11677 backward=0 duplicate=0 clamped_gaps=27 max_gap=1.600s
+bush-powell: continuity born=3472 confirmed=1045 reacquired=4154 expired misses=3479 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+bush-powell: solid bodies=38419 near_edge_fixes=23328 (60.7%) lapses=945; lateral p99 point estimates 0.190 m, solid bodies 0.198 m over 1928 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f6s/control/bush-powell/out
+     1204.45 real       625.23 user        99.62 sys
+          1012006912  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             3766334  page reclaims
+                3494  page faults
+                   0  swaps
+                  32  block input operations
+                 137  block output operations
+                   0  messages sent
+                   0  messages received
+              171962  signals received
+              394999  voluntary context switches
+            13262788  involuntary context switches
+       6821027286229  instructions retired
+       2036558552226  cycles elapsed
+          1016401408  peak memory footprint
