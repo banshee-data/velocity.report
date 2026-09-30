@@ -605,14 +605,65 @@ Physical scoring refuses a held-out split. Its error limits, reference precision
 to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
 and the along-path gap waits for persisted paths.
 
+## Feature candidates
+
+Choose **Feature Candidates** in the editing-mode menu after saving the active object's membership
+in **Object Points**. The same sphere gesture now selects feature support within that object's
+saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
+feature preview; cyan marks saved support. The mode, feature ID, method and proposal origin remain
+visible. The companion 3D view supplies object context; feature rings are in the orthographic views.
+
+1. Enter **Labelled by**, choose the object, and select **New feature**. Click a return in either
+   orthographic view. Dragging pans rather than painting object points.
+2. Adjust the sphere radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
+   views. The selected returns must be saved definite members of this object, with conflicting
+   or uncertain object claims excluded. Different features may overlap.
+3. Name the feature and choose unknown, edge, corner, patch or protrusion. A semantic hint such as
+   “wing mirror” is optional. These are descriptions, not recognition presets: the tool does not
+   fit a right-angle corner, recognise a headlight or detect a wheel-well recess.
+4. **Accept and save** retains a proposal under a persistent feature ID. **Reject**, **Missing**
+   and **Occluded** retain decisions without measured support. Missing/occluded can be recorded for
+   an existing feature even when this frame has no return to click. **Cancel / stop** drops only
+   the unsaved proposal. No feature action reviews a physical pose or changes an object mask.
+5. **Preview next frame** moves to one consecutive source frame and proposes fresh return indices
+   inside that same object's saved domain. Inspect, edit the sphere, accept, reject or stop before
+   continuing. It does not save automatically or jump across gaps. A weak/ambiguous fit, changed
+   membership or already annotated next frame stops it; seed that frame manually if appropriate.
+6. To revise saved support, select the feature and use **Edit this frame**, then click or resize
+   and save. Names/types/hints are saved with that frame edit. Reopen the pack and select the same
+   ID to inspect its saved decisions. Historical revisions retain the earlier interpretation.
+
+The proposal is deliberately limited: it uses observed-object centroid translation and a small
+local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
+selected return belongs to the same physical surface. Nearby competing fits are checked at the
+feature scale. Changing visibility can shift the observed centroid; reject an implausible result.
+A missing or hidden feature is not a new measurement. General feature recognition, body-relative
+anchors, directed front/rear placement, part motion and full rigid registration remain unfinished.
+The panel explicitly shows the part relation and metric anchor as unresolved.
+
+The local Go annotation service owns feature saves, using the same confined pack root as physical
+references. It must serve the same folder the window opened, not another copy with matching bytes.
+No Internet connection is required. Without the local service, a supported `feature-proposals.pb`
+can be inspected read-only. Authoritative saves go through the shared recording-domain protobuf,
+revision tokens, annotation lock and exact-byte history in `feature-proposal-revisions`.
+
+If a save is not confirmed, the draft remains and further writes are disabled. Cancel it and
+**Reload** to inspect what the service actually committed before retrying. Do not assume a lost
+response means nothing reached disk. Changed membership stops propagation; reconcile and reseed
+against its new revision. Old support keeps its original membership pin and is not silently
+reinterpreted. Proposals are not independent reviewed references, and the held-out scoring gate
+is unchanged.
+
 ## Raw intensity
 
 **Intensity (raw 0–255)** in the right-hand column is independent of the modes. It writes nothing,
 and marks nothing unsaved.
 
 - **Reflectivity colour** is off by default. On, it colours the returns in the orthographic views
-  and the 3D view from one 256-entry table, so a code has the same colour in both. The range, ramp,
-  contrast and brightness only change how returns are drawn. A code outside the range is drawn in
+  and the 3D view from one 256-entry table, so a code has the same colour in both. Measured zero
+  has a fixed swatch; the gradient covers 1–255, and unavailable intensity has its own colour.
+  The range, ramp,
+  contrast and brightness only change how returns are drawn. A nonzero code outside the range is drawn in
   the end colour, and the column counts how many were clamped in this frame. Off restores the
   class colours, without the intensity brightening the main view uses.
 - **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved

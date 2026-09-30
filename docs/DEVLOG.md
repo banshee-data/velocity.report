@@ -27,7 +27,6 @@ older entries stay put, however tempting hindsight may be.
   arm's own faces scores the control arm at zero. That is not a result. The first run on the
   reviewed pack is open, and kirk0 is the capture the shadow work was developed on, so it is a
   tuning split and cannot be held out.
-
 ## October 1, 2026 - Annotation history grows with every save, and now it can be pruned
 
 - A labelled kirk0 pack (23 objects, 3,683 reviewed masks, 83 s) had grown a revision history of
@@ -38,6 +37,19 @@ older entries stay put, however tempting hindsight may be.
   a frozen split pins), backs the removed revisions up into a verified compressed tar, and only then
   removes them under the writer lock, so the Annotation window can stay open.
 
+## September 30, 2026 - Feature proposals keep their own evidence
+
+- Added a local Swift Feature Candidates mode over saved whole-object membership. A sphere seeds
+  an overlapping feature subset, retained under a persistent ID with fresh support at each frame.
+  The local Go service validates and revisions the shared recording-domain protobuf; feature saves
+  leave membership and physical references alone. Accepted proposals are not independent truth.
+- Added one-frame translation previews with explicit accept/edit/reject/cancel decisions. The
+  existing object matcher needed a feature-sized rival threshold: its one-metre default would
+  otherwise hide competing small fragments. Rotation registration, body/part anchors and semantic
+  recognition remain follow-ons, and the operator pilot on the three sites is still outstanding.
+- Separated measured intensity zero from the adjustable 1–255 gradient and the unavailable style.
+  Updated the Swift, recording-domain and facet plans to distinguish the bounded authoring work
+  from the 35–60 engineer-day conditional research programme. Desktop tests are not field evidence.
 ## September 30, 2026 - The tracked arm is steadier, and the side-face entry is what is left
 
 - Ran F6, the tracked arm (S2a) and the T1 with T3 control on the tuning partition on the Mac. The

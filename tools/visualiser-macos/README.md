@@ -102,6 +102,13 @@ Detailed setup and CI secret names are in the
 2. Generate a pack from a run, or open one already on disk
 3. Propose objects, grade them, fix by hand, and review
 
+The editing-mode menu separates **Object Points**, **Feature Candidates**, **Physical** and
+**Compare**. Feature Candidates selects a sphere within a saved object's returns, saves a shared
+protobuf proposal through the local Go service, and previews one adjacent frame at a time using
+bounded translation. Every frame needs an operator decision; rotation matching and body anchors
+remain unfinished. Feature saves do not modify object masks or physical review. The raw intensity
+palette has a separate measured-zero swatch, a 1–255 gradient and an unavailable style.
+
 The full workflow is in
 [point-annotation-tool.md](../../docs/lidar/operations/point-annotation-tool.md).
 
