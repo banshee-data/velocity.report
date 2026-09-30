@@ -432,6 +432,50 @@ func TestA2GatesOnTheFaceAlongItsNormalAndLoosensTheMedoidAcross(t *testing.T) {
 	}
 }
 
+func TestA1GatesABodyCentreTrackOnTheMedoid(t *testing.T) {
+	// S2.3's ablation: the same body-centre track and cluster, gated on the
+	// medoid against the predicted centre instead of A2's face residual,
+	// with nothing measured for the pair.
+	if DefaultTrackerConfig().NearEdgeMedoidGate {
+		t.Fatal("A1 is on by default")
+	}
+	cfg := nearEdgeTrackingConfig()
+	cfg.NearEdgeMedoidGate = true
+	tracker := NewTracker(cfg)
+	track := a2Track()
+	near := WorldCluster{CentroidX: 0.5, CentroidY: -0.9}
+	got := tracker.gateDistanceSquared(track, []WorldCluster{near}, 0, 0.1)
+	if want := tracker.mahalanobisDistanceSquared(track, near, 0.1); got != want {
+		t.Fatalf("A1 gated a body-centre track at d² %v, the medoid gate says %v", got, want)
+	}
+	if len(tracker.nearEdgePairs) != 0 {
+		t.Fatal("A1 measured the pair's faces for the gate")
+	}
+	a2 := NewTracker(nearEdgeTrackingConfig()).gateDistanceSquared(a2Track(), []WorldCluster{near}, 0, 0.1)
+	if a2 == got {
+		t.Fatalf("A1 and A2 gave the same d² %v for a medoid 0.9 m off the centre", got)
+	}
+}
+
+func TestA1TracksTheSyntheticPassOnTheBodyCentre(t *testing.T) {
+	// The ablation still runs the tracked update: its fixes put the state on
+	// the body centre, and only which cluster a track keeps can differ.
+	cfg := nearEdgeTrackingConfig()
+	cfg.NearEdgeMedoidGate = true
+	tracker := NewTracker(cfg)
+	fixes := 0
+	for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+		tracker.Update(f.clusters, f.at)
+		reading, ok := mainTrack(t, tracker).SolidBody()
+		if ok && reading.Measurement.Source == MeasurementNearEdgeCandidateV1 {
+			fixes++
+		}
+	}
+	if fixes < 20 {
+		t.Fatalf("only %d tracked fixes under A1 on a forty-frame pass", fixes)
+	}
+}
+
 func TestA2RefusesASingularResidualCovariance(t *testing.T) {
 	tracker := NewTracker(nearEdgeTrackingConfig())
 	tracker.Config.MeasurementNoise = 0

@@ -262,6 +262,14 @@ type TrackerConfig struct {
 	// the beliefs; without it nothing changes. Like SolidBody it is a Go-level
 	// option and not a tuning key. Default off; see near_edge_tracking.go.
 	NearEdgeTracking bool
+	// NearEdgeMedoidGate is S2.3's ablation arm, A1: under NearEdgeTracking a
+	// body-centre track is gated on the cluster medoid against its predicted
+	// centre with the tracked R, as a medoid-referenced track is, rather than
+	// on A2's face residual. The medoid sits half a body toward the sensor
+	// from that centre, so the gate is biased by that much across; it is the
+	// do-nothing option A2 is measured against. The update is unchanged.
+	// Without NearEdgeTracking it does nothing. Default off.
+	NearEdgeMedoidGate bool
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)

@@ -102,7 +102,8 @@ func (t *Tracker) stepTrackedNearEdge(track *TrackedObject, cluster WorldCluster
 //     disposition says so, the measurement is the medoid the association
 //     saw, and the NIS is A2's two-degree-of-freedom distance between that
 //     medoid and the prediction, loosened by the half-extents, which is what
-//     the gate compared. A faceless frame keeps the last source.
+//     the gate compared (under A1 the gate compared the plain medoid
+//     distance instead; the record keeps A2's, so the two arms' rows agree). A faceless frame keeps the last source.
 func (t *Tracker) recordTrackedNearEdgeResidual(track *TrackedObject, predicted trackedPrediction, cluster WorldCluster, medoid PositionMeasurement) PositionMeasurement {
 	pending := track.solidBody.pending
 	r := FilterResidual{Valid: true, GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise)}
@@ -192,10 +193,11 @@ func (t *Tracker) attachNearEdgePair(track *TrackedObject, clusterIdx int) {
 
 // gateDistanceSquared is the pairing's squared distance for the gate and the
 // cost: A2's face residual for a body-centre tracked body, and the medoid
-// Mahalanobis distance otherwise.
+// Mahalanobis distance otherwise, or for every body under A1
+// (NearEdgeMedoidGate).
 func (t *Tracker) gateDistanceSquared(track *TrackedObject, clusters []WorldCluster, ci int, dt float32) float32 {
 	sb := &track.solidBody
-	if !sb.tracked || sb.reference != ReferenceBodyCentre {
+	if !sb.tracked || sb.reference != ReferenceBodyCentre || t.Config.NearEdgeMedoidGate {
 		return t.mahalanobisDistanceSquared(track, clusters[ci], dt)
 	}
 	cluster := clusters[ci]
