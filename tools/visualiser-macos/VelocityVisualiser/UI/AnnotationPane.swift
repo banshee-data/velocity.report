@@ -67,6 +67,8 @@ struct AnnotationPane: View {
                         PhysicalReferencePane(session: session)
                     } else if session.workMode == .compare {
                         PhysicalComparePane(session: session)
+                    } else if session.workMode == .features {
+                        FeatureAuthoringPane(session: session, features: session.features)
                     } else {
                         pointsEditingSections
                     }
@@ -80,7 +82,7 @@ struct AnnotationPane: View {
         } message: {
             Text(
                 "There are unsaved changes: this frame's membership or the physical-reference "
-                    + "draft. Save them, or discard them, before moving on.")
+                    + "or feature draft. Save them, or discard them, before moving on.")
         }
     }
 
@@ -89,7 +91,8 @@ struct AnnotationPane: View {
     private var modePicker: some View {
         Picker("Mode", selection: $session.workMode) {
             ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
-        }.pickerStyle(.segmented).labelsHidden().disabled(session.strokeInProgress)
+        }.pickerStyle(.menu).labelsHidden().disabled(session.strokeInProgress).help(
+            "Active editing mode; Object Points and Feature Candidates save separate records")
     }
 
     @ViewBuilder private var pointsEditingSections: some View {

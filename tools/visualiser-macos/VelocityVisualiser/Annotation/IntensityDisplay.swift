@@ -80,24 +80,26 @@ struct IntensityDisplaySpec: Equatable {
     /// Off by default: the normal class and object palette, with no
     /// intensity-driven colour or brightness at all.
     var enabled = false
-    private(set) var lower = 0
+    private(set) var lower = 1
     private(set) var upper = IntensityDisplaySpec.rawMax
     var ramp: IntensityRamp = .starburst
     private(set) var gamma = 1.0
     private(set) var brightness = 1.0
 
     /// The colour shown for a point whose intensity was not measured. Distinct
-    /// from every ramp's colour for zero, which is a measurement.
+    /// from measured zero and the adjustable nonzero gradient.
     static let missingColour = SIMD3<Float>(0.62, 0.30, 0.52)
+    /// Measured zero is a fixed swatch, never the low gradient endpoint.
+    static let zeroColour = SIMD3<Float>(0.15, 0.95, 0.72)
 
     /// Sets the lower limit, keeping it in range and below the upper one.
     mutating func setLower(_ value: Int) {
-        lower = min(max(value, 0), IntensityDisplaySpec.rawMax - 1)
+        lower = min(max(value, 1), IntensityDisplaySpec.rawMax - 1)
         if upper <= lower { upper = lower + 1 }
     }
 
     mutating func setUpper(_ value: Int) {
-        upper = min(max(value, 1), IntensityDisplaySpec.rawMax)
+        upper = min(max(value, 2), IntensityDisplaySpec.rawMax)
         if lower >= upper { lower = upper - 1 }
     }
 
@@ -121,12 +123,13 @@ struct IntensityDisplaySpec: Equatable {
         enabled = on
     }
 
-    var isDefaultRange: Bool { lower == 0 && upper == IntensityDisplaySpec.rawMax }
+    var isDefaultRange: Bool { lower == 1 && upper == IntensityDisplaySpec.rawMax }
 
     /// Where a raw code falls on the ramp, after range and gamma, and whether
     /// it was clamped to get there.
     func position(of raw: UInt8) -> (t: Float, clip: IntensityClip) {
         let r = Int(raw)
+        if r == 0 { return (0, .none) }
         if r < lower { return (0, .below) }
         if r > upper { return (1, .above) }
         let linear = Double(r - lower) / Double(upper - lower)
@@ -134,6 +137,7 @@ struct IntensityDisplaySpec: Equatable {
     }
 
     func colour(of raw: UInt8) -> SIMD3<Float> {
+        if raw == 0 { return Self.zeroColour }
         let c = ramp.colour(at: position(of: raw).t) * Float(brightness)
         return simd_clamp(c, SIMD3(repeating: 0), SIMD3(repeating: 1))
     }
@@ -164,7 +168,7 @@ struct IntensityDisplaySpec: Equatable {
     func clipCounts(_ codes: some Sequence<UInt8>) -> (below: Int, above: Int) {
         var below = 0
         var above = 0
-        for raw in codes {
+        for raw in codes where raw != 0 {
             if Int(raw) < lower { below += 1 } else if Int(raw) > upper { above += 1 }
         }
         return (below, above)

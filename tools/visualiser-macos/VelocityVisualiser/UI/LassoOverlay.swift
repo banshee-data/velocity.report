@@ -82,6 +82,8 @@ struct LassoOverlay: View {
                         } else if session.workMode == .physical {
                             session.placePhysicalAnchor(
                                 in: basisStandard, at: viewport.worldPoint(from: location))
+                        } else if session.workMode == .features {
+                            session.seedFeature(in: basisStandard, viewport: viewport, at: location)
                         }
                     },
                     onHover: { location in
@@ -93,8 +95,12 @@ struct LassoOverlay: View {
                         session.hover(
                             atViewPoint: location.map { viewport.worldPoint(from: $0) },
                             pickDistance: metresPerPoint * 12)
-                    }, onDepthStep: { if editable { session.adjustBrushDepth(steps: $0) } },
-                    onKey: handleKey,
+                    },
+                    onDepthStep: {
+                        if editable, session.workMode == .points {
+                            session.adjustBrushDepth(steps: $0)
+                        }
+                    }, onKey: handleKey,
                     claimsDrag: { location in
                         guard editable, basisStandard == .top,
                             let handle = session.physicalHandle(at: location, viewport: viewport)
@@ -106,11 +112,18 @@ struct LassoOverlay: View {
 
                 if showsGrid { gridLayer }
                 maskLayer
+                if session.workMode == .features {
+                    FeatureSelectionOverlay(session: session, basis: basis, viewport: viewport)
+                }
                 if strokePoints.count > 1 { strokeOutline }
-                if session.pendingSphere != nil || hover.sphere != nil { sphereOutline }
-                if let candidates = session.pendingCandidates, editable {
+                if session.workMode == .points, session.pendingSphere != nil || hover.sphere != nil
+                {
+                    sphereOutline
+                }
+                if let candidates = session.pendingCandidates, editable, session.workMode == .points
+                {
                     candidateBadge(candidates)
-                } else if session.carried != nil, editable {
+                } else if session.carried != nil, editable, session.workMode == .points {
                     carriedBadge
                 } else if let sphere = hover.sphere, editable {
                     hoverBadge(sphere)
@@ -420,6 +433,15 @@ struct LassoOverlay: View {
             }
         }
         guard editable else { return false }
+        if session.workMode == .features {
+            if case .stepFrame(let forward) = key.meaning(carrying: false) {
+                if (forward ? session.stepForward() : session.stepBackward()) != nil {
+                    NSSound.beep()
+                }
+                return true
+            }
+            return false
+        }
         switch key.meaning(carrying: session.carried != nil) {
         case .nudgeCarried(let right, let up, let coarse):
             let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep

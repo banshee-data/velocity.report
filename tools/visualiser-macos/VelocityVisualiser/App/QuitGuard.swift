@@ -28,6 +28,8 @@ import AppKit
             case nil: return nil
             case .unsavedPhysical:
                 return "the physical-reference draft of \(session.pack.directory.lastPathComponent)"
+            case .unsavedFeature:
+                return "a feature proposal in \(session.pack.directory.lastPathComponent)"
             case .unsavedMembership:
                 return "a frame's membership in \(session.pack.directory.lastPathComponent)"
             case .strokeInProgress, .propagating:

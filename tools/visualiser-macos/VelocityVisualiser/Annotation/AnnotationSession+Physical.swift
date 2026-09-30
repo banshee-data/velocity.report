@@ -122,6 +122,9 @@ extension AnnotationSession {
         switch workMode {
         case .points: guard save() else { return false }
         case .physical: if physical.isDirty { guard await physical.save() else { return false } }
+        case .features:
+            // Acceptance is explicit in the feature pane, never a generic save key.
+            return false
         // Read-only: nothing to save, and X only steps.
         case .compare: guard advance else { return false }
         }

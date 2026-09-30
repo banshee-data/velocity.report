@@ -110,7 +110,7 @@ struct IntensityInspectorSection: View {
                 .roundedBorder
             ).font(.caption.monospacedDigit()).frame(width: 44)
             Stepper(
-                "", value: Binding(get: { value }, set: set), in: 0...IntensityDisplaySpec.rawMax
+                "", value: Binding(get: { value }, set: set), in: 1...IntensityDisplaySpec.rawMax
             ).labelsHidden()
         }
     }
@@ -157,12 +157,20 @@ struct IntensityInspectorSection: View {
                     Text(String(format: "%.0f", tick.raw)).font(.system(size: 8).monospacedDigit())
                 }
             }
+            HStack(spacing: 4) {
+                Circle().fill(IntensityDisplaySpec.zeroColour.swiftUIColour).frame(
+                    width: 7, height: 7)
+                Text("0 measured")
+                Circle().fill(IntensityDisplaySpec.missingColour.swiftUIColour).frame(
+                    width: 7, height: 7)
+                Text("Unavailable")
+            }.font(.caption2)
             if !available {
                 Text("Unavailable: drawn in the missing-intensity colour").font(.caption2)
                     .foregroundStyle(.orange)
             } else if !spec.isDefaultRange {
                 Text(
-                    "Codes below \(spec.lower) or above \(spec.upper) are clamped to the end colours."
+                    "Nonzero codes below \(spec.lower) or above \(spec.upper) are clamped to the end colours."
                 ).font(.caption2).foregroundStyle(.secondary)
             }
         }

@@ -34,21 +34,23 @@ enum AnnotationGuard: Equatable {
     case unsavedMembership(sampleID: Int, objectID: String)
     /// The physical-reference draft differs from what is saved.
     case unsavedPhysical
+    case unsavedFeature
 }
 
-/// What a gesture in the orthographic views authors. The two never share a
-/// drag: a lasso stroke never moves a pose, and a placement click never
-/// selects a return.
+/// What a gesture in the orthographic views authors. Object membership,
+/// physical pose and feature proposals have separate actions and save paths.
 enum AnnotationWorkMode: String, CaseIterable, Equatable {
     case points
     case physical
+    case features
     /// Read-only: a report's reference and an estimate at one instant.
     case compare
 
     var label: String {
         switch self {
-        case .points: return "Points"
+        case .points: return "Object Points"
         case .physical: return "Physical"
+        case .features: return "Feature Candidates"
         case .compare: return "Compare"
         }
     }
@@ -86,6 +88,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             guard workMode != oldValue else { return }
             if workMode == .compare { exposeComparedObjects() }
+            if workMode == .features {
+                syncWithMainView = false
+                startFeatures()
+            }
             if workMode == .physical || workMode == .compare {
                 syncWithMainView = false
                 startPhysical()
@@ -108,6 +114,17 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private var physicalStarted = false
     private let physicalClient: PhysicalReferenceAPIClient
     private var physicalForward: AnyCancellable?
+
+    private(set) lazy var features = FeatureAuthoring(pack: pack, client: featureClient)
+    private let featureClient: FeatureAPIClient
+    private var featureForward: AnyCancellable?
+    private func startFeatures() {
+        guard featureForward == nil else { return }
+        featureForward = features.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+        Task { await features.load() }
+    }
 
     func startPhysicalIfNeeded() { startPhysical() }
 
@@ -571,10 +588,12 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     init(
         pack: AnnotationPack, store: SidecarStore? = nil,
         defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
-        physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient()
+        physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
+        featureClient: FeatureAPIClient = FeatureAPIClient()
     ) throws {
         self.pack = pack
         self.physicalClient = physicalClient
+        self.featureClient = featureClient
         self.defaults = defaults
         let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
         self.store = resolvedStore
@@ -905,15 +924,17 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             return .unsavedMembership(sampleID: sample.sampleID, objectID: objectID)
         }
         if physicalStarted, physical.isDirty { return .unsavedPhysical }
+        if featureForward != nil, features.isDirty || features.busy { return .unsavedFeature }
         return nil
     }
 
     /// Discards everything unsaved: the membership of this frame and the
-    /// physical draft. What the discard prompts do once the operator has
+    /// physical and feature drafts. What the discard prompts do once the operator has
     /// chosen to lose the work.
     func discardAllUnsaved() {
         reload()
         if physicalStarted { physical.discard() }
+        if featureForward != nil { features.cancel() }
     }
 
     /// Abandons the in-progress stroke, the explicit way past the guard.
