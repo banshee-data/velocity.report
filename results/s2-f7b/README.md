@@ -45,3 +45,15 @@ runs on the 21 screen sites, one site per invocation. If neither qualifies, no s
 - `<arm>/all/phase0-summary.json` and `<arm>/all/run.txt` (the last 200 lines of the run log).
 - `progress.md`: the tuning-pair table, regenerated after each arm.
 - `screen_<arm>/<case>/…` and `screen-progress.md`, if a screen arm runs.
+
+## E: the screen arm
+
+Steady p99 is `solid_body.anchor_solid_bodies_steady_runs.p99_m`, in metres.
+
+| Arm              | marina-webster-beach steady p99 | columbus-broadway steady p99 | columbus-broadway lapses | lapse ratio to track | mean steady p99 | qualifies |
+| ---------------- | ------------------------------- | ---------------------------- | ------------------------ | -------------------- | --------------- | --------- |
+| `track`          | 0.120                           | 0.260                        | 2091                     | 1.000                | 0.190           |           |
+| `track_t5`       | 0.109                           | 0.246                        | 2101                     | 1.005                | 0.178           | yes       |
+| `track_t5_tight` | 0.111                           | 0.246                        | 2087                     | 0.998                | 0.179           | yes       |
+
+Chosen: `track_t5`. It runs on the 21 screen sites as `screen_track_t5`.
