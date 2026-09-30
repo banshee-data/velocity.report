@@ -172,13 +172,18 @@ enum PhysicalHandles {
     }
 
     /// Where the length handle sits: the end of the body farthest from the
-    /// anchor along the axis, when a full-span length is known. A face anchor
-    /// on a side, or an axis without a front, has no such end to pull.
+    /// anchor along the axis, when a full-span length is known. The ends are
+    /// the derived ones (centre, yaw and length), not the evidenced bumpers:
+    /// a handle revises the belief, and needs no observation of the end it
+    /// pulls. A face anchor on a side, or an axis without a front, has no
+    /// such end.
     static func lengthHandlePoint(_ g: PhysicalGeometry) -> PhysicalPlanar? {
-        guard let yaw = g.yaw, yaw.axis == .resolved, g.length != nil else { return nil }
+        guard let yaw = g.yaw, yaw.axis == .resolved, g.length != nil, g.ends.count == 2 else {
+            return nil
+        }
         switch g.anchorKind {
-        case .bodyCentre, .rearFace: return g.front
-        case .frontFace: return g.rear
+        case .bodyCentre, .rearFace: return g.ends[0]
+        case .frontFace: return g.ends[1]
         case .leftFace, .rightFace: return nil
         }
     }
