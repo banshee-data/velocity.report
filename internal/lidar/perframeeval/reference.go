@@ -102,16 +102,8 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open pack: %w", err)
 	}
-	manifest, frozen, err := annotation.LoadAnySplit(opts.SplitManifestPath)
+	manifest, sidecar, frozen, err := bindSplit(pack, opts.SplitManifestPath)
 	if err != nil {
-		return nil, err
-	}
-	var sidecar *annotation.Sidecar
-	if frozen != nil {
-		if manifest, sidecar, err = frozen.Bind(pack); err != nil {
-			return nil, err
-		}
-	} else if sidecar, err = loadPinnedSidecar(pack, manifest); err != nil {
 		return nil, err
 	}
 	episodes, err := manifest.SelectEpisodes(opts.Split, opts.Episodes, !opts.AllowTuningSplit)
@@ -162,6 +154,30 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	}
 	ref.Identity.Digest = digest
 	return ref, nil
+}
+
+// bindSplit reads a split manifest of either version and binds it to the
+// pack and the annotation revision it pins. A frozen split is bound through
+// its own pins (FrozenSplit.Bind), and its per-pack view and pinned sidecar
+// are returned with it; a version 1 manifest is bound to the revision it
+// names, or the current one. Membership and physical scoring both come
+// through here, so they score one pack, one sidecar revision, one partition
+// and one set of episodes.
+func bindSplit(pack *annotation.Pack, path string) (*annotation.SplitManifest, *annotation.Sidecar, *annotation.FrozenSplit, error) {
+	manifest, frozen, err := annotation.LoadAnySplit(path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var sidecar *annotation.Sidecar
+	if frozen != nil {
+		manifest, sidecar, err = frozen.Bind(pack)
+	} else {
+		sidecar, err = loadPinnedSidecar(pack, manifest)
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return manifest, sidecar, frozen, nil
 }
 
 // loadPinnedSidecar loads the annotation revision a version 1 manifest pins,

@@ -101,3 +101,41 @@ func TestWritePhysicalRefusesAnUnwritableDirectory(t *testing.T) {
 		t.Fatal("the fixture wrote under a file")
 	}
 }
+
+// The physical fixture freezes: its one tuning partition passes the frozen
+// split's review checks, and the written split binds to the pack at the
+// revision it pins.
+func TestPhysicalFixtureFreezes(t *testing.T) {
+	dir := t.TempDir()
+	f, err := WritePhysical(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "frozen.json")
+	frozen, err := f.WriteFrozen(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := annotation.LoadFrozenSplit(path)
+	if err != nil || loaded.SplitDigest != frozen.SplitDigest {
+		t.Fatalf("frozen split reads back as %v, %v", loaded, err)
+	}
+	pack, err := annotation.OpenPack(f.PackDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, sidecar, err := loaded.Bind(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sidecar.Revision != 1 || len(view.Splits) != 1 || view.Splits[0].Name != PhysSplit || len(view.Episodes) != 1 {
+		t.Fatalf("bound view %+v at revision %d", view, sidecar.Revision)
+	}
+	if _, err := f.WriteFrozen(filepath.Join(dir, "missing", "frozen.json")); err == nil {
+		t.Fatal("a split written into a missing directory was not refused")
+	}
+	f.PackDir = filepath.Join(dir, "no-pack")
+	if _, err := f.WriteFrozen(path); err == nil {
+		t.Fatal("a draft of a missing pack froze")
+	}
+}
