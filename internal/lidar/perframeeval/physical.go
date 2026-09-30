@@ -93,6 +93,11 @@ const (
 	ReasonNoKeyframe               = "no_keyframe"
 	ReasonReferenceUnreviewed      = "reference_unreviewed"
 	ReasonReferenceTrackerAssisted = "reference_tracker_assisted"
+	// ReasonReferenceMembershipDrift: the keyframe was reviewed against a
+	// membership revision, and membership in a frame it rests on changed
+	// between that review and the revision scored. The review judged other
+	// returns; the record is not truth until reviewed again.
+	ReasonReferenceMembershipDrift = "reference_membership_drift"
 	ReasonNoReferencePosition      = "no_reference_position"
 	ReasonNoPredictionAtInstant    = "no_prediction_at_instant"
 	ReasonNoPredictionWithinGate   = "no_prediction_within_gate"
@@ -206,6 +211,12 @@ type PhysicalReference struct {
 	// no part in matching, so another split's references never change this
 	// one's outcomes.
 	otherSplits map[string]bool
+	// drifted are the reviewed records whose membership changed, in frames
+	// they rest on, between their review and the revision scored, by ledger
+	// key. They are shown and never scored.
+	drifted map[string]bool
+	// unpinnedReviews are reviewed records with no membership pin to check.
+	unpinnedReviews int
 }
 
 // LoadPhysicalReference opens the pack, its split manifest and annotation
@@ -260,8 +271,10 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 		return nil, err
 	}
 
-	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples, geometry: doc.Geometries(),
-		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{}}
+	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples,
+		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{},
+		drifted: doc.DriftedRecords(pack, sidecar), unpinnedReviews: doc.UnpinnedReviews()}
+	pr.geometry = driftedGeometries(doc, pr.drifted)
 	for _, sp := range manifest.Splits {
 		if sp.Name != split.Name {
 			for _, obj := range sp.ObjectIDs {
@@ -321,6 +334,46 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	sum := sha256.Sum256(b)
 	pr.Identity.Digest = "sha256:" + hex.EncodeToString(sum[:])
 	return pr, nil
+}
+
+// driftedGeometries derives every keyframe with a drifted body treated as
+// unreviewed: its dimensions, ends and box are unavailable, and say why. A
+// drifted keyframe keeps its geometry, for display, and referenceReason
+// keeps it out of the score.
+func driftedGeometries(doc *annotation.PhysicalReferenceSet, drifted map[string]bool) map[string]map[int]annotation.PhysicalGeometry {
+	if len(drifted) == 0 {
+		return doc.Geometries()
+	}
+	view := *doc
+	view.Objects = append([]annotation.PhysicalObject(nil), doc.Objects...)
+	demoted := map[string]bool{}
+	for i, o := range view.Objects {
+		if o.Body != nil && drifted["body/"+o.Body.BodyID] {
+			b := *o.Body
+			b.Review.Status = annotation.StatusProposed
+			view.Objects[i].Body = &b
+			demoted[o.ObjectID] = true
+		}
+	}
+	out := view.Geometries()
+	for obj, byFrame := range out {
+		for s, g := range byFrame {
+			if demoted[obj] {
+				for _, reason := range []*string{&g.LengthUnavailable, &g.WidthUnavailable, &g.HeightUnavailable} {
+					if *reason == annotation.UnavailableBodyUnreviewed {
+						*reason = annotation.UnavailableBodyMembershipDrift
+					}
+				}
+			}
+			// Truth is what may be matched and compared. A drifted keyframe
+			// is shown, and referenceReason names why it is not scored.
+			if drifted["keyframe/"+g.KeyframeID] {
+				g.Truth = false
+			}
+			out[obj][s] = g
+		}
+	}
+	return out
 }
 
 // expectedFollowings is one expected item per follower and sample of an

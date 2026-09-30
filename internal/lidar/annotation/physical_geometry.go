@@ -19,6 +19,9 @@ const (
 	UnavailableNoBody              = "no_body"
 	UnavailableBodyUnreviewed      = "body_unreviewed"
 	UnavailableBodyTrackerAssisted = "body_tracker_assisted"
+	// UnavailableBodyMembershipDrift: the body was reviewed, but membership
+	// in a frame it rests on changed after that review.
+	UnavailableBodyMembershipDrift = "body_membership_drift"
 	UnavailableAxisUnknown         = "axis_unknown"
 	UnavailableAxisAmbiguous       = "axis_ambiguous"
 	UnavailableAnchorOffsetUnknown = "anchor_offset_unknown"

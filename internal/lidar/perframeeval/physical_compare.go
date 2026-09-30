@@ -293,6 +293,20 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 	}
 	res.Summary = summarisePhysical(res)
 	res.Caveats = physicalCaveats(res)
+	if n := len(s.pr.drifted); n > 0 {
+		keys := make([]string, 0, n)
+		for k := range s.pr.drifted {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		res.Caveats = append(res.Caveats, fmt.Sprintf("%d reviewed record(s) were reviewed against other membership than revision %d "+
+			"scores, in frames they rest on, and are not scored: %s. Review them again against the scored revision.",
+			n, res.Reference.SidecarRevision, strings.Join(keys, ", ")))
+	}
+	if s.pr.unpinnedReviews > 0 {
+		res.Caveats = append(res.Caveats, fmt.Sprintf("%d reviewed record(s) carry no membership pin (reviewed before pins were "+
+			"recorded, or imported): a membership change since their review cannot be detected.", s.pr.unpinnedReviews))
+	}
 	return res, nil
 }
 
@@ -313,10 +327,12 @@ func (s *physicalScorer) match(sample int) sampleMatches {
 }
 
 // referenceReason is why a keyframe cannot be truth, or empty.
-func referenceReason(g annotation.PhysicalGeometry, keyed bool) string {
+func referenceReason(g annotation.PhysicalGeometry, keyed bool, drifted map[string]bool) string {
 	switch {
 	case !keyed:
 		return ReasonNoKeyframe
+	case drifted["keyframe/"+g.KeyframeID]:
+		return ReasonReferenceMembershipDrift
 	case g.Origin != annotation.OriginIndependent:
 		return ReasonReferenceTrackerAssisted
 	case g.ReviewStatus != annotation.StatusReviewed:
@@ -337,7 +353,7 @@ func (s *physicalScorer) instant(e expectedInstant) PhysicalInstant {
 		// proposals too, and the outcomes say they were not scored.
 		in.Reference = &g
 	}
-	if reason := referenceReason(g, keyed); reason != "" {
+	if reason := referenceReason(g, keyed, s.pr.drifted); reason != "" {
 		for _, c := range PhysicalComponents() {
 			in.Outcomes[c] = Outcome{Category: OutcomeUnknownGeometry, Reason: reason}
 		}
