@@ -577,8 +577,8 @@ F6s, running on the Mac, screens `near_edge_track` against the control on the 21
   velocity, the face and the loose term in turn are exactly the joint two-dimensional update.
 - **kirk0.** On the shadow with T1 and T3, one capture, T5 leaves the tracks, the point estimates
   and the face-stable runs exactly as they were, and moves the body-centre residual both ways: p95
-  from 0.093 to 0.065 m and the maximum from 0.708 to 0.565 m, but p99 from 0.404 to 0.418 m. One
-  capture's p99 rests on a few dozen windows, so the tuning partition decides.
+  from 0.093 to 0.065 m and the maximum from 0.708 to 0.565 m, but p99 from 0.404 to 0.418 m. A
+  p99 over one capture rests on its few largest windows, so the tuning partition decides.
 
 An earlier build of T5 also acted at side-face fixes and beside found side faces. The review of #649
 found both unsound, for the reasons above, and F7 as first started in `s2-f7` ran that build; it is
@@ -690,6 +690,19 @@ A2 keeps identity is gate 3's question, on the held-out case.
 ### S2.3: the A1 ablation arm
 
 A1 behind a second experiment, run once on the tuning partition to show what A2 buys.
+
+#### What S2.3 built
+
+`TrackerConfig.NearEdgeMedoidGate`, reached by `near_edge_track_a1`, which qualifies
+`near_edge_track` and is refused without it. Under it a body-centre tracked track is gated on the
+cluster medoid against its predicted centre with the tracked R, as a medoid-referenced track is,
+and the pair's faces are not measured for the gate. Everything after association is S2a's: the
+same state machine, fixes, translations and lapses. The estimate rows of a faceless frame or a
+lapse keep A2's distance as their NIS, so the two arms' rows compare like with like. Unit tests
+cover the gate against the medoid distance and a synthetic pass that still fixes on the body
+centre. It runs once on the tuning partition beside S2a, with T1 and T3:
+`$BASE,near_edge_track,near_edge_track_a1` against `$BASE,near_edge_track`, compared on confirmed
+tracks, births per confirmation, lapses and the lateral residual.
 
 ### S2.4: persistence, refined stages and oracle
 
@@ -841,7 +854,8 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
-- [ ] S2.3 A1 ablation on the tuning partition
+- [x] S2.3 A1 ablation arm (`near_edge_track_a1`), default-off
+- [ ] S2.3 A1 ablation on the tuning partition, on the Mac
 - [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
       the adapter reads them
 - [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`

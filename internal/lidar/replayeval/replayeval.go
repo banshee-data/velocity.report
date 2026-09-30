@@ -1200,6 +1200,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
+		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
@@ -1253,6 +1254,10 @@ func stateObservationModelFor(experiments []string, mode l5tracks.MeasurementSou
 // yet end a chain at a reference change.
 func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource) error {
 	if !hasExperiment(experiments, ExperimentNearEdgeTrack) {
+		if hasExperiment(experiments, ExperimentNearEdgeTrackA1) {
+			return fmt.Errorf("replay experiment %s is an ablation of %s and is refused without it",
+				ExperimentNearEdgeTrackA1, ExperimentNearEdgeTrack)
+		}
 		return nil
 	}
 	for _, needed := range []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers} {

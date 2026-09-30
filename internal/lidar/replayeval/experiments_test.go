@@ -72,7 +72,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
-		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNoRegionOverrides,
+		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
+		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation}
@@ -256,6 +257,15 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementMedoidV0, arm, nil); err != nil {
 		t.Errorf("near_edge_track refused the medoid position model: %v", err)
+	}
+	// A1 qualifies near_edge_track: it reaches its own option and nothing
+	// else, and is refused alone.
+	want.NearEdgeMedoidGate = true
+	if got, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackA1}, arm...), nil); err != nil || got != want {
+		t.Errorf("near_edge_track_a1 (%v):\n got %+v\nwant %+v", err, got, want)
+	}
+	if _, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackA1}, arm[:2]...), nil); err == nil {
+		t.Error("near_edge_track_a1 was accepted without near_edge_track")
 	}
 }
 
