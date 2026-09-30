@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -176,6 +177,9 @@ func ReviewPhysicalRecord(p *Pack, req PhysicalReviewRequest) (*PhysicalEditOutc
 	}
 	next := *current
 	next.Objects = clonePhysicalObjects(current.Objects)
+	// The membership pin is checked again under the lock at commit, so the
+	// revision recorded here is the one the reviewer saw.
+	pin := &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest}
 	found := false
 	for i := range next.Objects {
 		o := &next.Objects[i]
@@ -186,12 +190,14 @@ func ReviewPhysicalRecord(p *Pack, req PhysicalReviewRequest) (*PhysicalEditOutc
 		case PhysicalRecordBody:
 			if o.Body != nil && o.Body.BodyID == req.RecordID {
 				o.Body.Review.Status = StatusReviewed
+				o.Body.Review.ReviewedAgainst = pin
 				found = true
 			}
 		case PhysicalRecordKeyframe:
 			for k := range o.Keyframes {
 				if o.Keyframes[k].KeyframeID == req.RecordID {
 					o.Keyframes[k].Review.Status = StatusReviewed
+					o.Keyframes[k].Review.ReviewedAgainst = pin
 					found = true
 				}
 			}
@@ -313,6 +319,7 @@ func applyPhysicalEdit(current *PhysicalReferenceSet, e PhysicalEdit) (*Physical
 // demote returns a record's review to proposed and reports it when it had
 // been, or claimed to be, reviewed.
 func demote(r *PhysicalReview, key string, reset map[string]bool, report bool) {
+	r.ReviewedAgainst = nil
 	if r.Status == StatusRejected {
 		return
 	}
@@ -340,4 +347,192 @@ func newPhysicalID(prefix string) string {
 	var b [6]byte
 	_, _ = rand.Read(b[:])
 	return prefix + "_" + hex.EncodeToString(b[:])
+}
+
+// PhysicalRestoreRequest names a retained revision to make current again.
+type PhysicalRestoreRequest struct {
+	BaseRevision     int
+	BaseDigest       string
+	MembershipDigest string
+	Revision         int
+	Author, Session  string
+}
+
+// RestorePhysicalRevision makes a retained revision current, as a new
+// revision on top of the head: the old revision is never overwritten, the
+// origin ledger carries forward, and the links are checked against the
+// membership the operator is looking at. Restored reviews keep their status
+// and the membership they were reviewed against, so ReviewDrift reports any
+// that membership has since moved away from.
+func RestorePhysicalRevision(p *Pack, req PhysicalRestoreRequest) (*PhysicalEditOutcome, error) {
+	if strings.TrimSpace(req.Author) == "" {
+		return nil, fmt.Errorf("%w: a restore names its author", ErrPhysicalInvalid)
+	}
+	current, sidecar, err := loadPhysicalForEdit(p)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkEditBase(current, sidecar, req.BaseRevision, req.BaseDigest, req.MembershipDigest); err != nil {
+		return nil, err
+	}
+	old, err := LoadPhysicalReferenceRevision(p, req.Revision)
+	if err != nil {
+		return nil, err
+	}
+	old.Revision, old.baseDigest = current.Revision, current.baseDigest
+	old.Change = Provenance{Author: req.Author, Session: req.Session, Operation: "restore"}
+	if err := savePhysicalPinned(p, old, req.Revision, &req.MembershipDigest); err != nil {
+		return nil, err
+	}
+	return &PhysicalEditOutcome{Document: old, ResetReviews: []string{}, RenamedBodies: map[string]string{},
+		LinkProblems: []LinkProblem{}, Membership: sidecar}, nil
+}
+
+// PhysicalRevisionSummary is one retained revision, for a history list.
+type PhysicalRevisionSummary struct {
+	Revision      int        `json:"revision"`
+	UpdatedUTC    string     `json:"updated_utc"`
+	Change        Provenance `json:"change"`
+	RestoredFrom  int        `json:"restored_from,omitempty"`
+	Digest        string     `json:"digest"`
+	ContentDigest string     `json:"content_digest"`
+	Head          bool       `json:"head"`
+	Objects       int        `json:"objects"`
+	Keyframes     int        `json:"keyframes"`
+	Reviewed      int        `json:"reviewed"`
+}
+
+// PhysicalReferenceHistory lists every retained revision and the head,
+// newest first. A retained revision that no longer reads is an error, not a
+// gap in the list.
+func PhysicalReferenceHistory(p *Pack) ([]PhysicalRevisionSummary, error) {
+	head, err := LoadPhysicalReferences(p)
+	if err != nil {
+		return nil, err
+	}
+	if head.Digest() == "" {
+		return []PhysicalRevisionSummary{}, nil
+	}
+	out := []PhysicalRevisionSummary{}
+	for rev := head.Revision; rev >= 1; rev-- {
+		doc := head
+		if rev != head.Revision {
+			if doc, err = LoadPhysicalReferenceRevision(p, rev); err != nil {
+				return nil, fmt.Errorf("revision %d: %w", rev, err)
+			}
+		}
+		// Every revision read here passed validation, which refuses the
+		// non-finite values that are all that could fail to encode.
+		content, _ := doc.ContentDigest()
+		s := PhysicalRevisionSummary{Revision: doc.Revision, UpdatedUTC: doc.UpdatedUTC, Change: doc.Change,
+			RestoredFrom: doc.RestoredFrom, Digest: doc.Digest(), ContentDigest: content, Head: rev == head.Revision,
+			Objects: len(doc.Objects)}
+		for _, o := range doc.Objects {
+			if o.Body != nil && o.Body.Review.Status == StatusReviewed {
+				s.Reviewed++
+			}
+			for _, k := range o.Keyframes {
+				s.Keyframes++
+				if k.Review.Status == StatusReviewed {
+					s.Reviewed++
+				}
+			}
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// ReviewDrift lists the reviewed records whose membership has changed since
+// their review, in the frames the record rests on: its own sample for a
+// keyframe, and every frame any of its components cites. Links can all still
+// hold while the returns a person judged are different; such a record needs
+// reviewing again. A record reviewed against a membership revision that is
+// no longer retained is listed too, since nothing can show it unchanged.
+func (r *PhysicalReferenceSet) ReviewDrift(p *Pack, current *Sidecar) []LinkProblem {
+	cache := map[int]*Sidecar{current.Revision: current}
+	membership := func(rev int) *Sidecar {
+		if s, ok := cache[rev]; ok {
+			return s
+		}
+		s, err := LoadSidecarRevision(p, rev)
+		if err != nil {
+			s = nil
+		}
+		cache[rev] = s
+		return s
+	}
+	var out []LinkProblem
+	check := func(record, object string, review PhysicalReview, frames []int) {
+		pin := review.ReviewedAgainst
+		if review.Status != StatusReviewed || pin == nil || pin.Digest == current.baseDigest {
+			return
+		}
+		then := membership(pin.Revision)
+		if then == nil || then.baseDigest != pin.Digest {
+			out = append(out, LinkProblem{Record: record, Problem: fmt.Sprintf(
+				"reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision)})
+			return
+		}
+		for _, f := range frames {
+			if !sameMask(then.mask(object, f), current.mask(object, f)) {
+				out = append(out, LinkProblem{Record: record, Problem: fmt.Sprintf(
+					"membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision)})
+				return
+			}
+		}
+	}
+	for _, o := range r.Objects {
+		if o.Body != nil {
+			b := o.Body
+			check(fmt.Sprintf("object %q body %q", o.ObjectID, b.BodyID), o.ObjectID, b.Review,
+				supportFrames(b.Length.Support, b.Width.Support, b.Height.Support))
+		}
+		for _, k := range o.Keyframes {
+			frames := supportFrames(k.Position.Support, k.Yaw.Support, k.Front.Support, k.Rear.Support)
+			frames = append(frames, k.SampleID)
+			check(fmt.Sprintf("object %q keyframe %q", o.ObjectID, k.KeyframeID), o.ObjectID, k.Review, frames)
+		}
+	}
+	return out
+}
+
+func supportFrames(s ...EvidenceSupport) []int {
+	seen := map[int]bool{}
+	var out []int
+	for _, e := range s {
+		for _, f := range e.Frames {
+			if !seen[f] {
+				seen[f] = true
+				out = append(out, f)
+			}
+		}
+	}
+	sort.Ints(out)
+	return out
+}
+
+// mask is an object's mask at a sample, or nil.
+func (s *Sidecar) mask(object string, sample int) *FrameMask {
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == object && s.Masks[i].SampleID == sample {
+			return &s.Masks[i]
+		}
+	}
+	return nil
+}
+
+// sameMask compares what a review could have relied on: the member and
+// uncertain returns and the mask's status.
+func sameMask(a, b *FrameMask) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	sa, sb := append([]int(nil), a.PointIndices...), append([]int(nil), b.PointIndices...)
+	ua, ub := append([]int(nil), a.UncertainIndices...), append([]int(nil), b.UncertainIndices...)
+	sort.Ints(sa)
+	sort.Ints(sb)
+	sort.Ints(ua)
+	sort.Ints(ub)
+	return a.Status == b.Status && reflect.DeepEqual(sa, sb) && reflect.DeepEqual(ua, ub)
 }

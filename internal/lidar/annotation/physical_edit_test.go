@@ -392,3 +392,197 @@ func writeFile(t *testing.T, path string, b []byte) {
 		t.Fatal(err)
 	}
 }
+
+// A review records the membership it was looking at; an edit clears it; a
+// later membership change in a frame the record rests on is reported as
+// drift until the record is reviewed again.
+func TestPhysicalReviewPinsMembershipAndReportsDrift(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	if _, err := SavePhysicalEdit(p, editFrom(t, p, car1Only(p))); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []struct {
+		kind PhysicalRecordKind
+		id   string
+	}{{PhysicalRecordBody, "body-car-1"}, {PhysicalRecordKeyframe, "kf-car-1-s0"}, {PhysicalRecordKeyframe, "kf-car-1-s3"}} {
+		if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, r.kind, "car-1", r.id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cur, _ := LoadPhysicalReferences(p)
+	kf, _ := cur.Keyframe("car-1", 0)
+	if kf.Review.ReviewedAgainst == nil || kf.Review.ReviewedAgainst.Revision != s.Revision || kf.Review.ReviewedAgainst.Digest != s.Digest() {
+		t.Fatalf("review did not pin membership: %+v", kf.Review.ReviewedAgainst)
+	}
+	if d := cur.ReviewDrift(p, s); len(d) != 0 {
+		t.Fatalf("drift with unchanged membership: %v", d)
+	}
+
+	// A change in a frame nothing cites: no drift.
+	s.Masks[len(s.Masks)-2].PointIndices = []int{0, 1, 2, 3, 4, 5, 6} // car-1 at sample 5
+	s.Change = Provenance{Author: "op", Operation: "label"}
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	if d := cur.ReviewDrift(p, s); len(d) != 0 {
+		t.Fatalf("drift from an uncited frame: %v", d)
+	}
+	// A change at sample 3, which keyframe s3 rests on and nothing else does.
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 3 {
+			s.Masks[i].UncertainIndices = []int{7}
+			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		}
+	}
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	drift := cur.ReviewDrift(p, s)
+	if len(drift) != 1 || !strings.Contains(drift[0].Record, "kf-car-1-s3") || !strings.Contains(drift[0].Problem, "sample 3") {
+		t.Fatalf("drift %v", drift)
+	}
+	// A mask removed from a cited frame is a change too.
+	removed := *s
+	removed.Masks = nil
+	for _, m := range s.Masks {
+		if !(m.ObjectID == "car-1" && m.SampleID == 1) {
+			removed.Masks = append(removed.Masks, m)
+		}
+	}
+	if d := cur.ReviewDrift(p, &removed); len(d) != 2 {
+		t.Fatalf("drift after a cited mask was removed: %v", d)
+	}
+	// Reviewing again against the current membership clears it.
+	out, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := out.Document.ReviewDrift(p, s); len(d) != 0 {
+		t.Fatalf("drift after re-review: %v", d)
+	}
+	// Membership history lost: nothing can show the review still holds.
+	if err := os.RemoveAll(filepath.Join(p.Dir, revisionDir)); err != nil {
+		t.Fatal(err)
+	}
+	s.Masks[0].PointIndices = []int{0, 1, 2, 3, 4, 5, 6, 7}
+	if d := out.Document.ReviewDrift(p, s); len(d) != 2 || !strings.Contains(d[0].Problem, "no longer retained") {
+		t.Fatalf("lost history drift %v", d)
+	}
+
+	// An edit clears the pin with the review.
+	edited := clonePhysicalObjects(out.Document.Objects)
+	edited[0].Keyframes[0].Position.BoundM = fp(0.4)
+	e := editFrom(t, p, edited)
+	saved, err := SavePhysicalEdit(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k, _ := saved.Document.Keyframe("car-1", 0); k.Review.ReviewedAgainst != nil || k.Review.Status != StatusProposed {
+		t.Fatalf("an edited record kept its review pin: %+v", k.Review)
+	}
+}
+
+func TestPhysicalReviewPinIsOnlyOnReviewedRecords(t *testing.T) {
+	p := physPack(t)
+	r := validPhysical(p)
+	r.Objects[0].Keyframes[2].Review.ReviewedAgainst = &MembershipPin{Revision: 1, Digest: "sha256:x"}
+	if err := r.Validate(p); err == nil || !strings.Contains(err.Error(), "cannot carry") {
+		t.Fatalf("a proposal carried a review pin: %v", err)
+	}
+	r = validPhysical(p)
+	r.Objects[0].Keyframes[0].Review.ReviewedAgainst = &MembershipPin{Revision: 0}
+	if err := r.Validate(p); err == nil || !strings.Contains(err.Error(), "revision 0") {
+		t.Fatalf("a pin to revision 0: %v", err)
+	}
+}
+
+// History lists every revision newest first; restore makes an old one
+// current as a new revision, and refuses a stale base or a missing author.
+func TestPhysicalHistoryAndRestore(t *testing.T) {
+	p := physPack(t)
+	physSidecar(t, p)
+	if h, err := PhysicalReferenceHistory(p); err != nil || len(h) != 0 {
+		t.Fatalf("history of an untouched pack: %v %v", h, err)
+	}
+	first, err := SavePhysicalEdit(p, editFrom(t, p, car1Only(p)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstContent, _ := first.Document.ContentDigest()
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordBody, "car-1", "body-car-1")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SavePhysicalEdit(p, editFrom(t, p, []PhysicalObject{})); err != nil {
+		t.Fatal(err)
+	}
+	h, err := PhysicalReferenceHistory(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(h) != 4 || h[0].Revision != 4 || !h[0].Head || h[3].Head || h[1].Reviewed != 2 || h[3].Keyframes != 2 || h[1].Change.Operation != "review_keyframe" {
+		t.Fatalf("history %+v", h)
+	}
+
+	req := func() PhysicalRestoreRequest {
+		e := editFrom(t, p, nil)
+		return PhysicalRestoreRequest{BaseRevision: e.BaseRevision, BaseDigest: e.BaseDigest,
+			MembershipDigest: e.MembershipDigest, Revision: 1, Author: "op", Session: "s"}
+	}
+	stale := req()
+	restored, err := RestorePhysicalRevision(p, req())
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, _ := restored.Document.ContentDigest()
+	if restored.Document.Revision != 5 || restored.Document.RestoredFrom != 1 || content != firstContent || restored.Document.Change.Operation != "restore" {
+		t.Fatalf("restore: revision %d from %d, same content %v", restored.Document.Revision, restored.Document.RestoredFrom, content == firstContent)
+	}
+	if _, err := RestorePhysicalRevision(p, stale); !errors.Is(err, ErrSidecarConflict) {
+		t.Fatalf("restore from a stale base: %v", err)
+	}
+	anonymous := req()
+	anonymous.Author = ""
+	if _, err := RestorePhysicalRevision(p, anonymous); !errors.Is(err, ErrPhysicalInvalid) {
+		t.Fatalf("anonymous restore: %v", err)
+	}
+	missing := req()
+	missing.Revision = 99
+	if _, err := RestorePhysicalRevision(p, missing); err == nil {
+		t.Fatal("restored a revision that never existed")
+	}
+	membership := req()
+	membership.MembershipDigest = "sha256:elsewhere"
+	if _, err := RestorePhysicalRevision(p, membership); !errors.Is(err, ErrMembershipChanged) {
+		t.Fatalf("restore against stale membership: %v", err)
+	}
+	// A restored revision is held to today's membership: one that cites a
+	// rejected object is refused.
+	s, err := LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Objects[0].Status = StatusRejected
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RestorePhysicalRevision(p, req()); !errors.Is(err, ErrPhysicalInvalid) {
+		t.Fatalf("restore of references to a rejected object: %v", err)
+	}
+
+	// A damaged retained revision fails the history rather than hiding.
+	writeFile(t, filepath.Join(p.Dir, physicalRevisionName(2)), []byte("{"))
+	if _, err := PhysicalReferenceHistory(p); err == nil {
+		t.Fatal("history skipped a damaged revision")
+	}
+	writeFile(t, filepath.Join(p.Dir, physicalReferenceFile), []byte("{"))
+	if _, err := PhysicalReferenceHistory(p); err == nil {
+		t.Fatal("history read past a damaged head")
+	}
+	if _, err := RestorePhysicalRevision(p, stale); err == nil {
+		t.Fatal("restore over a damaged head")
+	}
+}
