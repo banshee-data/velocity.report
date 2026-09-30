@@ -25,6 +25,11 @@ correspondence nor calibrated pose uncertainty.
 
 [visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
 
+The proposed [facet registration experiment](lidar-facet-registration-experiment-plan.md) tests
+whether persistent local surfaces improve physical endpoints and following measurements beyond
+the near-edge tracker and ordinary point registration. Its offline decision can run alongside
+0.5.2; conditional integration shares this plan's v0.5.6 evidence and descriptor foundations.
+
 ## Motivation
 
 The immediate consumer is a temporal body model: use partial surfaces to constrain position,
