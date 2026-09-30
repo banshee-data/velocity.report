@@ -115,6 +115,17 @@ type SolidBodyOptions struct {
 	// always done; NearEdgeTracking always translates, because there the
 	// velocity the innovation would move is the tracked one. Default false.
 	ReferenceTranslation bool
+	// RankOneMedoidScale is remedy T5: at a rank-one fix, the direction the
+	// fixing face does not constrain (its tangent) is also updated from the
+	// cluster medoid projected onto it, with the tracked noise R plus this
+	// scale times the square of the believed half-extent that way. At scale
+	// one that is A2's loose term, used by the update as well as the gate.
+	// Without it the tangent rides on the prediction until a second face
+	// arrives and corrects it in one step, which is the lateral-face entry
+	// tail F5 and F6 measured. It is the declared exception to the plan's
+	// invariant 2 (a rank-one frame moves nothing across its normal). Zero,
+	// the default, leaves the tangent to the prediction.
+	RankOneMedoidScale float32
 }
 
 // ReferenceChange names a change of the point a solid body's position refers
@@ -649,6 +660,14 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			break
 		}
 		applied = applicationOf(sb.state, startState, usable)
+		if loose, ok := t.rankOneMedoidTerm(usable, f, cluster); ok {
+			// The faces' NIS stays the fix's, with its rank: the loose term
+			// is weak evidence about the direction no face measured, not a
+			// face, and the per-rank NIS check is about the faces' R.
+			if _, ok := scalarPositionUpdate(&state, &p, loose.hx, loose.hy, loose.z, loose.variance); ok {
+				applied.addLooseTerm(loose)
+			}
+		}
 		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
 		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
@@ -699,6 +718,44 @@ func applicationOf(before, start [4]float32, faces []EdgeMeasurement) nearEdgeAp
 		a.measuredY += float32(along * float64(e.NormalY))
 	}
 	return a
+}
+
+// looseMedoidTerm is one scalar measurement of the body centre along a
+// direction no face constrained: the medoid's projection z onto the unit
+// direction (hx, hy), with its variance.
+type looseMedoidTerm struct{ hx, hy, z, variance float64 }
+
+// rankOneMedoidTerm is remedy T5's measurement for a fix by one face (see
+// SolidBodyOptions.RankOneMedoidScale): along the face's tangent, the medoid,
+// with R plus the scaled square of the believed half-extent that way, because
+// the medoid can sit anywhere from the centre to the near surface along it.
+// A front or rear face leaves the width direction open, a side face the
+// length. It is false with the option off or for any other rank.
+func (t *Tracker) rankOneMedoidTerm(faces []EdgeMeasurement, f nearEdgeFrame, cluster WorldCluster) (looseMedoidTerm, bool) {
+	scale := float64(t.Config.SolidBody.RankOneMedoidScale)
+	if !(scale > 0) || len(faces) != 1 {
+		return looseMedoidTerm{}, false
+	}
+	e := faces[0]
+	hx, hy := -float64(e.NormalY), float64(e.NormalX)
+	half := float64(f.length.Metres) / 2
+	if e.Face.IsLongitudinal() {
+		half = float64(f.width.Metres) / 2
+	}
+	return looseMedoidTerm{
+		hx: hx, hy: hy,
+		z:        hx*float64(cluster.CentroidX) + hy*float64(cluster.CentroidY),
+		variance: float64(t.Config.MeasurementNoise) + scale*half*half,
+	}, true
+}
+
+// addLooseTerm records a loose term in a fix's application: the measurement
+// moves from the start to the medoid along the term's direction, so the
+// recorded innovation that way is the medoid's residual.
+func (a *nearEdgeApplication) addLooseTerm(l looseMedoidTerm) {
+	along := l.z - (l.hx*float64(a.startX) + l.hy*float64(a.startY))
+	a.measuredX += float32(along * l.hx)
+	a.measuredY += float32(along * l.hy)
 }
 
 // translatesReference says whether a re-reference is a translation before it

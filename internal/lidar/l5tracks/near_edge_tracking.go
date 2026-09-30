@@ -16,7 +16,9 @@ package l5tracks
 // face constrains, with the noise loosened by the believed half-extent that way
 // (A2). That is always two degrees of freedom, so the chi-square gate and
 // GatingDistanceSquared are unchanged. The loose term is association evidence
-// only; the update never uses it (invariant 2). A medoid-referenced track, in
+// only, and the update never uses it (invariant 2), unless remedy T5
+// (SolidBodyOptions.RankOneMedoidScale) is on: then a rank-one fix takes the
+// same term along the face's tangent. A medoid-referenced track, in
 // its initialisation window or after a lapse, is gated on the medoid as today.
 // The pair's measurement is kept and reused by the update, so each associated
 // cluster is measured once.
