@@ -454,6 +454,55 @@ window, as unsaved membership does. Undo and redo apply to the draft only. After
 them. If a save gets no answer, the window will not save again until it has reloaded, because the
 first save may have committed.
 
+More in the Physical column:
+
+- **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
+  and the dot at the end of the axis to turn it with the position held. A drag is one undo step.
+- **Copy keyframe from sample N** starts this frame's keyframe from the nearest one. The copy is
+  a proposal: whatever the source observed becomes inferred from the source's frames, and its
+  origin stays the source's. Check it against this frame's returns before claiming anything
+  observed.
+- **Shared errors** name one observation several components rest on, such as one rear-face fit
+  that placed the anchor and bounded the length.
+- **Stale records** after a membership change (a rejected object, a removed mask) can be removed,
+  or moved to another object after a merge. Moving refuses when the target already has a body or
+  a keyframe at the same sample.
+- **History** lists every saved revision. **Restore** makes an old one current as a new revision;
+  the current one stays in history.
+
+A review records the membership revision it was made against. If membership later changes in a
+frame the record rests on (its own frame, or any frame it cites), the column lists it under
+**Reviewed, but membership changed since**, and it can be reviewed again. The link checks alone
+would miss this, because every link can still hold while the points a person judged are
+different.
+
+Membership saves refuse to make one return belong to two objects in a frame, because Go's tools,
+the physical service included, refuse a pack where one does. A pack that already has such returns
+lists them at the top of the object column, with a button to go to each frame, and can still be
+saved so they can be repaired.
+
+### Comparing with an estimate
+
+**Compare** mode opens a per-frame evaluation report run with `-physical-reference` (see
+[per-frame evaluation](per-frame-evaluation.md#physical-references)) and shows, at each frame, the
+reference the report scored beside the chosen arm's estimate. The window writes nothing while in
+this mode.
+
+- The report must be for this pack. The column shows its split, the membership revision and the
+  reference revision it scored, and whether that revision is still kept with the same bytes. If
+  the references have moved on since, the report is still shown as it was scored. It is never
+  mixed with the current references; run a new evaluation to compare those.
+- For each object at this frame it shows the matched track, the centre, yaw, dimension and end
+  errors against the reference bounds, and why any component was not scored. It also compares
+  the reference's movement since the previous frame with the estimate's, so a real turn is not
+  read as jitter. A medoid or visible-return centre is labelled as that, never as a body centre.
+- **Seeing is recorded.** Once an estimate for an object has been shown, any later edit of that
+  object's reference is saved as tracker-assisted, naming the estimate, in any mode. A record
+  saved as independent is not relabelled. The edit becomes a new record, and the independent one
+  stays in history. This is kept per pack across launches, and cannot be cleared from the window.
+- A pack whose `segment.json` role is `held_out`, or a report of a held-out split, is not
+  compared.
+
 ### Importing and validating
 
 An independent reference measured elsewhere comes in through an import file,
@@ -542,6 +591,12 @@ and marks nothing unsaved.
   contrast and brightness only change how returns are drawn. A code outside the range is drawn in
   the end colour, and the column counts how many were clamped in this frame. Off restores the
   class colours, without the intensity brightening the main view uses.
+- **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved
+  mask at this frame (definite members; uncertain points are counted as excluded), or of the
+  unsaved selection. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
+  with a centre and width (the mean and spread of the raw codes in it), a support count and a
+  fraction of all measured returns. A peak is not a surface or a material, and changing the colour
+  range does not change it.
 - **Inspect returns** reads out the return under the cursor: its stored byte, point index, sample
   and position. **M** pins it; **N** steps to the next return under the same place. The readout
   is the stored byte, whatever the colour settings.
@@ -606,10 +661,6 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
-- Physical authoring has no drag handles, history browser or restore control yet. Shared-error
-  notes, following references and tracker-assisted copies can be read and kept, but not
-  authored, in the window. There is no comparison view: reports from the per-frame evaluator are
-  not yet read in the window.
-- The server pins a physical edit to the exact membership revision the operator was looking at.
-  The saved record does not yet store which membership revision a review relied on.
-- Quitting the app is not guarded; closing the annotation window is.
+- Following references are read and kept, but not authored, in the window. Drag handles move and
+  turn a keyframe; length is set numerically.
+- Compare opens a saved report; it does not start an evaluation.

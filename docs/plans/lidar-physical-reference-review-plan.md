@@ -4,7 +4,7 @@ This plan adds the reference authoring and scoring that the tailgating sprint ne
 physical body estimate. Point masks establish which returns belong to a car; a separate reference
 must establish what is known about the car's pose, dimensions, and physical endpoints.
 
-- **Status:** In progress; P0 storage and import and P2 Go scoring delivered; P1 macOS authoring built (awaiting the operator pilot); the inspector layer not yet
+- **Status:** In progress; P0 storage and import and P2 Go scoring delivered; P1 macOS authoring and the Compare inspector built (awaiting the operator pilot)
 - **Target:** v0.5.2, Sprint 0.5.2.0; S0 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Layers:** L5 Tracks, L8 Analytics, L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
@@ -136,6 +136,6 @@ qualification remain separately tracked under the persistence and deployment pla
 
 - [x] P0: versioned physical-reference contract, independent import, and revision-safe round trip
 - [ ] P1: macOS pose/extent authoring with component bounds, ambiguity, and separate review (built on `dd/lidar/physical-pose-ui-929`: numeric and click authoring, separate body and keyframe review, and raw intensity inspection, all through one Go writer; not yet exercised by the operator pilot)
-- [x] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting (Go; the macOS inspector layer that reads its per-instant record is not built)
+- [x] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting (Go; the macOS Compare mode reads its per-instant record, and physical scoring binds frozen splits with a verifiable bundle)
 - [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits
 - [ ] Physical gates scored against the frozen references; insufficient evidence remains visible

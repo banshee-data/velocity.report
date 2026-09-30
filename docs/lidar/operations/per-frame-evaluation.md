@@ -228,6 +228,36 @@ runs. The flags, matching and accounting are in the
 [point annotation tool guide](point-annotation-tool.md#scoring-against-physical-references); the
 output gains a `physical` section and a Markdown table.
 
+Physical scoring binds a split exactly as membership scoring does. Given a frozen split, both
+scorers use its pinned pack, annotation revision, partition and episodes. The physical links are
+checked against the pinned annotation revision, not the current one, so a membership edit made
+after freezing does not change what a rerun scores. The frozen split's digest and revision are
+recorded in the physical identity. Version 1 manifests are read as before.
+
+To make a scored result reproducible, add `-physical-bundle-dir DIR`, which must be a new or
+empty directory. The bundle holds:
+
+- the scored revision's exact reference bytes
+- the split and pack manifest bytes
+- the JSON (and Markdown) output
+- `manifest.json`, which holds the pins, arguments, options, arm identities and build, and the
+  digest of every file
+
+`lidar-ground-truth-eval verify-bundle -bundle DIR` refuses, naming the pin, if any of these
+checks fails:
+
+1. A bundle file was altered, is missing or is unlisted.
+2. The original split, pack or source identity changed.
+3. The pinned reference revision no longer reads with the same bytes.
+4. A rerun at the pinned revision does not reproduce the same output, byte for byte.
+
+A bundle keeps verifying after the references have moved on, because it scores the pinned
+revision. The estimate databases are not hashed; a changed estimate shows up as a changed arm
+identity or output.
+
+The macOS annotation window opens the JSON output in its Compare mode (see the
+[point annotation tool guide](point-annotation-tool.md#comparing-with-an-estimate)).
+
 ## Output
 
 `-json` writes the comparison (schema `velocity.report/perframe-comparison` version 1): the

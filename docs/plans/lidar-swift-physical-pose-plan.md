@@ -5,7 +5,7 @@ body, review that evidence separately from point membership, and compare a froze
 named tracker estimates. It also adds raw intensity inspection and experimental distribution
 summaries; the supervised three-site pilot establishes a workflow, not tracker accuracy.
 
-- **Status:** Proposed; implementation has not started on this branch
+- **Status:** Increments A–C built on this branch, with the gaps listed after B closed (review membership pins and drift, repair, history and restore, copies, shared errors, drag handles, overlap refusal, quit guard); not yet exercised by the operator pilot. D and E not started.
 - **Target:** Native macOS annotation pilot, followed by complete P1 and the P2 inspector
 - **Layers:** L10 Clients, annotation storage, and offline evaluation
 - **Canonical:** [Physical reference review](docs/plans/lidar-physical-reference-review-plan.md)
