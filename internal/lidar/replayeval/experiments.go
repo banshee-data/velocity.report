@@ -101,6 +101,17 @@ const (
 	// medoid-referenced position to the body centre before the faces update
 	// it (the near-edge plan's invariant 3). near_edge_track always does.
 	ExperimentSolidBodyReferenceTranslation = "solid_body_reference_translation"
+	// ExperimentSolidBodyRankOneMedoid is remedy T5 on the solid body's state
+	// machine (SolidBodyOptions.RankOneMedoidScale at one): a fix by a front
+	// or rear face alone, with no side face found, also takes the medoid
+	// across the body, with A2's loose noise, R plus the believed half-width
+	// squared. It applies to the shadow and, with near_edge_track, to the
+	// tracked filter.
+	// ExperimentSolidBodyRankOneMedoidTight is the same at a quarter of the
+	// half-extent term, trusting the medoid to within half the half-extent.
+	// They are two settings of one option, so a replay may name only one.
+	ExperimentSolidBodyRankOneMedoid      = "solid_body_rank_one_medoid"
+	ExperimentSolidBodyRankOneMedoidTight = "solid_body_rank_one_medoid_tight"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -134,6 +145,8 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyFullMembers:    true,
 
 	ExperimentSolidBodyReferenceTranslation: true,
+	ExperimentSolidBodyRankOneMedoid:        true,
+	ExperimentSolidBodyRankOneMedoidTight:   true,
 	ExperimentNearEdgeTrack:                 true,
 }
 

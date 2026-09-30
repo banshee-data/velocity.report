@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is next (F7), and the screen sites are running (F6s).
+- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649); F7 runs it on the tuning partition, and F6s screens the tracked arm on the screen sites.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -135,7 +135,9 @@ double as B0's point figures for these cases.
    and the tuning fingerprint does not move.
 2. **Rank respected.** The update is one scalar Joseph-form update per supported face along its
    normal. A rank-one frame moves nothing across its normal, and no reconstructed centre is ever
-   fed as a 2-D observation.
+   fed as a 2-D observation. T5 (`solid_body_rank_one_medoid`) is the one declared exception: a
+   fix by a front or rear face alone, with no side face found, also takes the medoid across the
+   body, with A2's loose noise at its default setting.
 3. **A reference change is a translation, not an innovation.** Moving from the medoid to the body
    centre (first fix) or back (lapse) shifts position by the geometric offset measured in that
    frame and widens position covariance; velocity is untouched, and the event is recorded.
@@ -172,7 +174,7 @@ arms, chosen on the tuning partition:
 A medoid-referenced track (initialisation window, or after a lapse) is gated on the medoid as
 today. A body-centre track whose pair yields no face uses the medoid in both directions with the
 loose variance. The loose term is association evidence only; the update never uses it (invariant
-2). Plausibility checks, extent compatibility and the fragment guard are unchanged. The pair's
+2), except under T5, where a fix by a front or rear face alone takes it across the body. Plausibility checks, extent compatibility and the fragment guard are unchanged. The pair's
 near-edge result is kept and reused by the update, so each associated cluster is measured once.
 
 ### Face transitions
@@ -541,6 +543,77 @@ without it. It passes if the steady p99 falls towards the "without lateral-face 
 F6s, running on the Mac, screens `near_edge_track` against the control on the 21 screen sites
 (gate 3's identity screen), then surveys sensor coverage on all 24 sites.
 
+#### T5: what was built
+
+- **`SolidBodyOptions.RankOneMedoidScale`.** At a fix by a front or rear face alone, after the
+  face's update, one more scalar update across the body: the medoid's projection onto the face's
+  tangent, with R plus the scale times the believed half-width squared. `solid_body_rank_one_medoid`
+  sets the scale to one, which is A2's term; `solid_body_rank_one_medoid_tight` sets it to a
+  quarter. A replay may name only one. It is the state machine's, so it runs on the shadow and, with
+  `near_edge_track`, on the tracked filter.
+- **Where it does not act.** Not when the frame found any side face, even one that T1 is still
+  withholding or whose half-width is only the class prior: a visible side pulls the medoid toward
+  itself, so the medoid is most biased across the body exactly then. And not at a fix by a side face
+  alone, whose open direction is the length: the medoid slides along a passing body as its aspect
+  changes, and the position-velocity covariance would carry the slide into the speed.
+- **The variance.** The medoid sits somewhere between the centre and the near side, roughly uniform
+  on [0, half] toward the sensor: a mean of half/2 and an RMS of about 0.58 half. Scale one
+  overstates that spread and the tight setting understates it, and the believed width is a lower
+  bound, so half² is low as well. The offset is a bias with a known sign, not noise, and the
+  five-point residual cannot see a smooth bias; F7 measures steadiness, and physical references
+  (P2) are what can show whether T5 pulls centres toward the sensor.
+- **Records.** The fix keeps the faces' rank and NIS, so the per-rank NIS check still describes
+  the faces' R; the loose innovation is biased, so its NIS would not be chi-square anyway. The
+  record names the medoid across the body, so the innovation that way is the medoid's residual,
+  and a T5 arm's radial and tangential residual strata are not comparable with another arm's. A
+  loose term with no innovation variance is skipped and the face's update stands. The A2 gate keeps
+  R plus the whole half-width squared at either setting.
+- **Synthetic.** With T1 and T3, on a vehicle seen from behind that changes lane by 2 m, the worst
+  tracked lateral error falls from 0.534 to 0.247 m and the mean from 0.137 to 0.090 m (0.082 m
+  tight), with the speed error unchanged: without T5 nothing measures the lateral move until a side
+  face appears. On the default pass, seen side-on and at a corner, the settled lateral error (0.038
+  m), along-track error and speed are the same with and without it. A side-on 3.5 m lane change
+  keeps 93 % of its magnitude, as it does without T5. Off the axes, with correlated position and
+  velocity, the face and the loose term in turn are exactly the joint two-dimensional update.
+- **kirk0.** On the shadow with T1 and T3, one capture, T5 leaves the tracks, the point estimates
+  and the face-stable runs exactly as they were, and moves the body-centre residual both ways: p95
+  from 0.093 to 0.065 m and the maximum from 0.708 to 0.565 m, but p99 from 0.404 to 0.418 m. One
+  capture's p99 rests on a few dozen windows, so the tuning partition decides.
+
+An earlier build of T5 also acted at side-face fixes and beside found side faces. The review of #649
+found both unsound, for the reasons above, and F7 as first started in `s2-f7` ran that build; it is
+superseded by the run below.
+
+F7 runs five arms on the tuning partition from one build: the tracked arm with and without T5 at
+both settings, T5 on the shadow, and the control. The tracked arm and the control reproduce F6,
+because T5 is off in both. Evidence goes to the internal disk and is deleted after each case; on
+the USB drive F6's tracked arm took 8 hours rather than 20 minutes. On the Mac, from main:
+
+```bash
+W=/Volumes/lidar/evidence/s2-f7b
+S=$HOME/vr-scratch/s2-f7b
+CAPTURES=/Volumes/banshee-captures/lidar
+STAMP="-X github.com/banshee-data/velocity.report/internal/version.GitSHA=$(git rev-parse HEAD)"
+BASE=solid_body,solid_body_face_hysteresis,solid_body_course_faces,solid_body_full_members
+mkdir -p "$W/bin"
+go build -tags=pcap -ldflags "$STAMP" -o "$W/bin/baseline" ./cmd/tools/lidar-state-estimation-baseline
+for arm in "track:$BASE,near_edge_track" \
+  "track_t5:$BASE,near_edge_track,solid_body_rank_one_medoid" \
+  "track_t5_tight:$BASE,near_edge_track,solid_body_rank_one_medoid_tight" \
+  "shadow_t5:$BASE,solid_body_rank_one_medoid" "control:$BASE"; do
+  name=${arm%%:*}
+  mkdir -p "$W/$name"
+  "$W/bin/baseline" -pcap-root "$CAPTURES" -pcap-subdir s2 \
+    -case marina-webster-beach,columbus-broadway -experiment "${arm#*:}" \
+    -source-manifest "$W/$name/source-manifest.json" -out "$W/$name/out" \
+    -evidence-dir "$S/$name" -evidence-per-case -discard-evidence \
+    > "$W/$name/run.log" 2>&1 || { echo "$name failed: $W/$name/run.log"; break; }
+  rm -rf "$S/$name"
+done
+```
+
+The results go to `claude/upbeat-galileo-4xbaat-s2-f7b-results` under `results/s2-f7b/`.
+
 ### S2.2: the tracked near-edge update
 
 **Summary:** `near_edge_track` updates the tracked filter through the shared state machine, with
@@ -733,7 +806,10 @@ reviewed split (S0, still open). Until then S2 stays default-off and provisional
   converges on 14 % to 34 % of tracks). S2 changes neither, so a tracked arm still leaves 45 % to
   63 % of updates to the medoid; extent admission is the lever if that proves to matter.
 - **Rank-one drift** along the unconstrained direction for long lateral-only runs. It is the
-  prediction, not a defect, but the report counts rank-one runs and their length.
+  prediction, not a defect, but the report counts rank-one runs and their length. T5 bounds it
+  across the body with the medoid, whose offset is a bias toward the sensor; if physical references
+  show T5 pulling centres that way, the next measurement is the fixing face's own visible span
+  along its tangent, whose midpoint is unbiased while the face is unoccluded.
 - **Cost.** A near-edge measurement per candidate pair. Pairs pass the Euclidean plausibility check
   first; runtime is gate 5.
 
@@ -758,7 +834,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] S2.1 face-transition remedy chosen
 - [x] F6: `near_edge_track` (S2a) and the T1 with T3 control on the tuning partition, on the Mac:
       lower p99 on both sites, the lateral-entry tail survives, translation buys nothing
-- [ ] T5 rank-one medoid across the unconstrained direction; F7 on the tuning partition
+- [x] T5 rank-one medoid across the body at an end-face fix (`solid_body_rank_one_medoid` and its
+      tight setting), default-off, on the shadow and the tracked filter
+- [ ] F7: T5 on the tracked arm and the shadow, on the tuning partition, on the Mac
 - [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac

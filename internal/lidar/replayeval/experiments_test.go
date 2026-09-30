@@ -75,7 +75,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyReferenceTranslation}
+		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -135,6 +135,8 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyReferenceTranslation: func(o *l5tracks.SolidBodyOptions) {
 			o.ReferenceTranslation = true
 		},
+		ExperimentSolidBodyRankOneMedoid:      func(o *l5tracks.SolidBodyOptions) { o.RankOneMedoidScale = 1 },
+		ExperimentSolidBodyRankOneMedoidTight: func(o *l5tracks.SolidBodyOptions) { o.RankOneMedoidScale = 0.25 },
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
@@ -149,6 +151,12 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		if _, err := trackerConfigFor(l5, "", []string{name}, nil); err == nil {
 			t.Errorf("%s was accepted without %s", name, ExperimentSolidBody)
 		}
+	}
+	// T5's two settings are one option, so naming both is refused rather
+	// than resolved to either.
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyRankOneMedoid,
+		ExperimentSolidBodyRankOneMedoidTight}, nil); err == nil {
+		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight)
 	}
 	// Full members change what L4 hands over, not the tracker's options, and
 	// are refused without a solid body to read them.

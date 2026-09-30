@@ -228,6 +228,8 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 		{"full_members", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers}},
 		{"t3_course", []string{ExperimentSolidBody, ExperimentSolidBodyCourseFaces}},
 		{"t1_t3", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces}},
+		{"t1_t3_t5", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces,
+			ExperimentSolidBodyRankOneMedoid}},
 	}
 	var plain solidBodyArm
 	var table strings.Builder

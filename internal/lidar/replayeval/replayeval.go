@@ -1188,20 +1188,44 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
+	rankOne, err := rankOneMedoidScaleFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
 			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
-			ReferenceTranslation: translation,
+			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
-	} else if hysteresis || consider || course || translation || hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+	} else if hysteresis || consider || course || translation || rankOne > 0 ||
+		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// rankOneMedoidScaleFor is remedy T5's half-extent scale: one for
+// solid_body_rank_one_medoid, a quarter for its tight setting, and zero,
+// off, for neither. Naming both is refused rather than resolved, because
+// either choice would run an arm that is not the one reported.
+func rankOneMedoidScaleFor(experiments []string) (float32, error) {
+	plain := hasExperiment(experiments, ExperimentSolidBodyRankOneMedoid)
+	tight := hasExperiment(experiments, ExperimentSolidBodyRankOneMedoidTight)
+	switch {
+	case plain && tight:
+		return 0, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight)
+	case plain:
+		return 1, nil
+	case tight:
+		return 0.25, nil
+	}
+	return 0, nil
 }
 
 // stateObservationModelFor names the observation model the online estimate
