@@ -227,6 +227,9 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
 	mux.HandleFunc("/api/annotations/physical/history", ws.handlePhysicalHistory)
 	mux.HandleFunc("/api/annotations/physical/restore", ws.handlePhysicalRestore)
+	mux.HandleFunc("/api/annotations/split/preview", ws.handleSplitPreview)
+	mux.HandleFunc("/api/annotations/split/freeze", ws.handleSplitFreeze)
+	mux.HandleFunc("/api/annotations/splits", ws.handleSplits)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed
 	// intersection midpoint) — distinct from a case's own sensor pose.

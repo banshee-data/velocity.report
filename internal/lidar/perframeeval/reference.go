@@ -44,7 +44,7 @@ type ReferenceIdentity struct {
 	Policy              annotation.ReferencePolicy `json:"policy"`
 	Episodes            []string                   `json:"episodes"`
 	// SplitDigest and SplitRevision identify a frozen split (schema version
-	// 2), whose pins were checked before scoring. Both are empty for a
+	// 2 or 3), whose pins were checked before scoring. Both are empty for a
 	// version 1 manifest, so its reference digest is what it always was.
 	SplitDigest   string `json:"split_digest,omitempty"`
 	SplitRevision int    `json:"split_revision,omitempty"`

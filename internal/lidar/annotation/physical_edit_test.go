@@ -442,6 +442,18 @@ func TestPhysicalReviewPinsMembershipAndReportsDrift(t *testing.T) {
 	if len(drift) != 1 || !strings.Contains(drift[0].Record, "kf-car-1-s3") || !strings.Contains(drift[0].Problem, "sample 3") {
 		t.Fatalf("drift %v", drift)
 	}
+	if keys := cur.DriftedRecords(p, s); len(keys) != 1 || !keys["keyframe/kf-car-1-s3"] {
+		t.Fatalf("drifted record keys %v", keys)
+	}
+	// Every review here was made through the service, so every reviewed
+	// record carries a pin; a record reviewed without one is counted.
+	if n := cur.UnpinnedReviews(); n != 0 {
+		t.Fatalf("%d unpinned reviews among service reviews", n)
+	}
+	unpinned := validPhysical(p)
+	if n := unpinned.UnpinnedReviews(); n != 5 {
+		t.Fatalf("%d unpinned reviews in the fixture, want 5 (two bodies and three reviewed keyframes; the following record is not counted)", n)
+	}
 	// A mask removed from a cited frame is a change too.
 	removed := *s
 	removed.Masks = nil

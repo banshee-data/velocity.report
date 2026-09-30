@@ -139,3 +139,55 @@ func TestPhysicalFixtureFreezes(t *testing.T) {
 		t.Fatal("a draft of a missing pack froze")
 	}
 }
+
+// The fixture's frozen split pins its physical references, and the legacy
+// writer produces the version 2 layout: no pin, digest intact, binding to
+// the same pack at the same annotation revision.
+func TestPhysicalFixtureFreezesWithAndWithoutAPin(t *testing.T) {
+	dir := t.TempDir()
+	f, err := WritePhysical(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pinned, err := f.WriteFrozen(filepath.Join(dir, "v3.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := pinned.Packs[0].Physical
+	if pinned.SchemaVersion != annotation.FrozenSplitSchemaVersion || pin == nil || pin.Revision != 1 || len(pin.Objects) != 2 ||
+		pin.Coverage.Position.Scorable == 0 {
+		t.Fatalf("pinned split %+v", pinned.Packs[0])
+	}
+	legacyPath := filepath.Join(dir, "v2.json")
+	legacy, err := f.WriteFrozenMembershipOnly(legacyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := annotation.LoadFrozenSplit(legacyPath)
+	if err != nil {
+		t.Fatalf("the legacy split does not read: %v", err)
+	}
+	if loaded.SchemaVersion != annotation.FrozenSplitSchemaVersionMembershipOnly || loaded.SplitDigest != legacy.SplitDigest ||
+		loaded.SplitDigest == pinned.SplitDigest || loaded.Packs[0].Physical != nil {
+		t.Fatalf("legacy split %+v", loaded)
+	}
+	pack, err := annotation.OpenPack(f.PackDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, sidecar, err := loaded.Bind(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc, err := loaded.BindPhysical(pack, sidecar); doc != nil || err != nil {
+		t.Fatalf("a legacy split bound a physical pin: %+v, %v", doc, err)
+	}
+	f.PackDir = filepath.Join(dir, "no-pack")
+	if _, err := f.WriteFrozenMembershipOnly(filepath.Join(dir, "v2-b.json")); err == nil {
+		t.Fatal("a legacy split of a missing pack froze")
+	}
+	f.PackDir = filepath.Join(dir, "pack")
+	if _, err := f.WriteFrozenMembershipOnly(filepath.Join(dir, "missing", "v2.json")); err == nil {
+		t.Fatal("a legacy split written into a missing directory was not refused")
+	}
+}

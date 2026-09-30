@@ -307,6 +307,9 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 		res.Caveats = append(res.Caveats, fmt.Sprintf("%d reviewed record(s) carry no membership pin (reviewed before pins were "+
 			"recorded, or imported): a membership change since their review cannot be detected.", s.pr.unpinnedReviews))
 	}
+	if s.pr.FrozenWithoutPhysicalPin {
+		res.Caveats = append(res.Caveats, fmt.Sprintf("The frozen split pins no physical revision for this pack: revision %d was the pack's current references when scored, and a later save would change this score; freeze a new split revision to pin it.", res.Reference.PhysicalRevision))
+	}
 	return res, nil
 }
 

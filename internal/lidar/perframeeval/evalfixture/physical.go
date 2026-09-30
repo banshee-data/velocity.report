@@ -1,6 +1,9 @@
 package evalfixture
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -136,17 +139,50 @@ func (f *PhysicalFixture) FrozenDraft() annotation.SplitDraft {
 	}
 }
 
-// WriteFrozen freezes FrozenDraft, at a fixed time and build so that the
-// split's digest is reproducible, and writes it to path.
-func (f *PhysicalFixture) WriteFrozen(path string) (*annotation.FrozenSplit, error) {
+// FreezeOptions are the options WriteFrozen freezes FrozenDraft under: a
+// fixed time and build, so that the split's digest is reproducible.
+func (f *PhysicalFixture) FreezeOptions() annotation.FreezeOptions {
 	draft := f.FrozenDraft()
-	frozen, err := annotation.FreezeSplit(annotation.FreezeOptions{
+	return annotation.FreezeOptions{
 		Draft: &draft, Author: "fixture", Now: time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC),
 		BuildVersion: "fixture", BuildGitSHA: "fixture", GuardSeconds: annotation.DefaultSplitGuardSeconds,
-	})
+	}
+}
+
+// WriteFrozen freezes FrozenDraft under FreezeOptions and writes it to path.
+// The pack has physical references, so the split pins their head revision.
+func (f *PhysicalFixture) WriteFrozen(path string) (*annotation.FrozenSplit, error) {
+	frozen, err := annotation.FreezeSplit(f.FreezeOptions())
 	if err != nil {
 		return nil, err
 	}
+	if err := annotation.WriteFrozenSplit(path, frozen); err != nil {
+		return nil, err
+	}
+	return frozen, nil
+}
+
+// WriteFrozenMembershipOnly writes FrozenDraft frozen as a version 2 split,
+// the layout frozen before physical pins existed: the same split with no
+// pin and the version 2 number, digested as that layout was, since the
+// encoding differs from version 3 only by the pin. It is what a split
+// frozen by an earlier build looks like, for tests of the legacy reader.
+func (f *PhysicalFixture) WriteFrozenMembershipOnly(path string) (*annotation.FrozenSplit, error) {
+	frozen, err := annotation.FreezeSplit(f.FreezeOptions())
+	if err != nil {
+		return nil, err
+	}
+	frozen.SchemaVersion = annotation.FrozenSplitSchemaVersionMembershipOnly
+	for i := range frozen.Packs {
+		frozen.Packs[i].Physical = nil
+	}
+	frozen.SplitDigest = ""
+	b, err := json.Marshal(frozen)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(b)
+	frozen.SplitDigest = "sha256:" + hex.EncodeToString(sum[:])
 	if err := annotation.WriteFrozenSplit(path, frozen); err != nil {
 		return nil, err
 	}

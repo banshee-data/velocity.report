@@ -1,11 +1,13 @@
 package annotation
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1045,7 +1047,7 @@ func TestFrozenSplitStructuralRefusals(t *testing.T) {
 		want   string
 	}{
 		{"schema", func(f *FrozenSplit) { f.Schema = "other" }, "schema"},
-		{"version", func(f *FrozenSplit) { f.SchemaVersion = 3 }, "schema version 3"},
+		{"version", func(f *FrozenSplit) { f.SchemaVersion = 4 }, "schema version 4"},
 		{"revision 0", func(f *FrozenSplit) { f.Revision = 0 }, "revisions count from 1"},
 		{"revision 1 superseding", func(f *FrozenSplit) { f.Supersedes = "sha256:x" }, "only revision 1 supersedes nothing"},
 		{"revision 2 superseding nothing", func(f *FrozenSplit) { f.Revision = 2 }, "only revision 1 supersedes nothing"},
@@ -1248,4 +1250,586 @@ func TestWriteFrozenSplitIsWriteOnce(t *testing.T) {
 	if _, statErr := os.Stat(failing); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("a failed write left %s behind: %v", failing, statErr)
 	}
+}
+
+// physDraftPack partitions physPack's two cars into one tuning partition,
+// with one episode over every sample, pinning the physical revision named
+// (zero: the head).
+func physDraftPack(p *Pack, physicalRevision int) DraftPack {
+	ids := []string{"car-1", "car-2"}
+	return DraftPack{
+		Dir: p.Dir, PhysicalRevision: physicalRevision,
+		Splits: []Split{{Name: "tune", Role: SplitRoleTuning, ObjectIDs: ids}},
+		Episodes: []Episode{{EpisodeID: "phys-tune", Split: "tune", ObjectIDs: ids,
+			FrameIntervals: []FrameInterval{{0, len(p.Samples) - 1}}}},
+	}
+}
+
+// savePhysicalDoc commits a document as the pack's next physical revision.
+func savePhysicalDoc(t *testing.T, p *Pack, doc *PhysicalReferenceSet) *PhysicalReferenceSet {
+	t.Helper()
+	if err := SavePhysicalReferences(p, doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc
+}
+
+// validPhysicalPin is what validPhysical pins: car-1's reviewed body and its
+// two reviewed keyframes beside a tracker-assisted proposal; car-2's body and
+// one keyframe. Over the three reviewed independent keyframes the reference
+// layer scores every centre, yaw, length and rear; car-2's width is unknown;
+// car-1's height is a partial span and car-2's a class prior; only car-1's
+// first keyframe names a front.
+var validPhysicalPin = struct {
+	objects  []FrozenPhysicalObject
+	coverage PhysicalCoverage
+}{
+	objects: []FrozenPhysicalObject{
+		{ObjectID: "car-1", Body: PhysicalBodyReview{Status: PhysicalBodyReviewed, Independent: true},
+			Keyframes: PhysicalKeyframeCounts{Total: 3, Reviewed: 2, Proposed: 1, TrackerAssisted: 1}},
+		{ObjectID: "car-2", Body: PhysicalBodyReview{Status: PhysicalBodyReviewed, Independent: true},
+			Keyframes: PhysicalKeyframeCounts{Total: 1, Reviewed: 1}},
+	},
+	coverage: PhysicalCoverage{
+		Position: ComponentCoverage{Scorable: 3}, Yaw: ComponentCoverage{Scorable: 3}, Length: ComponentCoverage{Scorable: 3},
+		Width: ComponentCoverage{Scorable: 2, Unavailable: 1}, Height: ComponentCoverage{Unavailable: 3},
+		Front: ComponentCoverage{Scorable: 1, Unavailable: 2}, Rear: ComponentCoverage{Scorable: 3},
+	},
+}
+
+// A pack with physical references is frozen with a pin: the revision, its
+// exact bytes and content, and summaries derived from it, honest unknowns
+// included. The pin is part of the split digest, reads back, and binds to
+// the pinned revision. A pack without references pins nothing, as before.
+func TestFreezeSplitPinsPhysicalReferences(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	doc := savePhysicalDoc(t, p, validPhysical(p))
+	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+
+	pin := f.Packs[0].Physical
+	if pin == nil {
+		t.Fatal("no physical pin")
+	}
+	content, _ := doc.ContentDigest()
+	if pin.Revision != 1 || pin.SHA256 != doc.Digest() || pin.ContentSHA256 != content || !strings.HasPrefix(pin.SHA256, "sha256:") {
+		t.Fatalf("pin %+v, want revision 1 with digests %s / %s", pin, doc.Digest(), content)
+	}
+	if !slices.Equal(pin.Objects, validPhysicalPin.objects) || pin.Coverage != validPhysicalPin.coverage {
+		t.Fatalf("pin summaries %+v / %+v, want %+v / %+v", pin.Objects, pin.Coverage, validPhysicalPin.objects, validPhysicalPin.coverage)
+	}
+	// Sidecar pose review is untouched by physical review.
+	for _, o := range f.Packs[0].Objects {
+		if o.Geometry.Status != GeometryNone {
+			t.Fatalf("object %s geometry review %+v was read from the physical references", o.ObjectID, o.Geometry)
+		}
+	}
+
+	loaded, path := writeAndLoad(t, f)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"physical": {`, `"content_sha256"`, `"tracker_assisted"`, `"coverage"`, `"scorable"`, `"unavailable"`, `"independent"`} {
+		if !bytes.Contains(b, []byte(key)) {
+			t.Errorf("frozen split lacks %s:\n%s", key, b)
+		}
+	}
+	tampered := *loaded
+	tampered.Packs = append([]FrozenPack(nil), loaded.Packs...)
+	pinCopy := *pin
+	pinCopy.Revision = 2
+	tampered.Packs[0].Physical = &pinCopy
+	if tampered.contentDigest() == loaded.SplitDigest {
+		t.Fatal("the physical pin is outside the split digest")
+	}
+
+	_, bound, err := loaded.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := loaded.BindPhysical(p, bound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Revision != 1 || got.Digest() != pin.SHA256 || bound.Revision != s.Revision {
+		t.Fatalf("bound physical revision %d (%s) at annotation revision %d", got.Revision, got.Digest(), bound.Revision)
+	}
+
+	bare := splitPack(t, "bare", "cap.pcap", 1e9, 3)
+	reviewSplitPack(t, bare, nil)
+	bf := mustFreeze(t, freezeOptions(splitDraftPack(bare, "bare")))
+	if bf.Packs[0].Physical != nil || bytes.Contains(marshalFrozen(t, bf), []byte(`"physical"`)) {
+		t.Fatalf("a pack without physical references was pinned: %+v", bf.Packs[0].Physical)
+	}
+	_, bound, err = bf.Bind(bare)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc, err := bf.BindPhysical(bare, bound); doc != nil || err != nil {
+		t.Fatalf("BindPhysical without a pin: %+v, %v", doc, err)
+	}
+}
+
+// The draft's physical_revision pins a retained revision rather than the
+// head; naming one the pack does not have, or one for a pack with no
+// references, is refused.
+func TestFreezeSplitHonoursTheDraftPhysicalRevision(t *testing.T) {
+	p := physPack(t)
+	physSidecar(t, p)
+	first := savePhysicalDoc(t, p, validPhysical(p))
+	firstDigest := first.Digest()
+	first.Objects[0].Keyframes[0].Position.BoundM = fp(0.3)
+	first.Change = Provenance{Author: "op", Operation: "widen"}
+	second := savePhysicalDoc(t, p, first)
+	if second.Revision != 2 {
+		t.Fatalf("head is revision %d", second.Revision)
+	}
+
+	head := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	pinned := mustFreeze(t, freezeOptions(physDraftPack(p, 1)))
+	named := mustFreeze(t, freezeOptions(physDraftPack(p, 2)))
+	if head.Packs[0].Physical.Revision != 2 || head.Packs[0].Physical.SHA256 != second.Digest() {
+		t.Fatalf("head pin %+v", head.Packs[0].Physical)
+	}
+	if pinned.Packs[0].Physical.Revision != 1 || pinned.Packs[0].Physical.SHA256 != firstDigest {
+		t.Fatalf("revision 1 pin %+v", pinned.Packs[0].Physical)
+	}
+	if named.SplitDigest != head.SplitDigest {
+		t.Fatal("naming the head revision froze a different split from leaving it to default")
+	}
+	_, bound, err := pinned.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc, err := pinned.BindPhysical(p, bound); err != nil || doc.Revision != 1 || doc.Digest() != firstDigest {
+		t.Fatalf("bound %+v, %v", doc, err)
+	}
+
+	_, err = FreezeSplit(freezeOptions(physDraftPack(p, 3)))
+	wantError(t, err, "load physical reference revision 3")
+	bare := splitPack(t, "bare", "cap.pcap", 1e9, 3)
+	reviewSplitPack(t, bare, nil)
+	dp := splitDraftPack(bare, "bare")
+	dp.PhysicalRevision = 1
+	_, err = FreezeSplit(freezeOptions(dp))
+	wantError(t, err, "physical_revision 1 is named, but the pack has no physical references to pin")
+
+	// A document that cannot be read is an error, not a pack without one.
+	writeFile(t, filepath.Join(p.Dir, physicalReferenceFile), []byte("{"))
+	_, err = FreezeSplit(freezeOptions(physDraftPack(p, 0)))
+	wantError(t, err, "load physical references")
+}
+
+// Freezing refuses a document that does not hold against the pinned
+// annotation revision, stale links and drifted reviews alike, listing every
+// problem beside the membership problems. The same document freezes against
+// the annotation revision it does hold against: the pinned revision is what
+// is checked, never the head.
+func TestFreezeSplitRefusesStalePhysicalLinksAndDrift(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s3")); err != nil {
+		t.Fatal(err)
+	}
+	// Revision 2 of membership: car-1's returns at sample 3 change, which
+	// kf-car-1-s3 was reviewed against; car-2's mask at sample 0 is gone,
+	// which its body, its keyframe and the following gap cite; and car-1's
+	// mask at sample 5 is back to a proposal, which is membership review
+	// left unfinished.
+	unsettleMembership(s)
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := FreezeSplit(freezeOptions(physDraftPack(p, 0)))
+	for _, want := range []string{
+		"membership review is not complete", "object car-1: 1 mask(s) still proposed",
+		"the physical references do not hold against the pinned annotation revision",
+		`physical revision 2 object "car-2" body "body-car-2": length cites frame 0, where "car-2" has no returns in its mask`,
+		`physical revision 2 object "car-2" keyframe "kf-car-2-s0": position cites frame 0`,
+		`physical revision 2 following "follow-car-1"`,
+		`physical revision 2 object "car-1" keyframe "kf-car-1-s3": membership at sample 3 changed after review (revision 1, now 2)`,
+	} {
+		wantError(t, err, want)
+	}
+
+	dp := physDraftPack(p, 2)
+	dp.SidecarRevision = 1
+	f := mustFreeze(t, freezeOptions(dp))
+	pin := f.Packs[0].Physical
+	if f.Packs[0].SidecarRevision != 1 || pin.Revision != 2 {
+		t.Fatalf("pinned annotation revision %d, physical revision %d", f.Packs[0].SidecarRevision, pin.Revision)
+	}
+	loaded, _ := writeAndLoad(t, f)
+	_, bound, err := loaded.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc, err := loaded.BindPhysical(p, bound); err != nil || doc.Revision != 2 {
+		t.Fatalf("bound %+v, %v", doc, err)
+	}
+	// The head is not what is bound against.
+	headSidecar, err := LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = loaded.BindPhysical(p, headSidecar)
+	wantError(t, err, "bind against the pinned annotation revision 1")
+}
+
+// unsettleMembership edits physSidecar's review so that the physical
+// references no longer hold against it and its review is unfinished: car-1's
+// returns at sample 3 change, car-2 loses its mask at sample 0, and car-1's
+// mask at sample 5 returns to a proposal.
+func unsettleMembership(s *Sidecar) {
+	var masks []FrameMask
+	for _, m := range s.Masks {
+		switch {
+		case m.ObjectID == "car-2" && m.SampleID == 0:
+			continue
+		case m.ObjectID == "car-1" && m.SampleID == 3:
+			m.PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		case m.ObjectID == "car-1" && m.SampleID == 5:
+			m.Status = StatusProposed
+		}
+		masks = append(masks, m)
+	}
+	s.Masks = masks
+	s.Change = Provenance{Author: "op", Operation: "revise"}
+}
+
+// zeroX rewrites the first n points' x of a sample in an opened pack's
+// memory, so its frames no longer support what the references claim.
+func zeroX(p *Pack, sample, n int) *Pack {
+	q := *p
+	q.raw = append([]byte(nil), p.raw...)
+	off := int(p.Samples[sample].ByteOffset)
+	for i := 0; i < 4*n; i++ {
+		q.raw[off+i] = 0
+	}
+	return &q
+}
+
+// BindPhysical holds the pinned revision to every pin: tampered retained
+// bytes, altered content, altered summaries, links or reviews that no longer
+// hold against the pinned annotation revision, or a pack the split does not
+// hold; and it still binds after the physical head has moved on.
+func TestBindPhysicalRefusals(t *testing.T) {
+	p := physPack(t)
+	physSidecar(t, p)
+	doc := savePhysicalDoc(t, p, validPhysical(p))
+	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	loaded, _ := writeAndLoad(t, f)
+	_, bound, err := loaded.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pinned := loaded.Packs[0].Physical.SHA256
+
+	other := splitPack(t, "other", "cap.pcap", 1e9, 3)
+	_, err = loaded.BindPhysical(other, bound)
+	wantError(t, err, "is not in frozen split")
+	_, err = loaded.BindPhysical(p, nil)
+	wantError(t, err, "bind against the pinned annotation revision")
+
+	// The head moves on; the pinned revision is still what binds.
+	doc.Objects[1].Keyframes[0].Position.BoundM = fp(0.4)
+	doc.Change = Provenance{Author: "op", Operation: "widen"}
+	savePhysicalDoc(t, p, doc)
+	got, err := loaded.BindPhysical(p, bound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Revision != 1 || got.Digest() != pinned {
+		t.Fatalf("bound revision %d (%s) after the head moved to 2", got.Revision, got.Digest())
+	}
+
+	// The split's copies of the summaries must derive again from the bytes.
+	for name, mutate := range map[string]func(*FrozenPhysical){
+		"content":  func(pin *FrozenPhysical) { pin.ContentSHA256 = "sha256:0" },
+		"objects":  func(pin *FrozenPhysical) { pin.Objects[0].Keyframes.Total++ },
+		"coverage": func(pin *FrozenPhysical) { pin.Coverage.Height.Scorable++ },
+	} {
+		g := *loaded
+		g.Packs = append([]FrozenPack(nil), loaded.Packs...)
+		pin := *loaded.Packs[0].Physical
+		pin.Objects = append([]FrozenPhysicalObject(nil), pin.Objects...)
+		mutate(&pin)
+		g.Packs[0].Physical = &pin
+		_, err := g.BindPhysical(p, bound)
+		want := "the frozen split summarises physical revision 1"
+		if name == "content" {
+			want = "has content"
+		}
+		wantError(t, err, want)
+	}
+
+	// Frames that no longer support the claims: the links fail.
+	_, err = loaded.BindPhysical(zeroX(p, 0, 8), bound)
+	wantError(t, err, "the pinned physical references do not hold against the pinned annotation revision")
+
+	// Retained bytes rewritten, content and all: refused as not the bytes.
+	archive := filepath.Join(p.Dir, physicalRevisionName(1))
+	b, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, archive, append(append([]byte(nil), b...), '\n'))
+	_, err = loaded.BindPhysical(p, bound)
+	wantError(t, err, "is not the bytes that were frozen")
+
+	// Retained bytes gone: nothing to bind.
+	if err := os.RemoveAll(filepath.Join(p.Dir, physicalRevisionDir)); err != nil {
+		t.Fatal(err)
+	}
+	_, err = loaded.BindPhysical(p, bound)
+	wantError(t, err, "load pinned physical reference revision 1")
+}
+
+// A review made against an earlier membership revision than the one pinned
+// holds while that revision is retained and unchanged in the frames it
+// rests on; once the history is gone, nothing can show that, and the bind
+// refuses.
+func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
+		t.Fatal(err)
+	}
+	// A membership change in a frame nothing reviewed cites.
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 5 {
+			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		}
+	}
+	s.Change = Provenance{Author: "op", Operation: "revise"}
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	if f.Packs[0].SidecarRevision != 2 || f.Packs[0].Physical.Revision != 2 {
+		t.Fatalf("pins %+v", f.Packs[0])
+	}
+	_, bound, err := f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.BindPhysical(p, bound); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(p.Dir, revisionDir)); err != nil {
+		t.Fatal(err)
+	}
+	_, bound, err = f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.BindPhysical(p, bound)
+	wantError(t, err, "reviewed against membership revision 1, which is no longer retained")
+}
+
+// legacyVersion2 re-encodes a frozen split as the version 2 layout an
+// earlier build wrote: the version number and the digest of that layout,
+// which differs from version 3 only by the pins.
+func legacyVersion2(t *testing.T, f *FrozenSplit) []byte {
+	t.Helper()
+	g := *f
+	g.SchemaVersion = FrozenSplitSchemaVersionMembershipOnly
+	g.SplitDigest = g.contentDigest()
+	return marshalFrozen(t, &g)
+}
+
+// A version 2 split, frozen before physical pins, still parses with its
+// digest intact, binds and carries no pin; one that claims a pin is refused.
+func TestLegacyVersion2SplitStillReads(t *testing.T) {
+	p := splitPack(t, "p1", "cap.pcap", 1e9, 3)
+	reviewSplitPack(t, p, nil)
+	f := mustFreeze(t, freezeOptions(splitDraftPack(p, "p1")))
+	b := legacyVersion2(t, f)
+	if bytes.Contains(b, []byte(`"physical"`)) || !bytes.Contains(b, []byte(`"schema_version": 2`)) && !bytes.Contains(b, []byte(`"schema_version":2`)) {
+		t.Fatalf("legacy encoding:\n%s", b)
+	}
+	path := filepath.Join(t.TempDir(), "v2.json")
+	writeFile(t, path, b)
+	loaded, err := LoadFrozenSplit(path)
+	if err != nil {
+		t.Fatalf("a version 2 split no longer reads: %v", err)
+	}
+	if loaded.SchemaVersion != 2 || loaded.Packs[0].Physical != nil || loaded.SplitDigest == f.SplitDigest {
+		t.Fatalf("loaded %+v", loaded)
+	}
+	v1, frozen, err := LoadAnySplit(path)
+	if err != nil || v1 != nil || frozen == nil {
+		t.Fatalf("LoadAnySplit: %v, %v, %v", v1, frozen, err)
+	}
+	view, bound, err := loaded.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bound.Revision != 1 || len(view.Splits) != 2 {
+		t.Fatalf("bound %+v at revision %d", view, bound.Revision)
+	}
+	if doc, err := loaded.BindPhysical(p, bound); doc != nil || err != nil {
+		t.Fatalf("BindPhysical on a version 2 split: %+v, %v", doc, err)
+	}
+
+	q := physPack(t)
+	physSidecar(t, q)
+	savePhysicalDoc(t, q, validPhysical(q))
+	_, err = ParseFrozenSplit(legacyVersion2(t, mustFreeze(t, freezeOptions(physDraftPack(q, 0)))))
+	wantError(t, err, "a version 2 split carries no physical pin")
+}
+
+// Every way a pin can be malformed is refused on parse.
+func TestFrozenPhysicalPinStructuralRefusals(t *testing.T) {
+	p := physPack(t)
+	physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	base := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	for _, tc := range []struct {
+		name   string
+		mutate func(*FrozenPhysical)
+		want   string
+	}{
+		{"revision", func(pin *FrozenPhysical) { pin.Revision = 0 }, "physical pin: revision 0"},
+		{"sha", func(pin *FrozenPhysical) { pin.SHA256 = "x" }, `sha256 "x" is not a sha256: digest`},
+		{"content sha", func(pin *FrozenPhysical) { pin.ContentSHA256 = "x" }, `content_sha256 "x" is not a sha256: digest`},
+		{"no id", func(pin *FrozenPhysical) { pin.Objects[0].ObjectID = "" }, "object 0 has no id"},
+		{"unsorted", func(pin *FrozenPhysical) { pin.Objects[0], pin.Objects[1] = pin.Objects[1], pin.Objects[0] }, "sorted by id and distinct"},
+		{"duplicate", func(pin *FrozenPhysical) { pin.Objects[1].ObjectID = pin.Objects[0].ObjectID }, "sorted by id and distinct"},
+		{"body status", func(pin *FrozenPhysical) { pin.Objects[0].Body.Status = "maybe" }, `body status "maybe"`},
+		{"bodiless independent", func(pin *FrozenPhysical) {
+			pin.Objects[0].Body = PhysicalBodyReview{Status: PhysicalBodyNone, Independent: true}
+		}, "none can be independent"},
+		{"reviewed above total", func(pin *FrozenPhysical) { pin.Objects[1].Keyframes.Reviewed = 2 }, "do not add up"},
+		{"assisted above total", func(pin *FrozenPhysical) { pin.Objects[1].Keyframes.TrackerAssisted = 2 }, "do not add up"},
+		{"negative count", func(pin *FrozenPhysical) { pin.Objects[1].Keyframes.Proposed = -1 }, "do not add up"},
+		{"negative coverage", func(pin *FrozenPhysical) { pin.Coverage.Rear.Unavailable = -1 }, "rear coverage"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := *base
+			f.Packs = append([]FrozenPack(nil), base.Packs...)
+			pin := *base.Packs[0].Physical
+			pin.Objects = append([]FrozenPhysicalObject(nil), pin.Objects...)
+			tc.mutate(&pin)
+			f.Packs[0].Physical = &pin
+			f.SplitDigest = f.contentDigest()
+			_, err := ParseFrozenSplit(marshalFrozen(t, &f))
+			wantError(t, err, tc.want)
+		})
+	}
+	// Bodies of every status, and an object without one, summarise.
+	doc := validPhysical(p)
+	doc.Objects[0].Body.Review.Status = StatusProposed
+	doc.Objects[1].Body = nil
+	doc.Following = nil
+	objects, _ := summarisePhysical(doc)
+	if objects[0].Body != (PhysicalBodyReview{Status: PhysicalBodyProposed, Independent: true}) || objects[1].Body != (PhysicalBodyReview{Status: PhysicalBodyNone}) {
+		t.Fatalf("bodies %+v", objects)
+	}
+}
+
+// PreviewFreeze reports what FreezeSplit would pin and why it would refuse,
+// without producing a split, and agrees with FreezeSplit's digest when the
+// draft would freeze.
+func TestPreviewFreeze(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	bare := splitPack(t, "bare", "cap.pcap", 1e9, 3)
+	reviewSplitPack(t, bare, nil)
+	opts := freezeOptions(physDraftPack(p, 0), onePartition(bare, "bare", "tune", SplitRoleTuning))
+
+	pv, err := PreviewFreeze(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := mustFreeze(t, opts)
+	if !pv.WouldFreeze || pv.SplitDigest != f.SplitDigest || pv.Refusal != "" || len(pv.MembershipProblems) != 0 || len(pv.PhysicalProblems) != 0 {
+		t.Fatalf("preview %+v does not agree with the freeze %s", pv, f.SplitDigest)
+	}
+	if len(pv.Packs) != 2 {
+		t.Fatalf("packs %+v", pv.Packs)
+	}
+	byDigest := map[string]FreezePreviewPack{}
+	for _, pk := range pv.Packs {
+		byDigest[pk.PackDigest] = pk
+	}
+	phys, plain := byDigest[p.Manifest.PackDigest], byDigest[bare.Manifest.PackDigest]
+	if phys.Dir != p.Dir || phys.DatasetID != p.Manifest.DatasetID || phys.SidecarRevision != s.Revision || phys.SidecarSHA256 != s.Digest() ||
+		phys.Physical == nil || phys.Physical.Revision != 1 || !slices.Equal(phys.Physical.Objects, validPhysicalPin.objects) ||
+		phys.Episodes != 1 || len(phys.Objects) != 2 || phys.Objects[0].Partition != "tune" {
+		t.Fatalf("physical pack preview %+v", phys)
+	}
+	if plain.Physical != nil || len(plain.Objects) != 2 {
+		t.Fatalf("plain pack preview %+v", plain)
+	}
+	b, err := json.Marshal(pv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"packs":[`, `"pack_digest"`, `"dataset_id"`, `"sidecar_revision"`, `"sidecar_sha256"`, `"physical":{`, `"physical":null`,
+		`"objects":[`, `"membership_problems":[]`, `"physical_problems":[]`, `"would_freeze":true`, `"split_digest":"` + f.SplitDigest} {
+		if !bytes.Contains(b, []byte(key)) {
+			t.Errorf("preview JSON lacks %s:\n%s", key, b)
+		}
+	}
+
+	// Review problems: reported, not returned as an error, and nothing
+	// would freeze.
+	unsettleMembership(s)
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	pv, err = PreviewFreeze(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pv.WouldFreeze || pv.SplitDigest != "" || pv.Refusal != "" || len(pv.MembershipProblems) != 1 || len(pv.PhysicalProblems) != 3 ||
+		!strings.Contains(pv.MembershipProblems[0], "object car-1: 1 mask(s) still proposed") ||
+		!strings.Contains(strings.Join(pv.PhysicalProblems, "\n"), `keyframe "kf-car-2-s0": position cites frame 0`) {
+		t.Fatalf("preview with problems %+v", pv)
+	}
+	if len(pv.Packs) != 2 || byDigestOf(pv.Packs, p.Manifest.PackDigest).Physical == nil {
+		t.Fatalf("packs are not previewed beside the problems: %+v", pv.Packs)
+	}
+	if _, err := FreezeSplit(opts); err == nil {
+		t.Fatal("FreezeSplit froze what the preview refused")
+	}
+
+	// A structural refusal after review passes: reported, with what was
+	// pinned.
+	heldOut := freezeOptions(onePartition(bare, "bare", "hold", SplitRoleHeldOut))
+	heldOut.Supersedes = f
+	pv, err = PreviewFreeze(heldOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pv.WouldFreeze || pv.SplitDigest != "" || !strings.Contains(pv.Refusal, "tuned on it") || len(pv.Packs) != 1 {
+		t.Fatalf("preview of a structural refusal %+v", pv)
+	}
+	if _, err := FreezeSplit(heldOut); err == nil || err.Error() != pv.Refusal {
+		t.Fatalf("FreezeSplit's refusal %v is not the preview's %q", err, pv.Refusal)
+	}
+
+	// What cannot be previewed is an error, as it is a freeze error.
+	_, err = PreviewFreeze(FreezeOptions{})
+	wantError(t, err, "no draft to freeze")
+	bad := freezeOptions(DraftPack{Dir: filepath.Join(t.TempDir(), "absent")})
+	_, err = PreviewFreeze(bad)
+	wantError(t, err, "read pack manifest")
+	_, err = FreezeSplit(bad)
+	wantError(t, err, "read pack manifest")
+}
+
+func byDigestOf(packs []FreezePreviewPack, digest string) FreezePreviewPack {
+	for _, pk := range packs {
+		if pk.PackDigest == digest {
+			return pk
+		}
+	}
+	return FreezePreviewPack{}
 }

@@ -14,8 +14,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// frozenPhysical writes the physical fixture and freezes its split; the
-// returned fixture's SplitManifestPath is the frozen split.
+// frozenPhysical writes the physical fixture and freezes its split, which
+// pins the fixture's physical revision; the returned fixture's
+// SplitManifestPath is the frozen split. The version 1 manifest it replaces
+// is at versionOneManifest.
 func frozenPhysical(t *testing.T) (*evalfixture.PhysicalFixture, *annotation.FrozenSplit) {
 	t.Helper()
 	dir := t.TempDir()
@@ -32,8 +34,15 @@ func frozenPhysical(t *testing.T) (*evalfixture.PhysicalFixture, *annotation.Fro
 	return f, frozen
 }
 
-// The command scores physical references against a frozen membership split,
-// at an explicit physical revision, and names the split in both sections.
+// versionOneManifest is the fixture's hand-written split manifest, which
+// pins no physical revision, so a run through it scores the head.
+func versionOneManifest(f *evalfixture.PhysicalFixture) string {
+	return filepath.Join(filepath.Dir(f.PackDir), "split.json")
+}
+
+// The command scores physical references against a frozen membership split
+// at the physical revision it pins, names the split in both sections, and
+// accepts an explicit revision only when it is the pinned one.
 func TestPerFramePhysicalWithFrozenSplit(t *testing.T) {
 	f, frozen := frozenPhysical(t)
 	code, c, stderr := runPerFrameCapture(t, physicalArgs(f, "-physical-reference", "-physical-reference-revision", "1"))
@@ -41,11 +50,23 @@ func TestPerFramePhysicalWithFrozenSplit(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	if c.Physical == nil || c.Physical.Reference.SplitDigest != frozen.SplitDigest || c.Reference.SplitDigest != frozen.SplitDigest ||
-		c.Physical.Reference.PhysicalRevision != 1 || c.Physical.Reference.SidecarRevision != 1 {
+		c.Physical.Reference.PhysicalRevision != 1 || c.Physical.Reference.SidecarRevision != 1 || !c.Physical.Reference.PhysicalPinned {
 		t.Fatalf("physical section %+v, reference %+v", c.Physical, c.Reference)
 	}
-	if !strings.Contains(stderr, "frozen split "+frozen.SplitDigest) || !strings.Contains(stderr, "physical references: revision 1") {
+	if !strings.Contains(stderr, "frozen split "+frozen.SplitDigest) ||
+		!strings.Contains(stderr, "physical references: revision 1, content "+frozen.Packs[0].Physical.ContentSHA256) ||
+		!strings.Contains(stderr, "pinned by the frozen split") {
 		t.Fatalf("stderr: %s", stderr)
+	}
+	code, _, stderr = runPerFrameCapture(t, physicalArgs(f, "-physical-reference", "-physical-reference-revision", "2"))
+	if code != 1 || !strings.Contains(stderr, "revision 2 was asked for, but frozen split "+frozen.SplitDigest+" pins revision 1") {
+		t.Fatalf("a revision conflicting with the pin: exit %d: %s", code, stderr)
+	}
+	// Through the version 1 manifest the same revision is scored, unpinned.
+	f.SplitManifestPath = versionOneManifest(f)
+	code, plain, stderr := runPerFrameCapture(t, physicalArgs(f, "-physical-reference"))
+	if code != 0 || plain.Physical.Reference.PhysicalPinned || strings.Contains(stderr, "pinned by the frozen split") {
+		t.Fatalf("version 1 manifest: exit %d, %+v: %s", code, plain.Physical.Reference, stderr)
 	}
 }
 
@@ -160,10 +181,73 @@ func TestBundleVerifiesThePinnedRevisionAfterTheHeadAdvances(t *testing.T) {
 	if code, stderr := verify(bundle); code != 0 {
 		t.Fatalf("verify after the head advanced: exit %d: %s", code, stderr)
 	}
-	// The head itself scores differently, so the pin is doing the work.
+	// The frozen split keeps scoring the revision it pinned.
 	code, c, stderr := runPerFrameCapture(t, physicalArgs(f, "-physical-reference"))
+	if code != 0 || c.Physical.Reference.PhysicalRevision != 1 || !c.Physical.Reference.PhysicalPinned ||
+		c.Physical.Reference.PhysicalContentDigest != readManifest(t, bundle).Physical.ContentDigest {
+		t.Fatalf("pinned run after the head advanced: exit %d, %+v: %s", code, c.Physical.Reference, stderr)
+	}
+	// The head itself, scored through the version 1 manifest, scores
+	// differently, so the pin is doing the work.
+	f.SplitManifestPath = versionOneManifest(f)
+	code, c, stderr = runPerFrameCapture(t, physicalArgs(f, "-physical-reference"))
 	if code != 0 || c.Physical.Reference.PhysicalRevision != 2 || c.Physical.Reference.PhysicalContentDigest == readManifest(t, bundle).Physical.ContentDigest {
 		t.Fatalf("head run: exit %d: %s", code, stderr)
+	}
+}
+
+// A bundle written under a pinned split records the pinned revision and its
+// digests, its comparison says the revision was pinned, and it verifies. A
+// new split revision pinning a new physical revision does not disturb it:
+// the bundle names the split file it was scored under.
+func TestBundleWithAPinnedSplit(t *testing.T) {
+	f, frozen := frozenPhysical(t)
+	bundle := writeFixtureBundle(t, f)
+	m := readManifest(t, bundle)
+	pin := frozen.Packs[0].Physical
+	if m.Physical.Revision != pin.Revision || m.Physical.SHA256 != pin.SHA256 || m.Physical.ContentDigest != pin.ContentSHA256 ||
+		m.Split.SplitDigest != frozen.SplitDigest || !m.Physical.WasHead {
+		t.Fatalf("bundle manifest %+v does not record the pin %+v", m.Physical, pin)
+	}
+	comparison, err := os.ReadFile(filepath.Join(bundle, m.Outputs.JSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(comparison), `"physical_pinned": true`) {
+		t.Fatal("the bundled comparison does not say the physical revision was pinned")
+	}
+	if code, stderr := verify(bundle); code != 0 {
+		t.Fatalf("verify: exit %d: %s", code, stderr)
+	}
+
+	pack, err := annotation.OpenPack(f.PackDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs, err := annotation.LoadPhysicalReferences(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound := 0.3
+	refs.Objects[0].Keyframes[0].Position.BoundM = &bound
+	refs.Change = annotation.Provenance{Author: "operator", Operation: "widen"}
+	if err := annotation.SavePhysicalReferences(pack, refs); err != nil {
+		t.Fatal(err)
+	}
+	opts := f.FreezeOptions()
+	opts.Supersedes = frozen
+	next, err := annotation.FreezeSplit(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.Packs[0].Physical.Revision != 2 {
+		t.Fatalf("the successor pins revision %d", next.Packs[0].Physical.Revision)
+	}
+	if err := annotation.WriteFrozenSplit(filepath.Join(filepath.Dir(f.PackDir), "frozen-2.json"), next); err != nil {
+		t.Fatal(err)
+	}
+	if code, stderr := verify(bundle); code != 0 {
+		t.Fatalf("verify after a successor split: exit %d: %s", code, stderr)
 	}
 }
 
