@@ -43,6 +43,19 @@ import Foundation
     /// document moved underneath: another write waits for a reload.
     @Published private(set) var needsReload = false
 
+    /// Retained revisions, newest first, once asked for.
+    @Published private(set) var history: [PhysicalRevisionSummary] = []
+
+    /// Objects whose tracker estimate the operator has been shown, and the
+    /// estimate's identity. An edit to such an object's record afterwards is
+    /// tracker-assisted, whatever mode it is made in; see applyExposure.
+    @Published private(set) var exposure: [String: String] = [:]
+    private let exposureDefaults: UserDefaults?
+    private var exposureKey: String { "annotation.physicalExposure." + packDigest }
+
+    /// The draft as it was when a drag began: the whole drag is one undo step.
+    private var gestureStart: [PhysicalObject]?
+
     private var undoStack: [[PhysicalObject]] = []
     private var redoStack: [[PhysicalObject]] = []
     static let undoLimit = 64
@@ -67,8 +80,13 @@ import Foundation
     init(
         packDirectory: URL, packDigest: String, sessionID: String,
         client: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
-        membershipDigest: @escaping () -> String, author: @escaping () -> String
+        membershipDigest: @escaping () -> String, author: @escaping () -> String,
+        exposureDefaults: UserDefaults? = nil
     ) {
+        self.exposureDefaults = exposureDefaults
+        self.exposure =
+            exposureDefaults?.dictionary(forKey: "annotation.physicalExposure." + packDigest)
+            as? [String: String] ?? [:]
         self.localDirectory = packDirectory
         self.packHandle = PhysicalReferenceAPIClient.handle(for: packDirectory)
         self.packDigest = packDigest
@@ -100,6 +118,16 @@ import Foundation
 
     /// Records the stored document says no longer hold against membership.
     var staleProblems: [PhysicalLinkProblem] { state?.stale ?? [] }
+
+    /// Reviewed records whose membership changed after their review.
+    var driftProblems: [PhysicalLinkProblem] { state?.reviewDrift ?? [] }
+
+    /// Whether a reviewed record is listed as drifted, so it may be reviewed
+    /// again against the current membership.
+    func hasDrift(record id: String?) -> Bool {
+        guard let id else { return false }
+        return driftProblems.contains { $0.record.contains("\"\(id)\"") }
+    }
 
     // MARK: Loading
 
@@ -178,9 +206,10 @@ import Foundation
 
     /// Applies one change to the draft, as one undo step.
     func edit(_ change: (inout [PhysicalObject]) -> Void) {
-        guard canEdit else { return }
+        guard canEdit, gestureStart == nil else { return }
         var next = draft
         change(&next)
+        PhysicalDraft.applyExposure(before: draft, after: &next, exposure: exposure)
         PhysicalDraft.canonicalise(&next)
         guard next != draft else { return }
         undoStack.append(draft)
@@ -191,6 +220,58 @@ import Foundation
         validation = nil
         lastNote = nil
         scheduleValidation()
+    }
+
+    // MARK: Gestures
+
+    /// Starts a drag: the draft follows the pointer, and the whole drag is
+    /// one undo step when it ends.
+    func beginGesture() {
+        guard canEdit, gestureStart == nil else { return }
+        gestureStart = draft
+    }
+
+    /// Moves the draft with the pointer, from the state the drag began in.
+    func updateGesture(_ change: (inout [PhysicalObject]) -> Void) {
+        guard let start = gestureStart else { return }
+        var next = start
+        change(&next)
+        PhysicalDraft.applyExposure(before: start, after: &next, exposure: exposure)
+        PhysicalDraft.canonicalise(&next)
+        draft = next
+    }
+
+    func endGesture() {
+        guard let start = gestureStart else { return }
+        gestureStart = nil
+        guard draft != start else { return }
+        undoStack.append(start)
+        if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
+        redoStack = []
+        generation &+= 1
+        validation = nil
+        lastNote = nil
+        scheduleValidation()
+    }
+
+    var gestureInProgress: Bool { gestureStart != nil }
+
+    /// A keyframe as it was when the current drag began.
+    func gestureStartKeyframe(objectID: String, sampleID: Int) -> PhysicalKeyframe? {
+        gestureStart?.first { $0.objectID == objectID }?.keyframe(sampleID: sampleID)
+    }
+
+    // MARK: Exposure
+
+    /// Records that the operator has seen an estimate for these objects. It
+    /// is kept for the pack across launches, and nothing here clears it.
+    func expose(objectIDs: some Sequence<String>, source: String) {
+        var changed = false
+        for id in objectIDs where exposure[id] == nil {
+            exposure[id] = source
+            changed = true
+        }
+        if changed { exposureDefaults?.set(exposure, forKey: exposureKey) }
     }
 
     func undo() {
@@ -333,6 +414,55 @@ import Foundation
             accept(reviewed, draft: nil)
             clearError()
             lastNote = "Reviewed \(kind.rawValue) as revision \(reviewed.revision)."
+            return true
+        } catch let error as PhysicalReferenceAPIError {
+            report(error)
+            return false
+        } catch {
+            report(.transport(error.localizedDescription))
+            return false
+        }
+    }
+
+    /// A retained revision, for showing what a report was scored against.
+    /// Not adopted as the draft: a report's revision is read, never edited.
+    func loadRetained(revision: Int) async throws -> PhysicalPackState {
+        try await client.load(handle: packHandle, packDigest: packDigest, revision: revision)
+    }
+
+    // MARK: History
+
+    func loadHistory() async {
+        do {
+            history = try await client.history(handle: packHandle, packDigest: packDigest)
+        } catch let error as PhysicalReferenceAPIError { report(error) } catch {}
+    }
+
+    /// Makes a retained revision current, as a new revision. Refused while
+    /// the draft has unsaved changes: they would be lost under it.
+    @discardableResult func restore(revision: Int) async -> Bool {
+        guard canEdit, !needsReload, let state else { return false }
+        guard !isDirty else {
+            lastError = "Save or discard the draft before restoring a revision."
+            return false
+        }
+        guard !author().trimmingCharacters(in: .whitespaces).isEmpty else {
+            lastError = "Enter your name under Labelled by before restoring."
+            return false
+        }
+        generation &+= 1
+        busy = true
+        defer { busy = false }
+        do {
+            let restored = try await client.restore(
+                PhysicalReferenceAPIClient.RestoreRequest(
+                    pack: packHandle, packDigest: packDigest, baseRevision: state.revision,
+                    baseDigest: state.digest, membershipDigest: membershipDigest(),
+                    revision: revision, author: author(), session: sessionID))
+            accept(restored, draft: nil)
+            clearError()
+            lastNote = "Restored revision \(revision) as revision \(restored.revision)."
+            await loadHistory()
             return true
         } catch let error as PhysicalReferenceAPIError {
             report(error)
@@ -567,6 +697,149 @@ enum PhysicalDraft {
         if kind == .bodyCentre {
             k.anchor.offsetM = nil
             k.anchor.offsetBoundM = nil
+        }
+    }
+}
+
+// MARK: - Copies, repair and exposure
+
+extension PhysicalDraft {
+    /// The object's keyframe nearest this sample in time, other than one at
+    /// the sample itself.
+    static func nearestKeyframe(
+        of object: PhysicalObject, to sample: AnnotationSample
+    ) -> PhysicalKeyframe? {
+        object.keyframes.filter { $0.sampleID != sample.sampleID }.min {
+            abs($0.timestampNs - sample.timestampNs) < abs($1.timestampNs - sample.timestampNs)
+        }
+    }
+
+    /// A proposal at `sample` copied from another keyframe.
+    ///
+    /// A copy is not an observation at its new instant: every component the
+    /// source observed becomes inferred from the frames it was observed in,
+    /// and nothing is interpolated. It keeps the source's actual origin, so a
+    /// copy of a tracker-assisted keyframe stays tracker-assisted. The
+    /// operator then confirms or corrects it against this frame's returns,
+    /// which is what may make any part of it observed again.
+    static func copy(
+        _ source: PhysicalKeyframe, to sample: AnnotationSample, author: String, session: String
+    ) -> PhysicalKeyframe {
+        func carried(
+            _ status: PhysicalEvidence, _ support: PhysicalSupport
+        ) -> (PhysicalEvidence, PhysicalSupport) {
+            guard status == .observed else { return (status, support) }
+            var frames = Set(support.frameList)
+            frames.insert(source.sampleID)
+            return (.inferred, PhysicalSupport(frames: frames.sorted(), external: support.external))
+        }
+        var k = source
+        k.keyframeID = newID("kf")
+        k.sampleID = sample.sampleID
+        k.timestampNs = sample.timestampNs
+        (k.position.status, k.position.support) = carried(
+            source.position.status, source.position.support)
+        (k.yaw.status, k.yaw.support) = carried(source.yaw.status, source.yaw.support)
+        (k.front.status, k.front.support) = carried(source.front.status, source.front.support)
+        (k.rear.status, k.rear.support) = carried(source.rear.status, source.rear.support)
+        // A shared error names one observation at the source's instant.
+        k.sharedErrors = nil
+        var review = PhysicalDraft.review(author: author, session: session)
+        review.origin = source.review.origin
+        review.trackerSource = source.review.trackerSource
+        review.method = "copy_of:" + source.keyframeID
+        review.uncertaintyAssumptions =
+            "Copied from sample \(source.sampleID), not observed at this instant. "
+            + (source.review.uncertaintyAssumptions ?? "")
+        k.review = review
+        return k
+    }
+
+    /// Moves an object's references to another object, as a deliberate repair
+    /// after a merge or a rejection. Refused, with the reason, where the
+    /// target already has a body or a keyframe at the same sample: two answers
+    /// to one question are for a person to choose between.
+    static func reassign(
+        from sourceID: String, to targetID: String, in objects: inout [PhysicalObject]
+    ) -> String? {
+        guard sourceID != targetID, let s = objects.firstIndex(where: { $0.objectID == sourceID })
+        else { return "Nothing to move." }
+        let source = objects[s]
+        let t = index(of: targetID, in: &objects)
+        if source.body != nil && objects[t].body != nil {
+            return "Both objects have a body. Remove one before moving the references."
+        }
+        let taken = Set(objects[t].keyframes.map(\.sampleID))
+        if let clash = source.keyframes.first(where: { taken.contains($0.sampleID) }) {
+            return "Both objects have a keyframe at sample \(clash.sampleID). Remove one first."
+        }
+        if let body = source.body { objects[t].body = body }
+        objects[t].keyframes += source.keyframes
+        objects.removeAll { $0.objectID == sourceID }
+        return nil
+    }
+
+    /// Removes the record a link problem names: an object's whole reference,
+    /// its body, or one keyframe. The service names records as
+    /// `object "<id>"`, optionally followed by `body "<id>"` or
+    /// `keyframe "<id>"`.
+    @discardableResult static func remove(
+        problem: PhysicalLinkProblem, from objects: inout [PhysicalObject]
+    ) -> Bool {
+        let quoted = problem.record.split(separator: "\"", omittingEmptySubsequences: false).map(
+            String.init)
+        // object "<a>" [body|keyframe "<b>"] splits into ["object ", a, " body ", b, ""].
+        guard quoted.count >= 3, quoted[0].trimmingCharacters(in: .whitespaces) == "object" else {
+            return false
+        }
+        let objectID = quoted[1]
+        guard let i = objects.firstIndex(where: { $0.objectID == objectID }) else { return false }
+        if quoted.count >= 5 {
+            let kind = quoted[2].trimmingCharacters(in: .whitespaces)
+            let recordID = quoted[3]
+            switch kind {
+            case "body" where objects[i].body?.bodyID == recordID: objects[i].body = nil
+            case "keyframe": objects[i].keyframes.removeAll { $0.keyframeID == recordID }
+            default: return false
+            }
+            if objects[i].body == nil && objects[i].keyframes.isEmpty { objects.remove(at: i) }
+            return true
+        }
+        objects.remove(at: i)
+        return true
+    }
+
+    /// Holds an edit to what the operator has seen. For an object whose
+    /// estimate was shown, any body or keyframe the edit changes or creates
+    /// becomes tracker-assisted, naming the estimate. A record saved as
+    /// independent is never relabelled: its revision stays in history, and
+    /// the edit continues as a new tracker-assisted record under a new ID.
+    static func applyExposure(
+        before: [PhysicalObject], after: inout [PhysicalObject], exposure: [String: String]
+    ) {
+        guard !exposure.isEmpty else { return }
+        let old = Dictionary(before.map { ($0.objectID, $0) }, uniquingKeysWith: { a, _ in a })
+        func assist(_ review: inout PhysicalReview, source: String) {
+            review.origin = .trackerAssisted
+            review.trackerSource = source
+        }
+        for i in after.indices {
+            guard let source = exposure[after[i].objectID] else { continue }
+            let previous = old[after[i].objectID]
+            if var body = after[i].body, body != previous?.body, body.review.origin == .independent
+            {
+                if previous?.body?.bodyID == body.bodyID { body.bodyID = newID("body") }
+                assist(&body.review, source: source)
+                after[i].body = body
+            }
+            for k in after[i].keyframes.indices {
+                var kf = after[i].keyframes[k]
+                let was = previous?.keyframes.first { $0.keyframeID == kf.keyframeID }
+                guard kf != was, kf.review.origin == .independent else { continue }
+                if was != nil { kf.keyframeID = newID("kf") }
+                assist(&kf.review, source: source)
+                after[i].keyframes[k] = kf
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ import SwiftUI
 private let appLogger = DevLogger(category: "App")
 
 @main struct VelocityVisualiserApp: App {
+    @NSApplicationDelegateAdaptor(QuitGuard.self) private var quitGuard
     @StateObject private var appState = AppState()
     private static let watchdog = MainThreadWatchdog()
 

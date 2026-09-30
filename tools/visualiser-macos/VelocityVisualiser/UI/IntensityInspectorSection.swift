@@ -18,6 +18,26 @@ struct IntensityInspectorSection: View {
     }
 
     private var spec: IntensityDisplaySpec { session.intensityDisplay }
+
+    @State private var showDistribution = false
+    @State private var binning: IntensityBinning = .sixteen
+    @State private var minimumSupport = 3
+    @State private var population: DistributionSource = .savedMask
+
+    /// Which returns the distribution describes. A recording keeps cluster
+    /// boxes, not which returns were in them, so no cluster is offered as if
+    /// it named its members.
+    enum DistributionSource: String, CaseIterable, Identifiable {
+        case savedMask
+        case selection
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .savedMask: return "Saved mask"
+            case .selection: return "Unsaved selection"
+            }
+        }
+    }
     private var available: Bool { session.intensityAvailability.available }
 
     var body: some View {
@@ -32,6 +52,9 @@ struct IntensityInspectorSection: View {
                 "Read out the return under the cursor. M pins it; N steps to the next one under the same place."
             )
             if session.inspectIntensity { readout }
+            DisclosureGroup("Distribution (experimental)", isExpanded: $showDistribution) {
+                distribution
+            }.font(.caption)
             Text(session.intensityAvailability.caveat).font(.caption2).foregroundStyle(
                 available ? Color.secondary : Color.orange
             ).fixedSize(horizontal: false, vertical: true)
@@ -147,6 +170,121 @@ struct IntensityInspectorSection: View {
                 Text("This frame: \(counts.below) clamped low, \(counts.above) clamped high").font(
                     .caption2
                 ).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: Distribution
+
+    private var distribution: some View {
+        let sample = session.currentSample
+        let points = session.currentPoints
+        var indices: [Int] = []
+        var excluded: Set<Int> = []
+        var describe = ""
+        switch population {
+        case .savedMask:
+            if let objectID = session.activeObjectID, let sample,
+                let mask = session.sidecar.mask(objectID: objectID, sampleID: sample.sampleID)
+            {
+                let uncertain = mask.uncertainIndices ?? []
+                indices = mask.pointIndices + uncertain
+                excluded = Set(uncertain)
+                describe =
+                    "\(session.displayName(objectID: objectID))'s saved mask, definite members"
+            } else {
+                describe = "No saved mask for the chosen object in this frame"
+            }
+        case .selection:
+            indices = Array(session.history.current)
+            describe = "The selection on screen, not saved"
+        }
+        let result = Result {
+            try IntensityPopulation(
+                intensityAvailable: available, intensity: points.intensity,
+                pointCount: points.count, indices: indices, excluded: excluded, binning: binning)
+        }
+        return VStack(alignment: .leading, spacing: 4) {
+            Picker("Returns", selection: $population) {
+                ForEach(DistributionSource.allCases) { Text($0.label).tag($0) }
+            }.font(.caption)
+            HStack {
+                Picker("Bins", selection: $binning) {
+                    Text("16").tag(IntensityBinning.sixteen)
+                    Text("32").tag(IntensityBinning.thirtyTwo)
+                }.pickerStyle(.segmented).frame(width: 90)
+                Stepper("min \(minimumSupport)", value: $minimumSupport, in: 1...50).font(.caption2)
+            }
+            Text(describe + (sample.map { " · sample \($0.sampleID)" } ?? "")).font(.caption2)
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            switch result {
+            case .failure(let error):
+                Text("Data error: \(String(describing: error))").font(.caption2).foregroundStyle(
+                    .red)
+            case .success(.emptySelection):
+                Text("Nothing selected.").font(.caption2).foregroundStyle(.secondary)
+            case .success(.unavailable(let count)):
+                Text("\(count) returns selected; intensity unavailable for this pack.").font(
+                    .caption2
+                ).foregroundStyle(.orange)
+            case .success(.measured(let histogram)): histogramView(histogram)
+            }
+            Text(
+                "Describes the retained returns selected, not every surface of the vehicle: "
+                    + session.pack.coverageCaveat
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+        }
+    }
+
+    private func histogramView(_ h: IntensityHistogram) -> some View {
+        let peaks = IntensityPeaks.extract(histogram: h, minimumSupport: minimumSupport)
+        let top = max(h.counts.max() ?? 1, 1)
+        return VStack(alignment: .leading, spacing: 3) {
+            Canvas { context, size in
+                let w = size.width / CGFloat(h.counts.count)
+                for (i, count) in h.counts.enumerated() where count > 0 {
+                    let height = size.height * CGFloat(count) / CGFloat(top)
+                    context.fill(
+                        Path(
+                            CGRect(
+                                x: CGFloat(i) * w + 0.5, y: size.height - height, width: w - 1,
+                                height: height)), with: .color(.accentColor.opacity(0.8)))
+                }
+            }.frame(height: 48).background(Color.black.opacity(0.4))
+            HStack {
+                Text("0").font(.system(size: 8))
+                Spacer()
+                Text("255").font(.system(size: 8))
+            }
+            Text(
+                "\(h.measuredCount) measured · \(h.excludedCount) uncertain excluded · bins of \(h.binning.binWidth)"
+            ).font(.caption2.monospacedDigit())
+            if h.isEmpty {
+                Text("Every selected return is uncertain; nothing measured to show.").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            } else {
+                Text("Peaks · \(IntensityPeaks.algorithmVersion) · min support \(minimumSupport)")
+                    .font(.caption2.bold())
+                if peaks.peaks.isEmpty {
+                    Text("None with enough support.").font(.caption2).foregroundStyle(.secondary)
+                }
+                ForEach(Array(peaks.peaks.enumerated()), id: \.offset) { _, peak in
+                    Text(
+                        String(
+                            format: "centre %.1f · width %.1f · %d returns (%.0f%%)", peak.centre,
+                            peak.width, peak.support, peak.fraction * 100)
+                    ).font(.caption2.monospacedDigit())
+                }
+                if peaks.unassigned > 0 {
+                    Text("\(peaks.unassigned) returns in no reported peak").font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(
+                    "Width is the spread of raw codes, not an uncertainty. A peak is not a surface or a material."
+                ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
             }
         }
     }

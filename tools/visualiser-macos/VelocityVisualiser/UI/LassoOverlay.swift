@@ -41,6 +41,8 @@ struct LassoOverlay: View {
     }
 
     @State private var strokePoints: [CGPoint] = []
+    /// The physical handle being dragged, if a drag is on one.
+    @State private var physicalHandle: PhysicalHandle?
     @State private var rectangleMode = false
     /// Where a brush was at the last drag event, in world metres.
     @State private var lastBrushPosition: simd_float2?
@@ -92,7 +94,15 @@ struct LassoOverlay: View {
                             atViewPoint: location.map { viewport.worldPoint(from: $0) },
                             pickDistance: metresPerPoint * 12)
                     }, onDepthStep: { if editable { session.adjustBrushDepth(steps: $0) } },
-                    onKey: handleKey)
+                    onKey: handleKey,
+                    claimsDrag: { location in
+                        guard editable, basisStandard == .top,
+                            let handle = session.physicalHandle(at: location, viewport: viewport)
+                        else { return false }
+                        physicalHandle = handle
+                        session.beginPhysicalDrag()
+                        return true
+                    })
 
                 if showsGrid { gridLayer }
                 maskLayer
@@ -437,6 +447,12 @@ struct LassoOverlay: View {
     // click with the lasso samples one vertex, which encloses nothing, and
     // ends as a stroke that named nothing.
     private func strokeChanged(_ value: ViewportStroke) {
+        if let handle = physicalHandle {
+            session.updatePhysicalDrag(
+                handle, from: viewport.worldPoint(from: value.startLocation),
+                to: viewport.worldPoint(from: value.location))
+            return
+        }
         switch session.tool {
         case .lasso: lassoChanged(value)
         case .sphere: sphereChanged(value)
@@ -445,6 +461,11 @@ struct LassoOverlay: View {
     }
 
     private func strokeEnded(_ value: ViewportStroke) {
+        if physicalHandle != nil {
+            physicalHandle = nil
+            session.endPhysicalDrag()
+            return
+        }
         defer { resetStroke() }
         session.selectionMode = SelectionMode.from(
             tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),

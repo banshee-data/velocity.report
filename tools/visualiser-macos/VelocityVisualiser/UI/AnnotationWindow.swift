@@ -490,6 +490,8 @@ struct AnnotationViewportView: View {
                 if session.workMode == .physical {
                     PhysicalReferenceOverlay(
                         session: session, standard: standard, viewport: viewport)
+                } else if session.workMode == .compare {
+                    PhysicalCompareOverlay(session: session, standard: standard, viewport: viewport)
                 }
                 Text(standard.label + (editable ? " · editing" : " · click to edit here")).font(
                     .caption2

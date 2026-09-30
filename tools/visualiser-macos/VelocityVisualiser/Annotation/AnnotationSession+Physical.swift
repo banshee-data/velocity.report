@@ -122,9 +122,105 @@ extension AnnotationSession {
         switch workMode {
         case .points: guard save() else { return false }
         case .physical: if physical.isDirty { guard await physical.save() else { return false } }
+        // Read-only: nothing to save, and X only steps.
+        case .compare: guard advance else { return false }
         }
         guard advance else { return true }
         guard sampleIndex < samples.count - 1 else { return false }
         return stepForward() == nil
     }
+}
+
+// MARK: - Drag handles
+
+/// A draggable part of the active keyframe in the Top view, and the
+/// constraint the drag keeps.
+enum PhysicalHandle: Equatable {
+    /// Moves the anchor; the body's size and the yaw are held.
+    case move
+    /// Turns the yaw about the centre (or the anchor); position and size are held.
+    case turn
+}
+
+enum PhysicalHandles {
+    /// How far the axis arrow reaches on screen, and so where its handle is.
+    static let axisReach: CGFloat = 34
+    /// How close a press must be to take a handle, in points.
+    static let pickRadius: CGFloat = 7
+
+    /// Where the handles are on screen, for drawing and for hit testing.
+    static func positions(
+        _ g: PhysicalGeometry, basis: OrthoViewBasis, viewport: OrthoViewport
+    ) -> (move: CGPoint?, turn: CGPoint?) {
+        func screen(_ x: Double, _ y: Double) -> CGPoint {
+            viewport.screenPoint(from: basis.project(simd_float3(Float(x), Float(y), 0)))
+        }
+        let move = g.anchorPoint.map { screen($0.x, $0.y) }
+        guard let yaw = g.yaw, let origin = g.centre ?? g.anchorPoint else { return (move, nil) }
+        let o = screen(origin.x, origin.y)
+        let t = screen(origin.x + cos(yaw.rad), origin.y + sin(yaw.rad))
+        let n = max(hypot(t.x - o.x, t.y - o.y), 0.001)
+        return (
+            move,
+            CGPoint(x: o.x + (t.x - o.x) / n * axisReach, y: o.y + (t.y - o.y) / n * axisReach)
+        )
+    }
+}
+
+extension AnnotationSession {
+    /// The active keyframe's geometry as the overlay draws it.
+    var physicalPreview: PhysicalGeometry? {
+        guard let objectID = activeObjectID, let k = physicalKeyframe,
+            let object = physical.object(objectID)
+        else { return nil }
+        return PhysicalGeometry.derive(object: object, keyframe: k, gate: .preview)
+    }
+
+    /// The handle under a press in the Top view, if any. The turn handle wins
+    /// a tie: it sits on the end of the arrow drawn from the move handle.
+    func physicalHandle(at screen: CGPoint, viewport: OrthoViewport) -> PhysicalHandle? {
+        guard workMode == .physical, physical.canEdit, let g = physicalPreview else { return nil }
+        let at = PhysicalHandles.positions(g, basis: basis(.top), viewport: viewport)
+        func near(_ p: CGPoint?) -> Bool {
+            p.map { hypot($0.x - screen.x, $0.y - screen.y) <= PhysicalHandles.pickRadius } ?? false
+        }
+        if near(at.turn) { return .turn }
+        if near(at.move) { return .move }
+        return nil
+    }
+
+    func beginPhysicalDrag() { physical.beginGesture() }
+
+    /// Follows a drag of `handle` from where it began to a view-plane point
+    /// in the Top view. A move follows the pointer's travel, so taking the
+    /// handle off-centre does not make the anchor jump.
+    func updatePhysicalDrag(
+        _ handle: PhysicalHandle, from startPoint: simd_float2, to viewPoint: simd_float2
+    ) {
+        guard let objectID = activeObjectID, let sample = currentSample, let g = physicalPreview,
+            let start = physical.gestureStartKeyframe(objectID: objectID, sampleID: sample.sampleID)
+        else { return }
+        let world = worldPoint(in: .top, viewPoint: viewPoint)
+        let from = worldPoint(in: .top, viewPoint: startPoint)
+        let origin = g.centre ?? g.anchorPoint
+        physical.updateGesture { objects in
+            PhysicalDraft.updateKeyframe(
+                objectID: objectID, sampleID: sample.sampleID, in: &objects
+            ) { k in
+                switch handle {
+                case .move:
+                    guard let x = start.position.xM, let y = start.position.yM else { return }
+                    k.position.xM = x + Double(world.x - from.x)
+                    k.position.yM = y + Double(world.y - from.y)
+                case .turn:
+                    guard let origin, k.yaw.axis != .unknown else { return }
+                    let rad = atan2(Double(world.y) - origin.y, Double(world.x) - origin.x)
+                    k.yaw.yawRad = PhysicalUnits.radians(
+                        PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))
+                }
+            }
+        }
+    }
+
+    func endPhysicalDrag() { physical.endGesture() }
 }

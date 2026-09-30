@@ -105,6 +105,28 @@ struct PhysicalReferenceOverlay: View {
                 let stroke = StrokeStyle(lineWidth: item.active ? 1.6 : 1, dash: item.style.dash)
                 let label = "\(item.name) · \(item.style.label)"
 
+                if standard == .top && item.active {
+                    let at = PhysicalHandles.positions(
+                        item.geometry, basis: basis, viewport: viewport)
+                    if let m = at.move {
+                        context.fill(
+                            Path(CGRect(x: m.x - 4, y: m.y - 4, width: 8, height: 8)),
+                            with: .color(colour.opacity(0.9)))
+                    }
+                    if let t = at.turn {
+                        context.fill(
+                            Path(
+                                ellipseIn: CGRect(x: t.x - 4.5, y: t.y - 4.5, width: 9, height: 9)),
+                            with: .color(colour))
+                    }
+                    if at.move != nil {
+                        context.draw(
+                            Text("drag ■ to move, size held · drag ● to turn").font(
+                                .system(size: 9)
+                            ).foregroundColor(.secondary),
+                            at: CGPoint(x: size.width / 2, y: size.height - 12))
+                    }
+                }
                 if standard == .top {
                     drawTop(
                         g, item.keyframe, in: &context, screen: screen, radius: radius,

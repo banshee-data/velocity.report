@@ -96,6 +96,21 @@ final class FakePhysicalService: @unchecked Sendable {
                 try encoder.encode(
                     PhysicalEditResult(
                         valid: true, linkProblems: [], resetReviews: ["body/b"], state: state())))
+        case "/api/annotations/physical/history":
+            struct History: Encodable { var revisions: [PhysicalRevisionSummary] }
+            let revisions = (1...max(revision, 1)).reversed().map {
+                PhysicalRevisionSummary(
+                    revision: $0, updatedUTC: "2026-09-29T00:00:00Z",
+                    change: Provenance(author: "op"), restoredFrom: nil, digest: "sha256:rev\($0)",
+                    contentDigest: "sha256:c", head: $0 == revision, objects: objects.count,
+                    keyframes: 0, reviewed: 0)
+            }
+            return respond(200, try encoder.encode(History(revisions: revisions)))
+        case "/api/annotations/physical/restore":
+            revision += 1
+            digest = "sha256:rev\(revision)"
+            objects = []
+            return respond(200, try encoder.encode(state()))
         case "/api/annotations/physical/review":
             let object = body["object_id"] as? String
             let record = body["record_id"] as? String

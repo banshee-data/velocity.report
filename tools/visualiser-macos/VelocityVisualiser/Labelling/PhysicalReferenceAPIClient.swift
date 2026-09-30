@@ -163,6 +163,46 @@ struct PhysicalReferenceAPIClient {
         try await post("api/annotations/physical/review", review, as: PhysicalPackState.self)
     }
 
+    func history(handle: String, packDigest: String) async throws -> [PhysicalRevisionSummary] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/annotations/physical/history"),
+            resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "pack", value: handle),
+            URLQueryItem(name: "pack_digest", value: packDigest),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        struct History: Decodable { var revisions: [PhysicalRevisionSummary] }
+        return try await send(request, as: History.self).revisions
+    }
+
+    struct RestoreRequest: Encodable {
+        var pack: String
+        var packDigest: String
+        var baseRevision: Int
+        var baseDigest: String
+        var membershipDigest: String
+        var revision: Int
+        var author: String
+        var session: String
+
+        enum CodingKeys: String, CodingKey {
+            case pack
+            case packDigest = "pack_digest"
+            case baseRevision = "base_revision"
+            case baseDigest = "base_digest"
+            case membershipDigest = "membership_digest"
+            case revision
+            case author
+            case session
+        }
+    }
+
+    func restore(_ restore: RestoreRequest) async throws -> PhysicalPackState {
+        try await post("api/annotations/physical/restore", restore, as: PhysicalPackState.self)
+    }
+
     // MARK: Transport
 
     private func post<Body: Encodable, Result: Decodable>(

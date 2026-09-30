@@ -529,3 +529,55 @@ final class FileLock {
         close(fd)
     }
 }
+
+// MARK: - Points claimed twice
+
+/// A return two objects claim in one sample. Go's sidecar validation refuses
+/// any such file outright, so every Go reader of the pack, the physical
+/// reference service included, would refuse it too.
+struct PointClaimConflict: Hashable {
+    var sampleID: Int
+    var point: Int
+    /// The two objects, in the order Go reports them: the earlier mask first.
+    var first: String
+    var second: String
+
+    /// The same conflict whichever mask came first.
+    var key: String { "\(sampleID)/\(point)/" + [first, second].sorted().joined(separator: "|") }
+}
+
+extension Sidecar {
+    /// Every return claimed by two objects in the same sample, by the rule
+    /// Go's Sidecar.Validate applies: any two masks of different objects, of
+    /// any status.
+    func pointClaimConflicts() -> [PointClaimConflict] {
+        var claimed: [Int: [Int: String]] = [:]
+        var out: [PointClaimConflict] = []
+        for mask in masks {
+            for index in mask.pointIndices {
+                if let other = claimed[mask.sampleID]?[index], other != mask.objectID {
+                    out.append(
+                        PointClaimConflict(
+                            sampleID: mask.sampleID, point: index, first: other,
+                            second: mask.objectID))
+                } else {
+                    claimed[mask.sampleID, default: [:]][index] = mask.objectID
+                }
+            }
+        }
+        return out
+    }
+}
+
+/// A save that would make two objects claim one return.
+struct PointClaimError: Error, CustomStringConvertible {
+    var conflicts: [PointClaimConflict]
+
+    var description: String {
+        let first = conflicts[0]
+        let more = conflicts.count > 1 ? " (and \(conflicts.count - 1) more)" : ""
+        return "Not saved: sample \(first.sampleID) point \(first.point) would belong to both "
+            + "\(first.first) and \(first.second)\(more). A return belongs to one object; take it "
+            + "out of one of them first. Go's tools refuse a pack where it does not."
+    }
+}
