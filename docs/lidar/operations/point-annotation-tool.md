@@ -240,7 +240,7 @@ mostly the speckle of every frame, are behind a toggle.
 1. Select the object's points in the editing view.
 2. Choose a class and press **New object from selection**. Selecting first and naming second is
    the expected order.
-3. **Save points** (⌘S).
+3. **Save points** (**S** or ⌘S), or **Save and next** (**X**) to save and step to the next frame.
 4. **Forward ▶▶** (⌘]) or **◀◀ Back** (⌘[) carries the mask through the frames on its own and
    saves them at once. It stops, and leaves you on that frame with the refused fit to nudge,
    where the object is lost, has doubled, could be in two places, is further than it could have
@@ -434,7 +434,8 @@ out of sight while authoring.
    and only after the position exists.
 4. Give each record its method and uncertainty assumptions. The server checks the draft as you
    edit and says what it would refuse, and which reviews a save would reset.
-5. **Save proposal** saves the draft as a new revision. A save never reviews anything. A changed
+5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
+   and steps to the next frame. A save never reviews anything. A changed
    body dimension is a new body under a new ID, and every keyframe of that object returns to
    proposed.
 6. Inspect the saved record in both views, then **Review body** and **Review keyframe**,
@@ -542,7 +543,7 @@ and marks nothing unsaved.
   the end colour, and the column counts how many were clamped in this frame. Off restores the
   class colours, without the intensity brightening the main view uses.
 - **Inspect returns** reads out the return under the cursor: its stored byte, point index, sample
-  and position. **P** pins it; **N** steps to the next return under the same place. The readout
+  and position. **M** pins it; **N** steps to the next return under the same place. The readout
   is the stored byte, whatever the colour settings.
 
 A pack declares intensity once, for the whole pack. If `has_intensity` is false, the stored bytes

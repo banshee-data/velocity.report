@@ -36,7 +36,8 @@ enum ViewportKey: Equatable {
     case voxel(Int)
     case accept
     case cancel
-    /// P: pin the return the intensity readout is showing.
+    /// M: pin (mark) the return the intensity readout is showing. Not P,
+    /// which the Overlays menu binds app-wide.
     case inspectPin
     /// N: step the readout to the next return under the same place.
     case inspectNext
@@ -237,7 +238,7 @@ final class ViewportInputView: NSView {
         case 126: return .nudge(right: 0, up: 1, coarse: coarse)
         case 36, 76: return .accept
         case 53: return .cancel
-        case 35 where event.modifierFlags.intersection([.command, .control, .option]).isEmpty:
+        case 46 where event.modifierFlags.intersection([.command, .control, .option]).isEmpty:
             return .inspectPin
         case 45 where event.modifierFlags.intersection([.command, .control, .option]).isEmpty:
             return .inspectNext

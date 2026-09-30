@@ -9,6 +9,7 @@
 // is a plain field, picker or button, so the whole record can be authored from
 // the keyboard without dragging anything.
 
+import AppKit
 import SwiftUI
 
 struct PhysicalReferencePane: View {
@@ -472,11 +473,25 @@ struct PhysicalReferencePane: View {
                 Button("Discard", role: .destructive) { physical.discard() }.disabled(
                     !physical.isDirty)
             }.controlSize(.small)
-            Button("Save proposal") { Task { await physical.save() } }.keyboardShortcut(
-                "s", modifiers: [.command, .shift]
-            ).disabled(!physical.isDirty || !physical.canEdit || physical.needsReload).help(
-                "Saves the draft as a proposal. Saving never reviews: review each saved record separately."
-            )
+            HStack {
+                Button {
+                    Task { await physical.save() }
+                } label: {
+                    shortcutLabel("Save proposal", key: "s")
+                }.keyboardShortcut("s", modifiers: [.command, .shift]).disabled(
+                    !physical.isDirty || !physical.canEdit || physical.needsReload
+                ).help(
+                    "S. Saves the draft as a proposal. Saving never reviews: review each saved "
+                        + "record separately.")
+                Button {
+                    Task { if !(await session.saveCurrent(advance: true)) { NSSound.beep() } }
+                } label: {
+                    shortcutLabel("Save and next", key: "x")
+                }.disabled(
+                    !physical.canEdit || physical.needsReload
+                        || session.sampleIndex >= session.samples.count - 1
+                ).help("X. Saves any draft, then goes to the next frame.")
+            }
             Text(
                 "Edit → Save proposal → inspect in both views → Review. Reviewing a mask does not review a pose."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
