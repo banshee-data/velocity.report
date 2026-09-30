@@ -185,13 +185,18 @@ struct FreezeSplitSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if p.wouldFreeze {
-                    Label(
-                        "Would freeze · split digest \(p.splitDigest ?? "")",
-                        systemImage: "checkmark.seal"
-                    ).font(.caption).foregroundStyle(.green).textSelection(.enabled)
+                    // The split digest covers the freeze record, time included,
+                    // so a preview's is not the frozen split's: only the
+                    // freeze's result carries the digest a rerun cites.
+                    Label("Would freeze", systemImage: "checkmark.seal").font(.caption)
+                        .foregroundStyle(.green)
                 } else {
                     Label("Would not freeze", systemImage: "xmark.octagon").font(.caption.bold())
                         .foregroundStyle(.red)
+                }
+                if let refusal = p.refusal {
+                    Text(refusal).font(.caption2).foregroundStyle(.red).fixedSize(
+                        horizontal: false, vertical: true)
                 }
                 if !p.membershipProblems.isEmpty {
                     Text("Membership review").font(.caption.bold())
@@ -227,16 +232,19 @@ struct FreezeSplitSheet: View {
                 ForEach(physical.objects) { o in
                     Text(
                         "\(session.sidecar.objects.contains { $0.objectID == o.objectID } ? session.displayName(objectID: o.objectID) : o.objectID): "
-                            + "body \(o.body)\(o.bodyIndependent ? "" : " (not independent)") · "
-                            + "\(o.keyframes) keyframes, \(o.reviewedKeyframes) reviewed, \(o.proposedKeyframes) proposed, "
-                            + "\(o.trackerAssistedKeyframes) tracker-assisted"
+                            + "body \(o.body.status)\(o.body.status == "none" || o.body.independent ? "" : " (not independent)") · "
+                            + "\(o.keyframes.total) keyframes, \(o.keyframes.reviewed) reviewed, \(o.keyframes.proposed) proposed, "
+                            + "\(o.keyframes.trackerAssisted) tracker-assisted"
                     ).font(.caption2)
                 }
-                if !physical.coverage.isEmpty {
+                let unavailable = physical.coverage.unavailableByComponent.filter {
+                    $0.coverage.unavailable > 0
+                }
+                if !unavailable.isEmpty {
                     Text(
                         "Unavailable in reviewed keyframes: "
-                            + physical.coverage.sorted { $0.key < $1.key }.map {
-                                "\($0.key) \($0.value)"
+                            + unavailable.map {
+                                "\($0.name) \($0.coverage.unavailable) of \($0.coverage.scorable + $0.coverage.unavailable)"
                             }.joined(separator: ", ")
                     ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                         horizontal: false, vertical: true)

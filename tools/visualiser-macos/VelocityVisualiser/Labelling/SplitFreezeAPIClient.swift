@@ -35,71 +35,114 @@ struct FrozenSplitListing: Decodable, Equatable, Identifiable {
     }
 }
 
-/// What freezing a draft would pin, and what stops it.
-struct FreezePreview: Decodable, Equatable {
-    struct PhysicalPin: Decodable, Equatable {
-        struct Object: Decodable, Equatable, Identifiable {
-            var objectID: String
-            var body: String
-            var bodyIndependent: Bool
-            var keyframes: Int
-            var reviewedKeyframes: Int
-            var proposedKeyframes: Int
-            var trackerAssistedKeyframes: Int
-            var id: String { objectID }
+/// A pack's physical-reference pin, as a frozen split records it: the
+/// revision, its digests, what each object's records review, and how many
+/// reviewed keyframes leave each component unavailable.
+struct FrozenPhysicalPin: Decodable, Equatable {
+    struct Object: Decodable, Equatable, Identifiable {
+        struct Body: Decodable, Equatable {
+            var status: String
+            var independent: Bool
+        }
+        struct Keyframes: Decodable, Equatable {
+            var total: Int
+            var reviewed: Int
+            var proposed: Int
+            var trackerAssisted: Int
             enum CodingKeys: String, CodingKey {
-                case objectID = "object_id"
-                case body
-                case bodyIndependent = "body_independent"
-                case keyframes
-                case reviewedKeyframes = "reviewed_keyframes"
-                case proposedKeyframes = "proposed_keyframes"
-                case trackerAssistedKeyframes = "tracker_assisted_keyframes"
+                case total
+                case reviewed
+                case proposed
+                case trackerAssisted = "tracker_assisted"
             }
         }
-        var revision: Int
-        var sha256: String
-        var contentSHA256: String
-        var objects: [Object]
-        /// Per component, how many reviewed keyframes leave it unavailable.
-        var coverage: [String: Int]
+        var objectID: String
+        var body: Body
+        var keyframes: Keyframes
+        var id: String { objectID }
         enum CodingKeys: String, CodingKey {
-            case revision
-            case sha256
-            case contentSHA256 = "content_sha256"
-            case objects
-            case coverage
+            case objectID = "object_id"
+            case body
+            case keyframes
         }
     }
+    struct ComponentCoverage: Decodable, Equatable {
+        var scorable: Int
+        var unavailable: Int
+    }
+    struct Coverage: Decodable, Equatable {
+        var position: ComponentCoverage
+        var yaw: ComponentCoverage
+        var length: ComponentCoverage
+        var width: ComponentCoverage
+        var height: ComponentCoverage
+        var front: ComponentCoverage
+        var rear: ComponentCoverage
+
+        /// Components in reading order, with the count each leaves unavailable.
+        var unavailableByComponent: [(name: String, coverage: ComponentCoverage)] {
+            [
+                ("position", position), ("yaw", yaw), ("length", length), ("width", width),
+                ("height", height), ("front", front), ("rear", rear),
+            ]
+        }
+    }
+    var revision: Int
+    var sha256: String
+    var contentSHA256: String
+    var objects: [Object]
+    var coverage: Coverage
+    enum CodingKeys: String, CodingKey {
+        case revision
+        case sha256
+        case contentSHA256 = "content_sha256"
+        case objects
+        case coverage
+    }
+}
+
+/// What freezing a draft would pin, and what stops it.
+struct FreezePreview: Decodable, Equatable {
     struct Pack: Decodable, Equatable, Identifiable {
         struct Object: Decodable, Equatable {
             var objectID: String
             var partition: String
+            var objectClass: String
+            var reviewedMasks: Int
             enum CodingKeys: String, CodingKey {
                 case objectID = "object_id"
                 case partition
+                case objectClass = "class"
+                case reviewedMasks = "reviewed_masks"
             }
         }
         var packDigest: String
         var datasetID: String
+        var caseID: String?
         var sidecarRevision: Int
         var sidecarSHA256: String
-        var physical: PhysicalPin?
+        var physical: FrozenPhysicalPin?
         var objects: [Object]
+        var episodes: Int
         var id: String { packDigest }
         enum CodingKeys: String, CodingKey {
             case packDigest = "pack_digest"
             case datasetID = "dataset_id"
+            case caseID = "case_id"
             case sidecarRevision = "sidecar_revision"
             case sidecarSHA256 = "sidecar_sha256"
             case physical
             case objects
+            case episodes
         }
     }
 
     var packs: [Pack]
     var membershipProblems: [String]
     var physicalProblems: [String]
+    /// A refusal the freeze would give after review passes, such as a
+    /// lineage rule; reported here rather than returned as an error.
+    var refusal: String?
     var wouldFreeze: Bool
     var splitDigest: String?
 
@@ -107,6 +150,7 @@ struct FreezePreview: Decodable, Equatable {
         case packs
         case membershipProblems = "membership_problems"
         case physicalProblems = "physical_problems"
+        case refusal
         case wouldFreeze = "would_freeze"
         case splitDigest = "split_digest"
     }
