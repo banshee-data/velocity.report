@@ -100,7 +100,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.5.6 - Perception pipeline + extractor foundations (056)
 
 - Facet registration integration, conditional on measured benefit: wire the selected geometric measurement through tracked state, uncertainty, persistence and inspection, then qualify association, bounded memory and recovery. F4–F5 budget 20–35 engineer-days; use the simpler arm if the constellation adds no material gain: [plan](plans/lidar-facet-registration-experiment-plan.md) `L` {math}
-
 - Single-site shape-classification follow-through: add compact descriptor-model inspection to the delivered solid-body pilot after it no longer blocks the headway path: [design doc](plans/lidar-single-site-shape-demo-sprint-plan.md) `S`
 - LiDAR maths coherence Item 2: state and pin the L6 confidence equation before classifier scorecard integration: [design doc](plans/lidar-maths-coherence-plan.md) `M`
 - Live cluster point retention: wire bounded samples and feature extraction into the live path, including intensity and vertical spread; offline retained evidence already exists. Benchmark the cap against kirk0 before enabling it: [design doc](plans/lidar-shape-descriptors-plan.md) `M`
