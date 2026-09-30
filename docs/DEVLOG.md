@@ -6,6 +6,19 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## September 30, 2026 - The tracked arm is steadier, and the side-face entry is what is left
+
+- Ran F6, the tracked arm (S2a) and the T1 with T3 control on the tuning partition on the Mac. The
+  tracked arm lowers body-centre p99 by 26 mm on marina-webster-beach (0.158 to 0.132 m) and 20 mm
+  on columbus-broadway (0.280 to 0.260 m), and the gap stays at 2.3 and 2.0. The five-point
+  residual favours any filter, and on columbus the tracked series is still 1.15 times the
+  per-frame point estimate's p99. Translation buys nothing. Removing the steady-run windows in
+  which a lateral face enters lowers the tracked p99 more than the control's (0.120 to 0.071 m on
+  marina, 0.260 to 0.153 m on columbus), which is what rank-one drift predicts: the filter carries
+  the unconstrained direction on its prediction, and the side face corrects it in one step. T5,
+  the medoid across that direction at every rank-one fix, is next (F7), and F6s screens the
+  tracked arm on the 21 screen sites.
+
 ## September 29, 2026 - The half-extent state does not close the transition tail
 
 - Ran T4, a per-face half-extent state on the solid body, on the tuning partition on the Mac (F5). It lowers the body-centre lateral p99 by 5 to 6 mm (0.158 to 0.152 m on marina-webster-beach, 0.280 to 0.275 m on columbus-broadway) and leaves the gap at 2.3 and 2.0 against S2.1's 1.25, so it is not kept. The steady-run anatomy, which moves to main, names lateral face entries as the tail: without them the steady p99 falls to 0.101 and 0.180 m. They mostly arrive while another face is fixed, which points at rank-one drift rather than a re-reference. F6 runs `near_edge_track` on the tuning partition next (#640).
