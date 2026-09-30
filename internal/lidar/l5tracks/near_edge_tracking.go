@@ -17,8 +17,10 @@ package l5tracks
 // (A2). That is always two degrees of freedom, so the chi-square gate and
 // GatingDistanceSquared are unchanged. The loose term is association evidence
 // only, and the update never uses it (invariant 2), unless remedy T5
-// (SolidBodyOptions.RankOneMedoidScale) is on: then a rank-one fix takes the
-// same term along the face's tangent. A medoid-referenced track, in
+// (SolidBodyOptions.RankOneMedoidScale) is on: then a fix by a front or rear
+// face alone takes the medoid across the body too, with the same variance at
+// scale one; the gate keeps R plus the whole half-width squared at every
+// scale. A medoid-referenced track, in
 // its initialisation window or after a lapse, is gated on the medoid as today.
 // The pair's measurement is kept and reused by the update, so each associated
 // cluster is measured once.
@@ -92,7 +94,9 @@ func (t *Tracker) stepTrackedNearEdge(track *TrackedObject, cluster WorldCluster
 //     they updated, after any re-reference translation, and its measurement
 //     that position moved to each applied face's implied centre offset along
 //     the face's normal, so the innovation is zero across the faces and the
-//     translation is never counted as one (invariant 3). Its NIS is the
+//     translation is never counted as one (invariant 3). Under T5 the
+//     measurement is also the medoid across the body, so the innovation that
+//     way is the medoid's residual; the NIS stays the faces'. Its NIS is the
 //     step's, with the fix's rank as its degrees of freedom.
 //   - A lapse and a faceless frame did not apply the observation: their
 //     disposition says so, the measurement is the medoid the association

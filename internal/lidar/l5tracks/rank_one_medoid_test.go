@@ -75,6 +75,9 @@ func TestAnEndFaceTakesTheMedoidAcrossTheBody(t *testing.T) {
 		if on.outcome != nearEdgeFix || math.Abs(float64(on.sb.state[1])-want) > 1e-6 {
 			t.Fatalf("scale %v: y %v, want %v toward the medoid", scale, on.sb.state[1], want)
 		}
+		// The fixture's position carries no covariance with velocity or
+		// across axes, so the loose term moves nothing but y here; the
+		// oblique test covers the correlated case.
 		if on.sb.state[0] != off.sb.state[0] || on.sb.state[2] != 0 || on.sb.state[3] != 0 {
 			t.Fatalf("scale %v: T5 moved along the face or velocity: %v", scale, on.sb.state)
 		}
@@ -98,17 +101,115 @@ func TestAnEndFaceTakesTheMedoidAcrossTheBody(t *testing.T) {
 	}
 }
 
-func TestASideFaceTakesTheMedoidAlongTheBody(t *testing.T) {
-	// A side face constrains across the body and leaves its length open, so
-	// the medoid's along-body offset is loosened by half the length.
+func TestASideFaceLeavesTheLengthToThePrediction(t *testing.T) {
+	// A side face alone leaves the length open. The medoid slides along a
+	// passing body as its aspect changes, and that slide would reach the
+	// speed through the position-velocity covariance, so T5 leaves it be.
 	cluster := WorldCluster{CentroidX: 1.0, CentroidY: -0.9}
+	off := stepRankOne(t, 0, []EdgeMeasurement{rankOneRight}, cluster, nil)
 	on := stepRankOne(t, 1, []EdgeMeasurement{rankOneRight}, cluster, nil)
-	want := 1.0 * 0.04 / (0.04 + on.noise + 2.25*2.25)
-	if math.Abs(float64(on.sb.state[0])-want) > 1e-6 || on.sb.state[1] != 0 {
-		t.Fatalf("state %v, want x %v and nothing across the face", on.sb.state, want)
+	if on.outcome != nearEdgeFix || on.sb.state != off.sb.state || on.sb.p != off.sb.p || on.applied != off.applied {
+		t.Fatalf("T5 changed a side-face fix: %v against %v", on.sb.state, off.sb.state)
 	}
-	if math.Abs(float64(on.applied.measuredX)-1) > 1e-6 {
-		t.Fatalf("recorded x %v, want the medoid's 1", on.applied.measuredX)
+}
+
+func TestAFoundSideFaceStopsTheMedoid(t *testing.T) {
+	// A side face the frame found pulls the medoid toward it, so while one
+	// is visible T5 stays off, even if the fix does not use the face: here
+	// its half-width is only the class prior, which Section 8.1 excludes.
+	cluster := WorldCluster{CentroidX: -2.0, CentroidY: 0.5}
+	prior := rankOneRight
+	prior.HalfExtentProvenance = ProvenanceClassPrior
+	off := stepRankOne(t, 0, []EdgeMeasurement{rankOneRear, prior}, cluster, nil)
+	on := stepRankOne(t, 1, []EdgeMeasurement{rankOneRear, prior}, cluster, nil)
+	if on.m.Rank != 1 || on.sb.state != off.sb.state || on.applied != off.applied {
+		t.Fatalf("T5 applied beside a found side face: rank %d, %v against %v", on.m.Rank, on.sb.state, off.sb.state)
+	}
+	// Hysteresis withholding a side face is the same case: found, not used.
+	tracker := NewTracker(rankOneTrackingConfig(1))
+	f := nearEdgeFrame{edges: EdgeMeasurementSet{Rank: 2, Edges: []EdgeMeasurement{rankOneRear, rankOneRight}},
+		width: DimensionBelief{Metres: 1.8}}
+	if _, ok := tracker.rankOneMedoidTerm([]EdgeMeasurement{rankOneRear}, f, cluster); ok {
+		t.Fatal("T5 applied while a side face was withheld")
+	}
+}
+
+func TestAnInvalidScaleIsOff(t *testing.T) {
+	cluster := WorldCluster{CentroidX: -2.0, CentroidY: 0.5}
+	for _, scale := range []float32{-1, float32(math.NaN())} {
+		if got := stepRankOne(t, scale, []EdgeMeasurement{rankOneRear}, cluster, nil); got.sb.state[1] != 0 {
+			t.Errorf("scale %v moved the body across its face to %v", scale, got.sb.state[1])
+		}
+	}
+}
+
+func TestAnObliqueFixIsTheJointUpdate(t *testing.T) {
+	// Off the axes, with correlated position and velocity and a face that
+	// disagrees with the prediction, the face and the loose term applied in
+	// turn must be exactly the joint two-dimensional update, and the fix's
+	// NIS the face's own.
+	psi := 30 * math.Pi / 180
+	nx, ny := -math.Cos(psi), -math.Sin(psi) // the rear face's outward normal
+	face := EdgeMeasurement{Face: FaceRear, NormalX: float32(nx), NormalY: float32(ny),
+		PlaneOffsetMetres: 2.25 + 0.3, HalfExtentMetres: 2.25, HalfExtentProvenance: ProvenanceAccumulated}
+	cluster := WorldCluster{CentroidX: -1.6, CentroidY: -0.2}
+	p := [16]float32{
+		0.20, 0.05, 0.10, 0.02,
+		0.05, 0.12, 0.01, 0.06,
+		0.10, 0.01, 1.00, 0.10,
+		0.02, 0.06, 0.10, 0.80,
+	}
+	edit := func(track *TrackedObject, _ *TrackerConfig, f *nearEdgeFrame) {
+		track.X, track.Y, track.VX, track.VY = 0.1, -0.1, 10.4, 6.0
+		track.P = p
+		f.axis = float32(psi)
+	}
+	got := stepRankOne(t, 1, []EdgeMeasurement{face}, cluster, edit)
+
+	// The joint update in float64: H's rows are the normal and the tangent
+	// over position, with R and R plus the half-width squared.
+	tx, ty := -ny, nx
+	r := got.noise
+	half := 0.9
+	x := [4]float64{0.1, -0.1, 10.4, 6.0}
+	var P [4][4]float64
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			P[i][j] = float64(p[i*4+j])
+		}
+	}
+	h := [2][2]float64{{nx, ny}, {tx, ty}}
+	z := [2]float64{float64(face.ImpliedCentreOffset()), tx*float64(cluster.CentroidX) + ty*float64(cluster.CentroidY)}
+	var pht [4][2]float64
+	for i := 0; i < 4; i++ {
+		for k := 0; k < 2; k++ {
+			pht[i][k] = P[i][0]*h[k][0] + P[i][1]*h[k][1]
+		}
+	}
+	var S [2][2]float64
+	for a := 0; a < 2; a++ {
+		for b := 0; b < 2; b++ {
+			S[a][b] = h[a][0]*pht[0][b] + h[a][1]*pht[1][b]
+		}
+	}
+	S[0][0] += r
+	S[1][1] += r + half*half
+	det := S[0][0]*S[1][1] - S[0][1]*S[1][0]
+	inv := [2][2]float64{{S[1][1] / det, -S[0][1] / det}, {-S[1][0] / det, S[0][0] / det}}
+	nu := [2]float64{z[0] - (nx*x[0] + ny*x[1]), z[1] - (tx*x[0] + ty*x[1])}
+	for i := 0; i < 4; i++ {
+		var k [2]float64
+		for b := 0; b < 2; b++ {
+			k[b] = pht[i][0]*inv[0][b] + pht[i][1]*inv[1][b]
+		}
+		want := x[i] + k[0]*nu[0] + k[1]*nu[1]
+		if math.Abs(float64(got.sb.state[i])-want) > 1e-4 {
+			t.Fatalf("state[%d] %v, want the joint update's %v", i, got.sb.state[i], want)
+		}
+	}
+	faceNIS := nu[0] * nu[0] / (S[0][0])
+	if math.Abs(float64(got.m.NIS)-faceNIS) > 1e-4 || got.m.Rank != 1 {
+		t.Fatalf("fix NIS %v rank %d, want the face's own %v at rank one", got.m.NIS, got.m.Rank, faceNIS)
 	}
 }
 
@@ -167,50 +268,6 @@ func endOnPass() l4perception.SyntheticPass {
 	return pass
 }
 
-func TestTheTrackedRankOneMedoidRecordsTheMedoidAcrossTheBody(t *testing.T) {
-	// Seen from behind on a straight pass, the course is the x axis, so a
-	// rank-one fix's open direction is y: with T5 it records the medoid's y
-	// as what it measured across the body, and without it the prediction's.
-	frames := syntheticPassFrames(t, endOnPass())
-	for _, scale := range []float32{0, 1} {
-		tracker := NewTracker(rankOneCorpusConfig(scale))
-		rankOne := 0
-		for _, f := range frames {
-			tracker.Update(f.clusters, f.at)
-			if len(tracker.GetActiveTracks()) == 0 {
-				continue
-			}
-			track := mainTrack(t, tracker)
-			reading, _ := track.SolidBody()
-			if reading.Measurement.Source != MeasurementNearEdgeCandidateV1 || reading.Measurement.Rank != 1 {
-				continue
-			}
-			rankOne++
-			res := track.LastResidual
-			want := res.PredictedY
-			if scale > 0 {
-				want = nearestCentroidY(f.clusters, res.Measurement.Y)
-			}
-			if math.Abs(float64(res.Measurement.Y-want)) > 0.02 {
-				t.Fatalf("scale %v: a rank-one fix recorded y %v across the body, want %v", scale, res.Measurement.Y, want)
-			}
-		}
-		if rankOne < 3 {
-			t.Fatalf("scale %v: %d rank-one fixes; the end-on pass is not exercising rank one", scale, rankOne)
-		}
-	}
-}
-
-func nearestCentroidY(clusters []WorldCluster, y float32) float32 {
-	best := clusters[0].CentroidY
-	for _, c := range clusters[1:] {
-		if math.Abs(float64(c.CentroidY-y)) < math.Abs(float64(best-y)) {
-			best = c.CentroidY
-		}
-	}
-	return best
-}
-
 func TestTheTrackedRankOneMedoidBoundsTheLateralDrift(t *testing.T) {
 	// The plan's rank-one drift, synthetic: a vehicle seen from behind
 	// changes lane by 2 m. With only its rear face fixing it, nothing
@@ -223,11 +280,11 @@ func TestTheTrackedRankOneMedoidBoundsTheLateralDrift(t *testing.T) {
 	pass.Vehicle.LaneChangeStartSecs = 1
 	pass.Vehicle.LaneChangeDurationSecs = 2
 	frames := syntheticPassFrames(t, pass)
-	type drift struct{ mean, worst float64 }
+	type drift struct{ mean, worst, speed float64 }
 	got := map[float32]drift{}
 	for _, scale := range []float32{0, 1, 0.25} {
 		tracker := NewTracker(rankOneCorpusConfig(scale))
-		var errs []float64
+		var errs, speed []float64
 		worst := 0.0
 		for _, f := range frames {
 			tracker.Update(f.clusters, f.at)
@@ -241,39 +298,58 @@ func TestTheTrackedRankOneMedoidBoundsTheLateralDrift(t *testing.T) {
 			e := math.Abs(float64(track.Y) - f.truthY)
 			errs = append(errs, e)
 			worst = math.Max(worst, e)
+			speed = append(speed, math.Abs(float64(track.VX)-12))
 		}
 		if len(errs) < 20 {
 			t.Fatalf("scale %v: only %d body-centre frames", scale, len(errs))
 		}
-		got[scale] = drift{meanOf(errs), worst}
-		t.Logf("scale %v: lateral error mean %.3f m, worst %.3f m over %d body-centre frames", scale, got[scale].mean, worst, len(errs))
+		got[scale] = drift{meanOf(errs), worst, meanOf(speed)}
+		t.Logf("scale %v: lateral error mean %.3f m, worst %.3f m, along-track speed error %.3f m/s over %d body-centre frames",
+			scale, got[scale].mean, worst, got[scale].speed, len(errs))
 	}
 	for _, scale := range []float32{1, 0.25} {
 		if got[scale].worst > 0.6*got[0].worst || !(got[scale].mean < got[0].mean) {
 			t.Errorf("scale %v: lateral error mean %.3f, worst %.3f m, against %.3f and %.3f m without T5",
 				scale, got[scale].mean, got[scale].worst, got[0].mean, got[0].worst)
 		}
+		// Pulling across the body must not cost the speed along it.
+		if got[scale].speed > got[0].speed+0.05 {
+			t.Errorf("scale %v: along-track speed error %.3f m/s against %.3f without T5", scale, got[scale].speed, got[0].speed)
+		}
 	}
 }
 
-func TestTheTrackedRankOneMedoidLeavesASideOnPassAnchored(t *testing.T) {
-	// The default pass is seen side-on and at a corner; T5 must not move its
-	// settled lateral anchor off the body centre.
-	tracker := NewTracker(rankOneTrackingConfig(1))
-	var errs []float64
-	for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
-		tracker.Update(f.clusters, f.at)
-		track := mainTrack(t, tracker)
-		reading, _ := track.SolidBody()
-		if reading.Measurement.Source != MeasurementNearEdgeCandidateV1 || f.occluded {
-			continue
+func TestTheTrackedRankOneMedoidLeavesASideOnPassAlone(t *testing.T) {
+	// The default pass is seen side-on and at a corner, so T5 has almost
+	// nothing to do there: the settled lateral anchor, the along-track
+	// position and the speed must be what they are without it.
+	type pass struct{ lateral, along, speed float64 }
+	run := func(scale float32) pass {
+		tracker := NewTracker(rankOneCorpusConfig(scale))
+		var lateral, along, speed []float64
+		for _, f := range syntheticPassFrames(t, l4perception.DefaultSyntheticPass()) {
+			tracker.Update(f.clusters, f.at)
+			track := mainTrack(t, tracker)
+			reading, _ := track.SolidBody()
+			if reading.Measurement.Source != MeasurementNearEdgeCandidateV1 || f.occluded {
+				continue
+			}
+			lateral = append(lateral, math.Abs(float64(track.Y)-f.truthY))
+			along = append(along, math.Abs(float64(track.X)-f.truthX))
+			speed = append(speed, math.Abs(math.Hypot(float64(track.VX), float64(track.VY))-12))
 		}
-		errs = append(errs, math.Abs(float64(track.Y)-f.truthY))
+		n := len(lateral) / 2
+		return pass{meanOf(lateral[n:]), meanOf(along[n:]), meanOf(speed[n:])}
 	}
-	settled := meanOf(errs[len(errs)/2:])
-	t.Logf("settled tracked lateral error %.3f m over %d fixes", settled, len(errs))
-	if settled > 0.15 {
-		t.Errorf("tracked lateral error %.3f m with T5, want under 0.15 m once settled", settled)
+	off, on := run(0), run(1)
+	t.Logf("settled errors without T5: lateral %.3f m, along %.3f m, speed %.3f m/s; with T5: %.3f m, %.3f m, %.3f m/s",
+		off.lateral, off.along, off.speed, on.lateral, on.along, on.speed)
+	if on.lateral > 0.15 || math.Abs(on.lateral-off.lateral) > 0.005 {
+		t.Errorf("settled lateral error %.3f m with T5 against %.3f m without", on.lateral, off.lateral)
+	}
+	if on.along > off.along+0.02 || on.speed > off.speed+0.05 {
+		t.Errorf("T5 worsened the along-track position (%.3f against %.3f m) or the speed (%.3f against %.3f m/s)",
+			on.along, off.along, on.speed, off.speed)
 	}
 }
 
@@ -322,9 +398,11 @@ func TestARankOneMedoidLaneChangeKeepsItsMagnitude(t *testing.T) {
 func TestTheShadowTakesTheRankOneMedoidToo(t *testing.T) {
 	// T5 is the state machine's, so the shadow runs it as well, and it
 	// still never changes the tracks.
-	cfg := solidBodyConfig()
+	base := solidBodyConfig()
+	base.SolidBody.FaceHysteresis, base.SolidBody.CourseAlignedFaces = true, true
+	cfg := base
 	cfg.SolidBody.RankOneMedoidScale = 1
-	shadow, plain := NewTracker(cfg), NewTracker(solidBodyConfig())
+	shadow, plain := NewTracker(cfg), NewTracker(base)
 	moved := false
 	for _, f := range syntheticPassFrames(t, endOnPass()) {
 		shadow.Update(f.clusters, f.at)

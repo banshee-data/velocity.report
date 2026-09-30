@@ -20,7 +20,8 @@ package l5tracks
 //   - Anchor. The body centre, reconstructed from each visible face and the
 //     believed half-extent behind it. One face constrains its own normal only;
 //     the filter is updated once per face along that normal, so a rank-one
-//     frame moves nothing across it (Section 9.1). A face whose half-extent
+//     frame moves nothing across it (Section 9.1), unless remedy T5 is on
+//     (SolidBodyOptions.RankOneMedoidScale). A face whose half-extent
 //     is only the class prior is excluded, not downweighted (Section 8.1).
 //   - Extents. A face never measures the far side, so a frame's span along a
 //     body axis is admitted only as lower-bound evidence, and only on an axis
@@ -115,16 +116,27 @@ type SolidBodyOptions struct {
 	// always done; NearEdgeTracking always translates, because there the
 	// velocity the innovation would move is the tracked one. Default false.
 	ReferenceTranslation bool
-	// RankOneMedoidScale is remedy T5: at a rank-one fix, the direction the
-	// fixing face does not constrain (its tangent) is also updated from the
-	// cluster medoid projected onto it, with the tracked noise R plus this
-	// scale times the square of the believed half-extent that way. At scale
-	// one that is A2's loose term, used by the update as well as the gate.
-	// Without it the tangent rides on the prediction until a second face
-	// arrives and corrects it in one step, which is the lateral-face entry
-	// tail F5 and F6 measured. It is the declared exception to the plan's
-	// invariant 2 (a rank-one frame moves nothing across its normal). Zero,
-	// the default, leaves the tangent to the prediction.
+	// RankOneMedoidScale is remedy T5: at a fix by a front or rear face
+	// alone, the width direction that face leaves open is also updated from
+	// the cluster medoid projected onto it, with the tracked noise R plus
+	// this scale times the square of the believed half-width. At scale one
+	// that is A2's loose term, used by the update as well as the gate.
+	// Without it the lateral position rides on the prediction until a side
+	// face arrives and corrects it in one step: the rank-one drift the plan
+	// names as the likelier cause of the lateral-face entry tail F5 and F6
+	// measured. It is the declared exception to the plan's invariant 2 (a
+	// rank-one frame moves nothing across its normal).
+	//
+	// It does not apply when any side face was found on the frame, even one
+	// that face hysteresis is still withholding or whose half-extent is only
+	// the class prior: a visible side pulls the medoid toward it, so the
+	// medoid is most biased across the body exactly then. Nor does it apply
+	// at a fix by a side face alone, where the open direction is the length:
+	// the medoid slides along a passing body as its aspect changes, and the
+	// position-velocity covariance would carry that slide into the speed.
+	// The medoid's offset is a bias toward the sensor, not noise, which the
+	// five-point residual cannot see; physical references are the check.
+	// Zero, the default, leaves the open direction to the prediction.
 	RankOneMedoidScale float32
 }
 
@@ -361,7 +373,8 @@ type nearEdgePending struct {
 // a lapse. startX and startY are the position the faces updated, after any
 // translation, and measuredX and measuredY that position moved along each
 // applied face's normal to the face's implied centre offset: the measurement
-// the fix applied, at its rank, with nothing across the faces.
+// the fix applied, at its rank, with nothing across the faces unless T5 also
+// moved it to the medoid across the body (addLooseTerm).
 type nearEdgeApplication struct {
 	shiftX, shiftY       float32
 	startX, startY       float32
@@ -663,7 +676,9 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		if loose, ok := t.rankOneMedoidTerm(usable, f, cluster); ok {
 			// The faces' NIS stays the fix's, with its rank: the loose term
 			// is weak evidence about the direction no face measured, not a
-			// face, and the per-rank NIS check is about the faces' R.
+			// face; its innovation is biased toward the sensor, so its NIS
+			// would not be chi-square anyway; and the per-rank NIS check is
+			// about the faces' R.
 			if _, ok := scalarPositionUpdate(&state, &p, loose.hx, loose.hy, loose.z, loose.variance); ok {
 				applied.addLooseTerm(loose)
 			}
@@ -725,23 +740,25 @@ func applicationOf(before, start [4]float32, faces []EdgeMeasurement) nearEdgeAp
 // direction (hx, hy), with its variance.
 type looseMedoidTerm struct{ hx, hy, z, variance float64 }
 
-// rankOneMedoidTerm is remedy T5's measurement for a fix by one face (see
-// SolidBodyOptions.RankOneMedoidScale): along the face's tangent, the medoid,
-// with R plus the scaled square of the believed half-extent that way, because
-// the medoid can sit anywhere from the centre to the near surface along it.
-// A front or rear face leaves the width direction open, a side face the
-// length. It is false with the option off or for any other rank.
+// rankOneMedoidTerm is remedy T5's measurement for a fix by a front or rear
+// face alone (see SolidBodyOptions.RankOneMedoidScale): across the body, the
+// medoid, with R plus the scaled square of the believed half-width, because
+// the medoid can sit anywhere from the centre to the near side that way. It
+// is false with the option off, for any other fix, and whenever the frame
+// found a side face at all, admitted or not.
 func (t *Tracker) rankOneMedoidTerm(faces []EdgeMeasurement, f nearEdgeFrame, cluster WorldCluster) (looseMedoidTerm, bool) {
 	scale := float64(t.Config.SolidBody.RankOneMedoidScale)
-	if !(scale > 0) || len(faces) != 1 {
+	if !(scale > 0) || len(faces) != 1 || !faces[0].Face.IsLongitudinal() {
 		return looseMedoidTerm{}, false
+	}
+	for _, found := range f.edges.Edges {
+		if !found.Face.IsLongitudinal() {
+			return looseMedoidTerm{}, false
+		}
 	}
 	e := faces[0]
 	hx, hy := -float64(e.NormalY), float64(e.NormalX)
-	half := float64(f.length.Metres) / 2
-	if e.Face.IsLongitudinal() {
-		half = float64(f.width.Metres) / 2
-	}
+	half := float64(f.width.Metres) / 2
 	return looseMedoidTerm{
 		hx: hx, hy: hy,
 		z:        hx*float64(cluster.CentroidX) + hy*float64(cluster.CentroidY),

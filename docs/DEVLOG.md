@@ -19,10 +19,12 @@ older entries stay put, however tempting hindsight may be.
   the medoid across that direction at every rank-one fix, is next (F7), and F6s screens the
   tracked arm on the 21 screen sites.
 - Built T5, the rank-one medoid, default-off (`solid_body_rank_one_medoid` and a tight setting): a
-  fix by one face also takes the medoid along the face's tangent, with R plus the believed
-  half-extent squared that way, so the direction no face measures is held by evidence rather than
-  the prediction. On a synthetic vehicle seen from behind changing lane by 2 m, the worst tracked
-  lateral error falls from 0.534 to 0.247 m. F7 runs it on the tuning partition.
+  fix by a front or rear face alone also takes the medoid across the body, with R plus the believed
+  half-width squared, so the direction no face measures is held by evidence rather than the
+  prediction. It stays off beside any found side face, where the medoid is most biased, and at
+  side-face fixes, where the medoid's slide along the body would reach the speed. On a synthetic
+  vehicle seen from behind changing lane by 2 m, the worst tracked lateral error falls from 0.534
+  to 0.247 m. F7 runs it on the tuning partition.
 
 ## September 29, 2026 - The half-extent state does not close the transition tail
 
