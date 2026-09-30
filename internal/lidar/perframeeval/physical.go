@@ -166,7 +166,12 @@ type PhysicalReferenceIdentity struct {
 	FrameToleranceNanos    int64                `json:"frame_tolerance_ns"`
 	GapDefinition          string               `json:"gap_definition"`
 	ExpectedInstants       int                  `json:"expected_instants"`
-	Digest                 string               `json:"digest"`
+	// SplitDigest and SplitRevision identify a frozen split whose pins were
+	// checked before scoring, as in ReferenceIdentity. Both are empty for a
+	// version 1 manifest, so its digest is what it always was.
+	SplitDigest   string `json:"split_digest,omitempty"`
+	SplitRevision int    `json:"split_revision,omitempty"`
+	Digest        string `json:"digest"`
 }
 
 // expectedInstant is one object that should be accounted for at one sample.
@@ -217,20 +222,11 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	if err != nil {
 		return nil, fmt.Errorf("open pack: %w", err)
 	}
-	manifest, err := annotation.LoadSplitManifest(ref.SplitManifestPath)
+	// The same binding as LoadReference: a frozen split is held to its pins,
+	// and the links below are checked against the sidecar revision it pins,
+	// not whatever membership has become since.
+	manifest, sidecar, frozen, err := bindSplit(pack, ref.SplitManifestPath)
 	if err != nil {
-		return nil, err
-	}
-	var sidecar *annotation.Sidecar
-	if manifest.SidecarRevision > 0 {
-		sidecar, err = annotation.LoadSidecarRevision(pack, manifest.SidecarRevision)
-	} else {
-		sidecar, err = annotation.LoadSidecar(pack)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("load annotation: %w", err)
-	}
-	if err := manifest.ValidateAgainst(pack, sidecar); err != nil {
 		return nil, err
 	}
 	episodes, err := manifest.SelectEpisodes(ref.Split, ref.Episodes, !ref.AllowTuningSplit)
@@ -310,6 +306,9 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 		PhysicalContentDigest: content, SplitManifestDigest: manifest.Digest, Split: split.Name, SplitRole: split.Role,
 		Episodes: ids, GateMetres: opts.GateMetres, FrameToleranceNanos: opts.FrameToleranceNanos,
 		GapDefinition: annotation.GapAlongFollowerAxis, ExpectedInstants: len(pr.instants),
+	}
+	if frozen != nil {
+		pr.Identity.SplitDigest, pr.Identity.SplitRevision = frozen.SplitDigest, frozen.Revision
 	}
 	b, err := json.Marshal(struct {
 		Identity  PhysicalReferenceIdentity `json:"identity"`

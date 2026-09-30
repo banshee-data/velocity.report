@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
@@ -123,6 +124,33 @@ func (f *PhysicalFixture) Manifest() annotation.SplitManifest {
 		Episodes: []annotation.Episode{{EpisodeID: PhysEpisode, Split: PhysSplit, ObjectIDs: []string{Follower, Leader},
 			FrameIntervals: []annotation.FrameInterval{{FirstSample: 0, LastSample: PhysSamples - 1}}}},
 	}
+}
+
+// FrozenDraft is the fixture's split as a draft that can be frozen: the
+// same partition and episode as Manifest, pinned to annotation revision 1.
+func (f *PhysicalFixture) FrozenDraft() annotation.SplitDraft {
+	m := f.Manifest()
+	return annotation.SplitDraft{
+		Schema: annotation.SplitDraftSchema, SchemaVersion: annotation.SplitDraftSchemaVersion,
+		Packs: []annotation.DraftPack{{Dir: f.PackDir, SidecarRevision: m.SidecarRevision, Splits: m.Splits, Episodes: m.Episodes}},
+	}
+}
+
+// WriteFrozen freezes FrozenDraft, at a fixed time and build so that the
+// split's digest is reproducible, and writes it to path.
+func (f *PhysicalFixture) WriteFrozen(path string) (*annotation.FrozenSplit, error) {
+	draft := f.FrozenDraft()
+	frozen, err := annotation.FreezeSplit(annotation.FreezeOptions{
+		Draft: &draft, Author: "fixture", Now: time.Date(2026, 9, 29, 9, 0, 0, 0, time.UTC),
+		BuildVersion: "fixture", BuildGitSHA: "fixture", GuardSeconds: annotation.DefaultSplitGuardSeconds,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := annotation.WriteFrozenSplit(path, frozen); err != nil {
+		return nil, err
+	}
+	return frozen, nil
 }
 
 // boxReturns outlines x in [cx+from, cx+to], y = ±0.9, z = 0.3 and 1.5.
