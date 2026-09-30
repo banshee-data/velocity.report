@@ -394,27 +394,7 @@ struct AnnotationWorkspace: View {
 
             Divider()
 
-            VStack(spacing: 0) {
-                AnnotationPane(session: session, column: .editing)
-                Divider()
-                HStack {
-                    Menu("Open Another…") {
-                        // Both leave the current pack behind — one for a
-                        // different run's pack, one for a directory already
-                        // on disk — and both must go through the same
-                        // unsaved-membership check AnnotationPane already
-                        // applies to stepping and switching objects.
-                        // Bypassing it here would lose a lasso selection
-                        // silently the moment either is clicked.
-                        Button("Generate from Run…") {
-                            guardedNavigate { showGenerateSheet = true }
-                        }
-                        Button("Open Pack…") { guardedNavigate { controller.choosePack() } }
-                    }.menuStyle(.borderlessButton).fixedSize()
-                    Spacer()
-                    Button("Close") { guardedNavigate { controller.close() } }
-                }.padding(8)
-            }.frame(width: AnnotationPane.columnWidth)
+            editingColumn
         }.background { brushSizeKeys }.background { saveKeys }.background {
             WindowCloseGuard(blocked: session.navigationGuard() != nil)
         }.focusedSceneValue(\.annotationSession, session).alert(
@@ -431,6 +411,38 @@ struct AnnotationWorkspace: View {
             Text(
                 "There are unsaved changes: this sample's membership or the physical-reference "
                     + "draft. Save them, or discard them, before continuing.")
+        }
+    }
+
+    @State private var showFreezeSheet = false
+
+    // The editing column and the window's own actions beneath it.
+    private var editingColumn: some View {
+        VStack(spacing: 0) {
+            AnnotationPane(session: session, column: .editing)
+            Divider()
+            HStack {
+                // Freezing writes nothing to this pack, so it is not
+                // guarded; the sheet's own preview says what it pins.
+                Button("Freeze Split…") { showFreezeSheet = true }.help(
+                    "Freeze a reviewed split, with its physical references pinned, through the service"
+                )
+                Menu("Open Another…") {
+                    // Both leave the current pack behind — one for a
+                    // different run's pack, one for a directory already
+                    // on disk — and both must go through the same
+                    // unsaved-membership check AnnotationPane already
+                    // applies to stepping and switching objects.
+                    // Bypassing it here would lose a lasso selection
+                    // silently the moment either is clicked.
+                    Button("Generate from Run…") { guardedNavigate { showGenerateSheet = true } }
+                    Button("Open Pack…") { guardedNavigate { controller.choosePack() } }
+                }.menuStyle(.borderlessButton).fixedSize()
+                Spacer()
+                Button("Close") { guardedNavigate { controller.close() } }
+            }.padding(8)
+        }.frame(width: AnnotationPane.columnWidth).sheet(isPresented: $showFreezeSheet) {
+            FreezeSplitSheet(session: session)
         }
     }
 
