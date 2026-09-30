@@ -1,0 +1,87 @@
+wrote immutable source manifest /Volumes/lidar/evidence/s2-f6s/track/embarcadero-bryant/source-manifest.json (sha256:8f4fe9d372ff15622f27ff7a9b4b08ce2dd3c61069346d123ce5f4d0aff398f3)
+embarcadero-bryant: first run across 5 capture(s)
+2026/09/30 15:09:34 ran database initialisation script
+2026/09/30 15:09:34 [migrate] 1/u original_schema (215.541µs)
+2026/09/30 15:09:34 [migrate] 2/u json_and_write_timestamp (1.262333ms)
+2026/09/30 15:09:34 [migrate] 3/u rename_tables (2.297083ms)
+2026/09/30 15:09:34 [migrate] 4/u create_lidar_bg_snapshot (2.388042ms)
+2026/09/30 15:09:34 [migrate] 5/u create_radar_data_transits (2.605ms)
+2026/09/30 15:09:34 [migrate] 6/u create_radar_transit_links (2.677791ms)
+2026/09/30 15:09:34 [migrate] 7/u create_site_table (2.836791ms)
+2026/09/30 15:09:34 [migrate] 8/u create_site_reports (2.9865ms)
+2026/09/30 15:09:34 [migrate] 9/u add_velocity_report_prefix (3.032958ms)
+2026/09/30 15:09:34 [migrate] 10/u create_lidar_tracks (3.380583ms)
+2026/09/30 15:09:34 [migrate] 11/u create_lidar_analysis_runs (3.783416ms)
+2026/09/30 15:09:34 [migrate] 12/u add_track_quality_metrics (5.723458ms)
+2026/09/30 15:09:34 [migrate] 13/u create_site_config_periods (5.065958ms)
+2026/09/30 15:09:34 [migrate] 14/u remove_site_config_fields (5.070958ms)
+2026/09/30 15:09:34 [migrate] 15/u add_site_map_fields (6.326875ms)
+2026/09/30 15:09:34 [migrate] 16/u lidar_labels (6.345833ms)
+2026/09/30 15:09:34 [migrate] 17/u create_lidar_bg_regions (6.3625ms)
+2026/09/30 15:09:34 [migrate] 18/u add_quality_label (6.578958ms)
+2026/09/30 15:09:34 [migrate] 19/u add_lidar_labels_scene_source (7.177458ms)
+2026/09/30 15:09:34 [migrate] 20/u create_lidar_scenes (7.321666ms)
+2026/09/30 15:09:34 [migrate] 21/u create_lidar_missed_regions (7.1115ms)
+2026/09/30 15:09:34 [migrate] 22/u create_lidar_sweeps (6.921833ms)
+2026/09/30 15:09:34 [migrate] 23/u add_vrlog_path (5.070208ms)
+2026/09/30 15:09:34 [migrate] 24/u add_sweep_metadata (7.091875ms)
+2026/09/30 15:09:34 [migrate] 25/u add_label_source (6.424292ms)
+2026/09/30 15:09:34 [migrate] 26/u update_label_taxonomy (5.210708ms)
+2026/09/30 15:09:34 [migrate] 27/u add_sweep_checkpoint (6.635541ms)
+2026/09/30 15:09:34 [migrate] 28/u create_lidar_evaluations (6.685958ms)
+2026/09/30 15:09:34 [migrate] 29/u expand_label_vocabulary (6.44525ms)
+2026/09/30 15:09:34 [migrate] 30/u schema_simplification (25.991417ms)
+2026/09/30 15:09:34 [migrate] 31/u table_naming (39.327334ms)
+2026/09/30 15:09:34 [migrate] 32/u create_lidar_all_tracks_view (39.318834ms)
+2026/09/30 15:09:34 [migrate] 33/u replay_annotations_and_eval_integrity (40.859167ms)
+2026/09/30 15:09:34 [migrate] 34/u schema_hardening_pre_v050 (54.124083ms)
+2026/09/30 15:09:34 [migrate] 35/u lidar_immutable_run_config (55.372459ms)
+2026/09/30 15:09:34 [migrate] 36/u drop_legacy_params_json (61.041292ms)
+2026/09/30 15:09:34 [migrate] 37/u seed_config_period_pi_day (61.918208ms)
+2026/09/30 15:09:34 [migrate] 38/u create_radar_serial_config (60.524375ms)
+2026/09/30 15:09:34 [migrate] 39/u create_lidar_scenes (60.596792ms)
+2026/09/30 15:09:34 [migrate] 40/u add_scene_vantages (61.034875ms)
+2026/09/30 15:09:34 [migrate] 41/u drop_scene_vantages (43.202833ms)
+2026/09/30 15:09:34 [migrate] 42/u create_lidar_capture_index (30.145042ms)
+2026/09/30 15:09:34 [migrate] 43/u create_lidar_capture_jobs (30.323542ms)
+2026/09/30 15:09:34 [migrate] 44/u replay_case_files (30.054042ms)
+2026/09/30 15:09:34 [migrate] 45/u replay_case_geography (20.646583ms)
+2026/09/30 15:09:34 [migrate] 46/u lidar_sites (17.938708ms)
+2026/09/30 15:09:34 [migrate] 47/u lidar_observations (13.353708ms)
+2026/09/30 15:09:34 [migrate] 48/u lidar_track_estimates (12.528083ms)
+2026/09/30 15:09:34 [migrate] 49/u lidar_track_residuals (12.44375ms)
+2026/09/30 15:09:34 [migrate] 50/u lidar_track_estimate_revisions (12.339833ms)
+2026/09/30 15:09:34 [migrate] 51/u lidar_interaction_persistence (12.376167ms)
+2026/09/30 15:09:34 [migrate] 52/u lidar_track_solid_bodies (10.9165ms)
+2026/09/30 15:09:34 [migrate] 53/u lidar_solid_body_support (12.972125ms)
+2026/09/30 15:09:34 [migrate] 54/u lidar_segments (12.824417ms)
+2026/09/30 15:09:34 [migrate] 55/u lidar_segment_constraints (72.4985ms)
+2026/09/30 15:09:34 [migrate] 56/u lidar_segment_selectors (69.386375ms)
+2026/09/30 15:09:34 [migrate] 57/u lidar_track_estimate_reference_support (70.397417ms)
+2026/09/30 15:09:34 Database baselined at version 57
+2026/09/30 15:09:34 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-bryant: repeat run
+2026/09/30 15:16:56 experiment solid_body without an observation database: solid bodies are computed from the medoid only and not written
+2026/09/30 15:16:56 replaying 5 capture file(s) (port 2369) through the perception pipeline
+embarcadero-bryant: capture time frames=13517 backward=0 duplicate=0 clamped_gaps=110 max_gap=5.499s
+embarcadero-bryant: continuity born=5736 confirmed=1582 reacquired=7294 expired misses=5746 coast_age=0 missed_unknown=0 occluded_inferred=0 out_of_fov=0
+embarcadero-bryant: solid bodies=46548 near_edge_fixes=21212 (45.6%) lapses=1037; lateral p99 point estimates 0.164 m, solid bodies 0.164 m over 7558 body-centre windows
+wrote 1 repeat-verified baseline(s) to /Volumes/lidar/evidence/s2-f6s/track/embarcadero-bryant/out
+      993.21 real       795.24 user        94.76 sys
+           951992320  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              936075  page reclaims
+                1802  page faults
+                   0  swaps
+                  88  block input operations
+                 159  block output operations
+                   0  messages sent
+                   0  messages received
+              247119  signals received
+              488233  voluntary context switches
+            16555954  involuntary context switches
+       8174636734788  instructions retired
+       2350885878451  cycles elapsed
+           954158400  peak memory footprint
