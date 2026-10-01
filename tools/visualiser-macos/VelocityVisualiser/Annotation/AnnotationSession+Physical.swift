@@ -146,6 +146,8 @@ enum PhysicalHandle: Equatable {
     /// Revises the body's persistent length along the axis; the anchor is
     /// held. A body change resets every keyframe's review when saved.
     case length
+    /// Revises width about the centre; position, yaw and length are held.
+    case width
 }
 
 enum PhysicalHandles {
@@ -157,12 +159,12 @@ enum PhysicalHandles {
     /// Where the handles are on screen, for drawing and for hit testing.
     static func positions(
         _ g: PhysicalGeometry, basis: OrthoViewBasis, viewport: OrthoViewport
-    ) -> (move: CGPoint?, turn: CGPoint?, length: CGPoint?) {
+    ) -> (move: CGPoint?, turn: CGPoint?, length: CGPoint?, width: CGPoint?) {
         func screen(_ x: Double, _ y: Double) -> CGPoint {
             viewport.screenPoint(from: basis.project(simd_float3(Float(x), Float(y), 0)))
         }
         let move = g.anchorPoint.map { screen($0.x, $0.y) }
-        guard let origin = g.centre ?? g.anchorPoint else { return (move, nil, nil) }
+        guard let origin = g.centre ?? g.anchorPoint else { return (move, nil, nil, nil) }
         let o = screen(origin.x, origin.y)
         // An unset axis gets a tool handle, not a claimed heading. Dragging it
         // explicitly authors the axis; no angle or bound is prefilled.
@@ -172,7 +174,8 @@ enum PhysicalHandles {
         let turn = CGPoint(
             x: o.x + (t.x - o.x) / n * axisReach, y: o.y + (t.y - o.y) / n * axisReach)
         let length = lengthHandlePoint(g).map { screen($0.x, $0.y) }
-        return (move, turn, length)
+        let width = widthHandlePoint(g).map { screen($0.x, $0.y) }
+        return (move, turn, length, width)
     }
 
     /// Where the length handle sits: the end of the body farthest from the
@@ -190,6 +193,25 @@ enum PhysicalHandles {
         case .frontFace: return g.ends[1]
         case .leftFace, .rightFace: return nil
         }
+    }
+
+    /// Width is centred on the known body centre. A side-face anchor needs
+    /// an explicitly coupled offset change, so it has no width handle here.
+    static func widthHandlePoint(_ g: PhysicalGeometry) -> PhysicalPlanar? {
+        guard let centre = g.centre, let yaw = g.yaw, let width = g.width,
+            g.anchorKind != .leftFace, g.anchorKind != .rightFace
+        else { return nil }
+        return PhysicalPlanar(
+            x: centre.x - sin(yaw.rad) * width.value / 2,
+            y: centre.y + cos(yaw.rad) * width.value / 2, bound: centre.bound)
+    }
+
+    static func draggedWidth(centre: PhysicalPlanar, yawRad: Double, pointer: simd_float2) -> Double
+    {
+        let across =
+            -(Double(pointer.x) - centre.x) * sin(yawRad) + (Double(pointer.y) - centre.y)
+            * cos(yawRad)
+        return max(abs(across) * 2, 0.1)
     }
 
     /// The length a drag to `pointer` asks for: the distance from the held
@@ -223,6 +245,7 @@ extension AnnotationSession {
         func near(_ p: CGPoint?) -> Bool {
             p.map { hypot($0.x - screen.x, $0.y - screen.y) <= PhysicalHandles.pickRadius } ?? false
         }
+        if near(at.width) { return .width }
         if near(at.length) { return .length }
         if near(at.turn) { return .turn }
         if near(at.move) { return .move }
@@ -243,6 +266,20 @@ extension AnnotationSession {
         let world = worldPoint(in: .top, viewPoint: viewPoint)
         let from = worldPoint(in: .top, viewPoint: startPoint)
         let origin = g.centre ?? g.anchorPoint
+        if handle == .width {
+            guard let centre = g.centre, let yaw = g.yaw,
+                let startBody = physical.gestureStartBody(objectID: objectID),
+                startBody.width.bounded, PhysicalHandles.widthHandlePoint(g) != nil
+            else { return }
+            let width = PhysicalHandles.draggedWidth(
+                centre: centre, yawRad: yaw.rad, pointer: simd_float2(world.x, world.y))
+            physical.updateGesture { objects in
+                PhysicalDraft.updateBody(objectID: objectID, in: &objects) {
+                    PhysicalDraft.setLength(width, of: &$0.width, from: startBody.width)
+                }
+            }
+            return
+        }
         if handle == .length {
             guard let anchor = g.anchorPoint, let yaw = g.yaw,
                 let startBody = physical.gestureStartBody(objectID: objectID),
@@ -273,7 +310,7 @@ extension AnnotationSession {
                     let rad = atan2(Double(world.y) - origin.y, Double(world.x) - origin.x)
                     k.yaw.yawRad = PhysicalUnits.radians(
                         PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))
-                case .length: break
+                case .length, .width: break
                 }
             }
         }

@@ -211,7 +211,10 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
         #expect(reopened.active?.hasAnchor == false)
         #expect(reopened.active?.partRelation == "unknown")
         reopened.seed(featureSeed(pack), objectID: "car")
+        reopened.name = "Unsaved change"
+        reopened.geometry = .edge
         reopened.cancel()
+        #expect(reopened.name == "Mirror?" && reopened.geometry == .protrusion)
         #expect(!reopened.isDirty && service.posts == 1)
         #expect(
             !FileManager.default.fileExists(
@@ -520,6 +523,22 @@ struct FeatureSharedWireTests {
         #expect(
             await s.features.save(
                 decision: .acceptedProposal, author: "op", membershipDigest: s.membershipDigest))
+        s.inspection.setHovered([
+            IntensityReadout(
+                sampleID: 0, sourceOrdinal: 1, pointIndex: 0, raw: nil, position: SIMD3(0, 0, 1),
+                displayClass: 1, depth: -1)
+        ])
+        s.inspection.pin()
+        s.usePinnedFacetReturn()
+        #expect(s.features.registrationPoint == 0)
+        s.inspection.setHovered([
+            IntensityReadout(
+                sampleID: 0, sourceOrdinal: 1, pointIndex: 3, raw: nil, position: SIMD3(1, 1, 1),
+                displayClass: 1, depth: -1)
+        ])
+        s.inspection.pin()
+        s.usePinnedFacetReturn()
+        #expect(s.features.registrationPoint == 0, "an outside return became the facet anchor")
         s.editCurrentFeature()
         #expect(
             s.features.draft?.pointIndices == [0, 1] && s.features.draft?.method == "manual_lasso")
@@ -529,5 +548,53 @@ struct FeatureSharedWireTests {
         #expect(!s.features.isDirty)
         #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == mask)
         #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
+    }
+}
+
+@MainActor struct FacetFutureContractTests {
+    @Test func unknownFieldsRemainInspectableButCannotBeOverwritten() async throws {
+        let (pack, client, service) = try featureSetup()
+        var bytes = try service.state.document.serializedData()
+        bytes.append(contentsOf: [0xa0, 0x06, 0x01])
+        service.state.document = try FeatureDocument(serializedBytes: bytes)
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        #expect(a.state != nil && a.readOnly && !a.canEdit)
+        #expect(try a.state?.document.serializedData() == bytes)
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(!a.isDirty && service.posts == 0)
+    }
+}
+
+@MainActor struct FacetRegistrationTransportTests {
+    @Test func registerDetachAndUnconfirmedCommitPreserveTheFacetAndBlockRetry() async throws {
+        let (pack, client, service) = try featureSetup()
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        let id = a.activeID
+        var anchor = FacetBodyAnchor()
+        anchor.coordinateDomain = "body_xy"
+        anchor.method = "manual_named_return_v1"
+        anchor.xM = 1.2
+        await a.registerAnchor(anchor, author: "op")
+        #expect(a.active?.anchor.xM == 1.2 && a.active?.partRelation == "rigid_proposal")
+        await a.registerAnchor(nil, author: "op")
+        #expect(a.active?.hasAnchor == false && a.active?.partRelation == "unknown")
+        #expect(a.activeID == id && a.active?.observations.count == 1)
+        service.failAfterCommit = true
+        await a.registerAnchor(anchor, author: "op")
+        let posts = service.posts
+        #expect(a.readOnly && a.active?.hasAnchor == false)
+        #expect(service.state.document.features[0].hasAnchor)
+        await a.registerAnchor(anchor, author: "op")
+        #expect(service.posts == posts)
+        service.failAfterCommit = false
+        await a.load()
+        #expect(a.canEdit && a.active?.anchor.xM == 1.2)
     }
 }

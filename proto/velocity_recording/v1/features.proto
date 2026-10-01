@@ -61,6 +61,15 @@ message FeatureAnchor {
   string physical_digest = 7;
   string body_id = 8;
   string keyframe_id = 9;
+  // Pilot registration is horizontal only. Z remains unresolved, never zero height.
+  string coordinate_domain = 10; // body_xy
+  uint32 source_sample = 11;
+  optional uint32 source_point_index = 12;
+  double bound_m = 13;
+  double return_bound_m = 14;
+  string origin = 15; // reference_seeded_proposal, never independent truth
+  string method = 16; // manual_named_return_v1
+  string identity_note = 17; // the repeatable physical spot, not visible centroid
 }
 
 message FeatureCandidate {
@@ -70,7 +79,8 @@ message FeatureCandidate {
   FeatureGeometry geometry = 4;
   string semantic_hint = 5;
   string part_id = 6;
-  // Pilot writes "unknown"; it does not assert a rigid/articulated transform.
+  // unknown, or rigid_proposal under an explicitly pinned body registration.
+  // A proposal never asserts an independently reviewed rigid transform.
   string part_relation = 7;
   FeatureAnchor anchor = 8;
   repeated FeatureObservation observations = 9;
