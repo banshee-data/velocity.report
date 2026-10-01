@@ -2,7 +2,7 @@
 
 - **Status:** Draft, for review. Nine decision rounds and two plan reviews are recorded below; the plan proposes and changes no code and no schema
 - **Layers:** Cross-cutting (SQLite schema, Go stores and APIs for radar and LiDAR, CLI, Svelte pages, macOS visualiser, public site, docs)
-- **Target:** v0.5.8 to v0.5.11 for the vocabulary and every forward-compatible change (new names, new columns, aliases; nothing dropped or rebuilt); v0.6.1, v0.6.6 and v0.6.7 for the migrations that move data and the long-term alignment
+- **Target:** Phase 1 delivers terminology and compatibility before Phase 2 delivers feature and data-model improvements. The item-level release targets below are the original allocation, to be re-baselined after the terminology phase is sized; they do not authorise overlapping the phases
 - **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) (superseded by this plan), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-annotation-segment-finder-plan](lidar-annotation-segment-finder-plan.md), [lidar-vrlog-observation-format-plan](lidar-vrlog-observation-format-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [platform-typed-uuid-prefixes-plan](platform-typed-uuid-prefixes-plan.md), [lidar-cluster-observation-log-and-async-tracking-plan](lidar-cluster-observation-log-and-async-tracking-plan.md), [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [platform-survey-capture-export-plan](platform-survey-capture-export-plan.md) (added by round nine)
 - **Canonical:** [PLATFORM.md](../platform/PLATFORM.md)
 
@@ -340,7 +340,7 @@ vocabulary and the release it lands in. Actions: keep, rename, merge, fold, drop
 | `lidar_capture_files`            | `captures`                       | rename | v0.5.8                         | `sha256` added, filled by the probe; `kind` (pcap, serial_log) and `sensor_id` added; the row key stays until v0.6.7, when `capture_id` becomes the digest. The probe already adds `earliest_packet_ns`, `latest_packet_ns` and `backward_steps` beside the file-order `first_packet_ns` and `last_packet_ns` (D-27)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | V1, V4, V29        |
 | `lidar_capture_sessions`         | `capture_sequences`              | rename | v0.5.8                         | `sequence_id`; derived as today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | V1, V7             |
 | `lidar_capture_motion_periods`   | `capture_periods`                | rename | v0.5.8                         | `sequence_id`; `period_type` stays motion or static                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | V1                 |
-| `lidar_capture_jobs`             | `jobs`                           | rename | v0.5.8, v0.5.11                | `subject_kind`, `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added in v0.5.8; the distributed queue moves onto it in v0.5.11; kinds `motion_pass`, `pack`, `radar_track_build`, `benchmark`, `scorecard`, `state_estimation_baseline`; migration 000057's triggers hold today's two kinds, and each migration that renames or adds a kind replaces them first (D-27)                                                                                                                                                                                                                                                                                                                                                                                               | V11                |
+| `lidar_capture_jobs`             | `jobs`                           | rename | v0.5.8, v0.5.11                | `subject_kind`, `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added in v0.5.8; the distributed queue moves onto it in v0.5.11; kinds `motion_pass`, `pack`, `radar_track_build`, `benchmark`, `scorecard`, `state_estimation_baseline`; migration 000058's triggers hold today's two kinds, and each migration that renames or adds a kind replaces them first (D-27)                                                                                                                                                                                                                                                                                                                                                                                               | V11                |
 | `lidar_segment_clip_jobs`        | `jobs`                           | fold   | v0.5.9                         | Pack path and digest become the job's output                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | V11                |
 | `lidar_replay_cases`             | `lidar_clips`                    | rename | v0.5.8, v0.5.9, v0.6.6, v0.6.7 | v0.5.8: metadata rename, `replay_case_id` renamed `clip_id`. v0.5.9: `survey_id` (nullable until surveys exist), `selection_json` with its `CHECK`s, `selector_json`, and `role`, `finder`, `finder_version` generated `VIRTUAL` from `selection_json` (NULL for a hand-made clip) added; `pcap_start_secs` and `pcap_duration_secs` renamed `start_secs` and `duration_secs`, the stored window every clip has; `pcap_file` kept as a read-only projection of the first capture. v0.6.6: coordinates and tokens move to the survey. v0.6.7: `pcap_file`, `session_id`, `source_period_id`, `origin_lat`, `origin_lon`, the three tokens, `geographic_source`, `geographic_status`, `site_id` dropped. Absolute bounds are derived on read from the first capture's probed `first_packet_ns`, never stored | V18, V29           |
 | `lidar_replay_case_files`        | `lidar_clip_captures`            | rename | v0.5.8, v0.5.9, v0.6.7         | v0.5.8: metadata rename. v0.5.9: a new `capture_id` column, the digest, a foreign key to `captures` cleared when the capture is forgotten, added beside the never-populated `capture_file_id`; `rel_path` kept as the fallback. v0.6.7: `capture_file_id` dropped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | V1, V18, V29       |
@@ -372,7 +372,7 @@ vocabulary and the release it lands in. Actions: keep, rename, merge, fold, drop
 
 44 tables become 39: four are dropped and one merges. Column-level renames outside this table
 follow V4 (`sensor_id` everywhere), V5 (`_provenance`, `extraction_id`), V16 (`yaw_rad`, `frame`)
-and V20. The two command tables, dropped in an earlier draft, are kept and populated (V35). Migration numbers are assigned in item order at implementation, starting at the next free number: 000057 holds the capture queue's kinds and the motion period bounds of the [data model review](../../data/structures/SCHEMA-REVIEW.md).
+and V20. The two command tables, dropped in an earlier draft, are kept and populated (V35). Migration numbers are assigned in item order at implementation, starting at the next free number: 000058 holds the capture queue's kinds and the motion period bounds of the [data model review](../../data/structures/SCHEMA-REVIEW.md).
 
 ### 2. Routes: platform and radar
 
@@ -710,17 +710,148 @@ Old spellings remain accepted for one release and print the new name; the aliase
 
 ## Scope
 
-Eighteen items in two groups. The v0.5.x group sets the direction and is forward compatible
-under V29: every change adds a name, a column, a table or an alias, and nothing is dropped,
-rebuilt or removed. The v0.6.x group moves data and retires what the first group made
-redundant. No item is larger than `L`.
+The programme has two delivery phases. Phase 1 makes the existing concepts use consistent
+names. Phase 2 changes what the system can do and how its data is organised. A new name does
+not require a new feature to land beside it.
 
-Every item's acceptance criteria include, beyond what is listed: a grep for each word the item
-retires returns nothing outside migrations, cited titles and the alias table; the surface's own
-test suites pass; `MATRIX.md` and `SCHEMA.svg` are regenerated where a table or route moved; the
-docs lints pass.
+The eighteen numbered items below remain the reference work packages: their decisions, field
+ledgers and acceptance criteria are retained. Several combine both kinds of work and must be
+split into separate PRs. Their original release targets are scheduling references, not the
+phase boundary. Phase 2 starts after the Phase 1 exit checks pass; compatibility cleanup waits
+until the replacement has shipped for at least one release.
 
-### v0.5.x: direction
+### Phase 1: terminology and compatibility
+
+Publish the vocabulary and D-28 first, then apply it to documentation, product copy, identifiers,
+existing schema names, routes, CLI spellings and flags. Keep old external spellings as aliases.
+A schema migration in this phase may rename an existing table or column, preserving its rows,
+values, keys and relationships. A name that needs a new relationship or changes a field's
+meaning waits for Phase 2.
+
+Phase 1 adds no digest identity, clock metrics, subject columns, port management, claim rules,
+selection consolidation, label consolidation, new stream capability or converter. It changes
+neither ID generation nor tracking, replay, scheduling, exports or retention. Typed-UUID
+vocabulary is aligned in the plans; changing the generated IDs is separate feature work.
+
+| Work package | Phase 1: names and compatibility                                                                      | Phase 2: behaviour and data model                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1            | Canonical vocabulary, D-28 and companion-plan alignment                                               | Typed-ID implementation remains separately scheduled                                        |
+| 2            | Clip and run names, existing schema names, UI copy and route aliases                                  | Any consolidation or new relationship                                                       |
+| 3            | Capture, sequence, period, volume and job names; existing route aliases                               | Digests, duplicate-content policy, capture identity and job subject/executor/output columns |
+| 4            | CLI and flag spellings with aliases to existing operations                                            | Any command that needs a new operation                                                      |
+| 5            | Existing source names, replay routes and serial vocabulary                                            | Ports table and lifecycle; a derived analysis mode if it adds behaviour                     |
+| 6            | Clip, candidate, selector and pack names on existing surfaces and files, with compatibility readers   | Selection folded into clips, candidate-panel consolidation and digest-based held-out guard  |
+| 7            | Label/annotation vocabulary, type names and existing route aliases                                    | One label table and write path; removal of duplicate writers                                |
+| 8            | Radar reading/detection/track names, metadata renames and route aliases                               | Sensor/port identity columns and backfill                                                   |
+| 9            | Terminology in existing tracker symbols and documentation                                             | Tracker package move, job integration and command logging                                   |
+| 10           | VRLOG, config and estimate terminology; existing tool aliases                                         | New stream/profile capability or changed manifest semantics                                 |
+| 11           | Existing queue called jobs                                                                            | Shared queue, ownership and contention rules                                                |
+| 12           | Define pose, heading, yaw and frames accurately; rename only fields whose meaning is preserved        | New frame fields, coordinate conversion or changed pose contracts                           |
+| 13           | Document the existing layouts under the agreed vocabulary                                             | Display adapter, conversion, recorder replacement and stage changes                         |
+| 14–15        | Define sites, deployments and surveys; label existing surfaces only where the meaning already matches | Site merge, deployment rows, surveys and report relationships                               |
+| 16           | Existing public-page names and redirects where semantics are unchanged                                | New survey-backed publication, export tiers and privacy enforcement                         |
+| 17           | Detection vocabulary covered by Item 8                                                                | Primary key, deduplication and timed radar rebuild                                          |
+| 18           | Record every compatibility alias and its future retirement                                            | Drop aliases and projections after their compatibility release                              |
+
+Deliver Phase 1 as four work packages, each split into reviewable PRs by consumer boundary:
+
+1. **P1-A, terminology contract:** publish the vocabulary, D-28, companion-plan alignment and
+   the alias inventory. Identify words whose meanings differ today before renaming them.
+2. **P1-B, LiDAR terminology:** clip/run/capture/sequence/period/volume names, label/annotation
+   words and existing product surfaces. Follow each rename through schema, Go, web and macOS.
+3. **P1-C, radar terminology:** readings, detections and tracks; existing table/column names,
+   report copy and route aliases. Keep the existing tracker and its outputs.
+4. **P1-D, shared interfaces:** CLI, flags, config, protocol and file vocabulary; VRLOG and pose
+   definitions; existing public-page names and redirects where meanings match. An alias wraps
+   the operation that already exists.
+
+P1-B, P1-C and P1-D follow P1-A. They may proceed independently where their consumers do not
+conflict. No work package depends on a Phase 2 capability; a rename with such a dependency is
+moved to Phase 2. Each PR identifies its consumers and proves its compatibility boundary.
+
+**Phase 1 exit:** the terminology inventory covers every existing surface; old external names
+still work through the recorded aliases; migration row-accounting preserves values and
+relationships; fixture outputs match after normalising only renamed keys and enum spellings;
+the surface tests and documentation checks pass. No Phase 2 capability is needed to demonstrate
+that a rename works. Unchanged legacy layouts stay usable until their replacements exist.
+
+### Phase 2: feature and data-model improvements
+
+After the terminology exit, deliver these separately scoped feature work packages:
+
+1. **P2-A, capture integrity:** whole-file digests, duplicate-content/location policy, clock
+   extrema and backward-step metrics. Digest and clock metrics can share the probe pass;
+   duplicate resolution is decided before changing the identity key.
+2. **P2-B, clip and label consolidation:** fold selections into clips, integrate candidates,
+   index the held-out guard by digest, and consolidate label storage and writers. The
+   digest-based clip work follows P2-A; label consolidation is independently reviewable.
+3. **P2-C, shared jobs:** subject/executor/output columns, ownership and atomic claims, then
+   one server/worker queue. New job kinds replace migration 000058's kind triggers first.
+4. **P2-D, radar operations and identity:** ports, sensor identity/backfill, tracker package
+   move and job integration, command logging, then the separately timed detection-key rebuild.
+   Identity follows ports; job integration follows P2-C's columns, and queue contention is
+   tested before shared scheduling is enabled.
+5. **P2-E, VRLOG and pose contracts:** new stream/profile capability, the display adapter,
+   legacy conversion, recorder consolidation and substantive frame/stage changes. Conversion
+   follows the adapter and verifies every converted recording before an original is removed.
+6. **P2-F, sites and surveys:** merge site identity, add deployments, then surveys and report
+   relationships, then survey-backed publication and export/privacy checks. Surveys follow
+   sites/deployments; publication follows surveys.
+7. **P2-G, compatibility retirement:** remove old aliases, projections and redundant fields
+   only after their replacements have shipped for at least one release.
+
+Each package is a body of work, not one large PR. Keep typed-ID implementation and the
+estimate-link/timestamp audits as separate work with their own decisions and acceptance checks;
+none is smuggled into a terminology rename. The item-level dependencies below still apply.
+
+D-27 and the data model review's migration 000058 are the separate schema-guardrail foundation
+from #631. Their existing decisions and tests are retained; they do not turn a terminology PR
+into an identity or queue implementation. The probe improvements and schema-watchlist audits
+remain Phase 2 work.
+
+Within both phases V29 still governs compatibility: the forward-compatible release window
+keeps aliases and avoids destructive rebuilds, apart from its recorded unreleased-table
+exception. Completing Phase 1 does not waive a migration or compatibility gate for Phase 2.
+Every item's applicable acceptance criteria remain: the surface's tests pass; `MATRIX.md` and
+`SCHEMA.svg` are regenerated where a table or route moved; documentation checks pass. A retired
+word is confined to historical records, migrations and the compatibility alias inventory.
+
+## Work-package plans and Phase 1 remaining work
+
+#631 delivers D-27, the capture-job/motion-period guardrails and lifecycle tests. It does not
+implement the terminology rollout. The local continuation rebases that foundation onto main
+and moves its capture checks to migration 000058, keeping main's migration 000057 intact.
+Neither the guardrails nor the planning outlines count as completion of a terminology package.
+
+### Phase 1 implementation remains
+
+| Plan                                                                                          | Remaining work                                                                                | State                          |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------ |
+| [P1-A: terminology contract and companion plans](platform-vocabulary-phase1-contract-plan.md) | Canonical glossary, D-28, companion-plan alignment and consumer/alias inventory               | Planned; not delivered by #631 |
+| [P1-B: LiDAR terminology across existing surfaces](platform-vocabulary-phase1-lidar-plan.md)  | LiDAR metadata, store/API/client/copy renames with unchanged values and compatibility         | Planned; not delivered by #631 |
+| [P1-C: radar terminology across existing surfaces](platform-vocabulary-phase1-radar-plan.md)  | Radar metadata, type/API/report renames with the existing tracker preserved                   | Planned; not delivered by #631 |
+| [P1-D: shared interface and file terminology](platform-vocabulary-phase1-interfaces-plan.md)  | CLI/flags/config/protocol/file terminology and compatibility; accurate VRLOG/pose definitions | Planned; not delivered by #631 |
+
+P1-A is the next implementation body. Its inventory gives P1-B, P1-C and P1-D their exact
+consumer lists. Existing uses of a preferred noun are credited by that audit, not assumed to
+mean an entire work package is finished. The aggregate Phase 1 exit is still outstanding.
+
+### Phase 2 implementation plans
+
+- [P2-A: capture identity and clock integrity](platform-vocabulary-phase2-captures-plan.md)
+- [P2-B: clip, selection and label consolidation](platform-vocabulary-phase2-clips-labels-plan.md)
+- [P2-C: shared job subjects and queue ownership](platform-vocabulary-phase2-jobs-plan.md)
+- [P2-D: radar ports, identity and operational records](platform-vocabulary-phase2-radar-plan.md)
+- [P2-E: VRLOG consolidation and pose contracts](platform-vocabulary-phase2-vrlog-pose-plan.md)
+- [P2-F: sites, deployments, surveys and publication](platform-vocabulary-phase2-surveys-plan.md)
+- [P2-G: compatibility retirement](platform-vocabulary-phase2-retirement-plan.md)
+
+Typed-ID generation and the estimate-link/timestamp audits retain their existing companion
+plans or backlog scope. They are feature/data-model work, not a prerequisite for terminology.
+The reference items below retain the detailed designs; a mixed item is implemented under the
+phase split above and its linked plan, not as one combined rename-and-feature PR.
+
+### Reference work packages: original v0.5.x allocation
 
 #### Item 1: vocabulary, decision record, drafts (v0.5.8, `S`)
 
@@ -768,7 +899,7 @@ identity and a subject, without a rebuild.
    `jobs`, and the other v0.5.8 renames of § Ledger 1 (`lidar_sweeps`, `migration_rejects`,
    `capture_path`); `sha256`, `kind`, `sensor_id` added to captures; `subject_kind`,
    `subject_id`, `executor`, `claimed_by`, `claimed_at`, `output_path`, `output_digest` added to
-   jobs; migration 000057's kind triggers replaced with the V11 kinds, then the kind `vrlog_record`
+   jobs; migration 000058's kind triggers replaced with the V11 kinds, then the kind `vrlog_record`
    rewritten as `pack`.
 2. The probe computes the digest on the pass that finds the extent (D-27); the held-out guard
    indexes `(role, finder, capture_id)` once Item 6 lands.
@@ -883,7 +1014,7 @@ stay renames and aliases.
    `internal/radar/tracker` as `Tracker` and `Controller`, keeping the gap threshold and
    `model_version`; the controller records each pass as a `radar_track_build` row on `jobs`
    (executor `inprocess`, per Item 3's columns) and runs it in process as today; the migration
-   first adds `radar_track_build` to the kind triggers of 000057. The row is
+   first adds `radar_track_build` to the kind triggers of 000058. The row is
    inserted already claimed (`state` running, `claimed_by` `radar_tracker`, `claimed_at`), and
    the in-process runner's two queries gain `AND claimed_by IS NULL`, because today that
    runner claims the oldest queued row of any kind, fails a kind it does not know, and requeues
@@ -933,14 +1064,14 @@ profile its vrlog was written at.
 **Steps:**
 
 1. `velocity worker` and `velocity jobs` read and write `jobs`; kinds renamed per V11;
-   `executor` fixed per kind; the kind triggers of 000057 extended to the worker's kinds.
+   `executor` fixed per kind; the kind triggers of 000058 extended to the worker's kinds.
 2. The claim `UPDATE`; the in-process queue and the worker never read each other's kinds; the
    radar tracker's `radar_track_build` is claimed like any other in-process kind.
 
 **Acceptance:** two workers and the server contend for one queue in a test and no job runs
 twice.
 
-### v0.6.x: heavy migrations and long-term alignment
+### Reference work packages: original v0.6.x allocation
 
 #### Item 12: pose vocabulary in contracts (v0.6.1, `M`)
 
@@ -1058,8 +1189,11 @@ dropped columns.
 
 ## Dependencies
 
+- The Phase 1 exit precedes every new Phase 2 implementation. The dependencies below apply to
+  the feature portions of the numbered work packages; a rename does not depend on a digest,
+  ports table, new subject column or converter.
 - Item 6 depends on Item 3 (the capture digest and the jobs columns).
-- Items 3, 9 and 11 each replace the kind triggers of migration 000057 before they write a new
+- Items 3, 9 and 11 each replace the kind triggers of migration 000058 before they write a new
   kind ([data model review](../../data/structures/SCHEMA-REVIEW.md), D-27).
 - Item 8's `sensor_id` default depends on Item 5's ports row; Item 9's `port_id` on the same.
 - Item 9's job rows depend on Item 3's columns; until Item 11 lands they run in process.
@@ -1101,26 +1235,34 @@ dropped columns.
       on-disk formats and the place vocabulary
 - [x] Nine decision rounds recorded as V1 to V36; two plan reviews applied
 
-### Outstanding
+### Phase 1: outstanding terminology work
 
-- [ ] Item 1: vocabulary, decision record, drafts, typed-UUID prefixes (v0.5.8, `S`)
-- [ ] Item 2: scene retired from product surfaces; clip named (v0.5.8, `M`)
-- [ ] Item 3: captures, sequences, periods, volumes, jobs (v0.5.8, `M`)
-- [ ] Item 4: CLI and flags with aliases (v0.5.8, `S`)
-- [ ] Item 5: sources, replay routes, ports (v0.5.9, `M`)
-- [ ] Item 6: clips and candidates (v0.5.9, `M`)
-- [ ] Item 7: labels (v0.5.10, `M`)
-- [ ] Item 8: radar identity and nouns (v0.5.10, `M`)
-- [ ] Item 9: radar tracker and command log (v0.5.10, `M`)
-- [ ] Item 10: vrlog nouns and the estimate words (v0.5.11, `M`)
-- [ ] Item 11: one job queue (v0.5.11, `M`)
-- [ ] Item 12: pose vocabulary in contracts (v0.6.1, `M`)
-- [ ] Item 13: one vrlog (v0.6.1, `L`)
-- [ ] Item 14: sites merged and deployments (v0.6.6, `L`)
-- [ ] Item 15: surveys and reports (v0.6.6, `L`)
-- [ ] Item 16: public surveys (v0.6.6, `M`)
-- [ ] Item 17: radar rebuild (v0.6.7, `M`)
-- [ ] Item 18: retire aliases and projections (v0.6.7, `S`)
+- [ ] Publish the canonical vocabulary, D-28 and aligned companion plans (Item 1)
+- [ ] Rename existing LiDAR clip/run/capture/sequence/period/volume surfaces and schema metadata
+      with compatibility aliases (terminology portions of Items 2–6)
+- [ ] Align label/annotation types and radar reading/detection/track surfaces without merging
+      storage or adding identity columns (terminology portions of Items 7–9)
+- [ ] Align shared CLI, flags, config, protocol, VRLOG and pose words without changing their
+      operations or meanings (terminology portions of Items 4, 5, 10 and 12)
+- [ ] Align existing public copy and page names only where the meaning already matches; define
+      future sites, deployments and surveys without claiming their model exists (Items 14–16)
+- [ ] Pass the Phase 1 exit checks and publish the compatibility alias inventory
+
+### Phase 2: outstanding feature and data-model work
+
+- [ ] Capture digests, duplicate-content policy, clock integrity and capture/job columns (Item 3
+      and D-27's probe backlog)
+- [ ] Port management and radar sensor identity/backfill (feature portions of Items 5 and 8)
+- [ ] Clip/selection consolidation, candidates panel and digest-based held-out guard (Item 6)
+- [ ] Label storage and write-path consolidation (Item 7)
+- [ ] Radar tracker move, job integration and command logging (Item 9)
+- [ ] Shared job queue and contention rules (Item 11)
+- [ ] New VRLOG stream/profile capability, pose contracts, display conversion and recorder
+      consolidation (feature portions of Items 10, 12 and 13)
+- [ ] Site/deployment model, surveys, reports and survey-backed public exports (Items 14–16)
+- [ ] Radar detection key and timed deduplication/rebuild (Item 17)
+- [ ] Retire aliases and projections after the replacement's compatibility release (Item 18)
+- [ ] Keep typed-ID implementation and estimate-link/timestamp audits separately scoped
 
 ### Deferred
 

@@ -2,11 +2,11 @@
 
 The [schema ERD](SCHEMA.svg) shows the foreign keys that SQLite knows about. This review records the relationships it cannot draw, and the constraints the segment, job, and capture tables were missing. The source is the generated [schema snapshot](../../internal/db/schema.sql), checked against the segment handlers and capture store. The repository has no tracked `schema.db`; `schema.sql` is the current schema snapshot. Any change to it starts with a migration and `make schema-sync`.
 
-The snapshot contains **44 tables and 602 fields** (including generated fields). The [surface matrix](MATRIX.md) inventories them. Its `?` marks show where a consumer trace remains open; schema membership alone does not prove that a column is populated or shown to a user.
+The snapshot contains **44 tables and 604 fields** (including generated fields). The [surface matrix](MATRIX.md) inventories them. Its `?` marks show where a consumer trace remains open; schema membership alone does not prove that a column is populated or shown to a user.
 
 ## Status
 
-The review raised ten findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables, and the clip-job half of a seventh. The rest waited on decisions about identity and time, taken on September 28, 2026, aligned on September 29 with the [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md), and [recorded below](#decisions-on-the-remaining-findings). [Migration 57](../../internal/db/migrations/000057_lidar_capture_job_period_checks.up.sql) holds the two rules that needed nothing more: the capture queue's job kinds, and motion periods that agree with their bounds. None of the findings is a fault in data today: the [audits](#what-the-audit-found) found no contradiction that a constraint would have refused.
+The review raised ten findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables, and the clip-job half of a seventh. The rest waited on decisions about identity and time, taken on September 28, 2026, aligned on September 29 with the [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md), and [recorded below](#decisions-on-the-remaining-findings). [Migration 58](../../internal/db/migrations/000058_lidar_capture_job_period_checks.up.sql) holds the two rules that needed nothing more: the capture queue's job kinds, and motion periods that agree with their bounds. None of the findings is a fault in data today: the [audits](#what-the-audit-found) found no contradiction that a constraint would have refused.
 
 | Finding                                                                                  | Priority | Status                                                                     |
 | ---------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
@@ -15,12 +15,18 @@ The review raised ten findings about segments, jobs, and captures, and four abou
 | [3. Role and finder are not checked together](#findings-resolved-by-migration-55)        | 1        | Resolved                                                                   |
 | [4. Selection JSON is unvalidated and duplicated](#findings-resolved-by-migration-55)    | 1        | Resolved                                                                   |
 | [5. The held-out guard reads every selection](#findings-resolved-by-migration-55)        | 1        | Resolved; the guard moves to the capture digest (Items 3, 6)               |
-| [6. A clip job borrows the queue's session column](#decisions-on-the-remaining-findings) | 2        | Resolved: migration 57 holds two kinds until one job queue                 |
+| [6. A clip job borrows the queue's session column](#decisions-on-the-remaining-findings) | 2        | Resolved: migration 58 holds two kinds until one job queue                 |
 | [7. A pack is an absolute path, and `''` means none](#findings-resolved-by-migration-55) | 2        | Resolved                                                                   |
 | [8. A replay case repeats its first file](#decisions-on-the-remaining-findings)          | 2        | Decided: case files name the digest; `pcap_file` goes in v0.6.7            |
 | [9. Session keys are unconstrained](#decisions-on-the-remaining-findings)                | 2        | Resolved: notes until v0.6.7 drops them                                    |
 | [10. Capture extents permit contradictions](#decisions-on-the-remaining-findings)        | 3        | Decided: earliest and latest beside first and last (backlog); periods held |
 | [Wider schema watchlist](#wider-schema-watchlist)                                        | 2 to 3   | Two audits on the backlog; two items in the vocabulary plan                |
+
+The vocabulary programme now delivers terminology and compatibility first, then feature and
+data-model improvements. D-27 and migration 58 are this review's guardrail foundation; they do
+not implement capture digests, new clock metrics or a shared queue. Those remain Phase 2 work.
+The [work-package plans](../../docs/plans/platform-vocabulary-and-data-model-plan.md#work-package-plans-and-phase-1-remaining-work)
+state what is still needed for Phase 1. No terminology implementation is claimed by this review.
 
 ## The segment relationships
 
@@ -94,7 +100,7 @@ digest; the decisions below follow it.
 | What identifies a capture (5, 8, 9)              | The SHA-256 of its whole file, computed by the probe                            | Vocabulary plan, Items 3 and 6 |
 | How a replay case names its session (9)          | As a note, never a foreign key, until Item 18 drops it                          | Done; a test holds it          |
 | How the probe records a clock stepping back (10) | Earliest and latest packet beside first and last, and a count of backward steps | Backlog, v0.5.4                |
-| Whether motion passes get a subject table (6)    | No; migration 57 holds today's two kinds until one job queue                    | Done                           |
+| Whether motion passes get a subject table (6)    | No; migration 58 holds today's two kinds until one job queue                    | Done                           |
 
 ### A capture is its content, not its path
 
@@ -158,7 +164,7 @@ someone looks, and closes a part of a survey's capture export. The extent checks
 earliest ≤ latest, a packet count of zero or more, and bounds on every `ok` probe. The digest of
 Item 3 is computed on the same pass.
 
-Motion periods needed no decision. Migration 57 requires `end_ns` ≥ `start_ns` and
+Motion periods needed no decision. Migration 58 requires `end_ns` ≥ `start_ns` and
 `duration_ns` = `end_ns` − `start_ns`. `start_secs` and `end_secs` count from the first frame the
 motion pass analysed, which the row does not hold, so they stay unchecked.
 
@@ -172,10 +178,10 @@ v0.5.8 (Item 3), `radar_track_build` in v0.5.10 (Item 9), and the distributed wo
 v0.5.11 (Item 11).
 
 **Decision:** motion passes get no subject table of their own; the vocabulary plan's subject
-columns will name every job's subject. Until then migration 57 refuses a job of any other kind,
+columns will name every job's subject. Until then migration 58 refuses a job of any other kind,
 and a clip job that names a session. For a motion pass `session_id` stays a note: sessions are
 re-derived, and a key would either block a re-derive or drop the job's session. Each migration
-that renames or adds a kind (Items 3, 9 and 11) replaces migration 57's kind triggers first.
+that renames or adds a kind (Items 3, 9 and 11) replaces migration 58's kind triggers first.
 
 The triggers look only at new writes. A clip job that an interrupted enqueue left without its
 link, before migration 55, still names its segment in `session_id`, and the worker can still move
@@ -222,7 +228,7 @@ findings were decided.
 | Capture jobs                                                | 0          |
 | Probed captures with `first_packet_ns > last_packet_ns`     | 0 of 112   |
 
-Migration 57 refuses nothing this database holds: it has no capture jobs and no motion periods.
+Migration 58 refuses nothing this database holds: it has no capture jobs and no motion periods.
 
 ## Wider schema watchlist
 

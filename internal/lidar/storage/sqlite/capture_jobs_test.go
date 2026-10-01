@@ -301,7 +301,7 @@ func TestCaptureStoreListJobs(t *testing.T) {
 	}
 }
 
-// The capture writers keep to the rules migration 000057 holds, and the
+// The capture writers keep to the rules migration 000058 holds, and the
 // shipped schema holds them too, not only the migrations: a motion pass names
 // its session, and a timeline's periods agree with their bounds. Clip jobs are
 // covered by the segment store tests, which run on the same schema.
