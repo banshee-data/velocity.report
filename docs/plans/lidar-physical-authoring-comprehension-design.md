@@ -455,3 +455,12 @@ facet matching, a guided Compare report-generation path and field validation als
 Manual authoring edits do not spend the future runtime reset budget. Reflectivity stays an
 inspection/association experiment after geometric controls; no dense material map or accuracy
 benefit is claimed here.
+
+The next local increment adds an offline manual-correspondence pose experiment. Its explicit
+prior fields are never filled from target truth. Go resolves exact source facet/body evidence
+and target support; a compact spot constrains planar position and an edge leaves tangential
+position weak. Native views draw confirmed returns and a fixed-size predicted footprint, with
+unresolved directions and refusal reasons. It requires no reviewed target pose. Correction and
+recomputation/discard are available; proposal persistence and accept-to-reference semantics are
+not implemented. Viewing remains assisted, saved annotations stay intact, and live tracker
+state and lifetime reanchor accounting remain outside this increment.

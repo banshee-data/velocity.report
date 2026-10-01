@@ -116,6 +116,9 @@ struct LassoOverlay: View {
                 maskLayer
                 if session.workMode == .features {
                     FeatureSelectionOverlay(session: session, basis: basis, viewport: viewport)
+                    FacetPoseProposalOverlay(
+                        session: session, basis: basis, viewport: viewport,
+                        top: basisStandard == .top)
                     if basisStandard == .top {
                         FacetBodyProjectionOverlay(
                             session: session, basis: basis, viewport: viewport)

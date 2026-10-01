@@ -820,6 +820,46 @@ substituted. Seeing a projection marks subsequent facet proposals for that objec
 assisted, including after hiding, cancelling or reopening the pack. Existing saved observations
 are not rewritten. Tracker-seeded relations also retain the Physical assistance ledger.
 
+### Offline pose proposal from a manually matched facet
+
+**Offline pose from matched facet · experiment** supplies a separate, read-only estimate. It
+uses a saved source body relation and the target frame's accepted, definite facet returns.
+The target must be a different frame from the registration source. It does **not** require a
+reviewed target pose, and does not borrow one from Physical or Compare. Existing target
+references may be used for a later comparison, never as a hidden solver input.
+
+1. Save the target object's membership and its facet support. Choose the same rigid spot with
+   the return picker, or choose two widely separated direction returns on a straight edge.
+2. Enter an explicit prior centre, yaw, position/yaw bounds, and a named source with uncertainty
+   assumptions. These fields have no target-reference defaults. Prior yaw is the signed direction of the
+   body front, anticlockwise from pack +X; this version does not accept an unsigned axis or
+   two-heading hypothesis. State a positive matched-return
+   bound and describe the same physical part and bound assumptions.
+3. Tick the manual-correspondence confirmation and choose **Propose body pose · read-only
+   assisted**. Go resolves the exact facet revision/digest, current membership and pinned source
+   body. A compact spot constrains planar position given prior yaw. An edge constrains normal
+   displacement; its tangential position and yaw remain from the prior.
+4. Inspect the pink matched returns and orange dashed Top footprint. The footprint uses the
+   unchanged source body's full length/width intervals; absent or partial dimensions withhold
+   it. Height remains unmeasured. Hidden ends are body predictions, not fresh endpoint returns.
+5. Correct the explicit inputs and recompute, or **Discard pose proposal**. Input/frame/facet
+   changes invalidate the displayed result and late responses. This increment has no
+   accept-to-reference or durable proposal-save operation. To reproduce it, retain its request
+   inputs and exact source/evidence pins; reopening alone does not reload the transient result.
+
+For a worked compact example, let the fixed body offset be 2 m forwards and 1 m right. With
+prior yaw 90°, a confirmed return at (11, 7) implies centre (10, 5). A declared prior at
+(9.8, 5.2) ±0.4 m is compatible; yaw remains prior-only. For an edge with body normal (0, 1)
+and offset −1 m at prior yaw 0°, returns along y=2 constrain centre y=3. Prior centre x=10
+remains x=10; changing the visible segment's midpoint does not set the body's tangential origin.
+
+Bounds propagate conservatively and do not shrink below the declared prior position bound.
+Uncertain points are excluded. Sparse/non-straight edges, broad or contradictory directions,
+missing/occluded support, stale membership/revisions and hard-bound prior conflicts refuse the
+proposal. No correspondence search or joint yaw fit is performed. Viewing the result persists
+assistance for later authoring without rewriting saved masks, facets or Physical references.
+This experiment cannot update a live tracker or spend its future reanchor budget.
+
 ## Raw intensity
 
 **Intensity (raw 0–255)** in the right-hand column is independent of the modes. It writes nothing,

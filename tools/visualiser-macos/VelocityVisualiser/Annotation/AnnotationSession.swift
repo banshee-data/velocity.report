@@ -980,6 +980,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         inspection.clear()
         if featureForward != nil {
             features.bodyPreview = nil
+            features.clearPoseProposal()
             features.registrationPoint = nil
             features.registrationEndPoint = nil
         }
