@@ -22,7 +22,8 @@ type ReplayCaseFile struct {
 //
 // pcap_file on the case is kept in step with ordinal 0. It is the read-only
 // projection existing clients still read, and keeping it truthful is cheaper
-// than auditing every one of them; it goes in v0.6.1.
+// than auditing every one of them; it goes in v0.6.7 (platform vocabulary plan,
+// Item 18).
 func (s *ReplayCaseStore) SetCaseFiles(replayCaseID string, files []ReplayCaseFile) error {
 	if replayCaseID == "" {
 		return fmt.Errorf("replay case id is required")
