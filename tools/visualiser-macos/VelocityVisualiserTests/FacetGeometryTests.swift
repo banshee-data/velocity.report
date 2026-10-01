@@ -4,6 +4,25 @@ import simd
 
 @testable import VelocityVisualiser
 
+@MainActor struct FacetGeometryCacheTests {
+    @Test func cachedFitChangesWithSampleSubsetAndGeometry() throws {
+        let horizontal: [SyntheticPack.Point] = [(0, 0, 1, 1), (1, 0, 1, 1), (0, 1, 1, 1)]
+        let vertical: [SyntheticPack.Point] = [(0, 0, 1, 1), (0, 1, 1, 1), (0, 0, 2, 1)]
+        let dir = try SyntheticPack.write([horizontal, vertical], sourceStride: 1)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let session = try AnnotationSession(pack: AnnotationPack.open(directory: dir))
+        let first = session.facetGeometryFit(indices: [0, 1, 2], geometry: .patch)
+        #expect(first.supported && abs(first.direction!.z) > 0.99)
+        #expect(session.facetGeometryFit(indices: [0, 1, 2], geometry: .patch) == first)
+        #expect(!session.facetGeometryFit(indices: [0, 1], geometry: .patch).supported)
+        #expect(!session.facetGeometryFit(indices: [0, 1, 2], geometry: .edge).supported)
+        #expect(session.stepForward() == nil)
+        let next = session.facetGeometryFit(indices: [0, 1, 2], geometry: .patch)
+        #expect(next.supported && abs(next.direction!.x) > 0.99)
+        #expect(next.direction != first.direction)
+    }
+}
+
 struct FacetGeometryTests {
     private func points(_ values: [SIMD3<Float>]) -> PackPoints {
         PackPoints(

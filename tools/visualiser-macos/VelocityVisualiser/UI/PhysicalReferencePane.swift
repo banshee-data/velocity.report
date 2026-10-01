@@ -503,7 +503,7 @@ struct PhysicalReferencePane: View {
             }
             if k.anchor.kind.isFace {
                 Text(
-                    "Use the same physical spot along this face. A patch's moving centre is not a stable anchor. The offset points inward to the body centre; a face alone does not fix position along it."
+                    "Position names this face's centre, not an arbitrary return or the changing centre of its visible patch. Include uncertainty about the unseen face centre in the position bound. Use Facets to register a repeatable mirror tip or edge; this offset is only inward, normal to the face."
                 ).font(.caption2).foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     metres("to centre", number(\.anchor.offsetM))

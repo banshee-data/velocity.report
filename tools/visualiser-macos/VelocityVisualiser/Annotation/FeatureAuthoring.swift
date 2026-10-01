@@ -670,4 +670,37 @@ extension AnnotationSession {
         guard features.active?.objectID == activeObjectID else { return nil }
         return features.active?.observations.first { $0.sampleID == UInt32(sample.sampleID) }
     }
+
+    /// Return to a recorded support/absence decision without losing the facet
+    /// identity. Filtered-out frames and unsaved work are explained, not bypassed.
+    @discardableResult func goToFacetObservation(sampleID: UInt32) -> Bool {
+        guard let feature = features.active, feature.objectID == activeObjectID,
+            feature.observations.contains(where: { $0.sampleID == sampleID }),
+            let index = samples.firstIndex(where: { $0.sampleID == Int(sampleID) })
+        else {
+            features.message =
+                "That facet observation is outside the current object or frame filter."
+            return false
+        }
+        guard !features.busy, navigationGuard() == nil, step(to: index) == nil else {
+            features.message =
+                "Save or cancel outstanding point, pose or facet edits before choosing a facet frame."
+            return false
+        }
+        features.message =
+            "Facet observation at frame \(samples[index].sourceOrdinal). Its support is a proposal, not a pose review."
+        return true
+    }
+
+    func adjacentFacetObservation(forward: Bool) -> FeatureObservation? {
+        guard let feature = features.active, feature.objectID == activeObjectID else { return nil }
+        let order = Dictionary(
+            samples.enumerated().map { ($0.element.sampleID, $0.offset) },
+            uniquingKeysWith: { a, _ in a })
+        let candidates = feature.observations.filter { observation in
+            guard let index = order[Int(observation.sampleID)] else { return false }
+            return forward ? index > sampleIndex : index < sampleIndex
+        }.sorted { (order[Int($0.sampleID)] ?? 0) < (order[Int($1.sampleID)] ?? 0) }
+        return forward ? candidates.first : candidates.last
+    }
 }

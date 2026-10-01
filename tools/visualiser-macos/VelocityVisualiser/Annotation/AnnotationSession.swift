@@ -50,7 +50,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         switch self {
         case .points: return "Object Points"
         case .physical: return "Physical"
-        case .features: return "Feature Candidates"
+        case .features: return "Facets"
         case .compare: return "Compare"
         }
     }
@@ -110,7 +110,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private(set) lazy var physical: PhysicalReferenceSession = PhysicalReferenceSession(
         packDirectory: pack.directory, packDigest: pack.manifest.packDigest, sessionID: sessionID,
         client: physicalClient, membershipDigest: { [unowned self] in self.document.loadedDigest },
-        author: { [unowned self] in self.operatorName })
+        author: { [unowned self] in self.operatorName }, exposureDefaults: defaults)
     private var physicalStarted = false
     private let physicalClient: PhysicalReferenceAPIClient
     private var physicalForward: AnyCancellable?
@@ -118,6 +118,24 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private(set) lazy var features = FeatureAuthoring(pack: pack, client: featureClient)
     private let featureClient: FeatureAPIClient
     private var featureForward: AnyCancellable?
+    /// One immutable pack/sample/subset fit. Return hover and camera changes
+    /// should not rebuild the covariance or sort the selected returns.
+    private var facetFitCache:
+        (sampleID: Int, indices: [UInt32], geometry: FeatureGeometry, result: FacetGeometryFit)?
+
+    func facetGeometryFit(indices: [UInt32], geometry: FeatureGeometry) -> FacetGeometryFit {
+        let sampleID = currentSample?.sampleID ?? -1
+        if let cached = facetFitCache, cached.sampleID == sampleID, cached.indices == indices,
+            cached.geometry == geometry
+        {
+            return cached.result
+        }
+        let result = FacetGeometryFit.analyse(
+            points: currentPoints, indices: indices, geometry: geometry)
+        facetFitCache = (sampleID, indices, geometry, result)
+        return result
+    }
+
     private func startFeatures() {
         guard featureForward == nil else { return }
         featureForward = features.objectWillChange.sink { [weak self] _ in

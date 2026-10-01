@@ -34,12 +34,14 @@ struct IntensityInspectorSection: View {
         /// points and records every member, so this is exact membership; it
         /// is an algorithm's suggestion, not the tracker's and not a review.
         case proposal
+        case facet
         var id: String { rawValue }
         var label: String {
             switch self {
             case .savedMask: return "Saved mask"
             case .selection: return "Unsaved selection"
             case .proposal: return "Proposal"
+            case .facet: return "Facet subset"
             }
         }
     }
@@ -218,6 +220,23 @@ struct IntensityInspectorSection: View {
                     "Proposal \(proposal.id) (\(proposal.classGuess) guess): the proposer's exact members, not a review"
             } else {
                 describe = "No proposal chosen"
+            }
+        case .facet:
+            if let observation = session.featureOverlay {
+                indices =
+                    observation.pointIndices.map(Int.init)
+                    + observation.uncertainIndices.map(Int.init)
+                excluded = Set(observation.uncertainIndices.map(Int.init))
+                describe =
+                    !observation.pointIndices.isEmpty
+                    ? "The facet's definite subset; proposed association, raw intensity only"
+                    : "This facet has no accepted return support at this frame"
+                if session.features.isDirty { describe += " · unsaved" }
+                if observation.membershipDigest != session.membershipDigest {
+                    describe += " · older membership: recheck the facet"
+                }
+            } else {
+                describe = "Choose a facet in Facets mode to inspect its subset"
             }
         }
         let result = Result {

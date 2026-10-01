@@ -92,7 +92,8 @@ struct AnnotationPane: View {
         Picker("Mode", selection: $session.workMode) {
             ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
         }.pickerStyle(.menu).labelsHidden().disabled(session.strokeInProgress).help(
-            "Active editing mode; Object Points and Feature Candidates save separate records")
+            "Object Points labels the whole object. Facets labels small persistent parts in separate proposal records."
+        )
     }
 
     @ViewBuilder private var pointsEditingSections: some View {
