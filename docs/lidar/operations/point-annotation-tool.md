@@ -718,9 +718,20 @@ two tangent directions weak, and its visible centre must not become a fixed body
 features require a repeatability check across frames. These diagnostics neither review a facet
 nor establish a rigid relation.
 
+**Facet support** shows the selected definite returns as a share of the saved object's definite
+returns in this frame. It is not accuracy or a minimum percentage: a small repeatable mirror tip
+can be useful. Facets may overlap. A stale mask pin, unsaved object points or support outside the
+current definite mask withholds the percentage rather than borrowing a new denominator. Missing
+and occluded decisions have no measured support. **New facet** is disabled at four active facets;
+retire an existing one to free a slot without deleting its evidence.
+
 ### Registering a compact feature or straight edge to the body
 
 For a repeatable **Corner** or **Protrusion**, first save accepted feature support in two frames.
+The registration panel shows the prerequisites: two distinct saved support frames, this frame's
+current definite mask, and a reviewed resolved body/pose with explicit bounds and named assistance
+where applicable. An incomplete prerequisite keeps registration disabled; point/segment checks
+run when the chosen returns are registered. Save outstanding Physical edits first.
 Review the body and a resolved physical pose at the source frame against the same
 saved membership. In **Body registration · proposal**, select the exact physical spot with
 **Fixed return**. Alternatively, enable **Inspect returns**, hover that spot, press **M**, then

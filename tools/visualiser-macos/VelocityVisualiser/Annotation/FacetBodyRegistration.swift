@@ -100,7 +100,9 @@ enum FacetBodyRegistration {
                 "Edges and surfaces need weak-direction constraints; do not anchor their visible centre"
             )
         }
-        guard feature.observations.filter({ $0.decision == .acceptedProposal }).count >= 2,
+        guard
+            Set(feature.observations.filter({ $0.decision == .acceptedProposal }).map(\.sampleID))
+                .count >= 2,
             let observation = feature.observations.first(where: {
                 $0.sampleID == UInt32(sampleID) && $0.decision == .acceptedProposal
             }), observation.pointIndices.contains(pointIndex),
@@ -116,13 +118,15 @@ enum FacetBodyRegistration {
             throw FeatureError.message(
                 "Name the repeatable physical spot and state its return uncertainty")
         }
-        guard !physical.digest.isEmpty,
+        guard physical.document.editable, !physical.digest.isEmpty,
             let object = physical.document.objects.first(where: { $0.objectID == feature.objectID }
             ), let body = object.body, body.review.status == .reviewed,
             let k = object.keyframe(sampleID: sampleID), k.review.status == .reviewed,
             k.yaw.axis == .resolved,
             body.review.reviewedAgainst?.digest == observation.membershipDigest,
-            k.review.reviewedAgainst?.digest == observation.membershipDigest
+            k.review.reviewedAgainst?.digest == observation.membershipDigest,
+            body.review.reviewedAgainst?.revision == Int(exactly: observation.membershipRevision),
+            k.review.reviewedAgainst?.revision == Int(exactly: observation.membershipRevision)
         else {
             throw FeatureError.message(
                 "Review the body and resolved pose against this feature's saved membership first")
@@ -164,6 +168,9 @@ enum FacetBodyRegistration {
         anchor.origin = assisted ? "tracker_seeded_proposal" : "reference_seeded_proposal"
         anchor.method = "manual_named_return_v1"
         anchor.identityNote = identityNote
+        guard anchor.boundM.isFinite else {
+            throw FeatureError.message("The registration bound is not finite")
+        }
         return anchor
     }
 }

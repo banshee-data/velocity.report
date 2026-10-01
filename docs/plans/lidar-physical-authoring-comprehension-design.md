@@ -390,3 +390,11 @@ remain unresolved: the visible midpoint does not become a body point. The pane s
 returns and their segment, states the weak direction, and preserves independent/assisted source
 origins. Sparse, curved, vertical, short or broadly uncertain support refuses registration.
 Surface relations and runtime constraint application remain open.
+
+The facet pane now reports support count/share against the saved definite object mask and states
+that the share is not accuracy. Old pins and unsaved points cannot acquire today's denominator.
+The result is cached for one source subset/mask/frame. Registration prerequisites are visible
+before choosing returns: two distinct support frames, current source membership and a reviewed
+bounded resolved pose. Unsupported patches remain unmapped. The fourth active facet disables
+New facet until one retires. Local registration also refuses a mismatched membership revision,
+a future physical schema or a non-finite propagated bound.
