@@ -27,6 +27,9 @@ seeds retain distinct proposal origins; neither establishes independent registra
 Edge/surface weak-direction
 registration, the runtime event ledger and frozen facet pins remain engineering work.
 
+The [resource notes](lidar-facet-authoring-resource-notes.md) describe the implemented cache,
+index payload and reproducible scalar fit timing. They do not qualify the runtime tracker.
+
 An edge, a side patch, a corner or a wing mirror can be useful. Their visible returns change as
 the sensor scans and the vehicle moves. The persistent thing is the feature on the object,
 not a return index or the centroid of whichever points happened to strike it.
