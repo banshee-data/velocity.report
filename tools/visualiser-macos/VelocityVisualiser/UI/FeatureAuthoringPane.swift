@@ -42,7 +42,11 @@ struct FeatureAuthoringPane: View {
                     Task { await features.load() }
                 }.disabled(features.isDirty || features.busy)
                 Button("New facet") { features.newFeature() }.disabled(
-                    !features.canEdit || features.isDirty)
+                    !features.canEdit || features.isDirty || session.activeObjectID == nil
+                        || features.activeCount(objectID: session.activeObjectID ?? "") >= 4
+                ).help(
+                    "Keep at most four active facets per object. Retire one to free a slot; its evidence stays saved."
+                )
             }
             if features.headRevision > 0 {
                 Menu("Inspect retained revision") {
@@ -166,6 +170,13 @@ struct FeatureAuthoringPane: View {
                 ).font(.caption).textSelection(.enabled)
             }
             if let observation = session.featureOverlay {
+                let support = session.facetSupportSummary(observation: observation)
+                if let fraction = support.fraction {
+                    Text(
+                        "Facet support: \(support.definiteCount) of \(support.objectCount) definite object returns (\(fraction * 100, specifier: "%.1f")%)"
+                    ).font(.caption.monospacedDigit())
+                }
+                Text(support.explanation).font(.caption2).foregroundStyle(.secondary)
                 let fit = session.facetGeometryFit(
                     indices: observation.pointIndices, geometry: features.geometry)
                 VStack(alignment: .leading, spacing: 3) {
@@ -215,7 +226,8 @@ struct FeatureAuthoringPane: View {
     }
 
     private var registrationSection: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        let requirements = registrationRequirements
+        return VStack(alignment: .leading, spacing: 5) {
             Divider()
             Text("Body registration · proposal").font(.caption.bold())
             if let feature = features.active, feature.hasAnchor {
@@ -256,6 +268,35 @@ struct FeatureAuthoringPane: View {
             Text(
                 "Save the same physical part's support in two frames, then review its body and resolved pose in Physical. A corner/protrusion uses a named spot. A straight edge uses two returns to define a line; its along-edge position stays unconstrained. Surface registration is not available."
             ).font(.caption2).foregroundStyle(.secondary)
+            if let requirements {
+                Label(
+                    "\(requirements.supportedFrames) saved support frames · need at least 2",
+                    systemImage: requirements.supportedFrames >= 2 ? "checkmark.circle" : "circle"
+                ).font(.caption2)
+                Label(
+                    requirements.currentMembership && requirements.sourceSupported
+                        ? "This frame's support uses the current saved object mask"
+                        : "Save this frame's definite support against the current object mask",
+                    systemImage: requirements.currentMembership && requirements.sourceSupported
+                        ? "checkmark.circle" : "circle"
+                ).font(.caption2)
+                Label(
+                    requirements.reviewedPose && requirements.namedAssistance
+                        ? "Source body and resolved pose are reviewed with supported bounds"
+                        : "In Physical, review the source body/pose, bounds and any named tracker assistance",
+                    systemImage: requirements.reviewedPose && requirements.namedAssistance
+                        ? "checkmark.circle" : "circle"
+                ).font(.caption2)
+                if !requirements.eligibleGeometry {
+                    Text(
+                        "Registration supports Corner, Protrusion or straight Edge. A Patch remains an unmapped proposal."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            if session.physical.isDirty {
+                Text("Save the Physical draft before registering.").font(.caption2).foregroundStyle(
+                    .orange)
+            }
             if let observation = session.featureOverlay, !features.isDirty,
                 observation.decision == .acceptedProposal
             {
@@ -313,7 +354,7 @@ struct FeatureAuthoringPane: View {
                         Task { await features.registerAnchor(anchor, author: session.operatorName) }
                     } catch { features.message = error.localizedDescription }
                 }.disabled(
-                    !features.canEdit || session.physical.isDirty
+                    !features.canEdit || session.physical.isDirty || requirements?.ready != true
                         || features.registrationPoint == nil || returnBoundM == nil
                         || session.physical.state == nil
                         || (segment
@@ -333,6 +374,14 @@ struct FeatureAuthoringPane: View {
             features.registrationPoint = nil
             features.registrationEndPoint = nil
         }
+    }
+
+    private var registrationRequirements: FacetRegistrationRequirements? {
+        guard let feature = features.active, let sample = session.currentSample else { return nil }
+        return .inspect(
+            feature: feature, sampleID: sample.sampleID, physical: session.physical.state,
+            membershipRevision: session.sidecar.revision, membershipDigest: session.membershipDigest
+        )
     }
 
     private func decisionLabel(_ decision: FeatureDecision) -> String {

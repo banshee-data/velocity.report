@@ -122,6 +122,40 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// should not rebuild the covariance or sort the selected returns.
     private var facetFitCache:
         (sampleID: Int, indices: [UInt32], geometry: FeatureGeometry, result: FacetGeometryFit)?
+    private var facetSupportCache:
+        (
+            sampleID: Int, objectID: String, membershipDigest: String, revision: Int,
+            observation: FeatureObservation, result: FacetSupportSummary
+        )?
+
+    func facetSupportSummary(observation: FeatureObservation) -> FacetSupportSummary {
+        let sampleID = currentSample?.sampleID ?? -1
+        let objectID = activeObjectID ?? ""
+        if dirtySamples.contains(sampleID) {
+            var result = FacetSupportSummary.make(
+                observation: observation, objectIndices: [], currentPin: false)
+            result.explanation = "Save object points before measuring support share"
+            return result
+        }
+        if let cache = facetSupportCache, cache.sampleID == sampleID, cache.objectID == objectID,
+            cache.membershipDigest == membershipDigest, cache.revision == sidecar.revision,
+            cache.observation == observation
+        {
+            return cache.result
+        }
+        let currentPin =
+            observation.sampleID == UInt32(exactly: sampleID)
+            && observation.membershipDigest == membershipDigest && !membershipDigest.isEmpty
+            && observation.membershipRevision == UInt64(exactly: sidecar.revision)
+        let result = FacetSupportSummary.make(
+            observation: observation,
+            objectIndices: featureDomain(sampleID: sampleID, objectID: objectID),
+            currentPin: currentPin)
+        facetSupportCache = (
+            sampleID, objectID, membershipDigest, sidecar.revision, observation, result
+        )
+        return result
+    }
 
     func facetGeometryFit(indices: [UInt32], geometry: FeatureGeometry) -> FacetGeometryFit {
         let sampleID = currentSample?.sampleID ?? -1

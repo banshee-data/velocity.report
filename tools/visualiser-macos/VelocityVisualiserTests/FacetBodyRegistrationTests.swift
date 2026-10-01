@@ -17,6 +17,7 @@ struct FacetBodyRegistrationTests {
             o.decision = .acceptedProposal
             o.pointIndices = [0]
             o.membershipDigest = "sha256:members"
+            o.membershipRevision = 1
             feature.observations.append(o)
         }
         let points = PackPoints(x: [8], y: [-0.9], z: [1])
@@ -248,5 +249,31 @@ extension FacetBodyRegistrationTests {
         // A future method must not be erased by editing an older contract.
         document.features[0].anchor.method = "future_segment_method"
         #expect(!document.knownEditingContract)
+    }
+}
+
+extension FacetBodyRegistrationTests {
+    @Test func registrationRefusesDuplicateFramesMismatchedPinRevisionAndOverflow() {
+        let (feature, points, physical) = fixture()
+        var duplicate = feature
+        duplicate.observations[1].sampleID = 0
+        var wrongPin = physical
+        wrongPin.document.objects[0].body?.review.reviewedAgainst?.revision = 2
+        var future = physical
+        future.document.schemaVersion = 2
+        for (f, state) in [(duplicate, physical), (feature, wrongPin), (feature, future)] {
+            #expect(throws: (any Error).self) {
+                try FacetBodyRegistration.make(
+                    feature: f, sampleID: 0, pointIndex: 0, points: points, physical: state,
+                    returnBoundM: 0.05, identityNote: "physical tip")
+            }
+        }
+        var broad = physical
+        broad.document.objects[0].keyframes[0].position.boundM = .greatestFiniteMagnitude
+        #expect(throws: (any Error).self) {
+            try FacetBodyRegistration.make(
+                feature: feature, sampleID: 0, pointIndex: 0, points: points, physical: broad,
+                returnBoundM: .greatestFiniteMagnitude, identityNote: "physical tip")
+        }
     }
 }
