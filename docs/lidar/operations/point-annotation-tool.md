@@ -423,7 +423,9 @@ a reference is independent only if its author has not seen them, so keep the mai
 out of sight while authoring. If you have used its estimate, disclose it under **I used the
 main-window estimate** and name the estimate/run/stage. **Declare assisted authoring** marks
 current unsaved and later edits as tracker-assisted. Undo cannot erase that disclosure; unchanged
-saved independent revisions remain in history.
+saved independent revisions remain in history. A pending independent proposal cannot be reviewed
+as independent after viewing an estimate. **Continue as assisted proposal** forks it without
+changing previously reviewed independent records; save that proposal before reviewing it.
 
 For assisted work on a tuning pack, **Start from tracker estimate · assisted** imports the chosen
 arm of a report already open in Compare. It requires the same pack/object and exact timestamp,
