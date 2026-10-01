@@ -6,6 +6,16 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 1, 2026 - Annotation history grows with every save, and now it can be pruned
+
+- A labelled kirk0 pack (23 objects, 3,683 reviewed masks, 83 s) had grown a revision history of
+  1,968 snapshots and 37.9 GB in a day and a half. Both stores write the whole document pretty-printed,
+  one point index to a line, about 25 MB at the end, and archive the exact previous bytes on every
+  save, so history is saves times document size and the window never reads it back.
+  `lidar-annotation-prune` plans a thinning (newest N, the oldest, one per interval, and any revision
+  a frozen split pins), backs the removed revisions up into a verified compressed tar, and only then
+  removes them under the writer lock, so the Annotation window can stay open.
+
 ## September 30, 2026 - The tracked arm is steadier, and the side-face entry is what is left
 
 - Ran F6, the tracked arm (S2a) and the T1 with T3 control on the tuning partition on the Mac. The
