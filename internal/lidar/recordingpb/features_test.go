@@ -85,7 +85,7 @@ func TestFeatureTransportAndReservedAnchorPresence(t *testing.T) {
 // Absent records must stay absent: callers use generated getters while opening
 // old documents, and must not acquire a fabricated anchor, sample or support.
 func TestFeatureAbsentRecordContract(t *testing.T) {
-	messages := []proto.Message{(*FeatureAnnotations)(nil), (*FeatureCandidate)(nil), (*FeatureObservation)(nil), (*FeatureSphere)(nil), (*FeatureAnchor)(nil), (*FeatureState)(nil), (*FeatureEdit)(nil)}
+	messages := []proto.Message{(*FeatureAnnotations)(nil), (*FeatureCandidate)(nil), (*FeatureObservation)(nil), (*FeatureSphere)(nil), (*FeatureAnchor)(nil), (*FeatureLineConstraint)(nil), (*FeatureState)(nil), (*FeatureEdit)(nil)}
 	for _, absent := range messages {
 		t.Run(string(absent.ProtoReflect().Descriptor().Name()), func(t *testing.T) {
 			empty := absent.ProtoReflect().New().Interface()
@@ -181,5 +181,46 @@ func TestBodyRegistrationSharedWireFixture(t *testing.T) {
 	encoded, err := (proto.MarshalOptions{Deterministic: true}).Marshal(d)
 	if err != nil || !bytes.Equal(encoded, b) {
 		t.Fatalf("exact wire roundtrip changed: %v", err)
+	}
+}
+
+func TestFeatureSegmentWirePresenceAndWeakDirectionFields(t *testing.T) {
+	start, end := uint32(0), uint32(2)
+	line := &FeatureLineConstraint{NormalX: 1, NormalY: 0, OffsetM: -0.9, NormalBoundRad: 0.1, SourceStartIndex: &start, SourceEndIndex: &end}
+	a := &FeatureAnchor{Method: "manual_named_segment_v1", Line: line}
+	if a.GetLine() != line || line.GetNormalX() != 1 || line.GetNormalY() != 0 || line.GetOffsetM() != -0.9 || line.GetNormalBoundRad() != 0.1 || line.GetSourceStartIndex() != 0 || line.GetSourceEndIndex() != 2 {
+		t.Fatal("segment contract changed")
+	}
+	b, err := (proto.MarshalOptions{Deterministic: true}).Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded FeatureAnchor
+	if err = proto.Unmarshal(b, &decoded); err != nil || !proto.Equal(a, &decoded) || decoded.SourcePointIndex != nil || decoded.Line.SourceStartIndex == nil {
+		t.Fatal("line acquired a point or lost optional zero", err)
+	}
+	proto.Reset(line)
+	if line.SourceStartIndex != nil || line.SourceEndIndex != nil || line.GetOffsetM() != 0 {
+		t.Fatal("reset retained line evidence")
+	}
+}
+
+func TestFeatureSegmentSharedWireFixture(t *testing.T) {
+	bytesIn, err := os.ReadFile("../../../proto/velocity_recording/v1/testdata/segment-registration.pb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := new(FeatureAnnotations)
+	if err := proto.Unmarshal(bytesIn, doc); err != nil {
+		t.Fatal(err)
+	}
+	feature := doc.Features[0]
+	a := feature.Anchor
+	if feature.Geometry != FeatureGeometry_FEATURE_GEOMETRY_EDGE || a.SourcePointIndex != nil || a.XM != 0 || a.YM != 0 || a.Line == nil || a.Line.SourceStartIndex == nil || a.Line.GetSourceStartIndex() != 0 || a.Line.GetSourceEndIndex() != 2 || a.Line.OffsetM != -0.875 || a.Line.NormalBoundRad != 0.1 || feature.Observations[0].TimestampNs != 9007199254740993 || !doc.Features[1].Inactive {
+		t.Fatal("shared line contract changed")
+	}
+	out, err := (proto.MarshalOptions{Deterministic: true}).Marshal(doc)
+	if err != nil || !bytes.Equal(out, bytesIn) {
+		t.Fatal("shared segment fixture changed", err)
 	}
 }

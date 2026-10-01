@@ -70,6 +70,23 @@ message FeatureAnchor {
   string origin = 15; // reference_seeded_proposal or tracker_seeded_proposal; never truth
   string method = 16; // manual_named_return_v1
   string identity_note = 17; // the repeatable physical spot, not visible centroid
+  // A horizontal line relation constrains only its normal offset and axial
+  // orientation. Tangential position stays unresolved. No point coordinate
+  // is implied: x_m/y_m/z_m stay zero and source_point_index stays absent.
+  FeatureLineConstraint line = 18;
+}
+
+message FeatureLineConstraint {
+  // Unit normal in the pinned body's XY frame: n dot p = offset_m.
+  double normal_x = 1;
+  double normal_y = 2;
+  double offset_m = 3;
+  // Conservative angular bound, including the source pose and return bounds.
+  double normal_bound_rad = 4;
+  // Operator-chosen returns define the segment direction, never persistent
+  // physical endpoints. Optional presence preserves valid point index zero.
+  optional uint32 source_start_index = 5;
+  optional uint32 source_end_index = 6;
 }
 
 message FeatureCandidate {

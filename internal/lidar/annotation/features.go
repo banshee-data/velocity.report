@@ -352,20 +352,25 @@ func validateFeatureObservation(p *Pack, object string, o *pb.FeatureObservation
 
 func finiteFeature(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 
-// A named compact feature can be proposed in a pinned body's horizontal frame.
-// Plane/edge centroids are deliberately excluded: they invent tangent constraints.
+// Named compact points and straight segments can be proposed in a pinned body's
+// horizontal frame. Segment relations leave tangent position unconstrained.
 // This mapping is not scored truth and is not an online tracker reanchor event.
 func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 	a := f.Anchor
 	if len(a.ProtoReflect().GetUnknown()) != 0 || a.CoordinateDomain != "body_xy" || a.ZM != 0 ||
-		a.SourcePointIndex == nil || a.PhysicalRevision == 0 || a.PhysicalRevision > math.MaxInt32 ||
+		a.PhysicalRevision == 0 || a.PhysicalRevision > math.MaxInt32 ||
 		a.PartFrameRevision != 1 || a.PartFrameId != a.BodyId+"_xy" || a.BodyId == "" ||
-		(a.Origin != "reference_seeded_proposal" && a.Origin != "tracker_seeded_proposal") || a.Method != "manual_named_return_v1" || strings.TrimSpace(a.IdentityNote) == "" ||
+		(a.Origin != "reference_seeded_proposal" && a.Origin != "tracker_seeded_proposal") || (a.Method != "manual_named_return_v1" && a.Method != "manual_named_segment_v1") || strings.TrimSpace(a.IdentityNote) == "" ||
 		!finiteFeature(a.XM) || !finiteFeature(a.YM) || !finiteFeature(a.BoundM) || a.BoundM < 0 ||
 		!finiteFeature(a.ReturnBoundM) || a.ReturnBoundM <= 0 {
 		return fmt.Errorf("invalid horizontal body registration")
 	}
-	if f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_CORNER && f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION {
+	segment := a.Method == "manual_named_segment_v1"
+	if segment {
+		if f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_EDGE || a.Line == nil {
+			return fmt.Errorf("segment registration requires edge geometry and a line relation")
+		}
+	} else if (f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_CORNER && f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION) || a.SourcePointIndex == nil || a.Line != nil {
 		return fmt.Errorf("a plane or edge needs a weak-direction constraint, not a point anchor")
 	}
 	var source *pb.FeatureObservation
@@ -381,14 +386,16 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 	if accepted < 2 || source == nil {
 		return fmt.Errorf("body registration needs accepted support in two frames")
 	}
-	found := false
-	for _, i := range source.PointIndices {
-		if i == *a.SourcePointIndex {
-			found = true
+	if !segment {
+		found := false
+		for _, i := range source.PointIndices {
+			if i == *a.SourcePointIndex {
+				found = true
+			}
 		}
-	}
-	if !found {
-		return fmt.Errorf("registration point is not definite feature support")
+		if !found {
+			return fmt.Errorf("registration point is not definite feature support")
+		}
 	}
 	refs, err := LoadPhysicalReferenceRevision(p, int(a.PhysicalRevision))
 	if err != nil {
@@ -431,6 +438,9 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 	points, err := p.PointsAt(int(a.SourceSample))
 	if err != nil {
 		return err
+	}
+	if segment {
+		return validateFeatureSegment(points, source, a, *g.Centre, *g.Yaw)
 	}
 	i := *a.SourcePointIndex
 	dx, dy := float64(points.X[i])-g.Centre.XM, float64(points.Y[i])-g.Centre.YM

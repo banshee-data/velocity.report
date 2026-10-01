@@ -4,7 +4,7 @@ This specification adds one to four selected vehicle features to the physical au
 Each feature has a persistent identity and a frame-specific subset of the object's returns;
 newly visible support may refine placement without repeatedly resetting the body reference.
 
-- **Status:** Selection, active-facet pilot and compact-feature horizontal registration built locally; runtime constraints, full contract and operator validation remain open
+- **Status:** Selection, active-facet pilot, compact/straight-edge horizontal registration and optional frozen pins built locally; runtime constraints, full contract and operator validation remain open
 - **Scope:** Sparse facet proposals, review, body registration and bounded reanchor events
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [facet registration experiment](lidar-facet-registration-experiment-plan.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [physical references](lidar-physical-reference-review-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md)
@@ -24,8 +24,10 @@ support diagnostics. These proposals remain distinct from physical review and ru
 Compact features can now propose a horizontal metric offset under a pinned, reviewed
 body/pose, with a named source return and conservative bound. Independent and tracker-assisted
 seeds retain distinct proposal origins; neither establishes independent registration truth.
-Edge/surface weak-direction
-registration and the runtime event ledger remain engineering work. Optional frozen facet pins
+Straight edges can now propose a horizontal line relation from two direction-defining returns
+and at least three supported points. The relation leaves tangent position unconstrained, retains
+source pose/return bounds and refuses broad or degenerate support. Surface registration, full
+3D constraints and the runtime event ledger remain engineering work. Optional frozen facet pins
 now retain exact proposal revisions and assisted-origin counts; they are not scoring truth.
 
 The [resource notes](lidar-facet-authoring-resource-notes.md) describe the implemented cache,
@@ -219,7 +221,7 @@ uncertainty coverage, endpoint error and supported opportunity.
 Keep PR #657's A–D controls and physical gates. A UI contract is not an accuracy result or a reason
 to delay the headway MVP. The native app now stores feature proposals with exact sample subsets
 and membership pins;
-it stores compact-feature horizontal body registration proposals but does not yet apply them to
+it stores compact-feature and straight-edge horizontal body registration proposals but does not yet apply them to
 the runtime tracker. Optional schema-4 frozen pins retain the proposal revision, exact-byte and
 canonical-content digests, support/absence counts and assisted-registration counts. Inspection
 is available through `BindFeatures` against the frozen membership. An experiment must call that

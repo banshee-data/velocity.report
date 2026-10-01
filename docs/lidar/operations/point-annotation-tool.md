@@ -706,7 +706,7 @@ selected return belongs to the same physical surface. Nearby competing fits are 
 feature scale. Changing visibility can shift the observed centroid; reject an implausible result.
 A missing or hidden feature is not a new measurement. General feature recognition, directed
 front/rear placement, part motion and full rigid registration remain unfinished. The compact
-feature path below can store a horizontal body registration proposal; unresolved relations stay
+feature and straight-edge paths below can store horizontal body registration proposals; unresolved relations stay
 explicitly unresolved.
 
 **Geometry check · proposal only** reports an initial line or surface fit, its span, transverse
@@ -718,7 +718,7 @@ two tangent directions weak, and its visible centre must not become a fixed body
 features require a repeatability check across frames. These diagnostics neither review a facet
 nor establish a rigid relation.
 
-### Registering a compact feature to the body
+### Registering a compact feature or straight edge to the body
 
 For a repeatable **Corner** or **Protrusion**, first save accepted feature support in two frames.
 Review the body and a resolved physical pose at the source frame against the same
@@ -734,6 +734,25 @@ The conservative bound adds the source position bound, the yaw lever-arm displac
 stated return bound. The Go writer rechecks the coordinates, definite point support, membership,
 body/keyframe IDs and exact physical revision digest. A missing or stale review, ambiguous axis,
 absent source point or understated bound is refused.
+
+For an **Edge**, use **Segment start** and **Segment end**, or pin each return with **M** and
+choose the corresponding pinned-return button. The yellow dashed segment shows the chosen
+direction. These are direction-defining samples on the same physical straight edge, not
+permanent endpoints. Save support in two frames and review the source body/pose as above. Name
+the physical edge and state a positive return bound. At least three distinct finite returns
+must lie within that bound of the chosen 3D line; horizontal span must be at least 0.10 m and
+greater than twice the return bound. A vertical edge cannot establish this horizontal relation.
+
+The stored relation is `normal · body_position = offset`, in the original metric body frame.
+The panel shows normal offset and its bound, normal-angle uncertainty and **along-edge position
+unconstrained**. It stores no point coordinate at the visible midpoint. The angular bound adds
+the source yaw bound and `asin(2 × return_bound / horizontal_span)`; an axial uncertainty reaching
+90° refuses registration. The offset bound conservatively includes source position/return error
+and the angular displacement at the source lever arm. Go recomputes the relation from the exact
+saved returns and refuses understated bounds. Choosing samples farther along the same straight
+edge does not add a tangent anchor. This is still an operator's proposal: straight scan strands
+and mask boundaries need a physical repeatability check. Surface/plane registration remains
+unavailable, and none of these mappings moves the online tracker.
 
 An independently authored body/pose produces a reference-seeded proposal. If either reference
 is tracker-assisted, the mapping is a tracker-seeded proposal and the pane labels its assistance.

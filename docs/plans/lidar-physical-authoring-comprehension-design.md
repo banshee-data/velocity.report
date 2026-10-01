@@ -382,3 +382,11 @@ a separate facet refusal. Changing a pin or lineage invalidates the preview. Fea
 freezes retain version 3; facet pins use version 4 and bind through `BindFeatures`. Neither
 accepted support nor an assisted registration becomes physical truth. Runtime registration and
 an experiment adapter consuming these pins remain separate work.
+
+Straight-edge registration now uses two operator-chosen direction returns and at least three
+distinct finite inliers under an explicit return bound. Native and Go checks derive a bounded
+horizontal normal/offset relation in the original body frame. Along-edge position and height
+remain unresolved: the visible midpoint does not become a body point. The pane shows both chosen
+returns and their segment, states the weak direction, and preserves independent/assisted source
+origins. Sparse, curved, vertical, short or broadly uncertain support refuses registration.
+Surface relations and runtime constraint application remain open.

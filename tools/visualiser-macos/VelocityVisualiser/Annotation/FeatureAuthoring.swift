@@ -25,7 +25,9 @@ extension FeatureDocument {
                 && (!f.hasAnchor
                     || (f.anchor.unknownFields.data.isEmpty
                         && f.anchor.coordinateDomain == "body_xy"
-                        && f.anchor.method == "manual_named_return_v1"
+                        && ((f.anchor.method == "manual_named_return_v1" && !f.anchor.hasLine)
+                            || (f.anchor.method == "manual_named_segment_v1" && f.anchor.hasLine
+                                && f.anchor.line.unknownFields.data.isEmpty))
                         && ["reference_seeded_proposal", "tracker_seeded_proposal"].contains(
                             f.anchor.origin)
                         && f.anchor.partFrameRevision == 1))
@@ -215,6 +217,7 @@ struct FeatureAPIClient {
     @Published var radius = 0.2
     @Published var selectionTool: FeatureSelectionTool = .sphere
     @Published var registrationPoint: UInt32?
+    @Published var registrationEndPoint: UInt32?
     @Published var message: String?
     @Published private(set) var busy = false
     @Published private(set) var readOnly = false
@@ -284,6 +287,7 @@ struct FeatureAPIClient {
         guard draft == nil, !busy else { return }
         activeID = id
         registrationPoint = nil
+        registrationEndPoint = nil
         if let active {
             name = active.name
             geometry = active.geometry
@@ -295,6 +299,7 @@ struct FeatureAPIClient {
         guard draft == nil, !busy else { return }
         activeID = ""
         registrationPoint = nil
+        registrationEndPoint = nil
         name = "Feature"
         geometry = .unknown
         semanticHint = ""
@@ -317,6 +322,7 @@ struct FeatureAPIClient {
         draft = nil
         draftObjectID = nil
         registrationPoint = nil
+        registrationEndPoint = nil
         if let active {
             name = active.name
             geometry = active.geometry
@@ -463,7 +469,7 @@ struct FeatureAPIClient {
 }
 
 extension AnnotationSession {
-    func usePinnedFacetReturn() {
+    func usePinnedFacetReturn(segmentEnd: Bool = false) {
         guard workMode == .features, !features.isDirty, let sample = currentSample,
             let pinned = inspection.pinned, pinned.sampleID == sample.sampleID,
             pinned.pointIndex >= 0, pinned.pointIndex <= Int(UInt32.max),
@@ -473,7 +479,11 @@ extension AnnotationSession {
                 "Inspect and pin a return belonging to this saved facet in this frame"
             return
         }
-        features.registrationPoint = UInt32(pinned.pointIndex)
+        if segmentEnd {
+            features.registrationEndPoint = UInt32(pinned.pointIndex)
+        } else {
+            features.registrationPoint = UInt32(pinned.pointIndex)
+        }
     }
 
     func featureDomain(sampleID: Int, objectID: String) -> [Int] {

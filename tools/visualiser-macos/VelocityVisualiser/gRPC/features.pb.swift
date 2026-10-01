@@ -329,11 +329,66 @@ struct Velocity_Recording_V1_FeatureAnchor: @unchecked Sendable {
     set {_uniqueStorage()._identityNote = newValue}
   }
 
+  /// A horizontal line relation constrains only its normal offset and axial
+  /// orientation. Tangential position stays unresolved. No point coordinate
+  /// is implied: x_m/y_m/z_m stay zero and source_point_index stays absent.
+  var line: Velocity_Recording_V1_FeatureLineConstraint {
+    get {return _storage._line ?? Velocity_Recording_V1_FeatureLineConstraint()}
+    set {_uniqueStorage()._line = newValue}
+  }
+  /// Returns true if `line` has been explicitly set.
+  var hasLine: Bool {return _storage._line != nil}
+  /// Clears the value of `line`. Subsequent reads from it will return its default value.
+  mutating func clearLine() {_uniqueStorage()._line = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+struct Velocity_Recording_V1_FeatureLineConstraint: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Unit normal in the pinned body's XY frame: n dot p = offset_m.
+  var normalX: Double = 0
+
+  var normalY: Double = 0
+
+  var offsetM: Double = 0
+
+  /// Conservative angular bound, including the source pose and return bounds.
+  var normalBoundRad: Double = 0
+
+  /// Operator-chosen returns define the segment direction, never persistent
+  /// physical endpoints. Optional presence preserves valid point index zero.
+  var sourceStartIndex: UInt32 {
+    get {return _sourceStartIndex ?? 0}
+    set {_sourceStartIndex = newValue}
+  }
+  /// Returns true if `sourceStartIndex` has been explicitly set.
+  var hasSourceStartIndex: Bool {return self._sourceStartIndex != nil}
+  /// Clears the value of `sourceStartIndex`. Subsequent reads from it will return its default value.
+  mutating func clearSourceStartIndex() {self._sourceStartIndex = nil}
+
+  var sourceEndIndex: UInt32 {
+    get {return _sourceEndIndex ?? 0}
+    set {_sourceEndIndex = newValue}
+  }
+  /// Returns true if `sourceEndIndex` has been explicitly set.
+  var hasSourceEndIndex: Bool {return self._sourceEndIndex != nil}
+  /// Clears the value of `sourceEndIndex`. Subsequent reads from it will return its default value.
+  mutating func clearSourceEndIndex() {self._sourceEndIndex = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _sourceStartIndex: UInt32? = nil
+  fileprivate var _sourceEndIndex: UInt32? = nil
 }
 
 struct Velocity_Recording_V1_FeatureCandidate: Sendable {
@@ -682,7 +737,7 @@ extension Velocity_Recording_V1_FeatureObservation: SwiftProtobuf.Message, Swift
 
 extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".FeatureAnchor"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}part_frame_id\0\u{3}part_frame_revision\0\u{3}x_m\0\u{3}y_m\0\u{3}z_m\0\u{3}physical_revision\0\u{3}physical_digest\0\u{3}body_id\0\u{3}keyframe_id\0\u{3}coordinate_domain\0\u{3}source_sample\0\u{3}source_point_index\0\u{3}bound_m\0\u{3}return_bound_m\0\u{1}origin\0\u{1}method\0\u{3}identity_note\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}part_frame_id\0\u{3}part_frame_revision\0\u{3}x_m\0\u{3}y_m\0\u{3}z_m\0\u{3}physical_revision\0\u{3}physical_digest\0\u{3}body_id\0\u{3}keyframe_id\0\u{3}coordinate_domain\0\u{3}source_sample\0\u{3}source_point_index\0\u{3}bound_m\0\u{3}return_bound_m\0\u{1}origin\0\u{1}method\0\u{3}identity_note\0\u{1}line\0")
 
   fileprivate class _StorageClass {
     var _partFrameID: String = String()
@@ -702,6 +757,7 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
     var _origin: String = String()
     var _method: String = String()
     var _identityNote: String = String()
+    var _line: Velocity_Recording_V1_FeatureLineConstraint? = nil
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -729,6 +785,7 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
       _origin = source._origin
       _method = source._method
       _identityNote = source._identityNote
+      _line = source._line
     }
   }
 
@@ -764,6 +821,7 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
         case 15: try { try decoder.decodeSingularStringField(value: &_storage._origin) }()
         case 16: try { try decoder.decodeSingularStringField(value: &_storage._method) }()
         case 17: try { try decoder.decodeSingularStringField(value: &_storage._identityNote) }()
+        case 18: try { try decoder.decodeSingularMessageField(value: &_storage._line) }()
         default: break
         }
       }
@@ -827,6 +885,9 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
       if !_storage._identityNote.isEmpty {
         try visitor.visitSingularStringField(value: _storage._identityNote, fieldNumber: 17)
       }
+      try { if let v = _storage._line {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -853,10 +914,70 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
         if _storage._origin != rhs_storage._origin {return false}
         if _storage._method != rhs_storage._method {return false}
         if _storage._identityNote != rhs_storage._identityNote {return false}
+        if _storage._line != rhs_storage._line {return false}
         return true
       }
       if !storagesAreEqual {return false}
     }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Velocity_Recording_V1_FeatureLineConstraint: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".FeatureLineConstraint"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}normal_x\0\u{3}normal_y\0\u{3}offset_m\0\u{3}normal_bound_rad\0\u{3}source_start_index\0\u{3}source_end_index\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularDoubleField(value: &self.normalX) }()
+      case 2: try { try decoder.decodeSingularDoubleField(value: &self.normalY) }()
+      case 3: try { try decoder.decodeSingularDoubleField(value: &self.offsetM) }()
+      case 4: try { try decoder.decodeSingularDoubleField(value: &self.normalBoundRad) }()
+      case 5: try { try decoder.decodeSingularUInt32Field(value: &self._sourceStartIndex) }()
+      case 6: try { try decoder.decodeSingularUInt32Field(value: &self._sourceEndIndex) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if self.normalX.bitPattern != 0 {
+      try visitor.visitSingularDoubleField(value: self.normalX, fieldNumber: 1)
+    }
+    if self.normalY.bitPattern != 0 {
+      try visitor.visitSingularDoubleField(value: self.normalY, fieldNumber: 2)
+    }
+    if self.offsetM.bitPattern != 0 {
+      try visitor.visitSingularDoubleField(value: self.offsetM, fieldNumber: 3)
+    }
+    if self.normalBoundRad.bitPattern != 0 {
+      try visitor.visitSingularDoubleField(value: self.normalBoundRad, fieldNumber: 4)
+    }
+    try { if let v = self._sourceStartIndex {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 5)
+    } }()
+    try { if let v = self._sourceEndIndex {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 6)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Velocity_Recording_V1_FeatureLineConstraint, rhs: Velocity_Recording_V1_FeatureLineConstraint) -> Bool {
+    if lhs.normalX != rhs.normalX {return false}
+    if lhs.normalY != rhs.normalY {return false}
+    if lhs.offsetM != rhs.offsetM {return false}
+    if lhs.normalBoundRad != rhs.normalBoundRad {return false}
+    if lhs._sourceStartIndex != rhs._sourceStartIndex {return false}
+    if lhs._sourceEndIndex != rhs._sourceEndIndex {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

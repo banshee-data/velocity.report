@@ -377,8 +377,12 @@ type FeatureAnchor struct {
 	Origin           string  `protobuf:"bytes,15,opt,name=origin,proto3" json:"origin,omitempty"`                                 // reference_seeded_proposal or tracker_seeded_proposal; never truth
 	Method           string  `protobuf:"bytes,16,opt,name=method,proto3" json:"method,omitempty"`                                 // manual_named_return_v1
 	IdentityNote     string  `protobuf:"bytes,17,opt,name=identity_note,json=identityNote,proto3" json:"identity_note,omitempty"` // the repeatable physical spot, not visible centroid
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// A horizontal line relation constrains only its normal offset and axial
+	// orientation. Tangential position stays unresolved. No point coordinate
+	// is implied: x_m/y_m/z_m stay zero and source_point_index stays absent.
+	Line          *FeatureLineConstraint `protobuf:"bytes,18,opt,name=line,proto3" json:"line,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FeatureAnchor) Reset() {
@@ -530,6 +534,101 @@ func (x *FeatureAnchor) GetIdentityNote() string {
 	return ""
 }
 
+func (x *FeatureAnchor) GetLine() *FeatureLineConstraint {
+	if x != nil {
+		return x.Line
+	}
+	return nil
+}
+
+type FeatureLineConstraint struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unit normal in the pinned body's XY frame: n dot p = offset_m.
+	NormalX float64 `protobuf:"fixed64,1,opt,name=normal_x,json=normalX,proto3" json:"normal_x,omitempty"`
+	NormalY float64 `protobuf:"fixed64,2,opt,name=normal_y,json=normalY,proto3" json:"normal_y,omitempty"`
+	OffsetM float64 `protobuf:"fixed64,3,opt,name=offset_m,json=offsetM,proto3" json:"offset_m,omitempty"`
+	// Conservative angular bound, including the source pose and return bounds.
+	NormalBoundRad float64 `protobuf:"fixed64,4,opt,name=normal_bound_rad,json=normalBoundRad,proto3" json:"normal_bound_rad,omitempty"`
+	// Operator-chosen returns define the segment direction, never persistent
+	// physical endpoints. Optional presence preserves valid point index zero.
+	SourceStartIndex *uint32 `protobuf:"varint,5,opt,name=source_start_index,json=sourceStartIndex,proto3,oneof" json:"source_start_index,omitempty"`
+	SourceEndIndex   *uint32 `protobuf:"varint,6,opt,name=source_end_index,json=sourceEndIndex,proto3,oneof" json:"source_end_index,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FeatureLineConstraint) Reset() {
+	*x = FeatureLineConstraint{}
+	mi := &file_features_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FeatureLineConstraint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FeatureLineConstraint) ProtoMessage() {}
+
+func (x *FeatureLineConstraint) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FeatureLineConstraint.ProtoReflect.Descriptor instead.
+func (*FeatureLineConstraint) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *FeatureLineConstraint) GetNormalX() float64 {
+	if x != nil {
+		return x.NormalX
+	}
+	return 0
+}
+
+func (x *FeatureLineConstraint) GetNormalY() float64 {
+	if x != nil {
+		return x.NormalY
+	}
+	return 0
+}
+
+func (x *FeatureLineConstraint) GetOffsetM() float64 {
+	if x != nil {
+		return x.OffsetM
+	}
+	return 0
+}
+
+func (x *FeatureLineConstraint) GetNormalBoundRad() float64 {
+	if x != nil {
+		return x.NormalBoundRad
+	}
+	return 0
+}
+
+func (x *FeatureLineConstraint) GetSourceStartIndex() uint32 {
+	if x != nil && x.SourceStartIndex != nil {
+		return *x.SourceStartIndex
+	}
+	return 0
+}
+
+func (x *FeatureLineConstraint) GetSourceEndIndex() uint32 {
+	if x != nil && x.SourceEndIndex != nil {
+		return *x.SourceEndIndex
+	}
+	return 0
+}
+
 type FeatureCandidate struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	FeatureId    string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
@@ -552,7 +651,7 @@ type FeatureCandidate struct {
 
 func (x *FeatureCandidate) Reset() {
 	*x = FeatureCandidate{}
-	mi := &file_features_proto_msgTypes[3]
+	mi := &file_features_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -564,7 +663,7 @@ func (x *FeatureCandidate) String() string {
 func (*FeatureCandidate) ProtoMessage() {}
 
 func (x *FeatureCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[3]
+	mi := &file_features_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -577,7 +676,7 @@ func (x *FeatureCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeatureCandidate.ProtoReflect.Descriptor instead.
 func (*FeatureCandidate) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{3}
+	return file_features_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FeatureCandidate) GetFeatureId() string {
@@ -669,7 +768,7 @@ type FeatureAnnotations struct {
 
 func (x *FeatureAnnotations) Reset() {
 	*x = FeatureAnnotations{}
-	mi := &file_features_proto_msgTypes[4]
+	mi := &file_features_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -681,7 +780,7 @@ func (x *FeatureAnnotations) String() string {
 func (*FeatureAnnotations) ProtoMessage() {}
 
 func (x *FeatureAnnotations) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[4]
+	mi := &file_features_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -694,7 +793,7 @@ func (x *FeatureAnnotations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeatureAnnotations.ProtoReflect.Descriptor instead.
 func (*FeatureAnnotations) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{4}
+	return file_features_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *FeatureAnnotations) GetSchema() string {
@@ -773,7 +872,7 @@ type FeatureState struct {
 
 func (x *FeatureState) Reset() {
 	*x = FeatureState{}
-	mi := &file_features_proto_msgTypes[5]
+	mi := &file_features_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +884,7 @@ func (x *FeatureState) String() string {
 func (*FeatureState) ProtoMessage() {}
 
 func (x *FeatureState) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[5]
+	mi := &file_features_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +897,7 @@ func (x *FeatureState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeatureState.ProtoReflect.Descriptor instead.
 func (*FeatureState) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{5}
+	return file_features_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FeatureState) GetDocument() *FeatureAnnotations {
@@ -840,7 +939,7 @@ type FeatureEdit struct {
 
 func (x *FeatureEdit) Reset() {
 	*x = FeatureEdit{}
-	mi := &file_features_proto_msgTypes[6]
+	mi := &file_features_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -852,7 +951,7 @@ func (x *FeatureEdit) String() string {
 func (*FeatureEdit) ProtoMessage() {}
 
 func (x *FeatureEdit) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[6]
+	mi := &file_features_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -865,7 +964,7 @@ func (x *FeatureEdit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeatureEdit.ProtoReflect.Descriptor instead.
 func (*FeatureEdit) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{6}
+	return file_features_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *FeatureEdit) GetDocument() *FeatureAnnotations {
@@ -915,7 +1014,7 @@ const file_features_proto_rawDesc = "" +
 	"\x14proposed_from_sample\x18\f \x01(\rH\x00R\x12proposedFromSample\x88\x01\x01\x12\x12\n" +
 	"\x04note\x18\r \x01(\tR\x04note\x12\x16\n" +
 	"\x06origin\x18\x0e \x01(\tR\x06originB\x17\n" +
-	"\x15_proposed_from_sample\"\xd6\x04\n" +
+	"\x15_proposed_from_sample\"\x98\x05\n" +
 	"\rFeatureAnchor\x12\"\n" +
 	"\rpart_frame_id\x18\x01 \x01(\tR\vpartFrameId\x12.\n" +
 	"\x13part_frame_revision\x18\x02 \x01(\x04R\x11partFrameRevision\x12\x0f\n" +
@@ -935,8 +1034,18 @@ const file_features_proto_rawDesc = "" +
 	"\x0ereturn_bound_m\x18\x0e \x01(\x01R\freturnBoundM\x12\x16\n" +
 	"\x06origin\x18\x0f \x01(\tR\x06origin\x12\x16\n" +
 	"\x06method\x18\x10 \x01(\tR\x06method\x12#\n" +
-	"\ridentity_note\x18\x11 \x01(\tR\fidentityNoteB\x15\n" +
-	"\x13_source_point_index\"\xb2\x03\n" +
+	"\ridentity_note\x18\x11 \x01(\tR\fidentityNote\x12@\n" +
+	"\x04line\x18\x12 \x01(\v2,.velocity.recording.v1.FeatureLineConstraintR\x04lineB\x15\n" +
+	"\x13_source_point_index\"\xa0\x02\n" +
+	"\x15FeatureLineConstraint\x12\x19\n" +
+	"\bnormal_x\x18\x01 \x01(\x01R\anormalX\x12\x19\n" +
+	"\bnormal_y\x18\x02 \x01(\x01R\anormalY\x12\x19\n" +
+	"\boffset_m\x18\x03 \x01(\x01R\aoffsetM\x12(\n" +
+	"\x10normal_bound_rad\x18\x04 \x01(\x01R\x0enormalBoundRad\x121\n" +
+	"\x12source_start_index\x18\x05 \x01(\rH\x00R\x10sourceStartIndex\x88\x01\x01\x12-\n" +
+	"\x10source_end_index\x18\x06 \x01(\rH\x01R\x0esourceEndIndex\x88\x01\x01B\x15\n" +
+	"\x13_source_start_indexB\x13\n" +
+	"\x11_source_end_index\"\xb2\x03\n" +
 	"\x10FeatureCandidate\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x1b\n" +
@@ -999,32 +1108,34 @@ func file_features_proto_rawDescGZIP() []byte {
 }
 
 var file_features_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_features_proto_goTypes = []any{
-	(FeatureGeometry)(0),       // 0: velocity.recording.v1.FeatureGeometry
-	(FeatureDecision)(0),       // 1: velocity.recording.v1.FeatureDecision
-	(*FeatureSphere)(nil),      // 2: velocity.recording.v1.FeatureSphere
-	(*FeatureObservation)(nil), // 3: velocity.recording.v1.FeatureObservation
-	(*FeatureAnchor)(nil),      // 4: velocity.recording.v1.FeatureAnchor
-	(*FeatureCandidate)(nil),   // 5: velocity.recording.v1.FeatureCandidate
-	(*FeatureAnnotations)(nil), // 6: velocity.recording.v1.FeatureAnnotations
-	(*FeatureState)(nil),       // 7: velocity.recording.v1.FeatureState
-	(*FeatureEdit)(nil),        // 8: velocity.recording.v1.FeatureEdit
+	(FeatureGeometry)(0),          // 0: velocity.recording.v1.FeatureGeometry
+	(FeatureDecision)(0),          // 1: velocity.recording.v1.FeatureDecision
+	(*FeatureSphere)(nil),         // 2: velocity.recording.v1.FeatureSphere
+	(*FeatureObservation)(nil),    // 3: velocity.recording.v1.FeatureObservation
+	(*FeatureAnchor)(nil),         // 4: velocity.recording.v1.FeatureAnchor
+	(*FeatureLineConstraint)(nil), // 5: velocity.recording.v1.FeatureLineConstraint
+	(*FeatureCandidate)(nil),      // 6: velocity.recording.v1.FeatureCandidate
+	(*FeatureAnnotations)(nil),    // 7: velocity.recording.v1.FeatureAnnotations
+	(*FeatureState)(nil),          // 8: velocity.recording.v1.FeatureState
+	(*FeatureEdit)(nil),           // 9: velocity.recording.v1.FeatureEdit
 }
 var file_features_proto_depIdxs = []int32{
 	2, // 0: velocity.recording.v1.FeatureObservation.sphere:type_name -> velocity.recording.v1.FeatureSphere
 	1, // 1: velocity.recording.v1.FeatureObservation.decision:type_name -> velocity.recording.v1.FeatureDecision
-	0, // 2: velocity.recording.v1.FeatureCandidate.geometry:type_name -> velocity.recording.v1.FeatureGeometry
-	4, // 3: velocity.recording.v1.FeatureCandidate.anchor:type_name -> velocity.recording.v1.FeatureAnchor
-	3, // 4: velocity.recording.v1.FeatureCandidate.observations:type_name -> velocity.recording.v1.FeatureObservation
-	5, // 5: velocity.recording.v1.FeatureAnnotations.features:type_name -> velocity.recording.v1.FeatureCandidate
-	6, // 6: velocity.recording.v1.FeatureState.document:type_name -> velocity.recording.v1.FeatureAnnotations
-	6, // 7: velocity.recording.v1.FeatureEdit.document:type_name -> velocity.recording.v1.FeatureAnnotations
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	5, // 2: velocity.recording.v1.FeatureAnchor.line:type_name -> velocity.recording.v1.FeatureLineConstraint
+	0, // 3: velocity.recording.v1.FeatureCandidate.geometry:type_name -> velocity.recording.v1.FeatureGeometry
+	4, // 4: velocity.recording.v1.FeatureCandidate.anchor:type_name -> velocity.recording.v1.FeatureAnchor
+	3, // 5: velocity.recording.v1.FeatureCandidate.observations:type_name -> velocity.recording.v1.FeatureObservation
+	6, // 6: velocity.recording.v1.FeatureAnnotations.features:type_name -> velocity.recording.v1.FeatureCandidate
+	7, // 7: velocity.recording.v1.FeatureState.document:type_name -> velocity.recording.v1.FeatureAnnotations
+	7, // 8: velocity.recording.v1.FeatureEdit.document:type_name -> velocity.recording.v1.FeatureAnnotations
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_features_proto_init() }
@@ -1034,13 +1145,14 @@ func file_features_proto_init() {
 	}
 	file_features_proto_msgTypes[1].OneofWrappers = []any{}
 	file_features_proto_msgTypes[2].OneofWrappers = []any{}
+	file_features_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_features_proto_rawDesc), len(file_features_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
