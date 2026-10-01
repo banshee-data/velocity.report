@@ -488,6 +488,43 @@ Physical scoring refuses a held-out split. Its error limits, reference precision
 to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
 and the along-path gap waits for persisted paths.
 
+## Revision history
+
+Every save archives the exact bytes it replaced as a full snapshot, so the history grows by one
+whole document per save, however small the edit. A pack of 3,700 masks writes about 25 MB each
+time: one labelled kirk0 pack reached 1,968 revisions and 38 GB in a day and a half. The history is
+the recovery path, and a frozen split pins one revision by the digest of its exact bytes, but the
+window never reads it back, so most of it is dead weight.
+
+`lidar-annotation-prune` plans first and writes nothing:
+
+```bash
+go run ./cmd/tools/lidar-annotation-prune -pack "$PACK" -keep-last 200 -keep-every 1h \
+  -split splits/kirk0-split-r1.json
+```
+
+It keeps the newest `-keep-last` revisions, the oldest, one revision per `-keep-every` interval of
+what is older (by when each was archived), and every revision a `-split` file or `-protect N`
+names. Splits are read for this pack's pinned revision only. To prune, add `-apply` and a
+`-backup` path:
+
+```bash
+go run ./cmd/tools/lidar-annotation-prune -pack "$PACK" -keep-last 200 -keep-every 1h \
+  -split splits/kirk0-split-r1.json -apply -backup /Volumes/lidar/backups/kirk0-revisions.tar.gz
+```
+
+Nothing is removed until the removed revisions and the current snapshot are in a compressed tar
+with a SHA-256 manifest, and the tar has been read back and every member's digest matches the one
+taken from the pack. The removal then runs under the pack's writer lock, so the Annotation window
+can stay open: its saves archive revisions newer than any being removed. A backup that does not
+verify, a busy lock, a full volume or an archive that changed since the plan leaves that file, or
+the whole pack, as it was. To restore, `tar -xzf BACKUP -C "$PACK"`; the current snapshot comes out
+under `head/` and does not replace the live one.
+
+A pruned revision cannot be loaded or restored by number, and the store says so by name; the head
+and every kept revision are unaffected. Prune after freezing a split, and pass the split, so the
+revision it pins stays.
+
 ## Limits
 
 - The point domain is what the recording kept: foreground. Background is shown and cannot be
@@ -497,7 +534,8 @@ and the along-path gap waits for persisted paths.
   identities would bring its fragmentation with them.
 - Class guesses come from size and distance travelled only. The class you choose is what is
   saved.
-- Every save writes a full snapshot to `annotation-revisions/`, and nothing prunes them.
+- Every save writes a full snapshot to `annotation-revisions/`.
+  [`lidar-annotation-prune`](#revision-history) thins them; nothing does so on its own.
 - **The grid angle is not yet synced from the scene.** A pack records the sensor, the capture
   and the run, and nothing that says which junction it stood at, so the angle cannot be looked
   up; and no server reads `map-marks.json`. The channel that should carry it already exists —
