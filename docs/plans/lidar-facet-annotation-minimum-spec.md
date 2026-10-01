@@ -236,3 +236,30 @@ Current definite facet support may report cached absolute spot/normal distances,
 accuracy score. Viewing is remembered as assistance for later proposals in that object/frame,
 while saved evidence remains intact. This supports the manual two-to-three-frame pilot; it does
 not implement the runtime accepted-event ledger or PR #657's controlled ablation.
+
+## Offline manual-correspondence pose proposal increment
+
+A schema-1 JSON request/result now supports a bounded read-only offline experiment through
+`POST /api/annotations/features/pose-proposal`. The request pins the facet revision/digest,
+current membership revision/digest, exact target sample/timestamp, manually chosen definite
+return(s), confirmed physical identity, author, explicit return bound and named prior
+centre/yaw/uncertainty. The result retains those inputs, pinned source Physical revision/digest,
+body, source/target origins and matched indices. It is always an assisted proposal, not a
+Physical keyframe, review or online measurement.
+
+The solver reads the registered source body and a different target frame's accepted support.
+It does not select a target Physical pose. A compact spot supplies planar position given the
+explicit prior yaw. A straight edge supplies a horizontal normal constraint; tangential position
+and yaw retain their declared priors. Combined angular uncertainty is propagated through the
+normal relation, including its near-perpendicular conditioning. Incompatible direction or
+hard-bound prior evidence refuses the result. Conservative position bounds never shrink below
+the stated prior bound. Body dimensions remain unchanged, including their evidence status.
+Only full length/width intervals can draw a footprint; hidden ends are predictions.
+
+Native controls show matched returns, the proposed Top footprint, source pins, weak directions
+and refusal messages. The operator can correct inputs/recompute or discard. This first
+increment deliberately has no durable proposal writer or accept-to-reference operation;
+reopening requires explicit recomputation. Assistance exposure persists separately and does
+not rewrite saved evidence. Editing inputs or switching frame/facet invalidates old and delayed
+results. Automatic matching, joint yaw, full 3D/articulation, runtime updates, reanchor lineage
+and a durable experimental review contract remain later work.

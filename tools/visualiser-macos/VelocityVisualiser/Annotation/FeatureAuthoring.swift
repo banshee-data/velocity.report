@@ -217,6 +217,9 @@ struct FeatureAPIClient {
     @Published var radius = 0.2
     @Published var selectionTool: FeatureSelectionTool = .sphere
     @Published var bodyPreview: FacetBodyPreview?
+    @Published private(set) var poseProposal: FacetPoseProposal?
+    @Published private(set) var poseProposalBusy = false
+    private var poseProposalGeneration = 0
     @Published var registrationPoint: UInt32?
     @Published var registrationEndPoint: UInt32?
     @Published var message: String?
@@ -301,6 +304,7 @@ struct FeatureAPIClient {
         guard draft == nil, !busy else { return }
         activeID = id
         bodyPreview = nil
+        clearPoseProposal()
         registrationPoint = nil
         registrationEndPoint = nil
         if let active {
@@ -314,6 +318,7 @@ struct FeatureAPIClient {
         guard draft == nil, !busy else { return }
         activeID = ""
         bodyPreview = nil
+        clearPoseProposal()
         registrationPoint = nil
         registrationEndPoint = nil
         name = "Feature"
@@ -353,23 +358,58 @@ struct FeatureAPIClient {
         guard !busy, preview.featureID == activeID, active?.objectID == objectID else { return }
         let source =
             "Body relation preview: facet \(preview.featureID), physical revision \(preview.projection.physicalRevision), \(preview.projection.physicalDigest)"
-        let key = objectID + ":" + String(preview.sampleID)
+        recordPoseProposalExposure(objectID: objectID, sampleID: preview.sampleID, source: source)
+        bodyPreview = preview
+    }
+
+    func clearPoseProposal() {
+        poseProposalGeneration += 1
+        poseProposal = nil
+    }
+
+    func recordPoseProposalExposure(objectID: String, sampleID: Int, source: String) {
+        let key = objectID + ":" + String(sampleID)
         if previewExposure[key]?.contains(source) != true {
             previewExposure[key] = [previewExposure[key], source].compactMap { $0 }.joined(
                 separator: "\n")
         }
         exposureDefaults?.set(previewExposure, forKey: exposureKey)
-        if let observation = draft, Int(observation.sampleID) == preview.sampleID,
-            draftObjectID == objectID
+        if let observation = draft, Int(observation.sampleID) == sampleID, draftObjectID == objectID
         {
             draft = assistedObservation(observation, objectID: objectID)
         }
-        bodyPreview = preview
+    }
+
+    func proposePose(_ request: FacetPoseRequest) async -> Bool {
+        guard !poseProposalBusy, !isDirty, let feature = active, let state,
+            request.featureID == activeID, request.featureRevision == state.document.revision,
+            request.featureDigest == state.digest
+        else { return false }
+        clearPoseProposal()
+        bodyPreview = nil
+        let asked = poseProposalGeneration
+        poseProposalBusy = true
+        defer { poseProposalBusy = false }
+        do {
+            let result = try await client.poseProposal(request)
+            try result.validate(request: request, feature: feature)
+            guard asked == poseProposalGeneration, activeID == feature.featureID,
+                self.state?.digest == state.digest
+            else { return false }
+            poseProposal = result
+            message =
+                "Read-only assisted pose proposal. No tracker, mask or Physical reference was saved."
+            return true
+        } catch {
+            if asked == poseProposalGeneration { message = error.localizedDescription }
+            return false
+        }
     }
 
     func cancel() {
         guard !busy else { return }
         bodyPreview = nil
+        clearPoseProposal()
         draft = nil
         draftObjectID = nil
         registrationPoint = nil
@@ -407,6 +447,7 @@ struct FeatureAPIClient {
         do {
             self.state = try await client.request(pack: pack, edit: edit)
             bodyPreview = nil
+            clearPoseProposal()
             headRevision = self.state?.document.revision ?? 0
             message =
                 anchor == nil
@@ -442,6 +483,7 @@ struct FeatureAPIClient {
         do {
             self.state = try await client.request(pack: pack, edit: edit)
             bodyPreview = nil
+            clearPoseProposal()
             headRevision = self.state?.document.revision ?? 0
             message = inactive ? "Facet retired; its observations are retained" : "Facet activated"
         } catch {
@@ -505,6 +547,7 @@ struct FeatureAPIClient {
         do {
             self.state = try await client.request(pack: pack, edit: edit)
             bodyPreview = nil
+            clearPoseProposal()
             headRevision = self.state?.document.revision ?? 0
             activeID = feature.featureID
             draft = nil

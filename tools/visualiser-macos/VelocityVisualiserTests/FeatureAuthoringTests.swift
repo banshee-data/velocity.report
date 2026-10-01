@@ -824,3 +824,74 @@ struct FeatureSharedWireTests {
             "an unseen frame acquired preview provenance")
     }
 }
+
+@MainActor struct OfflineFacetPoseControllerTests {
+    @Test func exactResponseIsReadOnlyAndAChangedFrameCannotReceiveDelayedResults() async throws {
+        let (pack, _, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        service.state.document.revision = 7
+        service.state.digest = "sha256:head7"
+        var result = try FacetPoseFixture.proposal()
+        result.request.pack = PhysicalReferenceAPIClient.handle(for: pack.directory)
+        result.request.packDigest = pack.manifest.packDigest
+        result.request.featureRevision = service.state.document.revision
+        result.request.featureDigest = service.state.digest
+        result.request.membershipDigest = service.state.membershipDigest
+        result.request.membershipRevision = 1
+        result.sourceSample = 1
+        result.request.sampleID = 0
+        result.request.timestampNs = pack.samples[0].timestampNs
+        service.state.document.features = [FacetPoseFixture.feature(result)]
+        let saved = service.state.document
+        var wire = try #require(
+            JSONSerialization.jsonObject(with: FacetPoseFixture.bytes()) as? [String: Any])
+        wire["source_sample"] = 1
+        wire["request"] = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(result.request))
+        let bytes = try JSONSerialization.data(withJSONObject: wire)
+        let (session, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            if request.url?.path.hasSuffix("/pose-proposal") == true {
+                Thread.sleep(forTimeInterval: 0.03)
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                    bytes
+                )
+            }
+            return try service.handle(request)
+        }
+        let a = FeatureAuthoring(
+            pack: pack, client: FeatureAPIClient(baseURL: baseURL, session: session))
+        await a.load()
+        a.choose(result.request.featureID)
+        #expect(await a.proposePose(result.request))
+        #expect(a.poseProposal?.request == result.request && !a.isDirty && service.posts == 0)
+        #expect(service.state.document == saved)
+        a.clearPoseProposal()
+        let delayed = Task { await a.proposePose(result.request) }
+        for _ in 0..<100 where !a.poseProposalBusy { await Task.yield() }
+        #expect(a.poseProposalBusy)
+        a.clearPoseProposal()
+        #expect(!(await delayed.value))
+        #expect(a.poseProposal == nil && service.state.document == saved)
+    }
+    @Test func explicitOfflineExposureSurvivesCancellationAndReopening() async throws {
+        let (pack, client, _) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let suite = "offline-pose-exposure-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let a = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await a.load()
+        a.recordPoseProposalExposure(
+            objectID: "car", sampleID: 0,
+            source: "offline solver, named prior, exact feature revision 7")
+        a.cancel()
+        let reopened = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await reopened.load()
+        reopened.seed(featureSeed(pack), objectID: "car")
+        #expect(reopened.draft?.origin == "assisted_proposal")
+        #expect(reopened.draft?.note.contains("feature revision 7") == true)
+    }
+}

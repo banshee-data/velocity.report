@@ -211,6 +211,7 @@ struct FeatureAuthoringPane: View {
             Button("Preview next frame") { session.proposeNextFeature() }.disabled(
                 !features.canEdit || features.isDirty || features.active == nil)
             registrationSection
+            FacetPoseProposalPane(session: session, features: features)
             Button("Cancel / stop") { features.cancel() }.disabled(features.busy)
             if features.busy { ProgressView().controlSize(.small) }
             if let message = features.message {
