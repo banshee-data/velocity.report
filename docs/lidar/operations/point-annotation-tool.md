@@ -518,6 +518,11 @@ the physical service included, refuse a pack where one does. A pack that already
 lists them at the top of the object column, with a button to go to each frame, and can still be
 saved so they can be repaired.
 
+When a proposal cannot save, common messages name the object, size field or pose frame and say
+which bound or citation is missing. **Service detail** preserves the exact validator message
+and internal IDs for an issue report. A prior-only size still needs its named prior and bounds;
+it is not scored. These explanations do not relax the writer's validation.
+
 ### Comparing with an estimate
 
 **Compare** mode opens a per-frame evaluation report run with `-physical-reference` (see

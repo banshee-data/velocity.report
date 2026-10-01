@@ -5,7 +5,7 @@ authoring task. This design pass turns that model into a visible workflow: defin
 place it at selected frames, register the surfaces that support the placement, then compare a
 named estimate against a saved reference.
 
-- **Status:** Source audit with initial comprehension fixes built locally; guided size workflow and operator validation remain open
+- **Status:** Native pose/facet authoring and horizontal body-relation inspection built and tested locally; operator validation, guided report creation and runtime facet constraints remain open
 - **Scope:** Physical and Compare modes, the current annotation pilot, and the next experiments
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [physical reference review](lidar-physical-reference-review-plan.md), [0.5.2 sprint](lidar-052-mvp-sprint-plan.md), [state estimation](lidar-state-estimation-plan.md)
@@ -407,3 +407,51 @@ absolute spot/normal distances; stale support cannot supply that diagnostic. Dis
 projection persists assisted facet provenance for that object/frame across hide, cancel and
 reopen. Saved observations remain unchanged. This is the authoring inspection increment; no
 runtime measurement, interpolation, reanchor or accuracy claim follows from it.
+
+Common Physical validation failures now name the object's displayed label, shared object size
+or pose at the original recording frame/sample, rather than leaving internal IDs in the main
+message. Known size-bound, partial-span, position, citation and prior errors offer plain-language
+corrections. The unchanged service diagnostic remains expandable. Unknown failures retain their
+original wording; repairs and validation continue to use original records, never presentation
+text. Review-reset lists use the same readable record labels.
+
+## Local delivery boundary and next annotation pilot
+
+This branch integrates the committed native foundation after PR #657's main baseline. Local
+increments now cover drawable incomplete pose drafts, separate length/width handles and size
+bounds, pose-frame navigation, assisted report seeding with the original seed retained, exact
+facet subsets, one-to-four active facets, current support/share diagnostics, compact spots and
+straight-edge body relations, retained-revision inspection and optional frozen proposal pins.
+The reviewed-pose projection supplies an inspection check without moving tracker state.
+Independent and assisted evidence remain distinguishable through edits, reviews, cancellation,
+reopening, registration and freezing. Common validation errors retain exact service details.
+
+Native builds and model/integration tests are local checks. The annotation/server/protobuf
+regressions and changed-Go coverage gate passed with the real `pcap` tag. No live annotation
+operator round trip, physical-device performance run or PR #657 accuracy ablation has been
+completed by this implementation session. The benchmark measures the scalar fit only; it is
+not a whole-frame performance qualification. Existing point packs and the running annotation
+application were not migrated or replaced.
+
+For the next pilot:
+
+1. On two short rigid-vehicle episodes, save definite object membership and select two or three
+   informative frames. Include a changing aspect, a real turn and an occluded/missing facet.
+2. Save one to four small exact subsets with persistent names. Use a long featureless side and
+   a scan boundary as negative cases. Inspect raw intensity only where the sample declares it.
+3. Establish and review the shared body and supported resolved poses. Register a compact spot
+   or a real straight edge in one source frame; project the saved relation into another
+   reviewed frame. Record refusals and raw alignment distances, preserving assisted origins.
+4. Inspect the retained revision and optionally pin it in Freeze preview. A later experiment
+   adapter must call `BindFeatures` against the frozen membership before consuming proposals.
+   Existing physical scoring does not automatically consume them.
+5. Collect operator issues against PA-01–PA-16 before changing the annotation run's interface.
+   Use the original service detail for rejected saves. Keep manual proposals, assisted seeds
+   and autonomous outputs separate when evaluating results.
+
+Runtime measurement application and its two-to-three accepted lifetime reanchor limit remain
+open, including logical-object split/merge lineage. Full 3D/surface constraints, autonomous
+facet matching, a guided Compare report-generation path and field validation also remain open.
+Manual authoring edits do not spend the future runtime reset budget. Reflectivity stays an
+inspection/association experiment after geometric controls; no dense material map or accuracy
+benefit is claimed here.
