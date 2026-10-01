@@ -141,17 +141,24 @@ def summarise_sidecar(sc, samples):
     }
 
 
-def summarise_revisions(pack_dir, budget_s=600):
+def summarise_revisions(pack_dir):
+    # Every save keeps a full snapshot, so a long labelling session leaves
+    # hundreds of large files. Read an even sample of at most 120 plus the
+    # latest 10, within a time budget (seconds, PACK_SUMMARY_BUDGET, default 240).
+    budget_s = float(os.environ.get("PACK_SUMMARY_BUDGET", "240"))
     d = os.path.join(pack_dir, "annotation-revisions")
     if not os.path.isdir(d):
         return {"count": 0}
     names = sorted(n for n in os.listdir(d) if n.endswith(".json"))
     pick = names
-    if len(names) > 300:
-        step = max(1, len(names) // 280)
-        pick = sorted(set(names[::step] + names[-20:]))
+    if len(names) > 130:
+        step = max(1, len(names) // 120)
+        pick = sorted(set(names[::step] + names[-10:]))
     out, t0 = [], time.time()
-    for n in pick:
+    for i, n in enumerate(pick):
+        if i % 10 == 0:
+            sys.stderr.write("revisions: %d of %d read (%.0f s)\n" % (i, len(pick), time.time() - t0))
+            sys.stderr.flush()
         if time.time() - t0 > budget_s:
             out.append({"file": n, "skipped": "time budget"})
             continue
@@ -207,6 +214,7 @@ def match_case(manifest, segment, site_index):
 
 def main():
     copy_dir, pack_dir, site_index_path, out_dir = sys.argv[1:5]
+    sys.stderr.write("reading the pack copy...\n")
     manifest = load(os.path.join(copy_dir, "manifest.json"))
     samples_doc = load(os.path.join(copy_dir, "samples.json"))
     samples = samples_doc.get("samples") if isinstance(samples_doc, dict) else samples_doc
