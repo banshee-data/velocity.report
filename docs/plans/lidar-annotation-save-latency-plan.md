@@ -104,8 +104,8 @@ Each is small, and independent of A and B:
 1. **Link the archive instead of copying it.** Before replacing the head, hard-link it to
    `annotation-revisions/N.json`, then write the new head and rename it over the old: the old inode
    lives on as the archive. One 25 MB write and fsync disappear. Fall back to a copy where the
-   volume has no hard links (exFAT and FAT have none; check the pack's volume with `diskutil
-info`).
+   volume has no hard links (exFAT and FAT have none; check the pack's volume with
+   `diskutil info`).
 2. **Do not re-read the head to check it.** Under the lock the store reads 25 MB and hashes it to
    prove nobody else saved. When the head's inode, size and modification time are those the store
    last wrote, skip the read; any difference falls back to the full digest.
