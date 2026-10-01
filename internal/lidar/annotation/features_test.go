@@ -497,6 +497,50 @@ func TestFeatureBodyRegistrationRefusesInventedOrUnpinnedConstraints(t *testing.
 	}
 }
 
+func TestFeatureBodyRegistrationRetainsAssistedOriginFromEitherBodyOrPose(t *testing.T) {
+	for _, component := range []string{"body", "pose", "both"} {
+		t.Run(component, func(t *testing.T) {
+			p, e := registeredFeatureFixture(t)
+			r, err := LoadPhysicalReferences(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o := &r.Objects[0]
+			if component != "pose" {
+				o.Body.BodyID = "assisted-body"
+				o.Body.Review.Origin, o.Body.Review.TrackerSource = OriginTrackerAssisted, "online seed"
+			}
+			if component != "body" {
+				o.Keyframes[0].KeyframeID = "assisted-pose"
+				o.Keyframes[0].Review.Origin, o.Keyframes[0].Review.TrackerSource = OriginTrackerAssisted, "online seed"
+			}
+			if err := SavePhysicalReferences(p, r); err != nil {
+				t.Fatal(err)
+			}
+			a := e.Document.Features[0].Anchor
+			a.PhysicalRevision, a.PhysicalDigest = uint64(r.Revision), r.Digest()
+			a.BodyId, a.PartFrameId, a.KeyframeId = o.Body.BodyID, o.Body.BodyID+"_xy", o.Keyframes[0].KeyframeID
+			// A reviewed assisted pose must not masquerade as an independent seed.
+			if err := ValidateFeatures(p, e.Document); err == nil {
+				t.Fatal("assistance was erased")
+			}
+			a.Origin = "tracker_seeded_proposal"
+			if _, err := SaveFeatures(p, e); err != nil {
+				t.Fatal(err)
+			}
+			a.Origin = "independent"
+			if err := ValidateFeatures(p, e.Document); err == nil {
+				t.Fatal("proposal became reference truth")
+			}
+		})
+	}
+	p, e := registeredFeatureFixture(t)
+	e.Document.Features[0].Anchor.Origin = "tracker_seeded_proposal"
+	if err := ValidateFeatures(p, e.Document); err == nil {
+		t.Fatal("source origin was invented")
+	}
+}
+
 func TestNewFeatureRegistrationRefusesStaleMembershipButRetainsHistory(t *testing.T) {
 	p, e := registeredFeatureFixture(t)
 	s, err := SaveFeatures(p, e)

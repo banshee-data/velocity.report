@@ -347,7 +347,8 @@ mode adds exact lasso subsets within saved definite membership and the depth sla
 facets with retained retirement, and diagnostic line/surface fits. This closes part of PA-02,
 PA-03, PA-04 and PA-06; it is not the completed guided workflow or an operator acceptance result.
 A compact feature can also save a horizontal metric body registration proposal under a pinned,
-reviewed independent body/pose. The operator selects a named physical return and states its
+reviewed body/pose, retaining whether either source is tracker-assisted. The operator selects a
+named physical return and states its
 return bound; changing dimensions does not rescale this mapping. Whole spans now use value and
 explicit tolerance fields, with asymmetric min/max under an advanced disclosure. Missing bounds
 remain missing in the saved model; a value-only or prior-only outline is labelled as a sketch.

@@ -56,7 +56,7 @@ struct FacetBodyRegistrationTests {
         #expect(try FacetBodyAnchor(serializedBytes: anchor.serializedData()) == anchor)
     }
 
-    @Test func aPatchASparseFeatureAnUnreviewedPoseAndMissingBoundsCannotRegister() {
+    @Test func aPatchASparseFeatureAnUnreviewedPoseAndMissingBoundsCannotRegister() throws {
         let (original, points, physical) = fixture()
         var patch = original
         patch.geometry = .patch
@@ -91,6 +91,14 @@ struct FacetBodyRegistrationTests {
                     returnBoundM: 0.05, identityNote: "tip")
             }
         }
+        // A reviewed assisted relation is usable only with its assistance
+        // named and carried into the registration proposal's origin.
+        assisted.document.objects[0].body?.review.trackerSource = "online seed"
+        let assistedAnchor = try FacetBodyRegistration.make(
+            feature: original, sampleID: 0, pointIndex: 0, points: points, physical: assisted,
+            returnBoundM: 0.05, identityNote: "tip")
+        #expect(assistedAnchor.origin == "tracker_seeded_proposal")
+        #expect(abs(assistedAnchor.xM + 0.9) < 1e-6 && abs(assistedAnchor.yM - 2) < 1e-6)
         #expect(throws: (any Error).self) {
             try FacetBodyRegistration.make(
                 feature: original, sampleID: -1, pointIndex: 0, points: points, physical: physical,

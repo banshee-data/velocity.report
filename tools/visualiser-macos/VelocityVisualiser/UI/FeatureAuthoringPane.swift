@@ -182,6 +182,11 @@ struct FeatureAuthoringPane: View {
                     "Height unresolved · body \(a.bodyID) · physical revision \(a.physicalRevision)"
                 ).font(.caption2).textSelection(.enabled)
                 Text(a.identityNote).font(.caption2)
+                if a.origin == "tracker_seeded_proposal" {
+                    Text(
+                        "Tracker-assisted body relation · useful for assisted experiments, never independent reference truth."
+                    ).font(.caption2).foregroundStyle(.orange)
+                }
                 Button("Detach registration, keep facet") {
                     Task { await features.registerAnchor(nil, author: session.operatorName) }
                 }.disabled(!features.canEdit || features.isDirty)

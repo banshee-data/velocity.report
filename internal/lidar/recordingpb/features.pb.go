@@ -374,7 +374,7 @@ type FeatureAnchor struct {
 	SourcePointIndex *uint32 `protobuf:"varint,12,opt,name=source_point_index,json=sourcePointIndex,proto3,oneof" json:"source_point_index,omitempty"`
 	BoundM           float64 `protobuf:"fixed64,13,opt,name=bound_m,json=boundM,proto3" json:"bound_m,omitempty"`
 	ReturnBoundM     float64 `protobuf:"fixed64,14,opt,name=return_bound_m,json=returnBoundM,proto3" json:"return_bound_m,omitempty"`
-	Origin           string  `protobuf:"bytes,15,opt,name=origin,proto3" json:"origin,omitempty"`                                 // reference_seeded_proposal, never independent truth
+	Origin           string  `protobuf:"bytes,15,opt,name=origin,proto3" json:"origin,omitempty"`                                 // reference_seeded_proposal or tracker_seeded_proposal; never truth
 	Method           string  `protobuf:"bytes,16,opt,name=method,proto3" json:"method,omitempty"`                                 // manual_named_return_v1
 	IdentityNote     string  `protobuf:"bytes,17,opt,name=identity_note,json=identityNote,proto3" json:"identity_note,omitempty"` // the repeatable physical spot, not visible centroid
 	unknownFields    protoimpl.UnknownFields

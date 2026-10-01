@@ -21,8 +21,10 @@ The newer committed `dd/lidar/physical-pose-ui-929` foundation is now integrated
 It supplies the native physical editor and the recording-domain feature proposal writer. The
 local increment adds exact lasso subsets, four active facets with retirement, and line/surface
 support diagnostics. These proposals remain distinct from physical review and runtime anchors.
-Compact features can now propose a horizontal metric offset under a pinned, reviewed independent
-body/pose, with a named source return and conservative bound. Edge/surface weak-direction
+Compact features can now propose a horizontal metric offset under a pinned, reviewed
+body/pose, with a named source return and conservative bound. Independent and tracker-assisted
+seeds retain distinct proposal origins; neither establishes independent registration truth.
+Edge/surface weak-direction
 registration, the runtime event ledger and frozen facet pins remain engineering work.
 
 An edge, a side patch, a corner or a wing mirror can be useful. Their visible returns change as

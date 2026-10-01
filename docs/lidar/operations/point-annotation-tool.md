@@ -692,7 +692,7 @@ nor establish a rigid relation.
 ### Registering a compact feature to the body
 
 For a repeatable **Corner** or **Protrusion**, first save accepted feature support in two frames.
-Review an independent body and a resolved physical pose at the source frame against the same
+Review the body and a resolved physical pose at the source frame against the same
 saved membership. In **Body registration · proposal**, select the exact physical spot with
 **Fixed return**. Alternatively, enable **Inspect returns**, hover that spot, press **M**, then
 choose **Use pinned return**. The chosen return is yellow in the orthographic views. Name what
@@ -705,6 +705,11 @@ The conservative bound adds the source position bound, the yaw lever-arm displac
 stated return bound. The Go writer rechecks the coordinates, definite point support, membership,
 body/keyframe IDs and exact physical revision digest. A missing or stale review, ambiguous axis,
 absent source point or understated bound is refused.
+
+An independently authored body/pose produces a reference-seeded proposal. If either reference
+is tracker-assisted, the mapping is a tracker-seeded proposal and the pane labels its assistance.
+Neither kind is independent registration truth; an assisted relation cannot be relabelled as an
+independent seed. Complete and review the source bounds before registering a tracker sketch.
 
 Changing body dimensions does not rescale the stored offset. A later physical revision is shown
 as needing a recheck, while the mapping retains its original body-frame pin. **Detach

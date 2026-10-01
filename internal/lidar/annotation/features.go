@@ -320,7 +320,7 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 	if len(a.ProtoReflect().GetUnknown()) != 0 || a.CoordinateDomain != "body_xy" || a.ZM != 0 ||
 		a.SourcePointIndex == nil || a.PhysicalRevision == 0 || a.PhysicalRevision > math.MaxInt32 ||
 		a.PartFrameRevision != 1 || a.PartFrameId != a.BodyId+"_xy" || a.BodyId == "" ||
-		a.Origin != "reference_seeded_proposal" || a.Method != "manual_named_return_v1" || strings.TrimSpace(a.IdentityNote) == "" ||
+		(a.Origin != "reference_seeded_proposal" && a.Origin != "tracker_seeded_proposal") || a.Method != "manual_named_return_v1" || strings.TrimSpace(a.IdentityNote) == "" ||
 		!finiteFeature(a.XM) || !finiteFeature(a.YM) || !finiteFeature(a.BoundM) || a.BoundM < 0 ||
 		!finiteFeature(a.ReturnBoundM) || a.ReturnBoundM <= 0 {
 		return fmt.Errorf("invalid horizontal body registration")
@@ -363,8 +363,8 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 			object = &refs.Objects[i]
 		}
 	}
-	if object == nil || object.Body == nil || object.Body.BodyID != a.BodyId || !object.Body.Review.ScoredAsTruth() {
-		return fmt.Errorf("body registration needs a reviewed independent pinned body")
+	if object == nil || object.Body == nil || object.Body.BodyID != a.BodyId || object.Body.Review.Status != StatusReviewed {
+		return fmt.Errorf("body registration needs a reviewed pinned body")
 	}
 	var k *PhysicalKeyframe
 	for i := range object.Keyframes {
@@ -372,10 +372,17 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 			k = &object.Keyframes[i]
 		}
 	}
-	if k == nil || k.SampleID != int(a.SourceSample) || !k.Review.ScoredAsTruth() || k.Yaw.Axis != AxisResolved ||
+	if k == nil || k.SampleID != int(a.SourceSample) || k.Review.Status != StatusReviewed || k.Yaw.Axis != AxisResolved ||
 		k.Review.ReviewedAgainst == nil || k.Review.ReviewedAgainst.Digest != source.MembershipDigest ||
 		object.Body.Review.ReviewedAgainst == nil || object.Body.Review.ReviewedAgainst.Digest != source.MembershipDigest {
 		return fmt.Errorf("body registration needs a resolved reviewed pose pinned to the feature's membership")
+	}
+	expectedOrigin := "reference_seeded_proposal"
+	if object.Body.Review.Origin == OriginTrackerAssisted || k.Review.Origin == OriginTrackerAssisted {
+		expectedOrigin = "tracker_seeded_proposal"
+	}
+	if a.Origin != expectedOrigin {
+		return fmt.Errorf("registration origin disagrees with its pinned body or pose")
 	}
 	g := object.Geometry(*k)
 	if g.Centre == nil || g.Yaw == nil {
