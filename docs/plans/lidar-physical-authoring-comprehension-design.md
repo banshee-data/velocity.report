@@ -368,3 +368,9 @@ an arbitrary surface return cannot acquire an unsupported along-face centre rela
 draft values stay out of the editable overlay. Facet observation navigation keeps identity and
 guards outstanding work; the histogram can inspect the facet's definite subset. Geometry fits
 are cached for one immutable frame/subset/type so return hover does not repeatedly rebuild them.
+
+Retained facet revisions can now be inspected through an exact read-only service request and a
+native menu of the twenty most recent revisions. Switching requires a clean draft, preserves the
+facet identity and restores its saved metadata. Returning to latest restores editing. A missing
+or mismatched revision cannot appear as the requested evidence; a damaged later head does not
+erase a valid archive. Frozen facet pins and runtime registration remain separate work.

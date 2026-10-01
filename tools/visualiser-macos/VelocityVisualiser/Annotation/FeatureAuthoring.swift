@@ -153,8 +153,15 @@ struct FeatureAPIClient {
     var session = APISession.shared
 
     func request(
-        pack: AnnotationPack, edit: Velocity_Recording_V1_FeatureEdit? = nil
+        pack: AnnotationPack, edit: Velocity_Recording_V1_FeatureEdit? = nil,
+        revision: UInt64? = nil
     ) async throws -> FeatureState {
+        if let revision {
+            guard edit == nil, revision > 0, revision <= UInt64(Int32.max) else {
+                throw FeatureError.message(
+                    "A retained facet revision is read-only and must be positive")
+            }
+        }
         var url = URLComponents(
             url: baseURL.appendingPathComponent("api/annotations/features"),
             resolvingAgainstBaseURL: false)!
@@ -163,6 +170,9 @@ struct FeatureAPIClient {
                 name: "pack", value: PhysicalReferenceAPIClient.handle(for: pack.directory)),
             URLQueryItem(name: "pack_digest", value: pack.manifest.packDigest),
         ]
+        if let revision {
+            url.queryItems?.append(URLQueryItem(name: "revision", value: String(revision)))
+        }
         var request = URLRequest(url: url.url!)
         if let edit {
             request.httpMethod = "POST"
@@ -181,6 +191,9 @@ struct FeatureAPIClient {
             state.document.datasetID == pack.manifest.datasetID,
             state.document.pointDomain == "legacy_pack"
         else { throw FeatureError.message("Unsupported feature document or wrong pack") }
+        if let revision, state.document.revision != revision {
+            throw FeatureError.message("The service returned a different facet revision")
+        }
         guard
             URL(fileURLWithPath: state.packDirectory).resolvingSymlinksInPath().standardizedFileURL
                 == pack.directory.resolvingSymlinksInPath().standardizedFileURL
@@ -205,6 +218,8 @@ struct FeatureAPIClient {
     @Published var message: String?
     @Published private(set) var busy = false
     @Published private(set) var readOnly = false
+    @Published private(set) var viewingRevision: UInt64?
+    @Published private(set) var headRevision: UInt64 = 0
     private var draftObjectID: String?
     private let pack: AnnotationPack
     private let client: FeatureAPIClient
@@ -221,30 +236,43 @@ struct FeatureAPIClient {
     }
     var isDirty: Bool { draft != nil }
 
-    func load() async {
+    func load(revision: UInt64? = nil) async {
         guard !busy, draft == nil else { return }
         busy = true
-        defer { busy = false }
+        defer {
+            busy = false
+            choose(activeID)
+        }
+        viewingRevision = revision
         do {
-            state = try await client.request(pack: pack)
-            readOnly = state?.document.knownEditingContract != true
+            state = try await client.request(pack: pack, revision: revision)
+            if revision == nil { headRevision = state?.document.revision ?? 0 }
+            readOnly = revision != nil || state?.document.knownEditingContract != true
             message =
-                readOnly
-                ? "Read-only: this document contains feature fields or constraints this build cannot edit"
-                : nil
+                revision != nil
+                ? "Retained revision: inspect its original evidence. Return to latest to edit."
+                : readOnly
+                    ? "Read-only: this document contains feature fields or constraints this build cannot edit"
+                    : nil
         } catch {
             // Saved evidence can be inspected without a running service. Writes
             // still require Go's validator; a failed request never claims a save.
-            if let bytes = try? Data(
-                contentsOf: pack.directory.appendingPathComponent("feature-proposals.pb")),
+            state = nil
+            let file =
+                revision.map { String(format: "feature-proposal-revisions/%010llu.pb", $0) }
+                ?? "feature-proposals.pb"
+            if let bytes = try? Data(contentsOf: pack.directory.appendingPathComponent(file)),
                 let document = try? FeatureDocument(serializedBytes: bytes),
                 document.schema == "velocity.report/feature-proposals", document.schemaVersion == 1,
                 document.packDigest == pack.manifest.packDigest,
-                document.datasetID == pack.manifest.datasetID, document.pointDomain == "legacy_pack"
+                document.datasetID == pack.manifest.datasetID,
+                document.pointDomain == "legacy_pack",
+                revision == nil || document.revision == revision
             {
                 var cached = FeatureState()
                 cached.document = document
                 state = cached
+                if revision == nil { headRevision = document.revision }
             }
             readOnly = true
             message =
@@ -321,6 +349,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            headRevision = self.state?.document.revision ?? 0
             message =
                 anchor == nil
                 ? "Registration detached; facet observations and history are retained"
@@ -354,6 +383,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            headRevision = self.state?.document.revision ?? 0
             message = inactive ? "Facet retired; its observations are retained" : "Facet activated"
         } catch {
             readOnly = true
@@ -415,6 +445,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            headRevision = self.state?.document.revision ?? 0
             activeID = feature.featureID
             draft = nil
             draftObjectID = nil
