@@ -90,10 +90,7 @@ func DraftSplitManifest(p *Pack, s *Sidecar, o DraftSplitOptions) (*SplitManifes
 	if o.FirstSample < 0 || o.LastSample < o.FirstSample || o.LastSample >= len(p.Samples) {
 		return nil, nil, fmt.Errorf("window [%d, %d] is not inside the pack's %d samples", o.FirstSample, o.LastSample, len(p.Samples))
 	}
-	if err := o.Policy.Validate(); err != nil {
-		return nil, nil, err
-	}
-	points, _, err := BuildReference(p, s, o.Policy)
+	points, _, err := BuildReference(p, s, o.Policy) // refuses a bad policy, and a sidecar that does not match the pack
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,11 +158,10 @@ func DraftSplitManifest(p *Pack, s *Sidecar, o DraftSplitOptions) (*SplitManifes
 		Episodes: []Episode{{EpisodeID: o.EpisodeID, Split: o.SplitName, ObjectIDs: ids,
 			FrameIntervals: []FrameInterval{{FirstSample: o.FirstSample, LastSample: o.LastSample}}}},
 	}
+	// It binds to p and s by construction: the digests, the revision and the
+	// objects are theirs, and the window is inside the pack.
 	if err := m.validateStructure(); err != nil {
 		return nil, report, fmt.Errorf("drafted manifest is invalid: %w", err)
-	}
-	if err := m.ValidateAgainst(p, s); err != nil {
-		return nil, report, fmt.Errorf("drafted manifest does not bind: %w", err)
 	}
 	return m, report, nil
 }

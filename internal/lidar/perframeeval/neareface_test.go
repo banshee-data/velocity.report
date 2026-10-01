@@ -2,6 +2,7 @@ package perframeeval
 
 import (
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -259,6 +260,11 @@ func TestNearFaceWithholdsATangentTheFaceCannotSupport(t *testing.T) {
 	if r.Arms[0].Accounting.Unscored[nearFaceTangentPartial] != nfSamples {
 		t.Fatalf("partial rear %+v", r.Arms[0].Accounting)
 	}
+	// The reading copy leaves out a face that no instant scored.
+	md := RenderNearFaceMarkdown(*r)
+	if !strings.Contains(md, "| end normal |") || strings.Contains(md, "end tangent (abs)") {
+		t.Fatalf("withheld tangent in the reading copy:\n%s", md)
+	}
 }
 
 func TestNearFaceRefusesWhatItCannotScore(t *testing.T) {
@@ -420,8 +426,9 @@ func TestNearFaceReportsATuningSplitAsNotHeldOut(t *testing.T) {
 	}
 }
 
-func TestNearFaceReadsAFrozenSplit(t *testing.T) {
-	f := writeNearFacePack(t, nfOptions{})
+// freezeNearFace freezes the fixture's version 1 split and returns the frozen file.
+func freezeNearFace(t *testing.T, f nfFixture) (string, *annotation.FrozenSplit) {
+	t.Helper()
 	m, err := annotation.LoadSplitManifest(f.splitPath)
 	if err != nil {
 		t.Fatal(err)
@@ -441,6 +448,12 @@ func TestNearFaceReadsAFrozenSplit(t *testing.T) {
 	if err := annotation.WriteFrozenSplit(path, frozen); err != nil {
 		t.Fatal(err)
 	}
+	return path, frozen
+}
+
+func TestNearFaceReadsAFrozenSplit(t *testing.T) {
+	f := writeNearFacePack(t, nfOptions{})
+	path, frozen := freezeNearFace(t, f)
 	dbPath := filepath.Join(t.TempDir(), "e.db")
 	writeNearFaceDB(t, dbPath, map[string]nfBody{"exact": {}})
 	o := nfOpts(f)
@@ -451,6 +464,48 @@ func TestNearFaceReadsAFrozenSplit(t *testing.T) {
 	}
 	if r.Reference.FrozenDigest != frozen.SplitDigest || r.Arms[0].Accounting.Scored != nfSamples {
 		t.Fatalf("frozen: %+v / %+v", r.Reference, r.Arms[0].Accounting)
+	}
+}
+
+func TestNearFaceRefusesAFrozenSplitWhoseLabelsChanged(t *testing.T) {
+	f := writeNearFacePack(t, nfOptions{})
+	path, _ := freezeNearFace(t, f)
+	dbPath := filepath.Join(t.TempDir(), "e.db")
+	writeNearFaceDB(t, dbPath, map[string]nfBody{"exact": {}})
+	// The split pins the labels' exact bytes: one more byte and it no longer binds.
+	head := filepath.Join(f.packDir, "annotations.json")
+	b, err := os.ReadFile(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(head, append(b, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	o := nfOpts(f)
+	o.SplitManifestPath = path
+	if _, err := ScoreNearFaces(o, []ArmSpec{nfArm("exact", dbPath, "exact")}); err == nil {
+		t.Fatal("a frozen split scored against labels that are not the ones it pinned")
+	}
+}
+
+func TestNearFaceReadsTheHeadWhenTheManifestPinsNoRevision(t *testing.T) {
+	f := writeNearFacePack(t, nfOptions{})
+	m, err := annotation.LoadSplitManifest(f.splitPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.SidecarRevision = 0
+	unpinned := filepath.Join(t.TempDir(), "unpinned.json")
+	if err := evalfixture.WriteSplitManifest(unpinned, *m); err != nil {
+		t.Fatal(err)
+	}
+	dbPath := filepath.Join(t.TempDir(), "e.db")
+	writeNearFaceDB(t, dbPath, map[string]nfBody{"exact": {}})
+	o := nfOpts(f)
+	o.SplitManifestPath = unpinned
+	r, err := ScoreNearFaces(o, []ArmSpec{nfArm("exact", dbPath, "exact")})
+	if err != nil || r.Arms[0].Accounting.Scored != nfSamples {
+		t.Fatalf("%+v, %v", r, err)
 	}
 }
 

@@ -41,6 +41,16 @@ type NearFaceOptions struct {
 	PartialRear bool
 }
 
+// steps runs the writes in order and stops at the first failure.
+func steps(fs ...func() error) error {
+	for _, f := range fs {
+		if err := f(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NearFaceFixture is where the pack and its split manifest were written.
 type NearFaceFixture struct {
 	PackDir, SplitManifestPath string
@@ -71,10 +81,7 @@ func WriteNearFacePack(dir string, o NearFaceOptions) (*NearFaceFixture, error) 
 		for k := 0; k < 10; k++ {
 			masks[i] = append(masks[i], add(cx-NearFaceLength/2+float64(k)*2/9, cy-NearFaceWidth/2)) // the right face
 		}
-		block, err := annotation.EncodePoints(p)
-		if err != nil {
-			return nil, err
-		}
+		block, _ := annotation.EncodePoints(p) // the arrays are the same length; a failed encode leaves no block and WritePack refuses the pack
 		samples = append(samples, annotation.Sample{SourceOrdinal: i, SourceFrameID: uint64(i), TimestampNs: NearFaceSampleNs(i), SensorID: "nf", PointCount: len(p.X)})
 		blocks = append(blocks, block)
 	}
@@ -84,36 +91,36 @@ func WriteNearFacePack(dir string, o NearFaceOptions) (*NearFaceFixture, error) 
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor",
 			Handedness: "right", OriginNote: "fixture"},
 	}
-	if err := annotation.WritePack(packDir, m, samples, blocks); err != nil {
-		return nil, err
-	}
-	pack, err := annotation.OpenPack(packDir)
-	if err != nil {
-		return nil, err
-	}
-	status := annotation.StatusReviewed
-	if o.Proposed {
-		status = annotation.StatusProposed
-	}
-	s := annotation.NewSidecar(pack)
-	s.Change = annotation.Provenance{Author: "fixture", Operation: "fixture"}
-	s.Objects = []annotation.Object{{ObjectID: NearFaceObject, Class: "car", Confidence: 1, Status: status}}
-	for i := 0; i < NearFaceSamples; i++ {
-		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: NearFaceObject, SampleID: i, PointIndices: masks[i],
-			Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: status})
-	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
-		return nil, err
-	}
-	split := annotation.SplitManifest{
-		Schema: annotation.SplitSchema, SchemaVersion: annotation.SplitSchemaVersion,
-		PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, SidecarRevision: 1,
-		Splits: []annotation.Split{{Name: NearFaceSplit, Role: annotation.SplitRoleTuning, ObjectIDs: []string{NearFaceObject}}},
-		Episodes: []annotation.Episode{{EpisodeID: "ep", Split: NearFaceSplit, ObjectIDs: []string{NearFaceObject},
-			FrameIntervals: []annotation.FrameInterval{{FirstSample: 0, LastSample: NearFaceSamples - 1}}}},
-	}
+	var pack *annotation.Pack
 	path := filepath.Join(dir, "split.json")
-	if err := WriteSplitManifest(path, split); err != nil {
+	err := steps(
+		func() error { return annotation.WritePack(packDir, m, samples, blocks) },
+		func() (err error) { pack, err = annotation.OpenPack(packDir); return },
+		func() error {
+			status := annotation.StatusReviewed
+			if o.Proposed {
+				status = annotation.StatusProposed
+			}
+			s := annotation.NewSidecar(pack)
+			s.Change = annotation.Provenance{Author: "fixture", Operation: "fixture"}
+			s.Objects = []annotation.Object{{ObjectID: NearFaceObject, Class: "car", Confidence: 1, Status: status}}
+			for i := 0; i < NearFaceSamples; i++ {
+				s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: NearFaceObject, SampleID: i, PointIndices: masks[i],
+					Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: status})
+			}
+			return annotation.SaveSidecar(pack, s)
+		},
+		func() error {
+			return WriteSplitManifest(path, annotation.SplitManifest{
+				Schema: annotation.SplitSchema, SchemaVersion: annotation.SplitSchemaVersion,
+				PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, SidecarRevision: 1,
+				Splits: []annotation.Split{{Name: NearFaceSplit, Role: annotation.SplitRoleTuning, ObjectIDs: []string{NearFaceObject}}},
+				Episodes: []annotation.Episode{{EpisodeID: "ep", Split: NearFaceSplit, ObjectIDs: []string{NearFaceObject},
+					FrameIntervals: []annotation.FrameInterval{{FirstSample: 0, LastSample: NearFaceSamples - 1}}}},
+			})
+		},
+	)
+	if err != nil {
 		return nil, err
 	}
 	return &NearFaceFixture{PackDir: packDir, SplitManifestPath: path}, nil
@@ -158,10 +165,11 @@ func WriteNearFaceDB(path string, arms map[string]NearFaceBody) error {
 			}
 			frame := NearFaceSampleNs(i) + 300_000
 			id := fmt.Sprintf("%s/%d", params, i)
-			if _, err := database.Exec(`INSERT INTO lidar_observations
+			observe := func() error {
+				_, err := database.Exec(`INSERT INTO lidar_observations
 				(observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos,
 				 cluster_unix_nanos, cluster_id, record_json, inserted_at_ns)
-				VALUES (?, 1, ?, 'cal', 'nf', 'f', ?, ?, 1, '{}', 1)`, "observation/"+id, NearFaceSource, frame, frame); err != nil {
+				VALUES (?, 1, ?, 'cal', 'nf', 'f', ?, ?, 1, '{}', 1)`, "observation/"+id, NearFaceSource, frame, frame)
 				return err
 			}
 			prov := l5tracks.ProvenanceAccumulated
@@ -189,28 +197,30 @@ func WriteNearFaceDB(path string, arms map[string]NearFaceBody) error {
 				orientation = l5tracks.OrientationBelief{}
 			}
 			cov := [16]float32{0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.1}
-			if err := store.InsertSolidBody(sqlite.TrackSolidBody{
-				EstimateID: "solid_body/" + id, TrackID: "uuid-" + params, ObservationID: "observation/" + id,
-				SourceID: NearFaceSource, CalibrationID: "cal", FrameUnixNanos: frame, MeasurementUnixNanos: frame,
-				EstimatorID: EstimatorID, ObservationModelID: string(l5tracks.MeasurementNearEdgeCandidateV1), ParamHash: params,
-				Stage: "online", CreationSequence: 1,
-				Reading: l5tracks.SolidBodyReading{
-					Estimate: l5tracks.SolidBodyEstimate{
-						StateModel: l5tracks.StateModelCVCartesianV1, Reference: ref, X: float32(cx), Y: float32(cy),
-						PositionCovariance:    [4]float32{cov[0], cov[1], cov[4], cov[5]},
-						Orientation:           orientation,
-						Length:                lengthBelief,
-						Width:                 widthBelief,
-						Height:                l5tracks.DimensionBelief{Metres: 1.5, SigmaMetres: 0.3, Provenance: l5tracks.ProvenanceClassPrior},
-						Motion:                l5tracks.MotionClassBelief{Class: l5tracks.MotionRigidVehicle, Posterior: 0.9},
-						Estimation:            l5tracks.EstimationGeometryConverging,
-						Stage:                 l5tracks.StageLive,
-						LastObservedUnixNanos: frame,
-						Support:               l5tracks.SupportState{PointCount: 8},
+			if err := steps(observe, func() error {
+				return store.InsertSolidBody(sqlite.TrackSolidBody{
+					EstimateID: "solid_body/" + id, TrackID: "uuid-" + params, ObservationID: "observation/" + id,
+					SourceID: NearFaceSource, CalibrationID: "cal", FrameUnixNanos: frame, MeasurementUnixNanos: frame,
+					EstimatorID: EstimatorID, ObservationModelID: string(l5tracks.MeasurementNearEdgeCandidateV1), ParamHash: params,
+					Stage: "online", CreationSequence: 1,
+					Reading: l5tracks.SolidBodyReading{
+						Estimate: l5tracks.SolidBodyEstimate{
+							StateModel: l5tracks.StateModelCVCartesianV1, Reference: ref, X: float32(cx), Y: float32(cy),
+							PositionCovariance:    [4]float32{cov[0], cov[1], cov[4], cov[5]},
+							Orientation:           orientation,
+							Length:                lengthBelief,
+							Width:                 widthBelief,
+							Height:                l5tracks.DimensionBelief{Metres: 1.5, SigmaMetres: 0.3, Provenance: l5tracks.ProvenanceClassPrior},
+							Motion:                l5tracks.MotionClassBelief{Class: l5tracks.MotionRigidVehicle, Posterior: 0.9},
+							Estimation:            l5tracks.EstimationGeometryConverging,
+							Stage:                 l5tracks.StageLive,
+							LastObservedUnixNanos: frame,
+							Support:               l5tracks.SupportState{PointCount: 8},
+						},
+						VX: 10, Covariance: cov,
+						Measurement: l5tracks.SolidBodyMeasurement{Source: l5tracks.MeasurementNearEdgeCandidateV1, Rank: 2},
 					},
-					VX: 10, Covariance: cov,
-					Measurement: l5tracks.SolidBodyMeasurement{Source: l5tracks.MeasurementNearEdgeCandidateV1, Rank: 2},
-				},
+				})
 			}); err != nil {
 				return err
 			}

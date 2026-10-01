@@ -2,6 +2,7 @@ package evalfixture
 
 import (
 	"math"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -88,5 +89,36 @@ func TestNearFaceDBWritesOneVersionPerArm(t *testing.T) {
 	}
 	if len(counts) != 8 || counts["exact"] != NearFaceSamples || counts["gappy"] != 1 {
 		t.Fatalf("versions %v", counts)
+	}
+}
+
+func TestNearFaceFixturesReportAFailedWrite(t *testing.T) {
+	// A pack cannot be written where a file stands in its place.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pack"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if f, err := WriteNearFacePack(dir, NearFaceOptions{}); err == nil || f != nil {
+		t.Fatalf("pack over a file: %v, %v", f, err)
+	}
+	// Nor a split manifest where a directory stands.
+	dir = t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "split.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if f, err := WriteNearFacePack(dir, NearFaceOptions{}); err == nil || f != nil {
+		t.Fatalf("manifest over a directory: %v, %v", f, err)
+	}
+	// A database is not opened in a directory that is not there, and a second
+	// write of the same observations is refused rather than doubled.
+	if err := WriteNearFaceDB(filepath.Join(t.TempDir(), "absent", "e.db"), map[string]NearFaceBody{"a": {}}); err == nil {
+		t.Fatal("database in a missing directory")
+	}
+	path := filepath.Join(t.TempDir(), "e.db")
+	if err := WriteNearFaceDB(path, map[string]NearFaceBody{"a": {}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteNearFaceDB(path, map[string]NearFaceBody{"a": {}}); err == nil {
+		t.Fatal("the same observations written twice")
 	}
 }

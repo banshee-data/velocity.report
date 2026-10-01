@@ -1,9 +1,12 @@
 package perframeeval
 
 import (
+	"cmp"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
@@ -395,11 +398,8 @@ func loadNearFaceMasks(opts NearFaceOptions) ([]nearFaceMask, NearFaceReference,
 			masks = append(masks, nm)
 		}
 	}
-	sort.Slice(masks, func(i, j int) bool {
-		if masks[i].sampleID != masks[j].sampleID {
-			return masks[i].sampleID < masks[j].sampleID
-		}
-		return masks[i].object < masks[j].object
+	slices.SortFunc(masks, func(a, b nearFaceMask) int {
+		return cmp.Or(cmp.Compare(a.sampleID, b.sampleID), strings.Compare(a.object, b.object))
 	})
 	if len(masks) == 0 {
 		return nil, ref, fmt.Errorf("the selected episodes hold no scored mask under the %s policy: review the objects first", opts.Policy.Status)

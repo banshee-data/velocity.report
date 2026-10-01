@@ -154,6 +154,13 @@ func TestDraftSplitRefusesWhatItCannotDraft(t *testing.T) {
 	if _, _, err := DraftSplitManifest(&Pack{}, s, draftOptions()); err == nil {
 		t.Fatal("an empty pack drafted")
 	}
+	// A pack whose digest is not a SHA-256 cannot be bound by a manifest, so
+	// nothing is drafted and the structure check says why.
+	p3, s3 := draftScene(t)
+	p3.Manifest.PackDigest, s3.PackDigest = "plain", "plain"
+	if _, _, err := DraftSplitManifest(p3, s3, draftOptions()); err == nil || !strings.Contains(err.Error(), "pack_digest") {
+		t.Fatalf("a pack with no sha256 digest: %v", err)
+	}
 }
 
 func TestFirstSampleAtOrAfterFindsWhereAWarmUpEnds(t *testing.T) {
@@ -174,5 +181,8 @@ func TestFirstSampleAtOrAfterFindsWhereAWarmUpEnds(t *testing.T) {
 	}
 	if _, err := FirstSampleAtOrAfter(&Pack{}, 0); err == nil {
 		t.Fatal("an empty pack")
+	}
+	if _, err := FirstSampleAtOrAfterNs(&Pack{}, 0); err == nil {
+		t.Fatal("an empty pack, by time")
 	}
 }
