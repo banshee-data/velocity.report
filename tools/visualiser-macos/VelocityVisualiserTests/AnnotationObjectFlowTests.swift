@@ -30,7 +30,9 @@ enum SyntheticPack {
     typealias Backdrop = (ordinal: Int, points: [simd_float3])
 
     static func write(
-        _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = []
+        _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
+        intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
+        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2
     ) throws -> URL {
         var bytes = Data()
         var entries: [String] = []
@@ -38,19 +40,23 @@ enum SyntheticPack {
             let offset = bytes.count
             func append(_ values: [Float]) {
                 for value in values {
-                    withUnsafeBytes(of: value.bitPattern.littleEndian) { bytes.append(contentsOf: $0) }
+                    withUnsafeBytes(of: value.bitPattern.littleEndian) {
+                        bytes.append(contentsOf: $0)
+                    }
                 }
             }
             append(points.map(\.x))
             append(points.map(\.y))
             append(points.map(\.z))
-            bytes.append(contentsOf: [UInt8](repeating: 100, count: points.count))
+            bytes.append(
+                contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
+            let presence = (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
             entries.append(
                 """
-                {"sample_id": \(id), "source_ordinal": \(2 * id + 1), "source_frame_id": \(100 + id), \
+                {"sample_id": \(id), "source_ordinal": \(sourceStride * id + 1), "source_frame_id": \(100 + id), \
                 "timestamp_ns": \(1_000_000_000 + id * 100_000_000), "sensor_id": "synthetic", \
-                "point_count": \(points.count), "byte_offset": \(offset)}
+                "point_count": \(points.count), "byte_offset": \(offset)\(presence)}
                 """)
         }
         let samplesJSON = "[" + entries.joined(separator: ",") + "]"
@@ -63,7 +69,9 @@ enum SyntheticPack {
         var backgroundEntries: [String] = []
         for (id, backdrop) in backdrops.enumerated() {
             let offset = backgroundBytes.count
-            for axis in [backdrop.points.map(\.x), backdrop.points.map(\.y), backdrop.points.map(\.z)] {
+            for axis in [
+                backdrop.points.map(\.x), backdrop.points.map(\.y), backdrop.points.map(\.z),
+            ] {
                 for value in axis {
                     withUnsafeBytes(of: value.bitPattern.littleEndian) {
                         backgroundBytes.append(contentsOf: $0)
@@ -96,10 +104,12 @@ enum SyntheticPack {
              "coverage": "foreground_only", "sample_count": \(samples.count),
              "point_count": \(samples.map(\.count).reduce(0, +)),
              "points_sha256": "\(pointsSHA)", "samples_sha256": "\(samplesSHA)",
-             "pack_digest": "\(packDigest)", "has_intensity": true, "has_classification": true\(backgroundKeys)}
+             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)}
             """
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "synthetic-\(UUID().uuidString)")
+        let dir =
+            directory
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent(
+                "synthetic-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data(manifest.utf8).write(to: dir.appendingPathComponent("manifest.json"))
         try Data((samplesJSON + "\n").utf8).write(to: dir.appendingPathComponent("samples.json"))
@@ -120,7 +130,10 @@ enum SyntheticPack {
             for j in 0..<3 {
                 for k in 0..<2 {
                     points.append(
-                        (origin.x + Float(i) * 0.3, origin.y + Float(j) * 0.3, -1 + Float(k) * 0.3, 1))
+                        (
+                            origin.x + Float(i) * 0.3, origin.y + Float(j) * 0.3,
+                            -1 + Float(k) * 0.3, 1
+                        ))
                 }
             }
         }
@@ -131,10 +144,9 @@ enum SyntheticPack {
     static let wall: [Point] = (0..<6).map { (20 + Float($0) * 0.3, 20, -0.5, 1) }
 }
 
-@MainActor
-private func openSession(_ samples: [[SyntheticPack.Point]], heightBand: String? = nil) throws -> (
-    AnnotationSession, URL
-) {
+@MainActor private func openSession(
+    _ samples: [[SyntheticPack.Point]], heightBand: String? = nil
+) throws -> (AnnotationSession, URL) {
     let dir = try SyntheticPack.write(samples, heightBand: heightBand)
     let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
     session.operatorName = "dd"
@@ -184,12 +196,12 @@ struct HeightBandTests {
             points: points, hasClassification: false, band: .pipelineDefault)
         // Its zero class bytes are padding, not a claim of background.
         #expect(classes == [PointClass.ground, PointClass.unclassified])
-        #expect(PointVisibility(background: false, foreground: false, ground: false).shows(classes[1]))
+        #expect(
+            PointVisibility(background: false, foreground: false, ground: false).shows(classes[1]))
     }
 }
 
-@MainActor
-struct SessionHeightBandTests {
+@MainActor struct SessionHeightBandTests {
     @Test func thePacksOwnBandIsUsedAndNotFlaggedAsAssumed() throws {
         let (session, dir) = try openSession(
             [[(0, 0, -1.5, 1), (0, 0, 0, 1)]],
@@ -224,8 +236,7 @@ struct SessionHeightBandTests {
 
 // MARK: - Creating and saving an object
 
-@MainActor
-struct ObjectOrderTests {
+@MainActor struct ObjectOrderTests {
     @Test func namingWhatIsSelectedDoesNotThrowTheSelectionAway() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -341,8 +352,7 @@ struct ObjectOrderTests {
 
 // MARK: - Sphere brush
 
-@MainActor
-struct SpherePaintTests {
+@MainActor struct SpherePaintTests {
     /// Three returns in a line along x at one height, and one directly above
     /// the first, in the top view's line of sight.
     private let line: [SyntheticPack.Point] = [
@@ -477,8 +487,7 @@ struct SelectionFootprintTests {
 
 // MARK: - Carrying a selection
 
-@MainActor
-struct CarriedSelectionTests {
+@MainActor struct CarriedSelectionTests {
     private func drive(_ positions: [simd_float2]) -> [[SyntheticPack.Point]] {
         positions.map { SyntheticPack.car(at: $0) + SyntheticPack.wall }
     }
@@ -530,8 +539,7 @@ struct CarriedSelectionTests {
     }
 
     @Test func theNextCarryStartsFromHowFarTheLastOneMoved() throws {
-        let (session, dir) = try openSession(
-            drive([.zero, simd_float2(3, 0), simd_float2(6, 0)]))
+        let (session, dir) = try openSession(drive([.zero, simd_float2(3, 0), simd_float2(6, 0)]))
         defer { try? FileManager.default.removeItem(at: dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
@@ -584,8 +592,7 @@ struct CarriedSelectionTests {
     }
 
     @Test func nothingIsCarriedOntoASampleAlreadyLabelledOrAcrossAJump() throws {
-        let (session, dir) = try openSession(
-            drive([.zero, simd_float2(1, 0), simd_float2(2, 0)]))
+        let (session, dir) = try openSession(drive([.zero, simd_float2(1, 0), simd_float2(2, 0)]))
         defer { try? FileManager.default.removeItem(at: dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
@@ -620,8 +627,7 @@ struct CarriedSelectionTests {
 
 // MARK: - Fixed objects
 
-@MainActor
-struct ApplyToEverySampleTests {
+@MainActor struct ApplyToEverySampleTests {
     private let roundTheWall = SelectionPolygon(
         rectFrom: simd_float2(19, 19), to: simd_float2(23, 21))
 
@@ -669,8 +675,9 @@ struct ApplyToEverySampleTests {
 
         #expect(session.applySelectionToAllSamples() == 2)
         #expect(
-            session.sidecar.mask(objectID: building.objectID, sampleID: 1)?.pointIndices
-                == [18, 19])
+            session.sidecar.mask(objectID: building.objectID, sampleID: 1)?.pointIndices == [
+                18, 19,
+            ])
     }
 
     @Test func aCarCannotBeAppliedToEverySample() throws {
@@ -740,21 +747,24 @@ struct ViewportKeyTests {
     private func key(_ code: UInt16, shift: Bool = false) throws -> NSEvent {
         try #require(
             NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: shift ? [.shift] : [],
-                timestamp: 0, windowNumber: 0, context: nil, characters: "",
-                charactersIgnoringModifiers: "", isARepeat: false, keyCode: code))
+                with: .keyDown, location: .zero, modifierFlags: shift ? [.shift] : [], timestamp: 0,
+                windowNumber: 0, context: nil, characters: "", charactersIgnoringModifiers: "",
+                isARepeat: false, keyCode: code))
     }
 
     @Test func arrowsAreDirectionsInTheViewAndShiftIsCoarse() throws {
         #expect(
-            ViewportInputView.viewportKey(for: try key(123)) == .nudge(right: -1, up: 0, coarse: false))
+            ViewportInputView.viewportKey(for: try key(123))
+                == .nudge(right: -1, up: 0, coarse: false))
         #expect(
-            ViewportInputView.viewportKey(for: try key(124)) == .nudge(right: 1, up: 0, coarse: false))
+            ViewportInputView.viewportKey(for: try key(124))
+                == .nudge(right: 1, up: 0, coarse: false))
         #expect(
             ViewportInputView.viewportKey(for: try key(126, shift: true))
                 == .nudge(right: 0, up: 1, coarse: true))
         #expect(
-            ViewportInputView.viewportKey(for: try key(125)) == .nudge(right: 0, up: -1, coarse: false))
+            ViewportInputView.viewportKey(for: try key(125))
+                == .nudge(right: 0, up: -1, coarse: false))
         #expect(ViewportInputView.viewportKey(for: try key(36)) == .accept)
         #expect(ViewportInputView.viewportKey(for: try key(53)) == .cancel)
         #expect(ViewportInputView.viewportKey(for: try key(0)) == nil)

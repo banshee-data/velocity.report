@@ -14,6 +14,10 @@ struct Uniforms {
     float4x4 modelView;
     float pointSize;
     float time;
+    // x: point colouring mode. 0 modulates the class colour by intensity (the
+    // live view), 1 is the class colour alone, 2 looks the colour up by raw
+    // intensity code in the fragment's intensity table. See
+    // MetalRenderer.IntensityColouring.
     float2 padding;
 };
 
@@ -28,6 +32,7 @@ struct PointVertexOut {
     float intensity;
     float classification;
     float depth;
+    float colouring [[flat]];
 };
 
 vertex PointVertexOut pointVertex(
@@ -60,6 +65,7 @@ vertex PointVertexOut pointVertex(
     out.intensity = intensity;
     out.classification = classification;
     out.depth = viewPos.z;
+    out.colouring = uniforms.padding.x;
 
     return out;
 }
@@ -89,7 +95,8 @@ constant float3 annotationPalette[ANNOTATION_PALETTE_COUNT] = {
 
 fragment float4 pointFragment(
     PointVertexOut in [[stage_in]],
-    float2 pointCoord [[point_coord]]
+    float2 pointCoord [[point_coord]],
+    constant float4 *intensityTable [[buffer(0)]]
 ) {
     // Circular point sprite
     float2 centered = pointCoord - 0.5;
@@ -112,6 +119,20 @@ fragment float4 pointFragment(
         // object.
         int entry = clamp(int(in.classification + 0.5) - 16, 0, ANNOTATION_PALETTE_COUNT - 1);
         colour = annotationPalette[entry];
+    } else if (in.colouring > 1.5) {
+        // The raw code, recovered exactly from code / 255, indexes the same
+        // table the annotation window's 2D views colour from.
+        int code = clamp(int(in.intensity * 255.0 + 0.5), 0, 255);
+        colour = intensityTable[code].rgb;
+    } else if (in.colouring > 0.5) {
+        // The 2D views' class colours, with no intensity in them.
+        if (abs(in.classification - 1.0) < 0.01) {
+            colour = float3(0.35, 0.95, 0.40);
+        } else if (abs(in.classification - 2.0) < 0.01) {
+            colour = float3(0.68, 0.57, 0.38);
+        } else {
+            colour = float3(0.55, 0.55, 0.62);
+        }
     } else if (abs(in.classification - 1.0) < 0.01) {
         // Foreground: green with intensity modulation
         float3 lowColour = float3(0.1, 0.6, 0.2);   // dark green

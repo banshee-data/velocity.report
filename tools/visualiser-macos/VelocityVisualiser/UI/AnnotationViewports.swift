@@ -36,6 +36,11 @@ enum ViewportKey: Equatable {
     case voxel(Int)
     case accept
     case cancel
+    /// M: pin (mark) the return the intensity readout is showing. Not P,
+    /// which the Overlays menu binds app-wide.
+    case inspectPin
+    /// N: step the readout to the next return under the same place.
+    case inspectNext
 
     /// What this key does, which depends only on whether a proposal is being
     /// carried. Kept apart from the view so the order can be read and tested
@@ -59,13 +64,14 @@ enum ViewportKey: Equatable {
             case .accept: return .acceptCarried
             case .cancel: return .dismissCarried
             case .voxel(let k): return .toggleVoxel(k)
+            case .inspectPin, .inspectNext: return .pass
             }
         }
         switch self {
         case .nudge(let right, 0, _): return .stepFrame(forward: right > 0)
         case .nudge(0, let up, let coarse): return .moveGround(steps: up, coarse: coarse)
         case .voxel(let k): return .toggleVoxel(k)
-        case .nudge, .accept, .cancel: return .pass
+        case .nudge, .accept, .cancel, .inspectPin, .inspectNext: return .pass
         }
     }
 }
@@ -94,6 +100,9 @@ struct ViewportInputLayer: NSViewRepresentable {
     var onDepthStep: (Int) -> Void = { _ in }
     /// A key the view may have a use for. Returns true when it did.
     var onKey: (ViewportKey) -> Bool = { _ in false }
+    /// Whether a press here, where strokes are off, starts a drag of its own
+    /// (a handle) rather than a pan.
+    var claimsDrag: (CGPoint) -> Bool = { _ in false }
 
     func makeNSView(context: Context) -> ViewportInputView {
         let view = ViewportInputView()
@@ -129,6 +138,12 @@ final class ViewportInputView: NSView {
         window?.makeFirstResponder(self)
         let point = location(of: event)
         let strokes = layer_?.strokesEnabled ?? false
+        if !strokes, !event.modifierFlags.contains(.control), layer_?.claimsDrag(point) == true {
+            pressedAt = nil
+            drag = .stroke(start: point)
+            layer_?.onStrokeChanged(ViewportStroke(startLocation: point, location: point))
+            return
+        }
         pressedAt = strokes ? nil : point
         if !strokes || event.modifierFlags.contains(.control) {
             drag = .pan(last: point)
@@ -232,6 +247,10 @@ final class ViewportInputView: NSView {
         case 126: return .nudge(right: 0, up: 1, coarse: coarse)
         case 36, 76: return .accept
         case 53: return .cancel
+        case 46 where event.modifierFlags.intersection([.command, .control, .option]).isEmpty:
+            return .inspectPin
+        case 45 where event.modifierFlags.intersection([.command, .control, .option]).isEmpty:
+            return .inspectNext
         default:
             // Digits 0 to 7, in the order they sit on the keyboard rather than
             // the order of their key codes, which is not monotonic.
@@ -340,6 +359,15 @@ struct AnnotationSceneView: NSViewRepresentable {
             coordinator.backgroundID = session.currentBackground?.backgroundID
             renderer.showBackground =
                 session.currentBackground != nil && session.visibility.background
+            // Off is the class palette with no intensity in it, not the live
+            // view's intensity-brightened colours; on is the same table the
+            // 2D views colour from.
+            let display = session.intensityDisplay
+            renderer.intensityColouring = display.enabled ? .table : .flat
+            if display.enabled {
+                renderer.intensityTable = display.table(
+                    available: session.intensityAvailability.available)
+            }
             renderer.updateFrame(
                 AnnotationScene.frame(
                     points: session.currentPoints, classes: session.currentClasses,

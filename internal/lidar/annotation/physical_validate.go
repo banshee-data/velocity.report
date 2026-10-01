@@ -457,6 +457,14 @@ func (v *physicalValidator) review(r PhysicalReview, declaresBounds bool) error 
 	default:
 		return fmt.Errorf("origin %q", r.Origin)
 	}
+	if r.ReviewedAgainst != nil {
+		if r.Status != StatusReviewed {
+			return fmt.Errorf("a %s record cannot carry the membership it was reviewed against", r.Status)
+		}
+		if r.ReviewedAgainst.Revision < 1 {
+			return fmt.Errorf("reviewed_against names membership revision %d", r.ReviewedAgainst.Revision)
+		}
+	}
 	if declaresBounds && strings.TrimSpace(r.UncertaintyAssumptions) == "" {
 		return fmt.Errorf("a record that declares bounds must state its uncertainty assumptions")
 	}

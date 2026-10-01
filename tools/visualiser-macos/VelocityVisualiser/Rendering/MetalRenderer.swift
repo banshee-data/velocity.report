@@ -38,8 +38,28 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         var modelView: simd_float4x4
         var pointSize: Float
         var time: Float
+        /// x is the point colouring mode (see IntensityColouring); y unused.
         var padding: simd_float2
     }
+
+    /// How points of classes 0 to 2 take their colour. The shader reads it
+    /// from `Uniforms.padding.x`.
+    enum IntensityColouring: Float {
+        /// Class colour brightened by intensity: the live view's default.
+        case modulated = 0
+        /// Class colour alone, with no intensity in it at all.
+        case flat = 1
+        /// Colour looked up from `intensityTable` by the raw code.
+        case table = 2
+    }
+
+    var intensityColouring: IntensityColouring = .modulated
+    /// 256 colours, one per raw intensity code. Always bound, because the
+    /// fragment function declares it whatever the mode.
+    var intensityTable: [SIMD4<Float>] = Array(repeating: SIMD4(1, 1, 1, 1), count: 256) {
+        didSet { if intensityTable != oldValue { intensityTableBuffer = nil } }
+    }
+    private var intensityTableBuffer: MTLBuffer?
 
     var uniforms = Uniforms(
         modelViewProjection: matrix_identity_float4x4, modelView: matrix_identity_float4x4,
@@ -877,6 +897,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         uniforms.modelView = camera.viewMatrix
         uniforms.pointSize = pointSize
         uniforms.time = Float(CACurrentMediaTime() - startTime)
+        uniforms.padding.x = intensityColouring.rawValue
 
         encoder.setDepthStencilState(depthStencilState)
 
@@ -890,6 +911,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // Draw point cloud
         if showPoints || showBackground, let pipeline = pointCloudPipeline {
+            if intensityTableBuffer == nil {
+                intensityTableBuffer = intensityTable.withUnsafeBytes { table in
+                    device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
+                }
+            }
+            encoder.setFragmentBuffer(intensityTableBuffer, offset: 0, index: 0)
             // M3.5: Use composite renderer if available
             if let composite = compositeRenderer {
                 // Advance background crossfade transition before rendering

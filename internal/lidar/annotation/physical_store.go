@@ -41,10 +41,17 @@ const (
 // caller untouched; after an uncertain durability error, reload before
 // retrying. Change.Author, Session and Operation are the caller's.
 func SavePhysicalReferences(p *Pack, r *PhysicalReferenceSet) error {
-	return savePhysical(p, r, 0)
+	return savePhysicalPinned(p, r, 0, nil)
 }
 
 func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
+	return savePhysicalPinned(p, r, restoredFrom, nil)
+}
+
+// savePhysicalPinned is savePhysical with an optional membership pin: when
+// membership is non-nil, the commit is refused unless the sidecar read under
+// the lock has exactly that digest.
+func savePhysicalPinned(p *Pack, r *PhysicalReferenceSet, restoredFrom int, membership *string) error {
 	// Clone before canonicalising: a failed save must not change a dirty session.
 	next := *r
 	next.Objects = clonePhysicalObjects(r.Objects)
@@ -54,11 +61,11 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 		next.RecordOrigins[key] = origin
 	}
 	if err := mergeOrigins(next.RecordOrigins, next.currentOrigins()); err != nil {
-		return fmt.Errorf("invalid physical reference edit: %w", err)
+		return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 	}
 	next.canonicalise()
 	if err := next.Validate(p); err != nil {
-		return fmt.Errorf("invalid physical reference edit: %w", err)
+		return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 	}
 
 	root, err := os.OpenRoot(p.Dir)
@@ -78,6 +85,9 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 	if err != nil {
 		return err
 	}
+	if membership != nil && *membership != sidecar.baseDigest {
+		return ErrMembershipChanged
+	}
 	previous, err := readAnnotationFile(root, physicalReferenceFile)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read current physical references: %w", err)
@@ -95,7 +105,7 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 		// The parent's ledger is authoritative: an origin recorded there
 		// holds for every later revision, whatever the caller's copy says.
 		if err := mergeOrigins(next.RecordOrigins, current.RecordOrigins); err != nil {
-			return err
+			return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 		}
 	} else {
 		if r.baseDigest != "" || r.Revision != 1 {
@@ -122,7 +132,7 @@ func savePhysical(p *Pack, r *PhysicalReferenceSet, restoredFrom int) error {
 	// the document validated above is still valid; its links are checked
 	// now, against the sidecar at commit.
 	if err := next.ValidateLinks(p, sidecar); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 	}
 
 	b, err := json.MarshalIndent(&next, "", "  ")

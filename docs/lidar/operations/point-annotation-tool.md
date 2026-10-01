@@ -240,7 +240,7 @@ mostly the speckle of every frame, are behind a toggle.
 1. Select the object's points in the editing view.
 2. Choose a class and press **New object from selection**. Selecting first and naming second is
    the expected order.
-3. **Save points** (⌘S).
+3. **Save points** (**S** or ⌘S), or **Save and next** (**X**) to save and step to the next frame.
 4. **Forward ▶▶** (⌘]) or **◀◀ Back** (⌘[) carries the mask through the frames on its own and
    saves them at once. It stops, and leaves you on that frame with the refused fit to nudge,
    where the object is lost, has doubled, could be in two places, is further than it could have
@@ -410,6 +410,123 @@ test is refused as observed; state it as inferred.
 A keyframe covers its own sample and nothing else. Frames between keyframes have no reference
 until someone reviews one there.
 
+### Authoring in the window
+
+Physical references are authored in the annotation window, in the **Physical reference** mode at
+the top of the right-hand column. The window never writes `physical-references.json` itself: it
+sends each edit to the local server, which applies the rules below, and shows what the server
+answers. The server must hold the same pack folder the window opened, under its
+`--lidar-annotation-dir`. A pack opened from anywhere else can be viewed, but not saved.
+
+Entering the mode pauses the link with the main view. The main view draws the tracker's boxes, and
+a reference is independent only if its author has not seen them, so keep the main window's boxes
+out of sight while authoring.
+
+1. Choose the object in the list. Membership and identity come first, in Points mode.
+2. **Body · whole object** holds one length, width and height for the whole episode. A new body
+   is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
+   inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
+   external reference it rests on. A partial span is a lower bound only.
+3. **Keyframe · this frame only** holds this frame's pose. Click in the Top view to place its
+   position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
+   say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
+   face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
+   and only after the position exists.
+4. Give each record its method and uncertainty assumptions. The server checks the draft as you
+   edit and says what it would refuse, and which reviews a save would reset.
+5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
+   and steps to the next frame. A save never reviews anything. A changed
+   body dimension is a new body under a new ID, and every keyframe of that object returns to
+   proposed.
+6. Inspect the saved record in both views, then **Review body** and **Review keyframe**,
+   separately. Review is refused while the draft has unsaved changes, because it confirms the
+   saved record.
+
+The object list shows three separate progress lines: membership frames, the body's review, and
+keyframes saved and reviewed. The overlay draws only what a keyframe establishes: a marker and its
+bound for a position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
+box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
+proposed or reviewed, and uses a different line style for each.
+
+Unsaved physical work guards stepping, switching objects, opening another pack and closing the
+window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
+**Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
+them. If a save gets no answer, the window will not save again until it has reloaded, because the
+first save may have committed.
+
+More in the Physical column:
+
+- **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
+  the dot at the end of the axis to turn it with the position held, and the diamond at the far end
+  of the body to revise its length with the anchor held. A length drag moves the stated interval
+  with the value, keeping its width, and is a body change: saving it makes a new body and returns
+  every keyframe of the object to proposed. A drag is one undo step.
+- **Copy keyframe from sample N** starts this frame's keyframe from the nearest one. The copy is
+  a proposal: whatever the source observed becomes inferred from the source's frames, and its
+  origin stays the source's. Check it against this frame's returns before claiming anything
+  observed.
+- **Shared errors** name one observation several components rest on, such as one rear-face fit
+  that placed the anchor and bounded the length.
+- **Stale records** after a membership change (a rejected object, a removed mask) can be removed,
+  or moved to another object after a merge. Moving refuses when the target already has a body or
+  a keyframe at the same sample.
+- **History** lists every saved revision. **Restore** makes an old one current as a new revision;
+  the current one stays in history.
+
+A review records the membership revision it was made against. If membership later changes in a
+frame the record rests on (its own frame, or any frame it cites), the column lists it under
+**Reviewed, but membership changed since**, and it can be reviewed again. The link checks alone
+would miss this, because every link can still hold while the points a person judged are
+different.
+
+Membership saves refuse to make one return belong to two objects in a frame, because Go's tools,
+the physical service included, refuse a pack where one does. A pack that already has such returns
+lists them at the top of the object column, with a button to go to each frame, and can still be
+saved so they can be repaired.
+
+### Comparing with an estimate
+
+**Compare** mode opens a per-frame evaluation report run with `-physical-reference` (see
+[per-frame evaluation](per-frame-evaluation.md#physical-references)) and shows, at each frame, the
+reference the report scored beside the chosen arm's estimate. The window writes nothing while in
+this mode.
+
+- The report must be for this pack. The column shows its split, the membership revision and the
+  reference revision it scored, and whether that revision is still kept with the same bytes. If
+  the references have moved on since, the report is still shown as it was scored. It is never
+  mixed with the current references; run a new evaluation to compare those.
+- For each object at this frame it shows the matched track, the centre, yaw, dimension and end
+  errors against the reference bounds, and why any component was not scored. It also compares
+  the reference's movement since the previous frame with the estimate's, so a real turn is not
+  read as jitter. A medoid or visible-return centre is labelled as that, never as a body centre.
+  Following instants at the frame show the reference gap, the estimate's gap and the error. In
+  the elevations each layer is a vertical at its own planar position: the report records no
+  heights.
+- A reviewed record whose membership changed after its review is shown by the evaluator and not
+  scored, with its own reason, and the report's caveats name it. Review it again against the
+  scored membership and run a new evaluation.
+- **Seeing is recorded.** Once an estimate for an object has been shown, any later edit of that
+  object's reference is saved as tracker-assisted, naming the estimate, in any mode. A record
+  saved as independent is not relabelled. The edit becomes a new record, and the independent one
+  stays in history. This is kept per pack across launches, and cannot be cleared from the window.
+- A pack whose `segment.json` role is `held_out`, or a report of a held-out split, is not
+  compared.
+
+### Freezing from the window
+
+**Freeze Split…** (beneath the editing column) freezes a reviewed split through the service. The
+window does not author the split: choose a draft file in the CLI's format
+(`velocity.report/split-draft`), naming each pack by its folder beneath the service's annotation
+folder, as the physical-reference service names packs. **Preview** shows what the service would
+pin: for each pack its membership revision and digest, its physical revision and digests (or that
+it has no physical references, in which case the split pins membership only), each object's
+partition, each object's body and keyframe review, the components that reviewed keyframes leave
+unavailable, and every problem that stops the freeze. **Freeze** is enabled only when the preview
+is of the chosen draft and says it would freeze; it writes the split once, under the name you
+give, into `splits/` beneath the annotation folder, and refuses to overwrite. A new revision of an
+existing split names it under **Supersedes**. The same rules refuse a freeze on the command line;
+the button is not where they are enforced.
+
 ### Importing and validating
 
 An independent reference measured elsewhere comes in through an import file,
@@ -488,6 +605,86 @@ Physical scoring refuses a held-out split. Its error limits, reference precision
 to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
 and the along-path gap waits for persisted paths.
 
+## Feature candidates
+
+Choose **Feature Candidates** in the editing-mode menu after saving the active object's membership
+in **Object Points**. The same sphere gesture now selects feature support within that object's
+saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
+feature preview; cyan marks saved support. The mode, feature ID, method and proposal origin remain
+visible. The companion 3D view supplies object context; feature rings are in the orthographic views.
+
+1. Enter **Labelled by**, choose the object, and select **New feature**. Click a return in either
+   orthographic view. Dragging pans rather than painting object points.
+2. Adjust the sphere radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
+   views. The selected returns must be saved definite members of this object, with conflicting
+   or uncertain object claims excluded. Different features may overlap.
+3. Name the feature and choose unknown, edge, corner, patch or protrusion. A semantic hint such as
+   “wing mirror” is optional. These are descriptions, not recognition presets: the tool does not
+   fit a right-angle corner, recognise a headlight or detect a wheel-well recess.
+4. **Accept and save** retains a proposal under a persistent feature ID. **Reject**, **Missing**
+   and **Occluded** retain decisions without measured support. Missing/occluded can be recorded for
+   an existing feature even when this frame has no return to click. **Cancel / stop** drops only
+   the unsaved proposal. No feature action reviews a physical pose or changes an object mask.
+5. **Preview next frame** moves to one consecutive source frame and proposes fresh return indices
+   inside that same object's saved domain. Inspect, edit the sphere, accept, reject or stop before
+   continuing. It does not save automatically or jump across gaps. A weak/ambiguous fit, changed
+   membership or already annotated next frame stops it; seed that frame manually if appropriate.
+6. To revise saved support, select the feature and use **Edit this frame**, then click or resize
+   and save. Names/types/hints are saved with that frame edit. Reopen the pack and select the same
+   ID to inspect its saved decisions. Historical revisions retain the earlier interpretation.
+
+The proposal is deliberately limited: it uses observed-object centroid translation and a small
+local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
+selected return belongs to the same physical surface. Nearby competing fits are checked at the
+feature scale. Changing visibility can shift the observed centroid; reject an implausible result.
+A missing or hidden feature is not a new measurement. General feature recognition, body-relative
+anchors, directed front/rear placement, part motion and full rigid registration remain unfinished.
+The panel explicitly shows the part relation and metric anchor as unresolved.
+
+The local Go annotation service owns feature saves, using the same confined pack root as physical
+references. It must serve the same folder the window opened, not another copy with matching bytes.
+No Internet connection is required. Without the local service, a supported `feature-proposals.pb`
+can be inspected read-only. Authoritative saves go through the shared recording-domain protobuf,
+revision tokens, annotation lock and exact-byte history in `feature-proposal-revisions`.
+
+If a save is not confirmed, the draft remains and further writes are disabled. Cancel it and
+**Reload** to inspect what the service actually committed before retrying. Do not assume a lost
+response means nothing reached disk. Changed membership stops propagation; reconcile and reseed
+against its new revision. Old support keeps its original membership pin and is not silently
+reinterpreted. Proposals are not independent reviewed references, and the held-out scoring gate
+is unchanged.
+
+## Raw intensity
+
+**Intensity (raw 0–255)** in the right-hand column is independent of the modes. It writes nothing,
+and marks nothing unsaved.
+
+- **Reflectivity colour** is off by default. On, it colours the returns in the orthographic views
+  and the 3D view from one 256-entry table, so a code has the same colour in both. Measured zero
+  has a fixed swatch; the gradient covers 1–255, and unavailable intensity has its own colour.
+  The range, ramp,
+  contrast and brightness only change how returns are drawn. A nonzero code outside the range is drawn in
+  the end colour, and the column counts how many were clamped in this frame. Off restores the
+  class colours, without the intensity brightening the main view uses.
+- **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved
+  mask at this frame (definite members; uncertain points are counted as excluded), of the unsaved
+  selection, or of the chosen proposal. A proposal is the proposer's own clustering of the pack's
+  points, with every member recorded, so it is exact membership; it is an algorithm's suggestion
+  and not a review, and not the tracker's output. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
+  with a centre and width (the mean and spread of the raw codes in it), a support count and a
+  fraction of all measured returns. A peak is not a surface or a material, and changing the colour
+  range does not change it.
+- **Inspect returns** reads out the return under the cursor: its stored byte, point index, sample
+  and position. **M** pins it; **N** steps to the next return under the same place. The readout
+  is the stored byte, whatever the colour settings.
+
+A pack declares intensity for the whole pack, and packs cut since presence was recorded also say
+it per frame (`has_intensity` on each sample). If a frame's source carried no intensity column,
+its stored bytes are zero-fill: the readout says unavailable and every return is drawn in a
+distinct "not measured" colour, whatever the pack-wide flag says. A pack cut before that was
+recorded has only the pack-wide flag, and the column says that a frame the source did not measure
+would read as zeros. The code is the sensor's raw byte, not a calibrated reflectance.
+
 ## Revision history
 
 Every save archives the exact bytes it replaced as a full snapshot, so the history grows by one
@@ -543,3 +740,6 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
+- Following references are read and kept, but not authored, in the window. Width and height are
+  set numerically; only length has a handle.
+- Compare opens a saved report; it does not start an evaluation.

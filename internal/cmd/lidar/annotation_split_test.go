@@ -6,6 +6,7 @@ package lidar
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +37,8 @@ func reviewedPack(t *testing.T, dir string, startNs int64) *annotation.Pack {
 		samples = append(samples, annotation.Sample{SourceOrdinal: i, TimestampNs: startNs + int64(i)*1e9, PointCount: 4})
 		blocks = append(blocks, block)
 	}
-	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{PCAPBasename: "cap.pcap"}}
+	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{PCAPBasename: "cap.pcap"},
+		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor", Handedness: "right", OriginNote: "test"}}
 	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +73,39 @@ func saveReview(t *testing.T, p *annotation.Pack, note string) {
 	if err := annotation.SaveSidecar(p, s); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// savePhysical commits a physical-reference revision for the pack: obj_a
+// with a reviewed independent body that states no dimension, and one
+// keyframe at sample 0 that states nothing but its instant, a proposal an
+// operator has yet to fill in. It links to any membership that declares
+// obj_a, so it holds against every revision saveReview writes.
+func savePhysical(t *testing.T, p *annotation.Pack) *annotation.PhysicalReferenceSet {
+	t.Helper()
+	r, err := annotation.LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Change = annotation.Provenance{Author: "op", Operation: "author"}
+	unknown := annotation.DimensionBound{Status: annotation.EvidenceUnknown}
+	r.Objects = []annotation.PhysicalObject{{ObjectID: "obj_a", Body: &annotation.BodyGeometry{
+		BodyID: "body-a", AxisConvention: annotation.BodyAxisConvention, Length: unknown, Width: unknown, Height: unknown,
+		Review: annotation.PhysicalReview{Status: annotation.StatusReviewed, Origin: annotation.OriginIndependent,
+			Method: "manual_box", Provenance: annotation.Provenance{Author: "op"}},
+	}, Keyframes: []annotation.PhysicalKeyframe{{
+		KeyframeID: fmt.Sprintf("kf-a-%d", r.Revision), SampleID: 0, TimestampNs: p.Samples[0].TimestampNs,
+		Anchor:   annotation.PhysicalAnchor{Kind: annotation.AnchorBodyCentre},
+		Position: annotation.PositionBound{Status: annotation.EvidenceUnknown},
+		Yaw:      annotation.YawBound{Status: annotation.EvidenceUnknown, Axis: annotation.AxisUnknown},
+		Front:    annotation.EndpointEvidence{Status: annotation.EvidenceUnknown},
+		Rear:     annotation.EndpointEvidence{Status: annotation.EvidenceUnknown},
+		Review: annotation.PhysicalReview{Status: annotation.StatusProposed, Origin: annotation.OriginIndependent,
+			Method: "manual_box", Provenance: annotation.Provenance{Author: "op"}},
+	}}}}
+	if err := annotation.SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 // writeDraft writes a draft beside the packs, naming them relative to it.
@@ -199,6 +234,78 @@ func TestAnnotationSplitFreezeThenVerify(t *testing.T) {
 	code, _, stderr = runSplit("freeze", "-draft", undoDraft, "-author", "operator", "-output", filepath.Join(undo, "frozen-3.json"), "-supersedes", next)
 	if code != 1 || !strings.Contains(stderr, "but revision 1 of this split's lineage tuned on it") {
 		t.Fatalf("holding out a tuned pack: exit %d, %s", code, stderr)
+	}
+}
+
+// A pack with physical references is frozen with a pin at the revision the
+// draft names, or its head, and the summary says which; a pack without is
+// said to have none. A revision named for a pack without references is
+// refused.
+func TestAnnotationSplitFreezePinsPhysicalReferences(t *testing.T) {
+	root := t.TempDir()
+	tuned := reviewedPack(t, filepath.Join(root, "tuned"), 1e9)
+	held := reviewedPack(t, filepath.Join(root, "held"), 100e9)
+	first := savePhysical(t, tuned)
+	second := savePhysical(t, tuned)
+	if first.Revision != 1 || second.Revision != 2 {
+		t.Fatalf("revisions %d and %d", first.Revision, second.Revision)
+	}
+	pinned := draftPack("tuned", nil)
+	pinned.PhysicalRevision = 1
+	draft := writeDraft(t, root, pinned, draftPack("held", []string{"obj_a", "obj_b"}))
+	out := filepath.Join(root, "frozen.json")
+
+	code, stdout, stderr := runSplit("freeze", "-draft", draft, "-author", "operator", "-output", out)
+	if code != 0 {
+		t.Fatalf("freeze exited %d: %s", code, stderr)
+	}
+	f, err := annotation.LoadFrozenSplit(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pin *annotation.FrozenPhysical
+	for _, p := range f.Packs {
+		if p.PackDigest == tuned.Manifest.PackDigest {
+			pin = p.Physical
+		} else if p.Physical != nil {
+			t.Fatalf("pack %s without references was pinned: %+v", p.PackDigest, p.Physical)
+		}
+	}
+	if pin == nil || pin.Revision != 1 || pin.SHA256 != first.Digest() {
+		t.Fatalf("pin %+v, want revision 1 (%s)", pin, first.Digest())
+	}
+	for _, want := range []string{
+		"pack " + tuned.Manifest.PackDigest + " (" + tuned.Manifest.DatasetID + ") at annotation revision 1: objects tune 2; 1 episode(s); geometry review none 2; " +
+			"physical revision 1 (" + first.Digest() + "): 1 object(s), 1 reviewed independent bod(ies), 0 of 1 keyframe(s) reviewed; " +
+			"scorable position 0/0, yaw 0/0, length 0/0, width 0/0, height 0/0, front 0/0, rear 0/0",
+		"pack " + held.Manifest.PackDigest + " (" + held.Manifest.DatasetID + ") at annotation revision 1: objects hold 2; 1 episode(s); geometry review none 2; no physical references",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("freeze output lacks %q:\n%s", want, stdout)
+		}
+	}
+	code, stdout, stderr = runSplit("verify", "-split", out, "-pack", tuned.Dir, "-pack", held.Dir)
+	if code != 0 || !strings.Contains(stdout, "physical revision 1 ("+first.Digest()+")") {
+		t.Fatalf("verify: exit %d\n%s\n%s", code, stdout, stderr)
+	}
+
+	// The head, when the draft names no revision.
+	headDir := t.TempDir()
+	headDraft := writeDraft(t, headDir, draftPack(tuned.Dir, nil))
+	headOut := filepath.Join(headDir, "frozen.json")
+	code, stdout, stderr = runSplit("freeze", "-draft", headDraft, "-author", "operator", "-output", headOut)
+	if code != 0 || !strings.Contains(stdout, "physical revision 2 ("+second.Digest()+")") {
+		t.Fatalf("freeze at the head: exit %d\n%s\n%s", code, stdout, stderr)
+	}
+
+	// A revision for a pack with none.
+	none := draftPack(held.Dir, nil)
+	none.PhysicalRevision = 1
+	noneDir := t.TempDir()
+	noneDraft := writeDraft(t, noneDir, none)
+	code, _, stderr = runSplit("freeze", "-draft", noneDraft, "-author", "operator", "-output", filepath.Join(noneDir, "frozen.json"))
+	if code != 1 || !strings.Contains(stderr, "physical_revision 1 is named, but the pack has no physical references to pin") {
+		t.Fatalf("naming a revision for a pack without references: exit %d, %s", code, stderr)
 	}
 }
 
