@@ -5,7 +5,7 @@ yet establish a tracking benefit. Keep reflectivity as a small diagnostic until 
 reference bounds and association make a credible comparison possible.
 
 - **Status:** Local implementation and scalar timing; field and full-pipeline costs unmeasured
-- **Scope:** Native pose sketches, facet subsets, raw intensity inspection and compact registration proposals
+- **Scope:** Native pose sketches, facet subsets, raw intensity inspection and compact/straight-edge registration proposals
 - **Related:** [Minimum facet specification](lidar-facet-annotation-minimum-spec.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [registration experiment](lidar-facet-registration-experiment-plan.md)
 
 ## What the current increment costs
@@ -22,6 +22,12 @@ use one to five bytes each. Four facets with 200 returns each therefore carry 3,
 payload per supported frame, before observations, source pins and history. That is a payload
 calculation, not a measured process-memory budget. Retaining every frame is different from a
 bounded online history; do not multiply an annotation document into every runtime track.
+
+The writer archives the complete previous facet document on every save. If each successive save
+adds another observation, retained snapshot bytes can grow quadratically with observation count;
+the final document's size alone understates disk use. Begin with two or three informative frames
+per facet and measure the whole revision directory before propagating through long recordings.
+Retirement preserves evidence, and no automatic history pruning is implemented.
 
 The geometry inspector allocates temporary selected-point and fitting data when the subset
 changes. The native session caches one frame/subset/type result, so hovering returns or changing
@@ -69,7 +75,10 @@ normalisation and thresholds. Raw codes are not material reflectance; a dense re
 would also depend on stable body pose, visibility and sensor calibration. It remains later
 work. Smooth trails or a stable colour patch cannot establish better boxes or bumper gaps.
 
-Runtime facet measurements, weak-direction edge/surface registration, the two-to-three reset
-ledger and frozen facet pins remain open. Manual annotation edits do not spend that future
+Straight-edge proposals now store a small horizontal normal/offset relation and recheck selected
+support when registering or loading it. Optional frozen pins retain exact proposal revisions;
+they do not copy a second point cloud. Their checks are outside the scalar timing above.
+Runtime facet measurements, surface/full-3D registration and the two-to-three reset
+ledger remain open. Manual annotation edits do not spend that future
 runtime reset budget. The existing geometry/reference and following-metric work remains the
 priority while this diagnostic earns evidence.

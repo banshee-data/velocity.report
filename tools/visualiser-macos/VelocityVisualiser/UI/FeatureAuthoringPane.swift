@@ -220,9 +220,18 @@ struct FeatureAuthoringPane: View {
             Text("Body registration · proposal").font(.caption.bold())
             if let feature = features.active, feature.hasAnchor {
                 let a = feature.anchor
-                Text(
-                    "Forward \(a.xM, specifier: "%.2f") m · left \(a.yM, specifier: "%.2f") m · ± \(a.boundM, specifier: "%.2f") m"
-                ).font(.caption.monospacedDigit())
+                if a.hasLine {
+                    Text(
+                        "Line normal (\(a.line.normalX, specifier: "%.2f"), \(a.line.normalY, specifier: "%.2f")) · offset \(a.line.offsetM, specifier: "%.2f") ± \(a.boundM, specifier: "%.2f") m"
+                    ).font(.caption.monospacedDigit())
+                    Text(
+                        "Normal direction ± \(a.line.normalBoundRad * 180 / .pi, specifier: "%.1f")° · along-edge position unconstrained"
+                    ).font(.caption2).foregroundStyle(.secondary)
+                } else {
+                    Text(
+                        "Forward \(a.xM, specifier: "%.2f") m · left \(a.yM, specifier: "%.2f") m · ± \(a.boundM, specifier: "%.2f") m"
+                    ).font(.caption.monospacedDigit())
+                }
                 Text(
                     "Height unresolved · body \(a.bodyID) · physical revision \(a.physicalRevision)"
                 ).font(.caption2).textSelection(.enabled)
@@ -245,19 +254,38 @@ struct FeatureAuthoringPane: View {
                 }
             }
             Text(
-                "For a compact, repeatable corner or protrusion only. Save its support in two frames, and review the object's body and resolved pose in Physical. A side patch's changing centre is not a point anchor."
+                "Save the same physical part's support in two frames, then review its body and resolved pose in Physical. A corner/protrusion uses a named spot. A straight edge uses two returns to define a line; its along-edge position stays unconstrained. Surface registration is not available."
             ).font(.caption2).foregroundStyle(.secondary)
             if let observation = session.featureOverlay, !features.isDirty,
                 observation.decision == .acceptedProposal
             {
-                Picker("Fixed return", selection: $features.registrationPoint) {
-                    Text("Choose its physical spot").tag(UInt32?.none)
+                let segment = features.geometry == .edge
+                Picker(
+                    segment ? "Segment start" : "Fixed return",
+                    selection: $features.registrationPoint
+                ) {
+                    Text(segment ? "Choose direction start" : "Choose its physical spot").tag(
+                        UInt32?.none)
                     ForEach(observation.pointIndices, id: \.self) { index in
                         Text("Return \(index)").tag(UInt32?.some(index))
                     }
                 }
                 Button("Use pinned return") { session.usePinnedFacetReturn() }.disabled(
                     inspection.pinned == nil)
+                if segment {
+                    Picker("Segment end", selection: $features.registrationEndPoint) {
+                        Text("Choose direction end").tag(UInt32?.none)
+                        ForEach(observation.pointIndices, id: \.self) { index in
+                            Text("Return \(index)").tag(UInt32?.some(index))
+                        }
+                    }
+                    Button("Use pinned return as end") {
+                        session.usePinnedFacetReturn(segmentEnd: true)
+                    }.disabled(inspection.pinned == nil)
+                    Text(
+                        "The two returns define direction only; they are not permanent endpoints. Choose widely separated returns on a real straight edge, not a scan boundary."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
                 Text(
                     "Turn on Inspect returns, hover the physical spot, then press M to pin it. The chosen point is yellow in both views."
                 ).font(.caption2).foregroundStyle(.secondary)
@@ -269,25 +297,42 @@ struct FeatureAuthoringPane: View {
                         let physical = session.physical.state, let bound = returnBoundM
                     else { return }
                     do {
-                        let anchor = try FacetBodyRegistration.make(
-                            feature: feature, sampleID: sample.sampleID, pointIndex: point,
-                            points: session.currentPoints, physical: physical, returnBoundM: bound,
-                            identityNote: identityNote)
+                        let anchor: FacetBodyAnchor
+                        if segment {
+                            guard let end = features.registrationEndPoint else { return }
+                            anchor = try FacetBodyRegistration.makeSegment(
+                                feature: feature, sampleID: sample.sampleID, startIndex: point,
+                                endIndex: end, points: session.currentPoints, physical: physical,
+                                returnBoundM: bound, identityNote: identityNote)
+                        } else {
+                            anchor = try FacetBodyRegistration.make(
+                                feature: feature, sampleID: sample.sampleID, pointIndex: point,
+                                points: session.currentPoints, physical: physical,
+                                returnBoundM: bound, identityNote: identityNote)
+                        }
                         Task { await features.registerAnchor(anchor, author: session.operatorName) }
                     } catch { features.message = error.localizedDescription }
                 }.disabled(
                     !features.canEdit || session.physical.isDirty
                         || features.registrationPoint == nil || returnBoundM == nil
-                        || session.physical.state == nil)
+                        || session.physical.state == nil
+                        || (segment
+                            && (features.registrationEndPoint == nil
+                                || features.registrationEndPoint == features.registrationPoint))
+                )
             }
             Text(
                 "The saved offset stays metric when dimensions change. This seed is a proposal; it does not move the online tracker."
             ).font(.caption2).foregroundStyle(.secondary)
         }.task { session.startPhysicalIfNeeded() }.onChange(of: features.activeID) { _, _ in
             features.registrationPoint = nil
+            features.registrationEndPoint = nil
             identityNote = ""
             returnBoundM = nil
-        }.onChange(of: session.sampleIndex) { _, _ in features.registrationPoint = nil }
+        }.onChange(of: session.sampleIndex) { _, _ in
+            features.registrationPoint = nil
+            features.registrationEndPoint = nil
+        }
     }
 
     private func decisionLabel(_ decision: FeatureDecision) -> String {
@@ -317,15 +362,30 @@ struct FeatureSelectionOverlay: View {
     var basis: OrthoViewBasis
     var viewport: OrthoViewport
 
+    private var chosenReturns: [UInt32] {
+        var chosen = [session.features.registrationPoint, session.features.registrationEndPoint]
+            .compactMap { $0 }
+        if chosen.isEmpty, let feature = session.features.active, feature.hasAnchor,
+            feature.anchor.sourceSample == session.featureOverlay?.sampleID
+        {
+            let anchor = feature.anchor
+            if anchor.hasLine {
+                if anchor.line.hasSourceStartIndex { chosen.append(anchor.line.sourceStartIndex) }
+                if anchor.line.hasSourceEndIndex { chosen.append(anchor.line.sourceEndIndex) }
+            } else if anchor.hasSourcePointIndex {
+                chosen.append(anchor.sourcePointIndex)
+            }
+        }
+        return chosen
+    }
+
     var body: some View {
         let observation = session.featureOverlay
         let points = session.currentPoints
         let draft = session.features.isDirty
         let feature = session.features.active
-        let chosen =
-            session.features.registrationPoint
-            ?? (feature?.hasAnchor == true && feature?.anchor.sourceSample == observation?.sampleID
-                ? feature?.anchor.sourcePointIndex : nil)
+        let chosen = chosenReturns
+        let segment = feature?.geometry == .edge
         Canvas { context, _ in
             guard let o = observation, o.hasSphere else { return }
             let colour: Color = draft ? .orange : .cyan
@@ -340,16 +400,25 @@ struct FeatureSelectionOverlay: View {
             context.stroke(
                 circle, with: .color(colour),
                 style: StrokeStyle(lineWidth: 1.5, dash: draft ? [4, 3] : []))
-            if let chosen, o.pointIndices.contains(chosen), let p = points.point(at: Int(chosen)),
-                basis.shows(p)
-            {
+            for index in chosen where o.pointIndices.contains(index) {
+                guard let p = points.point(at: Int(index)), basis.shows(p) else { continue }
                 let at = viewport.screenPoint(from: basis.project(p))
                 context.fill(
                     Path(CGRect(x: at.x - 4, y: at.y - 4, width: 8, height: 8)),
                     with: .color(.yellow))
                 context.draw(
-                    Text("fixed return \(chosen)").font(.system(size: 10)).foregroundColor(.yellow),
-                    at: CGPoint(x: at.x, y: at.y - 13))
+                    Text("\(segment ? "direction return" : "fixed return") \(index)").font(
+                        .system(size: 10)
+                    ).foregroundColor(.yellow), at: CGPoint(x: at.x, y: at.y - 13))
+            }
+            if segment, chosen.count == 2, let a = points.point(at: Int(chosen[0])),
+                let b = points.point(at: Int(chosen[1])), basis.shows(a), basis.shows(b)
+            {
+                var line = Path()
+                line.move(to: viewport.screenPoint(from: basis.project(a)))
+                line.addLine(to: viewport.screenPoint(from: basis.project(b)))
+                context.stroke(
+                    line, with: .color(.yellow), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             }
             for index in o.pointIndices {
                 guard let p = points.point(at: Int(index)), basis.shows(p) else { continue }

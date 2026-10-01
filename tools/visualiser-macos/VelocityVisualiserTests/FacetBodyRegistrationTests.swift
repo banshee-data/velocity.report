@@ -126,3 +126,127 @@ struct FacetBodyRegistrationWireTests {
         #expect(try doc.serializedData() == bytes)
     }
 }
+
+extension FacetBodyRegistrationTests {
+    @Test func sharedSegmentWireFixtureKeepsUnresolvedTangentAndOptionalZero() throws {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bytes = try Data(
+            contentsOf: repo.appendingPathComponent(
+                "proto/velocity_recording/v1/testdata/segment-registration.pb"))
+        let doc = try FeatureDocument(serializedBytes: bytes)
+        let facet = try #require(doc.features.first)
+        #expect(
+            facet.geometry == .edge && facet.anchor.hasLine && !facet.anchor.hasSourcePointIndex)
+        #expect(facet.anchor.xM == 0 && facet.anchor.yM == 0 && facet.anchor.zM == 0)
+        #expect(facet.anchor.line.hasSourceStartIndex && facet.anchor.line.sourceStartIndex == 0)
+        #expect(facet.anchor.line.sourceEndIndex == 2 && facet.anchor.line.offsetM == -0.875)
+        #expect(
+            facet.anchor.line.normalBoundRad == 0.1
+                && facet.observations[0].timestampNs == 9_007_199_254_740_993)
+        #expect(doc.features[1].inactive && doc.knownEditingContract)
+        #expect(try doc.serializedData() == bytes)
+    }
+
+    private func segmentFixture() -> (FeatureCandidate, PackPoints, PhysicalPackState) {
+        var (feature, _, physical) = fixture()
+        feature.geometry = .edge
+        for i in feature.observations.indices { feature.observations[i].pointIndices = [0, 1, 2] }
+        return (
+            feature, PackPoints(x: [8, 9, 10], y: [-0.9, -0.9, -0.9], z: [1, 1, 1]), physical
+        )
+    }
+
+    @Test func segmentConstrainsNormalAndOrientationWhileLeavingTangentUnresolved() throws {
+        let (feature, points, physical) = segmentFixture()
+        let anchor = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: points,
+            physical: physical, returnBoundM: 0.05,
+            identityNote: "straight physical sill edge, checked in both frames")
+        #expect(anchor.hasLine && !anchor.hasSourcePointIndex && anchor.xM == 0 && anchor.yM == 0)
+        #expect(anchor.method == "manual_named_segment_v1" && anchor.coordinateDomain == "body_xy")
+        #expect(anchor.line.hasSourceStartIndex && anchor.line.sourceStartIndex == 0)
+        #expect(anchor.line.hasSourceEndIndex && anchor.line.sourceEndIndex == 2)
+        #expect(abs(anchor.line.normalX - 1) < 1e-9 && abs(anchor.line.normalY) < 1e-9)
+        #expect(abs(anchor.line.offsetM - Double(Float(-0.9))) < 1e-9)
+        let angular = 0.05 + asin(0.05)
+        let minimum = 0.25 + (hypot(1, Double(Float(-0.9))) + 0.25) * 2 * sin(angular / 2)
+        #expect(
+            abs(anchor.line.normalBoundRad - angular) < 1e-9 && abs(anchor.boundM - minimum) < 1e-9)
+        let reversed = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 2, endIndex: 0, points: points,
+            physical: physical, returnBoundM: 0.05, identityNote: "same physical edge")
+        #expect(abs(reversed.line.normalX - anchor.line.normalX) < 1e-9)
+        #expect(abs(reversed.line.offsetM - anchor.line.offsetM) < 1e-9)
+        let shifted = PackPoints(x: [10, 11, 12], y: points.y, z: points.z)
+        let laterSupport = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: shifted,
+            physical: physical, returnBoundM: 0.05,
+            identityNote: "fresh returns farther along the same physical edge")
+        #expect(abs(laterSupport.line.offsetM - anchor.line.offsetM) < 1e-9)
+        #expect(laterSupport.xM == 0 && laterSupport.yM == 0)
+        let bytes = try anchor.serializedData()
+        #expect(try FacetBodyAnchor(serializedBytes: bytes) == anchor)
+    }
+
+    @Test func segmentStopsForSparseCurvedVerticalAndUncertainSupport() {
+        let (feature, points, physical) = segmentFixture()
+        for name in [
+            "same", "missing", "sparse", "duplicate", "nonfinite", "curve", "vertical", "short",
+            "large bound", "wide yaw", "wrong type", "one frame",
+        ] {
+            var f = feature
+            var p = points
+            var state = physical
+            var end: UInt32 = 2
+            var bound = 0.05
+            switch name {
+            case "same": end = 0
+            case "missing": end = 99
+            case "sparse": f.observations[0].pointIndices = [0, 2]
+            case "duplicate": p = PackPoints(x: [8, 8, 10], y: points.y, z: points.z)
+            case "nonfinite": p = PackPoints(x: points.x, y: points.y, z: [1, .nan, 1])
+            case "curve": p = PackPoints(x: points.x, y: [-0.9, 0, -0.9], z: points.z)
+            case "vertical": p = PackPoints(x: [8, 8, 8], y: points.y, z: [1, 2, 3])
+            case "short": p = PackPoints(x: [8, 8.02, 8.04], y: points.y, z: points.z)
+            case "large bound": bound = 1
+            case "wide yaw": state.document.objects[0].keyframes[0].yaw.boundRad = .pi / 2
+            case "wrong type": f.geometry = .patch
+            default: f.observations.removeLast()
+            }
+            #expect(throws: (any Error).self, Comment(rawValue: name)) {
+                try FacetBodyRegistration.makeSegment(
+                    feature: f, sampleID: 0, startIndex: 0, endIndex: end, points: p,
+                    physical: state, returnBoundM: bound, identityNote: "physical edge")
+            }
+        }
+    }
+
+    @Test func segmentKeepsAssistedOriginAndDoesNotRescaleWithDimensions() throws {
+        var (feature, points, physical) = segmentFixture()
+        physical.document.objects[0].body?.review.origin = .trackerAssisted
+        physical.document.objects[0].body?.review.trackerSource =
+            "named report/estimator/physical seed"
+        let first = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: points,
+            physical: physical, returnBoundM: 0.05, identityNote: "same sill edge")
+        #expect(first.origin == "tracker_seeded_proposal")
+        physical.document.objects[0].body?.length.valueM = 100
+        let second = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: points,
+            physical: physical, returnBoundM: 0.05, identityNote: "same sill edge")
+        #expect(second.line == first.line && second.boundM == first.boundM)
+        var document = FeatureDocument()
+        feature.partRelation = "rigid_proposal"
+        feature.anchor = first
+        document.features = [feature]
+        #expect(document.knownEditingContract)
+        document.features[0].anchor.line = try Velocity_Recording_V1_FeatureLineConstraint(
+            serializedBytes: first.line.serializedData() + Data([0x78, 1]))
+        #expect(!document.knownEditingContract)
+        document.features[0].anchor.line = first.line
+        // A future method must not be erased by editing an older contract.
+        document.features[0].anchor.method = "future_segment_method"
+        #expect(!document.knownEditingContract)
+    }
+}

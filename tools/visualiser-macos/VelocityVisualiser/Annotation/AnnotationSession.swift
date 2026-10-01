@@ -918,7 +918,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         pendingCandidates = nil
         hover.clear()
         inspection.clear()
-        if featureForward != nil { features.registrationPoint = nil }
+        if featureForward != nil {
+            features.registrationPoint = nil
+            features.registrationEndPoint = nil
+        }
         if workMode == .compare { exposeComparedObjects() }
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()

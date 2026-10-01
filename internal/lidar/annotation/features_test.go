@@ -17,7 +17,11 @@ import (
 
 func featureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
 	t.Helper()
-	p := physPack(t)
+	return featureFixtureForPack(t, physPack(t))
+}
+
+func featureFixtureForPack(t *testing.T, p *Pack) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
 	s := physSidecar(t, p)
 	state, err := LoadFeatures(p)
 	if err != nil {
@@ -469,6 +473,11 @@ func TestFeatureActiveFacetLimitRetainsRetiredEvidence(t *testing.T) {
 func registeredFeatureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
 	t.Helper()
 	p, e := featureFixture(t)
+	return registeredFeatureFixtureForPack(t, p, e)
+}
+
+func registeredFeatureFixtureForPack(t *testing.T, p *Pack, e *pb.FeatureEdit) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
 	r := validPhysical(p)
 	pin := &MembershipPin{Revision: int(e.Document.Features[0].Observations[0].MembershipRevision), Digest: e.MembershipDigest}
 	for i := range r.Objects {
