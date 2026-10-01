@@ -7,7 +7,7 @@
 # Environment (all optional):
 #   ARMS           arms to replay, in this order (default: control track track_t5 track_t5_tight track_a1)
 #   KIRK0_PCAP     full path of kirk0.pcapng (default: searched for, then its SHA-256 is checked)
-#   KIRK0_REF      git ref the tools are built from (default: the score branch, else origin/main)
+#   KIRK0_REF      git ref the tools are built from (default: origin/main)
 #   KEEP_EVIDENCE  set to keep the replay databases (about 55 MB each) in the scratch directory
 #   NO_PUSH        set to leave the results uncommitted
 #   SKIP_BUSY_CHECK  set to start a replay although another one is running
@@ -83,11 +83,10 @@ fi
 # ---- 3. the tools, built from the branch that carries them ------------------------------------------
 case "$S" in ""|/|"$HOME"|"$HOME"/) echo "refusing to clear $S"; exit 1 ;; esac
 rm -rf "$S"; mkdir -p "$S" "$W/bin" "$W/gocache" "$W/tmp" || exit 1
-REF=${KIRK0_REF:-origin/claude/upbeat-galileo-4xbaat-annot-score}
-git -C "$SRC" fetch -q origin claude/upbeat-galileo-4xbaat-annot-score main 2>/dev/null
-git -C "$SRC" rev-parse -q --verify "$REF^{commit}" >/dev/null || REF=origin/main
+REF=${KIRK0_REF:-origin/main}             # the tools merged with #659; the branch they came from is gone
+git -C "$SRC" fetch -q origin main || { echo "FETCH FAILED: cannot reach origin"; exit 1; }
 git -C "$SRC" cat-file -e "$REF:cmd/tools/lidar-near-face-eval/main.go" 2>/dev/null \
-  || { echo "$REF does not carry cmd/tools/lidar-near-face-eval: set KIRK0_REF to the score branch"; exit 1; }
+  || { echo "$REF does not carry cmd/tools/lidar-near-face-eval: set KIRK0_REF to a ref that does"; exit 1; }
 echo "building the tools from $REF ($(git -C "$SRC" rev-parse --short=8 "$REF"))"
 if [ -e "$W/score-src" ]; then
   git -C "$W/score-src" checkout -q --detach "$REF" || { echo "CHECKOUT FAILED"; exit 1; }

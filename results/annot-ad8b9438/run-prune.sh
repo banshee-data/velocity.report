@@ -9,7 +9,7 @@
 #   KEEP_LAST    newest revisions to keep (default 100)
 #   KEEP_EVERY   thin older ones to one per interval (default 1h)
 #   BACKUP_DIR   where the backup goes on apply (default /Volumes/lidar/backups)
-#   PRUNE_REF    the git ref the tool is built from (default: the prune branch, else origin/main)
+#   PRUNE_REF    the git ref the tool is built from (default: origin/main)
 #
 # The Annotation window can stay open: the tool takes the pack's writer lock only for the
 # removal, and the window's saves archive revisions newer than any being removed.
@@ -48,9 +48,9 @@ echo "revision files: $(ls "$PACK/annotation-revisions" | wc -l | tr -d ' ')   s
 
 # 1. the tool, built from the branch that carries it
 mkdir -p "$W/bin" "$W/gocache" "$W/tmp" || exit 1
-REF=${PRUNE_REF:-origin/claude/upbeat-galileo-4xbaat-annot-prune}
-git -C "$SRC" fetch -q origin claude/upbeat-galileo-4xbaat-annot-prune main 2>/dev/null
-git -C "$SRC" rev-parse -q --verify "$REF^{commit}" >/dev/null || REF=origin/main
+REF=${PRUNE_REF:-origin/main}             # the tool merged with #658; the branch it came from is gone
+git -C "$SRC" fetch -q origin main || { echo "FETCH FAILED: cannot reach origin"; exit 1; }
+git -C "$SRC" rev-parse -q --verify "$REF^{commit}" >/dev/null || { echo "$REF not found"; exit 1; }
 echo "building the tool from $REF ($(git -C "$SRC" rev-parse --short=8 "$REF"))"
 if [ -e "$W/prune-src" ]; then
   git -C "$W/prune-src" checkout -q --detach "$REF" || { echo "CHECKOUT FAILED"; exit 1; }
