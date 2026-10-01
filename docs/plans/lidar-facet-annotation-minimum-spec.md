@@ -227,3 +227,12 @@ canonical-content digests, support/absence counts and assisted-registration coun
 is available through `BindFeatures` against the frozen membership. An experiment must call that
 binding path before consuming the proposals and retain its seed policy; the existing physical
 scorer does not consume them automatically.
+
+The native **Project saved relation here · assisted** check projects a saved body_xy relation
+through another exact reviewed pose without refitting. Compact spots retain their metric offsets;
+straight edges retain their tangent weakness. The Top-only preview withholds incompatible bodies,
+stale/unreviewed membership links, unsupported target poses and unconstrained line normals.
+Current definite facet support may report cached absolute spot/normal distances, never an
+accuracy score. Viewing is remembered as assistance for later proposals in that object/frame,
+while saved evidence remains intact. This supports the manual two-to-three-frame pilot; it does
+not implement the runtime accepted-event ledger or PR #657's controlled ablation.

@@ -115,7 +115,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private let physicalClient: PhysicalReferenceAPIClient
     private var physicalForward: AnyCancellable?
 
-    private(set) lazy var features = FeatureAuthoring(pack: pack, client: featureClient)
+    private(set) lazy var features = FeatureAuthoring(
+        pack: pack, client: featureClient, exposureDefaults: defaults)
     private let featureClient: FeatureAPIClient
     private var featureForward: AnyCancellable?
     /// One immutable pack/sample/subset fit. Return hover and camera changes
@@ -127,6 +128,31 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             sampleID: Int, objectID: String, membershipDigest: String, revision: Int,
             observation: FeatureObservation, result: FacetSupportSummary
         )?
+
+    private var facetProjectionResidualCache:
+        (
+            preview: FacetBodyPreview, observation: FeatureObservation,
+            result: FacetProjectionResiduals
+        )?
+
+    func facetProjectionResiduals(observation: FeatureObservation) -> FacetProjectionResiduals? {
+        guard let preview = currentFacetBodyPreview,
+            observation.sampleID == UInt32(exactly: preview.sampleID),
+            observation.decision == .acceptedProposal,
+            facetSupportSummary(observation: observation).fraction != nil
+        else { return nil }
+        if let cached = facetProjectionResidualCache, cached.preview == preview,
+            cached.observation == observation
+        {
+            return cached.result
+        }
+        let uncertain = Set(observation.uncertainIndices)
+        let result = preview.projection.residuals(
+            points: currentPoints,
+            indices: observation.pointIndices.filter { !uncertain.contains($0) })
+        facetProjectionResidualCache = (preview, observation, result)
+        return result
+    }
 
     func facetSupportSummary(observation: FeatureObservation) -> FacetSupportSummary {
         let sampleID = currentSample?.sampleID ?? -1
@@ -953,6 +979,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         hover.clear()
         inspection.clear()
         if featureForward != nil {
+            features.bodyPreview = nil
             features.registrationPoint = nil
             features.registrationEndPoint = nil
         }

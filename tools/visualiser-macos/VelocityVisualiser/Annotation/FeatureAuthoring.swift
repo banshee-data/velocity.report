@@ -216,6 +216,7 @@ struct FeatureAPIClient {
     @Published var semanticHint = ""
     @Published var radius = 0.2
     @Published var selectionTool: FeatureSelectionTool = .sphere
+    @Published var bodyPreview: FacetBodyPreview?
     @Published var registrationPoint: UInt32?
     @Published var registrationEndPoint: UInt32?
     @Published var message: String?
@@ -226,10 +227,23 @@ struct FeatureAPIClient {
     private var draftObjectID: String?
     private let pack: AnnotationPack
     private let client: FeatureAPIClient
+    private let exposureDefaults: UserDefaults?
+    private var previewExposure: [String: String]
+    private var exposureKey: String {
+        "annotation.facetProjectionExposure." + pack.manifest.packDigest
+    }
 
-    init(pack: AnnotationPack, client: FeatureAPIClient = FeatureAPIClient()) {
+    init(
+        pack: AnnotationPack, client: FeatureAPIClient = FeatureAPIClient(),
+        exposureDefaults: UserDefaults? = nil
+    ) {
         self.pack = pack
         self.client = client
+        self.exposureDefaults = exposureDefaults
+        self.previewExposure =
+            exposureDefaults?.dictionary(
+                forKey: "annotation.facetProjectionExposure." + pack.manifest.packDigest)
+            as? [String: String] ?? [:]
     }
 
     var active: FeatureCandidate? { state?.document.features.first { $0.featureID == activeID } }
@@ -286,6 +300,7 @@ struct FeatureAPIClient {
     func choose(_ id: String) {
         guard draft == nil, !busy else { return }
         activeID = id
+        bodyPreview = nil
         registrationPoint = nil
         registrationEndPoint = nil
         if let active {
@@ -298,6 +313,7 @@ struct FeatureAPIClient {
     func newFeature() {
         guard draft == nil, !busy else { return }
         activeID = ""
+        bodyPreview = nil
         registrationPoint = nil
         registrationEndPoint = nil
         name = "Feature"
@@ -308,7 +324,7 @@ struct FeatureAPIClient {
 
     func seed(_ observation: FeatureObservation, objectID: String) {
         guard canEdit else { return }
-        draft = observation
+        draft = assistedObservation(observation, objectID: objectID)
         draftObjectID = objectID
         if observation.hasSphere { radius = observation.sphere.radiusM }
         message =
@@ -317,8 +333,43 @@ struct FeatureAPIClient {
             : "Unsaved feature proposal: inspect both views before accepting"
     }
 
+    private func assistedObservation(
+        _ observation: FeatureObservation, objectID: String
+    ) -> FeatureObservation {
+        guard let source = previewExposure[objectID + ":" + String(observation.sampleID)] else {
+            return observation
+        }
+        var result = observation
+        result.origin = "assisted_proposal"
+        if !result.note.contains(source) {
+            result.note += (result.note.isEmpty ? "" : "\n") + source
+        }
+        return result
+    }
+
+    /// Seeing a derived relation is assistance even when it began with an
+    /// independent pose. Preserve that fact across hiding, cancellation and reopen.
+    func showBodyPreview(_ preview: FacetBodyPreview, objectID: String) {
+        guard !busy, preview.featureID == activeID, active?.objectID == objectID else { return }
+        let source =
+            "Body relation preview: facet \(preview.featureID), physical revision \(preview.projection.physicalRevision), \(preview.projection.physicalDigest)"
+        let key = objectID + ":" + String(preview.sampleID)
+        if previewExposure[key]?.contains(source) != true {
+            previewExposure[key] = [previewExposure[key], source].compactMap { $0 }.joined(
+                separator: "\n")
+        }
+        exposureDefaults?.set(previewExposure, forKey: exposureKey)
+        if let observation = draft, Int(observation.sampleID) == preview.sampleID,
+            draftObjectID == objectID
+        {
+            draft = assistedObservation(observation, objectID: objectID)
+        }
+        bodyPreview = preview
+    }
+
     func cancel() {
         guard !busy else { return }
+        bodyPreview = nil
         draft = nil
         draftObjectID = nil
         registrationPoint = nil
@@ -355,6 +406,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            bodyPreview = nil
             headRevision = self.state?.document.revision ?? 0
             message =
                 anchor == nil
@@ -389,6 +441,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            bodyPreview = nil
             headRevision = self.state?.document.revision ?? 0
             message = inactive ? "Facet retired; its observations are retained" : "Facet activated"
         } catch {
@@ -451,6 +504,7 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             self.state = try await client.request(pack: pack, edit: edit)
+            bodyPreview = nil
             headRevision = self.state?.document.revision ?? 0
             activeID = feature.featureID
             draft = nil
@@ -743,5 +797,18 @@ extension AnnotationSession {
             return forward ? index > sampleIndex : index < sampleIndex
         }.sorted { (order[Int($0.sampleID)] ?? 0) < (order[Int($1.sampleID)] ?? 0) }
         return forward ? candidates.first : candidates.last
+    }
+}
+
+extension AnnotationSession {
+    var currentFacetBodyPreview: FacetBodyPreview? {
+        guard let preview = features.bodyPreview, let sample = currentSample,
+            preview.sampleID == sample.sampleID, preview.featureID == features.activeID,
+            features.active?.hasAnchor == true, features.active?.objectID == activeObjectID,
+            features.state?.document.knownEditingContract == true,
+            preview.membershipDigest == membershipDigest, !dirtySamples.contains(sample.sampleID),
+            !physical.isDirty, physical.state?.digest == preview.projection.physicalDigest
+        else { return nil }
+        return preview
     }
 }

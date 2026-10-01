@@ -398,3 +398,12 @@ before choosing returns: two distinct support frames, current source membership 
 bounded resolved pose. Unsupported patches remain unmapped. The fourth active facet disables
 New facet until one retires. Local registration also refuses a mismatched membership revision,
 a future physical schema or a non-finite propagated bound.
+
+Saved compact and straight-edge body relations now have an explicit read-only projection into
+a reviewed target pose. A purple dashed Top overlay leaves line tangents weak and does not
+manufacture height. Exact frame timestamps, body identity, current membership reviews and
+supported bounds are checked before projection. Current definite support can report cached
+absolute spot/normal distances; stale support cannot supply that diagnostic. Displaying the
+projection persists assisted facet provenance for that object/frame across hide, cancel and
+reopen. Saved observations remain unchanged. This is the authoring inspection increment; no
+runtime measurement, interpolation, reanchor or accuracy claim follows from it.

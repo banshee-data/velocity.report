@@ -253,6 +253,58 @@ struct FeatureAuthoringPane: View {
                         "Tracker-assisted body relation · useful for assisted experiments, never independent reference truth."
                     ).font(.caption2).foregroundStyle(.orange)
                 }
+                Button("Project saved relation here · assisted") {
+                    guard let sample = session.currentSample, !session.physical.isDirty,
+                        !session.dirtySamples.contains(sample.sampleID)
+                    else { return }
+                    do {
+                        let projection = try FacetBodyProjection.make(
+                            feature: feature, sampleID: sample.sampleID,
+                            timestampNs: sample.timestampNs,
+                            packDigest: session.pack.manifest.packDigest,
+                            physical: session.physical.state,
+                            membershipDigest: session.membershipDigest)
+                        if projection.assisted {
+                            session.physical.expose(
+                                objectIDs: [feature.objectID],
+                                source: "Saved facet body relation " + feature.featureID)
+                        }
+                        features.showBodyPreview(
+                            FacetBodyPreview(
+                                featureID: feature.featureID, sampleID: sample.sampleID,
+                                membershipDigest: session.membershipDigest, projection: projection),
+                            objectID: feature.objectID)
+                        features.message =
+                            "Read-only Top preview. Subsequent facet support in this frame retains assistance."
+                    } catch { features.message = error.localizedDescription }
+                }.disabled(
+                    features.busy || session.physical.isDirty
+                        || session.currentSample.map { session.dirtySamples.contains($0.sampleID) }
+                            != false
+                )
+                if let preview = session.currentFacetBodyPreview {
+                    Button("Hide projected relation") { features.bodyPreview = nil }
+                    Text(
+                        "Purple dashed relation · fixed body mapping, no box/state update. Height unresolved."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    if let observation = session.featureOverlay,
+                        observation.decision == .acceptedProposal
+                    {
+                        if let residuals = session.facetProjectionResiduals(
+                            observation: observation), let mean = residuals.meanAbsoluteM,
+                            let maximum = residuals.maximumAbsoluteM
+                        {
+                            Text(
+                                "\(residuals.count) returns · mean \(mean, specifier: "%.3f") m · max \(maximum, specifier: "%.3f") m"
+                            ).font(.caption.monospacedDigit())
+                            Text(
+                                preview.projection.isLine
+                                    ? "Absolute normal distances; along-edge position is unconstrained. Alignment diagnostic, not accuracy."
+                                    : "Horizontal distances to the fixed spot. Alignment diagnostic, not accuracy."
+                            ).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 Button("Detach registration, keep facet") {
                     Task { await features.registerAnchor(nil, author: session.operatorName) }
                 }.disabled(!features.canEdit || features.isDirty)

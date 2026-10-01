@@ -82,3 +82,10 @@ Runtime facet measurements, surface/full-3D registration and the two-to-three re
 ledger remain open. Manual annotation edits do not spend that future
 runtime reset budget. The existing geometry/reference and following-metric work remains the
 priority while this diagnostic earns evidence.
+
+The body-relation preview is an explicit authoring action. Its target transform is computed on
+request, and one current subset's residual summary is cached; camera movement and return hover
+do not repeat its sorting/distance calculation. It stores no projected point cloud or dense
+reflectivity map. A small pack-namespaced assistance ledger persists which object/frame saw a
+relation and its Physical revision/digest. This ledger and the read-only overlay are outside the
+scalar fit benchmark above; whole-frame allocation/rendering costs still need measurement.
