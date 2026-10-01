@@ -161,3 +161,25 @@ func TestFeatureEnumCompatibility(t *testing.T) {
 		}
 	}
 }
+
+func TestBodyRegistrationSharedWireFixture(t *testing.T) {
+	b, err := os.ReadFile("../../../proto/velocity_recording/v1/testdata/body-registration.pb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := new(FeatureAnnotations)
+	if err := proto.Unmarshal(b, d); err != nil {
+		t.Fatal(err)
+	}
+	a := d.Features[0].Anchor
+	if a == nil || a.SourcePointIndex == nil || *a.SourcePointIndex != 0 || a.CoordinateDomain != "body_xy" || a.ZM != 0 ||
+		a.XM != 1.25 || a.YM != -0.875 || a.BoundM != 0.35 || a.ReturnBoundM != 0.05 ||
+		a.PhysicalRevision != 7 || a.PartFrameRevision != 1 || a.Origin != "reference_seeded_proposal" ||
+		d.Features[0].Observations[0].TimestampNs != 9007199254740993 || !d.Features[1].Inactive {
+		t.Fatalf("registration wire contract changed: %v", d)
+	}
+	encoded, err := (proto.MarshalOptions{Deterministic: true}).Marshal(d)
+	if err != nil || !bytes.Equal(encoded, b) {
+		t.Fatalf("exact wire roundtrip changed: %v", err)
+	}
+}

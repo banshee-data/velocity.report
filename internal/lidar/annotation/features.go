@@ -118,6 +118,26 @@ func SaveFeatures(p *Pack, edit *pb.FeatureEdit) (*pb.FeatureState, error) {
 			}
 		}
 	}
+	// A retained registration can still be inspected under its historical pins.
+	// A NEW mapping must be based on the membership held by this transaction.
+	for _, f := range next.Features {
+		if f.Anchor == nil {
+			continue
+		}
+		unchanged := false
+		for _, before := range old.Features {
+			if before.FeatureId == f.FeatureId && proto.Equal(before.Anchor, f.Anchor) {
+				unchanged = true
+			}
+		}
+		if !unchanged {
+			for _, o := range f.Observations {
+				if o.SampleId == f.Anchor.SourceSample && (o.MembershipDigest != s.baseDigest || o.MembershipRevision != uint64(s.Revision)) {
+					return nil, ErrMembershipChanged
+				}
+			}
+		}
+	}
 	// Old observations retain their original evidence pin. Every new or edited
 	// observation must be checked against the membership held by this transaction.
 	for _, f := range next.Features {
@@ -182,8 +202,11 @@ func ValidateFeatures(p *Pack, doc *pb.FeatureAnnotations) error {
 			return fmt.Errorf("missing or duplicate feature identity")
 		}
 		ids[f.FeatureId] = true
-		if f.Geometry < 0 || f.Geometry > pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION || f.PartRelation != "unknown" || f.Anchor != nil || len(f.ProtoReflect().GetUnknown()) != 0 {
+		if f.Geometry < 0 || f.Geometry > pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION || (f.PartRelation != "unknown" && f.PartRelation != "rigid_proposal") || len(f.ProtoReflect().GetUnknown()) != 0 {
 			return fmt.Errorf("unsupported feature geometry, part relation, anchor or fields")
+		}
+		if (f.Anchor == nil) != (f.PartRelation == "unknown") {
+			return fmt.Errorf("feature relation and anchor disagree")
 		}
 		seen := map[uint32]bool{}
 		for _, o := range f.Observations {
@@ -192,6 +215,11 @@ func ValidateFeatures(p *Pack, doc *pb.FeatureAnnotations) error {
 			}
 			seen[o.SampleId] = true
 			if err := validateFeatureObservation(p, f.ObjectId, o); err != nil {
+				return fmt.Errorf("feature %s: %w", f.FeatureId, err)
+			}
+		}
+		if f.Anchor != nil {
+			if err := validateFeatureAnchor(p, f); err != nil {
 				return fmt.Errorf("feature %s: %w", f.FeatureId, err)
 			}
 		}
@@ -283,3 +311,87 @@ func validateFeatureObservation(p *Pack, object string, o *pb.FeatureObservation
 }
 
 func finiteFeature(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
+
+// A named compact feature can be proposed in a pinned body's horizontal frame.
+// Plane/edge centroids are deliberately excluded: they invent tangent constraints.
+// This mapping is not scored truth and is not an online tracker reanchor event.
+func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
+	a := f.Anchor
+	if len(a.ProtoReflect().GetUnknown()) != 0 || a.CoordinateDomain != "body_xy" || a.ZM != 0 ||
+		a.SourcePointIndex == nil || a.PhysicalRevision == 0 || a.PhysicalRevision > math.MaxInt32 ||
+		a.PartFrameRevision != 1 || a.PartFrameId != a.BodyId+"_xy" || a.BodyId == "" ||
+		a.Origin != "reference_seeded_proposal" || a.Method != "manual_named_return_v1" || strings.TrimSpace(a.IdentityNote) == "" ||
+		!finiteFeature(a.XM) || !finiteFeature(a.YM) || !finiteFeature(a.BoundM) || a.BoundM < 0 ||
+		!finiteFeature(a.ReturnBoundM) || a.ReturnBoundM <= 0 {
+		return fmt.Errorf("invalid horizontal body registration")
+	}
+	if f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_CORNER && f.Geometry != pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION {
+		return fmt.Errorf("a plane or edge needs a weak-direction constraint, not a point anchor")
+	}
+	var source *pb.FeatureObservation
+	accepted := 0
+	for _, o := range f.Observations {
+		if o.Decision == pb.FeatureDecision_FEATURE_DECISION_ACCEPTED_PROPOSAL {
+			accepted++
+			if o.SampleId == a.SourceSample {
+				source = o
+			}
+		}
+	}
+	if accepted < 2 || source == nil {
+		return fmt.Errorf("body registration needs accepted support in two frames")
+	}
+	found := false
+	for _, i := range source.PointIndices {
+		if i == *a.SourcePointIndex {
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("registration point is not definite feature support")
+	}
+	refs, err := LoadPhysicalReferenceRevision(p, int(a.PhysicalRevision))
+	if err != nil {
+		return err
+	}
+	if refs.Digest() != a.PhysicalDigest {
+		return fmt.Errorf("physical registration digest mismatch")
+	}
+	var object *PhysicalObject
+	for i := range refs.Objects {
+		if refs.Objects[i].ObjectID == f.ObjectId {
+			object = &refs.Objects[i]
+		}
+	}
+	if object == nil || object.Body == nil || object.Body.BodyID != a.BodyId || !object.Body.Review.ScoredAsTruth() {
+		return fmt.Errorf("body registration needs a reviewed independent pinned body")
+	}
+	var k *PhysicalKeyframe
+	for i := range object.Keyframes {
+		if object.Keyframes[i].KeyframeID == a.KeyframeId {
+			k = &object.Keyframes[i]
+		}
+	}
+	if k == nil || k.SampleID != int(a.SourceSample) || !k.Review.ScoredAsTruth() || k.Yaw.Axis != AxisResolved ||
+		k.Review.ReviewedAgainst == nil || k.Review.ReviewedAgainst.Digest != source.MembershipDigest ||
+		object.Body.Review.ReviewedAgainst == nil || object.Body.Review.ReviewedAgainst.Digest != source.MembershipDigest {
+		return fmt.Errorf("body registration needs a resolved reviewed pose pinned to the feature's membership")
+	}
+	g := object.Geometry(*k)
+	if g.Centre == nil || g.Yaw == nil {
+		return fmt.Errorf("body registration has no supported centre or yaw")
+	}
+	points, err := p.PointsAt(int(a.SourceSample))
+	if err != nil {
+		return err
+	}
+	i := *a.SourcePointIndex
+	dx, dy := float64(points.X[i])-g.Centre.XM, float64(points.Y[i])-g.Centre.YM
+	c, s := math.Cos(g.Yaw.Rad), math.Sin(g.Yaw.Rad)
+	x, y := c*dx+s*dy, -s*dx+c*dy
+	minimum := g.Centre.BoundM + math.Hypot(dx, dy)*2*math.Sin(math.Min(g.Yaw.BoundRad, math.Pi)/2) + a.ReturnBoundM
+	if math.Abs(x-a.XM) > 1e-5 || math.Abs(y-a.YM) > 1e-5 || a.BoundM+1e-9 < minimum {
+		return fmt.Errorf("registration coordinate or bound disagrees with pinned evidence")
+	}
+	return nil
+}

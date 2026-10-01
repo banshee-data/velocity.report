@@ -368,8 +368,17 @@ type FeatureAnchor struct {
 	PhysicalDigest    string  `protobuf:"bytes,7,opt,name=physical_digest,json=physicalDigest,proto3" json:"physical_digest,omitempty"`
 	BodyId            string  `protobuf:"bytes,8,opt,name=body_id,json=bodyId,proto3" json:"body_id,omitempty"`
 	KeyframeId        string  `protobuf:"bytes,9,opt,name=keyframe_id,json=keyframeId,proto3" json:"keyframe_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Pilot registration is horizontal only. Z remains unresolved, never zero height.
+	CoordinateDomain string  `protobuf:"bytes,10,opt,name=coordinate_domain,json=coordinateDomain,proto3" json:"coordinate_domain,omitempty"` // body_xy
+	SourceSample     uint32  `protobuf:"varint,11,opt,name=source_sample,json=sourceSample,proto3" json:"source_sample,omitempty"`
+	SourcePointIndex *uint32 `protobuf:"varint,12,opt,name=source_point_index,json=sourcePointIndex,proto3,oneof" json:"source_point_index,omitempty"`
+	BoundM           float64 `protobuf:"fixed64,13,opt,name=bound_m,json=boundM,proto3" json:"bound_m,omitempty"`
+	ReturnBoundM     float64 `protobuf:"fixed64,14,opt,name=return_bound_m,json=returnBoundM,proto3" json:"return_bound_m,omitempty"`
+	Origin           string  `protobuf:"bytes,15,opt,name=origin,proto3" json:"origin,omitempty"`                                 // reference_seeded_proposal, never independent truth
+	Method           string  `protobuf:"bytes,16,opt,name=method,proto3" json:"method,omitempty"`                                 // manual_named_return_v1
+	IdentityNote     string  `protobuf:"bytes,17,opt,name=identity_note,json=identityNote,proto3" json:"identity_note,omitempty"` // the repeatable physical spot, not visible centroid
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *FeatureAnchor) Reset() {
@@ -465,6 +474,62 @@ func (x *FeatureAnchor) GetKeyframeId() string {
 	return ""
 }
 
+func (x *FeatureAnchor) GetCoordinateDomain() string {
+	if x != nil {
+		return x.CoordinateDomain
+	}
+	return ""
+}
+
+func (x *FeatureAnchor) GetSourceSample() uint32 {
+	if x != nil {
+		return x.SourceSample
+	}
+	return 0
+}
+
+func (x *FeatureAnchor) GetSourcePointIndex() uint32 {
+	if x != nil && x.SourcePointIndex != nil {
+		return *x.SourcePointIndex
+	}
+	return 0
+}
+
+func (x *FeatureAnchor) GetBoundM() float64 {
+	if x != nil {
+		return x.BoundM
+	}
+	return 0
+}
+
+func (x *FeatureAnchor) GetReturnBoundM() float64 {
+	if x != nil {
+		return x.ReturnBoundM
+	}
+	return 0
+}
+
+func (x *FeatureAnchor) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+func (x *FeatureAnchor) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *FeatureAnchor) GetIdentityNote() string {
+	if x != nil {
+		return x.IdentityNote
+	}
+	return ""
+}
+
 type FeatureCandidate struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	FeatureId    string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
@@ -473,7 +538,8 @@ type FeatureCandidate struct {
 	Geometry     FeatureGeometry        `protobuf:"varint,4,opt,name=geometry,proto3,enum=velocity.recording.v1.FeatureGeometry" json:"geometry,omitempty"`
 	SemanticHint string                 `protobuf:"bytes,5,opt,name=semantic_hint,json=semanticHint,proto3" json:"semantic_hint,omitempty"`
 	PartId       string                 `protobuf:"bytes,6,opt,name=part_id,json=partId,proto3" json:"part_id,omitempty"`
-	// Pilot writes "unknown"; it does not assert a rigid/articulated transform.
+	// unknown, or rigid_proposal under an explicitly pinned body registration.
+	// A proposal never asserts an independently reviewed rigid transform.
 	PartRelation string                `protobuf:"bytes,7,opt,name=part_relation,json=partRelation,proto3" json:"part_relation,omitempty"`
 	Anchor       *FeatureAnchor        `protobuf:"bytes,8,opt,name=anchor,proto3" json:"anchor,omitempty"`
 	Observations []*FeatureObservation `protobuf:"bytes,9,rep,name=observations,proto3" json:"observations,omitempty"`
@@ -849,7 +915,7 @@ const file_features_proto_rawDesc = "" +
 	"\x14proposed_from_sample\x18\f \x01(\rH\x00R\x12proposedFromSample\x88\x01\x01\x12\x12\n" +
 	"\x04note\x18\r \x01(\tR\x04note\x12\x16\n" +
 	"\x06origin\x18\x0e \x01(\tR\x06originB\x17\n" +
-	"\x15_proposed_from_sample\"\xa6\x02\n" +
+	"\x15_proposed_from_sample\"\xd6\x04\n" +
 	"\rFeatureAnchor\x12\"\n" +
 	"\rpart_frame_id\x18\x01 \x01(\tR\vpartFrameId\x12.\n" +
 	"\x13part_frame_revision\x18\x02 \x01(\x04R\x11partFrameRevision\x12\x0f\n" +
@@ -860,7 +926,17 @@ const file_features_proto_rawDesc = "" +
 	"\x0fphysical_digest\x18\a \x01(\tR\x0ephysicalDigest\x12\x17\n" +
 	"\abody_id\x18\b \x01(\tR\x06bodyId\x12\x1f\n" +
 	"\vkeyframe_id\x18\t \x01(\tR\n" +
-	"keyframeId\"\xb2\x03\n" +
+	"keyframeId\x12+\n" +
+	"\x11coordinate_domain\x18\n" +
+	" \x01(\tR\x10coordinateDomain\x12#\n" +
+	"\rsource_sample\x18\v \x01(\rR\fsourceSample\x121\n" +
+	"\x12source_point_index\x18\f \x01(\rH\x00R\x10sourcePointIndex\x88\x01\x01\x12\x17\n" +
+	"\abound_m\x18\r \x01(\x01R\x06boundM\x12$\n" +
+	"\x0ereturn_bound_m\x18\x0e \x01(\x01R\freturnBoundM\x12\x16\n" +
+	"\x06origin\x18\x0f \x01(\tR\x06origin\x12\x16\n" +
+	"\x06method\x18\x10 \x01(\tR\x06method\x12#\n" +
+	"\ridentity_note\x18\x11 \x01(\tR\fidentityNoteB\x15\n" +
+	"\x13_source_point_index\"\xb2\x03\n" +
 	"\x10FeatureCandidate\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x1b\n" +
@@ -957,6 +1033,7 @@ func file_features_proto_init() {
 		return
 	}
 	file_features_proto_msgTypes[1].OneofWrappers = []any{}
+	file_features_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

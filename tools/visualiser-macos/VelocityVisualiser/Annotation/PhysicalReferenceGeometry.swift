@@ -106,6 +106,7 @@ struct PhysicalGeometry: Equatable {
     var anchorKind: PhysicalAnchorKind
     /// Components drawn without a stated bound; zero drawing radius is not precision.
     var unboundedDraft: Bool = false
+    var usesPriorSize: Bool = false
     var anchorPoint: PhysicalPlanar?
     var anchorUnavailable: String?
     var centre: PhysicalPlanar?
@@ -197,6 +198,15 @@ struct PhysicalGeometry: Equatable {
             return
         }
         guard let body else { return }
+        if gate == .authoring {
+            let dimensions = [body.length, body.width, body.height]
+            unboundedDraft =
+                unboundedDraft
+                || dimensions.contains {
+                    $0.status != .unknown && $0.span != .partial && $0.valueM != nil && !$0.bounded
+                }
+            usesPriorSize = dimensions.contains { $0.status == .priorOnly }
+        }
         (length, lengthUnavailable) = Self.linear(body.length, gate: gate)
         (width, widthUnavailable) = Self.linear(body.width, gate: gate)
         (height, heightUnavailable) = Self.linear(body.height, gate: gate)
@@ -207,6 +217,14 @@ struct PhysicalGeometry: Equatable {
     ) -> (PhysicalLinear?, String?) {
         guard d.status.scorable || (gate == .authoring && d.status == .priorOnly) else {
             return (nil, d.status.rawValue)
+        }
+        if gate == .authoring, d.span != .partial, !d.bounded, let value = d.valueM, value.isFinite,
+            value >= 0
+        {
+            return (
+                PhysicalLinear(
+                    lower: value, upper: value, value: value, halfWidth: 0, status: d.status), nil
+            )
         }
         guard let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
             return (nil, PhysicalUnavailable.lowerBoundOnly)

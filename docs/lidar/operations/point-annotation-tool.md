@@ -426,7 +426,10 @@ out of sight while authoring.
 2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
    is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
    inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
-   external reference it rests on. A partial span is a lower bound only.
+   external reference it rests on. Enter a whole span as **value ± tolerance**: the tolerance
+   states how far either way it could be wrong. **Exact min/max (advanced)** preserves
+   asymmetric bounds. A partial span uses **at least**, a lower bound only. A value without
+   bounds can draw an incomplete sketch; it is not supported geometry for scoring.
 3. **2 · Pose at this frame** holds this frame's pose. Click in the Top view to place its
    position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
    say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
@@ -448,7 +451,8 @@ between it and another. Use **Poses: N marked frames** to return to a recorded p
 discarding current edits. The overlay immediately draws an editable marker after placement, even
 before its bound is entered; **bounds not set** marks that sketch as incomplete. A missing bound
 is never written as zero or used for scoring. The supported geometry summary still requires
-bounds. The overlay draws a marker and its bound for a supported position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
+bounds. The overlay draws a marker and its bound for a supported position, an arrow for a
+resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
@@ -463,10 +467,13 @@ unsaved object membership.
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis), and the diamond at the far end
-  of the body to revise its length with the anchor held. A length drag moves the stated interval
-  with the value, keeping its width, and is a body change: saving it makes a new body and returns
-  every keyframe of the object to proposed. A drag is one undo step.
+  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis),
+  and the diamond at the far end of the body to revise its length with the anchor held. The
+  outlined square labelled **width** revises width about the supported centre, keeping position,
+  heading and length fixed. A side-face anchor has no width handle: its inward offset would need
+  an explicit coupled edit. Resizing carries the dimension's stated interval with its value and
+  is a body change: saving it makes a new body and returns every keyframe of the object to
+  proposed. A drag is one undo step.
 - **Copy keyframe from sample N** starts this frame's keyframe from the nearest one. The copy is
   a proposal: whatever the source observed becomes inferred from the source's frames, and its
   origin stays the source's. Check it against this frame's returns before claiming anything
@@ -649,9 +656,10 @@ The proposal is deliberately limited: it uses observed-object centroid translati
 local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
 selected return belongs to the same physical surface. Nearby competing fits are checked at the
 feature scale. Changing visibility can shift the observed centroid; reject an implausible result.
-A missing or hidden feature is not a new measurement. General feature recognition, body-relative
-anchors, directed front/rear placement, part motion and full rigid registration remain unfinished.
-The panel explicitly shows the part relation and metric anchor as unresolved.
+A missing or hidden feature is not a new measurement. General feature recognition, directed
+front/rear placement, part motion and full rigid registration remain unfinished. The compact
+feature path below can store a horizontal body registration proposal; unresolved relations stay
+explicitly unresolved.
 
 **Geometry check · proposal only** reports an initial line or surface fit, its span, transverse
 spread and residual. A line needs at least three returns and sufficient span; a surface needs
@@ -661,6 +669,31 @@ calibrated sensor uncertainty. A scan boundary can still look like an edge. A su
 two tangent directions weak, and its visible centre must not become a fixed body anchor. Compact
 features require a repeatability check across frames. These diagnostics neither review a facet
 nor establish a rigid relation.
+
+### Registering a compact feature to the body
+
+For a repeatable **Corner** or **Protrusion**, first save accepted feature support in two frames.
+Review an independent body and a resolved physical pose at the source frame against the same
+saved membership. In **Body registration · proposal**, select the exact physical spot with
+**Fixed return**. Alternatively, enable **Inspect returns**, hover that spot, press **M**, then
+choose **Use pinned return**. The chosen return is yellow in the orthographic views. Name what
+makes it repeatable, such as the outer rigid mirror tip, and enter a positive return uncertainty
+in metres before choosing **Register to saved body**.
+
+The stored coordinates are metres forward and left from the pinned body centre. They are
+horizontal only; height is unresolved, because physical schema v1 has no vertical uncertainty.
+The conservative bound adds the source position bound, the yaw lever-arm displacement and the
+stated return bound. The Go writer rechecks the coordinates, definite point support, membership,
+body/keyframe IDs and exact physical revision digest. A missing or stale review, ambiguous axis,
+absent source point or understated bound is refused.
+
+Changing body dimensions does not rescale the stored offset. A later physical revision is shown
+as needing a recheck, while the mapping retains its original body-frame pin. **Detach
+registration, keep facet** removes the current mapping while preserving its revision history;
+do this before changing the registration's source support. These are annotation proposals seeded
+from references, never independent physical truth or online tracker resets. A folding mirror
+must not be treated as rigid support. Edge and surface point anchors are refused: those need a
+constraint that preserves weak tangent directions, rather than a moving visible centroid.
 
 The local Go annotation service owns feature saves, using the same confined pack root as physical
 references. It must serve the same folder the window opened, not another copy with matching bytes.

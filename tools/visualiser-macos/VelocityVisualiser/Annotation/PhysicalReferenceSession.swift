@@ -678,6 +678,42 @@ enum PhysicalDraft {
         dimension.upperM = value + (hi - was)
     }
 
+    /// Guided size entry keeps the existing interval width when the value moves.
+    /// It never promotes an unknown dimension into observed evidence.
+    static func setDimensionValue(_ value: Double?, of d: inout PhysicalDimension) {
+        guard d.status != .unknown, d.span != .partial else { return }
+        guard let value else {
+            d.valueM = nil
+            return
+        }
+        guard value.isFinite, value >= 0 else { return }
+        if d.bounded {
+            let start = d
+            setLength(value, of: &d, from: start)
+        } else {
+            d.valueM = value
+        }
+    }
+
+    /// An explicitly stated symmetric tolerance, never an automatic precision.
+    @discardableResult static func setDimensionTolerance(
+        _ tolerance: Double?, of d: inout PhysicalDimension
+    ) -> Bool {
+        guard d.status != .unknown, d.span != .partial else { return false }
+        guard let tolerance else {
+            d.lowerM = nil
+            d.upperM = nil
+            return true
+        }
+        guard let value = d.valueM ?? d.best?.value, value.isFinite, value >= 0, tolerance.isFinite,
+            tolerance >= 0, (value + tolerance).isFinite
+        else { return false }
+        d.valueM = value
+        d.lowerM = max(0, value - tolerance)
+        d.upperM = value + tolerance
+        return true
+    }
+
     static func setSpan(_ span: PhysicalSpan, of dimension: inout PhysicalDimension) {
         dimension.span = span
         if span == .partial {

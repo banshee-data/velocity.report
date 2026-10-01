@@ -133,7 +133,7 @@ struct PhysicalReferencePane: View {
             }
             Text(
                 "Length is front to rear; width is side to side. Set the real object's size once, "
-                    + "rather than fitting each visible patch. Min and max bound what the evidence supports. "
+                    + "rather than fitting each visible patch. Enter a value and explicit tolerance; "
                     + "Changing size resets pose reviews across the object."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
@@ -214,12 +214,43 @@ struct PhysicalReferencePane: View {
                 }
             }
             if d.status != .unknown {
-                HStack(spacing: 4) {
-                    metres("min", number(\.lowerM))
-                    if d.span != .partial {
-                        metres("max", number(\.upperM))
-                        metres("value", number(\.valueM)).help("Optional, inside [min, max]")
+                if d.span == .partial {
+                    metres("at least", number(\.lowerM))
+                    Text("Only the visible extent; this does not give the full object size.").font(
+                        .caption2
+                    ).foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 4) {
+                        metres(
+                            "value",
+                            Binding(
+                                get: { d.valueM },
+                                set: { value in
+                                    update { PhysicalDraft.setDimensionValue(value, of: &$0) }
+                                }))
+                        metres(
+                            "±",
+                            Binding(
+                                get: { d.best?.halfWidth },
+                                set: { tolerance in
+                                    update {
+                                        _ = PhysicalDraft.setDimensionTolerance(tolerance, of: &$0)
+                                    }
+                                })
+                        ).disabled(d.valueM == nil && !d.bounded)
                     }
+                    Text(
+                        "Enter the whole span, then how far either way it could be wrong. The sketch appears before bounds are complete."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    DisclosureGroup("Exact min/max (advanced)") {
+                        HStack(spacing: 4) {
+                            metres("min", number(\.lowerM))
+                            metres("max", number(\.upperM))
+                        }
+                        Text(
+                            "Use this for an asymmetric interval. The optional value must stay inside it."
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }.font(.caption2)
                 }
                 supportEditor(
                     Binding(get: { d.support }, set: { s in update { $0.support = s } }),

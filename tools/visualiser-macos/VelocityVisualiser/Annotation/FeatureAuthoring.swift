@@ -13,6 +13,28 @@ typealias FeatureState = Velocity_Recording_V1_FeatureState
 typealias FeatureDecision = Velocity_Recording_V1_FeatureDecision
 typealias FeatureGeometry = Velocity_Recording_V1_FeatureGeometry
 
+extension FeatureDocument {
+    /// Read unknown fields for inspection, but never replace a newer contract.
+    var knownEditingContract: Bool {
+        guard unknownFields.data.isEmpty else { return false }
+        return features.allSatisfy { f in
+            f.unknownFields.data.isEmpty
+                && [FeatureGeometry.unknown, .edge, .corner, .patch, .protrusion].contains(
+                    f.geometry)
+                && (f.partRelation == "unknown" || f.partRelation == "rigid_proposal")
+                && (!f.hasAnchor
+                    || (f.anchor.unknownFields.data.isEmpty
+                        && f.anchor.coordinateDomain == "body_xy"
+                        && f.anchor.method == "manual_named_return_v1"))
+                && f.observations.allSatisfy { o in
+                    o.unknownFields.data.isEmpty && o.sphere.unknownFields.data.isEmpty
+                        && [FeatureDecision.acceptedProposal, .rejected, .missing, .occluded]
+                            .contains(o.decision)
+                }
+        }
+    }
+}
+
 extension FeatureSphere {
     var centre: SIMD3<Float> { SIMD3(Float(xM), Float(yM), Float(zM)) }
     init(centre: SIMD3<Float>, radius: Double) {
@@ -146,6 +168,7 @@ struct FeatureAPIClient {
     @Published var semanticHint = ""
     @Published var radius = 0.2
     @Published var selectionTool: FeatureSelectionTool = .sphere
+    @Published var registrationPoint: UInt32?
     @Published var message: String?
     @Published private(set) var busy = false
     @Published private(set) var readOnly = false
@@ -171,8 +194,11 @@ struct FeatureAPIClient {
         defer { busy = false }
         do {
             state = try await client.request(pack: pack)
-            readOnly = false
-            message = nil
+            readOnly = state?.document.knownEditingContract != true
+            message =
+                readOnly
+                ? "Read-only: this document contains feature fields or constraints this build cannot edit"
+                : nil
         } catch {
             // Saved evidence can be inspected without a running service. Writes
             // still require Go's validator; a failed request never claims a save.
@@ -196,6 +222,7 @@ struct FeatureAPIClient {
     func choose(_ id: String) {
         guard draft == nil, !busy else { return }
         activeID = id
+        registrationPoint = nil
         if let active {
             name = active.name
             geometry = active.geometry
@@ -206,6 +233,7 @@ struct FeatureAPIClient {
     func newFeature() {
         guard draft == nil, !busy else { return }
         activeID = ""
+        registrationPoint = nil
         name = "Feature"
         geometry = .unknown
         semanticHint = ""
@@ -227,7 +255,48 @@ struct FeatureAPIClient {
         guard !busy else { return }
         draft = nil
         draftObjectID = nil
+        registrationPoint = nil
+        if let active {
+            name = active.name
+            geometry = active.geometry
+            semanticHint = active.semanticHint
+        }
         message = "Propagation stopped; nothing saved"
+    }
+
+    func registerAnchor(_ anchor: FacetBodyAnchor?, author: String) async {
+        guard canEdit, !isDirty, let active, let state else { return }
+        guard !author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            message = "Enter Labelled by before saving a body registration"
+            return
+        }
+        var edit = Velocity_Recording_V1_FeatureEdit()
+        edit.document = state.document
+        guard let i = edit.document.features.firstIndex(where: { $0.featureID == active.featureID })
+        else { return }
+        if let anchor {
+            edit.document.features[i].anchor = anchor
+            edit.document.features[i].partRelation = "rigid_proposal"
+        } else {
+            edit.document.features[i].clearAnchor()
+            edit.document.features[i].partRelation = "unknown"
+        }
+        edit.document.author = author
+        edit.baseDigest = state.digest
+        edit.membershipDigest = state.membershipDigest
+        busy = true
+        defer { busy = false }
+        do {
+            self.state = try await client.request(pack: pack, edit: edit)
+            message =
+                anchor == nil
+                ? "Registration detached; facet observations and history are retained"
+                : "Saved horizontal body registration proposal; it does not move a tracker or review a pose"
+        } catch {
+            readOnly = true
+            message =
+                "Registration not confirmed. Reload before retrying. \(error.localizedDescription)"
+        }
     }
 
     func setInactive(_ inactive: Bool, author: String) async {
@@ -330,6 +399,19 @@ struct FeatureAPIClient {
 }
 
 extension AnnotationSession {
+    func usePinnedFacetReturn() {
+        guard workMode == .features, !features.isDirty, let sample = currentSample,
+            let pinned = inspection.pinned, pinned.sampleID == sample.sampleID,
+            pinned.pointIndex >= 0, pinned.pointIndex <= Int(UInt32.max),
+            featureOverlay?.pointIndices.contains(UInt32(pinned.pointIndex)) == true
+        else {
+            features.message =
+                "Inspect and pin a return belonging to this saved facet in this frame"
+            return
+        }
+        features.registrationPoint = UInt32(pinned.pointIndex)
+    }
+
     func featureDomain(sampleID: Int, objectID: String) -> [Int] {
         let masks = sidecar.masks.filter { $0.sampleID == sampleID && $0.status != .rejected }
         guard let mask = masks.first(where: { $0.objectID == objectID }) else { return [] }

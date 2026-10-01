@@ -393,3 +393,128 @@ func TestFeatureActiveFacetLimitRetainsRetiredEvidence(t *testing.T) {
 		t.Fatalf("zero active facets must support abstention: %v", err)
 	}
 }
+
+func registeredFeatureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
+	p, e := featureFixture(t)
+	r := validPhysical(p)
+	pin := &MembershipPin{Revision: int(e.Document.Features[0].Observations[0].MembershipRevision), Digest: e.MembershipDigest}
+	for i := range r.Objects {
+		if r.Objects[i].Body != nil {
+			r.Objects[i].Body.Review.ReviewedAgainst = pin
+		}
+		for j := range r.Objects[i].Keyframes {
+			if r.Objects[i].Keyframes[j].Review.Status == StatusReviewed {
+				r.Objects[i].Keyframes[j].Review.ReviewedAgainst = pin
+			}
+		}
+	}
+	if err := SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	f := e.Document.Features[0]
+	second := proto.Clone(f.Observations[0]).(*pb.FeatureObservation)
+	second.SampleId, second.TimestampNs, second.SourceOrdinal = 1, physTime(1), 1
+	second.Sphere.XM++
+	f.Observations = append(f.Observations, second)
+	point := uint32(0)
+	distance := math.Hypot(2.25, float64(float32(0.9)))
+	f.PartRelation = "rigid_proposal"
+	f.Anchor = &pb.FeatureAnchor{PartFrameId: "body-car-1_xy", PartFrameRevision: 1, XM: -2.25, YM: float64(float32(-0.9)),
+		PhysicalRevision: uint64(r.Revision), PhysicalDigest: r.Digest(), BodyId: "body-car-1", KeyframeId: "kf-car-1-s0",
+		CoordinateDomain: "body_xy", SourceSample: 0, SourcePointIndex: &point, ReturnBoundM: 0.05,
+		BoundM: 0.2 + distance*2*math.Sin(0.025) + 0.05, Origin: "reference_seeded_proposal", Method: "manual_named_return_v1", IdentityNote: "outer rigid mirror tip, checked in frames 0 and 1"}
+	return p, e
+}
+
+func TestFeatureBodyRegistrationKeepsMetricOffsetAndPhysicalPin(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	before, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Document.Features[0].Anchor.SourcePointIndex == nil || *s.Document.Features[0].Anchor.SourcePointIndex != 0 {
+		t.Fatal("zero source index was confused with absence")
+	}
+	after, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	if !bytes.Equal(before, after) {
+		t.Fatal("registration changed the physical reference")
+	}
+	r, _ := LoadPhysicalReferences(p)
+	r.Objects[0].Body.BodyID = "new-body-frame"
+	r.Objects[0].Body.Width.ValueM = fp(1.85)
+	if err := SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	oldAnchor := proto.Clone(s.Document.Features[0].Anchor).(*pb.FeatureAnchor)
+	loaded, err := LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(oldAnchor, loaded.Document.Features[0].Anchor) {
+		t.Fatal("dimension edit rescaled the metric anchor")
+	}
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: loaded.Document, BaseDigest: loaded.Digest, MembershipDigest: loaded.MembershipDigest}); err != nil {
+		t.Fatalf("retained physical pin could not be read: %v", err)
+	}
+}
+
+func TestFeatureBodyRegistrationRefusesInventedOrUnpinnedConstraints(t *testing.T) {
+	p, original := registeredFeatureFixture(t)
+	cases := []struct {
+		name   string
+		change func(*pb.FeatureCandidate)
+	}{
+		{"coordinate", func(f *pb.FeatureCandidate) { f.Anchor.XM++ }},
+		{"bound", func(f *pb.FeatureCandidate) { f.Anchor.BoundM = 0 }},
+		{"return bound", func(f *pb.FeatureCandidate) { f.Anchor.ReturnBoundM = 0 }},
+		{"nonfinite", func(f *pb.FeatureCandidate) { f.Anchor.YM = math.NaN() }},
+		{"z unresolved", func(f *pb.FeatureCandidate) { f.Anchor.ZM = 1 }},
+		{"source absent", func(f *pb.FeatureCandidate) { f.Anchor.SourcePointIndex = nil }},
+		{"outside support", func(f *pb.FeatureCandidate) { v := uint32(7); f.Anchor.SourcePointIndex = &v }},
+		{"source frame", func(f *pb.FeatureCandidate) { f.Anchor.SourceSample = 2 }},
+		{"revision", func(f *pb.FeatureCandidate) { f.Anchor.PhysicalRevision = 99 }},
+		{"digest", func(f *pb.FeatureCandidate) { f.Anchor.PhysicalDigest = "wrong" }},
+		{"body", func(f *pb.FeatureCandidate) { f.Anchor.BodyId = "wrong"; f.Anchor.PartFrameId = "wrong_xy" }},
+		{"pose", func(f *pb.FeatureCandidate) { f.Anchor.KeyframeId = "kf-car-1-s3" }},
+		{"point on patch", func(f *pb.FeatureCandidate) { f.Geometry = pb.FeatureGeometry_FEATURE_GEOMETRY_PATCH }},
+		{"one frame", func(f *pb.FeatureCandidate) { f.Observations = f.Observations[:1] }},
+		{"note", func(f *pb.FeatureCandidate) { f.Anchor.IdentityNote = " " }},
+		{"truth origin", func(f *pb.FeatureCandidate) { f.Anchor.Origin = "independent" }},
+		{"frame id", func(f *pb.FeatureCandidate) { f.Anchor.PartFrameRevision = 2 }},
+		{"relation", func(f *pb.FeatureCandidate) { f.PartRelation = "unknown" }},
+		{"unknown anchor", func(f *pb.FeatureCandidate) { f.Anchor.ProtoReflect().SetUnknown([]byte{0xa0, 0x06, 1}) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := proto.Clone(original.Document).(*pb.FeatureAnnotations)
+			tc.change(doc.Features[0])
+			if err := ValidateFeatures(p, doc); err == nil {
+				t.Fatal("invalid registration accepted")
+			}
+		})
+	}
+}
+
+func TestNewFeatureRegistrationRefusesStaleMembershipButRetainsHistory(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	membership, _ := LoadSidecar(p)
+	membership.Objects[0].Subtype = "updated label"
+	if err := SaveSidecar(p, membership); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: membership.Digest()})
+	if err != nil {
+		t.Fatalf("retained mapping refused: %v", err)
+	}
+	edit := proto.Clone(retained.Document).(*pb.FeatureAnnotations)
+	edit.Features[0].Anchor.IdentityNote += "; revised"
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: edit, BaseDigest: retained.Digest, MembershipDigest: membership.Digest()}); !errors.Is(err, ErrMembershipChanged) {
+		t.Fatalf("new mapping accepted stale feature support: %v", err)
+	}
+}

@@ -4,7 +4,7 @@ This specification adds one to four selected vehicle features to the physical au
 Each feature has a persistent identity and a frame-specific subset of the object's returns;
 newly visible support may refine placement without repeatedly resetting the body reference.
 
-- **Status:** Selection and active-facet pilot built locally; full contract, registration and operator validation remain open
+- **Status:** Selection, active-facet pilot and compact-feature horizontal registration built locally; runtime constraints, full contract and operator validation remain open
 - **Scope:** Sparse facet proposals, review, body registration and bounded reanchor events
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [facet registration experiment](lidar-facet-registration-experiment-plan.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [physical references](lidar-physical-reference-review-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md)
@@ -21,7 +21,9 @@ The newer committed `dd/lidar/physical-pose-ui-929` foundation is now integrated
 It supplies the native physical editor and the recording-domain feature proposal writer. The
 local increment adds exact lasso subsets, four active facets with retirement, and line/surface
 support diagnostics. These proposals remain distinct from physical review and runtime anchors.
-Body registration, the runtime event ledger and frozen facet pins remain engineering work.
+Compact features can now propose a horizontal metric offset under a pinned, reviewed independent
+body/pose, with a named source return and conservative bound. Edge/surface weak-direction
+registration, the runtime event ledger and frozen facet pins remain engineering work.
 
 An edge, a side patch, a corner or a wing mirror can be useful. Their visible returns change as
 the sensor scans and the vehicle moves. The persistent thing is the feature on the object,
@@ -211,4 +213,5 @@ uncertainty coverage, endpoint error and supported opportunity.
 Keep PR #657's A–D controls and physical gates. A UI contract is not an accuracy result or a reason
 to delay the headway MVP. The native app now stores feature proposals with exact sample subsets
 and membership pins;
-it does not yet register them into the runtime tracker or freeze facet pins for scoring.
+it stores compact-feature horizontal body registration proposals but does not yet apply them to
+the runtime tracker or freeze facet pins for scoring.
