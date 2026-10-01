@@ -101,6 +101,26 @@ struct FrozenPhysicalPin: Decodable, Equatable {
     }
 }
 
+/// Facet proposals stay separate from physical reference review.
+struct FrozenFacetPin: Decodable, Equatable {
+    var revision: UInt64
+    var sha256: String
+    var contentSHA256: String
+    var candidates: Int
+    var active: Int
+    var supportedObservations: Int
+    var absenceDecisions: Int
+    var registrations: Int
+    var trackerSeededRegistrations: Int
+    enum CodingKeys: String, CodingKey {
+        case revision, sha256, candidates, active, registrations
+        case contentSHA256 = "content_sha256"
+        case supportedObservations = "supported_observations"
+        case absenceDecisions = "absence_decisions"
+        case trackerSeededRegistrations = "tracker_seeded_registrations"
+    }
+}
+
 /// What freezing a draft would pin, and what stops it.
 struct FreezePreview: Decodable, Equatable {
     struct Pack: Decodable, Equatable, Identifiable {
@@ -122,6 +142,7 @@ struct FreezePreview: Decodable, Equatable {
         var sidecarRevision: Int
         var sidecarSHA256: String
         var physical: FrozenPhysicalPin?
+        var features: FrozenFacetPin? = nil
         var objects: [Object]
         var episodes: Int
         var id: String { packDigest }
@@ -132,6 +153,7 @@ struct FreezePreview: Decodable, Equatable {
             case sidecarRevision = "sidecar_revision"
             case sidecarSHA256 = "sidecar_sha256"
             case physical
+            case features
             case objects
             case episodes
         }
@@ -140,6 +162,7 @@ struct FreezePreview: Decodable, Equatable {
     var packs: [Pack]
     var membershipProblems: [String]
     var physicalProblems: [String]
+    var facetProblems: [String]? = nil
     /// A refusal the freeze would give after review passes, such as a
     /// lineage rule; reported here rather than returned as an error.
     var refusal: String?
@@ -150,6 +173,7 @@ struct FreezePreview: Decodable, Equatable {
         case packs
         case membershipProblems = "membership_problems"
         case physicalProblems = "physical_problems"
+        case facetProblems = "facet_problems"
         case refusal
         case wouldFreeze = "would_freeze"
         case splitDigest = "split_digest"

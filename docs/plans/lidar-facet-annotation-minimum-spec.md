@@ -25,7 +25,8 @@ Compact features can now propose a horizontal metric offset under a pinned, revi
 body/pose, with a named source return and conservative bound. Independent and tracker-assisted
 seeds retain distinct proposal origins; neither establishes independent registration truth.
 Edge/surface weak-direction
-registration, the runtime event ledger and frozen facet pins remain engineering work.
+registration and the runtime event ledger remain engineering work. Optional frozen facet pins
+now retain exact proposal revisions and assisted-origin counts; they are not scoring truth.
 
 The [resource notes](lidar-facet-authoring-resource-notes.md) describe the implemented cache,
 index payload and reproducible scalar fit timing. They do not qualify the runtime tracker.
@@ -219,4 +220,8 @@ Keep PR #657's A–D controls and physical gates. A UI contract is not an accura
 to delay the headway MVP. The native app now stores feature proposals with exact sample subsets
 and membership pins;
 it stores compact-feature horizontal body registration proposals but does not yet apply them to
-the runtime tracker or freeze facet pins for scoring.
+the runtime tracker. Optional schema-4 frozen pins retain the proposal revision, exact-byte and
+canonical-content digests, support/absence counts and assisted-registration counts. Inspection
+is available through `BindFeatures` against the frozen membership. An experiment must call that
+binding path before consuming the proposals and retain its seed policy; the existing physical
+scorer does not consume them automatically.

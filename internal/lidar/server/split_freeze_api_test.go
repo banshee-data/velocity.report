@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 )
 
 // splitDraftFor is a one-pack draft over the reviewed test pack, with car-1
@@ -23,6 +24,54 @@ func splitDraftFor(handle string) map[string]any {
 			"episodes": []any{map[string]any{"episode_id": "ep-1", "split": "tune", "object_ids": []string{"car-1"},
 				"frame_intervals": []any{map[string]any{"first_sample": 0, "last_sample": 2}}}},
 		}},
+	}
+}
+
+func TestSplitFreezeAPIOptionalFacetPins(t *testing.T) {
+	root := t.TempDir()
+	p := physicalTestPack(t, root, "run-a")
+	state, err := annotation.LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Document.Author = "operator"
+	if _, err := annotation.SaveFeatures(p, &pb.FeatureEdit{Document: state.Document, MembershipDigest: state.MembershipDigest}); err != nil {
+		t.Fatal(err)
+	}
+	ws := &Server{annotationPacksDir: root}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := physicalClient{t: t, base: srv.URL}
+	draft := splitDraftFor("run-a/pack")
+	draft["packs"].([]any)[0].(map[string]any)["feature_revision"] = 0
+	status, preview := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": draft})
+	if status != 200 || preview["would_freeze"] != true {
+		t.Fatal(status, preview)
+	}
+	pin := preview["packs"].([]any)[0].(map[string]any)["features"].(map[string]any)
+	if pin["revision"] != float64(1) || pin["candidates"] != float64(0) {
+		t.Fatal(pin)
+	}
+	status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": draft, "author": "operator", "output": "facets.json"})
+	if status != 200 {
+		t.Fatal(status, out)
+	}
+	frozen, err := annotation.LoadFrozenSplit(filepath.Join(root, splitsDirName, "facets.json"))
+	if err != nil || frozen.SchemaVersion != annotation.FrozenSplitSchemaVersionFeatures || frozen.Packs[0].Features == nil {
+		t.Fatal(err, frozen)
+	}
+	_, s, err := frozen.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc, err := frozen.BindFeatures(p, s); err != nil || doc.Revision != 1 {
+		t.Fatal(err)
+	}
+	draft["packs"].([]any)[0].(map[string]any)["feature_revision"] = 99
+	if status, _ := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": draft}); status != http.StatusUnprocessableEntity {
+		t.Fatalf("missing facet revision response: %d", status)
 	}
 }
 

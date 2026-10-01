@@ -553,13 +553,24 @@ window does not author the split: choose a draft file in the CLI's format
 (`velocity.report/split-draft`), naming each pack by its folder beneath the service's annotation
 folder, as the physical-reference service names packs. **Preview** shows what the service would
 pin: for each pack its membership revision and digest, its physical revision and digests (or that
-it has no physical references, in which case the split pins membership only), each object's
+it has no physical reference pin), each object's
 partition, each object's body and keyframe review, the components that reviewed keyframes leave
 unavailable, and every problem that stops the freeze. **Freeze** is enabled only when the preview
 is of the chosen draft and says it would freeze; it writes the split once, under the name you
 give, into `splits/` beneath the annotation folder, and refuses to overwrite. A new revision of an
 existing split names it under **Supersedes**. The same rules refuse a freeze on the command line;
 the button is not where they are enforced.
+
+Open **Optional facet evidence · proposals, not truth** to pin saved facets for a pack. Enabling
+the pack's toggle adds `feature_revision: 0` to this freeze request, which previews the saved
+head. A positive revision already named in the draft is retained; disable the toggle to omit the
+pin. This changes the request, not the draft file. A pin records exact bytes, canonical content
+and counts of active/retired facets, supported frames, absence/rejection decisions and body
+registrations, including how many were tracker-seeded. None becomes physical truth. Changing a
+facet pin or **Supersedes** requires another preview. Support must remain definite in the frozen
+object mask, even when its original observation pins an older mask revision. An unavailable
+facet revision refuses the freeze. Feature-free freezes keep schema version 3; opting into facet
+pins writes version 4. Existing version-2 and version-3 bundles remain readable.
 
 ### Importing and validating
 
