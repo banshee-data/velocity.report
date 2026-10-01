@@ -46,6 +46,14 @@ extension FeatureSphere {
     }
 }
 
+extension FeatureObservation {
+    /// A lasso's sphere is an envelope, never the membership rule. Sequential
+    /// proposals keep that distinction when their enclosing sphere moves.
+    var usesSubsetShape: Bool {
+        method == "manual_lasso" || method == "object_mask_translation_subset_v1"
+    }
+}
+
 /// Pure selection rules shared by clicking, resizing, and sequential previews.
 enum FeatureSelection {
     static func indices(points: PackPoints, domain: [Int], sphere: FeatureSphere) -> [UInt32] {
@@ -94,10 +102,32 @@ enum FeatureSelection {
         }
         let sphere = FeatureSphere(
             centre: source.sphere.centre + fit.offset, radius: source.sphere.radiusM)
-        let found = indices(points: targetPoints, domain: targetDomain, sphere: sphere).count
+        let found =
+            source.usesSubsetShape
+            ? translatedSubset(
+                source: source, sourcePoints: sourcePoints, targetPoints: targetPoints,
+                targetDomain: targetDomain, sphere: sphere
+            ).count : indices(points: targetPoints, domain: targetDomain, sphere: sphere).count
         guard found >= max(2, source.pointIndices.count / 2), found <= source.pointIndices.count * 2
         else { throw FeatureError.message("Feature support changed too much: seed manually") }
         return sphere
+    }
+
+    /// Current-frame indices under a translated spatial proposal. Return IDs
+    /// are never copied between scans, and unselected parts inside the envelope
+    /// are excluded unless they enter the source's coarse occupied voxels.
+    static func translatedSubset(
+        source: FeatureObservation, sourcePoints: PackPoints, targetPoints: PackPoints,
+        targetDomain: [Int], sphere: FeatureSphere
+    ) -> [UInt32] {
+        let footprint = SelectionFootprint(
+            points: source.pointIndices.compactMap { sourcePoints.point(at: Int($0)) }, dilation: 0)
+        let allowed = indices(points: targetPoints, domain: targetDomain, sphere: sphere)
+        let offset = sphere.centre - source.sphere.centre
+        return allowed.filter { index in
+            guard let point = targetPoints.point(at: Int(index)) else { return false }
+            return footprint.contains(point, offset: offset)
+        }
     }
 }
 
@@ -516,10 +546,13 @@ extension AnnotationSession {
         var observation = featureObservation(sample: sample)
         observation.sphere = saved.sphere
         let domain = featureDomain(sampleID: sample.sampleID, objectID: object)
-        if saved.method == "manual_lasso" {
+        if saved.usesSubsetShape {
             let allowed = Set(domain.map(UInt32.init))
             observation.pointIndices = saved.pointIndices.filter { allowed.contains($0) }
             observation.method = "manual_lasso"
+            if saved.hasProposedFromSample {
+                observation.proposedFromSample = saved.proposedFromSample
+            }
         } else {
             observation.pointIndices = FeatureSelection.indices(
                 points: currentPoints, domain: domain, sphere: saved.sphere)
@@ -541,7 +574,7 @@ extension AnnotationSession {
     }
 
     func resizeFeature(_ radius: Double) {
-        guard features.canEdit, var draft = features.draft, draft.method != "manual_lasso",
+        guard features.canEdit, var draft = features.draft, !draft.usesSubsetShape,
             let object = activeObjectID,
             draft.sampleID == currentSample.map({ UInt32($0.sampleID) })
         else { return }
@@ -598,10 +631,11 @@ extension AnnotationSession {
             return
         }
         do {
+            let sourcePoints = currentPoints
             let targetPoints = try pack.points(sampleID: target.sampleID)
             let targetDomain = featureDomain(sampleID: target.sampleID, objectID: feature.objectID)
             let sphere = try FeatureSelection.propose(
-                source: source, sourcePoints: currentPoints,
+                source: source, sourcePoints: sourcePoints,
                 sourceDomain: featureDomain(sampleID: sample.sampleID, objectID: feature.objectID),
                 targetPoints: targetPoints, targetDomain: targetDomain,
                 seconds: Double(target.timestampNs - sample.timestampNs) / 1e9)
@@ -611,10 +645,17 @@ extension AnnotationSession {
             }
             var observation = featureObservation(sample: target)
             observation.sphere = sphere
-            observation.pointIndices = FeatureSelection.indices(
-                points: targetPoints, domain: targetDomain, sphere: sphere)
+            observation.pointIndices =
+                source.usesSubsetShape
+                ? FeatureSelection.translatedSubset(
+                    source: source, sourcePoints: sourcePoints, targetPoints: targetPoints,
+                    targetDomain: targetDomain, sphere: sphere)
+                : FeatureSelection.indices(
+                    points: targetPoints, domain: targetDomain, sphere: sphere)
             observation.proposedFromSample = source.sampleID
-            observation.method = "object_mask_translation_v1"
+            observation.method =
+                source.usesSubsetShape
+                ? "object_mask_translation_subset_v1" : "object_mask_translation_v1"
             observation.origin = "assisted_proposal"
             features.seed(observation, objectID: feature.objectID)
         } catch { features.message = error.localizedDescription }

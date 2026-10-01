@@ -352,5 +352,11 @@ return bound; changing dimensions does not rescale this mapping. Whole spans now
 explicit tolerance fields, with asymmetric min/max under an advanced disclosure. Missing bounds
 remain missing in the saved model; a value-only or prior-only outline is labelled as a sketch.
 A width handle complements the length handle without changing pose or the other dimension.
-Tracker seeding, weak-direction edge/surface registration and the runtime snap ledger remain
-open. The earlier audit above remains a record of the supplied UI.
+Assisted authoring can be declared explicitly, including for outstanding edits; undo keeps the
+exposure ledger while preserving unchanged saved independent history. A source-pinned report can
+seed an assisted sketch at an exact, uniquely matched instant when it states a physical body
+centre. The original estimate stays a separate ghost outline, and imported statistical sigmas
+do not become reference bounds. Existing size and poses are retained. Direct main-window import
+remains open: its track stream does not declare the physical position's meaning. Weak-direction
+edge/surface registration and the runtime snap ledger also remain open. The earlier audit above
+remains a record of the supplied UI.
