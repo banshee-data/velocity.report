@@ -74,6 +74,9 @@ message FeatureCandidate {
   string part_relation = 7;
   FeatureAnchor anchor = 8;
   repeated FeatureObservation observations = 9;
+  // Keep historic evidence when a facet retires. Absent means active for v1.
+  // At most four active facets per logical object; zero is valid abstention.
+  bool inactive = 10;
 }
 
 message FeatureAnnotations {

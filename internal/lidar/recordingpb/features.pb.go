@@ -474,9 +474,12 @@ type FeatureCandidate struct {
 	SemanticHint string                 `protobuf:"bytes,5,opt,name=semantic_hint,json=semanticHint,proto3" json:"semantic_hint,omitempty"`
 	PartId       string                 `protobuf:"bytes,6,opt,name=part_id,json=partId,proto3" json:"part_id,omitempty"`
 	// Pilot writes "unknown"; it does not assert a rigid/articulated transform.
-	PartRelation  string                `protobuf:"bytes,7,opt,name=part_relation,json=partRelation,proto3" json:"part_relation,omitempty"`
-	Anchor        *FeatureAnchor        `protobuf:"bytes,8,opt,name=anchor,proto3" json:"anchor,omitempty"`
-	Observations  []*FeatureObservation `protobuf:"bytes,9,rep,name=observations,proto3" json:"observations,omitempty"`
+	PartRelation string                `protobuf:"bytes,7,opt,name=part_relation,json=partRelation,proto3" json:"part_relation,omitempty"`
+	Anchor       *FeatureAnchor        `protobuf:"bytes,8,opt,name=anchor,proto3" json:"anchor,omitempty"`
+	Observations []*FeatureObservation `protobuf:"bytes,9,rep,name=observations,proto3" json:"observations,omitempty"`
+	// Keep historic evidence when a facet retires. Absent means active for v1.
+	// At most four active facets per logical object; zero is valid abstention.
+	Inactive      bool `protobuf:"varint,10,opt,name=inactive,proto3" json:"inactive,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -572,6 +575,13 @@ func (x *FeatureCandidate) GetObservations() []*FeatureObservation {
 		return x.Observations
 	}
 	return nil
+}
+
+func (x *FeatureCandidate) GetInactive() bool {
+	if x != nil {
+		return x.Inactive
+	}
+	return false
 }
 
 type FeatureAnnotations struct {
@@ -850,7 +860,7 @@ const file_features_proto_rawDesc = "" +
 	"\x0fphysical_digest\x18\a \x01(\tR\x0ephysicalDigest\x12\x17\n" +
 	"\abody_id\x18\b \x01(\tR\x06bodyId\x12\x1f\n" +
 	"\vkeyframe_id\x18\t \x01(\tR\n" +
-	"keyframeId\"\x96\x03\n" +
+	"keyframeId\"\xb2\x03\n" +
 	"\x10FeatureCandidate\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x1b\n" +
@@ -861,7 +871,9 @@ const file_features_proto_rawDesc = "" +
 	"\apart_id\x18\x06 \x01(\tR\x06partId\x12#\n" +
 	"\rpart_relation\x18\a \x01(\tR\fpartRelation\x12<\n" +
 	"\x06anchor\x18\b \x01(\v2$.velocity.recording.v1.FeatureAnchorR\x06anchor\x12M\n" +
-	"\fobservations\x18\t \x03(\v2).velocity.recording.v1.FeatureObservationR\fobservations\"\xd0\x02\n" +
+	"\fobservations\x18\t \x03(\v2).velocity.recording.v1.FeatureObservationR\fobservations\x12\x1a\n" +
+	"\binactive\x18\n" +
+	" \x01(\bR\binactive\"\xd0\x02\n" +
 	"\x12FeatureAnnotations\x12\x16\n" +
 	"\x06schema\x18\x01 \x01(\tR\x06schema\x12%\n" +
 	"\x0eschema_version\x18\x02 \x01(\rR\rschemaVersion\x12\x1f\n" +

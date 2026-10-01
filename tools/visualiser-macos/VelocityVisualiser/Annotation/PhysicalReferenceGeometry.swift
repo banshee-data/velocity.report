@@ -19,6 +19,9 @@ enum PhysicalGeometryGate {
     case truth
     /// Dimensions from the body as drafted, for drawing a proposal.
     case preview
+    /// Editable sketch only: missing bounds stay unknown in the document.
+    /// Never use this gate for comparison, review, or scoring.
+    case authoring
 }
 
 struct PhysicalPlanar: Equatable {
@@ -101,6 +104,8 @@ enum PhysicalUnavailable {
 
 struct PhysicalGeometry: Equatable {
     var anchorKind: PhysicalAnchorKind
+    /// Components drawn without a stated bound; zero drawing radius is not precision.
+    var unboundedDraft: Bool = false
     var anchorPoint: PhysicalPlanar?
     var anchorUnavailable: String?
     var centre: PhysicalPlanar?
@@ -142,6 +147,22 @@ struct PhysicalGeometry: Equatable {
         } else {
             g.yawUnavailable = PhysicalUnavailable.yaw
         }
+        if gate == .authoring {
+            if g.anchorPoint == nil, k.position.status != .unknown, let x = k.position.xM,
+                let y = k.position.yM, x.isFinite, y.isFinite, k.position.boundM == nil
+            {
+                g.anchorPoint = PhysicalPlanar(x: x, y: y, bound: 0)
+                g.anchorUnavailable = nil
+                g.unboundedDraft = true
+            }
+            if g.yaw == nil, k.yaw.axis != .unknown, k.yaw.status != .unknown,
+                let rad = k.yaw.yawRad, rad.isFinite, k.yaw.boundRad == nil
+            {
+                g.yaw = PhysicalAngle(rad: rad, boundRad: 0, axis: k.yaw.axis, status: k.yaw.status)
+                g.yawUnavailable = nil
+                g.unboundedDraft = true
+            }
+        }
         g.applyBody(object.body, gate: gate)
         g.applyCentre(k.anchor)
         (g.front, g.frontUnavailable) = g.endpoint(k.front, sign: 1, face: .frontFace)
@@ -176,13 +197,17 @@ struct PhysicalGeometry: Equatable {
             return
         }
         guard let body else { return }
-        (length, lengthUnavailable) = Self.linear(body.length)
-        (width, widthUnavailable) = Self.linear(body.width)
-        (height, heightUnavailable) = Self.linear(body.height)
+        (length, lengthUnavailable) = Self.linear(body.length, gate: gate)
+        (width, widthUnavailable) = Self.linear(body.width, gate: gate)
+        (height, heightUnavailable) = Self.linear(body.height, gate: gate)
     }
 
-    private static func linear(_ d: PhysicalDimension) -> (PhysicalLinear?, String?) {
-        guard d.status.scorable else { return (nil, d.status.rawValue) }
+    private static func linear(
+        _ d: PhysicalDimension, gate: PhysicalGeometryGate
+    ) -> (PhysicalLinear?, String?) {
+        guard d.status.scorable || (gate == .authoring && d.status == .priorOnly) else {
+            return (nil, d.status.rawValue)
+        }
         guard let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
             return (nil, PhysicalUnavailable.lowerBoundOnly)
         }

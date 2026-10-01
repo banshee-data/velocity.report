@@ -147,6 +147,12 @@ import Foundation
             accept(loaded, draft: keep)
             needsReload = false
             clearError()
+            lastNote =
+                keep != nil
+                ? "Loaded saved revision \(loaded.revision); your draft is kept for reconciliation."
+                : loaded.exists
+                    ? "Loaded saved revision \(loaded.revision)."
+                    : "No saved physical references. Add object size, then place a pose in the Top view."
         } catch let error as PhysicalReferenceAPIError {
             guard asked == generation else { return }
             if state == nil { availability = .unavailable(Self.unavailableReason(error)) }
@@ -712,6 +718,7 @@ enum PhysicalDraft {
     }
 
     static func setAnchor(_ kind: PhysicalAnchorKind, of k: inout PhysicalKeyframe) {
+        guard !kind.isFace || k.yaw.axis == .resolved else { return }
         k.anchor.kind = kind
         if kind == .bodyCentre {
             k.anchor.offsetM = nil

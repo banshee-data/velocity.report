@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -355,5 +356,40 @@ func TestConcurrentFeatureEditorsDoNotLoseAnAcceptedRevision(t *testing.T) {
 	s, err := LoadFeatures(p)
 	if err != nil || s.Document.Revision != 1 {
 		t.Fatalf("lost revision: %+v %v", s, err)
+	}
+}
+
+func TestFeatureActiveFacetLimitRetainsRetiredEvidence(t *testing.T) {
+	p, edit := featureFixture(t)
+	first := edit.Document.Features[0]
+	for i := 1; i < 5; i++ {
+		f := proto.Clone(first).(*pb.FeatureCandidate)
+		f.FeatureId = fmt.Sprintf("facet-%d", i)
+		edit.Document.Features = append(edit.Document.Features, f)
+	}
+	if _, err := SaveFeatures(p, edit); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("fifth active facet accepted: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, featureFile)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("refused save wrote a file: %v", err)
+	}
+	edit.Document.Features[0].Inactive = true
+	state, err := SaveFeatures(p, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Document.Features) != 5 || len(state.Document.Features[0].Observations) != 1 {
+		t.Fatal("retiring erased evidence")
+	}
+	next := proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = false
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: next, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest}); err == nil {
+		t.Fatal("reactivation bypassed active cap")
+	}
+	for _, f := range next.Features {
+		f.Inactive = true
+	}
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: next, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest}); err != nil {
+		t.Fatalf("zero active facets must support abstention: %v", err)
 	}
 }

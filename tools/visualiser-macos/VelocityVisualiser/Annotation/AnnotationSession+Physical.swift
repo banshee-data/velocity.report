@@ -162,11 +162,12 @@ enum PhysicalHandles {
             viewport.screenPoint(from: basis.project(simd_float3(Float(x), Float(y), 0)))
         }
         let move = g.anchorPoint.map { screen($0.x, $0.y) }
-        guard let yaw = g.yaw, let origin = g.centre ?? g.anchorPoint else {
-            return (move, nil, nil)
-        }
+        guard let origin = g.centre ?? g.anchorPoint else { return (move, nil, nil) }
         let o = screen(origin.x, origin.y)
-        let t = screen(origin.x + cos(yaw.rad), origin.y + sin(yaw.rad))
+        // An unset axis gets a tool handle, not a claimed heading. Dragging it
+        // explicitly authors the axis; no angle or bound is prefilled.
+        let rad = g.yaw?.rad ?? 0
+        let t = screen(origin.x + cos(rad), origin.y + sin(rad))
         let n = max(hypot(t.x - o.x, t.y - o.y), 0.001)
         let turn = CGPoint(
             x: o.x + (t.x - o.x) / n * axisReach, y: o.y + (t.y - o.y) / n * axisReach)
@@ -211,7 +212,7 @@ extension AnnotationSession {
         guard let objectID = activeObjectID, let k = physicalKeyframe,
             let object = physical.object(objectID)
         else { return nil }
-        return PhysicalGeometry.derive(object: object, keyframe: k, gate: .preview)
+        return PhysicalGeometry.derive(object: object, keyframe: k, gate: .authoring)
     }
 
     /// The handle under a press in the Top view, if any. The turn handle wins
@@ -267,7 +268,8 @@ extension AnnotationSession {
                     k.position.xM = x + Double(world.x - from.x)
                     k.position.yM = y + Double(world.y - from.y)
                 case .turn:
-                    guard let origin, k.yaw.axis != .unknown else { return }
+                    guard let origin else { return }
+                    if k.yaw.axis == .unknown { PhysicalDraft.setAxis(.frontRearAmbiguous, of: &k) }
                     let rad = atan2(Double(world.y) - origin.y, Double(world.x) - origin.x)
                     k.yaw.yawRad = PhysicalUnits.radians(
                         PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))

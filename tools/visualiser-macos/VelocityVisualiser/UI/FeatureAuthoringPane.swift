@@ -7,16 +7,29 @@ struct FeatureAuthoringPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Feature Candidates · object masks unchanged").font(.headline)
+            Text("Facets · points fixed to one part").font(.headline)
             Text(
-                "Save this object's points first. Click a return to seed a sphere; drag pans the view."
+                "Save the object's points first. Select a small edge, surface patch, or local feature such as a mirror tip. Each facet keeps its identity across frames."
             ).font(.caption)
+            if let object = session.activeObjectID {
+                Text("\(features.activeCount(objectID: object)) of 4 facets active").font(
+                    .caption.bold())
+            }
+            Picker("Select points", selection: $features.selectionTool) {
+                Text("Sphere").tag(FeatureSelectionTool.sphere)
+                Text("Lasso subset").tag(FeatureSelectionTool.lasso)
+            }.pickerStyle(.segmented).disabled(!features.canEdit)
+            Text(
+                features.selectionTool == .lasso
+                    ? "Drag an outline in the editing view. Shift adds; Option removes. The depth slab limits selection."
+                    : "Click a saved return to seed a sphere. Drag pans the view."
+            ).font(.caption2).foregroundStyle(.secondary)
             Text("Part: body · relation and metric anchor unresolved").font(.caption2)
                 .foregroundStyle(.secondary)
             HStack {
                 Button("Reload") { Task { await features.load() } }.disabled(
                     features.isDirty || features.busy)
-                Button("New feature") { features.newFeature() }.disabled(
+                Button("New facet") { features.newFeature() }.disabled(
                     !features.canEdit || features.isDirty)
             }
             if let state = features.state {
@@ -34,7 +47,9 @@ struct FeatureAuthoringPane: View {
                         HStack {
                             Text(feature.name.isEmpty ? "Feature" : feature.name)
                             Spacer()
-                            Text("\(feature.observations.count) frames")
+                            Text(
+                                feature.inactive
+                                    ? "retired" : "\(feature.observations.count) frames")
                             if feature.featureID == features.activeID {
                                 Image(systemName: "checkmark")
                             }
@@ -44,6 +59,11 @@ struct FeatureAuthoringPane: View {
             }
             if let active = features.active {
                 Text(active.featureID).font(.caption2.monospaced()).textSelection(.enabled)
+                Button(active.inactive ? "Activate facet" : "Retire facet, keep evidence") {
+                    Task {
+                        await features.setInactive(!active.inactive, author: session.operatorName)
+                    }
+                }.disabled(!features.canEdit || features.isDirty)
             }
             Button("Edit this frame") { session.editCurrentFeature() }.disabled(
                 !features.canEdit || features.isDirty || session.featureOverlay?.hasSphere != true)
@@ -70,7 +90,7 @@ struct FeatureAuthoringPane: View {
                         features.radius = $0
                         session.resizeFeature($0)
                     }), in: 0.02...2, step: 0.01
-            ).disabled(!features.canEdit)
+            ).disabled(!features.canEdit || features.draft?.method == "manual_lasso")
             if let observation = session.featureOverlay {
                 Text(features.isDirty ? "Unsaved preview" : decisionLabel(observation.decision))
                     .font(.caption).foregroundStyle(features.isDirty ? .orange : .cyan)
@@ -78,11 +98,27 @@ struct FeatureAuthoringPane: View {
                     "\(observation.pointIndices.count) returns · \(observation.method) · \(observation.origin)"
                 ).font(.caption).textSelection(.enabled)
             }
+            if let observation = session.featureOverlay {
+                let fit = FacetGeometryFit.analyse(
+                    points: session.currentPoints, indices: observation.pointIndices,
+                    geometry: features.geometry)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Geometry check · proposal only").font(.caption.bold())
+                    Text(fit.explanation).font(.caption2)
+                    if fit.direction != nil {
+                        Text(
+                            "Span \(fit.spanM, specifier: "%.2f") m · spread \(fit.transverseSpreadM, specifier: "%.2f") m · RMS \(fit.residualM, specifier: "%.3f") m"
+                        ).font(.caption2.monospacedDigit())
+                        Text("Weak: \(fit.weakDirections)").font(.caption2).foregroundStyle(
+                            .secondary)
+                    }
+                }
+            }
             Text(
                 "Accepted proposals are not reviewed physical references. Propagation is translation-only and stops at gaps or weak support."
             ).font(.caption2).foregroundStyle(.secondary)
             HStack {
-                Button("Accept and save") { save(.acceptedProposal) }.disabled(
+                Button("Save facet proposal") { save(.acceptedProposal) }.disabled(
                     !features.canEdit || (features.draft?.pointIndices.isEmpty ?? true))
                 Button("Reject") { save(.rejected) }.disabled(
                     !features.canEdit || features.draft == nil)

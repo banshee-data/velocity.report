@@ -54,6 +54,12 @@ residual, or attractive mesh cannot substitute for any of these measurements.
 
 ## 3. Evidence and controls
 
+The [minimum facet annotation specification](lidar-facet-annotation-minimum-spec.md) defines the
+operator increment for F0/F1: one to four active features, canonical point subsets per frame,
+separate review and body registration, and a ledger limiting discrete reanchors to three after
+birth. Ordinary compatible measurements remain continuous. This is proposed tooling and an
+experimental policy, not a delivered extractor or a measured tracking benefit.
+
 Start with a planning allowance of 60 independent vehicle passages and 20 following encounters
 across at least three captures. The passages should include cars, vans, and rigid trucks. The
 encounters may reuse those passages; both members and every overlapping clip belong to the same

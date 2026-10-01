@@ -442,3 +442,92 @@ struct FeatureSharedWireTests {
         #expect(s.features.message?.contains("skipped") == true)
     }
 }
+
+@MainActor struct FacetActiveLimitTests {
+    @Test func theFifthFacetWaitsForRetirementAndReactivationKeepsTheCap() async throws {
+        let (pack, client, service) = try featureSetup()
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        for i in 0..<4 {
+            a.newFeature()
+            a.name = "Facet \(i)"
+            a.seed(featureSeed(pack), objectID: "car")
+            #expect(
+                await a.save(
+                    decision: .acceptedProposal, author: "op",
+                    membershipDigest: service.state.membershipDigest))
+        }
+        #expect(a.activeCount(objectID: "car") == 4)
+        let first = try #require(a.state?.document.features.first?.featureID)
+        a.newFeature()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(a.isDirty && service.posts == 4)
+        a.cancel()
+        a.choose(first)
+        await a.setInactive(true, author: "op")
+        #expect(a.activeCount(objectID: "car") == 3 && a.active?.observations.count == 1)
+        a.newFeature()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        a.choose(first)
+        await a.setInactive(false, author: "op")
+        #expect(a.active?.inactive == true && a.activeCount(objectID: "car") == 4)
+        #expect(a.state?.document.features.count == 5)
+    }
+}
+
+@MainActor struct FacetSubsetSelectionTests {
+    @Test func lassoAndDepthSlabSaveExactSupportWithoutChangingTheObjectMask() async throws {
+        let points: [SyntheticPack.Point] = [
+            (0, 0, 1, 1), (0.1, 0.1, 1, 1), (0.05, 0.05, 3, 1), (1, 1, 1, 1),
+        ]
+        let dir = try SyntheticPack.write([points])
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        #expect(
+            s.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(s.save())
+        service.state.membershipDigest = s.membershipDigest
+        let mask = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        s.slab = DepthSlab(minDepth: -1.5, maxDepth: -0.5)
+        s.selectFacet(polygon: SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2)))
+        #expect(s.features.draft?.pointIndices == [0, 1])
+        #expect(s.features.draft?.method == "manual_lasso")
+        #expect(s.features.message?.contains("1 outside depth slab") == true)
+        s.resizeFeature(2)
+        #expect(
+            s.features.draft?.pointIndices == [0, 1],
+            "resizing a sphere must not broaden a lasso subset")
+        s.features.geometry = .edge
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: "op", membershipDigest: s.membershipDigest))
+        s.editCurrentFeature()
+        #expect(
+            s.features.draft?.pointIndices == [0, 1] && s.features.draft?.method == "manual_lasso")
+        s.selectFacet(
+            polygon: SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2)),
+            mode: .subtract)
+        #expect(!s.features.isDirty)
+        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == mask)
+        #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
+    }
+}

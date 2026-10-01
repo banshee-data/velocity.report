@@ -127,13 +127,14 @@ struct PhysicalReferencePane: View {
         let saved = physical.savedBody(objectID: objectID)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Body · whole object").font(.subheadline.bold())
+                Text("1 · Object size · all frames").font(.subheadline.bold())
                 Spacer()
                 if let saved { reviewBadge(saved.review.status) }
             }
             Text(
-                "One body for the whole episode. A changed dimension is a new body, and every "
-                    + "keyframe's review is reset when it is saved."
+                "Length is front to rear; width is side to side. Set the real object's size once, "
+                    + "rather than fitting each visible patch. Min and max bound what the evidence supports. "
+                    + "Changing size resets pose reviews across the object."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
             if body != nil {
@@ -164,7 +165,7 @@ struct PhysicalReferencePane: View {
                     }.disabled(!physical.canEdit)
                 }.controlSize(.small)
             } else {
-                Button("Add body (all unknown)") {
+                Button("Add shared object size") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -237,20 +238,44 @@ struct PhysicalReferencePane: View {
         }
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Keyframe · this frame only").font(.subheadline.bold())
+                Text("2 · Pose at this frame").font(.subheadline.bold())
                 Spacer()
                 if let saved { reviewBadge(saved.review.status) }
             }
+            Text(
+                "A pose (keyframe) records position and direction at one instant. It keeps the shared object size; it does not interpolate or follow the tracker."
+            ).font(.caption2).foregroundStyle(.secondary)
             if let sample {
                 Text(
                     "Frame \(sample.sourceOrdinal) · sample \(sample.sampleID) · \(sample.timestampNs) ns"
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).textSelection(
                     .enabled)
             }
+            if let object = physical.object(objectID), !object.keyframes.isEmpty {
+                Menu("Poses: \(object.keyframes.count) marked frames") {
+                    ForEach(object.keyframes.sorted { $0.sampleID < $1.sampleID }, id: \.keyframeID)
+                    { pose in
+                        Button(
+                            "Frame \(session.pack.samples.first(where: { $0.sampleID == pose.sampleID })?.sourceOrdinal ?? pose.sampleID) · \(pose.review.status.rawValue)"
+                        ) {
+                            guard
+                                let index = session.samples.firstIndex(where: {
+                                    $0.sampleID == pose.sampleID
+                                })
+                            else { return }
+                            if session.step(to: index) != nil {
+                                physical.refuse(
+                                    "Save or discard the current edits before choosing a pose frame."
+                                )
+                            }
+                        }
+                    }
+                }.controlSize(.small)
+            }
             if let k, let sample {
                 keyframeEditor(objectID: objectID, k: k, sample: sample)
                 HStack {
-                    Button("Review keyframe") {
+                    Button("Review saved pose") {
                         guard let saved else { return }
                         Task {
                             await physical.review(
@@ -263,7 +288,7 @@ struct PhysicalReferencePane: View {
                             || physical.isDirty || !physical.canEdit
                     ).help("Confirms the saved keyframe. It does not review the mask or the body.")
                     Spacer()
-                    Button("Remove keyframe", role: .destructive) {
+                    Button("Remove pose", role: .destructive) {
                         physical.edit {
                             PhysicalDraft.removeKeyframe(
                                 objectID: objectID, sampleID: sample.sampleID, from: &$0)
@@ -290,7 +315,7 @@ struct PhysicalReferencePane: View {
                             + "Check it against this frame's returns before claiming anything observed."
                     )
                 }
-                Button("Add keyframe at this frame") {
+                Button("Add pose at this frame") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -357,7 +382,7 @@ struct PhysicalReferencePane: View {
                     status: k.yaw.status, ownSample: sample.sampleID)
             }
 
-            Text("Anchor").font(.caption.bold()).padding(.top, 4)
+            Text("Point fixed to the body").font(.caption.bold()).padding(.top, 4)
             Picker(
                 "",
                 selection: Binding(
@@ -365,7 +390,7 @@ struct PhysicalReferencePane: View {
                     set: { a in update { PhysicalDraft.setAnchor(a, of: &$0) } })
             ) {
                 ForEach(PhysicalAnchorKind.allCases, id: \.self) { kind in
-                    Text(kind.label).tag(kind)
+                    Text(kind.label).tag(kind).disabled(kind.isFace && !resolved)
                 }
             }.labelsHidden().help(
                 resolved
@@ -375,6 +400,9 @@ struct PhysicalReferencePane: View {
                 Text("A face needs a resolved axis.").font(.caption2).foregroundStyle(.orange)
             }
             if k.anchor.kind.isFace {
+                Text(
+                    "Use the same physical spot along this face. A patch's moving centre is not a stable anchor. The offset points inward to the body centre; a face alone does not fix position along it."
+                ).font(.caption2).foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     metres("to centre", number(\.anchor.offsetM))
                     metres("±", number(\.anchor.offsetBoundM))
@@ -382,7 +410,10 @@ struct PhysicalReferencePane: View {
                     "Optional. Without both, the anchor locates the face and not the body centre.")
             }
 
-            Text("Position").font(.caption.bold()).padding(.top, 4)
+            Text("Position of the fixed point").font(.caption.bold()).padding(.top, 4)
+            Text(
+                "Click in Top to place ■; drag ■ to move and ● to turn. The body size stays fixed. Fill ± to state uncertainty before saving a known pose."
+            ).font(.caption2).foregroundStyle(.secondary)
             evidencePicker(
                 Binding(
                     get: { k.position.status },
@@ -450,7 +481,7 @@ struct PhysicalReferencePane: View {
             PhysicalGeometry.derive(object: $0, keyframe: k, gate: .preview)
         }
         return VStack(alignment: .leading, spacing: 1) {
-            Text("Derived (draft)").font(.caption.bold()).padding(.top, 4)
+            Text("Supported geometry · bounds required").font(.caption.bold()).padding(.top, 4)
             if let g {
                 line(
                     "centre",

@@ -84,8 +84,8 @@ struct PhysicalReferenceOverlay: View {
                     body: object.body, savedBody: physical.savedBody(objectID: object.objectID))
                 return (
                     session.displayName(objectID: object.objectID),
-                    PhysicalGeometry.derive(object: object, keyframe: k, gate: .preview), k, style,
-                    object.objectID == active
+                    PhysicalGeometry.derive(object: object, keyframe: k, gate: .authoring), k,
+                    style, object.objectID == active
                 )
             }
         let metresPerPoint: Double =
@@ -103,7 +103,9 @@ struct PhysicalReferenceOverlay: View {
                 let g = item.geometry
                 let colour = item.style.colour.opacity(item.active ? 1 : 0.55)
                 let stroke = StrokeStyle(lineWidth: item.active ? 1.6 : 1, dash: item.style.dash)
-                let label = "\(item.name) · \(item.style.label)"
+                let label =
+                    "\(item.name) · \(item.style.label)"
+                    + (g.unboundedDraft ? " · bounds not set" : "")
 
                 if standard == .top && item.active {
                     let at = PhysicalHandles.positions(
