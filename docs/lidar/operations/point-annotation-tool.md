@@ -423,11 +423,11 @@ a reference is independent only if its author has not seen them, so keep the mai
 out of sight while authoring.
 
 1. Choose the object in the list. Membership and identity come first, in Points mode.
-2. **Body · whole object** holds one length, width and height for the whole episode. A new body
+2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
    is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
    inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
    external reference it rests on. A partial span is a lower bound only.
-3. **Keyframe · this frame only** holds this frame's pose. Click in the Top view to place its
+3. **2 · Pose at this frame** holds this frame's pose. Click in the Top view to place its
    position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
    say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
    face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
@@ -438,13 +438,17 @@ out of sight while authoring.
    and steps to the next frame. A save never reviews anything. A changed
    body dimension is a new body under a new ID, and every keyframe of that object returns to
    proposed.
-6. Inspect the saved record in both views, then **Review body** and **Review keyframe**,
+6. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
    separately. Review is refused while the draft has unsaved changes, because it confirms the
    saved record.
 
 The object list shows three separate progress lines: membership frames, the body's review, and
-keyframes saved and reviewed. The overlay draws only what a keyframe establishes: a marker and its
-bound for a position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
+keyframes saved and reviewed. A pose is a keyframe: one marked instant, with no interpolation
+between it and another. Use **Poses: N marked frames** to return to a recorded pose after saving or
+discarding current edits. The overlay immediately draws an editable marker after placement, even
+before its bound is entered; **bounds not set** marks that sketch as incomplete. A missing bound
+is never written as zero or used for scoring. The supported geometry summary still requires
+bounds. The overlay draws a marker and its bound for a supported position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
@@ -452,12 +456,14 @@ Unsaved physical work guards stepping, switching objects, opening another pack a
 window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
 **Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
 them. If a save gets no answer, the window will not save again until it has reloaded, because the
-first save may have committed.
+first save may have committed. **Reload** reads the saved physical document and reports the
+revision or explains that none exists. It does not create a body, import a tracker box, or discard
+unsaved object membership.
 
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  the dot at the end of the axis to turn it with the position held, and the diamond at the far end
+  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis), and the diamond at the far end
   of the body to revise its length with the anchor held. A length drag moves the stated interval
   with the value, keeping its width, and is a body change: saving it makes a new body and returns
   every keyframe of the object to proposed. A drag is one undo step.
@@ -608,20 +614,23 @@ and the along-path gap waits for persisted paths.
 ## Feature candidates
 
 Choose **Feature Candidates** in the editing-mode menu after saving the active object's membership
-in **Object Points**. The same sphere gesture now selects feature support within that object's
-saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
+in **Object Points**. Choose **Sphere** to click a return, or **Lasso subset** to draw an exact
+subset through the current depth slab. Shift adds to the draft subset; Option removes from it.
+Both tools select only that object's saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
 feature preview; cyan marks saved support. The mode, feature ID, method and proposal origin remain
 visible. The companion 3D view supplies object context; feature rings are in the orthographic views.
 
-1. Enter **Labelled by**, choose the object, and select **New feature**. Click a return in either
+1. Enter **Labelled by**, choose the object, and select **New facet**. Click a return in either
    orthographic view. Dragging pans rather than painting object points.
-2. Adjust the sphere radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
+2. For a sphere, adjust its radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
    views. The selected returns must be saved definite members of this object, with conflicting
-   or uncertain object claims excluded. Different features may overlap.
+   or uncertain object claims excluded. A lasso retains exact selected indices; its enclosing
+   sphere is a selection envelope, and resizing does not broaden it. Different features may
+   overlap, so their support must not later be counted as independent evidence.
 3. Name the feature and choose unknown, edge, corner, patch or protrusion. A semantic hint such as
    “wing mirror” is optional. These are descriptions, not recognition presets: the tool does not
    fit a right-angle corner, recognise a headlight or detect a wheel-well recess.
-4. **Accept and save** retains a proposal under a persistent feature ID. **Reject**, **Missing**
+4. **Save facet proposal** retains a proposal under a persistent feature ID. **Reject**, **Missing**
    and **Occluded** retain decisions without measured support. Missing/occluded can be recorded for
    an existing feature even when this frame has no return to click. **Cancel / stop** drops only
    the unsaved proposal. No feature action reviews a physical pose or changes an object mask.
@@ -631,7 +640,10 @@ visible. The companion 3D view supplies object context; feature rings are in the
    membership or already annotated next frame stops it; seed that frame manually if appropriate.
 6. To revise saved support, select the feature and use **Edit this frame**, then click or resize
    and save. Names/types/hints are saved with that frame edit. Reopen the pack and select the same
-   ID to inspect its saved decisions. Historical revisions retain the earlier interpretation.
+   ID to inspect its saved decisions. **Edit this frame** preserves a lasso's exact support.
+   Historical revisions retain the earlier interpretation. At most four facets can be active for
+   one object. **Retire facet, keep evidence** frees a slot without deleting observations; a fifth
+   activation is refused. Zero active facets is a supported abstention.
 
 The proposal is deliberately limited: it uses observed-object centroid translation and a small
 local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
@@ -640,6 +652,15 @@ feature scale. Changing visibility can shift the observed centroid; reject an im
 A missing or hidden feature is not a new measurement. General feature recognition, body-relative
 anchors, directed front/rear placement, part motion and full rigid registration remain unfinished.
 The panel explicitly shows the part relation and metric anchor as unresolved.
+
+**Geometry check · proposal only** reports an initial line or surface fit, its span, transverse
+spread and residual. A line needs at least three returns and sufficient span; a surface needs
+non-collinear support in two directions. The initial sampling floors are 0.10 m span and 0.05 m
+surface spread, with a covariance ratio at most 0.10; they are experimental support checks, not
+calibrated sensor uncertainty. A scan boundary can still look like an edge. A surface leaves its
+two tangent directions weak, and its visible centre must not become a fixed body anchor. Compact
+features require a repeatability check across frames. These diagnostics neither review a facet
+nor establish a rigid relation.
 
 The local Go annotation service owns feature saves, using the same confined pack root as physical
 references. It must serve the same folder the window opened, not another copy with matching bytes.

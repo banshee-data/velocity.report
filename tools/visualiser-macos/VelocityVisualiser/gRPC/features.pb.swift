@@ -314,6 +314,13 @@ struct Velocity_Recording_V1_FeatureCandidate: @unchecked Sendable {
     set {_uniqueStorage()._observations = newValue}
   }
 
+  /// Keep historic evidence when a facet retires. Absent means active for v1.
+  /// At most four active facets per logical object; zero is valid abstention.
+  var inactive: Bool {
+    get {return _storage._inactive}
+    set {_uniqueStorage()._inactive = newValue}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -694,7 +701,7 @@ extension Velocity_Recording_V1_FeatureAnchor: SwiftProtobuf.Message, SwiftProto
 
 extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".FeatureCandidate"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}feature_id\0\u{3}object_id\0\u{1}name\0\u{1}geometry\0\u{3}semantic_hint\0\u{3}part_id\0\u{3}part_relation\0\u{1}anchor\0\u{1}observations\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}feature_id\0\u{3}object_id\0\u{1}name\0\u{1}geometry\0\u{3}semantic_hint\0\u{3}part_id\0\u{3}part_relation\0\u{1}anchor\0\u{1}observations\0\u{1}inactive\0")
 
   fileprivate class _StorageClass {
     var _featureID: String = String()
@@ -706,6 +713,7 @@ extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftPr
     var _partRelation: String = String()
     var _anchor: Velocity_Recording_V1_FeatureAnchor? = nil
     var _observations: [Velocity_Recording_V1_FeatureObservation] = []
+    var _inactive: Bool = false
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -725,6 +733,7 @@ extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftPr
       _partRelation = source._partRelation
       _anchor = source._anchor
       _observations = source._observations
+      _inactive = source._inactive
     }
   }
 
@@ -752,6 +761,7 @@ extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftPr
         case 7: try { try decoder.decodeSingularStringField(value: &_storage._partRelation) }()
         case 8: try { try decoder.decodeSingularMessageField(value: &_storage._anchor) }()
         case 9: try { try decoder.decodeRepeatedMessageField(value: &_storage._observations) }()
+        case 10: try { try decoder.decodeSingularBoolField(value: &_storage._inactive) }()
         default: break
         }
       }
@@ -791,6 +801,9 @@ extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftPr
       if !_storage._observations.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._observations, fieldNumber: 9)
       }
+      if _storage._inactive != false {
+        try visitor.visitSingularBoolField(value: _storage._inactive, fieldNumber: 10)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -809,6 +822,7 @@ extension Velocity_Recording_V1_FeatureCandidate: SwiftProtobuf.Message, SwiftPr
         if _storage._partRelation != rhs_storage._partRelation {return false}
         if _storage._anchor != rhs_storage._anchor {return false}
         if _storage._observations != rhs_storage._observations {return false}
+        if _storage._inactive != rhs_storage._inactive {return false}
         return true
       }
       if !storagesAreEqual {return false}

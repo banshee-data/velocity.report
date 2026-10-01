@@ -68,7 +68,10 @@ struct LassoOverlay: View {
                 // keyframe's anchor with a click and pans with a drag: a
                 // stroke is never also a placement.
                 ViewportInputLayer(
-                    strokesEnabled: editable && session.workMode == .points,
+                    strokesEnabled: editable
+                        && (session.workMode == .points
+                            || (session.workMode == .features
+                                && session.features.selectionTool == .lasso)),
                     onStrokeChanged: strokeChanged, onStrokeEnded: strokeEnded,
                     onPan: { session.pan(basisStandard, size: viewport.size, byPoints: $0) },
                     onZoom: { factor, anchor in
@@ -77,9 +80,8 @@ struct LassoOverlay: View {
                         )
                     },
                     onClick: { location in
-                        if !editable {
-                            session.makeEditingView(basisStandard)
-                        } else if session.workMode == .physical {
+                        if !editable { session.makeEditingView(basisStandard) }
+                        if session.workMode == .physical {
                             session.placePhysicalAnchor(
                                 in: basisStandard, at: viewport.worldPoint(from: location))
                         } else if session.workMode == .features {
@@ -475,6 +477,18 @@ struct LassoOverlay: View {
                 to: viewport.worldPoint(from: value.location))
             return
         }
+        if session.workMode == .features {
+            if strokePoints.isEmpty {
+                session.beginStroke()
+                rectangleMode = NSEvent.modifierFlags.contains(.command)
+            }
+            if rectangleMode {
+                strokePoints = rectangleCorners(from: value.startLocation, to: value.location)
+            } else {
+                strokePoints.append(value.location)
+            }
+            return
+        }
         switch session.tool {
         case .lasso: lassoChanged(value)
         case .sphere: sphereChanged(value)
@@ -489,6 +503,18 @@ struct LassoOverlay: View {
             return
         }
         defer { resetStroke() }
+        if session.workMode == .features {
+            defer { session.cancelStroke() }
+            guard strokePoints.count >= 3 else { return }
+            let polygon = SelectionPolygon(
+                vertices: strokePoints.map { viewport.worldPoint(from: $0) })
+            session.selectFacet(
+                polygon: polygon,
+                mode: SelectionMode.from(
+                    shiftHeld: NSEvent.modifierFlags.contains(.shift),
+                    optionHeld: NSEvent.modifierFlags.contains(.option)))
+            return
+        }
         session.selectionMode = SelectionMode.from(
             tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),
             optionHeld: NSEvent.modifierFlags.contains(.option))

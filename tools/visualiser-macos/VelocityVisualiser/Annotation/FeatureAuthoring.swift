@@ -79,6 +79,11 @@ enum FeatureSelection {
     }
 }
 
+enum FeatureSelectionTool: String, CaseIterable {
+    case sphere
+    case lasso
+}
+
 enum FeatureError: Error, LocalizedError {
     case message(String)
     var errorDescription: String? {
@@ -140,6 +145,7 @@ struct FeatureAPIClient {
     @Published var geometry: FeatureGeometry = .unknown
     @Published var semanticHint = ""
     @Published var radius = 0.2
+    @Published var selectionTool: FeatureSelectionTool = .sphere
     @Published var message: String?
     @Published private(set) var busy = false
     @Published private(set) var readOnly = false
@@ -154,6 +160,9 @@ struct FeatureAPIClient {
 
     var active: FeatureCandidate? { state?.document.features.first { $0.featureID == activeID } }
     var canEdit: Bool { state != nil && !busy && !readOnly }
+    func activeCount(objectID: String) -> Int {
+        state?.document.features.filter { $0.objectID == objectID && !$0.inactive }.count ?? 0
+    }
     var isDirty: Bool { draft != nil }
 
     func load() async {
@@ -221,6 +230,35 @@ struct FeatureAPIClient {
         message = "Propagation stopped; nothing saved"
     }
 
+    func setInactive(_ inactive: Bool, author: String) async {
+        guard canEdit, !isDirty, let active, let state else { return }
+        guard !author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            message = "Enter Labelled by before changing active facets"
+            return
+        }
+        if !inactive && activeCount(objectID: active.objectID) >= 4 {
+            message = "Four facets are active. Retire one before activating another."
+            return
+        }
+        var edit = Velocity_Recording_V1_FeatureEdit()
+        edit.document = state.document
+        guard let i = edit.document.features.firstIndex(where: { $0.featureID == active.featureID })
+        else { return }
+        edit.document.features[i].inactive = inactive
+        edit.document.author = author
+        edit.baseDigest = state.digest
+        edit.membershipDigest = state.membershipDigest
+        busy = true
+        defer { busy = false }
+        do {
+            self.state = try await client.request(pack: pack, edit: edit)
+            message = inactive ? "Facet retired; its observations are retained" : "Facet activated"
+        } catch {
+            readOnly = true
+            message = "Change not confirmed. Reload before retrying. \(error.localizedDescription)"
+        }
+    }
+
     func save(decision: FeatureDecision, author: String, membershipDigest: String) async -> Bool {
         guard canEdit, var observation = draft, let objectID = draftObjectID, let state else {
             return false
@@ -249,6 +287,10 @@ struct FeatureAPIClient {
         }
         guard feature.objectID == objectID else {
             message = "Choose a feature of this object"
+            return false
+        }
+        if !feature.inactive, active == nil, activeCount(objectID: objectID) >= 4 {
+            message = "Four facets are active. Retire one before saving a new facet."
             return false
         }
         feature.name = name
@@ -299,11 +341,58 @@ extension AnnotationSession {
         return mask.pointIndices.filter { !excluded.contains($0) }
     }
 
+    /// A lasso selects exact canonical indices inside the saved definite object
+    /// mask and current depth slab. It never changes whole-object membership.
+    func selectFacet(polygon: SelectionPolygon, mode: SelectionMode = .replace) {
+        guard features.canEdit, let object = activeObjectID, let sample = currentSample,
+            !dirtySamples.contains(sample.sampleID),
+            features.active?.objectID == nil || features.active?.objectID == object
+        else { return }
+        let domain = Set(featureDomain(sampleID: sample.sampleID, objectID: object))
+        let candidates = PointSelectionEngine.candidates(
+            points: currentPoints, basis: editingBasis, polygon: polygon, slab: slab)
+        let selected = candidates.indices.filter { domain.contains($0) }
+        let previous =
+            features.draft?.sampleID == UInt32(sample.sampleID)
+            ? Set(features.draft?.pointIndices.map(Int.init) ?? []) : []
+        let indices = PointSelectionEngine.apply(mode: mode, candidates: selected, to: previous)
+            .sorted()
+        guard !indices.isEmpty else {
+            features.cancel()
+            features.message = "No facet points selected; object membership is unchanged"
+            return
+        }
+        guard let centre = FeatureSelection.centre(points: currentPoints, domain: indices) else {
+            return
+        }
+        let radius =
+            indices.compactMap { currentPoints.point(at: $0) }.map {
+                Double(simd_distance($0, centre))
+            }.max() ?? 0
+        guard radius.isFinite, radius < 5 else {
+            features.message = "Select a smaller facet: its support must fit within a 5 m radius"
+            return
+        }
+        var observation = featureObservation(sample: sample)
+        observation.pointIndices = indices.map(UInt32.init)
+        observation.sphere = FeatureSphere(centre: centre, radius: max(0.02, radius + 0.00001))
+        observation.method = "manual_lasso"
+        if features.draft?.origin == "assisted_proposal"
+            || features.active?.observations.contains(where: { $0.origin == "assisted_proposal" })
+                == true
+        {
+            observation.origin = "assisted_proposal"
+        }
+        features.seed(observation, objectID: object)
+        features.message =
+            "\(indices.count) facet points · \(candidates.excludedBySlab) outside depth slab · inspect both views before saving"
+    }
+
     func seedFeature(
         in standard: OrthoViewBasis.Standard, viewport: OrthoViewport, at location: CGPoint
     ) {
-        guard features.canEdit, let object = activeObjectID, let sample = currentSample,
-            !dirtySamples.contains(sample.sampleID), !features.busy
+        guard features.selectionTool == .sphere, features.canEdit, let object = activeObjectID,
+            let sample = currentSample, !dirtySamples.contains(sample.sampleID), !features.busy
         else { return }
         if let active = features.active, active.objectID != object {
             features.message = "Choose New feature for this object"
@@ -344,11 +433,16 @@ extension AnnotationSession {
         else { return }
         var observation = featureObservation(sample: sample)
         observation.sphere = saved.sphere
-        observation.pointIndices = FeatureSelection.indices(
-            points: currentPoints,
-            domain: featureDomain(sampleID: sample.sampleID, objectID: object), sphere: saved.sphere
-        )
-        observation.method = "manual_sphere_edit"
+        let domain = featureDomain(sampleID: sample.sampleID, objectID: object)
+        if saved.method == "manual_lasso" {
+            let allowed = Set(domain.map(UInt32.init))
+            observation.pointIndices = saved.pointIndices.filter { allowed.contains($0) }
+            observation.method = "manual_lasso"
+        } else {
+            observation.pointIndices = FeatureSelection.indices(
+                points: currentPoints, domain: domain, sphere: saved.sphere)
+            observation.method = "manual_sphere_edit"
+        }
         if saved.origin == "assisted_proposal" { observation.origin = saved.origin }
         features.seed(observation, objectID: object)
     }
@@ -365,7 +459,8 @@ extension AnnotationSession {
     }
 
     func resizeFeature(_ radius: Double) {
-        guard features.canEdit, var draft = features.draft, let object = activeObjectID,
+        guard features.canEdit, var draft = features.draft, draft.method != "manual_lasso",
+            let object = activeObjectID,
             draft.sampleID == currentSample.map({ UInt32($0.sampleID) })
         else { return }
         features.radius = min(max(radius, 0.02), 5)

@@ -101,6 +101,15 @@ func SaveFeatures(p *Pack, edit *pb.FeatureEdit) (*pb.FeatureState, error) {
 	if err = ValidateFeatures(p, next); err != nil {
 		return nil, err
 	}
+	active := map[string]int{}
+	for _, f := range next.Features {
+		if !f.Inactive {
+			active[f.ObjectId]++
+			if active[f.ObjectId] > 4 {
+				return nil, fmt.Errorf("object %s has more than four active facets; retire one before adding another", f.ObjectId)
+			}
+		}
+	}
 	// Feature identity cannot silently move to a different object or part.
 	for _, before := range old.Features {
 		for _, after := range next.Features {

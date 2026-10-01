@@ -10,6 +10,11 @@ must establish what is known about the car's pose, dimensions, and physical endp
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [annotation datasets](lidar-point-annotation-and-object-dataset-plan.md), [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [visibility-aware geometry](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 
+The [operator comprehension design pass](lidar-physical-authoring-comprehension-design.md)
+audits the newer native editor, records the current pilot's usability issues, and proposes a
+clearer body, pose and surface-registration workflow. Its audit identifies the separate source
+revisions; it does not change the delivery status of this worktree.
+
 ## Why this belongs in the first sprint
 
 The current Annotation window reviews point membership, class, and physical-object identity across
