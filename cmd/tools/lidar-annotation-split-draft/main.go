@@ -87,6 +87,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if _, err := os.Lstat(*output); err == nil {
 		return usage(fs, stderr, fmt.Errorf("%s exists: a manifest is never overwritten", *output))
 	}
+	// Checked before anything is written, so a refusal leaves no stray manifest to clear.
+	if *freezeDraft != "" {
+		if _, err := os.Lstat(*freezeDraft); err == nil {
+			fmt.Fprintf(stderr, "error: %s exists: a draft is never overwritten\n", *freezeDraft)
+			return 1
+		}
+	}
 	var caps []annotation.CaseCapture
 	for _, c := range captures {
 		base, sum, ok := strings.Cut(c, "=")
@@ -138,10 +145,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "wrote %s (manifest digest pins annotation revision %d)\n", *output, manifest.SidecarRevision)
 
 	if *freezeDraft != "" {
-		if _, err := os.Lstat(*freezeDraft); err == nil {
-			fmt.Fprintf(stderr, "error: %s exists: a draft is never overwritten\n", *freezeDraft)
-			return 1
-		}
 		absPack, _ := filepath.Abs(*pack)
 		absOut, _ := filepath.Abs(*output)
 		cr := annotation.SplitRole(*caseRole)

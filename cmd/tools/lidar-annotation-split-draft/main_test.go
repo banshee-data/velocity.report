@@ -110,8 +110,13 @@ func TestWritesAFreezeDraftWithTheCaseAndItsCapture(t *testing.T) {
 	if code != 0 || !strings.Contains(stderr, "warning: no -capture") {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	if code, _, stderr := runTool("-pack", pack, "-output", filepath.Join(dir, "m3.json"), "-freeze-draft", draftPath, "-case", "kirk0"); code != 1 || !strings.Contains(stderr, "never overwritten") {
+	m3 := filepath.Join(dir, "m3.json")
+	if code, _, stderr := runTool("-pack", pack, "-output", m3, "-freeze-draft", draftPath, "-case", "kirk0"); code != 1 || !strings.Contains(stderr, "never overwritten") {
 		t.Fatalf("draft overwrite: exit %d: %s", code, stderr)
+	}
+	// The refusal comes before anything is written: no manifest is left to clear before a re-run.
+	if _, err := os.Lstat(m3); err == nil {
+		t.Fatalf("%s was written although the draft path was taken", m3)
 	}
 }
 
