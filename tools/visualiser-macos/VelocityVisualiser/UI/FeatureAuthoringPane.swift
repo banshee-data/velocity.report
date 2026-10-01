@@ -38,10 +38,25 @@ struct FeatureAuthoringPane: View {
                     .secondary)
             }
             HStack {
-                Button("Reload") { Task { await features.load() } }.disabled(
-                    features.isDirty || features.busy)
+                Button(features.viewingRevision == nil ? "Reload latest" : "Return to latest") {
+                    Task { await features.load() }
+                }.disabled(features.isDirty || features.busy)
                 Button("New facet") { features.newFeature() }.disabled(
                     !features.canEdit || features.isDirty)
+            }
+            if features.headRevision > 0 {
+                Menu("Inspect retained revision") {
+                    let first = features.headRevision > 19 ? features.headRevision - 19 : 1
+                    ForEach(Array(first...features.headRevision).reversed(), id: \.self) {
+                        revision in
+                        Button("Revision \(revision)") {
+                            Task { await features.load(revision: revision) }
+                        }
+                    }
+                }.disabled(features.isDirty || features.busy)
+                Text(
+                    "Recent revisions preserve the original facet subsets and source pins. Inspection never changes today's object mask."
+                ).font(.caption2).foregroundStyle(.secondary)
             }
             if let state = features.state {
                 Text("Revision \(state.document.revision)").font(.caption.monospacedDigit())

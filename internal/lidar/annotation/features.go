@@ -36,6 +36,46 @@ func LoadFeatures(p *Pack) (*pb.FeatureState, error) {
 	return &pb.FeatureState{Document: doc, Digest: digest, MembershipDigest: s.baseDigest, PackDirectory: p.Dir}, nil
 }
 
+// LoadFeatureRevision reads an exact retained proposal revision. Zero is not a
+// revision: callers seeking the editable head must use LoadFeatures instead.
+// Historical observations keep their original membership and physical pins.
+func LoadFeatureRevision(p *Pack, revision uint64) (*pb.FeatureState, error) {
+	if revision == 0 || revision > math.MaxInt32 {
+		return nil, fmt.Errorf("invalid feature revision")
+	}
+	root, err := os.OpenRoot(p.Dir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	b, err := readAnnotationFile(root, featureRevisionName(revision))
+	if errors.Is(err, os.ErrNotExist) {
+		// The requested revision may still be the head. A save retains its
+		// bytes before replacing it, so retrying the archive closes that race.
+		state, headErr := LoadFeatures(p)
+		if headErr == nil && state.Document.Revision == revision {
+			return state, nil
+		}
+		b, err = readAnnotationFile(root, featureRevisionName(revision))
+	}
+	if err != nil {
+		return nil, err
+	}
+	doc := new(pb.FeatureAnnotations)
+	if err = proto.Unmarshal(b, doc); err != nil {
+		return nil, err
+	}
+	if doc.Revision != revision {
+		return nil, fmt.Errorf("retained feature revision identity mismatch")
+	}
+	if err = ValidateFeatures(p, doc); err != nil {
+		return nil, err
+	}
+	// No optimistic write token is issued for an archived document. Its
+	// observations retain their own exact membership revisions instead.
+	return &pb.FeatureState{Document: doc, Digest: sha256Hex(b), PackDirectory: p.Dir}, nil
+}
+
 func readFeatures(p *Pack, root *os.Root) (*pb.FeatureAnnotations, string, error) {
 	b, err := readAnnotationFile(root, featureFile)
 	if errors.Is(err, os.ErrNotExist) {

@@ -680,6 +680,15 @@ frame** and **Next facet frame** keep the selected facet identity. Save or cance
 work first; a current frame filter is not bypassed. The panel separates supported frames from
 absence/rejection decisions, so a long list of occlusions is not mistaken for measured support.
 
+**Inspect retained revision** opens one of the twenty most recent saved facet revisions for
+inspection. Its subsets and body registrations retain their original membership/physical pins;
+later mask edits do not silently rewrite them. The revision is read-only, including when it is
+still the latest. **Return to latest** restores the editable head. Save or cancel a draft before
+switching revisions. An unavailable revision is reported rather than substituted with today's
+document. Offline archives can be inspected read-only, but service validation is needed before
+editing. The service also accepts an exact positive `revision` on the facet GET endpoint; POST
+refuses that parameter.
+
 The proposal is deliberately limited: it uses observed-object centroid translation and a small
 local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
 selected return belongs to the same physical surface. Nearby competing fits are checked at the
@@ -830,6 +839,7 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
-- Following references are read and kept, but not authored, in the window. Width and height are
-  set numerically; only length has a handle.
+- Following references are read and kept, but not authored, in the window. Height is set
+  numerically. Length and width have separate handles; a side-face position anchor requires a
+  numeric width edit because its centre offset is coupled to width.
 - Compare opens a saved report; it does not start an evaluation.

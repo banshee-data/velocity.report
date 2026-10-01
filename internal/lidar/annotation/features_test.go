@@ -61,6 +61,21 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 	if !bytes.Equal(first, archived) {
 		t.Fatal("history changed")
 	}
+	retained, err := LoadFeatureRevision(p, 1)
+	if err != nil || retained.Digest != state.Digest || !proto.Equal(retained.Document, state.Document) {
+		t.Fatalf("retained evidence changed: %v %+v", err, retained)
+	}
+	head, err := LoadFeatureRevision(p, 2)
+	if err != nil || !proto.Equal(head, newState) {
+		t.Fatalf("exact head revision: %v", err)
+	}
+	// A corrupt later head must not erase a valid retained revision.
+	latest, _ := os.ReadFile(filepath.Join(p.Dir, featureFile))
+	os.WriteFile(filepath.Join(p.Dir, featureFile), []byte{0xff}, 0600)
+	if r, err := LoadFeatureRevision(p, 1); err != nil || r.Digest != state.Digest {
+		t.Fatalf("later head damage erased history: %v", err)
+	}
+	os.WriteFile(filepath.Join(p.Dir, featureFile), latest, 0600)
 	maskAfter, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
 	if !bytes.Equal(maskBefore, maskAfter) {
 		t.Fatal("feature save changed membership")
@@ -74,8 +89,65 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 	if _, err = LoadFeatures(p); err != nil {
 		t.Fatalf("historical evidence: %v", err)
 	}
+	if historical, err := LoadFeatureRevision(p, 1); err != nil || historical.Digest != retained.Digest {
+		t.Fatalf("membership edit erased retained revision: %v", err)
+	}
 	if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: newState.Document, BaseDigest: newState.Digest, MembershipDigest: state.MembershipDigest}); !errors.Is(err, ErrMembershipChanged) {
 		t.Fatal(err)
+	}
+}
+
+func TestLoadFeatureRevisionRefusals(t *testing.T) {
+	for _, name := range []string{"zero", "overflow", "root", "membership", "missing", "corrupt", "identity", "schema", "symlink"} {
+		t.Run(name, func(t *testing.T) {
+			p, edit := featureFixture(t)
+			s, err := SaveFeatures(p, edit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: s.MembershipDigest}); err != nil {
+				t.Fatal(err)
+			}
+			revision := uint64(1)
+			archive := filepath.Join(p.Dir, featureRevisionName(1))
+			switch name {
+			case "zero":
+				revision = 0
+			case "overflow":
+				revision = math.MaxInt32 + 1
+			case "root":
+				p.Dir = filepath.Join(p.Dir, "missing")
+			case "membership":
+				os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+			case "missing":
+				os.Remove(archive)
+			case "corrupt":
+				os.WriteFile(archive, []byte{0xff}, 0600)
+			case "identity", "schema":
+				d := proto.Clone(s.Document).(*pb.FeatureAnnotations)
+				if name == "identity" {
+					d.Revision = 9
+				} else {
+					d.SchemaVersion = 2
+				}
+				b, err := proto.Marshal(d)
+				if err != nil {
+					t.Fatal(err)
+				}
+				os.WriteFile(archive, b, 0600)
+			case "symlink":
+				os.Remove(archive)
+				outside := filepath.Join(t.TempDir(), "outside.pb")
+				b, _ := proto.Marshal(s.Document)
+				os.WriteFile(outside, b, 0600)
+				if err := os.Symlink(outside, archive); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := LoadFeatureRevision(p, revision); err == nil {
+				t.Fatal("accepted invalid retained revision")
+			}
+		})
 	}
 }
 

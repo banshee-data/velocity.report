@@ -108,6 +108,8 @@ private final class FakeFeatureService: @unchecked Sendable {
     var posts = 0
     var failAfterCommit = false
     var refuse = false
+    var revisions: [UInt64: FeatureState] = [:]
+    var ignoreRevision = false
 
     init(pack: AnnotationPack) {
         state = FeatureState()
@@ -124,6 +126,24 @@ private final class FakeFeatureService: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if refuse { throw URLError(.cannotConnectToHost) }
+        if request.httpMethod != "POST", !ignoreRevision,
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+                .queryItems, let value = query.first(where: { $0.name == "revision" })?.value,
+            let revision = UInt64(value), revision != state.document.revision
+        {
+            guard let retained = revisions[revision] else {
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"retained revision missing"}"#.utf8)
+                )
+            }
+            return (
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                try retained.serializedData()
+            )
+        }
         if request.httpMethod == "POST" {
             posts += 1
             var bytes = request.httpBody ?? Data()
@@ -146,6 +166,7 @@ private final class FakeFeatureService: @unchecked Sendable {
                     Data(#"{"error":"revision changed"}"#.utf8)
                 )
             }
+            revisions[state.document.revision] = state
             state.document = edit.document
             state.document.revision += 1
             state.digest = "sha256:revision-\(state.document.revision)"
@@ -183,6 +204,85 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 }
 
 @MainActor struct FeatureAuthoringTests {
+    @Test func retainedEvidenceIsReadOnlyAndReturningToHeadRestoresEditing() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        a.name = "Mirror"
+        a.geometry = .protrusion
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        a.seed(featureSeed(pack), objectID: "car")
+        a.name = "Changed name"
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        #expect(a.headRevision == 2)
+        await a.load(revision: 1)
+        #expect(a.viewingRevision == 1 && a.headRevision == 2 && !a.canEdit)
+        #expect(a.name == "Mirror" && a.active?.observations[0].pointIndices == [0, 1])
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(!a.isDirty)
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(service.posts == 2)
+        await a.load()
+        #expect(a.viewingRevision == nil && a.canEdit && a.name == "Changed name")
+        a.seed(featureSeed(pack), objectID: "car")
+        await a.load(revision: 1)
+        #expect(a.isDirty && a.viewingRevision == nil && a.state?.document.revision == 2)
+    }
+
+    @Test func missingOrWrongRevisionNeverMasqueradesAsTheRequestedEvidence() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        service.state.document.revision = 2
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        service.ignoreRevision = true
+        await a.load(revision: 1)
+        #expect(a.state == nil && a.readOnly && a.viewingRevision == 1)
+        service.ignoreRevision = false
+        await a.load(revision: 1)
+        #expect(a.state == nil && !a.canEdit)
+        #expect(throws: (any Error).self) { try FeatureDocument(serializedBytes: Data([0xff])) }
+        // An offline archive may be inspected, but is never an editable head.
+        let history = pack.directory.appendingPathComponent("feature-proposal-revisions")
+        try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+        var document = service.state.document
+        document.revision = 1
+        try document.serializedData().write(to: history.appendingPathComponent("0000000001.pb"))
+        service.refuse = true
+        await a.load(revision: 1)
+        #expect(a.state?.document.revision == 1 && a.readOnly && !a.canEdit)
+        document.revision = 3
+        try document.serializedData().write(to: history.appendingPathComponent("0000000001.pb"))
+        await a.load(revision: 1)
+        #expect(a.state == nil && !a.canEdit)
+        #expect(service.posts == 0)
+    }
+
+    @Test func revisionCannotBeCombinedWithEditsOrInvalidNumbers() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        for revision in [UInt64(0), UInt64(Int32.max) + 1] {
+            await #expect(throws: (any Error).self) {
+                try await client.request(pack: pack, revision: revision)
+            }
+        }
+        await #expect(throws: (any Error).self) {
+            try await client.request(
+                pack: pack, edit: Velocity_Recording_V1_FeatureEdit(), revision: 1)
+        }
+        #expect(service.posts == 0)
+    }
     @Test func seedEditSaveReopenAndCancelNeverWriteMembership() async throws {
         let (pack, client, service) = try featureSetup()
         defer { try? FileManager.default.removeItem(at: pack.directory) }
