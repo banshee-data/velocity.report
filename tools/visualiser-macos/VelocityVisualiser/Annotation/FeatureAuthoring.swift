@@ -25,7 +25,10 @@ extension FeatureDocument {
                 && (!f.hasAnchor
                     || (f.anchor.unknownFields.data.isEmpty
                         && f.anchor.coordinateDomain == "body_xy"
-                        && f.anchor.method == "manual_named_return_v1"))
+                        && f.anchor.method == "manual_named_return_v1"
+                        && ["reference_seeded_proposal", "tracker_seeded_proposal"].contains(
+                            f.anchor.origin)
+                        && f.anchor.partFrameRevision == 1))
                 && f.observations.allSatisfy { o in
                     o.unknownFields.data.isEmpty && o.sphere.unknownFields.data.isEmpty
                         && [FeatureDecision.acceptedProposal, .rejected, .missing, .occluded]

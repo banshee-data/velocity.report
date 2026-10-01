@@ -38,16 +38,26 @@ enum FacetBodyRegistration {
         guard !physical.digest.isEmpty,
             let object = physical.document.objects.first(where: { $0.objectID == feature.objectID }
             ), let body = object.body, body.review.status == .reviewed,
-            body.review.origin == .independent, let k = object.keyframe(sampleID: sampleID),
-            k.review.status == .reviewed, k.review.origin == .independent, k.yaw.axis == .resolved,
+            let k = object.keyframe(sampleID: sampleID), k.review.status == .reviewed,
+            k.yaw.axis == .resolved,
             body.review.reviewedAgainst?.digest == observation.membershipDigest,
             k.review.reviewedAgainst?.digest == observation.membershipDigest
         else {
             throw FeatureError.message(
-                "Review an independent body and resolved pose against this feature's saved membership first"
-            )
+                "Review the body and resolved pose against this feature's saved membership first")
         }
-        let geometry = PhysicalGeometry.derive(object: object, keyframe: k)
+        let assisted = body.review.origin == .trackerAssisted || k.review.origin == .trackerAssisted
+        for review in [body.review, k.review] where review.origin == .trackerAssisted {
+            guard let source = review.trackerSource,
+                !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                throw FeatureError.message(
+                    "An assisted reference must retain its named tracker source")
+            }
+        }
+        // Preview keeps explicit supported bounds while allowing assisted size.
+        // The mapping is always a proposal and never becomes independent truth.
+        let geometry = PhysicalGeometry.derive(object: object, keyframe: k, gate: .preview)
         guard let centre = geometry.centre, let yaw = geometry.yaw, point.x.isFinite,
             point.y.isFinite
         else { throw FeatureError.message("The pinned pose needs a supported centre and yaw") }
@@ -70,7 +80,7 @@ enum FacetBodyRegistration {
         anchor.returnBoundM = returnBoundM
         anchor.boundM =
             centre.bound + hypot(dx, dy) * PhysicalGeometry.swing(yaw.boundRad) + returnBoundM
-        anchor.origin = "reference_seeded_proposal"
+        anchor.origin = assisted ? "tracker_seeded_proposal" : "reference_seeded_proposal"
         anchor.method = "manual_named_return_v1"
         anchor.identityNote = identityNote
         return anchor

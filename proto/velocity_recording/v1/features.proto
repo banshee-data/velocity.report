@@ -67,7 +67,7 @@ message FeatureAnchor {
   optional uint32 source_point_index = 12;
   double bound_m = 13;
   double return_bound_m = 14;
-  string origin = 15; // reference_seeded_proposal, never independent truth
+  string origin = 15; // reference_seeded_proposal or tracker_seeded_proposal; never truth
   string method = 16; // manual_named_return_v1
   string identity_note = 17; // the repeatable physical spot, not visible centroid
 }

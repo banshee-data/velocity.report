@@ -638,6 +638,8 @@ struct FeatureSharedWireTests {
         var anchor = FacetBodyAnchor()
         anchor.coordinateDomain = "body_xy"
         anchor.method = "manual_named_return_v1"
+        anchor.origin = "reference_seeded_proposal"
+        anchor.partFrameRevision = 1
         anchor.xM = 1.2
         await a.registerAnchor(anchor, author: "op")
         #expect(a.active?.anchor.xM == 1.2 && a.active?.partRelation == "rigid_proposal")

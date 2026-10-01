@@ -311,7 +311,7 @@ struct Velocity_Recording_V1_FeatureAnchor: @unchecked Sendable {
     set {_uniqueStorage()._returnBoundM = newValue}
   }
 
-  /// reference_seeded_proposal, never independent truth
+  /// reference_seeded_proposal or tracker_seeded_proposal; never truth
   var origin: String {
     get {return _storage._origin}
     set {_uniqueStorage()._origin = newValue}
