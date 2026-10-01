@@ -52,6 +52,31 @@ struct PhysicalReferencePane: View {
         return false
     }
 
+    private func humanMessage(_ raw: String) -> String {
+        // Include retained records when a draft replaced their IDs. These
+        // labels affect presentation only; repairs still receive raw records.
+        let saved = physical.state?.document.objects ?? []
+        return PhysicalAuthoringMessage.describe(
+            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) },
+            frameNumber: { id in
+                session.pack.samples.first(where: { $0.sampleID == id })?.sourceOrdinal
+            })
+    }
+
+    private func diagnostic(_ raw: String, colour: Color) -> some View {
+        let human = humanMessage(raw)
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(human).font(.caption).foregroundStyle(colour).textSelection(.enabled).fixedSize(
+                horizontal: false, vertical: true)
+            if human != raw {
+                DisclosureGroup("Service detail") {
+                    Text(raw).font(.caption2.monospaced()).textSelection(.enabled).fixedSize(
+                        horizontal: false, vertical: true)
+                }.font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     // MARK: Status
 
     private var statusSection: some View {
@@ -90,9 +115,7 @@ struct PhysicalReferencePane: View {
                 Text("Reviewed, but membership changed since").font(.caption.bold())
                     .foregroundStyle(.orange)
                 ForEach(physical.driftProblems, id: \.self) { problem in
-                    Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(
-                        .orange
-                    ).fixedSize(horizontal: false, vertical: true)
+                    diagnostic("\(problem.record): \(problem.problem)", colour: .orange)
                 }
                 Text("Check each against the new points, then review it again.").font(.caption2)
                     .foregroundStyle(.secondary)
@@ -136,11 +159,7 @@ struct PhysicalReferencePane: View {
                     )
                 }.font(.caption2)
             }
-            if let error = physical.lastError {
-                Text(error).font(.caption).foregroundStyle(.red).fixedSize(
-                    horizontal: false, vertical: true
-                ).textSelection(.enabled)
-            }
+            if let error = physical.lastError { diagnostic(error, colour: .red) }
             if let note = physical.lastNote {
                 Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
@@ -620,19 +639,16 @@ struct PhysicalReferencePane: View {
                         .caption
                     ).foregroundStyle(.green)
                 } else {
-                    if let invalid = v.invalid {
-                        Text(invalid).font(.caption).foregroundStyle(.red).fixedSize(
-                            horizontal: false, vertical: true)
-                    }
+                    if let invalid = v.invalid { diagnostic(invalid, colour: .red) }
                     ForEach(v.linkProblems, id: \.self) { p in
-                        Text("\(p.record): \(p.problem)").font(.caption2).foregroundStyle(.red)
-                            .fixedSize(horizontal: false, vertical: true)
+                        diagnostic("\(p.record): \(p.problem)", colour: .red)
                     }
                 }
                 if !v.resetReviews.isEmpty {
-                    Text("Saving returns to proposed: \(v.resetReviews.joined(separator: ", "))")
-                        .font(.caption2).foregroundStyle(.orange).fixedSize(
-                            horizontal: false, vertical: true)
+                    Text(
+                        "Saving returns to proposed: \(v.resetReviews.map(humanMessage).joined(separator: ", "))"
+                    ).font(.caption2).foregroundStyle(.orange).fixedSize(
+                        horizontal: false, vertical: true)
                 }
             } else if physical.isDirty {
                 Text("Checking the draft…").font(.caption2).foregroundStyle(.secondary)
@@ -676,8 +692,7 @@ struct PhysicalReferencePane: View {
     private func staleRow(_ problem: PhysicalLinkProblem) -> some View {
         let objectID = problem.record.split(separator: "\"").dropFirst().first.map(String.init)
         return VStack(alignment: .leading, spacing: 2) {
-            Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
+            diagnostic("\(problem.record): \(problem.problem)", colour: .orange)
             HStack {
                 Button("Remove record", role: .destructive) {
                     physical.edit { _ = PhysicalDraft.remove(problem: problem, from: &$0) }
