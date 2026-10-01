@@ -920,6 +920,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 17 of 21 sites run,
       tracked arm lower on all 17 and gate 3's counts pass; four sites and the survey remain
 - [ ] F8: the held-out score of S2a without T5, once, on the Mac
+- [ ] F9: kirk0's reviewed pack (20 road-user objects): identity (per-frame) and near-face
+      residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only
+      ([near-face evaluation](../lidar/operations/near-face-evaluation.md))
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
