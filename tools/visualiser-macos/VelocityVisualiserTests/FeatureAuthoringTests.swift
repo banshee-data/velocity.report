@@ -338,6 +338,64 @@ struct FeatureSharedWireTests {
 }
 
 @MainActor struct FeatureSessionWorkflowTests {
+    @Test func subsetPreviewCarriesShapeRatherThanItsEnvelope() async throws {
+        let source: [SyntheticPack.Point] = [
+            (0.05, 0.05, 1, 1), (1.05, 0.05, 1, 1), (0.55, 0.55, 1, 1), (3, 0, 1, 1),
+        ]
+        // Reorder canonical returns: IDs are specific to the target scan.
+        let target: [SyntheticPack.Point] = [
+            (1.55, 0.55, 1, 1), (4, 0, 1, 1), (2.05, 0.05, 1, 1), (1.05, 0.05, 1, 1),
+        ]
+        let dir = try SyntheticPack.write([source, target], sourceStride: 1)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: baseURL, session: urlSession))
+        s.operatorName = "operator"
+        let object = s.createObject(objectClass: "car")
+        let all = SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(5, 2))
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        #expect(s.stepForward() == nil)
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        #expect(s.stepBackward() == nil)
+        service.state.membershipDigest = s.membershipDigest
+        let maskBytes = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        s.workMode = .features
+        await s.features.load()
+        var observation = FeatureObservation()
+        observation.sampleID = 0
+        observation.timestampNs = s.currentSample!.timestampNs
+        observation.membershipDigest = s.membershipDigest
+        observation.membershipRevision = UInt64(s.sidecar.revision)
+        observation.sphere = FeatureSphere(centre: SIMD3(0.55, 0.05, 1), radius: 0.6)
+        observation.pointIndices = [0, 1]
+        observation.method = "manual_lasso"
+        observation.origin = "human_proposal"
+        s.features.seed(observation, objectID: object.objectID)
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        s.proposeNextFeature()
+        #expect(s.currentSample?.sampleID == 1)
+        #expect(s.features.draft?.pointIndices == [2, 3])
+        #expect(s.features.draft?.usesSubsetShape == true)
+        #expect(s.features.draft?.origin == "assisted_proposal")
+        s.resizeFeature(1)
+        #expect(s.features.draft?.pointIndices == [2, 3], "Radius cannot expand a subset preview")
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        s.editCurrentFeature()
+        #expect(s.features.draft?.pointIndices == [2, 3])
+        #expect(s.features.draft?.hasProposedFromSample == true)
+        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == maskBytes)
+    }
+
     @Test func sphereThenOneFramePreviewEditRejectAndOcclusionKeepMaskBytes() async throws {
         let source: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1), (3, 0, 1, 1)]
         let target = source.map { ($0.x + 1, $0.y, $0.z, $0.classification) }

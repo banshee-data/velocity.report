@@ -107,6 +107,51 @@ struct PhysicalComparisonReportTests {
 }
 
 @MainActor struct PhysicalCompareModeTests {
+    @Test func reportSeedKeepsSharedSizeAndRefusesToOverwritePose() async throws {
+        let (session, fake, _) = try openSession()
+        let object = session.createObject(objectClass: "car")
+        #expect(session.save())
+        let sample = try #require(session.currentSample)
+        let originalBody = PhysicalBody(bodyID: "shared_size")
+        fake.objects = [PhysicalObject(objectID: object.objectID, body: originalBody)]
+        fake.digest = "sha256:saved"
+        session.workMode = .physical
+        await waitForPhysical(session)
+        let url = try reportFile(packDigest: session.pack.manifest.packDigest)
+        var json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        var physical = json["physical"] as! [String: Any]
+        var arm = physical["arm_a"] as! [String: Any]
+        var row = (arm["instants"] as! [[String: Any]])[0]
+        row["object_id"] = object.objectID
+        row["sample_id"] = sample.sampleID
+        row["timestamp_ns"] = sample.timestampNs
+        var prediction = row["prediction"] as! [String: Any]
+        prediction["timestamp_ns"] = sample.timestampNs
+        row["prediction"] = prediction
+        var match = row["match"] as! [String: Any]
+        match["offset_ns"] = 0
+        row["match"] = match
+        arm["instants"] = [row]
+        physical["arm_a"] = arm
+        json["physical"] = physical
+        try JSONSerialization.data(withJSONObject: json).write(to: url)
+        await session.reportInspector.open(
+            url: url, packDigest: session.pack.manifest.packDigest, role: session.packRole,
+            physical: session.physical)
+        let seed = try session.trackerSeedFromReport()
+        session.seedPhysicalFromReport()
+        #expect(session.physical.object(object.objectID)?.body == originalBody)
+        #expect(session.physicalKeyframe?.review.origin == .trackerAssisted)
+        #expect(session.physicalKeyframe?.position.xM == seed.prediction.x)
+        #expect(session.physical.seedGhost?.prediction == seed.prediction)
+        let before = session.physical.draft
+        session.seedPhysicalFromReport()
+        #expect(session.physical.draft == before)
+        session.physical.discard()
+        #expect(session.physical.draft == fake.objects)
+        #expect(session.physical.exposure[object.objectID] != nil)
+    }
+
     @Test func openingAReportChecksProvenanceAndShowingItExposes() async throws {
         let (session, fake, _) = try openSession()
         fake.digest = "sha256:fixture-revision-bytes"

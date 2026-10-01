@@ -500,6 +500,8 @@ struct AnnotationViewportView: View {
                     session: session, basisStandard: standard, viewport: viewport,
                     editable: editable)
                 if session.workMode == .physical {
+                    PhysicalSeedGhostOverlay(
+                        session: session, standard: standard, viewport: viewport)
                     PhysicalReferenceOverlay(
                         session: session, standard: standard, viewport: viewport)
                 } else if session.workMode == .compare {

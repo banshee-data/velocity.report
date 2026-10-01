@@ -15,10 +15,13 @@ import SwiftUI
 struct PhysicalReferencePane: View {
     @ObservedObject var session: AnnotationSession
     @ObservedObject var physical: PhysicalReferenceSession
+    @ObservedObject private var inspector: PhysicalReportInspector
+    @State private var assistanceSource = ""
 
     init(session: AnnotationSession) {
         self.session = session
         self.physical = session.physical
+        self.inspector = session.reportInspector
     }
 
     var body: some View {
@@ -26,6 +29,7 @@ struct PhysicalReferencePane: View {
             statusSection
             if physical.availability == .ready || isReadOnly {
                 if let object = session.activeObject {
+                    if session.comparisonAllowed { trackerSeedSection }
                     Divider()
                     bodySection(object.objectID)
                     Divider()
@@ -53,12 +57,13 @@ struct PhysicalReferencePane: View {
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Physical reference").font(.headline)
-            Label(
-                "Blind authoring: the main-view link is paused. Keep the main window's tracker "
-                    + "boxes out of sight while authoring an independent reference.",
-                systemImage: "eye.slash"
-            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
-                horizontal: false, vertical: true)
+            if session.activeObjectID.flatMap({ physical.exposure[$0] }) == nil {
+                Label(
+                    "Independent authoring requires keeping the main window's tracker boxes out of sight. The main-view link is paused; that alone does not establish independence.",
+                    systemImage: "eye.slash"
+                ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
+            }
             switch physical.availability {
             case .notLoaded, .loading: ProgressView().controlSize(.small)
             case .unavailable(let reason):
@@ -97,6 +102,24 @@ struct PhysicalReferencePane: View {
                     "You have seen this object's estimate (\(seen)). Edits to it are saved as tracker-assisted."
                 ).font(.caption2).foregroundStyle(.orange).fixedSize(
                     horizontal: false, vertical: true)
+            } else if let objectID = session.activeObjectID {
+                DisclosureGroup("I used the main-window estimate") {
+                    TextField("Name the estimate, run and stage you used", text: $assistanceSource)
+                        .textFieldStyle(.roundedBorder)
+                    Text(
+                        "This declaration stays with the object. Existing independent history is retained; current unsaved and later edits become tracker-assisted."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    Button("Declare assisted authoring") {
+                        if physical.declareAssistance(objectID: objectID, source: assistanceSource)
+                        {
+                            assistanceSource = ""
+                        }
+                    }.controlSize(.small).disabled(
+                        !physical.canEdit || physical.needsReload || physical.gestureInProgress
+                            || assistanceSource.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .isEmpty
+                    )
+                }.font(.caption2)
             }
             if let error = physical.lastError {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(
@@ -121,6 +144,39 @@ struct PhysicalReferencePane: View {
     }
 
     // MARK: Body
+
+    private var trackerSeedSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DisclosureGroup("Start from tracker estimate · assisted") {
+                Text(
+                    "Open a report in Compare, choose its estimate arm, then return here. Only a stated physical body centre at this exact object/frame can seed a pose; visible OBBs and medoids cannot."
+                ).font(.caption2).foregroundStyle(.secondary)
+                if let identity = inspector.armIdentity {
+                    Text(identity.source).font(.caption2).textSelection(.enabled)
+                    if let seed = try? session.trackerSeedFromReport() {
+                        Text("Track \(seed.prediction.trackKey) · sample \(seed.sampleID)").font(
+                            .caption2)
+                        Button("Import report estimate as draft") {
+                            session.seedPhysicalFromReport()
+                        }.controlSize(.small).disabled(
+                            !physical.canEdit || physical.needsReload || physical.isDirty
+                                || !session.dirtySamples.isEmpty || session.physicalKeyframe != nil)
+                    } else {
+                        Text(
+                            "No supported body seed for this object/frame. Place the anchor manually; the estimate's point meaning is retained."
+                        ).font(.caption2).foregroundStyle(.orange)
+                    }
+                } else {
+                    Text(
+                        "No report open. Direct import of the main-window track is unavailable because that stream does not state the physical position's meaning."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
+                Text(
+                    "Existing size and poses are kept. Imported values have no reference bounds: inspect the sketch, state bounds and assumptions, then save and review. Its source outline stays dashed pink while you edit."
+                ).font(.caption2).foregroundStyle(.secondary)
+            }.font(.caption2)
+        }
+    }
 
     private func bodySection(_ objectID: String) -> some View {
         let body = physical.object(objectID)?.body

@@ -370,6 +370,9 @@ struct ReportArmIdentity: Decodable, Equatable {
     var estimatorID: String?
     var runID: String?
     var stage: String
+    var sourceID: String? = nil
+    var observationModelID: String? = nil
+    var paramHash: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case label
@@ -378,13 +381,17 @@ struct ReportArmIdentity: Decodable, Equatable {
         case estimatorID = "estimator_id"
         case runID = "run_id"
         case stage
+        case sourceID = "source_id"
+        case observationModelID = "observation_model_id"
+        case paramHash = "param_hash"
     }
 
     /// The identity an assisted record names as its tracker source.
     var source: String {
-        [label, estimatorID, stage, runID.map { "run " + $0 }, database].compactMap { $0 }.filter {
-            !$0.isEmpty
-        }.joined(separator: " · ")
+        [
+            label, estimatorID, observationModelID, paramHash, stage, sourceID,
+            runID.map { "run " + $0 }, database,
+        ].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 

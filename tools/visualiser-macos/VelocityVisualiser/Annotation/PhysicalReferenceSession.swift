@@ -42,6 +42,9 @@ import Foundation
     /// Set when a write may have committed without an answer, or the stored
     /// document moved underneath: another write waits for a reload.
     @Published private(set) var needsReload = false
+    /// Original report estimate for the current authoring session, independent
+    /// of the editable sketch. Source bytes are named in tracker_source.
+    @Published var seedGhost: PhysicalTrackerSeed?
 
     /// Retained revisions, newest first, once asked for.
     @Published private(set) var history: [PhysicalRevisionSummary] = []
@@ -277,18 +280,42 @@ import Foundation
     /// Records that the operator has seen an estimate for these objects. It
     /// is kept for the pack across launches, and nothing here clears it.
     func expose(objectIDs: some Sequence<String>, source: String) {
+        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         var changed = false
         for id in objectIDs where exposure[id] == nil {
             exposure[id] = source
             changed = true
         }
         if changed { exposureDefaults?.set(exposure, forKey: exposureKey) }
+        if changed && canEdit && !gestureInProgress {
+            edit { objects in
+                PhysicalDraft.applyExposure(
+                    before: state?.document.objects ?? [], after: &objects, exposure: exposure)
+            }
+        }
+    }
+
+    /// An operator can disclose estimates seen outside Compare. Existing saved
+    /// independent revisions stay unchanged; outstanding edits and later edits
+    /// retain assistance even if undo restores an earlier working copy.
+    @discardableResult func declareAssistance(objectID: String, source: String) -> Bool {
+        let source = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canEdit, !gestureInProgress, !needsReload else { return false }
+        guard !source.isEmpty else {
+            refuse("Name the estimate you used before declaring assisted authoring.")
+            return false
+        }
+        expose(objectIDs: [objectID], source: source)
+        lastNote =
+            "Assistance recorded for this object. Saved independent history is retained; unsaved and later edits name the estimate."
+        return true
     }
 
     func undo() {
         guard canEdit, let previous = undoStack.popLast() else { return }
         redoStack.append(draft)
         draft = previous
+        applyOutstandingExposure()
         generation &+= 1
         validation = nil
         scheduleValidation()
@@ -298,15 +325,22 @@ import Foundation
         guard canEdit, let next = redoStack.popLast() else { return }
         undoStack.append(draft)
         draft = next
+        applyOutstandingExposure()
         generation &+= 1
         validation = nil
         scheduleValidation()
+    }
+
+    private func applyOutstandingExposure() {
+        PhysicalDraft.applyExposure(
+            before: state?.document.objects ?? [], after: &draft, exposure: exposure)
     }
 
     /// Drops the working copy for the saved document. Saved history is not
     /// touched: nothing was written.
     func discard() {
         guard let state else { return }
+        seedGhost = nil
         generation &+= 1
         validationTask?.cancel()
         draft = state.document.objects
@@ -369,6 +403,9 @@ import Foundation
                 "Enter your name under Labelled by before saving: a reference has an author."
             return false
         }
+        // A response can restore an older working copy; bind all outstanding
+        // edits to the durable local exposure ledger before the write as well.
+        applyOutstandingExposure()
         guard isDirty, let request = editRequest() else { return false }
         generation &+= 1
         validationTask?.cancel()

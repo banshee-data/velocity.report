@@ -164,6 +164,50 @@ private func sample(_ id: Int) -> AnnotationSample {
 }
 
 @MainActor struct PhysicalReferenceSessionTests {
+    @Test func assistanceDeclarationKeepsSavedHistoryAndSurvivesUndo() async throws {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:independent"
+        let original = PhysicalBody(bodyID: "body_saved")
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
+        await physical.load()
+        physical.edit { $0[0].body?.length.valueM = 4 }
+        #expect(physical.object("car")?.body?.review.origin == .independent)
+        #expect(physical.declareAssistance(objectID: "car", source: "  replay run 7 · L5  "))
+        #expect(physical.exposure["car"] == "replay run 7 · L5")
+        #expect(physical.savedBody(objectID: "car") == original)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.object("car")?.body?.bodyID != original.bodyID)
+        physical.undo()
+        #expect(physical.object("car")?.body?.length.valueM == 4)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        physical.undo()
+        #expect(physical.object("car")?.body == original)
+        #expect(!physical.isDirty, "Undo to unchanged saved history must not relabel it")
+        physical.redo()
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(await physical.save())
+        #expect(fake.objects[0].body?.review.trackerSource == "replay run 7 · L5")
+        physical.discard()
+        #expect(physical.exposure["car"] == "replay run 7 · L5")
+    }
+
+    @Test func assistanceNeedsASourceAndDoesNotRewriteUntouchedRecords() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        #expect(!physical.declareAssistance(objectID: "car", source: "run"))
+        fake.digest = "sha256:saved"
+        fake.objects = [PhysicalObject(objectID: "car", body: PhysicalBody(bodyID: "b"))]
+        await physical.load()
+        #expect(!physical.declareAssistance(objectID: "car", source: " \n "))
+        #expect(physical.exposure.isEmpty)
+        #expect(physical.declareAssistance(objectID: "car", source: "main window"))
+        #expect(!physical.isDirty)
+        #expect(physical.savedBody(objectID: "car")?.review.origin == .independent)
+        physical.edit { $0[0].body?.width.valueM = 2 }
+        #expect(physical.object("car")?.body?.review.trackerSource == "main window")
+        #expect(physical.declareAssistance(objectID: "car", source: "another estimate"))
+        #expect(physical.exposure["car"] == "main window")
+    }
+
     @Test func loadsReadyOnlyWhenTheServiceHoldsThisVeryFolder() async {
         let dir = temporaryPackDir()
         let (physical, fake) = makeSession(packDir: dir)

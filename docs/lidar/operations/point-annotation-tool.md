@@ -420,7 +420,22 @@ answers. The server must hold the same pack folder the window opened, under its
 
 Entering the mode pauses the link with the main view. The main view draws the tracker's boxes, and
 a reference is independent only if its author has not seen them, so keep the main window's boxes
-out of sight while authoring.
+out of sight while authoring. If you have used its estimate, disclose it under **I used the
+main-window estimate** and name the estimate/run/stage. **Declare assisted authoring** marks
+current unsaved and later edits as tracker-assisted. Undo cannot erase that disclosure; unchanged
+saved independent revisions remain in history.
+
+For assisted work on a tuning pack, **Start from tracker estimate · assisted** imports the chosen
+arm of a report already open in Compare. It requires the same pack/object and exact timestamp,
+a unique association, and a stated physical body centre. A medoid, visible OBB centre, nearest-time
+match or unknown point meaning is refused. Direct main-window import is not available: that
+stream does not state its physical position semantics. Save or discard outstanding work first.
+Existing shared size and marked poses are retained; import is available only at an unmarked frame.
+
+The imported values are inferred proposals with lasting tracker provenance and a digest of the
+report bytes. Their bounds remain absent: state conservative bounds and assumptions yourself,
+then save and review. The original estimate is a dashed pink outline in Top while you edit.
+It is a source sketch, not another independent reference. Discard removes that session's ghost.
 
 1. Choose the object in the list. Membership and identity come first, in Points mode.
 2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
@@ -642,8 +657,10 @@ visible. The companion 3D view supplies object context; feature rings are in the
    an existing feature even when this frame has no return to click. **Cancel / stop** drops only
    the unsaved proposal. No feature action reviews a physical pose or changes an object mask.
 5. **Preview next frame** moves to one consecutive source frame and proposes fresh return indices
-   inside that same object's saved domain. Inspect, edit the sphere, accept, reject or stop before
-   continuing. It does not save automatically or jump across gaps. A weak/ambiguous fit, changed
+   inside that same object's saved domain. A lasso carries its occupied voxel shape, rather than
+   selecting every return inside its enclosing sphere. Its radius stays an envelope; edit the
+   subset with a lasso. Inspect, accept, reject or stop before continuing. It does not save
+   automatically or jump across gaps. A weak/ambiguous fit, changed
    membership or already annotated next frame stops it; seed that frame manually if appropriate.
 6. To revise saved support, select the feature and use **Edit this frame**, then click or resize
    and save. Names/types/hints are saved with that frame edit. Reopen the pack and select the same

@@ -106,7 +106,7 @@ struct FeatureAuthoringPane: View {
                         features.radius = $0
                         session.resizeFeature($0)
                     }), in: 0.02...2, step: 0.01
-            ).disabled(!features.canEdit || features.draft?.method == "manual_lasso")
+            ).disabled(!features.canEdit || features.draft?.usesSubsetShape == true)
             if let observation = session.featureOverlay {
                 if !features.isDirty && observation.membershipDigest != session.membershipDigest {
                     Text(
