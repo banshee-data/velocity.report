@@ -284,8 +284,8 @@ The code is in replay behind four experiments that qualify `solid_body`:
   identity tracking transform and recorded in the manifest.
 
 Test F2 ran on the Mac (Apple M1 Pro, 24 minutes and under 1 GB per arm): the full-member solid
-body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. F1, which
-runs T2 on the tuning partition, finished but its results are not yet published. Solid-body
+body with and without T1, on the tuning partition. kirk0 ran every arm in the pcap test. Test F1
+ran T2 on the tuning partition (see [F1](#f1-consider-on-entry)). Solid-body
 lateral residual p99, in metres:
 
 | Site                   | Arm          |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
@@ -314,6 +314,31 @@ Against the exit:
   identical to T0's 256-point arm on both sites. p95 and p99 move by 2 mm or less.
 - **Refusal: met.** A solid body without a declared origin makes no fix and says
   `missing_calibrated_sensor_origin` on every row (unit test).
+
+#### F1: consider on entry
+
+Test F1 ran T2, alone and with T1, on the tuning partition at `9fb80e61`. That was before full
+members, so it used the 256-point sample. It ran on the Mac, taking 20 to 26 minutes and under
+1 GB per arm. Solid-body lateral residual p99, in metres:
+
+| Site                   | Arm        |  Fixes | Lapses | Body-centre frames | Face-stable runs | Gap |
+| ---------------------- | ---------- | -----: | -----: | -----------------: | ---------------: | --: |
+| `marina-webster-beach` | solid body | 14,557 |    402 |              0.231 |            0.074 | 3.1 |
+| `marina-webster-beach` | T2         | 14,457 |    406 |              0.221 |            0.077 | 2.9 |
+| `marina-webster-beach` | T1         | 13,570 |    587 |              0.166 |            0.068 | 2.5 |
+| `marina-webster-beach` | T1, T2     | 13,570 |    587 |              0.169 |            0.069 | 2.4 |
+| `columbus-broadway`    | solid body | 40,630 |    898 |              0.388 |            0.193 | 2.0 |
+| `columbus-broadway`    | T2         | 40,630 |    898 |              0.336 |            0.198 | 1.7 |
+| `columbus-broadway`    | T1         | 37,130 |  1,363 |              0.336 |            0.140 | 2.4 |
+| `columbus-broadway`    | T1, T2     | 37,130 |  1,363 |              0.307 |            0.135 | 2.3 |
+
+The summaries are on `claude/upbeat-galileo-4xbaat-s2-f1-results`, under `results/s2-f1/`.
+
+- **T2 trims the body-centre tail and not the face-stable one.** Alone, it lowers the body-centre
+  p99 by 4 % on marina and 13 % on columbus, and the face-stable p99 does not improve. With T1 it
+  adds 3 mm on marina and takes 9 % off columbus.
+- **T2 costs replay time:** 31 % more wall clock per arm (1,544 against 1,180 seconds).
+- **T2 was not carried forward.** T3 was measured next, and no later arm includes T2.
 
 #### T3: course-aligned faces
 
@@ -905,7 +930,7 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.1 T1 and T2 on the solid body; heading-rate and range strata
 - [x] S2.1 full member geometry to the tracker; declared origin with refusal
 - [x] F2: full members, with and without T1, on the tuning partition, on the Mac
-- [ ] F1: T2 on the tuning partition (run, not yet published)
+- [x] F1: T2, alone and with T1, on the tuning partition, on the Mac
 - [x] S2.1 T3 course-aligned faces; F3 on the tuning partition, on the Mac
 - [x] F4: T1 with T3, held-out score and tuning re-run, on the Mac; gate 2's reach not met
 - [x] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on the tuning partition

@@ -6,6 +6,10 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 1, 2026 - Recovering the F1 findings from the T4 experiment
+
+- {codex/pr641-findings} Recovered the unpublished F1 write-up from #641: consider-on-entry (T2) reduced body-centre p99 by 4 % to 13 % alone, did not improve face-stable p99, and took 31 % more replay time. The record keeps the original build and results branch, and explains why later arms did not carry T2. Main already records F5 and the decision to stop T4; this recovery adds no tracking option. Corrected the face-leaving comment in the transition summary and used `\ast` in the geometry formula so the pinned Markdown formatter preserves it.
+
 ## October 1, 2026 - Reviewed labels can score where the believed faces are
 
 - A reviewed kirk0 pack (20 road-user objects, 3,391 scored masks) gives part of what a physical

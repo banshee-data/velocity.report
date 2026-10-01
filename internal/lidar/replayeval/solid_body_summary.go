@@ -111,7 +111,8 @@ type TransitionShare struct {
 
 // The changes a window is grouped by. A face enters when it is in a fix and
 // was not in the previous row's, and swaps when the face opposite it was; it
-// leaves when it is not in a fix and neither it nor its opposite was before.
+// leaves when it was in the previous fix and neither it nor its opposite is
+// in the current fix.
 // Faceless is a row without a fix beside one with. Revised is a change in
 // the believed dimension the half-extents come from.
 const (
