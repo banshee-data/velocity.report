@@ -1,0 +1,79 @@
+pack: /Volumes/lidar/offload/sensor_data/lidar/annotation-packs/ad8b9438-c1d4-40f0-bd0a-f1852c984569-20260929-184718.156560000
+case: {"pcap_basename": "kirk0.pcapng", "site_index_matches": [], "segment_case_id": null}
+source: pcap=kirk0.pcapng sensor=hesai-pandar40p params_hash=sha256:2319c8f8aaf95e70887ced03d7e9f42f631eabf82c0ac593d32feb1880ba2e3f build=0.5.1-pre43 0b54067700abd1ce54af8fccd60938f8470349d8
+coverage=foreground_only samples=832 points=1833561 duration_s=83.1
+segment: none
+sidecar: revision=1969 updated=2026-10-01T05:39:04Z objects=23 masks=3683
+objects by status/class: {"reviewed/bus": 1, "reviewed/car": 13, "reviewed/ground": 1, "reviewed/noise": 2, "reviewed/pedestrian": 3, "reviewed/truck": 3}
+masks by status: {"reviewed": 3683}
+masks by algorithm: {"by_hand": 2354, "cluster_chain": 1212, "footprint_carry": 117}
+masks by completeness: {"partial": 3683}
+masks by visibility: {"present": 3683}
+masks by eval: {"not_road_user": 265, "scored": 3391, "dropped_empty": 27}
+freeze blockers: 0 objects
+per object: id class status masks first-last span_s median_pts eval
+  obj_14ed7858 car reviewed 119 623-741 11.8 920 {"scored": 119}
+  obj_1905e4d8 noise reviewed 97 246-342 9.6 23 {"not_road_user": 97}
+  obj_23e8160b car reviewed 207 284-512 22.8 15 {"scored": 207}
+  obj_35c661db truck reviewed 456 208-663 45.5 84 {"scored": 455, "dropped_empty": 1}
+  obj_4116ba22 car reviewed 25 459-483 2.4 49 {"scored": 25}
+  obj_4929e754 car reviewed 186 238-423 18.5 93 {"scored": 186}
+  obj_53def904 truck reviewed 36 646-681 3.5 102 {"scored": 36}
+  obj_581a0d13 car reviewed 6 826-831 0.5 277 {"scored": 6}
+  obj_5d9e713c noise reviewed 85 0-84 8.4 55 {"not_road_user": 85}
+  obj_764efbef car reviewed 56 683-738 5.5 272 {"scored": 56}
+  obj_788622b5 car reviewed 824 8-831 82.3 26 {"scored": 824}
+  obj_7eb38c9c pedestrian reviewed 65 115-199 8.4 3 {"dropped_empty": 25, "scored": 40}
+  obj_835d059d car reviewed 146 556-701 14.5 376 {"scored": 146}
+  obj_8529ec5b car reviewed 109 723-831 10.8 1164 {"scored": 109}
+  obj_8c728991 car reviewed 59 472-530 5.8 373 {"scored": 59}
+  obj_8e829a06 truck reviewed 412 353-764 41.1 52 {"scored": 412}
+  obj_99987c9d pedestrian reviewed 116 9-124 11.5 13 {"scored": 116}
+  obj_a42df48a car reviewed 56 0-55 5.5 387 {"scored": 56}
+  obj_a99f83f4 pedestrian reviewed 203 1-244 24.3 28 {"scored": 203}
+  obj_aa06c4ae ground reviewed 83 0-82 8.2 278 {"not_road_user": 83}
+  obj_ad6f69ef car reviewed 231 8-254 24.6 214 {"scored": 230, "dropped_empty": 1}
+  obj_c3e7169b car reviewed 54 372-425 5.3 715 {"scored": 54}
+  obj_f6429947 bus reviewed 52 165-216 5.1 281 {"scored": 52}
+revisions: 1968 files, 37879603507 bytes, 133 parsed
+  {"file": "0000001489.json", "bytes": 25191126, "revision": 1489, "updated_utc": "2026-10-01T01:18:56Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 17, "masks": 3305, "reviewed_masks": 3185, "reviewed_objects": 16, "restored_from": null}
+  {"file": "0000001505.json", "bytes": 25193566, "revision": 1505, "updated_utc": "2026-10-01T01:23:15Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 17, "masks": 3306, "reviewed_masks": 3185, "reviewed_objects": 16, "restored_from": null}
+  {"file": "0000001521.json", "bytes": 25266210, "revision": 1521, "updated_utc": "2026-10-01T03:26:19Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 18, "masks": 3410, "reviewed_masks": 3307, "reviewed_objects": 17, "restored_from": null}
+  {"file": "0000001537.json", "bytes": 25272673, "revision": 1537, "updated_utc": "2026-10-01T03:28:37Z", "operation": "review_object_masks", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 18, "masks": 3423, "reviewed_masks": 3423, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001553.json", "bytes": 25306867, "revision": 1553, "updated_utc": "2026-10-01T03:31:41Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3463, "reviewed_masks": 3423, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001569.json", "bytes": 25313778, "revision": 1569, "updated_utc": "2026-10-01T03:34:00Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3478, "reviewed_masks": 3422, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001585.json", "bytes": 25317234, "revision": 1585, "updated_utc": "2026-10-01T03:35:23Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3486, "reviewed_masks": 3422, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001601.json", "bytes": 25316858, "revision": 1601, "updated_utc": "2026-10-01T03:38:27Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3422, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001617.json", "bytes": 25316570, "revision": 1617, "updated_utc": "2026-10-01T03:43:01Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3422, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001633.json", "bytes": 25316048, "revision": 1633, "updated_utc": "2026-10-01T03:44:33Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3422, "reviewed_objects": 18, "restored_from": null}
+  {"file": "0000001649.json", "bytes": 25316611, "revision": 1649, "updated_utc": "2026-10-01T03:47:59Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3482, "reviewed_objects": 19, "restored_from": null}
+  {"file": "0000001665.json", "bytes": 25316822, "revision": 1665, "updated_utc": "2026-10-01T03:48:46Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3468, "reviewed_objects": 19, "restored_from": null}
+  {"file": "0000001681.json", "bytes": 25317448, "revision": 1681, "updated_utc": "2026-10-01T03:49:37Z", "operation": "review_object_masks", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 19, "masks": 3488, "reviewed_masks": 3488, "reviewed_objects": 19, "restored_from": null}
+  {"file": "0000001697.json", "bytes": 25387143, "revision": 1697, "updated_utc": "2026-10-01T03:52:06Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 20, "masks": 3550, "reviewed_masks": 3488, "reviewed_objects": 19, "restored_from": null}
+  {"file": "0000001713.json", "bytes": 25406228, "revision": 1713, "updated_utc": "2026-10-01T04:52:07Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 20, "masks": 3569, "reviewed_masks": 3488, "reviewed_objects": 19, "restored_from": null}
+  {"file": "0000001729.json", "bytes": 25433444, "revision": 1729, "updated_utc": "2026-10-01T04:57:08Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 21, "masks": 3591, "reviewed_masks": 3573, "reviewed_objects": 20, "restored_from": null}
+  {"file": "0000001745.json", "bytes": 25466135, "revision": 1745, "updated_utc": "2026-10-01T04:58:44Z", "operation": "propagate_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 21, "masks": 3607, "reviewed_masks": 3573, "reviewed_objects": 20, "restored_from": null}
+  {"file": "0000001761.json", "bytes": 25506766, "revision": 1761, "updated_utc": "2026-10-01T05:16:55Z", "operation": "accept_proposal", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3642, "reviewed_masks": 3634, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001777.json", "bytes": 25513850, "revision": 1777, "updated_utc": "2026-10-01T05:18:19Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3658, "reviewed_masks": 3634, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001793.json", "bytes": 25521410, "revision": 1793, "updated_utc": "2026-10-01T05:19:45Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3673, "reviewed_masks": 3633, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001809.json", "bytes": 25520498, "revision": 1809, "updated_utc": "2026-10-01T05:20:44Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3673, "reviewed_masks": 3621, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001825.json", "bytes": 25519824, "revision": 1825, "updated_utc": "2026-10-01T05:22:53Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3673, "reviewed_masks": 3606, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001841.json", "bytes": 25521193, "revision": 1841, "updated_utc": "2026-10-01T05:25:05Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3602, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001857.json", "bytes": 25523545, "revision": 1857, "updated_utc": "2026-10-01T05:28:28Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3662, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001873.json", "bytes": 25525561, "revision": 1873, "updated_utc": "2026-10-01T05:29:37Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3646, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001889.json", "bytes": 25527428, "revision": 1889, "updated_utc": "2026-10-01T05:30:48Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3631, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001905.json", "bytes": 25528768, "revision": 1905, "updated_utc": "2026-10-01T05:31:34Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3615, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001921.json", "bytes": 25529975, "revision": 1921, "updated_utc": "2026-10-01T05:32:20Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3599, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001937.json", "bytes": 25531159, "revision": 1937, "updated_utc": "2026-10-01T05:33:02Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3583, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001953.json", "bytes": 25531767, "revision": 1953, "updated_utc": "2026-10-01T05:33:46Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3567, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001959.json", "bytes": 25531875, "revision": 1959, "updated_utc": "2026-10-01T05:34:04Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3561, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001960.json", "bytes": 25531901, "revision": 1960, "updated_utc": "2026-10-01T05:34:08Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3560, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001961.json", "bytes": 25531915, "revision": 1961, "updated_utc": "2026-10-01T05:34:12Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3559, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001962.json", "bytes": 25531929, "revision": 1962, "updated_utc": "2026-10-01T05:34:14Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3558, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001963.json", "bytes": 25531943, "revision": 1963, "updated_utc": "2026-10-01T05:34:17Z", "operation": "save_mask", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3557, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001964.json", "bytes": 25533153, "revision": 1964, "updated_utc": "2026-10-01T05:37:14Z", "operation": "review_object_masks", "author": "dd", "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8", "objects": 22, "masks": 3677, "reviewed_masks": 3677, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001965.json", "bytes": 25541314, "revision": 1965, "updated_utc": "2026-10-01T05:38:18Z", "operation": "save_mask", "author": "dd", "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1", "objects": 23, "masks": 3678, "reviewed_masks": 3677, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001966.json", "bytes": 25553747, "revision": 1966, "updated_utc": "2026-10-01T05:38:22Z", "operation": "propagate_mask", "author": "dd", "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1", "objects": 23, "masks": 3681, "reviewed_masks": 3677, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001967.json", "bytes": 25554658, "revision": 1967, "updated_utc": "2026-10-01T05:38:27Z", "operation": "save_mask", "author": "dd", "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1", "objects": 23, "masks": 3682, "reviewed_masks": 3677, "reviewed_objects": 22, "restored_from": null}
+  {"file": "0000001968.json", "bytes": 25555122, "revision": 1968, "updated_utc": "2026-10-01T05:38:36Z", "operation": "save_mask", "author": "dd", "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1", "objects": 23, "masks": 3683, "reviewed_masks": 3677, "reviewed_objects": 22, "restored_from": null}
+physical references: null

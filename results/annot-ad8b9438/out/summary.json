@@ -1,0 +1,2743 @@
+{
+ "case": {
+  "pcap_basename": "kirk0.pcapng",
+  "segment_case_id": null,
+  "site_index_matches": []
+ },
+ "listing": [
+  {
+   "bytes": 0,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-30T00:48:09Z",
+   "name": ".annotations.lock"
+  },
+  {
+   "bytes": 66980,
+   "dir": true,
+   "entries": 1968,
+   "mtime_utc": "2026-10-01T05:39:04Z",
+   "name": "annotation-revisions"
+  },
+  {
+   "bytes": 25555183,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-10-01T05:39:04Z",
+   "name": "annotations.json"
+  },
+  {
+   "bytes": 4974588,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-29T18:47:18Z",
+   "name": "background.bin"
+  },
+  {
+   "bytes": 1260,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-29T18:47:18Z",
+   "name": "backgrounds.json"
+  },
+  {
+   "bytes": 748,
+   "dir": true,
+   "entries": 20,
+   "mtime_utc": "2026-10-01T00:10:33Z",
+   "name": "feature-proposal-revisions"
+  },
+  {
+   "bytes": 4961,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-10-01T00:10:33Z",
+   "name": "feature-proposals.pb"
+  },
+  {
+   "bytes": 2101,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-29T18:47:18Z",
+   "name": "manifest.json"
+  },
+  {
+   "bytes": 25669854,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-29T18:47:18Z",
+   "name": "points.bin"
+  },
+  {
+   "bytes": 748,
+   "dir": true,
+   "entries": 20,
+   "mtime_utc": "2026-10-01T05:01:44Z",
+   "name": "proposals"
+  },
+  {
+   "bytes": 179440,
+   "dir": false,
+   "entries": null,
+   "mtime_utc": "2026-09-29T18:47:18Z",
+   "name": "samples.json"
+  }
+ ],
+ "manifest": {
+  "background_count": 6,
+  "background_points_sha256": "sha256:1c3eb84be2dc3cc37549fbff07569038521d66b7e77d3ebc53215432329defb3",
+  "backgrounds_sha256": "sha256:ff4beb1e2d5bc2815a864fde4a6d6edd05f744d12f10ae5476f21f7c21c1dea4",
+  "completeness": {
+   "actual_end_ns": 1764973107825547330,
+   "actual_start_ns": 1764973024741034330,
+   "duplicate_timestamps": 0,
+   "frames_without_points": 0,
+   "max_timestamp_gap_ns": 104090000,
+   "requested_end_ns": 0,
+   "requested_start_ns": 0
+  },
+  "coordinate": {
+   "frame_id": "site/hesai-pandar40p",
+   "handedness": "right",
+   "origin_note": "sensor origin as recorded; no site transform applied",
+   "reference_frame": "ENU",
+   "transform_version": "",
+   "units": "metres"
+  },
+  "coverage": "foreground_only",
+  "coverage_note": "full file",
+  "created_ns": 1790707638348587000,
+  "dataset_id": "ds_95be6fb22498b44a",
+  "has_classification": true,
+  "has_intensity": true,
+  "pack_digest": "sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6",
+  "point_count": 1833561,
+  "points_sha256": "sha256:004a847e4ada57ad2b8dafb2a6949630d76992cff6dd61ba9f49bc670cc5c5b7",
+  "sample_count": 832,
+  "samples_sha256": "sha256:a7851b9f7a041a1a7147f4c60ed9659e844352d89c94c77597ca70f2a8e037ad",
+  "schema_version": 1,
+  "source": {
+   "build_git_sha": "0b54067700abd1ce54af8fccd60938f8470349d8",
+   "build_version": "0.5.1-pre43",
+   "config_hash": "sha256:249fce44b47106c521a7ea919261fb7df9c2c9252ce3fe5443a193aca8230bda",
+   "height_band": {
+    "ceiling_m": 1.5,
+    "floor_m": -2.8,
+    "remove_ground": true
+   },
+   "params_hash": "sha256:2319c8f8aaf95e70887ced03d7e9f42f631eabf82c0ac593d32feb1880ba2e3f",
+   "pcap_basename": "kirk0.pcapng",
+   "run_config_id": "b3fcd129-b647-46af-8e68-92d02528a8f8",
+   "sensor_id": "hesai-pandar40p",
+   "vrlog_frames_sha256": "sha256:c78a351d100f69228ff15f5e0261cbc56e51304316e63157ec16504f5dfff856",
+   "vrlog_header_sha256": "sha256:7b0d561fb7d44db4e9c730fc652b6d3c039743daa56d1996695272760eaee1b9",
+   "vrlog_path": "ad8b9438-c1d4-40f0-bd0a-f1852c984569"
+  }
+ },
+ "pack_dir": "/Volumes/lidar/offload/sensor_data/lidar/annotation-packs/ad8b9438-c1d4-40f0-bd0a-f1852c984569-20260929-184718.156560000",
+ "physical": null,
+ "revisions": {
+  "count": 1968,
+  "parsed": 133,
+  "revisions": [
+   {
+    "author": "dd",
+    "bytes": 376659,
+    "file": "0000000001.json",
+    "masks": 52,
+    "objects": 1,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 1,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:48:10Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 355943,
+    "file": "0000000017.json",
+    "masks": 52,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 17,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:52:47Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 313953,
+    "file": "0000000033.json",
+    "masks": 52,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 33,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:53:48Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 272398,
+    "file": "0000000049.json",
+    "masks": 52,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 49,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:54:47Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 258290,
+    "file": "0000000065.json",
+    "masks": 56,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 65,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:56:41Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 258082,
+    "file": "0000000081.json",
+    "masks": 56,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 81,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:58:02Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 257874,
+    "file": "0000000097.json",
+    "masks": 56,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 97,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:58:36Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 257695,
+    "file": "0000000113.json",
+    "masks": 56,
+    "objects": 1,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 0,
+    "reviewed_objects": 0,
+    "revision": 113,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T00:59:15Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 368591,
+    "file": "0000000129.json",
+    "masks": 114,
+    "objects": 2,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 57,
+    "reviewed_objects": 2,
+    "revision": 129,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:05:13Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 393120,
+    "file": "0000000145.json",
+    "masks": 114,
+    "objects": 2,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 57,
+    "reviewed_objects": 2,
+    "revision": 145,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:10:57Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 472247,
+    "file": "0000000161.json",
+    "masks": 114,
+    "objects": 2,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 57,
+    "reviewed_objects": 2,
+    "revision": 161,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:15:19Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 536660,
+    "file": "0000000177.json",
+    "masks": 114,
+    "objects": 2,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 57,
+    "reviewed_objects": 2,
+    "revision": 177,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:17:59Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 591182,
+    "file": "0000000193.json",
+    "masks": 139,
+    "objects": 2,
+    "operation": "propagate_mask",
+    "restored_from": null,
+    "reviewed_masks": 57,
+    "reviewed_objects": 2,
+    "revision": 193,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:20:00Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 10443881,
+    "file": "0000000209.json",
+    "masks": 1328,
+    "objects": 4,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 899,
+    "reviewed_objects": 3,
+    "revision": 209,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:26:52Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14904552,
+    "file": "0000000225.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 899,
+    "reviewed_objects": 3,
+    "revision": 225,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:32:01Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14904586,
+    "file": "0000000241.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 241,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:35:11Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14903850,
+    "file": "0000000257.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 257,
+    "session": "4D173544-A8A1-4066-8D8B-355312263A35",
+    "updated_utc": "2026-09-30T01:36:06Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14904098,
+    "file": "0000000273.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 273,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:17:25Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14904351,
+    "file": "0000000289.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 289,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:18:58Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14904966,
+    "file": "0000000305.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 305,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:20:40Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14905910,
+    "file": "0000000321.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 321,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:22:45Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14906502,
+    "file": "0000000337.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 337,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:25:55Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14907747,
+    "file": "0000000353.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 900,
+    "reviewed_objects": 4,
+    "revision": 353,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:30:15Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14909310,
+    "file": "0000000369.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 369,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:34:06Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14912430,
+    "file": "0000000385.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 385,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:40:15Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14915242,
+    "file": "0000000401.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 401,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:46:25Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14916975,
+    "file": "0000000417.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 417,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:53:35Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14917191,
+    "file": "0000000433.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 433,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T17:57:05Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14919525,
+    "file": "0000000449.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 449,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:02:10Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14921175,
+    "file": "0000000465.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 465,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:11:24Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14923451,
+    "file": "0000000481.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 481,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:15:02Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14923381,
+    "file": "0000000497.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 497,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:17:54Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14922837,
+    "file": "0000000513.json",
+    "masks": 1738,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 901,
+    "reviewed_objects": 4,
+    "revision": 513,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:24:24Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14942065,
+    "file": "0000000529.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 529,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:32:01Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14941130,
+    "file": "0000000545.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 545,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:34:47Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14943652,
+    "file": "0000000561.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 561,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:37:15Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 14944578,
+    "file": "0000000577.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 577,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:39:09Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 15002312,
+    "file": "0000000593.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 593,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:43:45Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 15177714,
+    "file": "0000000609.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 609,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:49:39Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 15177717,
+    "file": "0000000625.json",
+    "masks": 1765,
+    "objects": 5,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1355,
+    "reviewed_objects": 4,
+    "revision": 625,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:53:34Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16207884,
+    "file": "0000000641.json",
+    "masks": 1955,
+    "objects": 6,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 1767,
+    "reviewed_objects": 5,
+    "revision": 641,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:56:40Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16207155,
+    "file": "0000000657.json",
+    "masks": 1955,
+    "objects": 6,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1767,
+    "reviewed_objects": 5,
+    "revision": 657,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T18:58:25Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16207277,
+    "file": "0000000673.json",
+    "masks": 1955,
+    "objects": 6,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1767,
+    "reviewed_objects": 5,
+    "revision": 673,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T19:00:22Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16574903,
+    "file": "0000000689.json",
+    "masks": 1996,
+    "objects": 7,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1955,
+    "reviewed_objects": 6,
+    "revision": 689,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T19:03:38Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16598797,
+    "file": "0000000705.json",
+    "masks": 1996,
+    "objects": 7,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1955,
+    "reviewed_objects": 6,
+    "revision": 705,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T19:05:26Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 16611037,
+    "file": "0000000721.json",
+    "masks": 1996,
+    "objects": 7,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1955,
+    "reviewed_objects": 6,
+    "revision": 721,
+    "session": "F1AFE5A6-E700-4A0B-88CD-8AE992C0F0B9",
+    "updated_utc": "2026-09-30T19:07:05Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21136292,
+    "file": "0000000737.json",
+    "masks": 2355,
+    "objects": 10,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 1996,
+    "reviewed_objects": 7,
+    "revision": 737,
+    "session": "A0CA147B-82B7-412B-AD70-612E9AA2634A",
+    "updated_utc": "2026-09-30T20:49:24Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21138508,
+    "file": "0000000753.json",
+    "masks": 2356,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1997,
+    "reviewed_objects": 8,
+    "revision": 753,
+    "session": "A0CA147B-82B7-412B-AD70-612E9AA2634A",
+    "updated_utc": "2026-09-30T20:53:20Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21152329,
+    "file": "0000000769.json",
+    "masks": 2361,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1997,
+    "reviewed_objects": 8,
+    "revision": 769,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:11:09Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21163144,
+    "file": "0000000785.json",
+    "masks": 2377,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1997,
+    "reviewed_objects": 8,
+    "revision": 785,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:13:26Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21164473,
+    "file": "0000000801.json",
+    "masks": 2380,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1997,
+    "reviewed_objects": 8,
+    "revision": 801,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:17:01Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21170362,
+    "file": "0000000817.json",
+    "masks": 2380,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1997,
+    "reviewed_objects": 8,
+    "revision": 817,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:19:09Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21169828,
+    "file": "0000000833.json",
+    "masks": 2380,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 833,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:39:59Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21171604,
+    "file": "0000000849.json",
+    "masks": 2380,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 849,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:42:12Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21170420,
+    "file": "0000000865.json",
+    "masks": 2380,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 865,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:43:29Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21174228,
+    "file": "0000000881.json",
+    "masks": 2389,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 881,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:44:55Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21181404,
+    "file": "0000000897.json",
+    "masks": 2405,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 897,
+    "session": "85F062EA-F58C-4432-BF1C-7478343F9CBE",
+    "updated_utc": "2026-09-30T21:45:55Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21187966,
+    "file": "0000000913.json",
+    "masks": 2419,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 1998,
+    "reviewed_objects": 9,
+    "revision": 913,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-09-30T23:48:10Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21205283,
+    "file": "0000000929.json",
+    "masks": 2431,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2183,
+    "reviewed_objects": 9,
+    "revision": 929,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-09-30T23:51:49Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21217725,
+    "file": "0000000945.json",
+    "masks": 2437,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2329,
+    "reviewed_objects": 10,
+    "revision": 945,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-09-30T23:54:34Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21216932,
+    "file": "0000000961.json",
+    "masks": 2437,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2329,
+    "reviewed_objects": 10,
+    "revision": 961,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-09-30T23:56:57Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 21215890,
+    "file": "0000000977.json",
+    "masks": 2437,
+    "objects": 10,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2329,
+    "reviewed_objects": 10,
+    "revision": 977,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-09-30T23:57:47Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 22432809,
+    "file": "0000000993.json",
+    "masks": 2549,
+    "objects": 11,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2437,
+    "reviewed_objects": 10,
+    "revision": 993,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:01:07Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 22436252,
+    "file": "0000001009.json",
+    "masks": 2552,
+    "objects": 11,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2437,
+    "reviewed_objects": 10,
+    "revision": 1009,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:13:17Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 23237687,
+    "file": "0000001025.json",
+    "masks": 2611,
+    "objects": 11,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2554,
+    "reviewed_objects": 10,
+    "revision": 1025,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:20:36Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 23240047,
+    "file": "0000001041.json",
+    "masks": 2611,
+    "objects": 11,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2554,
+    "reviewed_objects": 10,
+    "revision": 1041,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:22:04Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 23240567,
+    "file": "0000001057.json",
+    "masks": 2613,
+    "objects": 11,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2554,
+    "reviewed_objects": 10,
+    "revision": 1057,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:23:37Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 23769952,
+    "file": "0000001073.json",
+    "masks": 2665,
+    "objects": 12,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2613,
+    "reviewed_objects": 11,
+    "revision": 1073,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:26:10Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 23771056,
+    "file": "0000001089.json",
+    "masks": 2665,
+    "objects": 12,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2613,
+    "reviewed_objects": 11,
+    "revision": 1089,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:27:51Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24009432,
+    "file": "0000001105.json",
+    "masks": 2718,
+    "objects": 13,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2667,
+    "reviewed_objects": 12,
+    "revision": 1105,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:29:35Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24012470,
+    "file": "0000001121.json",
+    "masks": 2718,
+    "objects": 13,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2667,
+    "reviewed_objects": 12,
+    "revision": 1121,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:32:18Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24015847,
+    "file": "0000001137.json",
+    "masks": 2718,
+    "objects": 13,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2667,
+    "reviewed_objects": 12,
+    "revision": 1137,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:35:43Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24016374,
+    "file": "0000001153.json",
+    "masks": 2719,
+    "objects": 13,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2667,
+    "reviewed_objects": 12,
+    "revision": 1153,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:37:20Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24203461,
+    "file": "0000001169.json",
+    "masks": 2746,
+    "objects": 14,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2719,
+    "reviewed_objects": 13,
+    "revision": 1169,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:39:53Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24275641,
+    "file": "0000001185.json",
+    "masks": 2754,
+    "objects": 14,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2719,
+    "reviewed_objects": 13,
+    "revision": 1185,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:41:06Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24308687,
+    "file": "0000001201.json",
+    "masks": 2769,
+    "objects": 14,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2719,
+    "reviewed_objects": 13,
+    "revision": 1201,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:42:59Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24598239,
+    "file": "0000001217.json",
+    "masks": 2851,
+    "objects": 15,
+    "operation": "propagate_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1217,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:46:02Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24604922,
+    "file": "0000001233.json",
+    "masks": 2866,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1233,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:47:59Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24611988,
+    "file": "0000001249.json",
+    "masks": 2882,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1249,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:49:08Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24618540,
+    "file": "0000001265.json",
+    "masks": 2896,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1265,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:50:39Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24625302,
+    "file": "0000001281.json",
+    "masks": 2910,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1281,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:51:41Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24630492,
+    "file": "0000001297.json",
+    "masks": 2922,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1297,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:53:22Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24629614,
+    "file": "0000001313.json",
+    "masks": 2922,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1313,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:54:13Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24628991,
+    "file": "0000001329.json",
+    "masks": 2922,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1329,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:55:18Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24638251,
+    "file": "0000001345.json",
+    "masks": 2933,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1345,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:57:36Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24642037,
+    "file": "0000001361.json",
+    "masks": 2935,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1361,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T00:59:32Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24768269,
+    "file": "0000001377.json",
+    "masks": 2951,
+    "objects": 15,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2775,
+    "reviewed_objects": 14,
+    "revision": 1377,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:00:38Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 24944836,
+    "file": "0000001393.json",
+    "masks": 3039,
+    "objects": 16,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 2982,
+    "reviewed_objects": 15,
+    "revision": 1393,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:04:43Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25014302,
+    "file": "0000001409.json",
+    "masks": 3127,
+    "objects": 16,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2982,
+    "reviewed_objects": 15,
+    "revision": 1409,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:08:47Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25023076,
+    "file": "0000001425.json",
+    "masks": 3141,
+    "objects": 16,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2982,
+    "reviewed_objects": 15,
+    "revision": 1425,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:11:01Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25030416,
+    "file": "0000001441.json",
+    "masks": 3157,
+    "objects": 16,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2982,
+    "reviewed_objects": 15,
+    "revision": 1441,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:11:54Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25037655,
+    "file": "0000001457.json",
+    "masks": 3172,
+    "objects": 16,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 2982,
+    "reviewed_objects": 15,
+    "revision": 1457,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:12:43Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25120458,
+    "file": "0000001473.json",
+    "masks": 3282,
+    "objects": 17,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 3185,
+    "reviewed_objects": 16,
+    "revision": 1473,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:14:24Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25191126,
+    "file": "0000001489.json",
+    "masks": 3305,
+    "objects": 17,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3185,
+    "reviewed_objects": 16,
+    "revision": 1489,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:18:56Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25193566,
+    "file": "0000001505.json",
+    "masks": 3306,
+    "objects": 17,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3185,
+    "reviewed_objects": 16,
+    "revision": 1505,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T01:23:15Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25266210,
+    "file": "0000001521.json",
+    "masks": 3410,
+    "objects": 18,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3307,
+    "reviewed_objects": 17,
+    "revision": 1521,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:26:19Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25272673,
+    "file": "0000001537.json",
+    "masks": 3423,
+    "objects": 18,
+    "operation": "review_object_masks",
+    "restored_from": null,
+    "reviewed_masks": 3423,
+    "reviewed_objects": 18,
+    "revision": 1537,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:28:37Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25306867,
+    "file": "0000001553.json",
+    "masks": 3463,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3423,
+    "reviewed_objects": 18,
+    "revision": 1553,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:31:41Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25313778,
+    "file": "0000001569.json",
+    "masks": 3478,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3422,
+    "reviewed_objects": 18,
+    "revision": 1569,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:34:00Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25317234,
+    "file": "0000001585.json",
+    "masks": 3486,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3422,
+    "reviewed_objects": 18,
+    "revision": 1585,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:35:23Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25316858,
+    "file": "0000001601.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3422,
+    "reviewed_objects": 18,
+    "revision": 1601,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:38:27Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25316570,
+    "file": "0000001617.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3422,
+    "reviewed_objects": 18,
+    "revision": 1617,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:43:01Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25316048,
+    "file": "0000001633.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3422,
+    "reviewed_objects": 18,
+    "revision": 1633,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:44:33Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25316611,
+    "file": "0000001649.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3482,
+    "reviewed_objects": 19,
+    "revision": 1649,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:47:59Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25316822,
+    "file": "0000001665.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3468,
+    "reviewed_objects": 19,
+    "revision": 1665,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:48:46Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25317448,
+    "file": "0000001681.json",
+    "masks": 3488,
+    "objects": 19,
+    "operation": "review_object_masks",
+    "restored_from": null,
+    "reviewed_masks": 3488,
+    "reviewed_objects": 19,
+    "revision": 1681,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:49:37Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25387143,
+    "file": "0000001697.json",
+    "masks": 3550,
+    "objects": 20,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3488,
+    "reviewed_objects": 19,
+    "revision": 1697,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T03:52:06Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25406228,
+    "file": "0000001713.json",
+    "masks": 3569,
+    "objects": 20,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3488,
+    "reviewed_objects": 19,
+    "revision": 1713,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T04:52:07Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25433444,
+    "file": "0000001729.json",
+    "masks": 3591,
+    "objects": 21,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3573,
+    "reviewed_objects": 20,
+    "revision": 1729,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T04:57:08Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25466135,
+    "file": "0000001745.json",
+    "masks": 3607,
+    "objects": 21,
+    "operation": "propagate_mask",
+    "restored_from": null,
+    "reviewed_masks": 3573,
+    "reviewed_objects": 20,
+    "revision": 1745,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T04:58:44Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25506766,
+    "file": "0000001761.json",
+    "masks": 3642,
+    "objects": 22,
+    "operation": "accept_proposal",
+    "restored_from": null,
+    "reviewed_masks": 3634,
+    "reviewed_objects": 22,
+    "revision": 1761,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:16:55Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25513850,
+    "file": "0000001777.json",
+    "masks": 3658,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3634,
+    "reviewed_objects": 22,
+    "revision": 1777,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:18:19Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25521410,
+    "file": "0000001793.json",
+    "masks": 3673,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3633,
+    "reviewed_objects": 22,
+    "revision": 1793,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:19:45Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25520498,
+    "file": "0000001809.json",
+    "masks": 3673,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3621,
+    "reviewed_objects": 22,
+    "revision": 1809,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:20:44Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25519824,
+    "file": "0000001825.json",
+    "masks": 3673,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3606,
+    "reviewed_objects": 22,
+    "revision": 1825,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:22:53Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25521193,
+    "file": "0000001841.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3602,
+    "reviewed_objects": 22,
+    "revision": 1841,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:25:05Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25523545,
+    "file": "0000001857.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3662,
+    "reviewed_objects": 22,
+    "revision": 1857,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:28:28Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25525561,
+    "file": "0000001873.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3646,
+    "reviewed_objects": 22,
+    "revision": 1873,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:29:37Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25527428,
+    "file": "0000001889.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3631,
+    "reviewed_objects": 22,
+    "revision": 1889,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:30:48Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25528768,
+    "file": "0000001905.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3615,
+    "reviewed_objects": 22,
+    "revision": 1905,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:31:34Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25529975,
+    "file": "0000001921.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3599,
+    "reviewed_objects": 22,
+    "revision": 1921,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:32:20Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531159,
+    "file": "0000001937.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3583,
+    "reviewed_objects": 22,
+    "revision": 1937,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:33:02Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531767,
+    "file": "0000001953.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3567,
+    "reviewed_objects": 22,
+    "revision": 1953,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:33:46Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531875,
+    "file": "0000001959.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3561,
+    "reviewed_objects": 22,
+    "revision": 1959,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:34:04Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531901,
+    "file": "0000001960.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3560,
+    "reviewed_objects": 22,
+    "revision": 1960,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:34:08Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531915,
+    "file": "0000001961.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3559,
+    "reviewed_objects": 22,
+    "revision": 1961,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:34:12Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531929,
+    "file": "0000001962.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3558,
+    "reviewed_objects": 22,
+    "revision": 1962,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:34:14Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25531943,
+    "file": "0000001963.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3557,
+    "reviewed_objects": 22,
+    "revision": 1963,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:34:17Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25533153,
+    "file": "0000001964.json",
+    "masks": 3677,
+    "objects": 22,
+    "operation": "review_object_masks",
+    "restored_from": null,
+    "reviewed_masks": 3677,
+    "reviewed_objects": 22,
+    "revision": 1964,
+    "session": "28DE125D-C599-4CD4-A29F-BCEBE7B2DFC8",
+    "updated_utc": "2026-10-01T05:37:14Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25541314,
+    "file": "0000001965.json",
+    "masks": 3678,
+    "objects": 23,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3677,
+    "reviewed_objects": 22,
+    "revision": 1965,
+    "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1",
+    "updated_utc": "2026-10-01T05:38:18Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25553747,
+    "file": "0000001966.json",
+    "masks": 3681,
+    "objects": 23,
+    "operation": "propagate_mask",
+    "restored_from": null,
+    "reviewed_masks": 3677,
+    "reviewed_objects": 22,
+    "revision": 1966,
+    "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1",
+    "updated_utc": "2026-10-01T05:38:22Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25554658,
+    "file": "0000001967.json",
+    "masks": 3682,
+    "objects": 23,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3677,
+    "reviewed_objects": 22,
+    "revision": 1967,
+    "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1",
+    "updated_utc": "2026-10-01T05:38:27Z"
+   },
+   {
+    "author": "dd",
+    "bytes": 25555122,
+    "file": "0000001968.json",
+    "masks": 3683,
+    "objects": 23,
+    "operation": "save_mask",
+    "restored_from": null,
+    "reviewed_masks": 3677,
+    "reviewed_objects": 22,
+    "revision": 1968,
+    "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1",
+    "updated_utc": "2026-10-01T05:38:36Z"
+   }
+  ],
+  "total_bytes": 37879603507
+ },
+ "samples": {
+  "count": 832,
+  "duration_s": 83.084513,
+  "first_ns": 1764973024741034330,
+  "last_ns": 1764973107825547330,
+  "points_total": 1833561
+ },
+ "segment": null,
+ "sidecar": {
+  "change": {
+   "author": "dd",
+   "created_utc": "2026-10-01T05:39:03Z",
+   "operation": "review_object_masks",
+   "parent_revision": 1968,
+   "revision": 1969,
+   "session": "B38B3FAC-2637-4269-905B-CAC6344DD8F1"
+  },
+  "correspondences": 0,
+  "dataset_id": "ds_95be6fb22498b44a",
+  "dismissed_proposals": 0,
+  "freeze_blockers": [],
+  "mask_authors": {
+   "dd": 3683
+  },
+  "mask_totals": {
+   "algorithm": {
+    "by_hand": 2354,
+    "cluster_chain": 1212,
+    "footprint_carry": 117
+   },
+   "completeness": {
+    "partial": 3683
+   },
+   "eval": {
+    "dropped_empty": 27,
+    "not_road_user": 265,
+    "scored": 3391
+   },
+   "status": {
+    "reviewed": 3683
+   },
+   "visibility": {
+    "present": 3683
+   }
+  },
+  "masks": 3683,
+  "objects": 23,
+  "objects_by_status_class": {
+   "reviewed/bus": 1,
+   "reviewed/car": 13,
+   "reviewed/ground": 1,
+   "reviewed/noise": 2,
+   "reviewed/pedestrian": 3,
+   "reviewed/truck": 3
+  },
+  "orphan_masks": 0,
+  "pack_digest": "sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6",
+  "per_object": [
+   {
+    "algorithms": {
+     "by_hand": 23,
+     "cluster_chain": 96
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 119
+    },
+    "eval": {
+     "scored": 119
+    },
+    "first_sample": 623,
+    "last_sample": 741,
+    "mask_status": {
+     "reviewed": 119
+    },
+    "masks": 119,
+    "median_points": 920,
+    "min_points": 1,
+    "object_id": "obj_14ed7858",
+    "span_s": 11.800188,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 119
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "cluster_chain": 97
+    },
+    "class": "noise",
+    "completeness": {
+     "partial": 97
+    },
+    "eval": {
+     "not_road_user": 97
+    },
+    "first_sample": 246,
+    "last_sample": 342,
+    "mask_status": {
+     "reviewed": 97
+    },
+    "masks": 97,
+    "median_points": 23,
+    "min_points": 18,
+    "object_id": "obj_1905e4d8",
+    "span_s": 9.599439,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 97
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 159,
+     "cluster_chain": 2,
+     "footprint_carry": 46
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 207
+    },
+    "eval": {
+     "scored": 207
+    },
+    "first_sample": 284,
+    "last_sample": 512,
+    "mask_status": {
+     "reviewed": 207
+    },
+    "masks": 207,
+    "median_points": 15,
+    "min_points": 1,
+    "object_id": "obj_23e8160b",
+    "span_s": 22.799394,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 207
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 320,
+     "cluster_chain": 111,
+     "footprint_carry": 25
+    },
+    "class": "truck",
+    "completeness": {
+     "partial": 456
+    },
+    "eval": {
+     "dropped_empty": 1,
+     "scored": 455
+    },
+    "first_sample": 208,
+    "last_sample": 663,
+    "mask_status": {
+     "reviewed": 456
+    },
+    "masks": 456,
+    "median_points": 84,
+    "min_points": 0,
+    "object_id": "obj_35c661db",
+    "span_s": 45.498628,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 456
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 9,
+     "cluster_chain": 16
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 25
+    },
+    "eval": {
+     "scored": 25
+    },
+    "first_sample": 459,
+    "last_sample": 483,
+    "mask_status": {
+     "reviewed": 25
+    },
+    "masks": 25,
+    "median_points": 49,
+    "min_points": 3,
+    "object_id": "obj_4116ba22",
+    "span_s": 2.39979,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 25
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 153,
+     "cluster_chain": 33
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 186
+    },
+    "eval": {
+     "scored": 186
+    },
+    "first_sample": 238,
+    "last_sample": 423,
+    "mask_status": {
+     "reviewed": 186
+    },
+    "masks": 186,
+    "median_points": 93,
+    "min_points": 1,
+    "object_id": "obj_4929e754",
+    "span_s": 18.499652,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 186
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 26,
+     "cluster_chain": 1,
+     "footprint_carry": 9
+    },
+    "class": "truck",
+    "completeness": {
+     "partial": 36
+    },
+    "eval": {
+     "scored": 36
+    },
+    "first_sample": 646,
+    "last_sample": 681,
+    "mask_status": {
+     "reviewed": 36
+    },
+    "masks": 36,
+    "median_points": 102,
+    "min_points": 1,
+    "object_id": "obj_53def904",
+    "span_s": 3.500445,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 36
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 3,
+     "footprint_carry": 3
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 6
+    },
+    "eval": {
+     "scored": 6
+    },
+    "first_sample": 826,
+    "last_sample": 831,
+    "mask_status": {
+     "reviewed": 6
+    },
+    "masks": 6,
+    "median_points": 277,
+    "min_points": 3,
+    "object_id": "obj_581a0d13",
+    "span_s": 0.499921,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 6
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 31,
+     "cluster_chain": 43,
+     "footprint_carry": 11
+    },
+    "class": "noise",
+    "completeness": {
+     "partial": 85
+    },
+    "eval": {
+     "not_road_user": 85
+    },
+    "first_sample": 0,
+    "last_sample": 84,
+    "mask_status": {
+     "reviewed": 85
+    },
+    "masks": 85,
+    "median_points": 55,
+    "min_points": 1,
+    "object_id": "obj_5d9e713c",
+    "span_s": 8.381972,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 85
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 51,
+     "cluster_chain": 5
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 56
+    },
+    "eval": {
+     "scored": 56
+    },
+    "first_sample": 683,
+    "last_sample": 738,
+    "mask_status": {
+     "reviewed": 56
+    },
+    "masks": 56,
+    "median_points": 272,
+    "min_points": 2,
+    "object_id": "obj_764efbef",
+    "span_s": 5.499637,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 56
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 821,
+     "cluster_chain": 3
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 824
+    },
+    "eval": {
+     "scored": 824
+    },
+    "first_sample": 8,
+    "last_sample": 831,
+    "mask_status": {
+     "reviewed": 824
+    },
+    "masks": 824,
+    "median_points": 26,
+    "min_points": 10,
+    "object_id": "obj_788622b5",
+    "span_s": 82.297443,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 824
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 58,
+     "cluster_chain": 7
+    },
+    "class": "pedestrian",
+    "completeness": {
+     "partial": 65
+    },
+    "eval": {
+     "dropped_empty": 25,
+     "scored": 40
+    },
+    "first_sample": 115,
+    "last_sample": 199,
+    "mask_status": {
+     "reviewed": 65
+    },
+    "masks": 65,
+    "median_points": 3,
+    "min_points": 0,
+    "object_id": "obj_7eb38c9c",
+    "span_s": 8.399963,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 65
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 22,
+     "cluster_chain": 124
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 146
+    },
+    "eval": {
+     "scored": 146
+    },
+    "first_sample": 556,
+    "last_sample": 701,
+    "mask_status": {
+     "reviewed": 146
+    },
+    "masks": 146,
+    "median_points": 376,
+    "min_points": 1,
+    "object_id": "obj_835d059d",
+    "span_s": 14.500118,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 146
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 69,
+     "cluster_chain": 40
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 109
+    },
+    "eval": {
+     "scored": 109
+    },
+    "first_sample": 723,
+    "last_sample": 831,
+    "mask_status": {
+     "reviewed": 109
+    },
+    "masks": 109,
+    "median_points": 1164,
+    "min_points": 4,
+    "object_id": "obj_8529ec5b",
+    "span_s": 10.799465,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 109
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 33,
+     "cluster_chain": 26
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 59
+    },
+    "eval": {
+     "scored": 59
+    },
+    "first_sample": 472,
+    "last_sample": 530,
+    "mask_status": {
+     "reviewed": 59
+    },
+    "masks": 59,
+    "median_points": 373,
+    "min_points": 1,
+    "object_id": "obj_8c728991",
+    "span_s": 5.799798,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 59
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 108,
+     "cluster_chain": 304
+    },
+    "class": "truck",
+    "completeness": {
+     "partial": 412
+    },
+    "eval": {
+     "scored": 412
+    },
+    "first_sample": 353,
+    "last_sample": 764,
+    "mask_status": {
+     "reviewed": 412
+    },
+    "masks": 412,
+    "median_points": 52,
+    "min_points": 1,
+    "object_id": "obj_8e829a06",
+    "span_s": 41.098959,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 412
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 18,
+     "cluster_chain": 98
+    },
+    "class": "pedestrian",
+    "completeness": {
+     "partial": 116
+    },
+    "eval": {
+     "scored": 116
+    },
+    "first_sample": 9,
+    "last_sample": 124,
+    "mask_status": {
+     "reviewed": 116
+    },
+    "masks": 116,
+    "median_points": 13,
+    "min_points": 1,
+    "object_id": "obj_99987c9d",
+    "span_s": 11.49915,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 116
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 56
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 56
+    },
+    "eval": {
+     "scored": 56
+    },
+    "first_sample": 0,
+    "last_sample": 55,
+    "mask_status": {
+     "reviewed": 56
+    },
+    "masks": 56,
+    "median_points": 387,
+    "min_points": 3,
+    "object_id": "obj_a42df48a",
+    "span_s": 5.483227,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 56
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 129,
+     "cluster_chain": 74
+    },
+    "class": "pedestrian",
+    "completeness": {
+     "partial": 203
+    },
+    "eval": {
+     "scored": 203
+    },
+    "first_sample": 1,
+    "last_sample": 244,
+    "mask_status": {
+     "reviewed": 203
+    },
+    "masks": 203,
+    "median_points": 28,
+    "min_points": 1,
+    "object_id": "obj_a99f83f4",
+    "span_s": 24.299778,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 203
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 60,
+     "footprint_carry": 23
+    },
+    "class": "ground",
+    "completeness": {
+     "partial": 83
+    },
+    "eval": {
+     "not_road_user": 83
+    },
+    "first_sample": 0,
+    "last_sample": 82,
+    "mask_status": {
+     "reviewed": 83
+    },
+    "masks": 83,
+    "median_points": 278,
+    "min_points": 8,
+    "object_id": "obj_aa06c4ae",
+    "span_s": 8.181309,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 83
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 117,
+     "cluster_chain": 114
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 231
+    },
+    "eval": {
+     "dropped_empty": 1,
+     "scored": 230
+    },
+    "first_sample": 8,
+    "last_sample": 254,
+    "mask_status": {
+     "reviewed": 231
+    },
+    "masks": 231,
+    "median_points": 214,
+    "min_points": 0,
+    "object_id": "obj_ad6f69ef",
+    "span_s": 24.598878,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 231
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 37,
+     "cluster_chain": 17
+    },
+    "class": "car",
+    "completeness": {
+     "partial": 54
+    },
+    "eval": {
+     "scored": 54
+    },
+    "first_sample": 372,
+    "last_sample": 425,
+    "mask_status": {
+     "reviewed": 54
+    },
+    "masks": 54,
+    "median_points": 715,
+    "min_points": 4,
+    "object_id": "obj_c3e7169b",
+    "span_s": 5.299514,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 54
+    },
+    "with_pose": 0
+   },
+   {
+    "algorithms": {
+     "by_hand": 51,
+     "cluster_chain": 1
+    },
+    "class": "bus",
+    "completeness": {
+     "partial": 52
+    },
+    "eval": {
+     "scored": 52
+    },
+    "first_sample": 165,
+    "last_sample": 216,
+    "mask_status": {
+     "reviewed": 52
+    },
+    "masks": 52,
+    "median_points": 281,
+    "min_points": 7,
+    "object_id": "obj_f6429947",
+    "span_s": 5.099616,
+    "status": "reviewed",
+    "uncertain_points": 0,
+    "visibility": {
+     "present": 52
+    },
+    "with_pose": 0
+   }
+  ],
+  "revision": 1969,
+  "schema_version": 1,
+  "updated_utc": "2026-10-01T05:39:04Z"
+ }
+}
