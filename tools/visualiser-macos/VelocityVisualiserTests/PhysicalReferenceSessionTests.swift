@@ -167,7 +167,8 @@ private func sample(_ id: Int) -> AnnotationSample {
     @Test func assistanceDeclarationKeepsSavedHistoryAndSurvivesUndo() async throws {
         let (physical, fake) = makeSession(packDir: temporaryPackDir())
         fake.digest = "sha256:independent"
-        let original = PhysicalBody(bodyID: "body_saved")
+        var original = PhysicalBody(bodyID: "body_saved")
+        original.review.status = .reviewed
         fake.objects = [PhysicalObject(objectID: "car", body: original)]
         await physical.load()
         physical.edit { $0[0].body?.length.valueM = 4 }
@@ -195,7 +196,9 @@ private func sample(_ id: Int) -> AnnotationSample {
         let (physical, fake) = makeSession(packDir: temporaryPackDir())
         #expect(!physical.declareAssistance(objectID: "car", source: "run"))
         fake.digest = "sha256:saved"
-        fake.objects = [PhysicalObject(objectID: "car", body: PhysicalBody(bodyID: "b"))]
+        var original = PhysicalBody(bodyID: "b")
+        original.review.status = .reviewed
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
         await physical.load()
         #expect(!physical.declareAssistance(objectID: "car", source: " \n "))
         #expect(physical.exposure.isEmpty)
@@ -206,6 +209,49 @@ private func sample(_ id: Int) -> AnnotationSample {
         #expect(physical.object("car")?.body?.review.trackerSource == "main window")
         #expect(physical.declareAssistance(objectID: "car", source: "another estimate"))
         #expect(physical.exposure["car"] == "main window")
+    }
+
+    @Test func reviewingAfterExposureNeedsANewAssistedProposal() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:before-viewing"
+        var pose = PhysicalKeyframe(keyframeID: "independent_pose", sampleID: 0, timestampNs: 1_000)
+        pose.review.status = .reviewed
+        let original = PhysicalBody(bodyID: "pending_body")
+        fake.objects = [PhysicalObject(objectID: "car", body: original, keyframes: [pose])]
+        await physical.load()
+        physical.expose(objectIDs: ["car"], source: "online run 9")
+        #expect(!physical.isDirty)
+        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
+        #expect(fake.last("/api/annotations/physical/review") == nil)
+        physical.continueAsAssisted(objectID: "car")
+        #expect(physical.isDirty)
+        #expect(physical.savedBody(objectID: "car") == original)
+        #expect(physical.object("car")?.body?.bodyID != original.bodyID)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(
+            physical.object("car")?.keyframes == [pose],
+            "Reviewed independent history remains unchanged")
+        physical.undo()
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        physical.discard()
+        #expect(!physical.isDirty)
+        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
+        physical.continueAsAssisted(objectID: "car")
+        #expect(await physical.save())
+        let savedID = physical.savedBody(objectID: "car")!.bodyID
+        #expect(await physical.review(kind: .body, objectID: "car", recordID: savedID))
+        #expect(physical.savedBody(objectID: "car")?.review.origin == .trackerAssisted)
+    }
+
+    @Test func explicitDeclarationForksAPendingSavedProposal() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:pending"
+        let original = PhysicalBody(bodyID: "pending")
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
+        await physical.load()
+        #expect(physical.declareAssistance(objectID: "car", source: "main-window estimate"))
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.savedBody(objectID: "car") == original)
     }
 
     @Test func loadsReadyOnlyWhenTheServiceHoldsThisVeryFolder() async {

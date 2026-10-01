@@ -306,9 +306,19 @@ import Foundation
             return false
         }
         expose(objectIDs: [objectID], source: source)
+        continueAsAssisted(objectID: objectID)
         lastNote =
             "Assistance recorded for this object. Saved independent history is retained; unsaved and later edits name the estimate."
         return true
+    }
+
+    /// Review after exposure is assisted as well as geometry editing. Fork
+    /// pending independent proposals without changing reviewed source history.
+    func continueAsAssisted(objectID: String) {
+        guard canEdit, let source = exposure[objectID] else { return }
+        edit { objects in
+            PhysicalDraft.assistPendingReview(objectID: objectID, source: source, in: &objects)
+        }
     }
 
     func undo() {
@@ -334,6 +344,9 @@ import Foundation
     private func applyOutstandingExposure() {
         PhysicalDraft.applyExposure(
             before: state?.document.objects ?? [], after: &draft, exposure: exposure)
+        for (objectID, source) in exposure {
+            PhysicalDraft.assistPendingReview(objectID: objectID, source: source, in: &draft)
+        }
     }
 
     /// Drops the working copy for the saved document. Saved history is not
@@ -445,6 +458,17 @@ import Foundation
             lastError = "Save or discard the draft first: a review confirms the saved record."
             return false
         }
+        let recordReview: PhysicalReview? =
+            kind == .body
+            ? savedBody(objectID: objectID)?.review
+            : savedKeyframeByID(objectID: objectID, recordID: recordID)?.review
+        if exposure[objectID] != nil, recordReview?.origin == .independent,
+            recordReview?.status != .reviewed
+        {
+            lastError =
+                "You have seen this object's estimate. Continue as an assisted proposal and save it before reviewing; the earlier independent history is retained."
+            return false
+        }
         let reviewer = author()
         guard !reviewer.trimmingCharacters(in: .whitespaces).isEmpty else {
             lastError = "Enter your name under Labelled by before reviewing."
@@ -470,6 +494,10 @@ import Foundation
             report(.transport(error.localizedDescription))
             return false
         }
+    }
+
+    private func savedKeyframeByID(objectID: String, recordID: String) -> PhysicalKeyframe? {
+        savedObject(objectID)?.keyframes.first { $0.keyframeID == recordID }
     }
 
     /// A retained revision, for showing what a report was scored against.
@@ -580,6 +608,32 @@ import Foundation
 /// The edits the pane makes, as pure functions of the draft, so each can be
 /// tested without a session or a service.
 enum PhysicalDraft {
+    /// A pending review cannot become independent truth after the operator has
+    /// inspected an estimate. Already reviewed history is immutable here.
+    static func assistPendingReview(
+        objectID: String, source: String, in objects: inout [PhysicalObject]
+    ) {
+        guard let i = objects.firstIndex(where: { $0.objectID == objectID }) else { return }
+        func assist(_ review: inout PhysicalReview) {
+            review.origin = .trackerAssisted
+            review.trackerSource = source
+        }
+        if var body = objects[i].body, body.review.origin == .independent,
+            body.review.status != .reviewed
+        {
+            body.bodyID = newID("body")
+            assist(&body.review)
+            objects[i].body = body
+        }
+        for k in objects[i].keyframes.indices {
+            guard objects[i].keyframes[k].review.origin == .independent,
+                objects[i].keyframes[k].review.status != .reviewed
+            else { continue }
+            objects[i].keyframes[k].keyframeID = newID("kf")
+            assist(&objects[i].keyframes[k].review)
+        }
+    }
+
     /// The order the service stores: objects by ID, keyframes by sample,
     /// support frames sorted. Keeping the draft in it means an unchanged draft
     /// compares equal to what was saved.

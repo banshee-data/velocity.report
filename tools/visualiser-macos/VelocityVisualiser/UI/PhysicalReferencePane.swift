@@ -102,6 +102,21 @@ struct PhysicalReferencePane: View {
                     "You have seen this object's estimate (\(seen)). Edits to it are saved as tracker-assisted."
                 ).font(.caption2).foregroundStyle(.orange).fixedSize(
                     horizontal: false, vertical: true)
+                if let objectID = session.activeObjectID, let object = physical.object(objectID),
+                    (object.body.map {
+                        $0.review.origin == .independent && $0.review.status != .reviewed
+                    } ?? false)
+                        || object.keyframes.contains(where: {
+                            $0.review.origin == .independent && $0.review.status != .reviewed
+                        })
+                {
+                    Button("Continue as assisted proposal") {
+                        physical.continueAsAssisted(objectID: objectID)
+                    }.controlSize(.small).disabled(!physical.canEdit || physical.needsReload)
+                    Text(
+                        "Reviewing after seeing an estimate is assisted too. Save this new proposal before reviewing it; previously reviewed independent records stay in history."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
             } else if let objectID = session.activeObjectID {
                 DisclosureGroup("I used the main-window estimate") {
                     TextField("Name the estimate, run and stage you used", text: $assistanceSource)
