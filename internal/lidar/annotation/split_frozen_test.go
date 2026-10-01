@@ -1047,7 +1047,7 @@ func TestFrozenSplitStructuralRefusals(t *testing.T) {
 		want   string
 	}{
 		{"schema", func(f *FrozenSplit) { f.Schema = "other" }, "schema"},
-		{"version", func(f *FrozenSplit) { f.SchemaVersion = 4 }, "schema version 4"},
+		{"version", func(f *FrozenSplit) { f.SchemaVersion = FrozenSplitSchemaVersionFeatures + 1 }, "schema version 5"},
 		{"revision 0", func(f *FrozenSplit) { f.Revision = 0 }, "revisions count from 1"},
 		{"revision 1 superseding", func(f *FrozenSplit) { f.Supersedes = "sha256:x" }, "only revision 1 supersedes nothing"},
 		{"revision 2 superseding nothing", func(f *FrozenSplit) { f.Revision = 2 }, "only revision 1 supersedes nothing"},

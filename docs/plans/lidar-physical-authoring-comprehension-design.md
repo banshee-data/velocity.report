@@ -373,4 +373,12 @@ Retained facet revisions can now be inspected through an exact read-only service
 native menu of the twenty most recent revisions. Switching requires a clean draft, preserves the
 facet identity and restores its saved metadata. Returning to latest restores editing. A missing
 or mismatched revision cannot appear as the requested evidence; a damaged later head does not
-erase a valid archive. Frozen facet pins and runtime registration remain separate work.
+erase a valid archive.
+
+The freeze sheet now offers an opt-in facet pin per draft pack. Preview reports the retained
+revision/digests, active and retired proposal counts, supported and absence decisions, and
+tracker-seeded registration counts. Support drifting outside the frozen definite membership is
+a separate facet refusal. Changing a pin or lineage invalidates the preview. Feature-free
+freezes retain version 3; facet pins use version 4 and bind through `BindFeatures`. Neither
+accepted support nor an assisted registration becomes physical truth. Runtime registration and
+an experiment adapter consuming these pins remain separate work.
