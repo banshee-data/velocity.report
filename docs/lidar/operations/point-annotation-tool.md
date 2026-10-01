@@ -452,6 +452,10 @@ It is a source sketch, not another independent reference. Discard removes that s
    say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
    face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
    and only after the position exists.
+   A named face position is its **face centre**, not an arbitrary point on the face or a patch's
+   changing visible centre. Its offset is only along the inward normal. If the along-face centre
+   is unseen, the position bound must include that uncertainty; use Facets for a repeatable edge
+   or mirror point with a separate body relation.
 4. Give each record its method and uncertainty assumptions. The server checks the draft as you
    edit and says what it would refuse, and which reviews a save would reset.
 5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
@@ -637,7 +641,7 @@ and the along-path gap waits for persisted paths.
 
 ## Feature candidates
 
-Choose **Feature Candidates** in the editing-mode menu after saving the active object's membership
+Choose **Facets** in the editing-mode menu after saving the active object's membership
 in **Object Points**. Choose **Sphere** to click a return, or **Lasso subset** to draw an exact
 subset through the current depth slab. Shift adds to the draft subset; Option removes from it.
 Both tools select only that object's saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
@@ -670,6 +674,11 @@ visible. The companion 3D view supplies object context; feature rings are in the
    Historical revisions retain the earlier interpretation. At most four facets can be active for
    one object. **Retire facet, keep evidence** frees a slot without deleting observations; a fifth
    activation is refused. Zero active facets is a supported abstention.
+
+**Facet frames: N decisions** returns to a recorded support or absence decision. **Previous facet
+frame** and **Next facet frame** keep the selected facet identity. Save or cancel outstanding
+work first; a current frame filter is not bypassed. The panel separates supported frames from
+absence/rejection decisions, so a long list of occlusions is not mistaken for measured support.
 
 The proposal is deliberately limited: it uses observed-object centroid translation and a small
 local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
@@ -746,7 +755,10 @@ and marks nothing unsaved.
   class colours, without the intensity brightening the main view uses.
 - **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved
   mask at this frame (definite members; uncertain points are counted as excluded), of the unsaved
-  selection, or of the chosen proposal. A proposal is the proposer's own clustering of the pack's
+  selection, of the chosen proposal, or of the chosen **Facet subset** in Facets mode.
+  A facet uses its explicit definite return subset; uncertain members are excluded. Unsaved
+  support and an older membership pin are labelled. This adds a raw-code diagnostic, not a
+  reflectivity matching score or a material map. A proposal is the proposer's own clustering of the pack's
   points, with every member recorded, so it is exact membership; it is an algorithm's suggestion
   and not a review, and not the tracker's output. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
   with a centre and width (the mean and spread of the raw codes in it), a support count and a

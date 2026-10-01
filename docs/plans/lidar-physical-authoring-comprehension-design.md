@@ -361,3 +361,10 @@ do not become reference bounds. Existing size and poses are retained. Direct mai
 remains open: its track stream does not declare the physical position's meaning. Weak-direction
 edge/surface registration and the runtime snap ledger also remain open. The earlier audit above
 remains a record of the supplied UI.
+
+The current increment also wires the exposure ledger to the production session's preference
+store, so reopening the pack retains the disclosure. Face anchors are labelled as face centres:
+an arbitrary surface return cannot acquire an unsupported along-face centre relation. Invalid
+draft values stay out of the editable overlay. Facet observation navigation keeps identity and
+guards outstanding work; the histogram can inspect the facet's definite subset. Geometry fits
+are cached for one immutable frame/subset/type so return hover does not repeatedly rebuild them.

@@ -5,6 +5,65 @@ import simd
 @testable import VelocityVisualiser
 
 @MainActor struct PhysicalAuthoringComprehensionTests {
+    @Test func theProductionSessionKeepsEstimateExposureInItsPreferencesStore() throws {
+        let suite = "annotation-exposure-wiring-\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let first = try AnnotationSession(pack: pack, defaults: preferences)
+        first.physical.expose(objectIDs: ["car"], source: "run 7 · online")
+        let reopened = try AnnotationSession(pack: pack, defaults: preferences)
+        #expect(reopened.physical.exposure["car"] == "run 7 · online")
+        let isolated = try AnnotationSession(pack: pack, defaults: nil)
+        #expect(isolated.physical.exposure.isEmpty)
+        #expect(PhysicalAnchorKind.leftFace.label == "Left face centre")
+    }
+
+    @Test func invalidDraftBoundsDoNotEnterTheOverlayOrSupportedGeometry() {
+        var k = PhysicalKeyframe(keyframeID: "k", sampleID: 0, timestampNs: 10)
+        k.position = PhysicalPosition(status: .observed, xM: 3, yM: 4, boundM: 0.2)
+        k.yaw = PhysicalYaw(status: .observed, axis: .resolved, yawRad: 0, boundRad: 0.05)
+        for value in [Double.nan, .infinity, -1] {
+            var invalid = k
+            invalid.position.boundM = value
+            let o = PhysicalObject(objectID: "o", keyframes: [invalid])
+            for gate in [PhysicalGeometryGate.authoring, .preview, .truth] {
+                #expect(
+                    PhysicalGeometry.derive(object: o, keyframe: invalid, gate: gate).anchorPoint
+                        == nil)
+            }
+            invalid = k
+            invalid.yaw.boundRad = value
+            #expect(
+                PhysicalGeometry.derive(
+                    object: PhysicalObject(objectID: "o"), keyframe: invalid, gate: .authoring
+                ).yaw == nil)
+        }
+        k.yaw.boundRad = 2 * .pi
+        #expect(
+            PhysicalGeometry.derive(
+                object: PhysicalObject(objectID: "o"), keyframe: k, gate: .authoring
+            ).yaw == nil)
+    }
+
+    @Test func partialOrInvalidDimensionIntervalsAreNotWholeObjectSizes() {
+        for d in [
+            PhysicalDimension(status: .observed, span: .full, lowerM: 4, upperM: 3),
+            PhysicalDimension(status: .observed, span: .full, lowerM: -1, upperM: 3),
+            PhysicalDimension(status: .observed, span: .full, lowerM: 2, upperM: .infinity),
+            PhysicalDimension(status: .observed, span: .full, lowerM: 2, upperM: 3, valueM: 4),
+            PhysicalDimension(status: .observed, span: .partial, lowerM: 2, upperM: 3),
+        ] {
+            let o = PhysicalObject(objectID: "o", body: PhysicalBody(bodyID: "b", length: d))
+            let k = PhysicalKeyframe(keyframeID: "k", sampleID: 0, timestampNs: 10)
+            #expect(PhysicalGeometry.derive(object: o, keyframe: k, gate: .authoring).length == nil)
+        }
+        let huge = PhysicalDimension(status: .observed, span: .full, lowerM: 1e308, upperM: 1.7e308)
+        #expect(huge.best?.value.isFinite == true, "The interval midpoint must not overflow")
+    }
+
     @Test func anUnboundedPlacementIsVisibleOnlyAsAnEditableSketch() {
         var k = PhysicalKeyframe(keyframeID: "k", sampleID: 0, timestampNs: 10)
         k.position = PhysicalPosition(status: .observed, xM: 3, yM: 4)

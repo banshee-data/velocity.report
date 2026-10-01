@@ -133,7 +133,7 @@ struct PhysicalGeometry: Equatable {
     ) -> PhysicalGeometry {
         var g = PhysicalGeometry(anchorKind: k.anchor.kind)
         if k.position.status.scorable, let x = k.position.xM, let y = k.position.yM,
-            let bound = k.position.boundM
+            let bound = k.position.boundM, x.isFinite, y.isFinite, bound.isFinite, bound >= 0
         {
             g.anchorPoint = PhysicalPlanar(x: x, y: y, bound: bound)
         } else {
@@ -143,7 +143,9 @@ struct PhysicalGeometry: Equatable {
             g.yawUnavailable = PhysicalUnavailable.axisUnknown
         } else if !k.yaw.status.scorable {
             g.yawUnavailable = k.yaw.status.rawValue
-        } else if let rad = k.yaw.yawRad, let bound = k.yaw.boundRad {
+        } else if let rad = k.yaw.yawRad, let bound = k.yaw.boundRad, rad.isFinite, bound.isFinite,
+            bound >= 0, gate != .authoring || bound <= .pi
+        {
             g.yaw = PhysicalAngle(rad: rad, boundRad: bound, axis: k.yaw.axis, status: k.yaw.status)
         } else {
             g.yawUnavailable = PhysicalUnavailable.yaw
@@ -226,7 +228,7 @@ struct PhysicalGeometry: Equatable {
                     lower: value, upper: value, value: value, halfWidth: 0, status: d.status), nil
             )
         }
-        guard let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
+        guard d.span != .partial, let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
             return (nil, PhysicalUnavailable.lowerBoundOnly)
         }
         return (
@@ -253,10 +255,20 @@ struct PhysicalGeometry: Equatable {
             centreUnavailable = PhysicalUnavailable.yaw
             return
         }
+        guard yaw.axis == .resolved, offset.isFinite, offsetBound.isFinite, offset >= 0,
+            offsetBound >= 0
+        else {
+            centreUnavailable = PhysicalUnavailable.anchorOffsetUnknown
+            return
+        }
         let n = Self.inwardNormal(a.kind, yaw: yaw.rad)
         centre = PhysicalPlanar(
             x: anchor.x + offset * n.x, y: anchor.y + offset * n.y,
             bound: anchor.bound + offsetBound + offset * Self.swing(yaw.boundRad))
+        if let c = centre, !c.x.isFinite || !c.y.isFinite || !c.bound.isFinite {
+            centre = nil
+            centreUnavailable = PhysicalUnavailable.centre
+        }
     }
 
     private func endpoint(

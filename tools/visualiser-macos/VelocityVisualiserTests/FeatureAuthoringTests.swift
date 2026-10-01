@@ -305,7 +305,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
         session.features.cancel()
         #expect(session.navigationGuard() == nil)
         #expect(AnnotationWorkMode.points.label == "Object Points")
-        #expect(AnnotationWorkMode.features.label == "Feature Candidates")
+        #expect(AnnotationWorkMode.features.label == "Facets")
     }
 }
 
@@ -445,8 +445,17 @@ struct FeatureSharedWireTests {
                 decision: .acceptedProposal, author: s.operatorName,
                 membershipDigest: s.membershipDigest))
         #expect(s.features.activeID == id && s.features.active?.observations.count == 2)
+        #expect(s.adjacentFacetObservation(forward: false)?.sampleID == 0)
+        #expect(s.goToFacetObservation(sampleID: 0))
+        #expect(s.features.activeID == id && s.featureOverlay?.pointIndices == [0, 1])
+        #expect(s.adjacentFacetObservation(forward: true)?.sampleID == 1)
+        #expect(!s.goToFacetObservation(sampleID: 99))
+        #expect(s.currentSample?.sampleID == 0)
+        #expect(s.goToFacetObservation(sampleID: 1))
         s.editCurrentFeature()
         #expect(s.features.isDirty && s.features.draft?.origin == "assisted_proposal")
+        #expect(!s.goToFacetObservation(sampleID: 0))
+        #expect(s.currentSample?.sampleID == 1)
         #expect(
             await s.features.save(
                 decision: .rejected, author: s.operatorName, membershipDigest: s.membershipDigest))
@@ -459,6 +468,10 @@ struct FeatureSharedWireTests {
                 decision: .occluded, author: s.operatorName, membershipDigest: s.membershipDigest))
         #expect(s.features.active?.observations.last?.decision == .occluded)
         #expect(s.features.active?.objectID == object.objectID)
+        #expect(s.adjacentFacetObservation(forward: false)?.decision == .rejected)
+        #expect(s.goToFacetObservation(sampleID: 0))
+        #expect(s.goToFacetObservation(sampleID: 2))
+        #expect(s.featureOverlay?.decision == .occluded && s.featureOverlay?.hasSphere == false)
         #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == before)
         let reopened = FeatureAuthoring(pack: pack, client: client)
         await reopened.load()

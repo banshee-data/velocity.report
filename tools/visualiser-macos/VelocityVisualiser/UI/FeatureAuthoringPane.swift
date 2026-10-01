@@ -16,7 +16,7 @@ struct FeatureAuthoringPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Facets · points fixed to one part").font(.headline)
+            Text("Facets · same part, fresh returns").font(.headline)
             Text(
                 "Save the object's points first. Select a small edge, surface patch, or local feature such as a mirror tip. Each facet keeps its identity across frames."
             ).font(.caption)
@@ -56,7 +56,7 @@ struct FeatureAuthoringPane: View {
                         }
                     } label: {
                         HStack {
-                            Text(feature.name.isEmpty ? "Feature" : feature.name)
+                            Text(feature.name.isEmpty ? "Unnamed facet" : feature.name)
                             Spacer()
                             Text(
                                 feature.inactive
@@ -70,6 +70,36 @@ struct FeatureAuthoringPane: View {
             }
             if let active = features.active {
                 Text(active.featureID).font(.caption2.monospaced()).textSelection(.enabled)
+                let supported = active.observations.filter { $0.decision == .acceptedProposal }
+                    .count
+                Text(
+                    "\(supported) supported frames · \(active.observations.count - supported) absence/rejection decisions"
+                ).font(.caption2).foregroundStyle(.secondary)
+                Menu("Facet frames: \(active.observations.count) decisions") {
+                    ForEach(
+                        active.observations.sorted { $0.sampleID < $1.sampleID }, id: \.sampleID
+                    ) { observation in
+                        Button(
+                            "Frame \(session.pack.samples.first(where: { $0.sampleID == Int(observation.sampleID) })?.sourceOrdinal ?? Int(observation.sampleID)) · \(decisionLabel(observation.decision)) · \(observation.pointIndices.count) returns"
+                        ) { session.goToFacetObservation(sampleID: observation.sampleID) }
+                    }
+                }.disabled(features.isDirty || features.busy)
+                HStack {
+                    Button("Previous facet frame") {
+                        if let observation = session.adjacentFacetObservation(forward: false) {
+                            session.goToFacetObservation(sampleID: observation.sampleID)
+                        }
+                    }.disabled(
+                        features.isDirty || features.busy
+                            || session.adjacentFacetObservation(forward: false) == nil)
+                    Button("Next facet frame") {
+                        if let observation = session.adjacentFacetObservation(forward: true) {
+                            session.goToFacetObservation(sampleID: observation.sampleID)
+                        }
+                    }.disabled(
+                        features.isDirty || features.busy
+                            || session.adjacentFacetObservation(forward: true) == nil)
+                }
                 Button(active.inactive ? "Activate facet" : "Retire facet, keep evidence") {
                     Task {
                         await features.setInactive(!active.inactive, author: session.operatorName)
@@ -78,7 +108,8 @@ struct FeatureAuthoringPane: View {
             }
             Button("Edit this frame") { session.editCurrentFeature() }.disabled(
                 !features.canEdit || features.isDirty || session.featureOverlay?.hasSphere != true)
-            TextField("Feature name", text: $features.name).disabled(!canEditMetadata)
+            TextField("Facet name, such as outer mirror", text: $features.name).disabled(
+                !canEditMetadata)
             Picker("Geometry", selection: $features.geometry) {
                 Text("Unknown").tag(FeatureGeometry.unknown)
                 Text("Edge").tag(FeatureGeometry.edge)
@@ -120,9 +151,8 @@ struct FeatureAuthoringPane: View {
                 ).font(.caption).textSelection(.enabled)
             }
             if let observation = session.featureOverlay {
-                let fit = FacetGeometryFit.analyse(
-                    points: session.currentPoints, indices: observation.pointIndices,
-                    geometry: features.geometry)
+                let fit = session.facetGeometryFit(
+                    indices: observation.pointIndices, geometry: features.geometry)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Geometry check · proposal only").font(.caption.bold())
                     Text(fit.explanation).font(.caption2)

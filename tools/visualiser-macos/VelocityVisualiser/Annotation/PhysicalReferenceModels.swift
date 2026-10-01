@@ -51,10 +51,10 @@ enum PhysicalAnchorKind: String, Codable, CaseIterable, Equatable {
     var label: String {
         switch self {
         case .bodyCentre: return "Body centre"
-        case .frontFace: return "Front face"
-        case .rearFace: return "Rear face"
-        case .leftFace: return "Left face"
-        case .rightFace: return "Right face"
+        case .frontFace: return "Front face centre"
+        case .rearFace: return "Rear face centre"
+        case .leftFace: return "Left face centre"
+        case .rightFace: return "Right face centre"
         }
     }
 
@@ -129,8 +129,11 @@ struct PhysicalDimension: Codable, Equatable {
     /// The stated value, or the interval's midpoint, and the half-width that
     /// covers the interval from it. Nil unless bounded. Mirrors Go's Best.
     var best: (value: Double, halfWidth: Double)? {
-        guard let lo = lowerM, let hi = upperM else { return nil }
-        let value = valueM ?? (lo + hi) / 2
+        guard let lo = lowerM, let hi = upperM, lo.isFinite, hi.isFinite, lo >= 0, hi >= lo else {
+            return nil
+        }
+        let value = valueM ?? lo / 2 + hi / 2
+        guard value.isFinite, value >= lo, value <= hi else { return nil }
         return (value, max(value - lo, hi - value))
     }
 }
