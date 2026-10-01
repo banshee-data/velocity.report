@@ -6,6 +6,24 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 1, 2026 - Reviewed labels can score where the believed faces are
+
+- A reviewed kirk0 pack (20 road-user objects, 3,391 scored masks) gives part of what a physical
+  reference would: where the sensor sees a face is where the face is, whatever the far side of the
+  body does. `lidar-near-face-eval` puts a mask's returns in an arm's believed body axes and reports
+  the normal residual of the end and side faces the sensor can see (positive: the believed face is
+  out toward the sensor beyond the returns) and, where the end face's span covers 0.7 to 1.5 of the
+  believed width, the tangent offset of the centre, the error a rank-one fix leaves unconstrained.
+  A class-prior extent is kept in its own stratum, and every unscored instant is counted by reason.
+- `lidar-annotation-split-draft` drafts the version 1 split manifest for the window: every reviewed
+  road user that would survive freezing, the rest listed with the reason. `-from-evidence` starts
+  the window where a replay's solid-body rows start, which with `-warmup 20` is 6.2 s into kirk0, not
+  20 s, so about 3,100 of the 3,400 masks and 19 of the 20 objects fall inside it.
+- Plumbing was checked on real replays of kirk0, control and tracked: a pack built from the control
+  arm's own faces scores the control arm at zero. That is not a result. The first run on the
+  reviewed pack is open, and kirk0 is the capture the shadow work was developed on, so it is a
+  tuning split and cannot be held out.
+
 ## October 1, 2026 - Annotation history grows with every save, and now it can be pruned
 
 - A labelled kirk0 pack (23 objects, 3,683 reviewed masks, 83 s) had grown a revision history of
