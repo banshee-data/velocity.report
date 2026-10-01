@@ -771,3 +771,56 @@ struct FeatureSharedWireTests {
         #expect(a.canEdit && a.active?.anchor.xM == 1.2)
     }
 }
+
+@MainActor struct FacetProjectionExposureTests {
+    @Test func hidingCancellingAndReopeningDoNotLaunderPreviewAssistance() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let suite = "facet-preview-test-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let a = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await a.load()
+        a.geometry = .protrusion
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        let id = a.activeID
+        let original = a.active?.observations[0]
+        let projection = FacetBodyProjection(
+            origin: SIMD2(1, 2), normal: nil, boundM: 0.2, normalBoundRad: nil, assisted: false,
+            physicalRevision: 4, physicalDigest: "sha256:physical")
+        a.seed(featureSeed(pack), objectID: "car")
+        a.showBodyPreview(
+            FacetBodyPreview(
+                featureID: id, sampleID: 0, membershipDigest: service.state.membershipDigest,
+                projection: projection), objectID: "car")
+        #expect(a.draft?.origin == "assisted_proposal")
+        #expect(a.active?.observations[0] == original, "viewing rewrote saved history")
+        a.bodyPreview = nil
+        a.cancel()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(a.draft?.origin == "assisted_proposal")
+        #expect(a.draft?.note.contains("physical revision 4") == true)
+        a.cancel()
+        let reopened = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await reopened.load()
+        reopened.choose(id)
+        reopened.seed(featureSeed(pack), objectID: "car")
+        #expect(reopened.draft?.origin == "assisted_proposal")
+        #expect(
+            await reopened.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        #expect(reopened.active?.observations[0].origin == "assisted_proposal")
+        reopened.cancel()
+        var next = featureSeed(pack)
+        next.sampleID = 1
+        reopened.seed(next, objectID: "car")
+        #expect(
+            reopened.draft?.origin == "human_proposal",
+            "an unseen frame acquired preview provenance")
+    }
+}

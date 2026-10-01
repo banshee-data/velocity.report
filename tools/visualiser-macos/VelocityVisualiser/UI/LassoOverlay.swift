@@ -116,6 +116,10 @@ struct LassoOverlay: View {
                 maskLayer
                 if session.workMode == .features {
                     FeatureSelectionOverlay(session: session, basis: basis, viewport: viewport)
+                    if basisStandard == .top {
+                        FacetBodyProjectionOverlay(
+                            session: session, basis: basis, viewport: viewport)
+                    }
                 }
                 if strokePoints.count > 1 { strokeOutline }
                 if session.workMode == .points, session.pendingSphere != nil || hover.sphere != nil

@@ -791,6 +791,30 @@ against its new revision. Old support keeps its original membership pin and is n
 reinterpreted. Proposals are not independent reviewed references, and the held-out scoring gate
 is unchanged.
 
+### Checking a fixed relation in another frame
+
+After saving a body registration, move to another frame with a reviewed, bounded, resolved
+Physical pose for the same body. In Facets, choose **Project saved relation here · assisted**.
+The purple dashed Top overlay projects the original metric relation through that frame's pose;
+it does not refit the body, move a tracker box or spend a runtime reanchor event. Height remains
+unresolved, so the overlay is not drawn in the elevations. **Hide projected relation** clears
+the drawing, and stepping frames clears it too.
+
+For a compact facet, the marker is the fixed body spot. For an edge, the drawing is an infinite
+line with its along-edge direction unconstrained; the visible segment is only a camera clipping
+choice. If this frame has accepted facet support against its current saved object membership,
+the panel reports count, mean and maximum absolute horizontal distance to the spot, or normal
+distance to the line. Uncertain members are excluded. These are alignment diagnostics, not
+accuracy or uncertainty-coverage scores. With stale support, the distances are withheld.
+
+The target frame's timestamp, body identity, membership pins and reviewed pose must agree.
+Unsupported schemas, unreviewed poses, missing bounds or broadly uncertain line normals refuse
+the preview with an explanation. A changed Physical revision keeps the original metric body
+mapping, but requires current reviews before projection; a changed body identity cannot be
+substituted. Seeing a projection marks subsequent facet proposals for that object/frame as
+assisted, including after hiding, cancelling or reopening the pack. Existing saved observations
+are not rewritten. Tracker-seeded relations also retain the Physical assistance ledger.
+
 ## Raw intensity
 
 **Intensity (raw 0–255)** in the right-hand column is independent of the modes. It writes nothing,
