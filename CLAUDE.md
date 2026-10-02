@@ -47,6 +47,14 @@ make build-mac             # macOS visualiser (requires Xcode)
 
 If `make build-radar-local` fails due to missing pcap: `brew install libpcap` (macOS) or `sudo apt-get install libpcap-dev` (Linux).
 
+Build through `make`, never a bare `go build`. The Makefile's LDFLAGS stamp `version.Version`, `GitSHA` and `BuildTime`, and a bare build leaves all three unset: the binary then reports `vdev` / `git sha: unknown`, and so does everything it writes. A VRLOG header and a published scene asset both record `build_version` and `build_git_sha`, which is how a recording is traced back to the code that made it — once it says `dev`/`unknown` that cannot be reconstructed. A bare build also drops the `typst_embed` tag.
+
+`make build-radar-local` builds the embedded offline docs first, so it needs pnpm on PATH and fails with `pnpm/npm not found` without it. Install once with `pnpm i` (see Setup below), then confirm the stamp took:
+
+```bash
+./velocity-report-local version   # expect v<VERSION> and git sha == HEAD
+```
+
 ### Development servers
 
 ```bash
@@ -92,6 +100,34 @@ make perf-baseline-all # Recapture perf baselines (median of 5 runs)
 A tuning change moves the config fingerprint, which makes the perf gate refuse the
 committed baselines rather than compare against them. Recapture in the same change:
 see [performance-regression-testing.md](docs/lidar/operations/performance-regression-testing.md).
+
+### Publishing runs (`make scene-assets`)
+
+A run replays every site in full — around forty minutes each, most of a day for
+the set — so anything it starts with wrong is paid for twice. Check all of this
+before starting one, not an hour in.
+
+1. **Pull, then build.** `git pull` and `make build-radar-local`. A run from a
+   stale checkout publishes tracks the current pipeline would not produce, and
+   the perception commits that move them land often. Being a few days behind is
+   enough to matter.
+2. **Check the stamp.** `./velocity-report-local version` must report the
+   Makefile's `VERSION` and a git sha equal to `HEAD`. `vdev` / `unknown` means
+   it was not built by `make`; rebuild rather than publishing assets that cannot
+   say what made them.
+3. **One database.** The server's `--db-path` and `publish-scenes.py` must name
+   the same file — the script reads the run records the server writes, and
+   `DB_PATH` sets both. A mismatch is invisible until each replay finishes and
+   the export that follows fails on a database that was never there.
+4. **Machine paths go in `local.mk`**, untracked, per the header of the Makefile.
+   Passing them per-invocation is how they end up disagreeing between the server
+   and the publisher.
+5. **`make scene-assets-status` is the preflight.** It resolves every site to
+   packets and checks the run records are readable. It must pass clean first.
+
+If a replay finished but its export failed, the VRLOG on disk is complete: export
+from it again rather than replaying. The recording is the expensive half, and a
+failed run leaves it behind on purpose.
 
 ## Architecture
 
