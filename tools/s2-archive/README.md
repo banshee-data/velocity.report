@@ -103,8 +103,15 @@ position null rather than guessed.
 
 ## Rebuild
 
+The index is built from the analysis under `<archive root>/s2/`, which is mounted
+differently on each machine. Pass it with `--archive` (default `$LIDAR_PCAP_DIR`).
+A missing analysis directory stops the script without writing. To rebuild the
+index, the map and the pages in one go, use `make render-scene-map-mac`
+(`/Volumes/lidar/lidar`) or `make render-scene-map-linux` (`/mnt/captures/lidar`);
+override either path with `SCENE_ARCHIVE_MAC=` / `SCENE_ARCHIVE_LINUX=`.
+
 ```bash
-python3 tools/s2-archive/build-site-index.py   # after editing map-marks.json
+python3 tools/s2-archive/build-site-index.py --archive /Volumes/lidar/lidar   # after editing map-marks.json
 python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 ```
 
@@ -265,7 +272,7 @@ and angles for manual transfer when direct file access is unavailable.
 After saving, publish the canonical measurements through the existing pipeline:
 
 ```bash
-python3 tools/s2-archive/build-site-index.py
+python3 tools/s2-archive/build-site-index.py --archive <archive root>
 pnpm s2-hilbert:scene-map
 pnpm --dir public_html build
 ```
