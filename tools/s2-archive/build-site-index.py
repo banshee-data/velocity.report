@@ -13,22 +13,49 @@ time. A site whose mark could not be read keeps no position rather than an
 invented one.
 """
 
+import argparse
 import glob
 import json
 import os
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 
 # The captures are stamped in local Pacific daylight time.
 PACIFIC = timezone(timedelta(hours=-7))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PER_FILE = "/Volumes/lidar/lidar/s2/analysis"
-CONTINUOUS = "/Volumes/lidar/lidar/s2/analysis-continuous"
+# The archive root: --archive, else LIDAR_PCAP_DIR (as the Makefile and
+# publish-scenes.py read it), so the index is built from the machine's own copy
+# of the analysis. The Mac keeps it under /Volumes, Linux hosts under a mount.
+_args = argparse.ArgumentParser(description="Build the archive site index.")
+_args.add_argument(
+    "--archive",
+    default=os.environ.get("LIDAR_PCAP_DIR", "/Volumes/lidar/lidar"),
+    help="archive root holding s2/analysis and s2/analysis-continuous "
+    "(default: $LIDAR_PCAP_DIR, else /Volumes/lidar/lidar)",
+)
+ARCHIVE = os.path.abspath(os.path.expanduser(_args.parse_args().archive))
+PER_FILE = os.path.join(ARCHIVE, "s2", "analysis")
+CONTINUOUS = os.path.join(ARCHIVE, "s2", "analysis-continuous")
 REANALYSED = os.path.join(HERE, "analysis-overrides")
 MARKS = os.path.join(HERE, "map-marks.json")
 JOINS = os.path.join(HERE, "site-joins.json")
 OUT = os.path.join(HERE, "site-index.json")
+
+# glob() on a directory that is not there returns nothing and says nothing, so a
+# machine without the archive would write an index of whatever the checked-in
+# overrides alone cover (one site, in 2026-10) over the real one, and exit 0.
+# The map's positions are derived from this file, so every site silently lost
+# its place. Refuse instead, and leave the index as it was.
+missing = [path for path in (PER_FILE, CONTINUOUS) if not os.path.isdir(path)]
+if missing:
+    sys.exit(
+        "build-site-index: analysis not found: "
+        + ", ".join(missing)
+        + f"\nIt reads {ARCHIVE}/s2/. Pass --archive (or set LIDAR_PCAP_DIR) to the archive root "
+        "on this machine; nothing was written."
+    )
 
 BRIDGE_SECONDS = 180
 MIN_SITE = timedelta(minutes=10)

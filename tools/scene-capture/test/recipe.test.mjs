@@ -262,15 +262,15 @@ describe("parseRecipe", () => {
   describe("viewer URL", () => {
     test("accepts an absolute HTTP(S) viewer URL", () => {
       const recipe = parseRecipe(
-        baseRecipe({ viewer_url: "https://velocity.report/scenes/soma1/" }),
+        baseRecipe({ viewer_url: "https://velocity.report/surveys/soma1/" }),
         "/r",
       );
-      assert.equal(recipe.viewerURL, "https://velocity.report/scenes/soma1/");
+      assert.equal(recipe.viewerURL, "https://velocity.report/surveys/soma1/");
     });
 
     test("rejects a relative or non-HTTP(S) viewer URL", () => {
       assert.throws(
-        () => parseRecipe(baseRecipe({ viewer_url: "/scenes/soma1/" }), "/r"),
+        () => parseRecipe(baseRecipe({ viewer_url: "/surveys/soma1/" }), "/r"),
         /absolute HTTP/,
       );
       assert.throws(

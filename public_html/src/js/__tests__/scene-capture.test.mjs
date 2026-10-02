@@ -86,7 +86,7 @@ function installFetch(parts, manifest) {
 const origFetch = globalThis.fetch;
 beforeEach(() => {
   globalThis.window = {
-    location: { href: "https://example.test/scenes/demo/" },
+    location: { href: "https://example.test/surveys/demo/" },
   };
 });
 afterEach(() => {
@@ -102,7 +102,7 @@ async function openSession() {
   };
   installFetch({ "/p0/": makePart({ chunks: 3, perChunk: 5 }) }, manifest);
   return new SceneSession(
-    "https://example.test/scenes/demo/manifest.json",
+    "https://example.test/surveys/demo/manifest.json",
   ).open();
 }
 

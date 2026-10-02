@@ -1,3 +1,4 @@
+const fs = require("fs");
 const syntaxHighlight = require("@11ty/eleventy-plugin-syntaxhighlight");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
@@ -103,7 +104,14 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy("src/js");
   // Scene assets are exported binaries (gzipped NDJSON frames plus their
   // index), not templates, so they are copied verbatim.
-  eleventyConfig.addPassthroughCopy("src/scenes/**/assets/**");
+  // Published under /surveys/; the source directory keeps its internal name.
+  for (const entry of fs.readdirSync("src/scenes", { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (!fs.existsSync(`src/scenes/${entry.name}/assets`)) continue;
+    eleventyConfig.addPassthroughCopy({
+      [`src/scenes/${entry.name}/assets`]: `surveys/${entry.name}/assets`,
+    });
+  }
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through
@@ -264,7 +272,7 @@ module.exports = function (eleventyConfig) {
       layouts: "_layouts",
       data: "_data",
     },
-    templateFormats: ["md", "njk"],
+    templateFormats: ["md", "njk", "11ty.js"],
     htmlTemplateEngine: false,
     markdownTemplateEngine: "njk",
   };

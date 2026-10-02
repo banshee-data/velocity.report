@@ -16,7 +16,7 @@
     {
       "id": "soma1",
       "title": "SoMa 1",
-      "page": "/scenes/soma1/",
+      "page": "/surveys/soma1/",
       "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street.",
       "archive_site": null,
       "grid_azimuth_deg": null,
@@ -28,7 +28,7 @@
     {
       "id": "ashbury-downey",
       "title": "Ashbury at Downey",
-      "page": "/scenes/ashbury-downey/",
+      "page": "/surveys/ashbury-downey/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s01",
       "grid_azimuth_deg": 3,
@@ -44,7 +44,7 @@
     {
       "id": "haight-divisadero",
       "title": "Haight at Divisadero",
-      "page": "/scenes/haight-divisadero/",
+      "page": "/surveys/haight-divisadero/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s02",
       "grid_azimuth_deg": 1,
@@ -60,7 +60,7 @@
     {
       "id": "pierce-haight",
       "title": "Pierce at Haight",
-      "page": "/scenes/pierce-haight/",
+      "page": "/surveys/pierce-haight/",
       "summary": "21 minutes of a static roadside recording.",
       "archive_site": "s03",
       "grid_azimuth_deg": 0,
@@ -76,8 +76,8 @@
     {
       "id": "fulton-divisadero",
       "title": "Fulton at Divisadero",
-      "page": "/scenes/fulton-divisadero/",
-      "summary": "20 minutes of a static roadside recording.",
+      "page": "/surveys/fulton-divisadero/",
+      "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s04",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101,
@@ -92,7 +92,7 @@
     {
       "id": "california-leon-baker",
       "title": "California between Leon and Baker",
-      "page": "/scenes/california-leon-baker/",
+      "page": "/surveys/california-leon-baker/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s05",
       "grid_azimuth_deg": 1,
@@ -108,7 +108,7 @@
     {
       "id": "broadway-gough",
       "title": "Broadway at Gough",
-      "page": "/scenes/broadway-gough/",
+      "page": "/surveys/broadway-gough/",
       "summary": "18 minutes of a static roadside recording.",
       "archive_site": "s06",
       "grid_azimuth_deg": 359,
@@ -124,7 +124,7 @@
     {
       "id": "laguna-eddy",
       "title": "Laguna at Eddy",
-      "page": "/scenes/laguna-eddy/",
+      "page": "/surveys/laguna-eddy/",
       "summary": "21 minutes of a static roadside recording.",
       "archive_site": "s07",
       "grid_azimuth_deg": 359,
@@ -140,7 +140,7 @@
     {
       "id": "lombard-broderick",
       "title": "Lombard at Broderick",
-      "page": "/scenes/lombard-broderick/",
+      "page": "/surveys/lombard-broderick/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s08",
       "grid_azimuth_deg": 355,
@@ -156,7 +156,7 @@
     {
       "id": "marina-broderick",
       "title": "Marina at Broderick",
-      "page": "/scenes/marina-broderick/",
+      "page": "/surveys/marina-broderick/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s09",
       "grid_azimuth_deg": 356,
@@ -172,7 +172,7 @@
     {
       "id": "marina-webster-beach",
       "title": "Marina between Webster and Beach",
-      "page": "/scenes/marina-webster-beach/",
+      "page": "/surveys/marina-webster-beach/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s10",
       "grid_azimuth_deg": 356.5,
@@ -188,7 +188,7 @@
     {
       "id": "lombard-laguna",
       "title": "Lombard at Laguna",
-      "page": "/scenes/lombard-laguna/",
+      "page": "/surveys/lombard-laguna/",
       "summary": "38 minutes of a static roadside recording.",
       "archive_site": "s11",
       "grid_azimuth_deg": 354,
@@ -204,7 +204,7 @@
     {
       "id": "columbus-north-point",
       "title": "Columbus at North Point",
-      "page": "/scenes/columbus-north-point/",
+      "page": "/surveys/columbus-north-point/",
       "summary": "18 minutes of a static roadside recording.",
       "archive_site": "s12",
       "grid_azimuth_deg": 38,
@@ -220,7 +220,7 @@
     {
       "id": "embarcadero-bay",
       "title": "Embarcadero at Bay",
-      "page": "/scenes/embarcadero-bay/",
+      "page": "/surveys/embarcadero-bay/",
       "summary": "15 minutes of a static roadside recording.",
       "archive_site": "s13",
       "grid_azimuth_deg": 60,
@@ -236,7 +236,7 @@
     {
       "id": "columbus-broadway",
       "title": "Columbus at Broadway",
-      "page": "/scenes/columbus-broadway/",
+      "page": "/surveys/columbus-broadway/",
       "summary": "33 minutes of a static roadside recording.",
       "archive_site": "s14",
       "grid_azimuth_deg": 27,
@@ -252,7 +252,7 @@
     {
       "id": "van-ness-sacramento",
       "title": "van Ness at Sacramento",
-      "page": "/scenes/van-ness-sacramento/",
+      "page": "/surveys/van-ness-sacramento/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s15",
       "grid_azimuth_deg": 355.5,
@@ -268,7 +268,7 @@
     {
       "id": "embarcadero-broadway",
       "title": "Embarcadero at Broadway",
-      "page": "/scenes/embarcadero-broadway/",
+      "page": "/surveys/embarcadero-broadway/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s16",
       "grid_azimuth_deg": 2,
@@ -284,7 +284,7 @@
     {
       "id": "franklin-mcallister",
       "title": "Franklin at McAllister",
-      "page": "/scenes/franklin-mcallister/",
+      "page": "/surveys/franklin-mcallister/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s17",
       "grid_azimuth_deg": 4,
@@ -300,7 +300,7 @@
     {
       "id": "hyde-ofarrell",
       "title": "Hyde at O'Farrell",
-      "page": "/scenes/hyde-ofarrell/",
+      "page": "/surveys/hyde-ofarrell/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s18",
       "grid_azimuth_deg": 3,
@@ -316,7 +316,7 @@
     {
       "id": "bush-powell",
       "title": "Bush at Powell",
-      "page": "/scenes/bush-powell/",
+      "page": "/surveys/bush-powell/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s19",
       "grid_azimuth_deg": 3,
@@ -332,7 +332,7 @@
     {
       "id": "embarcadero-folsom",
       "title": "Embarcadero at Folsom",
-      "page": "/scenes/embarcadero-folsom/",
+      "page": "/surveys/embarcadero-folsom/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s20",
       "grid_azimuth_deg": 356,
@@ -348,7 +348,7 @@
     {
       "id": "1st-mission",
       "title": "1st at Mission",
-      "page": "/scenes/1st-mission/",
+      "page": "/surveys/1st-mission/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s21",
       "grid_azimuth_deg": 6,
@@ -364,7 +364,7 @@
     {
       "id": "embarcadero-bryant",
       "title": "Embarcadero at Bryant",
-      "page": "/scenes/embarcadero-bryant/",
+      "page": "/surveys/embarcadero-bryant/",
       "summary": "22 minutes of a static roadside recording.",
       "archive_site": "s22",
       "grid_azimuth_deg": 308,
@@ -380,7 +380,7 @@
     {
       "id": "3rd-folsom",
       "title": "3rd at Folsom",
-      "page": "/scenes/3rd-folsom/",
+      "page": "/surveys/3rd-folsom/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s23",
       "grid_azimuth_deg": 358,
@@ -396,7 +396,7 @@
     {
       "id": "howard-6th",
       "title": "Howard at 6th",
-      "page": "/scenes/howard-6th/",
+      "page": "/surveys/howard-6th/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s24",
       "grid_azimuth_deg": 357,

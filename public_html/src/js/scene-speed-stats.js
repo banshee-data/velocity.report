@@ -134,7 +134,7 @@ export function renderSceneSpeedStats(root, timeline) {
   const status = root.querySelector("[data-speed-status]");
   if (!summary) {
     if (status)
-      status.textContent = "No car track summary is available for this scene.";
+      status.textContent = "No car track summary is available for this survey.";
     return;
   }
   renderTable(root.querySelector("[data-speed-table]"), summary);

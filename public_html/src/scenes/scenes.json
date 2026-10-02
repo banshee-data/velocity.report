@@ -1,0 +1,3 @@
+{
+  "permalink": "/surveys/{{ page.fileSlug }}/index.html"
+}

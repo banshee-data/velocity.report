@@ -990,7 +990,7 @@ export async function mountScenePlayer({
     const msg =
       err instanceof SceneError
         ? err.message
-        : "The scene could not be loaded.";
+        : "The survey could not be loaded.";
     if (ui.status) {
       ui.status.textContent = msg;
       ui.status.hidden = false;
