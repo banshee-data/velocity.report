@@ -29,7 +29,7 @@ export class SceneError extends Error {
 function assertDecompressionSupport() {
   if (typeof DecompressionStream === "undefined") {
     throw new SceneError(
-      "This browser cannot decompress the scene data. " +
+      "This browser cannot decompress the survey data. " +
         "DecompressionStream is required; it is available in Chrome, Edge, " +
         "Firefox and Safari from 2023 onwards.",
     );

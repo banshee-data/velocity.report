@@ -71,7 +71,7 @@ test("a scene takes its position from the site, so correcting a mark moves it", 
   });
   assert.equal(scene.position_source, "archive-index");
   assert.match(scene.summary, /^33 minutes/);
-  assert.equal(scene.page, "/scenes/union-van-ness/");
+  assert.equal(scene.page, "/surveys/union-van-ness/");
 });
 
 test("an override beats the site, so a survey is not overwritten by a map reading", () => {
@@ -146,7 +146,7 @@ test("a scene's identity is the site's, so a page cannot be keyed by capture pre
     index: INDEX,
   });
   assert.equal(sites[0].id, "union-van-ness");
-  assert.equal(sites[0].page, "/scenes/union-van-ness/");
+  assert.equal(sites[0].page, "/surveys/union-van-ness/");
   assert.equal(
     sites[0].archive_site,
     "s10",

@@ -7,14 +7,14 @@ import { s2 } from "../hierarchy.mjs";
 const BROADWAY = {
   id: "broadway-columbus",
   title: "Broadway & Columbus",
-  page: "/scenes/broadway-columbus/",
+  page: "/surveys/broadway-columbus/",
   position: { lat: 37.7987, lon: -122.4073, source: "operator" },
 };
 
 const UNLOCATED = {
   id: "soma1",
   title: "SoMa 1",
-  page: "/scenes/soma1/",
+  page: "/surveys/soma1/",
   position: null,
 };
 

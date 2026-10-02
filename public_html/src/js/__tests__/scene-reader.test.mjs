@@ -119,7 +119,7 @@ function installFetch(parts, { manifest = null, fail = new Set() } = {}) {
 const origFetch = globalThis.fetch;
 beforeEach(() => {
   globalThis.window = {
-    location: { href: "https://example.test/scenes/demo/" },
+    location: { href: "https://example.test/surveys/demo/" },
   };
 });
 afterEach(() => {
@@ -360,7 +360,7 @@ describe("SceneSession", () => {
   test("composes parts into one timeline using their own durations", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     assert.equal(s.parts.length, 2);
@@ -373,7 +373,7 @@ describe("SceneSession", () => {
     await assert.rejects(
       () =>
         new SceneSession(
-          "https://example.test/scenes/demo/manifest.json",
+          "https://example.test/surveys/demo/manifest.json",
         ).open(),
       /no parts/,
     );
@@ -382,7 +382,7 @@ describe("SceneSession", () => {
   test("maps scene time across the part boundary", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     assert.equal(s.locate(0).partIndex, 0, "start");
@@ -394,7 +394,7 @@ describe("SceneSession", () => {
   test("clamps seeks outside the timeline", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     const before = s.locate(-10);
@@ -411,7 +411,7 @@ describe("SceneSession", () => {
   test("frameAt resolves at start, boundary and end", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     const start = await s.frameAt(0);
@@ -430,7 +430,7 @@ describe("SceneSession", () => {
   test("frameAtIndex walks parts by their own frame count", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     const first = await s.frameAtIndex(0);
@@ -464,7 +464,7 @@ describe("SceneSession", () => {
   test("trailHistory does not reach into a different part even when the window would", async () => {
     installFetch(twoParts(), { manifest });
     const s = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
 
     // 0.9s of scene time is 0.1s into part 1 (part 0 is 0.8s long). A 5s
@@ -496,13 +496,13 @@ describe("SceneSession", () => {
 
     installFetch(onePart(), { manifest: freshManifest });
     const direct = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
     const directHistory = await direct.trailHistory(2.4, 1);
 
     installFetch(onePart(), { manifest: freshManifest });
     const sequential = await new SceneSession(
-      "https://example.test/scenes/demo/manifest.json",
+      "https://example.test/surveys/demo/manifest.json",
     ).open();
     await sequential.trailHistory(0.6, 1);
     await sequential.trailHistory(1.2, 1);

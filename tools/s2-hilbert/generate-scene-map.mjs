@@ -57,7 +57,7 @@ function scenePage(site, minutes, hasPointCloudClip = false) {
     : `${whole} minutes at this junction, measured by roadside LiDAR.`;
   return `---
 layout: scene.njk
-title: "${site.title}: LiDAR scene — velocity.report"
+title: "${site.title}: LiDAR survey — velocity.report"
 description: ${description}
 sceneId: ${site.id}
 sceneName: ${site.title}

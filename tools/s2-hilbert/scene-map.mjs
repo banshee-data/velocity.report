@@ -215,11 +215,11 @@ export function renderSceneMapSvg(model, options = {}) {
   const { width, height, map } = model;
   const titleId = "scene-map-title";
   const descriptionId = "scene-map-desc";
-  const title = options.title ?? "Published LiDAR scenes";
+  const title = options.title ?? "Published LiDAR surveys";
 
   if (!map) {
     const description =
-      "No published scene has an accepted position yet, so there is nothing to place.";
+      "No published survey has an accepted position yet, so there is nothing to place.";
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-labelledby="${titleId} ${descriptionId}" class="scene-map">`,
       `  <title id="${titleId}">${escapeText(title)}</title>`,
@@ -234,7 +234,7 @@ export function renderSceneMapSvg(model, options = {}) {
   const siteSummary = map.markers
     .map((marker) => `${marker.title} in S2 cell ${marker.display}`)
     .join("; ");
-  const description = `Each published scene shown inside the S2 level ${LEVEL_NEIGHBOURHOOD} cell that indexes it, with its level ${LEVEL_AREA} area cell for context: ${siteSummary}.`;
+  const description = `Each published survey shown inside the S2 level ${LEVEL_NEIGHBOURHOOD} cell that indexes it, with its level ${LEVEL_AREA} area cell for context: ${siteSummary}.`;
 
   const lines = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${map.viewBox}" width="100%" role="img" aria-labelledby="${titleId} ${descriptionId}" class="scene-map">`,

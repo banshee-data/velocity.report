@@ -130,7 +130,7 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
         // drift apart or be keyed two different ways.
         id: site ? site.id : scene.id,
         title,
-        page: `/scenes/${site ? site.id : scene.id}/`,
+        page: `/surveys/${site ? site.id : scene.id}/`,
         summary: over.summary ?? derivedSummary(scene),
         archive_site: site ? site.site : null,
         // Operator-measured angles, in degrees, either of which may be absent.
