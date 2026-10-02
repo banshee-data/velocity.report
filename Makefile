@@ -212,6 +212,7 @@ help:
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
+	@echo "  render-scene-map-mac|-linux  Rebuild the scene index, map and pages from the archive at its Mac or Linux path"
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
@@ -2161,7 +2162,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert cache-basemap site-index
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-s2-composite test-s2-hilbert cache-basemap site-index
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -2192,8 +2193,8 @@ cache-basemap: install-s2-hilbert
 # Everything downstream — scene identity, titles, positions, the map — derives
 # from it, so it runs first whenever the scenes are regenerated.
 site-index:
-	@echo "Rebuilding the archive site index..."
-	@python3 tools/s2-archive/build-site-index.py
+	@echo "Rebuilding the archive site index from $(abspath $(LIDAR_PCAP_DIR))/s2..."
+	@python3 tools/s2-archive/build-site-index.py --archive "$(LIDAR_PCAP_DIR)"
 
 # Regenerate everything the scenes pages are made of, in dependency order: the
 # site index, then scene-sites.json, the map and each scene's page, then the
@@ -2208,6 +2209,18 @@ render-scene-map: install-s2-hilbert site-index
 	@pnpm run --silent s2-hilbert:scene-map
 	@$(MAKE) --no-print-directory build-docs
 	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
+
+# The analysis the index is built from lives in the archive, and each machine
+# mounts that archive somewhere different. These pin the location per platform
+# whatever local.mk says; override the path with SCENE_ARCHIVE_MAC/_LINUX.
+SCENE_ARCHIVE_MAC ?= /Volumes/lidar/lidar
+SCENE_ARCHIVE_LINUX ?= /mnt/captures/lidar
+
+render-scene-map-mac:
+	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_MAC)"
+
+render-scene-map-linux:
+	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_LINUX)"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
