@@ -14,8 +14,8 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "806432df0a842124ac4ec3985a56357ec578cefe98c02db8d2eb5f47ba5a5683",
-  "tuning_hash": "sha256:18ee0fff941d2f6c25dbc6fc142db56cec2faa9401afb743fb20fd68b665a509",
-  "build_version": "0.5.1-pre36",
-  "generated_at": "2026-09-25T18:02:46Z"
+  "source_vrlog_sha256": "2763eb86596c3887d6aa8067ffc16415ed1927f364bc51219d6bf652794d6c87",
+  "tuning_hash": "sha256:2319c8f8aaf95e70887ced03d7e9f42f631eabf82c0ac593d32feb1880ba2e3f",
+  "build_version": "0.5.1-pre43",
+  "generated_at": "2026-10-01T04:24:35Z"
 }
