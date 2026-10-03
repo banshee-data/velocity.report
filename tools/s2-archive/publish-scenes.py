@@ -747,15 +747,15 @@ def main():
     )
     args = parser.parse_args()
 
-    records = db_problem()
+    db_issue = db_problem()
     scenes, problems = plan(args.source, args.sites, args.corpus, args.pcap_dir)
     if args.status:
         status = report_status(scenes, problems)
-        if records:
-            print(f"  {records}")
-        return 1 if records else status
-    if records:
-        log(f"  {records}")
+        if db_issue:
+            print(f"  {db_issue}")
+        return 1 if db_issue else status
+    if db_issue:
+        log(f"  {db_issue}")
         log("the run records are unreadable, so no export could finish; nothing ran")
         return 1
     if problems:
