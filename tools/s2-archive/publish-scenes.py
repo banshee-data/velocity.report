@@ -200,7 +200,7 @@ def db_problem():
     try:
         with sqlite3.connect(f"file:{DB}?mode=ro", uri=True) as connection:
             connection.execute("SELECT 1 FROM lidar_run_records LIMIT 1")
-    except sqlite3.OperationalError as error:
+    except sqlite3.DatabaseError as error:
         return (
             f"cannot read run records from {DB}: {error}. This is the database "
             "the server writes; set LIDAR_DB_PATH (or DB_PATH) to the one it "

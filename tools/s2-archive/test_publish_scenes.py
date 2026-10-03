@@ -277,16 +277,22 @@ class DbProblemTests(unittest.TestCase):
         self.addCleanup(patched.stop)
 
     def test_a_missing_or_unreadable_database_is_reported(self):
-        for state in ("missing", "unreadable"):
-            with self.subTest(state=state):
+        for state in ("missing", "unreadable", "invalid"):
+            path = f"{self.db}.{state}"
+            with self.subTest(state=state), mock.patch.object(
+                publish_scenes, "DB", path
+            ):
                 if state == "unreadable":
                     # A directory cannot be opened as a DB, even when run as root.
-                    os.mkdir(self.db)
+                    os.mkdir(path)
+                elif state == "invalid":
+                    with open(path, "wb") as fh:
+                        fh.write(b"not a SQLite database")
                 problem = publish_scenes.db_problem()
-                self.assertIn(f"cannot read run records from {self.db}", problem)
+                self.assertIn(f"cannot read run records from {path}", problem)
                 self.assertIn("LIDAR_DB_PATH (or DB_PATH)", problem)
                 if state == "missing":
-                    self.assertFalse(os.path.exists(self.db))
+                    self.assertFalse(os.path.exists(path))
 
     def test_a_database_without_run_records_is_reported(self):
         with contextlib.closing(sqlite3.connect(self.db)) as connection:
