@@ -89,7 +89,15 @@ SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")
 SPEED_RATIO = float(os.environ.get("REPLAY_SPEED_RATIO", "0") or 0)
 SETTLE = os.environ.get("REPLAY_SETTLE", "1") not in ("0", "false", "False")
 SENSOR = "hesai-pandar40p"
-DB = os.environ.get("LIDAR_DB_PATH", os.path.join(REPO, "sensor_data.db"))
+# Where the run records are. DB_PATH is what the dev target starts the server
+# with, so following it keeps the two from naming different files: a server
+# writing its records one place while this script reads another looks like a
+# clean batch until every export fails on a database that was never there.
+DB = (
+    os.environ.get("LIDAR_DB_PATH")
+    or os.environ.get("DB_PATH")
+    or os.path.join(REPO, "sensor_data.db")
+)
 SITE_INDEX = os.path.join(HERE, "site-index.json")
 # The server's safe directory for replay, and the published dataset root that
 # holds the trimmed per-site captures. The corpus has to sit under the safe
@@ -179,6 +187,26 @@ def wait_for_idle(timeout_seconds=10800, heartbeat_seconds=300):
             pass  # a blip in the status endpoint is not the end of the replay
         time.sleep(POLL_SECONDS)
     return False
+
+
+def db_problem():
+    """Why the run records cannot be read, or None if they can.
+
+    Checked before the first replay because it is only needed after one: a
+    batch that cannot reach the records replays every scene in full, at forty
+    minutes each, and fails each one at the export that follows. That cost a
+    whole run once.
+    """
+    try:
+        with sqlite3.connect(f"file:{DB}?mode=ro", uri=True) as connection:
+            connection.execute("SELECT 1 FROM lidar_run_records LIMIT 1")
+    except sqlite3.DatabaseError as error:
+        return (
+            f"cannot read run records from {DB}: {error}. This is the database "
+            "the server writes; set LIDAR_DB_PATH (or DB_PATH) to the one it "
+            "was started with."
+        )
+    return None
 
 
 def newest_run(basename):
@@ -719,9 +747,17 @@ def main():
     )
     args = parser.parse_args()
 
+    db_issue = db_problem()
     scenes, problems = plan(args.source, args.sites, args.corpus, args.pcap_dir)
     if args.status:
-        return report_status(scenes, problems)
+        status = report_status(scenes, problems)
+        if db_issue:
+            print(f"  {db_issue}")
+        return 1 if db_issue else status
+    if db_issue:
+        log(f"  {db_issue}")
+        log("the run records are unreadable, so no export could finish; nothing ran")
+        return 1
     if problems:
         for problem in problems:
             log(f"  UNRESOLVED {problem}")

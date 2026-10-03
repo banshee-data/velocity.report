@@ -2342,6 +2342,17 @@ scene-assets-preflight:
 			exit 1; \
 		fi; \
 	fi
+	@# An existing `velocity` is taken as given above, so a stale one is accepted
+	@# in silence — and every asset it exports records the build that made it.
+	@# Published provenance cannot be corrected after the fact, so refuse here.
+	@sha=$$(./velocity version 2>/dev/null | awk '/git sha:/ {print $$3}'); \
+	head=$$(git rev-parse HEAD 2>/dev/null); \
+	if [ "$$sha" != "$$head" ]; then \
+		echo "./velocity is not this checkout: it reports git sha '$$sha', HEAD is '$$head'."; \
+		echo "A run would publish assets stamped with the wrong build. Rebuild and relink:"; \
+		echo "    make build-radar-local && ln -sf velocity-report-local velocity"; \
+		exit 1; \
+	fi
 	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
 		echo "$$report"; \
 		echo "Some sites could not be resolved to packets; nothing ran."; \
