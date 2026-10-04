@@ -782,6 +782,44 @@ struct FeatureSharedWireTests {
         #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
     }
 
+    @Test func aFacetLassoTakesOnlyTheReturnsTheClassFilterShows() async throws {
+        let points: [SyntheticPack.Point] = [
+            (0, 0, 1, PointClass.foreground), (0.1, 0.1, 1, PointClass.ground),
+            (0.05, 0.05, 1, PointClass.foreground), (1, 1, 1, PointClass.foreground),
+        ]
+        let dir = try SyntheticPack.write([points])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        // The object's membership includes the ground return.
+        #expect(
+            s.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(s.save())
+        #expect(s.canonicalSelection == [0, 1, 2, 3])
+        service.state.membershipDigest = s.membershipDigest
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        let facet = SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2))
+        s.visibility.ground = false
+        s.selectFacet(polygon: facet)
+        #expect(s.features.draft?.pointIndices == [0, 2], "a hidden return joined the facet")
+        #expect(s.features.message?.contains("1 hidden by the class filter") == true)
+        s.features.cancel()
+        s.visibility.ground = true
+        s.selectFacet(polygon: facet)
+        #expect(s.features.draft?.pointIndices == [0, 1, 2])
+        #expect(s.features.message?.contains("hidden") == false)
+    }
+
     @Test func aLassoTooLargeForGoIsRefusedBeforeItBecomesADraft() async throws {
         let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
         let points: [SyntheticPack.Point] = [(-edge, 0, 1, 1), (edge, 0, 1, 1)]

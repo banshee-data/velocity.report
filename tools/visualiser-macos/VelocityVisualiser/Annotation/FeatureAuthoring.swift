@@ -632,15 +632,18 @@ extension AnnotationSession {
     }
 
     /// A lasso selects exact canonical indices inside the saved definite object
-    /// mask and current depth slab. It never changes whole-object membership.
+    /// mask and current depth slab, among the returns the class filter shows,
+    /// as the Object Points lasso does: a return that is not drawn cannot be
+    /// chosen. It never changes whole-object membership.
     func selectFacet(polygon: SelectionPolygon, mode: SelectionMode = .replace) {
         guard features.canEdit, let object = activeObjectID, let sample = currentSample,
             !dirtySamples.contains(sample.sampleID),
             features.active?.objectID == nil || features.active?.objectID == object
         else { return }
         let domain = Set(featureDomain(sampleID: sample.sampleID, objectID: object))
-        let candidates = PointSelectionEngine.candidates(
-            points: currentPoints, basis: editingBasis, polygon: polygon, slab: slab)
+        let candidates = visibleOnly(
+            PointSelectionEngine.candidates(
+                points: currentPoints, basis: editingBasis, polygon: polygon, slab: slab))
         let selected = candidates.indices.filter { domain.contains($0) }
         let previous =
             features.draft?.sampleID == UInt32(sample.sampleID)
@@ -673,8 +676,11 @@ extension AnnotationSession {
             observation.origin = "assisted_proposal"
         }
         features.seed(observation, objectID: object)
+        let hidden =
+            candidates.excludedByVisibility > 0
+            ? " · \(candidates.excludedByVisibility) hidden by the class filter" : ""
         features.message =
-            "\(indices.count) facet points · \(candidates.excludedBySlab) outside depth slab · inspect both views before saving"
+            "\(indices.count) facet points · \(candidates.excludedBySlab) outside depth slab\(hidden) · inspect both views before saving"
     }
 
     func seedFeature(

@@ -1160,8 +1160,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// Drops candidates the class filter hides, and counts them, so a gesture
-    /// that took fewer points than it covered says why.
-    private func visibleOnly(_ candidates: SelectionCandidates) -> SelectionCandidates {
+    /// that took fewer points than it covered says why. Every gesture that
+    /// selects returns goes through it: Object Points, and the facet lasso.
+    func visibleOnly(_ candidates: SelectionCandidates) -> SelectionCandidates {
         guard effectiveVisibility != nil else { return candidates }
         var result = candidates
         result.indices = candidates.indices.filter(isVisible)
