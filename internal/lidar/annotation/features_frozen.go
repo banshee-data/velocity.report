@@ -72,7 +72,8 @@ func newFrozenFeatures(state *pb.FeatureState) (*FrozenFeatures, error) {
 
 // facetMembershipProblems checks the frozen mask as well as each observation's
 // own historical pin. A new mask revision is harmless if its definite subset
-// still contains the evidence; moving a return to another object is not.
+// still contains the evidence; moving a return to another object is not. A
+// rejected mask supports nothing, as validateFeatureObservation holds.
 func facetMembershipProblems(s *Sidecar, doc *pb.FeatureAnnotations) []string {
 	var problems []string
 	for _, facet := range doc.Features {
@@ -92,7 +93,7 @@ func facetMembershipProblems(s *Sidecar, doc *pb.FeatureAnnotations) []string {
 			}
 			definite := map[uint32]bool{}
 			for _, mask := range s.Masks {
-				if mask.ObjectID == facet.ObjectId && mask.SampleID == int(observation.SampleId) {
+				if mask.ObjectID == facet.ObjectId && mask.SampleID == int(observation.SampleId) && mask.Status != StatusRejected {
 					for _, index := range mask.PointIndices {
 						definite[uint32(index)] = true
 					}

@@ -124,6 +124,29 @@ func TestFrozenFacetsMembershipDriftIsASeparatePreviewProblem(t *testing.T) {
 	}
 }
 
+// A mask rejected in the frozen membership supports no facet, even though its
+// indices are still recorded: authoring refuses such support, and so must the
+// freeze.
+func TestFrozenFacetsRejectedMaskGivesNoSupport(t *testing.T) {
+	p, state, s, draft := savedFrozenFacets(t)
+	if problems := facetMembershipProblems(s, state.Document); len(problems) != 0 {
+		t.Fatal(problems)
+	}
+	s.Masks[0].Status = StatusRejected
+	if s.Masks[0].ObjectID != "car-1" || s.Masks[0].SampleID != 0 {
+		t.Fatal("fixture moved the facet's mask")
+	}
+	s.Change = Provenance{Author: "op", Operation: "reject"}
+	if err := SaveSidecar(p, s); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := PreviewFreeze(freezeOptions(draft))
+	if err != nil || preview.WouldFreeze || len(preview.MembershipProblems) != 0 || len(preview.FacetProblems) != 1 ||
+		!strings.Contains(preview.FacetProblems[0], "is not definite support of object car-1") {
+		t.Fatal(err, preview)
+	}
+}
+
 func TestFrozenFacetPinAndLoadRefusals(t *testing.T) {
 	p, state, s, draft := savedFrozenFacets(t)
 	f := mustFreeze(t, freezeOptions(draft))
