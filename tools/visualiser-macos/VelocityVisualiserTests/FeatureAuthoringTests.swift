@@ -77,6 +77,39 @@ struct FeatureSelectionTests {
         }
     }
 
+    @Test func aSmallFacetKeepsItsReturnsWhenTheNextScanSamplesItElsewhere() throws {
+        // Six returns in one voxel, on an object whose other thirty returns
+        // carry its motion: a metre along x. The next scan crosses the facet
+        // on a higher ring, so four of its returns sit in the voxel above.
+        let facet: [SIMD3<Float>] = [
+            SIMD3(0.08, 0.08, 1.10), SIMD3(0.12, 0.10, 1.12), SIMD3(0.16, 0.12, 1.08),
+            SIMD3(0.10, 0.16, 1.14), SIMD3(0.14, 0.14, 1.10), SIMD3(0.18, 0.08, 1.12),
+        ]
+        let next: [SIMD3<Float>] = [
+            SIMD3(1.08, 0.08, 1.10), SIMD3(1.12, 0.10, 1.12), SIMD3(1.16, 0.12, 1.30),
+            SIMD3(1.10, 0.16, 1.32), SIMD3(1.14, 0.14, 1.34), SIMD3(1.18, 0.08, 1.30),
+        ]
+        let rest = (0..<30).map { i in
+            SIMD3<Float>(3 + 0.1 * Float(i % 6), 1 + 0.1 * Float(i / 6), 1)
+        }
+        let source = featurePoints(facet + rest)
+        let target = featurePoints(next + rest.map { $0 + SIMD3(1, 0, 0) })
+        let domain = Array(0..<36)
+        var o = FeatureObservation()
+        o.pointIndices = (0..<6).map(UInt32.init)
+        o.method = "manual_lasso"
+        o.sphere = FeatureSphere(
+            centre: facet.reduce(.zero, +) / Float(facet.count), radius: 0.35)
+        let sphere = try FeatureSelection.propose(
+            source: o, sourcePoints: source, sourceDomain: domain, targetPoints: target,
+            targetDomain: domain, seconds: 0.1)
+        #expect(simd_distance(sphere.centre, o.sphere.centre + SIMD3(1, 0, 0)) < 0.05)
+        let subset = FeatureSelection.translatedSubset(
+            source: o, sourcePoints: source, targetPoints: target, targetDomain: domain,
+            sphere: sphere)
+        #expect(subset == [0, 1, 2, 3, 4, 5], "the next scan's returns fell between voxels")
+    }
+
     @Test func sparseOrCompetingLocalFitsDoNotBecomeAcceptedObservations() {
         let source = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
         var o = FeatureObservation()

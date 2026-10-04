@@ -96,6 +96,10 @@ enum FeatureSelection {
         guard simd_length(shift) <= Float(40 * seconds + 0.5) else {
             throw FeatureError.message("Object movement is implausible: propagation stopped")
         }
+        // The fit locates the facet, so it scores the voxels the source
+        // returns occupied, undilated: growing them flattens the peak it is
+        // looking for. Which returns then belong to the facet is
+        // translatedSubset's question, and it does dilate.
         let footprint = SelectionFootprint(
             points: source.pointIndices.compactMap { sourcePoints.point(at: Int($0)) }, dilation: 0)
         let fit = footprint.fit(
@@ -120,13 +124,22 @@ enum FeatureSelection {
 
     /// Current-frame indices under a translated spatial proposal. Return IDs
     /// are never copied between scans, and unselected parts inside the envelope
-    /// are excluded unless they enter the source's coarse occupied voxels.
+    /// are excluded unless they come within one voxel of the source's occupied
+    /// voxels.
+    ///
+    /// That one voxel of growth is the footprint's own rule for carrying a
+    /// selection to the next scan, whose returns never land where this scan's
+    /// did (see SelectionFootprint), and Object Points follows objects with
+    /// it. Without it a small facet lost about half its returns to the voxel
+    /// boundaries and `propose` refused it as changed. The cost is resolution:
+    /// for a facet only a voxel or two across, the envelope sphere is what
+    /// keeps the rest of the object out.
     static func translatedSubset(
         source: FeatureObservation, sourcePoints: PackPoints, targetPoints: PackPoints,
         targetDomain: [Int], sphere: FeatureSphere
     ) -> [UInt32] {
         let footprint = SelectionFootprint(
-            points: source.pointIndices.compactMap { sourcePoints.point(at: Int($0)) }, dilation: 0)
+            points: source.pointIndices.compactMap { sourcePoints.point(at: Int($0)) }, dilation: 1)
         let allowed = indices(points: targetPoints, domain: targetDomain, sphere: sphere)
         let offset = sphere.centre - source.sphere.centre
         return allowed.filter { index in
