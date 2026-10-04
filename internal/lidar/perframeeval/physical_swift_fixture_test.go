@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/testutil"
+
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
 
@@ -59,7 +61,12 @@ func TestPhysicalReportSwiftFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s (run with -update-physical-report-fixture to create it): %v", physicalReportFixture, err)
 	}
+	// Floats may differ in their last digit between arm64 and amd64 (Go
+	// fuses multiply-adds on one and not the other), so a byte mismatch is
+	// stale only when a value differs beyond rounding.
 	if !bytes.Equal(got, want) {
-		t.Fatalf("%s is stale: rerun with -update-physical-report-fixture and check the Swift report tests", physicalReportFixture)
+		if err := testutil.JSONWithin(got, want, 1e-9); err != nil {
+			t.Fatalf("%s is stale (%v): rerun with -update-physical-report-fixture and check the Swift report tests", physicalReportFixture, err)
+		}
 	}
 }
