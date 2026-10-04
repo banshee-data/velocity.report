@@ -10,6 +10,7 @@ import importlib.util
 import io
 import json
 import os
+import sqlite3
 import struct
 import sys
 import tempfile
@@ -264,6 +265,55 @@ class ScenesFromArchiveTests(unittest.TestCase):
         )
         self.assertEqual(scenes, [])
         self.assertIn("not on disk", problems[0])
+
+
+class DbProblemTests(unittest.TestCase):
+    def setUp(self):
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.db = os.path.join(held.name, "runs.db")
+        patched = mock.patch.object(publish_scenes, "DB", self.db)
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def test_a_missing_or_unreadable_database_is_reported(self):
+        for state in ("missing", "unreadable", "invalid"):
+            path = f"{self.db}.{state}"
+            with self.subTest(state=state), mock.patch.object(
+                publish_scenes, "DB", path
+            ):
+                if state == "unreadable":
+                    # A directory cannot be opened as a DB, even when run as root.
+                    os.mkdir(path)
+                elif state == "invalid":
+                    with open(path, "wb") as fh:
+                        fh.write(b"not a SQLite database")
+                problem = publish_scenes.db_problem()
+                self.assertIn(f"cannot read run records from {path}", problem)
+                self.assertIn("LIDAR_DB_PATH (or DB_PATH)", problem)
+                if state == "missing":
+                    self.assertFalse(os.path.exists(path))
+
+    def test_a_database_without_run_records_is_reported(self):
+        with contextlib.closing(sqlite3.connect(self.db)) as connection:
+            connection.execute("CREATE TABLE unrelated (id INTEGER)")
+            connection.commit()
+        problem = publish_scenes.db_problem()
+        self.assertIn(f"cannot read run records from {self.db}", problem)
+        self.assertIn("no such table: lidar_run_records", problem)
+
+    def test_a_readable_run_records_table_has_no_problem(self):
+        with contextlib.closing(sqlite3.connect(self.db)) as connection:
+            connection.execute("CREATE TABLE lidar_run_records (run_id TEXT)")
+            connection.commit()
+            for state in ("empty", "populated"):
+                with self.subTest(state=state):
+                    if state == "populated":
+                        connection.execute(
+                            "INSERT INTO lidar_run_records VALUES (?)", ("run-1",)
+                        )
+                        connection.commit()
+                    self.assertIsNone(publish_scenes.db_problem())
 
 
 class ReportStatusTests(unittest.TestCase):
