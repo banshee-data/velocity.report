@@ -319,6 +319,10 @@ struct FreezeSplitSheet: View {
                 Text(
                     "\(facets.registrations) body registration proposals, \(facets.trackerSeededRegistrations) tracker-seeded · not physical truth"
                 ).font(.caption2).foregroundStyle(.secondary)
+                if let divergence = facets.physicalDivergenceSummary {
+                    Text(divergence).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }
             } else {
                 Text("Facet proposals are not pinned in this draft.").font(.caption2)
                     .foregroundStyle(.secondary)

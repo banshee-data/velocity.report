@@ -132,6 +132,41 @@ final class FakeSplitService: @unchecked Sendable {
 }
 
 @MainActor struct FreezeSplitSheetTests {
+    @Test func aRecordedPhysicalDivergenceIsShownAndDoesNotBlockTheFreeze() async throws {
+        let (model, fake, draft) = makeModel()
+        defer { try? FileManager.default.removeItem(at: draft) }
+        model.chooseDraft(draft)
+        model.setFacetPin(packIndex: 0, enabled: true)
+        let pin: [String: Any] = [
+            "revision": 2, "sha256": "sha256:facet", "content_sha256": "sha256:content",
+            "candidates": 3, "active": 3, "supported_observations": 4, "absence_decisions": 0,
+            "registrations": 2, "tracker_seeded_registrations": 0,
+        ]
+        fake.facetPin = pin
+        await model.runPreview()
+        #expect(model.preview?.packs[0].features?.physicalDivergenceSummary == nil)
+        var divergent = pin
+        divergent["physical_divergences"] = [
+            [
+                "feature_id": "f-1", "object_id": "car-1", "physical_revision": 3,
+                "physical_digest": "sha256:old",
+            ],
+            [
+                "feature_id": "f-2", "object_id": "car-1", "physical_revision": 3,
+                "physical_digest": "sha256:old",
+            ],
+        ]
+        fake.facetPin = divergent
+        await model.runPreview()
+        let facets = try #require(model.preview?.packs[0].features)
+        #expect(model.canFreeze)
+        #expect(facets.physicalDivergences?.map(\.featureID) == ["f-1", "f-2"])
+        #expect(
+            facets.physicalDivergenceSummary
+                == "2 body registrations made against physical revision 3, not this split's pin · recorded, not refused"
+        )
+    }
+
     @Test func optionalFacetPinsPreserveDraftFieldsAndRequireAnotherPreview() async throws {
         let (model, fake, draft) = makeModel()
         defer { try? FileManager.default.removeItem(at: draft) }

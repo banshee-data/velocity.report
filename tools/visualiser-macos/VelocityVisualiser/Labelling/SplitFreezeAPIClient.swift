@@ -112,12 +112,41 @@ struct FrozenFacetPin: Decodable, Equatable {
     var absenceDecisions: Int
     var registrations: Int
     var trackerSeededRegistrations: Int
+    /// Registrations made against another physical revision than the split
+    /// pins (or while it pins none). Recorded in the split, never a refusal.
+    var physicalDivergences: [FacetPhysicalDivergence]? = nil
     enum CodingKeys: String, CodingKey {
         case revision, sha256, candidates, active, registrations
         case contentSHA256 = "content_sha256"
         case supportedObservations = "supported_observations"
         case absenceDecisions = "absence_decisions"
         case trackerSeededRegistrations = "tracker_seeded_registrations"
+        case physicalDivergences = "physical_divergences"
+    }
+
+    /// One line for the freeze sheet, or nil when every registration names
+    /// the pinned physical revision.
+    var physicalDivergenceSummary: String? {
+        guard let divergences = physicalDivergences, !divergences.isEmpty else { return nil }
+        let revisions = Set(divergences.map(\.physicalRevision)).sorted().map(String.init).joined(
+            separator: ", ")
+        let noun = divergences.count == 1 ? "registration" : "registrations"
+        return
+            "\(divergences.count) body \(noun) made against physical revision \(revisions), not this split's pin · recorded, not refused"
+    }
+}
+
+/// A body registration whose physical revision is not the split's pin.
+struct FacetPhysicalDivergence: Decodable, Equatable {
+    var featureID: String
+    var objectID: String
+    var physicalRevision: UInt64
+    var physicalDigest: String
+    enum CodingKeys: String, CodingKey {
+        case featureID = "feature_id"
+        case objectID = "object_id"
+        case physicalRevision = "physical_revision"
+        case physicalDigest = "physical_digest"
     }
 }
 
