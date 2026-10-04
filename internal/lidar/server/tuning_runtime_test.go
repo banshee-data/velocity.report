@@ -261,7 +261,7 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	type container struct {
 		*embedded
 		Name string `json:"name"`
-		skip string `json:"skip"`
+		skip string // unexported: never resolves, even by its own name
 	}
 	type emptyTag struct {
 		Value int `json:",omitempty"`
@@ -272,6 +272,9 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	}
 	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "missing"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
 		t.Fatalf("expected missing field error, got %v", err)
+	}
+	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "skip"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
+		t.Fatalf("expected unexported field error, got %v", err)
 	}
 	if _, err := fieldByJSONName(reflect.ValueOf(struct {
 		Hidden int `json:"-"`

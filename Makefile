@@ -2093,6 +2093,10 @@ lint-go:
 	@bash scripts/check-db-sql-imports.sh
 	@echo "Checking SQLite driver standardisation..."
 	@bash scripts/check-single-sqlite-driver.sh
+	@echo "Running go vet..."
+	@./scripts/ensure-web-stub.sh >/dev/null
+	@./scripts/ensure-docs-stub.sh >/dev/null
+	@go vet ./...
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."
