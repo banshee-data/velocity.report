@@ -769,6 +769,29 @@ enum PhysicalDraft {
         dimension.upperM = value + (hi - was)
     }
 
+    /// Whether a length or width handle can act on a dimension: a full span
+    /// with an interval, or a value-only sketch. The authoring overlay draws a
+    /// handle for both, so a drag must be able to move both; a handle that
+    /// takes the press and does nothing is worse than none.
+    static func isDraggable(_ d: PhysicalDimension) -> Bool {
+        d.status != .unknown && d.span != .partial && (d.bounded || d.valueM != nil)
+    }
+
+    /// What a length or width drag does, from the dimension as the drag found
+    /// it. A bounded dimension moves with its interval (`setLength`). A
+    /// value-only sketch takes the new value and its missing bounds stay
+    /// missing, exactly as typing the value would leave them.
+    static func dragDimension(
+        _ value: Double, of dimension: inout PhysicalDimension, from start: PhysicalDimension
+    ) {
+        guard isDraggable(start), value.isFinite, value >= 0 else { return }
+        if start.bounded {
+            setLength(value, of: &dimension, from: start)
+        } else {
+            dimension.valueM = value
+        }
+    }
+
     /// Guided size entry keeps the existing interval width when the value moves.
     /// It never promotes an unknown dimension into observed evidence.
     static func setDimensionValue(_ value: Double?, of d: inout PhysicalDimension) {

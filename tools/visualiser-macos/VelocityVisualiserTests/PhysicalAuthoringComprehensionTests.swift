@@ -231,6 +231,115 @@ import simd
         s.physical.undo()
         #expect(s.physical.object(object.objectID)?.body?.width.valueM == 2)
     }
+
+    @Test func aValueOnlySizeSketchHasHandlesThatActAndKeepBoundsMissing() async throws {
+        let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let fake = FakePhysicalService(packDir: dir.resolvingSymlinksInPath().path)
+        register { try fake.handle($0) }
+        let s = try AnnotationSession(
+            pack: try AnnotationPack.open(directory: dir),
+            physicalClient: PhysicalReferenceAPIClient(baseURL: url, session: transport))
+        await s.physical.load()
+        s.workMode = .physical
+        let object = s.createObject(objectClass: "car")
+        s.placePhysicalAnchor(in: .top, at: SIMD2(10, 5))
+        s.physical.edit { objects in
+            PhysicalDraft.addBody(
+                objectID: object.objectID, author: "op", session: "s", to: &objects)
+            PhysicalDraft.updateBody(objectID: object.objectID, in: &objects) {
+                $0.width = PhysicalDimension(status: .observed, span: .full, valueM: 2)
+                $0.length = PhysicalDimension(status: .observed, span: .full, valueM: 4.5)
+            }
+            PhysicalDraft.updateKeyframe(objectID: object.objectID, sampleID: 0, in: &objects) {
+                PhysicalDraft.setAxis(.resolved, of: &$0)
+                $0.yaw.yawRad = 0
+            }
+        }
+        let g = try #require(s.physicalPreview)
+        #expect(g.unboundedDraft, "the size is drawn as a sketch")
+        let viewport = OrthoViewport(
+            halfHeight: 10, size: CGSize(width: 400, height: 400), centre: SIMD2(10, 5))
+        let at = PhysicalHandles.positions(g, basis: s.basis(.top), viewport: viewport)
+        let widthAt = try #require(at.width)
+        let lengthAt = try #require(at.length)
+        #expect(s.physicalHandle(at: widthAt, viewport: viewport) == .width)
+        #expect(s.physicalHandle(at: lengthAt, viewport: viewport) == .length)
+
+        let pose = try #require(s.physicalKeyframe)
+        s.beginPhysicalDrag()
+        s.updatePhysicalDrag(.width, from: SIMD2(10, 6), to: SIMD2(10, 7))
+        s.endPhysicalDrag()
+        var body = try #require(s.physical.object(object.objectID)?.body)
+        #expect(body.width.valueM == 4, "the width handle took the press and did nothing")
+        #expect(body.width.lowerM == nil && body.width.upperM == nil, "a drag invented bounds")
+        #expect(body.width.status == .observed && body.length.valueM == 4.5)
+
+        s.beginPhysicalDrag()
+        s.updatePhysicalDrag(.length, from: SIMD2(12.25, 5), to: SIMD2(13, 5))
+        s.endPhysicalDrag()
+        body = try #require(s.physical.object(object.objectID)?.body)
+        #expect(abs((body.length.valueM ?? 0) - 6) < 1e-6)
+        #expect(body.length.lowerM == nil && body.length.upperM == nil)
+        #expect(s.physicalKeyframe == pose, "a size drag moved the pose")
+        s.physical.undo()
+        #expect(s.physical.object(object.objectID)?.body?.length.valueM == 4.5)
+        s.physical.undo()
+        #expect(s.physical.object(object.objectID)?.body?.width.valueM == 2)
+
+        // Neither a partial span nor an unknown size has a handle to drag.
+        #expect(!PhysicalDraft.isDraggable(PhysicalDimension()))
+        #expect(
+            !PhysicalDraft.isDraggable(
+                PhysicalDimension(status: .observed, span: .partial, lowerM: 3)))
+        var untouched = PhysicalDimension(status: .observed, span: .partial, lowerM: 3)
+        PhysicalDraft.dragDimension(5, of: &untouched, from: untouched)
+        #expect(untouched == PhysicalDimension(status: .observed, span: .partial, lowerM: 3))
+    }
+
+    @Test func zoomedOutAPressOnTheAnchorMovesItRatherThanResizing() async throws {
+        let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let fake = FakePhysicalService(packDir: dir.resolvingSymlinksInPath().path)
+        register { try fake.handle($0) }
+        let s = try AnnotationSession(
+            pack: try AnnotationPack.open(directory: dir),
+            physicalClient: PhysicalReferenceAPIClient(baseURL: url, session: transport))
+        await s.physical.load()
+        s.workMode = .physical
+        let object = s.createObject(objectClass: "car")
+        s.placePhysicalAnchor(in: .top, at: SIMD2(10, 5))
+        s.physical.edit { objects in
+            PhysicalDraft.addBody(
+                objectID: object.objectID, author: "op", session: "s", to: &objects)
+            PhysicalDraft.updateBody(objectID: object.objectID, in: &objects) {
+                $0.width = PhysicalDimension(
+                    status: .observed, span: .full, lowerM: 1.8, upperM: 2.2, valueM: 2)
+                $0.length = PhysicalDimension(
+                    status: .observed, span: .full, lowerM: 4, upperM: 5, valueM: 4.5)
+            }
+            PhysicalDraft.updateKeyframe(objectID: object.objectID, sampleID: 0, in: &objects) {
+                PhysicalDraft.setAxis(.resolved, of: &$0)
+                $0.yaw.yawRad = 0
+                $0.yaw.boundRad = 0.05
+            }
+        }
+        // A metre a point: the width handle is a point from the anchor and
+        // the length handle two and a quarter, all inside the pick radius.
+        let far = OrthoViewport(
+            halfHeight: 200, size: CGSize(width: 400, height: 400), centre: SIMD2(10, 5))
+        let g = try #require(s.physicalPreview)
+        let at = PhysicalHandles.positions(g, basis: s.basis(.top), viewport: far)
+        let anchor = try #require(at.move)
+        let width = try #require(at.width)
+        #expect(hypot(width.x - anchor.x, width.y - anchor.y) < PhysicalHandles.pickRadius)
+        #expect(s.physicalHandle(at: anchor, viewport: far) == .move)
+        #expect(s.physicalHandle(at: width, viewport: far) == .width)
+        #expect(s.physicalHandle(at: try #require(at.length), viewport: far) == .length)
+        #expect(s.physicalHandle(at: try #require(at.turn), viewport: far) == .turn)
+    }
 }
 
 struct GuidedObjectSizeTests {
