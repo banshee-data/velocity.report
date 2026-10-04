@@ -571,7 +571,10 @@ the pack's toggle adds `feature_revision: 0` to this freeze request, which previ
 head. A positive revision already named in the draft is retained; disable the toggle to omit the
 pin. This changes the request, not the draft file. A pin records exact bytes, canonical content
 and counts of active/retired facets, supported frames, absence/rejection decisions and body
-registrations, including how many were tracker-seeded. None becomes physical truth. Changing a
+registrations, including how many were tracker-seeded. None becomes physical truth. A body
+registration keeps the physical revision it was made against; when that is not the revision the
+split pins, or the split pins none, the facet pin records the registration's revision and digest
+under `physical_divergences`, and the sheet says so. That is recorded, not refused. Changing a
 facet pin or **Supersedes** requires another preview. Support must remain definite in the frozen
 object mask, even when its original observation pins an older mask revision. An unavailable
 facet revision refuses the freeze. Feature-free freezes keep schema version 3; opting into facet

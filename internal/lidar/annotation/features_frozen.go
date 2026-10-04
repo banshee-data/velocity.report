@@ -3,6 +3,8 @@ package annotation
 import (
 	"fmt"
 	"math"
+	"reflect"
+	"sort"
 	"strings"
 
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
@@ -21,6 +23,41 @@ type FrozenFeatures struct {
 	AbsenceDecisions           int    `json:"absence_decisions"`
 	Registrations              int    `json:"registrations"`
 	TrackerSeededRegistrations int    `json:"tracker_seeded_registrations"`
+	// PhysicalDivergences records each body registration made against a
+	// physical revision other than the one this split pins, or made while the
+	// split pins none. A registration keeps the revision it was made against,
+	// so this is a recorded fact, not a reason to refuse the freeze.
+	PhysicalDivergences []FacetPhysicalDivergence `json:"physical_divergences,omitempty"`
+}
+
+// FacetPhysicalDivergence is one registration whose pinned physical revision
+// is not the split's physical pin: the facet, its object, and the revision
+// and exact-bytes digest the registration names.
+type FacetPhysicalDivergence struct {
+	FeatureID        string `json:"feature_id"`
+	ObjectID         string `json:"object_id"`
+	PhysicalRevision uint64 `json:"physical_revision"`
+	PhysicalDigest   string `json:"physical_digest"`
+}
+
+// facetPhysicalDivergences lists, by feature ID, the registrations whose
+// physical revision or digest differs from the split's physical pin. Nil
+// when every registration names the pinned revision.
+func facetPhysicalDivergences(doc *pb.FeatureAnnotations, physical *FrozenPhysical) []FacetPhysicalDivergence {
+	var out []FacetPhysicalDivergence
+	for _, facet := range doc.Features {
+		a := facet.Anchor
+		if a == nil {
+			continue
+		}
+		if physical != nil && a.PhysicalRevision == uint64(physical.Revision) && a.PhysicalDigest == physical.SHA256 {
+			continue
+		}
+		out = append(out, FacetPhysicalDivergence{FeatureID: facet.FeatureId, ObjectID: facet.ObjectId,
+			PhysicalRevision: a.PhysicalRevision, PhysicalDigest: a.PhysicalDigest})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FeatureID < out[j].FeatureID })
+	return out
 }
 
 func (pin *FrozenFeatures) validate() error {
@@ -39,6 +76,14 @@ func (pin *FrozenFeatures) validate() error {
 	}
 	if pin.Candidates < 0 || pin.Active < 0 || pin.Active > pin.Candidates || pin.SupportedObservations < 0 || pin.AbsenceDecisions < 0 || pin.Registrations < 0 || pin.Registrations > pin.Candidates || pin.TrackerSeededRegistrations < 0 || pin.TrackerSeededRegistrations > pin.Registrations {
 		return fmt.Errorf("facet pin counts do not add up")
+	}
+	if len(pin.PhysicalDivergences) > pin.Registrations {
+		return fmt.Errorf("facet pin records more physical divergences than registrations")
+	}
+	for i, d := range pin.PhysicalDivergences {
+		if d.FeatureID == "" || d.ObjectID == "" || (i > 0 && pin.PhysicalDivergences[i-1].FeatureID >= d.FeatureID) {
+			return fmt.Errorf("facet pin physical divergences need distinct feature IDs in order")
+		}
 	}
 	return nil
 }
@@ -115,7 +160,7 @@ func facetMembershipProblems(s *Sidecar, doc *pb.FeatureAnnotations) []string {
 // has never saved facets is a facet problem, listed with the others so the
 // preview still shows every pack; a named revision that cannot be loaded is
 // an error, as a named physical revision is.
-func freezeFeatures(p *Pack, s *Sidecar, revision *int) (*FrozenFeatures, []string, error) {
+func freezeFeatures(p *Pack, s *Sidecar, revision *int, physical *FrozenPhysical) (*FrozenFeatures, []string, error) {
 	if revision == nil {
 		return nil, nil, nil
 	}
@@ -140,6 +185,7 @@ func freezeFeatures(p *Pack, s *Sidecar, revision *int) (*FrozenFeatures, []stri
 	if err != nil {
 		return nil, nil, err
 	}
+	pin.PhysicalDivergences = facetPhysicalDivergences(state.Document, physical)
 	problems := facetMembershipProblems(s, state.Document)
 	for i := range problems {
 		problems[i] = fmt.Sprintf("pack %s facet revision %d: %s", p.Manifest.PackDigest, pin.Revision, problems[i])
@@ -168,7 +214,8 @@ func (f *FrozenSplit) BindFeatures(p *Pack, s *Sidecar) (*pb.FeatureAnnotations,
 	if err != nil {
 		return nil, err
 	}
-	if *pin != *entry.Features {
+	pin.PhysicalDivergences = facetPhysicalDivergences(state.Document, entry.Physical)
+	if !reflect.DeepEqual(pin, entry.Features) {
 		return nil, fmt.Errorf("facet bytes or derived summary differ from the frozen pin")
 	}
 	if problems := facetMembershipProblems(s, state.Document); len(problems) > 0 {

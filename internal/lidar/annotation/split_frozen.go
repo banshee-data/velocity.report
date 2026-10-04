@@ -1675,7 +1675,7 @@ func freezePack(dp DraftPack, baseDir string) (frozenPackResult, error) {
 	if err != nil {
 		return none, err
 	}
-	features, facetProblems, err := freezeFeatures(pack, s, dp.FeatureRevision)
+	features, facetProblems, err := freezeFeatures(pack, s, dp.FeatureRevision, physical)
 	if err != nil {
 		return none, err
 	}

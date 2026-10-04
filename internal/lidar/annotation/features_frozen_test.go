@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestFrozenFacetsOptInRetainEvidenceAfterNewHeads(t *testing.T) {
 		t.Fatal(err, preview)
 	}
 	f := mustFreeze(t, freezeOptions(draft))
-	if f.SchemaVersion != 4 || preview.Packs[0].Features == nil || *f.Packs[0].Features != *preview.Packs[0].Features {
+	if f.SchemaVersion != 4 || preview.Packs[0].Features == nil || !reflect.DeepEqual(f.Packs[0].Features, preview.Packs[0].Features) {
 		t.Fatal("facet preview not pinned")
 	}
 	_, frozenPath := writeAndLoad(t, f)
@@ -187,7 +188,7 @@ func TestFrozenFacetHeadWithUnpinnableRevisionIsRefused(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if pin, problems, err := freezeFeatures(p, s, draft.FeatureRevision); err == nil || pin != nil || problems != nil {
+	if pin, problems, err := freezeFeatures(p, s, draft.FeatureRevision, nil); err == nil || pin != nil || problems != nil {
 		t.Fatal("unpinnable head froze", pin, problems)
 	}
 }
@@ -245,20 +246,20 @@ func TestFrozenFacetPinAndLoadRefusals(t *testing.T) {
 	if _, err := f.BindFeatures(p, s); err == nil {
 		t.Fatal("corrupt pinned bytes")
 	}
-	if _, _, err := freezeFeatures(p, s, draft.FeatureRevision); err == nil {
+	if _, _, err := freezeFeatures(p, s, draft.FeatureRevision, nil); err == nil {
 		t.Fatal("corrupt head froze")
 	}
 	negative := -1
-	if _, _, err := freezeFeatures(p, s, &negative); err == nil {
+	if _, _, err := freezeFeatures(p, s, &negative, nil); err == nil {
 		t.Fatal("negative revision")
 	}
 	missing := 99
-	if _, _, err := freezeFeatures(p, s, &missing); err == nil {
+	if _, _, err := freezeFeatures(p, s, &missing, nil); err == nil {
 		t.Fatal("missing revision")
 	}
 	// With no head and no history the head is unsaved: a problem, not a pin.
 	os.Remove(filepath.Join(p.Dir, featureFile))
-	if unsaved, problems, err := freezeFeatures(p, s, draft.FeatureRevision); err != nil || unsaved != nil || len(problems) != 1 {
+	if unsaved, problems, err := freezeFeatures(p, s, draft.FeatureRevision, nil); err != nil || unsaved != nil || len(problems) != 1 {
 		t.Fatal("unsaved revision", err, unsaved, problems)
 	}
 	// Protobuf encoding failures are refusals, never synthetic digests.
@@ -319,6 +320,100 @@ func TestFrozenFacetHistoricalRequestAndBindDrift(t *testing.T) {
 	// Bind refuses altered evidence even if the supplied object claims the pin.
 	s.Masks[0].PointIndices = []int{2, 3}
 	if _, err := f.BindFeatures(p, s); err == nil || !strings.Contains(err.Error(), "frozen membership") {
+		t.Fatal(err)
+	}
+}
+
+// A registration keeps the physical revision it was made against. When the
+// split pins a later revision, the freeze records the registration's own pin
+// beside the split's and still freezes; binding derives the record again.
+func TestFrozenFacetsRecordPhysicalDivergenceWithoutRefusing(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	state, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor := state.Document.Features[0].Anchor
+	draft := physDraftPack(p, 0)
+	head := 0
+	draft.FeatureRevision = &head
+	same := mustFreeze(t, freezeOptions(draft))
+	if same.Packs[0].Features == nil || same.Packs[0].Features.PhysicalDivergences != nil {
+		t.Fatalf("registration on the pinned revision recorded a divergence: %+v", same.Packs[0].Features)
+	}
+
+	r, err := LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Objects[0].Body.Width.ValueM = fp(1.85)
+	if err := SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := PreviewFreeze(freezeOptions(draft))
+	if err != nil || !preview.WouldFreeze || len(preview.FacetProblems) != 0 {
+		t.Fatalf("a divergent registration refused the freeze: %v %+v", err, preview)
+	}
+	want := []FacetPhysicalDivergence{{FeatureID: state.Document.Features[0].FeatureId, ObjectID: state.Document.Features[0].ObjectId,
+		PhysicalRevision: anchor.PhysicalRevision, PhysicalDigest: anchor.PhysicalDigest}}
+	pinned := preview.Packs[0].Physical
+	if pinned == nil || uint64(pinned.Revision) == anchor.PhysicalRevision || !reflect.DeepEqual(preview.Packs[0].Features.PhysicalDivergences, want) {
+		t.Fatalf("divergence not recorded: physical %+v, features %+v", pinned, preview.Packs[0].Features)
+	}
+	f := mustFreeze(t, freezeOptions(draft))
+	_, frozenPath := writeAndLoad(t, f)
+	if f, err = LoadFrozenSplit(frozenPath); err != nil {
+		t.Fatal(err)
+	}
+	_, bound, err := f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.BindFeatures(p, bound); err != nil {
+		t.Fatalf("recorded divergence did not bind: %v", err)
+	}
+	f.Packs[0].Features.PhysicalDivergences = nil
+	if _, err := f.BindFeatures(p, bound); err == nil || !strings.Contains(err.Error(), "differ from the frozen pin") {
+		t.Fatalf("a split that dropped the record bound: %v", err)
+	}
+	if got := facetPhysicalDivergences(state.Document, nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("a split with no physical pin did not record the registration: %+v", got)
+	}
+}
+
+func TestFrozenFacetPinRefusesMalformedDivergences(t *testing.T) {
+	_, state, _, _ := savedFrozenFacets(t)
+	pin, err := newFrozenFeatures(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facetPhysicalDivergences(state.Document, nil) != nil {
+		t.Fatal("a facet with no registration recorded a divergence")
+	}
+	two := &pb.FeatureAnnotations{Features: []*pb.FeatureCandidate{
+		{FeatureId: "b", ObjectId: "o", Anchor: &pb.FeatureAnchor{PhysicalRevision: 2}},
+		{FeatureId: "a", ObjectId: "o", Anchor: &pb.FeatureAnchor{PhysicalRevision: 1}},
+	}}
+	if got := facetPhysicalDivergences(two, nil); len(got) != 2 || got[0].FeatureID != "a" || got[1].FeatureID != "b" {
+		t.Fatalf("divergences not ordered by feature ID: %+v", got)
+	}
+	pin.Candidates, pin.Registrations = 2, 2
+	for name, d := range map[string][]FacetPhysicalDivergence{
+		"more than registrations": {{FeatureID: "a", ObjectID: "o"}, {FeatureID: "b", ObjectID: "o"}, {FeatureID: "c", ObjectID: "o"}},
+		"missing feature":         {{ObjectID: "o"}},
+		"missing object":          {{FeatureID: "a"}},
+		"out of order":            {{FeatureID: "b", ObjectID: "o"}, {FeatureID: "a", ObjectID: "o"}},
+		"duplicate":               {{FeatureID: "a", ObjectID: "o"}, {FeatureID: "a", ObjectID: "o"}},
+	} {
+		bad := *pin
+		bad.PhysicalDivergences = d
+		if bad.validate() == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	good := *pin
+	good.PhysicalDivergences = []FacetPhysicalDivergence{{FeatureID: "a", ObjectID: "o"}, {FeatureID: "b", ObjectID: "o"}}
+	if err := good.validate(); err != nil {
 		t.Fatal(err)
 	}
 }
