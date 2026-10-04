@@ -261,6 +261,7 @@ func ValidateFeatures(p *Pack, doc *pb.FeatureAnnotations) error {
 	if len(doc.ProtoReflect().GetUnknown()) != 0 {
 		return fmt.Errorf("unknown feature document fields")
 	}
+	e := newFeatureEvidence(p)
 	ids := map[string]bool{}
 	for _, f := range doc.Features {
 		if f == nil || f.FeatureId == "" || ids[f.FeatureId] || f.ObjectId == "" || f.PartId == "" {
@@ -279,12 +280,12 @@ func ValidateFeatures(p *Pack, doc *pb.FeatureAnnotations) error {
 				return fmt.Errorf("duplicate or missing feature observation")
 			}
 			seen[o.SampleId] = true
-			if err := validateFeatureObservation(p, f.ObjectId, o); err != nil {
+			if err := e.validateObservation(f.ObjectId, o); err != nil {
 				return fmt.Errorf("feature %s: %w", f.FeatureId, err)
 			}
 		}
 		if f.Anchor != nil {
-			if err := validateFeatureAnchor(p, f); err != nil {
+			if err := e.validateAnchor(f); err != nil {
 				return fmt.Errorf("feature %s: %w", f.FeatureId, err)
 			}
 		}
@@ -292,7 +293,81 @@ func ValidateFeatures(p *Pack, doc *pb.FeatureAnnotations) error {
 	return nil
 }
 
-func validateFeatureObservation(p *Pack, object string, o *pb.FeatureObservation) error {
+// featureEvidence holds the pinned evidence one validation reads: membership
+// and physical-reference revisions, and decoded samples. A saved revision is
+// immutable, so reading each once per call changes the cost, not the result.
+type featureEvidence struct {
+	p          *Pack
+	membership map[uint64]*Sidecar
+	physical   map[uint64]*PhysicalReferenceSet
+	points     map[uint32]Points
+}
+
+func newFeatureEvidence(p *Pack) *featureEvidence {
+	return &featureEvidence{p: p, membership: map[uint64]*Sidecar{}, physical: map[uint64]*PhysicalReferenceSet{}, points: map[uint32]Points{}}
+}
+
+func (e *featureEvidence) membershipAt(revision uint64) (*Sidecar, error) {
+	if s, ok := e.membership[revision]; ok {
+		return s, nil
+	}
+	s, err := LoadSidecarRevision(e.p, int(revision))
+	if err != nil {
+		return nil, err
+	}
+	e.membership[revision] = s
+	return s, nil
+}
+
+func (e *featureEvidence) physicalAt(revision uint64) (*PhysicalReferenceSet, error) {
+	if r, ok := e.physical[revision]; ok {
+		return r, nil
+	}
+	r, err := LoadPhysicalReferenceRevision(e.p, int(revision))
+	if err != nil {
+		return nil, err
+	}
+	e.physical[revision] = r
+	return r, nil
+}
+
+func (e *featureEvidence) pointsAt(sample uint32) (Points, error) {
+	if points, ok := e.points[sample]; ok {
+		return points, nil
+	}
+	points, err := e.p.PointsAt(int(sample))
+	if err != nil {
+		return Points{}, err
+	}
+	e.points[sample] = points
+	return points, nil
+}
+
+// registeredObject is the physical object whose reviewed body a registration
+// names, in the physical revision the registration pins.
+func (e *featureEvidence) registeredObject(f *pb.FeatureCandidate) (*PhysicalObject, error) {
+	a := f.Anchor
+	refs, err := e.physicalAt(a.PhysicalRevision)
+	if err != nil {
+		return nil, err
+	}
+	if refs.Digest() != a.PhysicalDigest {
+		return nil, fmt.Errorf("physical registration digest mismatch")
+	}
+	var object *PhysicalObject
+	for i := range refs.Objects {
+		if refs.Objects[i].ObjectID == f.ObjectId {
+			object = &refs.Objects[i]
+		}
+	}
+	if object == nil || object.Body == nil || object.Body.BodyID != a.BodyId || object.Body.Review.Status != StatusReviewed {
+		return nil, fmt.Errorf("body registration needs a reviewed pinned body")
+	}
+	return object, nil
+}
+
+func (e *featureEvidence) validateObservation(object string, o *pb.FeatureObservation) error {
+	p := e.p
 	if int(o.SampleId) >= len(p.Samples) {
 		return fmt.Errorf("sample out of range")
 	}
@@ -315,7 +390,7 @@ func validateFeatureObservation(p *Pack, object string, o *pb.FeatureObservation
 	if o.MembershipRevision == 0 || o.MembershipRevision > math.MaxInt32 {
 		return fmt.Errorf("missing membership revision")
 	}
-	s, err := LoadSidecarRevision(p, int(o.MembershipRevision))
+	s, err := e.membershipAt(o.MembershipRevision)
 	if err != nil {
 		return err
 	}
@@ -355,7 +430,7 @@ func validateFeatureObservation(p *Pack, object string, o *pb.FeatureObservation
 	if len(o.PointIndices) == 0 {
 		return fmt.Errorf("accepted feature has no support")
 	}
-	points, err := p.PointsAt(int(o.SampleId))
+	points, err := e.pointsAt(o.SampleId)
 	if err != nil {
 		return err
 	}
@@ -380,7 +455,7 @@ func finiteFeature(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) 
 // Named compact points and straight segments can be proposed in a pinned body's
 // horizontal frame. Segment relations leave tangent position unconstrained.
 // This mapping is not scored truth and is not an online tracker reanchor event.
-func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
+func (e *featureEvidence) validateAnchor(f *pb.FeatureCandidate) error {
 	a := f.Anchor
 	if len(a.ProtoReflect().GetUnknown()) != 0 || a.CoordinateDomain != "body_xy" || a.ZM != 0 ||
 		a.PhysicalRevision == 0 || a.PhysicalRevision > math.MaxInt32 ||
@@ -422,21 +497,9 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 			return fmt.Errorf("registration point is not definite feature support")
 		}
 	}
-	refs, err := LoadPhysicalReferenceRevision(p, int(a.PhysicalRevision))
+	object, err := e.registeredObject(f)
 	if err != nil {
 		return err
-	}
-	if refs.Digest() != a.PhysicalDigest {
-		return fmt.Errorf("physical registration digest mismatch")
-	}
-	var object *PhysicalObject
-	for i := range refs.Objects {
-		if refs.Objects[i].ObjectID == f.ObjectId {
-			object = &refs.Objects[i]
-		}
-	}
-	if object == nil || object.Body == nil || object.Body.BodyID != a.BodyId || object.Body.Review.Status != StatusReviewed {
-		return fmt.Errorf("body registration needs a reviewed pinned body")
 	}
 	var k *PhysicalKeyframe
 	for i := range object.Keyframes {
@@ -460,7 +523,7 @@ func validateFeatureAnchor(p *Pack, f *pb.FeatureCandidate) error {
 	if g.Centre == nil || g.Yaw == nil {
 		return fmt.Errorf("body registration has no supported centre or yaw")
 	}
-	points, err := p.PointsAt(int(a.SourceSample))
+	points, err := e.pointsAt(a.SourceSample)
 	if err != nil {
 		return err
 	}

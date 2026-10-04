@@ -614,6 +614,48 @@ func registeredFeatureFixtureForPack(t *testing.T, p *Pack, e *pb.FeatureEdit) (
 	return p, e
 }
 
+// One validation reads each pinned revision and sample once: a second read is
+// the value already held, not another load from disk.
+func TestFeatureEvidenceReadsEachPinOnce(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	f := e.Document.Features[0]
+	ev := newFeatureEvidence(p)
+	object, err := ev.registeredObject(f)
+	if err != nil || object.Body.BodyID != f.Anchor.BodyId {
+		t.Fatal(err)
+	}
+	membership, err := ev.membershipAt(f.Observations[0].MembershipRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	points, err := ev.pointsAt(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// With the files gone, only the held values can answer.
+	os.Remove(filepath.Join(p.Dir, physicalReferenceFile))
+	os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+	if again, err := ev.registeredObject(f); err != nil || again != object {
+		t.Fatal("physical revision read twice", err)
+	}
+	if again, err := ev.membershipAt(f.Observations[0].MembershipRevision); err != nil || again != membership {
+		t.Fatal("membership revision read twice", err)
+	}
+	if again, err := ev.pointsAt(0); err != nil || &again.X[0] != &points.X[0] {
+		t.Fatal("sample decoded twice", err)
+	}
+	fresh := newFeatureEvidence(p)
+	if _, err := fresh.registeredObject(f); err == nil {
+		t.Fatal("a new validation reused another's evidence")
+	}
+	if _, err := fresh.membershipAt(f.Observations[0].MembershipRevision); err == nil {
+		t.Fatal("a new validation reused another's membership")
+	}
+	if _, err := fresh.pointsAt(uint32(len(p.Samples))); err == nil {
+		t.Fatal("sample outside the pack decoded")
+	}
+}
+
 func TestFeatureBodyRegistrationKeepsMetricOffsetAndPhysicalPin(t *testing.T) {
 	p, e := registeredFeatureFixture(t)
 	before, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))

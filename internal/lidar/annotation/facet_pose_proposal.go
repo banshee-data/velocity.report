@@ -113,20 +113,13 @@ func ProposeFacetPose(p *Pack, req FacetPoseRequest) (*FacetPoseProposal, error)
 	if target.MembershipDigest != req.MembershipDigest || target.MembershipRevision != uint64(req.MembershipRevision) {
 		return nil, ErrMembershipChanged
 	}
-	refs, err := LoadPhysicalReferenceRevision(p, int(feature.Anchor.PhysicalRevision))
+	// LoadFeatureRevision validated this registration against its pinned
+	// body; resolve that body by the same rule rather than restating it.
+	source, err := newFeatureEvidence(p).registeredObject(feature)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("source body pin no longer resolves: %w", err)
 	}
-	var body *BodyGeometry
-	for _, o := range refs.Objects {
-		if o.ObjectID == feature.ObjectId && o.Body != nil && o.Body.BodyID == feature.Anchor.BodyId {
-			body = o.Body
-		}
-	}
-	if body == nil || refs.Digest() != feature.Anchor.PhysicalDigest {
-		return nil, fmt.Errorf("source body pin no longer resolves")
-	}
-	return solveFacetPose(feature, target, body, points, req)
+	return solveFacetPose(feature, target, source.Body, points, req)
 }
 
 func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation, body *BodyGeometry, points Points, req FacetPoseRequest) (*FacetPoseProposal, error) {
@@ -167,8 +160,8 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		if !finiteFeature(x) || !finiteFeature(y) || !finiteFeature(z) {
 			return nil, fmt.Errorf("non-finite matched return")
 		}
-		result.Centre = PlanarBound{XM: x - (c*a.XM - s*a.YM), YM: y - (s*a.XM + c*a.YM), BoundM: math.Max(*prior.PositionBoundM, a.BoundM+req.ReturnBoundM+math.Hypot(a.XM, a.YM)*2*math.Sin(*prior.YawBoundRad/2))}
 		evidenceBound := a.BoundM + req.ReturnBoundM + math.Hypot(a.XM, a.YM)*2*math.Sin(*prior.YawBoundRad/2)
+		result.Centre = PlanarBound{XM: x - (c*a.XM - s*a.YM), YM: y - (s*a.XM + c*a.YM), BoundM: math.Max(*prior.PositionBoundM, evidenceBound)}
 		if math.Hypot(result.Centre.XM-*prior.XM, result.Centre.YM-*prior.YM) > *prior.PositionBoundM+evidenceBound {
 			return nil, fmt.Errorf("matched spot contradicts the declared prior bounds; correct the prior or correspondence")
 		}
