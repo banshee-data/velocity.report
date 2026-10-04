@@ -141,13 +141,13 @@ func SaveFeatures(p *Pack, edit *pb.FeatureEdit) (*pb.FeatureState, error) {
 	if err = ValidateFeatures(p, next); err != nil {
 		return nil, err
 	}
-	active := map[string]int{}
+	// The cap refuses growth, not history. A document saved before the cap
+	// existed may hold more active facets on an object; it stays editable, and
+	// each save may bring that object down, never back up past four.
+	before, after := activeFacets(old), activeFacets(next)
 	for _, f := range next.Features {
-		if !f.Inactive {
-			active[f.ObjectId]++
-			if active[f.ObjectId] > 4 {
-				return nil, fmt.Errorf("object %s has more than four active facets; retire one before adding another", f.ObjectId)
-			}
+		if n := after[f.ObjectId]; n > maxActiveFacets && n > before[f.ObjectId] {
+			return nil, fmt.Errorf("object %s has more than four active facets; retire one before adding another", f.ObjectId)
 		}
 	}
 	// Feature identity cannot silently move to a different object or part.
@@ -219,6 +219,21 @@ func SaveFeatures(p *Pack, edit *pb.FeatureEdit) (*pb.FeatureState, error) {
 		return nil, err
 	}
 	return &pb.FeatureState{Document: next, Digest: sha256Hex(b), MembershipDigest: s.baseDigest, PackDirectory: p.Dir}, nil
+}
+
+// maxActiveFacets is how many facets an object may have active at once.
+const maxActiveFacets = 4
+
+// activeFacets counts each object's active facets. Retired facets keep their
+// evidence and do not count.
+func activeFacets(doc *pb.FeatureAnnotations) map[string]int {
+	active := map[string]int{}
+	for _, f := range doc.Features {
+		if !f.Inactive {
+			active[f.ObjectId]++
+		}
+	}
+	return active
 }
 
 func featureRevisionName(rev uint64) string { return fmt.Sprintf("%s/%010d.pb", featureHistory, rev) }

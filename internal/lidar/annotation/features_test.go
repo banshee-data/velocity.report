@@ -470,6 +470,74 @@ func TestFeatureActiveFacetLimitRetainsRetiredEvidence(t *testing.T) {
 	}
 }
 
+// A document saved before the cap existed is not frozen out of editing: it can
+// edit another object, and come down one retirement at a time, but never grow.
+func TestFeatureActiveFacetLimitLetsLegacyDocumentsComeDown(t *testing.T) {
+	p, edit := featureFixture(t)
+	first := edit.Document.Features[0]
+	for i := 1; i < 6; i++ {
+		f := proto.Clone(first).(*pb.FeatureCandidate)
+		f.FeatureId = fmt.Sprintf("legacy-%d", i)
+		edit.Document.Features = append(edit.Document.Features, f)
+	}
+	// Written as the head directly, as authoring before the cap could save it.
+	edit.Document.Revision = 1
+	b, err := (proto.MarshalOptions{Deterministic: true}).Marshal(edit.Document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	state, err := LoadFeatures(p)
+	if err != nil || activeFacets(state.Document)["car-1"] != 6 {
+		t.Fatalf("legacy head: %v", err)
+	}
+	save := func(doc *pb.FeatureAnnotations) (*pb.FeatureState, error) {
+		return SaveFeatures(p, &pb.FeatureEdit{Document: doc, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest})
+	}
+
+	// Another object gains a facet; car-1 stays at six, unchanged.
+	points, err := p.PointsAt(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := proto.Clone(first).(*pb.FeatureCandidate)
+	other.FeatureId, other.ObjectId = "car-2-mirror", "car-2"
+	o := other.Observations[0]
+	o.PointIndices = []uint32{8, 9}
+	o.Sphere = &pb.FeatureSphere{XM: float64(points.X[8]), YM: float64(points.Y[8]), ZM: 0.9, RadiusM: 0.7}
+	next := proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features = append(next.Features, other)
+	if state, err = save(next); err != nil {
+		t.Fatalf("legacy object blocked an edit to another object: %v", err)
+	}
+
+	// Six may come down to five.
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = true
+	if state, err = save(next); err != nil {
+		t.Fatalf("retiring a legacy facet refused: %v", err)
+	}
+	if activeFacets(state.Document)["car-1"] != 5 {
+		t.Fatal(activeFacets(state.Document))
+	}
+
+	// Five may not go back up, by reactivation or by a new facet.
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = false
+	if _, err = save(next); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("reactivation grew a legacy object: %v", err)
+	}
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	added := proto.Clone(first).(*pb.FeatureCandidate)
+	added.FeatureId = "new"
+	next.Features = append(next.Features, added)
+	if _, err = save(next); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("new facet grew a legacy object: %v", err)
+	}
+}
+
 func registeredFeatureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
 	t.Helper()
 	p, e := featureFixture(t)
