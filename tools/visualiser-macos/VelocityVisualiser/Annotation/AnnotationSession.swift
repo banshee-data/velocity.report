@@ -50,7 +50,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         switch self {
         case .points: return "Object Points"
         case .physical: return "Physical"
-        case .features: return "Feature Candidates"
+        case .features: return "Facets"
         case .compare: return "Compare"
         }
     }
@@ -110,14 +110,92 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     private(set) lazy var physical: PhysicalReferenceSession = PhysicalReferenceSession(
         packDirectory: pack.directory, packDigest: pack.manifest.packDigest, sessionID: sessionID,
         client: physicalClient, membershipDigest: { [unowned self] in self.document.loadedDigest },
-        author: { [unowned self] in self.operatorName })
+        author: { [unowned self] in self.operatorName }, exposureDefaults: defaults)
     private var physicalStarted = false
     private let physicalClient: PhysicalReferenceAPIClient
     private var physicalForward: AnyCancellable?
 
-    private(set) lazy var features = FeatureAuthoring(pack: pack, client: featureClient)
+    private(set) lazy var features = FeatureAuthoring(
+        pack: pack, client: featureClient, exposureDefaults: defaults)
     private let featureClient: FeatureAPIClient
     private var featureForward: AnyCancellable?
+    /// One immutable pack/sample/subset fit. Return hover and camera changes
+    /// should not rebuild the covariance or sort the selected returns.
+    private var facetFitCache:
+        (sampleID: Int, indices: [UInt32], geometry: FeatureGeometry, result: FacetGeometryFit)?
+    private var facetSupportCache:
+        (
+            sampleID: Int, objectID: String, membershipDigest: String, revision: Int,
+            observation: FeatureObservation, result: FacetSupportSummary
+        )?
+
+    private var facetProjectionResidualCache:
+        (
+            preview: FacetBodyPreview, observation: FeatureObservation,
+            result: FacetProjectionResiduals
+        )?
+
+    func facetProjectionResiduals(observation: FeatureObservation) -> FacetProjectionResiduals? {
+        guard let preview = currentFacetBodyPreview,
+            observation.sampleID == UInt32(exactly: preview.sampleID),
+            observation.decision == .acceptedProposal,
+            facetSupportSummary(observation: observation).fraction != nil
+        else { return nil }
+        if let cached = facetProjectionResidualCache, cached.preview == preview,
+            cached.observation == observation
+        {
+            return cached.result
+        }
+        let uncertain = Set(observation.uncertainIndices)
+        let result = preview.projection.residuals(
+            points: currentPoints,
+            indices: observation.pointIndices.filter { !uncertain.contains($0) })
+        facetProjectionResidualCache = (preview, observation, result)
+        return result
+    }
+
+    func facetSupportSummary(observation: FeatureObservation) -> FacetSupportSummary {
+        let sampleID = currentSample?.sampleID ?? -1
+        let objectID = activeObjectID ?? ""
+        if dirtySamples.contains(sampleID) {
+            var result = FacetSupportSummary.make(
+                observation: observation, objectIndices: [], currentPin: false)
+            result.explanation = "Save object points before measuring support share"
+            return result
+        }
+        if let cache = facetSupportCache, cache.sampleID == sampleID, cache.objectID == objectID,
+            cache.membershipDigest == membershipDigest, cache.revision == sidecar.revision,
+            cache.observation == observation
+        {
+            return cache.result
+        }
+        let currentPin =
+            observation.sampleID == UInt32(exactly: sampleID)
+            && observation.membershipDigest == membershipDigest && !membershipDigest.isEmpty
+            && observation.membershipRevision == UInt64(exactly: sidecar.revision)
+        let result = FacetSupportSummary.make(
+            observation: observation,
+            objectIndices: featureDomain(sampleID: sampleID, objectID: objectID),
+            currentPin: currentPin)
+        facetSupportCache = (
+            sampleID, objectID, membershipDigest, sidecar.revision, observation, result
+        )
+        return result
+    }
+
+    func facetGeometryFit(indices: [UInt32], geometry: FeatureGeometry) -> FacetGeometryFit {
+        let sampleID = currentSample?.sampleID ?? -1
+        if let cached = facetFitCache, cached.sampleID == sampleID, cached.indices == indices,
+            cached.geometry == geometry
+        {
+            return cached.result
+        }
+        let result = FacetGeometryFit.analyse(
+            points: currentPoints, indices: indices, geometry: geometry)
+        facetFitCache = (sampleID, indices, geometry, result)
+        return result
+    }
+
     private func startFeatures() {
         guard featureForward == nil else { return }
         featureForward = features.objectWillChange.sink { [weak self] _ in
@@ -900,6 +978,12 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         pendingCandidates = nil
         hover.clear()
         inspection.clear()
+        if featureForward != nil {
+            features.bodyPreview = nil
+            features.clearPoseProposal()
+            features.registrationPoint = nil
+            features.registrationEndPoint = nil
+        }
         if workMode == .compare { exposeComparedObjects() }
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
@@ -1076,8 +1160,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// Drops candidates the class filter hides, and counts them, so a gesture
-    /// that took fewer points than it covered says why.
-    private func visibleOnly(_ candidates: SelectionCandidates) -> SelectionCandidates {
+    /// that took fewer points than it covered says why. Every gesture that
+    /// selects returns goes through it: Object Points, and the facet lasso.
+    func visibleOnly(_ candidates: SelectionCandidates) -> SelectionCandidates {
         guard effectiveVisibility != nil else { return candidates }
         var result = candidates
         result.indices = candidates.indices.filter(isVisible)

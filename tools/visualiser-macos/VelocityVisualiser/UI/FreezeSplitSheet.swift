@@ -15,9 +15,11 @@ import UniformTypeIdentifiers
 
 @MainActor final class FreezeSplitModel: ObservableObject {
     @Published var draftURL: URL?
-    @Published var draft: SplitFreezeAPIClient.Draft?
+    @Published var draft: SplitFreezeAPIClient.Draft? { didSet { invalidatePreview() } }
     @Published var output = ""
-    @Published var supersedes: String?
+    @Published var supersedes: String? {
+        didSet { if oldValue != supersedes { invalidatePreview() } }
+    }
     @Published private(set) var preview: FreezePreview?
     /// The draft the preview describes; a changed draft needs a new preview.
     @Published private(set) var previewedDraft: URL?
@@ -31,6 +33,31 @@ import UniformTypeIdentifiers
 
     init(client: SplitFreezeAPIClient = SplitFreezeAPIClient()) { self.client = client }
 
+    private func invalidatePreview() {
+        generation &+= 1
+        preview = nil
+        previewedDraft = nil
+        result = nil
+        busy = false
+    }
+
+    var draftPacks: [[String: Any]] { draft?["packs"] as? [[String: Any]] ?? [] }
+
+    func setFacetPin(packIndex: Int, enabled: Bool) {
+        guard !busy, var next = draft, draftPacks.indices.contains(packIndex) else { return }
+        var packs = draftPacks
+        if enabled {
+            if packs[packIndex]["feature_revision"] == nil {
+                packs[packIndex]["feature_revision"] = 0
+            }
+        } else {
+            packs[packIndex].removeValue(forKey: "feature_revision")
+        }
+        next["packs"] = packs
+        draft = next
+        error = nil
+    }
+
     /// Whether the preview shown is of the draft chosen, and says it freezes.
     var canFreeze: Bool {
         guard let preview, previewedDraft == draftURL, draft != nil, !busy else { return false }
@@ -38,6 +65,7 @@ import UniformTypeIdentifiers
     }
 
     func chooseDraft(_ url: URL) {
+        guard !busy else { return }
         do {
             draft = try SplitFreezeAPIClient.loadDraft(at: url)
             draftURL = url
@@ -129,12 +157,37 @@ struct FreezeSplitSheet: View {
             ).font(.caption).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
             HStack {
-                Button("Choose Draft…") { chooseDraft() }
+                Button("Choose Draft…") { chooseDraft() }.disabled(model.busy)
                 Text(model.draftURL?.lastPathComponent ?? "no draft chosen").font(.caption)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer()
                 Button("Preview") { Task { await model.runPreview() } }.disabled(
                     model.draft == nil || model.busy)
+            }
+            if !model.draftPacks.isEmpty {
+                DisclosureGroup("Optional facet evidence · proposals, not truth") {
+                    ForEach(Array(model.draftPacks.indices), id: \.self) { index in
+                        let pack = model.draftPacks[index]
+                        Toggle(
+                            "Pin facets: \(pack["dir"] as? String ?? "pack")",
+                            isOn: Binding(
+                                get: {
+                                    model.draftPacks.indices.contains(index)
+                                        && model.draftPacks[index]["feature_revision"] != nil
+                                }, set: { model.setFacetPin(packIndex: index, enabled: $0) })
+                        ).disabled(model.busy).font(.caption)
+                        if let revision = pack["feature_revision"] as? Int {
+                            Text(
+                                revision == 0
+                                    ? "Preview pins the saved head."
+                                    : "Draft names retained facet revision \(revision)."
+                            ).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    Text(
+                        "Enabling adds a facet pin to this freeze request. It does not edit the draft file or review facets as physical truth. Changes require a fresh preview."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
             }
             HStack {
                 Text("Write as").font(.caption)
@@ -145,7 +198,7 @@ struct FreezeSplitSheet: View {
                     ForEach(model.existing.filter { $0.error == nil }) { s in
                         Text("\(s.name) · r\(s.revision)").tag(String?.some(s.name))
                     }
-                }.font(.caption)
+                }.font(.caption).disabled(model.busy)
             }
             if let error = model.error {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(
@@ -212,6 +265,10 @@ struct FreezeSplitSheet: View {
                             horizontal: false, vertical: true)
                     }
                 }
+                if let problems = p.facetProblems, !problems.isEmpty {
+                    Text("Facet proposal evidence").font(.caption.bold())
+                    ForEach(problems, id: \.self) { Text($0).font(.caption2).foregroundStyle(.red) }
+                }
                 ForEach(p.packs) { pack in packView(pack) }
             }
         }.frame(maxHeight: 260)
@@ -250,8 +307,25 @@ struct FreezeSplitSheet: View {
                         horizontal: false, vertical: true)
                 }
             } else {
-                Text("no physical references: the split pins membership only").font(.caption2)
-                    .foregroundStyle(.orange)
+                Text("no physical reference pin").font(.caption2).foregroundStyle(.orange)
+            }
+            if let facets = pack.features {
+                Text("Facet proposal revision \(facets.revision) · \(facets.sha256)").font(
+                    .caption2
+                ).lineLimit(1).truncationMode(.middle)
+                Text(
+                    "\(facets.active) active of \(facets.candidates) facets · \(facets.supportedObservations) supported frames · \(facets.absenceDecisions) absence/rejection decisions"
+                ).font(.caption2)
+                Text(
+                    "\(facets.registrations) body registration proposals, \(facets.trackerSeededRegistrations) tracker-seeded · not physical truth"
+                ).font(.caption2).foregroundStyle(.secondary)
+                if let divergence = facets.physicalDivergenceSummary {
+                    Text(divergence).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+            } else {
+                Text("Facet proposals are not pinned in this draft.").font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }.padding(6).background(
             Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))

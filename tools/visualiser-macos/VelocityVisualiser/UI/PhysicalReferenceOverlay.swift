@@ -84,8 +84,8 @@ struct PhysicalReferenceOverlay: View {
                     body: object.body, savedBody: physical.savedBody(objectID: object.objectID))
                 return (
                     session.displayName(objectID: object.objectID),
-                    PhysicalGeometry.derive(object: object, keyframe: k, gate: .preview), k, style,
-                    object.objectID == active
+                    PhysicalGeometry.derive(object: object, keyframe: k, gate: .authoring), k,
+                    style, object.objectID == active
                 )
             }
         let metresPerPoint: Double =
@@ -103,7 +103,10 @@ struct PhysicalReferenceOverlay: View {
                 let g = item.geometry
                 let colour = item.style.colour.opacity(item.active ? 1 : 0.55)
                 let stroke = StrokeStyle(lineWidth: item.active ? 1.6 : 1, dash: item.style.dash)
-                let label = "\(item.name) · \(item.style.label)"
+                let label =
+                    "\(item.name) · \(item.style.label)"
+                    + (g.unboundedDraft ? " · bounds not set" : "")
+                    + (g.usesPriorSize ? " · size prior" : "")
 
                 if standard == .top && item.active {
                     let at = PhysicalHandles.positions(
@@ -128,12 +131,20 @@ struct PhysicalReferenceOverlay: View {
                         diamond.closeSubpath()
                         context.fill(diamond, with: .color(colour))
                     }
+                    if let w = at.width {
+                        context.stroke(
+                            Path(CGRect(x: w.x - 5, y: w.y - 5, width: 10, height: 10)),
+                            with: .color(colour), lineWidth: 2)
+                        context.draw(
+                            Text("width").font(.system(size: 9)).foregroundColor(colour),
+                            at: CGPoint(x: w.x, y: w.y - 12))
+                    }
                     if at.move != nil {
                         context.draw(
                             Text(
                                 "drag ■ to move, size held · drag ● to turn"
-                                    + (at.length != nil
-                                        ? " · drag ◆ to resize length, anchor held" : "")
+                                    + (at.length != nil ? " · drag ◆ for length" : "")
+                                    + (at.width != nil ? " · drag □ for width" : "")
                             ).font(.system(size: 9)).foregroundColor(.secondary),
                             at: CGPoint(x: size.width / 2, y: size.height - 12))
                     }

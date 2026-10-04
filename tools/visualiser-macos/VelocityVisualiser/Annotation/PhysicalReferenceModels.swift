@@ -51,10 +51,10 @@ enum PhysicalAnchorKind: String, Codable, CaseIterable, Equatable {
     var label: String {
         switch self {
         case .bodyCentre: return "Body centre"
-        case .frontFace: return "Front face"
-        case .rearFace: return "Rear face"
-        case .leftFace: return "Left face"
-        case .rightFace: return "Right face"
+        case .frontFace: return "Front face centre"
+        case .rearFace: return "Rear face centre"
+        case .leftFace: return "Left face centre"
+        case .rightFace: return "Right face centre"
         }
     }
 
@@ -127,10 +127,21 @@ struct PhysicalDimension: Codable, Equatable {
     var bounded: Bool { lowerM != nil && upperM != nil }
 
     /// The stated value, or the interval's midpoint, and the half-width that
-    /// covers the interval from it. Nil unless bounded. Mirrors Go's Best.
+    /// covers the interval from it. Nil unless bounded. Mirrors Go's Best,
+    /// including its midpoint, `(lo + hi) / 2`: the pose proposal compares
+    /// the box Go sizes with Best against this value exactly, so any other
+    /// spelling of the midpoint can differ from it in the last bit.
+    ///
+    /// It refuses more than Go's Best does, never less: an interval Go's
+    /// validation would refuse, and a midpoint that overflows. A body that
+    /// size is not one this client can draw, and nil says so where Go would
+    /// carry an infinity.
     var best: (value: Double, halfWidth: Double)? {
-        guard let lo = lowerM, let hi = upperM else { return nil }
+        guard let lo = lowerM, let hi = upperM, lo.isFinite, hi.isFinite, lo >= 0, hi >= lo else {
+            return nil
+        }
         let value = valueM ?? (lo + hi) / 2
+        guard value.isFinite, value >= lo, value <= hi else { return nil }
         return (value, max(value - lo, hi - value))
     }
 }

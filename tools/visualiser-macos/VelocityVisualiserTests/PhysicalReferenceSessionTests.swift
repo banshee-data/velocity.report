@@ -164,6 +164,142 @@ private func sample(_ id: Int) -> AnnotationSample {
 }
 
 @MainActor struct PhysicalReferenceSessionTests {
+    @Test func assistanceDeclarationKeepsSavedHistoryAndSurvivesUndo() async throws {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:independent"
+        var original = PhysicalBody(bodyID: "body_saved")
+        original.review.status = .reviewed
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
+        await physical.load()
+        physical.edit { $0[0].body?.length.valueM = 4 }
+        #expect(physical.object("car")?.body?.review.origin == .independent)
+        #expect(physical.declareAssistance(objectID: "car", source: "  replay run 7 · L5  "))
+        #expect(physical.exposure["car"] == "replay run 7 · L5")
+        #expect(physical.savedBody(objectID: "car") == original)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.object("car")?.body?.bodyID != original.bodyID)
+        physical.undo()
+        #expect(physical.object("car")?.body?.length.valueM == 4)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        physical.undo()
+        #expect(physical.object("car")?.body == original)
+        #expect(!physical.isDirty, "Undo to unchanged saved history must not relabel it")
+        physical.redo()
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(await physical.save())
+        #expect(fake.objects[0].body?.review.trackerSource == "replay run 7 · L5")
+        physical.discard()
+        #expect(physical.exposure["car"] == "replay run 7 · L5")
+    }
+
+    @Test func assistanceNeedsASourceAndDoesNotRewriteUntouchedRecords() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        #expect(!physical.declareAssistance(objectID: "car", source: "run"))
+        fake.digest = "sha256:saved"
+        var original = PhysicalBody(bodyID: "b")
+        original.review.status = .reviewed
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
+        await physical.load()
+        #expect(!physical.declareAssistance(objectID: "car", source: " \n "))
+        #expect(physical.exposure.isEmpty)
+        #expect(physical.declareAssistance(objectID: "car", source: "main window"))
+        #expect(!physical.isDirty)
+        #expect(physical.savedBody(objectID: "car")?.review.origin == .independent)
+        physical.edit { $0[0].body?.width.valueM = 2 }
+        #expect(physical.object("car")?.body?.review.trackerSource == "main window")
+        #expect(physical.declareAssistance(objectID: "car", source: "another estimate"))
+        #expect(physical.exposure["car"] == "main window")
+    }
+
+    @Test func reviewingAfterExposureNeedsANewAssistedProposal() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:before-viewing"
+        var pose = PhysicalKeyframe(keyframeID: "independent_pose", sampleID: 0, timestampNs: 1_000)
+        pose.review.status = .reviewed
+        let original = PhysicalBody(bodyID: "pending_body")
+        fake.objects = [PhysicalObject(objectID: "car", body: original, keyframes: [pose])]
+        await physical.load()
+        physical.expose(objectIDs: ["car"], source: "online run 9")
+        #expect(!physical.isDirty)
+        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
+        #expect(fake.last("/api/annotations/physical/review") == nil)
+        physical.continueAsAssisted(objectID: "car")
+        #expect(physical.isDirty)
+        #expect(physical.savedBody(objectID: "car") == original)
+        #expect(physical.object("car")?.body?.bodyID != original.bodyID)
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(
+            physical.object("car")?.keyframes == [pose],
+            "Reviewed independent history remains unchanged")
+        // Undo returns to the saved record, unrelabelled; it still cannot be
+        // reviewed as independent, so nothing is laundered by the undo.
+        physical.undo()
+        #expect(physical.object("car")?.body == original)
+        #expect(!physical.isDirty)
+        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
+        physical.redo()
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        physical.discard()
+        #expect(!physical.isDirty)
+        physical.continueAsAssisted(objectID: "car")
+        #expect(await physical.save())
+        let savedID = physical.savedBody(objectID: "car")!.bodyID
+        #expect(await physical.review(kind: .body, objectID: "car", recordID: savedID))
+        #expect(physical.savedBody(objectID: "car")?.review.origin == .trackerAssisted)
+    }
+
+    @Test func undoingOneObjectLeavesAnotherSeenObjectsSavedProposalsAlone() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:two-objects"
+        let bodyA = PhysicalBody(bodyID: "body_a")
+        let bodyB = PhysicalBody(bodyID: "body_b")
+        let poseB = PhysicalKeyframe(keyframeID: "kf_b", sampleID: 0, timestampNs: 1_000)
+        fake.objects = [
+            PhysicalObject(objectID: "a", body: bodyA),
+            PhysicalObject(objectID: "b", body: bodyB, keyframes: [poseB]),
+        ]
+        await physical.load()
+        // B's estimate was shown in Compare; A's never was.
+        physical.expose(objectIDs: ["b"], source: "compare run 3")
+        #expect(!physical.isDirty, "seeing an estimate is not an edit")
+
+        physical.edit { $0[0].body?.length = PhysicalDimension(status: .observed, span: .full) }
+        #expect(physical.isDirty)
+        physical.undo()
+        #expect(!physical.isDirty, "Undo to unchanged saved history must not relabel it")
+        #expect(physical.object("b")?.body == bodyB)
+        #expect(physical.object("b")?.keyframes == [poseB])
+        physical.redo()
+        #expect(physical.object("b")?.body?.bodyID == "body_b")
+        #expect(physical.object("b")?.body?.review.origin == .independent)
+        #expect(physical.object("b")?.keyframes.first?.keyframeID == "kf_b")
+
+        // Saving A's edit writes B exactly as it was saved.
+        #expect(await physical.save())
+        let savedB = fake.objects.first { $0.objectID == "b" }
+        #expect(savedB?.body?.bodyID == "body_b" && savedB?.body?.review.origin == .independent)
+        #expect(savedB?.keyframes.map(\.keyframeID) == ["kf_b"])
+        #expect(savedB?.keyframes.first?.review.origin == .independent)
+
+        // An edit to B itself is still bound to what was seen.
+        physical.edit { $0[1].body?.width = PhysicalDimension(status: .observed, span: .full) }
+        #expect(physical.object("b")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.object("b")?.body?.review.trackerSource == "compare run 3")
+        #expect(physical.object("b")?.body?.bodyID != "body_b")
+        #expect(physical.object("b")?.keyframes.first?.keyframeID == "kf_b")
+    }
+
+    @Test func explicitDeclarationForksAPendingSavedProposal() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:pending"
+        let original = PhysicalBody(bodyID: "pending")
+        fake.objects = [PhysicalObject(objectID: "car", body: original)]
+        await physical.load()
+        #expect(physical.declareAssistance(objectID: "car", source: "main-window estimate"))
+        #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.savedBody(objectID: "car") == original)
+    }
+
     @Test func loadsReadyOnlyWhenTheServiceHoldsThisVeryFolder() async {
         let dir = temporaryPackDir()
         let (physical, fake) = makeSession(packDir: dir)

@@ -334,7 +334,7 @@ struct ProposalPopulationTests {
         #expect(section.contains("notareview"))
         #expect(
             IntensityInspectorSection.DistributionSource.allCases.map(\.label) == [
-                "Saved mask", "Unsaved selection", "Proposal",
+                "Saved mask", "Unsaved selection", "Proposal", "Facet subset",
             ])
     }
 }

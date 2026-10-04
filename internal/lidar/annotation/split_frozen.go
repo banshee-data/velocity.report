@@ -19,7 +19,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
-// Frozen splits (split manifest schema versions 2 and 3).
+// Frozen splits (split manifest schema versions 2, 3 and 4).
 //
 // A version 1 manifest partitions one pack's objects, and a person writes it
 // by hand. It says what is held out; it does not say whether anyone finished
@@ -88,6 +88,13 @@ import (
 // version 2 split, frozen before physical pins existed, still parses, binds
 // and scores as it did, and carries no pin.
 //
+// Facet proposals are opt-in from version 4. A draft's feature_revision
+// pins an exact retained proposal revision, or its saved head at zero.
+// Omitting the field retains the feature-free version 3 layout. The pin
+// records byte/content digests and proposal counts, including retirement,
+// absence and tracker-seeded registrations. BindFeatures rederives them
+// against the frozen definite membership; none is physical scoring truth.
+//
 // PreviewFreeze does everything FreezeSplit does short of producing the
 // split: it opens and pins the packs, lists the review problems, and, when
 // there are none, completes the split far enough to say what its digest
@@ -121,9 +128,12 @@ import (
 // guarantee binds only a run given the split: a replay or evaluation run
 // without one is not checked against it, and records no split.
 
-// FrozenSplitSchemaVersion is the layout FreezeSplit writes. Version 1,
+// FrozenSplitSchemaVersion is the feature-free layout FreezeSplit writes. Version 1,
 // SplitSchemaVersion, remains the hand-written single-pack manifest.
 const FrozenSplitSchemaVersion = 3
+
+// Version 4 is written only when an operator opts into facet proposal pins.
+const FrozenSplitSchemaVersionFeatures = 4
 
 // FrozenSplitSchemaVersionMembershipOnly is the version 2 layout, frozen
 // before physical-reference pins existed. It is still read, and carries no
@@ -132,7 +142,7 @@ const FrozenSplitSchemaVersionMembershipOnly = 2
 
 // isFrozenSchemaVersion reports whether v is a frozen split layout.
 func isFrozenSchemaVersion(v int) bool {
-	return v == FrozenSplitSchemaVersion || v == FrozenSplitSchemaVersionMembershipOnly
+	return v == FrozenSplitSchemaVersionFeatures || v == FrozenSplitSchemaVersion || v == FrozenSplitSchemaVersionMembershipOnly
 }
 
 // SplitRoleScreen is a corpus case replayed as a label-free regression
@@ -277,6 +287,7 @@ type FrozenPack struct {
 	// Physical pins the pack's physical-reference revision. Nil for a pack
 	// with no physical references, and for every pack of a version 2 split.
 	Physical *FrozenPhysical `json:"physical,omitempty"`
+	Features *FrozenFeatures `json:"features,omitempty"`
 }
 
 // FrozenPhysical pins one pack's physical references: the revision, the
@@ -548,6 +559,9 @@ type DraftPack struct {
 	// PhysicalRevision pins a physical-reference revision; zero, or the
 	// field absent, freezes the pack's current one. A pack with no physical
 	// references freezes with no pin, and cannot name a revision.
+	// FeatureRevision is opt-in: absent pins no facets, zero pins their head,
+	// and a positive value pins that retained revision.
+	FeatureRevision  *int      `json:"feature_revision,omitempty"`
 	PhysicalRevision int       `json:"physical_revision,omitempty"`
 	Splits           []Split   `json:"splits,omitempty"`
 	Episodes         []Episode `json:"episodes,omitempty"`
@@ -696,8 +710,8 @@ func (f *FrozenSplit) validate() error {
 		return fmt.Errorf("schema %q, want %q", f.Schema, SplitSchema)
 	}
 	if !isFrozenSchemaVersion(f.SchemaVersion) {
-		return fmt.Errorf("schema version %d, want %d (or %d, frozen before physical pins)",
-			f.SchemaVersion, FrozenSplitSchemaVersion, FrozenSplitSchemaVersionMembershipOnly)
+		return fmt.Errorf("schema version %d, want %d, %d or %d",
+			f.SchemaVersion, FrozenSplitSchemaVersionMembershipOnly, FrozenSplitSchemaVersion, FrozenSplitSchemaVersionFeatures)
 	}
 	if f.Revision < 1 {
 		return fmt.Errorf("revision %d: revisions count from 1", f.Revision)
@@ -750,6 +764,9 @@ func (f *FrozenSplit) validate() error {
 		}
 		if f.SchemaVersion == FrozenSplitSchemaVersionMembershipOnly && p.Physical != nil {
 			return fmt.Errorf("pack %s: a version %d split carries no physical pin", p.PackDigest, f.SchemaVersion)
+		}
+		if f.SchemaVersion != FrozenSplitSchemaVersionFeatures && p.Features != nil {
+			return fmt.Errorf("a version %d split carries no facet pin", f.SchemaVersion)
 		}
 		if digests[p.PackDigest] {
 			return fmt.Errorf("pack %s is listed twice", p.PackDigest)
@@ -908,6 +925,11 @@ func (p FrozenPack) validate(roles map[string]SplitRole, cases splitCases) error
 	if p.Physical != nil {
 		if err := p.Physical.validate(); err != nil {
 			return fmt.Errorf("physical pin: %w", err)
+		}
+	}
+	if p.Features != nil {
+		if err := p.Features.validate(); err != nil {
+			return fmt.Errorf("facet pin: %w", err)
 		}
 	}
 	if len(p.Objects) == 0 {
@@ -1105,6 +1127,7 @@ type FreezePreview struct {
 	// complete.
 	MembershipProblems []string `json:"membership_problems"`
 	PhysicalProblems   []string `json:"physical_problems"`
+	FacetProblems      []string `json:"facet_problems,omitempty"`
 	// Refusal is why a draft whose review is complete still would not
 	// freeze: a structural refusal, such as holding out what the lineage
 	// tuned on. Empty when review is incomplete or the draft would freeze.
@@ -1128,6 +1151,7 @@ type FreezePreviewPack struct {
 	// Physical is the pin with its summaries, or null for a pack with no
 	// physical references.
 	Physical *FrozenPhysical `json:"physical"`
+	Features *FrozenFeatures `json:"features,omitempty"`
 	Objects  []FrozenObject  `json:"objects"`
 	Episodes int             `json:"episodes"`
 }
@@ -1141,11 +1165,11 @@ func PreviewFreeze(opts FreezeOptions) (*FreezePreview, error) {
 		return nil, err
 	}
 	pv := &FreezePreview{Packs: []FreezePreviewPack{}, Cases: a.split.Cases,
-		MembershipProblems: append([]string{}, a.membership...), PhysicalProblems: append([]string{}, a.physical...)}
+		MembershipProblems: append([]string{}, a.membership...), PhysicalProblems: append([]string{}, a.physical...), FacetProblems: append([]string{}, a.facets...)}
 	for _, p := range a.split.Packs {
 		pv.Packs = append(pv.Packs, FreezePreviewPack{
 			Dir: a.dirs[p.PackDigest], PackDigest: p.PackDigest, DatasetID: p.DatasetID, CaseID: p.CaseID,
-			SidecarRevision: p.SidecarRevision, SidecarSHA256: p.SidecarSHA256, Physical: p.Physical,
+			SidecarRevision: p.SidecarRevision, SidecarSHA256: p.SidecarSHA256, Physical: p.Physical, Features: p.Features,
 			Objects: p.Objects, Episodes: len(p.Episodes),
 		})
 	}
@@ -1167,7 +1191,7 @@ type freezeAssembly struct {
 	// dirs is each pack's draft directory by pack digest.
 	dirs map[string]string
 	// membership and physical are the review problems, one line each.
-	membership, physical []string
+	membership, physical, facets []string
 }
 
 // assembleFreeze checks the draft, opens and pins every pack, and collects
@@ -1209,6 +1233,10 @@ func assembleFreeze(opts FreezeOptions) (*freezeAssembly, error) {
 		}
 		a.membership = append(a.membership, r.membership...)
 		a.physical = append(a.physical, r.physical...)
+		a.facets = append(a.facets, r.facets...)
+		if r.pack.Features != nil {
+			f.SchemaVersion = FrozenSplitSchemaVersionFeatures
+		}
 		a.dirs[r.pack.PackDigest] = dp.Dir
 		f.Packs = append(f.Packs, r.pack)
 	}
@@ -1231,6 +1259,9 @@ func (a *freezeAssembly) reviewError() error {
 	if len(a.physical) > 0 {
 		parts = append(parts, "the physical references do not hold against the pinned annotation revision, so the split cannot be frozen:\n  "+
 			strings.Join(a.physical, "\n  "))
+	}
+	if len(a.facets) > 0 {
+		parts = append(parts, "facet proposals do not hold against the pinned membership:\n  "+strings.Join(a.facets, "\n  "))
 	}
 	if len(parts) == 0 {
 		return nil
@@ -1577,9 +1608,9 @@ func (f *FrozenSplit) checkHeldOutAgainstTuned() error {
 // membership and physical-reference problems, kept apart from errors so
 // every pack's problems can be reported together.
 type frozenPackResult struct {
-	pack                 FrozenPack
-	roles                map[string]SplitRole
-	membership, physical []string
+	pack                         FrozenPack
+	roles                        map[string]SplitRole
+	membership, physical, facets []string
 }
 
 // freezePack opens one draft pack, pins it and checks its review.
@@ -1644,10 +1675,14 @@ func freezePack(dp DraftPack, baseDir string) (frozenPackResult, error) {
 	if err != nil {
 		return none, err
 	}
+	features, facetProblems, err := freezeFeatures(pack, s, dp.FeatureRevision, physical)
+	if err != nil {
+		return none, err
+	}
 	p := FrozenPack{
 		PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, CaseID: dp.CaseID,
 		ManifestSHA256: manifestDigest, Selection: selection, Source: frozenSource(pack),
-		SidecarRevision: s.Revision, SidecarSHA256: s.baseDigest, Episodes: m.Episodes, Physical: physical,
+		SidecarRevision: s.Revision, SidecarSHA256: s.baseDigest, Episodes: m.Episodes, Physical: physical, Features: features,
 	}
 	roles := map[string]SplitRole{}
 	for _, split := range m.Splits {
@@ -1658,7 +1693,7 @@ func freezePack(dp DraftPack, baseDir string) (frozenPackResult, error) {
 	}
 	sort.Slice(p.Objects, func(i, j int) bool { return p.Objects[i].ObjectID < p.Objects[j].ObjectID })
 	return frozenPackResult{pack: p, roles: roles, membership: reviewProblems(pack.Manifest.PackDigest, s, m),
-		physical: physicalProblems}, nil
+		physical: physicalProblems, facets: facetProblems}, nil
 }
 
 // freezePhysical pins the pack's physical references at the revision the

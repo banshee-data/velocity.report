@@ -77,6 +77,67 @@ struct FeatureSelectionTests {
         }
     }
 
+    @Test func aSmallFacetKeepsItsReturnsWhenTheNextScanSamplesItElsewhere() throws {
+        // Six returns in one voxel, on an object whose other thirty returns
+        // carry its motion: a metre along x. The next scan crosses the facet
+        // on a higher ring, so four of its returns sit in the voxel above.
+        let facet: [SIMD3<Float>] = [
+            SIMD3(0.08, 0.08, 1.10), SIMD3(0.12, 0.10, 1.12), SIMD3(0.16, 0.12, 1.08),
+            SIMD3(0.10, 0.16, 1.14), SIMD3(0.14, 0.14, 1.10), SIMD3(0.18, 0.08, 1.12),
+        ]
+        let next: [SIMD3<Float>] = [
+            SIMD3(1.08, 0.08, 1.10), SIMD3(1.12, 0.10, 1.12), SIMD3(1.16, 0.12, 1.30),
+            SIMD3(1.10, 0.16, 1.32), SIMD3(1.14, 0.14, 1.34), SIMD3(1.18, 0.08, 1.30),
+        ]
+        let rest = (0..<30).map { i in
+            SIMD3<Float>(3 + 0.1 * Float(i % 6), 1 + 0.1 * Float(i / 6), 1)
+        }
+        let source = featurePoints(facet + rest)
+        let target = featurePoints(next + rest.map { $0 + SIMD3(1, 0, 0) })
+        let domain = Array(0..<36)
+        var o = FeatureObservation()
+        o.pointIndices = (0..<6).map(UInt32.init)
+        o.method = "manual_lasso"
+        o.sphere = FeatureSphere(
+            centre: facet.reduce(.zero, +) / Float(facet.count), radius: 0.35)
+        let sphere = try FeatureSelection.propose(
+            source: o, sourcePoints: source, sourceDomain: domain, targetPoints: target,
+            targetDomain: domain, seconds: 0.1)
+        #expect(simd_distance(sphere.centre, o.sphere.centre + SIMD3(1, 0, 0)) < 0.05)
+        let subset = FeatureSelection.translatedSubset(
+            source: o, sourcePoints: source, targetPoints: target, targetDomain: domain,
+            sphere: sphere)
+        #expect(subset == [0, 1, 2, 3, 4, 5], "the next scan's returns fell between voxels")
+    }
+
+    @Test func aLassoEnvelopeNeverExceedsWhatGoAcceptsOnSave() throws {
+        // The farthest return is inside 5 m, so the old check (reach < 5)
+        // passed it, and the margin then carried the saved radius past Go's
+        // limit: built here, refused on save, and the client left read-only.
+        let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
+        #expect(Double(edge) < FeatureSelection.maximumRadiusM)
+        #expect(
+            FeatureSelection.lassoEnvelope(
+                centre: .zero, members: [SIMD3(edge, 0, 0), SIMD3(-edge, 0, 0)]) == nil)
+        let members: [SIMD3<Float>] = [SIMD3(4.9, 0, 0), SIMD3(0, -1, 0.5)]
+        let sphere = try #require(
+            FeatureSelection.lassoEnvelope(centre: SIMD3(0, 0, 0), members: members))
+        #expect(sphere.radiusM <= FeatureSelection.maximumRadiusM)
+        for p in members {
+            // Go's own containment test, in float64.
+            let dx = Double(p.x) - sphere.xM
+            let dy = Double(p.y) - sphere.yM
+            let dz = Double(p.z) - sphere.zM
+            #expect(dx * dx + dy * dy + dz * dz <= sphere.radiusM * sphere.radiusM + 1e-6)
+        }
+        #expect(
+            FeatureSelection.lassoEnvelope(centre: .zero, members: [.zero])?.radiusM
+                == FeatureSelection.minimumRadiusM)
+        #expect(FeatureSelection.lassoEnvelope(centre: .zero, members: []) == nil)
+        #expect(
+            FeatureSelection.lassoEnvelope(centre: .zero, members: [SIMD3(.nan, 0, 0)]) == nil)
+    }
+
     @Test func sparseOrCompetingLocalFitsDoNotBecomeAcceptedObservations() {
         let source = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
         var o = FeatureObservation()
@@ -108,6 +169,8 @@ private final class FakeFeatureService: @unchecked Sendable {
     var posts = 0
     var failAfterCommit = false
     var refuse = false
+    var revisions: [UInt64: FeatureState] = [:]
+    var ignoreRevision = false
 
     init(pack: AnnotationPack) {
         state = FeatureState()
@@ -124,6 +187,24 @@ private final class FakeFeatureService: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if refuse { throw URLError(.cannotConnectToHost) }
+        if request.httpMethod != "POST", !ignoreRevision,
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+                .queryItems, let value = query.first(where: { $0.name == "revision" })?.value,
+            let revision = UInt64(value), revision != state.document.revision
+        {
+            guard let retained = revisions[revision] else {
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"retained revision missing"}"#.utf8)
+                )
+            }
+            return (
+                HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                try retained.serializedData()
+            )
+        }
         if request.httpMethod == "POST" {
             posts += 1
             var bytes = request.httpBody ?? Data()
@@ -146,6 +227,7 @@ private final class FakeFeatureService: @unchecked Sendable {
                     Data(#"{"error":"revision changed"}"#.utf8)
                 )
             }
+            revisions[state.document.revision] = state
             state.document = edit.document
             state.document.revision += 1
             state.digest = "sha256:revision-\(state.document.revision)"
@@ -183,6 +265,85 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 }
 
 @MainActor struct FeatureAuthoringTests {
+    @Test func retainedEvidenceIsReadOnlyAndReturningToHeadRestoresEditing() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        a.name = "Mirror"
+        a.geometry = .protrusion
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        a.seed(featureSeed(pack), objectID: "car")
+        a.name = "Changed name"
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        #expect(a.headRevision == 2)
+        await a.load(revision: 1)
+        #expect(a.viewingRevision == 1 && a.headRevision == 2 && !a.canEdit)
+        #expect(a.name == "Mirror" && a.active?.observations[0].pointIndices == [0, 1])
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(!a.isDirty)
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(service.posts == 2)
+        await a.load()
+        #expect(a.viewingRevision == nil && a.canEdit && a.name == "Changed name")
+        a.seed(featureSeed(pack), objectID: "car")
+        await a.load(revision: 1)
+        #expect(a.isDirty && a.viewingRevision == nil && a.state?.document.revision == 2)
+    }
+
+    @Test func missingOrWrongRevisionNeverMasqueradesAsTheRequestedEvidence() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        service.state.document.revision = 2
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        service.ignoreRevision = true
+        await a.load(revision: 1)
+        #expect(a.state == nil && a.readOnly && a.viewingRevision == 1)
+        service.ignoreRevision = false
+        await a.load(revision: 1)
+        #expect(a.state == nil && !a.canEdit)
+        #expect(throws: (any Error).self) { try FeatureDocument(serializedBytes: Data([0xff])) }
+        // An offline archive may be inspected, but is never an editable head.
+        let history = pack.directory.appendingPathComponent("feature-proposal-revisions")
+        try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
+        var document = service.state.document
+        document.revision = 1
+        try document.serializedData().write(to: history.appendingPathComponent("0000000001.pb"))
+        service.refuse = true
+        await a.load(revision: 1)
+        #expect(a.state?.document.revision == 1 && a.readOnly && !a.canEdit)
+        document.revision = 3
+        try document.serializedData().write(to: history.appendingPathComponent("0000000001.pb"))
+        await a.load(revision: 1)
+        #expect(a.state == nil && !a.canEdit)
+        #expect(service.posts == 0)
+    }
+
+    @Test func revisionCannotBeCombinedWithEditsOrInvalidNumbers() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        for revision in [UInt64(0), UInt64(Int32.max) + 1] {
+            await #expect(throws: (any Error).self) {
+                try await client.request(pack: pack, revision: revision)
+            }
+        }
+        await #expect(throws: (any Error).self) {
+            try await client.request(
+                pack: pack, edit: Velocity_Recording_V1_FeatureEdit(), revision: 1)
+        }
+        #expect(service.posts == 0)
+    }
     @Test func seedEditSaveReopenAndCancelNeverWriteMembership() async throws {
         let (pack, client, service) = try featureSetup()
         defer { try? FileManager.default.removeItem(at: pack.directory) }
@@ -211,7 +372,10 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
         #expect(reopened.active?.hasAnchor == false)
         #expect(reopened.active?.partRelation == "unknown")
         reopened.seed(featureSeed(pack), objectID: "car")
+        reopened.name = "Unsaved change"
+        reopened.geometry = .edge
         reopened.cancel()
+        #expect(reopened.name == "Mirror?" && reopened.geometry == .protrusion)
         #expect(!reopened.isDirty && service.posts == 1)
         #expect(
             !FileManager.default.fileExists(
@@ -302,7 +466,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
         session.features.cancel()
         #expect(session.navigationGuard() == nil)
         #expect(AnnotationWorkMode.points.label == "Object Points")
-        #expect(AnnotationWorkMode.features.label == "Feature Candidates")
+        #expect(AnnotationWorkMode.features.label == "Facets")
     }
 }
 
@@ -335,6 +499,64 @@ struct FeatureSharedWireTests {
 }
 
 @MainActor struct FeatureSessionWorkflowTests {
+    @Test func subsetPreviewCarriesShapeRatherThanItsEnvelope() async throws {
+        let source: [SyntheticPack.Point] = [
+            (0.05, 0.05, 1, 1), (1.05, 0.05, 1, 1), (0.55, 0.55, 1, 1), (3, 0, 1, 1),
+        ]
+        // Reorder canonical returns: IDs are specific to the target scan.
+        let target: [SyntheticPack.Point] = [
+            (1.55, 0.55, 1, 1), (4, 0, 1, 1), (2.05, 0.05, 1, 1), (1.05, 0.05, 1, 1),
+        ]
+        let dir = try SyntheticPack.write([source, target], sourceStride: 1)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: baseURL, session: urlSession))
+        s.operatorName = "operator"
+        let object = s.createObject(objectClass: "car")
+        let all = SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(5, 2))
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        #expect(s.stepForward() == nil)
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        #expect(s.stepBackward() == nil)
+        service.state.membershipDigest = s.membershipDigest
+        let maskBytes = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        s.workMode = .features
+        await s.features.load()
+        var observation = FeatureObservation()
+        observation.sampleID = 0
+        observation.timestampNs = s.currentSample!.timestampNs
+        observation.membershipDigest = s.membershipDigest
+        observation.membershipRevision = UInt64(s.sidecar.revision)
+        observation.sphere = FeatureSphere(centre: SIMD3(0.55, 0.05, 1), radius: 0.6)
+        observation.pointIndices = [0, 1]
+        observation.method = "manual_lasso"
+        observation.origin = "human_proposal"
+        s.features.seed(observation, objectID: object.objectID)
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        s.proposeNextFeature()
+        #expect(s.currentSample?.sampleID == 1)
+        #expect(s.features.draft?.pointIndices == [2, 3])
+        #expect(s.features.draft?.usesSubsetShape == true)
+        #expect(s.features.draft?.origin == "assisted_proposal")
+        s.resizeFeature(1)
+        #expect(s.features.draft?.pointIndices == [2, 3], "Radius cannot expand a subset preview")
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: s.operatorName,
+                membershipDigest: s.membershipDigest))
+        s.editCurrentFeature()
+        #expect(s.features.draft?.pointIndices == [2, 3])
+        #expect(s.features.draft?.hasProposedFromSample == true)
+        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == maskBytes)
+    }
+
     @Test func sphereThenOneFramePreviewEditRejectAndOcclusionKeepMaskBytes() async throws {
         let source: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1), (3, 0, 1, 1)]
         let target = source.map { ($0.x + 1, $0.y, $0.z, $0.classification) }
@@ -384,8 +606,17 @@ struct FeatureSharedWireTests {
                 decision: .acceptedProposal, author: s.operatorName,
                 membershipDigest: s.membershipDigest))
         #expect(s.features.activeID == id && s.features.active?.observations.count == 2)
+        #expect(s.adjacentFacetObservation(forward: false)?.sampleID == 0)
+        #expect(s.goToFacetObservation(sampleID: 0))
+        #expect(s.features.activeID == id && s.featureOverlay?.pointIndices == [0, 1])
+        #expect(s.adjacentFacetObservation(forward: true)?.sampleID == 1)
+        #expect(!s.goToFacetObservation(sampleID: 99))
+        #expect(s.currentSample?.sampleID == 0)
+        #expect(s.goToFacetObservation(sampleID: 1))
         s.editCurrentFeature()
         #expect(s.features.isDirty && s.features.draft?.origin == "assisted_proposal")
+        #expect(!s.goToFacetObservation(sampleID: 0))
+        #expect(s.currentSample?.sampleID == 1)
         #expect(
             await s.features.save(
                 decision: .rejected, author: s.operatorName, membershipDigest: s.membershipDigest))
@@ -398,6 +629,10 @@ struct FeatureSharedWireTests {
                 decision: .occluded, author: s.operatorName, membershipDigest: s.membershipDigest))
         #expect(s.features.active?.observations.last?.decision == .occluded)
         #expect(s.features.active?.objectID == object.objectID)
+        #expect(s.adjacentFacetObservation(forward: false)?.decision == .rejected)
+        #expect(s.goToFacetObservation(sampleID: 0))
+        #expect(s.goToFacetObservation(sampleID: 2))
+        #expect(s.featureOverlay?.decision == .occluded && s.featureOverlay?.hasSphere == false)
         #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == before)
         let reopened = FeatureAuthoring(pack: pack, client: client)
         await reopened.load()
@@ -440,5 +675,346 @@ struct FeatureSharedWireTests {
         s.proposeNextFeature()
         #expect(s.sampleIndex == 0 && !s.features.isDirty && service.posts == 1)
         #expect(s.features.message?.contains("skipped") == true)
+    }
+}
+
+@MainActor struct FacetActiveLimitTests {
+    @Test func theFifthFacetWaitsForRetirementAndReactivationKeepsTheCap() async throws {
+        let (pack, client, service) = try featureSetup()
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        for i in 0..<4 {
+            a.newFeature()
+            a.name = "Facet \(i)"
+            a.seed(featureSeed(pack), objectID: "car")
+            #expect(
+                await a.save(
+                    decision: .acceptedProposal, author: "op",
+                    membershipDigest: service.state.membershipDigest))
+        }
+        #expect(a.activeCount(objectID: "car") == 4)
+        let first = try #require(a.state?.document.features.first?.featureID)
+        a.newFeature()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            !(await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest)))
+        #expect(a.isDirty && service.posts == 4)
+        a.cancel()
+        a.choose(first)
+        await a.setInactive(true, author: "op")
+        #expect(a.activeCount(objectID: "car") == 3 && a.active?.observations.count == 1)
+        a.newFeature()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        a.choose(first)
+        await a.setInactive(false, author: "op")
+        #expect(a.active?.inactive == true && a.activeCount(objectID: "car") == 4)
+        #expect(a.state?.document.features.count == 5)
+    }
+}
+
+@MainActor struct FacetSubsetSelectionTests {
+    @Test func lassoAndDepthSlabSaveExactSupportWithoutChangingTheObjectMask() async throws {
+        let points: [SyntheticPack.Point] = [
+            (0, 0, 1, 1), (0.1, 0.1, 1, 1), (0.05, 0.05, 3, 1), (1, 1, 1, 1),
+        ]
+        let dir = try SyntheticPack.write([points])
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        #expect(
+            s.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(s.save())
+        service.state.membershipDigest = s.membershipDigest
+        let mask = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        s.slab = DepthSlab(minDepth: -1.5, maxDepth: -0.5)
+        s.selectFacet(polygon: SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2)))
+        #expect(s.features.draft?.pointIndices == [0, 1])
+        #expect(s.features.draft?.method == "manual_lasso")
+        #expect(s.features.message?.contains("1 outside depth slab") == true)
+        s.resizeFeature(2)
+        #expect(
+            s.features.draft?.pointIndices == [0, 1],
+            "resizing a sphere must not broaden a lasso subset")
+        s.features.geometry = .edge
+        #expect(
+            await s.features.save(
+                decision: .acceptedProposal, author: "op", membershipDigest: s.membershipDigest))
+        s.inspection.setHovered([
+            IntensityReadout(
+                sampleID: 0, sourceOrdinal: 1, pointIndex: 0, raw: nil, position: SIMD3(0, 0, 1),
+                displayClass: 1, depth: -1)
+        ])
+        s.inspection.pin()
+        s.usePinnedFacetReturn()
+        #expect(s.features.registrationPoint == 0)
+        s.inspection.setHovered([
+            IntensityReadout(
+                sampleID: 0, sourceOrdinal: 1, pointIndex: 3, raw: nil, position: SIMD3(1, 1, 1),
+                displayClass: 1, depth: -1)
+        ])
+        s.inspection.pin()
+        s.usePinnedFacetReturn()
+        #expect(s.features.registrationPoint == 0, "an outside return became the facet anchor")
+        s.editCurrentFeature()
+        #expect(
+            s.features.draft?.pointIndices == [0, 1] && s.features.draft?.method == "manual_lasso")
+        s.selectFacet(
+            polygon: SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2)),
+            mode: .subtract)
+        #expect(!s.features.isDirty)
+        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == mask)
+        #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
+    }
+
+    @Test func aFacetLassoTakesOnlyTheReturnsTheClassFilterShows() async throws {
+        let points: [SyntheticPack.Point] = [
+            (0, 0, 1, PointClass.foreground), (0.1, 0.1, 1, PointClass.ground),
+            (0.05, 0.05, 1, PointClass.foreground), (1, 1, 1, PointClass.foreground),
+        ]
+        let dir = try SyntheticPack.write([points])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        // The object's membership includes the ground return.
+        #expect(
+            s.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(s.save())
+        #expect(s.canonicalSelection == [0, 1, 2, 3])
+        service.state.membershipDigest = s.membershipDigest
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        let facet = SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2))
+        s.visibility.ground = false
+        s.selectFacet(polygon: facet)
+        #expect(s.features.draft?.pointIndices == [0, 2], "a hidden return joined the facet")
+        #expect(s.features.message?.contains("1 hidden by the class filter") == true)
+        s.features.cancel()
+        s.visibility.ground = true
+        s.selectFacet(polygon: facet)
+        #expect(s.features.draft?.pointIndices == [0, 1, 2])
+        #expect(s.features.message?.contains("hidden") == false)
+    }
+
+    @Test func aLassoTooLargeForGoIsRefusedBeforeItBecomesADraft() async throws {
+        let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
+        let points: [SyntheticPack.Point] = [(-edge, 0, 1, 1), (edge, 0, 1, 1)]
+        let dir = try SyntheticPack.write([points])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        let all = SelectionPolygon(rectFrom: SIMD2(-6, -1), to: SIMD2(6, 1))
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        service.state.membershipDigest = s.membershipDigest
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        s.selectFacet(polygon: all)
+        #expect(s.features.draft == nil, "a facet Go refuses on save was drafted")
+        #expect(s.features.message?.contains("5 m radius") == true)
+    }
+}
+
+@MainActor struct FacetFutureContractTests {
+    @Test func unknownFieldsRemainInspectableButCannotBeOverwritten() async throws {
+        let (pack, client, service) = try featureSetup()
+        var bytes = try service.state.document.serializedData()
+        bytes.append(contentsOf: [0xa0, 0x06, 0x01])
+        service.state.document = try FeatureDocument(serializedBytes: bytes)
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        #expect(a.state != nil && a.readOnly && !a.canEdit)
+        #expect(try a.state?.document.serializedData() == bytes)
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(!a.isDirty && service.posts == 0)
+    }
+}
+
+@MainActor struct FacetRegistrationTransportTests {
+    @Test func registerDetachAndUnconfirmedCommitPreserveTheFacetAndBlockRetry() async throws {
+        let (pack, client, service) = try featureSetup()
+        let a = FeatureAuthoring(pack: pack, client: client)
+        await a.load()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        let id = a.activeID
+        var anchor = FacetBodyAnchor()
+        anchor.coordinateDomain = "body_xy"
+        anchor.method = "manual_named_return_v1"
+        anchor.origin = "reference_seeded_proposal"
+        anchor.partFrameRevision = 1
+        anchor.xM = 1.2
+        await a.registerAnchor(anchor, author: "op")
+        #expect(a.active?.anchor.xM == 1.2 && a.active?.partRelation == "rigid_proposal")
+        await a.registerAnchor(nil, author: "op")
+        #expect(a.active?.hasAnchor == false && a.active?.partRelation == "unknown")
+        #expect(a.activeID == id && a.active?.observations.count == 1)
+        service.failAfterCommit = true
+        await a.registerAnchor(anchor, author: "op")
+        let posts = service.posts
+        #expect(a.readOnly && a.active?.hasAnchor == false)
+        #expect(service.state.document.features[0].hasAnchor)
+        await a.registerAnchor(anchor, author: "op")
+        #expect(service.posts == posts)
+        service.failAfterCommit = false
+        await a.load()
+        #expect(a.canEdit && a.active?.anchor.xM == 1.2)
+    }
+}
+
+@MainActor struct FacetProjectionExposureTests {
+    @Test func hidingCancellingAndReopeningDoNotLaunderPreviewAssistance() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let suite = "facet-preview-test-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let a = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await a.load()
+        a.geometry = .protrusion
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(
+            await a.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        let id = a.activeID
+        let original = a.active?.observations[0]
+        let projection = FacetBodyProjection(
+            origin: SIMD2(1, 2), normal: nil, boundM: 0.2, normalBoundRad: nil, assisted: false,
+            physicalRevision: 4, physicalDigest: "sha256:physical")
+        a.seed(featureSeed(pack), objectID: "car")
+        a.showBodyPreview(
+            FacetBodyPreview(
+                featureID: id, sampleID: 0, membershipDigest: service.state.membershipDigest,
+                projection: projection), objectID: "car")
+        #expect(a.draft?.origin == "assisted_proposal")
+        #expect(a.active?.observations[0] == original, "viewing rewrote saved history")
+        a.bodyPreview = nil
+        a.cancel()
+        a.seed(featureSeed(pack), objectID: "car")
+        #expect(a.draft?.origin == "assisted_proposal")
+        #expect(a.draft?.note.contains("physical revision 4") == true)
+        a.cancel()
+        let reopened = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await reopened.load()
+        reopened.choose(id)
+        reopened.seed(featureSeed(pack), objectID: "car")
+        #expect(reopened.draft?.origin == "assisted_proposal")
+        #expect(
+            await reopened.save(
+                decision: .acceptedProposal, author: "op",
+                membershipDigest: service.state.membershipDigest))
+        #expect(reopened.active?.observations[0].origin == "assisted_proposal")
+        reopened.cancel()
+        var next = featureSeed(pack)
+        next.sampleID = 1
+        reopened.seed(next, objectID: "car")
+        #expect(
+            reopened.draft?.origin == "human_proposal",
+            "an unseen frame acquired preview provenance")
+    }
+}
+
+@MainActor struct OfflineFacetPoseControllerTests {
+    @Test func exactResponseIsReadOnlyAndAChangedFrameCannotReceiveDelayedResults() async throws {
+        let (pack, _, service) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        service.state.document.revision = 7
+        service.state.digest = "sha256:head7"
+        var result = try FacetPoseFixture.proposal()
+        result.request.pack = PhysicalReferenceAPIClient.handle(for: pack.directory)
+        result.request.packDigest = pack.manifest.packDigest
+        result.request.featureRevision = service.state.document.revision
+        result.request.featureDigest = service.state.digest
+        result.request.membershipDigest = service.state.membershipDigest
+        result.request.membershipRevision = 1
+        result.sourceSample = 1
+        result.request.sampleID = 0
+        result.request.timestampNs = pack.samples[0].timestampNs
+        service.state.document.features = [FacetPoseFixture.feature(result)]
+        let saved = service.state.document
+        var wire = try #require(
+            JSONSerialization.jsonObject(with: FacetPoseFixture.bytes()) as? [String: Any])
+        wire["source_sample"] = 1
+        wire["request"] = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(result.request))
+        let bytes = try JSONSerialization.data(withJSONObject: wire)
+        let (session, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            if request.url?.path.hasSuffix("/pose-proposal") == true {
+                Thread.sleep(forTimeInterval: 0.03)
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                    bytes
+                )
+            }
+            return try service.handle(request)
+        }
+        let a = FeatureAuthoring(
+            pack: pack, client: FeatureAPIClient(baseURL: baseURL, session: session))
+        await a.load()
+        a.choose(result.request.featureID)
+        #expect(await a.proposePose(result.request))
+        #expect(a.poseProposal?.request == result.request && !a.isDirty && service.posts == 0)
+        #expect(service.state.document == saved)
+        a.clearPoseProposal()
+        let delayed = Task { await a.proposePose(result.request) }
+        for _ in 0..<100 where !a.poseProposalBusy { await Task.yield() }
+        #expect(a.poseProposalBusy)
+        a.clearPoseProposal()
+        #expect(!(await delayed.value))
+        #expect(a.poseProposal == nil && service.state.document == saved)
+    }
+    @Test func explicitOfflineExposureSurvivesCancellationAndReopening() async throws {
+        let (pack, client, _) = try featureSetup()
+        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        let suite = "offline-pose-exposure-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let a = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await a.load()
+        a.recordPoseProposalExposure(
+            objectID: "car", sampleID: 0,
+            source: "offline solver, named prior, exact feature revision 7")
+        a.cancel()
+        let reopened = FeatureAuthoring(pack: pack, client: client, exposureDefaults: defaults)
+        await reopened.load()
+        reopened.seed(featureSeed(pack), objectID: "car")
+        #expect(reopened.draft?.origin == "assisted_proposal")
+        #expect(reopened.draft?.note.contains("feature revision 7") == true)
     }
 }

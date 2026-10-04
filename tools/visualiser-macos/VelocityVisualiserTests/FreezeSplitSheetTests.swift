@@ -18,6 +18,8 @@ final class FakeSplitService: @unchecked Sendable {
     var requests: [(path: String, body: [String: Any])] = []
     var wouldFreeze = true
     var existing: [[String: Any]] = []
+    var facetPin: [String: Any]?
+    var facetProblems: [String] = []
     var refuse: [String: (Int, String, String)] = [:]
 
     func handle(_ request: URLRequest) throws -> (HTTPURLResponse, Data) {
@@ -57,6 +59,7 @@ final class FakeSplitService: @unchecked Sendable {
                         [
                             "pack_digest": "sha256:p", "dataset_id": "ds", "sidecar_revision": 3,
                             "sidecar_sha256": "sha256:s",
+                            "features": facetPin.map { $0 as Any } ?? NSNull(),
                             "objects": [
                                 [
                                     "object_id": "obj_a", "partition": "tune", "class": "car",
@@ -87,8 +90,8 @@ final class FakeSplitService: @unchecked Sendable {
                             ],
                         ]
                     ], "membership_problems": wouldFreeze ? [] : ["object obj_b is proposed"],
-                    "physical_problems": [], "would_freeze": wouldFreeze,
-                    "split_digest": "sha256:split",
+                    "physical_problems": [], "facet_problems": facetProblems,
+                    "would_freeze": wouldFreeze, "split_digest": "sha256:split",
                 ])
         case "/api/annotations/split/freeze":
             existing.append([
@@ -129,6 +132,94 @@ final class FakeSplitService: @unchecked Sendable {
 }
 
 @MainActor struct FreezeSplitSheetTests {
+    @Test func aRecordedPhysicalDivergenceIsShownAndDoesNotBlockTheFreeze() async throws {
+        let (model, fake, draft) = makeModel()
+        defer { try? FileManager.default.removeItem(at: draft) }
+        model.chooseDraft(draft)
+        model.setFacetPin(packIndex: 0, enabled: true)
+        let pin: [String: Any] = [
+            "revision": 2, "sha256": "sha256:facet", "content_sha256": "sha256:content",
+            "candidates": 3, "active": 3, "supported_observations": 4, "absence_decisions": 0,
+            "registrations": 2, "tracker_seeded_registrations": 0,
+        ]
+        fake.facetPin = pin
+        await model.runPreview()
+        #expect(model.preview?.packs[0].features?.physicalDivergenceSummary == nil)
+        var divergent = pin
+        divergent["physical_divergences"] = [
+            [
+                "feature_id": "f-1", "object_id": "car-1", "physical_revision": 3,
+                "physical_digest": "sha256:old",
+            ],
+            [
+                "feature_id": "f-2", "object_id": "car-1", "physical_revision": 3,
+                "physical_digest": "sha256:old",
+            ],
+        ]
+        fake.facetPin = divergent
+        await model.runPreview()
+        let facets = try #require(model.preview?.packs[0].features)
+        #expect(model.canFreeze)
+        #expect(facets.physicalDivergences?.map(\.featureID) == ["f-1", "f-2"])
+        #expect(
+            facets.physicalDivergenceSummary
+                == "2 body registrations made against physical revision 3, not this split's pin · recorded, not refused"
+        )
+    }
+
+    @Test func optionalFacetPinsPreserveDraftFieldsAndRequireAnotherPreview() async throws {
+        let (model, fake, draft) = makeModel()
+        defer { try? FileManager.default.removeItem(at: draft) }
+        model.chooseDraft(draft)
+        await model.runPreview()
+        #expect(model.canFreeze && model.preview?.packs[0].features == nil)
+        model.setFacetPin(packIndex: 0, enabled: true)
+        #expect(!model.canFreeze && model.preview == nil)
+        #expect(model.draftPacks[0]["feature_revision"] as? Int == 0)
+        #expect(model.draftPacks[0]["dir"] as? String == "run-a/pack")
+        let file = try SplitFreezeAPIClient.loadDraft(at: draft)
+        #expect((file["packs"] as? [[String: Any]])?[0]["feature_revision"] == nil)
+        fake.facetPin = [
+            "revision": 2, "sha256": "sha256:facet", "content_sha256": "sha256:content",
+            "candidates": 3, "active": 2, "supported_observations": 7, "absence_decisions": 4,
+            "registrations": 2, "tracker_seeded_registrations": 1,
+        ]
+        await model.runPreview()
+        #expect(
+            model.canFreeze && model.preview?.packs[0].features?.trackerSeededRegistrations == 1)
+        #expect(await model.freeze(author: "op"))
+        let sent = try #require(
+            fake.last("/api/annotations/split/freeze")?["draft"] as? [String: Any])
+        #expect((sent["packs"] as? [[String: Any]])?[0]["feature_revision"] as? Int == 0)
+        model.setFacetPin(packIndex: 0, enabled: false)
+        #expect(!model.canFreeze && model.draftPacks[0]["feature_revision"] == nil)
+        model.setFacetPin(packIndex: -1, enabled: true)
+        #expect(model.draftPacks.count == 1)
+    }
+
+    @Test func explicitFacetRevisionAndLineageAreNeverSilentlyReplaced() async throws {
+        let (model, fake, draft) = makeModel()
+        defer { try? FileManager.default.removeItem(at: draft) }
+        model.chooseDraft(draft)
+        var updated = try #require(model.draft)
+        var packs = try #require(updated["packs"] as? [[String: Any]])
+        packs[0]["feature_revision"] = 9
+        updated["packs"] = packs
+        model.draft = updated
+        model.setFacetPin(packIndex: 0, enabled: true)
+        #expect(model.draftPacks[0]["feature_revision"] as? Int == 9)
+        await model.runPreview()
+        #expect(model.canFreeze)
+        model.supersedes = "previous.json"
+        #expect(!model.canFreeze && model.preview == nil)
+        fake.wouldFreeze = false
+        fake.facetProblems = ["mirror sample 3 lost definite support"]
+        await model.runPreview()
+        #expect(model.preview?.facetProblems == fake.facetProblems && !model.canFreeze)
+        #expect(!(await model.freeze(author: "op")))
+        #expect(fake.last("/api/annotations/split/freeze") == nil)
+    }
+
     @Test func theDraftIsSentUntouchedAndThePreviewGatesTheFreeze() async throws {
         let (model, fake, draft) = makeModel()
         #expect(!model.canFreeze)

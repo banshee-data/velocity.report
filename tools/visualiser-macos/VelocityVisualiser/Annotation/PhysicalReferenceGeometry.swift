@@ -19,6 +19,9 @@ enum PhysicalGeometryGate {
     case truth
     /// Dimensions from the body as drafted, for drawing a proposal.
     case preview
+    /// Editable sketch only: missing bounds stay unknown in the document.
+    /// Never use this gate for comparison, review, or scoring.
+    case authoring
 }
 
 struct PhysicalPlanar: Equatable {
@@ -101,6 +104,9 @@ enum PhysicalUnavailable {
 
 struct PhysicalGeometry: Equatable {
     var anchorKind: PhysicalAnchorKind
+    /// Components drawn without a stated bound; zero drawing radius is not precision.
+    var unboundedDraft: Bool = false
+    var usesPriorSize: Bool = false
     var anchorPoint: PhysicalPlanar?
     var anchorUnavailable: String?
     var centre: PhysicalPlanar?
@@ -127,7 +133,7 @@ struct PhysicalGeometry: Equatable {
     ) -> PhysicalGeometry {
         var g = PhysicalGeometry(anchorKind: k.anchor.kind)
         if k.position.status.scorable, let x = k.position.xM, let y = k.position.yM,
-            let bound = k.position.boundM
+            let bound = k.position.boundM, x.isFinite, y.isFinite, bound.isFinite, bound >= 0
         {
             g.anchorPoint = PhysicalPlanar(x: x, y: y, bound: bound)
         } else {
@@ -137,10 +143,28 @@ struct PhysicalGeometry: Equatable {
             g.yawUnavailable = PhysicalUnavailable.axisUnknown
         } else if !k.yaw.status.scorable {
             g.yawUnavailable = k.yaw.status.rawValue
-        } else if let rad = k.yaw.yawRad, let bound = k.yaw.boundRad {
+        } else if let rad = k.yaw.yawRad, let bound = k.yaw.boundRad, rad.isFinite, bound.isFinite,
+            bound >= 0, gate != .authoring || bound <= .pi
+        {
             g.yaw = PhysicalAngle(rad: rad, boundRad: bound, axis: k.yaw.axis, status: k.yaw.status)
         } else {
             g.yawUnavailable = PhysicalUnavailable.yaw
+        }
+        if gate == .authoring {
+            if g.anchorPoint == nil, k.position.status != .unknown, let x = k.position.xM,
+                let y = k.position.yM, x.isFinite, y.isFinite, k.position.boundM == nil
+            {
+                g.anchorPoint = PhysicalPlanar(x: x, y: y, bound: 0)
+                g.anchorUnavailable = nil
+                g.unboundedDraft = true
+            }
+            if g.yaw == nil, k.yaw.axis != .unknown, k.yaw.status != .unknown,
+                let rad = k.yaw.yawRad, rad.isFinite, k.yaw.boundRad == nil
+            {
+                g.yaw = PhysicalAngle(rad: rad, boundRad: 0, axis: k.yaw.axis, status: k.yaw.status)
+                g.yawUnavailable = nil
+                g.unboundedDraft = true
+            }
         }
         g.applyBody(object.body, gate: gate)
         g.applyCentre(k.anchor)
@@ -176,14 +200,35 @@ struct PhysicalGeometry: Equatable {
             return
         }
         guard let body else { return }
-        (length, lengthUnavailable) = Self.linear(body.length)
-        (width, widthUnavailable) = Self.linear(body.width)
-        (height, heightUnavailable) = Self.linear(body.height)
+        if gate == .authoring {
+            let dimensions = [body.length, body.width, body.height]
+            unboundedDraft =
+                unboundedDraft
+                || dimensions.contains {
+                    $0.status != .unknown && $0.span != .partial && $0.valueM != nil && !$0.bounded
+                }
+            usesPriorSize = dimensions.contains { $0.status == .priorOnly }
+        }
+        (length, lengthUnavailable) = Self.linear(body.length, gate: gate)
+        (width, widthUnavailable) = Self.linear(body.width, gate: gate)
+        (height, heightUnavailable) = Self.linear(body.height, gate: gate)
     }
 
-    private static func linear(_ d: PhysicalDimension) -> (PhysicalLinear?, String?) {
-        guard d.status.scorable else { return (nil, d.status.rawValue) }
-        guard let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
+    private static func linear(
+        _ d: PhysicalDimension, gate: PhysicalGeometryGate
+    ) -> (PhysicalLinear?, String?) {
+        guard d.status.scorable || (gate == .authoring && d.status == .priorOnly) else {
+            return (nil, d.status.rawValue)
+        }
+        if gate == .authoring, d.span != .partial, !d.bounded, let value = d.valueM, value.isFinite,
+            value >= 0
+        {
+            return (
+                PhysicalLinear(
+                    lower: value, upper: value, value: value, halfWidth: 0, status: d.status), nil
+            )
+        }
+        guard d.span != .partial, let lo = d.lowerM, let hi = d.upperM, let best = d.best else {
             return (nil, PhysicalUnavailable.lowerBoundOnly)
         }
         return (
@@ -210,10 +255,20 @@ struct PhysicalGeometry: Equatable {
             centreUnavailable = PhysicalUnavailable.yaw
             return
         }
+        guard yaw.axis == .resolved, offset.isFinite, offsetBound.isFinite, offset >= 0,
+            offsetBound >= 0
+        else {
+            centreUnavailable = PhysicalUnavailable.anchorOffsetUnknown
+            return
+        }
         let n = Self.inwardNormal(a.kind, yaw: yaw.rad)
         centre = PhysicalPlanar(
             x: anchor.x + offset * n.x, y: anchor.y + offset * n.y,
             bound: anchor.bound + offsetBound + offset * Self.swing(yaw.boundRad))
+        if let c = centre, !c.x.isFinite || !c.y.isFinite || !c.bound.isFinite {
+            centre = nil
+            centreUnavailable = PhysicalUnavailable.centre
+        }
     }
 
     private func endpoint(

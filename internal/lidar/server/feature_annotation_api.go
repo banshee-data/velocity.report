@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
@@ -23,8 +24,24 @@ func (ws *Server) handleFeatureAnnotations(w http.ResponseWriter, r *http.Reques
 	}
 	var state *pb.FeatureState
 	var err error
+	var revision uint64
+	if values, present := r.URL.Query()["revision"]; present {
+		if r.Method != http.MethodGet || len(values) != 1 {
+			ws.writeJSONError(w, http.StatusBadRequest, "Revision is a single read-only parameter")
+			return
+		}
+		revision, err = strconv.ParseUint(values[0], 10, 31)
+		if err != nil || revision == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "Invalid feature revision")
+			return
+		}
+	}
 	if r.Method == http.MethodGet {
-		state, err = annotation.LoadFeatures(p)
+		if revision != 0 {
+			state, err = annotation.LoadFeatureRevision(p, revision)
+		} else {
+			state, err = annotation.LoadFeatures(p)
+		}
 	} else {
 		var b []byte
 		b, err = io.ReadAll(http.MaxBytesReader(w, r.Body, maxPhysicalRequestBytes))

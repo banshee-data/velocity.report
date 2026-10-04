@@ -15,10 +15,13 @@ import SwiftUI
 struct PhysicalReferencePane: View {
     @ObservedObject var session: AnnotationSession
     @ObservedObject var physical: PhysicalReferenceSession
+    @ObservedObject private var inspector: PhysicalReportInspector
+    @State private var assistanceSource = ""
 
     init(session: AnnotationSession) {
         self.session = session
         self.physical = session.physical
+        self.inspector = session.reportInspector
     }
 
     var body: some View {
@@ -26,6 +29,7 @@ struct PhysicalReferencePane: View {
             statusSection
             if physical.availability == .ready || isReadOnly {
                 if let object = session.activeObject {
+                    if session.comparisonAllowed { trackerSeedSection }
                     Divider()
                     bodySection(object.objectID)
                     Divider()
@@ -48,17 +52,43 @@ struct PhysicalReferencePane: View {
         return false
     }
 
+    private func humanMessage(_ raw: String) -> String {
+        // Include retained records when a draft replaced their IDs. These
+        // labels affect presentation only; repairs still receive raw records.
+        let saved = physical.state?.document.objects ?? []
+        return PhysicalAuthoringMessage.describe(
+            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) },
+            frameNumber: { id in
+                session.pack.samples.first(where: { $0.sampleID == id })?.sourceOrdinal
+            })
+    }
+
+    private func diagnostic(_ raw: String, colour: Color) -> some View {
+        let human = humanMessage(raw)
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(human).font(.caption).foregroundStyle(colour).textSelection(.enabled).fixedSize(
+                horizontal: false, vertical: true)
+            if human != raw {
+                DisclosureGroup("Service detail") {
+                    Text(raw).font(.caption2.monospaced()).textSelection(.enabled).fixedSize(
+                        horizontal: false, vertical: true)
+                }.font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     // MARK: Status
 
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Physical reference").font(.headline)
-            Label(
-                "Blind authoring: the main-view link is paused. Keep the main window's tracker "
-                    + "boxes out of sight while authoring an independent reference.",
-                systemImage: "eye.slash"
-            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
-                horizontal: false, vertical: true)
+            if session.activeObjectID.flatMap({ physical.exposure[$0] }) == nil {
+                Label(
+                    "Independent authoring requires keeping the main window's tracker boxes out of sight. The main-view link is paused; that alone does not establish independence.",
+                    systemImage: "eye.slash"
+                ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
+            }
             switch physical.availability {
             case .notLoaded, .loading: ProgressView().controlSize(.small)
             case .unavailable(let reason):
@@ -85,9 +115,7 @@ struct PhysicalReferencePane: View {
                 Text("Reviewed, but membership changed since").font(.caption.bold())
                     .foregroundStyle(.orange)
                 ForEach(physical.driftProblems, id: \.self) { problem in
-                    Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(
-                        .orange
-                    ).fixedSize(horizontal: false, vertical: true)
+                    diagnostic("\(problem.record): \(problem.problem)", colour: .orange)
                 }
                 Text("Check each against the new points, then review it again.").font(.caption2)
                     .foregroundStyle(.secondary)
@@ -97,12 +125,41 @@ struct PhysicalReferencePane: View {
                     "You have seen this object's estimate (\(seen)). Edits to it are saved as tracker-assisted."
                 ).font(.caption2).foregroundStyle(.orange).fixedSize(
                     horizontal: false, vertical: true)
+                if let objectID = session.activeObjectID, let object = physical.object(objectID),
+                    (object.body.map {
+                        $0.review.origin == .independent && $0.review.status != .reviewed
+                    } ?? false)
+                        || object.keyframes.contains(where: {
+                            $0.review.origin == .independent && $0.review.status != .reviewed
+                        })
+                {
+                    Button("Continue as assisted proposal") {
+                        physical.continueAsAssisted(objectID: objectID)
+                    }.controlSize(.small).disabled(!physical.canEdit || physical.needsReload)
+                    Text(
+                        "Reviewing after seeing an estimate is assisted too. Save this new proposal before reviewing it; previously reviewed independent records stay in history."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
+            } else if let objectID = session.activeObjectID {
+                DisclosureGroup("I used the main-window estimate") {
+                    TextField("Name the estimate, run and stage you used", text: $assistanceSource)
+                        .textFieldStyle(.roundedBorder)
+                    Text(
+                        "This declaration stays with the object. Existing independent history is retained; current unsaved and later edits become tracker-assisted."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    Button("Declare assisted authoring") {
+                        if physical.declareAssistance(objectID: objectID, source: assistanceSource)
+                        {
+                            assistanceSource = ""
+                        }
+                    }.controlSize(.small).disabled(
+                        !physical.canEdit || physical.needsReload || physical.gestureInProgress
+                            || assistanceSource.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .isEmpty
+                    )
+                }.font(.caption2)
             }
-            if let error = physical.lastError {
-                Text(error).font(.caption).foregroundStyle(.red).fixedSize(
-                    horizontal: false, vertical: true
-                ).textSelection(.enabled)
-            }
+            if let error = physical.lastError { diagnostic(error, colour: .red) }
             if let note = physical.lastNote {
                 Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
@@ -122,18 +179,52 @@ struct PhysicalReferencePane: View {
 
     // MARK: Body
 
+    private var trackerSeedSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DisclosureGroup("Start from tracker estimate · assisted") {
+                Text(
+                    "Open a report in Compare, choose its estimate arm, then return here. Only a stated physical body centre at this exact object/frame can seed a pose; visible OBBs and medoids cannot."
+                ).font(.caption2).foregroundStyle(.secondary)
+                if let identity = inspector.armIdentity {
+                    Text(identity.source).font(.caption2).textSelection(.enabled)
+                    if let seed = try? session.trackerSeedEligibility() {
+                        Text("Track \(seed.prediction.trackKey) · sample \(seed.sampleID)").font(
+                            .caption2)
+                        Button("Import report estimate as draft") {
+                            session.seedPhysicalFromReport()
+                        }.controlSize(.small).disabled(
+                            !physical.canEdit || physical.needsReload || physical.isDirty
+                                || !session.dirtySamples.isEmpty || session.physicalKeyframe != nil)
+                    } else {
+                        Text(
+                            "No supported body seed for this object/frame. Place the anchor manually; the estimate's point meaning is retained."
+                        ).font(.caption2).foregroundStyle(.orange)
+                    }
+                } else {
+                    Text(
+                        "No report open. Direct import of the main-window track is unavailable because that stream does not state the physical position's meaning."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
+                Text(
+                    "Existing size and poses are kept. Imported values have no reference bounds: inspect the sketch, state bounds and assumptions, then save and review. Its source outline stays dashed pink while you edit."
+                ).font(.caption2).foregroundStyle(.secondary)
+            }.font(.caption2)
+        }
+    }
+
     private func bodySection(_ objectID: String) -> some View {
         let body = physical.object(objectID)?.body
         let saved = physical.savedBody(objectID: objectID)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Body · whole object").font(.subheadline.bold())
+                Text("1 · Object size · all frames").font(.subheadline.bold())
                 Spacer()
                 if let saved { reviewBadge(saved.review.status) }
             }
             Text(
-                "One body for the whole episode. A changed dimension is a new body, and every "
-                    + "keyframe's review is reset when it is saved."
+                "Length is front to rear; width is side to side. Set the real object's size once, "
+                    + "rather than fitting each visible patch. Enter a value and explicit tolerance; "
+                    + "Changing size resets pose reviews across the object."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
             if body != nil {
@@ -164,7 +255,7 @@ struct PhysicalReferencePane: View {
                     }.disabled(!physical.canEdit)
                 }.controlSize(.small)
             } else {
-                Button("Add body (all unknown)") {
+                Button("Add shared object size") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -213,12 +304,43 @@ struct PhysicalReferencePane: View {
                 }
             }
             if d.status != .unknown {
-                HStack(spacing: 4) {
-                    metres("min", number(\.lowerM))
-                    if d.span != .partial {
-                        metres("max", number(\.upperM))
-                        metres("value", number(\.valueM)).help("Optional, inside [min, max]")
+                if d.span == .partial {
+                    metres("at least", number(\.lowerM))
+                    Text("Only the visible extent; this does not give the full object size.").font(
+                        .caption2
+                    ).foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 4) {
+                        metres(
+                            "value",
+                            Binding(
+                                get: { d.valueM },
+                                set: { value in
+                                    update { PhysicalDraft.setDimensionValue(value, of: &$0) }
+                                }))
+                        metres(
+                            "±",
+                            Binding(
+                                get: { d.best?.halfWidth },
+                                set: { tolerance in
+                                    update {
+                                        _ = PhysicalDraft.setDimensionTolerance(tolerance, of: &$0)
+                                    }
+                                })
+                        ).disabled(d.valueM == nil && !d.bounded)
                     }
+                    Text(
+                        "Enter the whole span, then how far either way it could be wrong. The sketch appears before bounds are complete."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    DisclosureGroup("Exact min/max (advanced)") {
+                        HStack(spacing: 4) {
+                            metres("min", number(\.lowerM))
+                            metres("max", number(\.upperM))
+                        }
+                        Text(
+                            "Use this for an asymmetric interval. The optional value must stay inside it."
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }.font(.caption2)
                 }
                 supportEditor(
                     Binding(get: { d.support }, set: { s in update { $0.support = s } }),
@@ -237,20 +359,44 @@ struct PhysicalReferencePane: View {
         }
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Keyframe · this frame only").font(.subheadline.bold())
+                Text("2 · Pose at this frame").font(.subheadline.bold())
                 Spacer()
                 if let saved { reviewBadge(saved.review.status) }
             }
+            Text(
+                "A pose (keyframe) records position and direction at one instant. It keeps the shared object size; it does not interpolate or follow the tracker."
+            ).font(.caption2).foregroundStyle(.secondary)
             if let sample {
                 Text(
                     "Frame \(sample.sourceOrdinal) · sample \(sample.sampleID) · \(sample.timestampNs) ns"
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).textSelection(
                     .enabled)
             }
+            if let object = physical.object(objectID), !object.keyframes.isEmpty {
+                Menu("Poses: \(object.keyframes.count) marked frames") {
+                    ForEach(object.keyframes.sorted { $0.sampleID < $1.sampleID }, id: \.keyframeID)
+                    { pose in
+                        Button(
+                            "Frame \(session.pack.samples.first(where: { $0.sampleID == pose.sampleID })?.sourceOrdinal ?? pose.sampleID) · \(pose.review.status.rawValue)"
+                        ) {
+                            guard
+                                let index = session.samples.firstIndex(where: {
+                                    $0.sampleID == pose.sampleID
+                                })
+                            else { return }
+                            if session.step(to: index) != nil {
+                                physical.refuse(
+                                    "Save or discard the current edits before choosing a pose frame."
+                                )
+                            }
+                        }
+                    }
+                }.controlSize(.small)
+            }
             if let k, let sample {
                 keyframeEditor(objectID: objectID, k: k, sample: sample)
                 HStack {
-                    Button("Review keyframe") {
+                    Button("Review saved pose") {
                         guard let saved else { return }
                         Task {
                             await physical.review(
@@ -263,7 +409,7 @@ struct PhysicalReferencePane: View {
                             || physical.isDirty || !physical.canEdit
                     ).help("Confirms the saved keyframe. It does not review the mask or the body.")
                     Spacer()
-                    Button("Remove keyframe", role: .destructive) {
+                    Button("Remove pose", role: .destructive) {
                         physical.edit {
                             PhysicalDraft.removeKeyframe(
                                 objectID: objectID, sampleID: sample.sampleID, from: &$0)
@@ -290,7 +436,7 @@ struct PhysicalReferencePane: View {
                             + "Check it against this frame's returns before claiming anything observed."
                     )
                 }
-                Button("Add keyframe at this frame") {
+                Button("Add pose at this frame") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -357,7 +503,7 @@ struct PhysicalReferencePane: View {
                     status: k.yaw.status, ownSample: sample.sampleID)
             }
 
-            Text("Anchor").font(.caption.bold()).padding(.top, 4)
+            Text("Point fixed to the body").font(.caption.bold()).padding(.top, 4)
             Picker(
                 "",
                 selection: Binding(
@@ -365,7 +511,7 @@ struct PhysicalReferencePane: View {
                     set: { a in update { PhysicalDraft.setAnchor(a, of: &$0) } })
             ) {
                 ForEach(PhysicalAnchorKind.allCases, id: \.self) { kind in
-                    Text(kind.label).tag(kind)
+                    Text(kind.label).tag(kind).disabled(kind.isFace && !resolved)
                 }
             }.labelsHidden().help(
                 resolved
@@ -375,6 +521,9 @@ struct PhysicalReferencePane: View {
                 Text("A face needs a resolved axis.").font(.caption2).foregroundStyle(.orange)
             }
             if k.anchor.kind.isFace {
+                Text(
+                    "Position names this face's centre, not an arbitrary return or the changing centre of its visible patch. Include uncertainty about the unseen face centre in the position bound. Use Facets to register a repeatable mirror tip or edge; this offset is only inward, normal to the face."
+                ).font(.caption2).foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     metres("to centre", number(\.anchor.offsetM))
                     metres("±", number(\.anchor.offsetBoundM))
@@ -382,7 +531,10 @@ struct PhysicalReferencePane: View {
                     "Optional. Without both, the anchor locates the face and not the body centre.")
             }
 
-            Text("Position").font(.caption.bold()).padding(.top, 4)
+            Text("Position of the fixed point").font(.caption.bold()).padding(.top, 4)
+            Text(
+                "Click in Top to place ■; drag ■ to move and ● to turn. The body size stays fixed. Fill ± to state uncertainty before saving a known pose."
+            ).font(.caption2).foregroundStyle(.secondary)
             evidencePicker(
                 Binding(
                     get: { k.position.status },
@@ -450,7 +602,7 @@ struct PhysicalReferencePane: View {
             PhysicalGeometry.derive(object: $0, keyframe: k, gate: .preview)
         }
         return VStack(alignment: .leading, spacing: 1) {
-            Text("Derived (draft)").font(.caption.bold()).padding(.top, 4)
+            Text("Supported geometry · bounds required").font(.caption.bold()).padding(.top, 4)
             if let g {
                 line(
                     "centre",
@@ -487,19 +639,16 @@ struct PhysicalReferencePane: View {
                         .caption
                     ).foregroundStyle(.green)
                 } else {
-                    if let invalid = v.invalid {
-                        Text(invalid).font(.caption).foregroundStyle(.red).fixedSize(
-                            horizontal: false, vertical: true)
-                    }
+                    if let invalid = v.invalid { diagnostic(invalid, colour: .red) }
                     ForEach(v.linkProblems, id: \.self) { p in
-                        Text("\(p.record): \(p.problem)").font(.caption2).foregroundStyle(.red)
-                            .fixedSize(horizontal: false, vertical: true)
+                        diagnostic("\(p.record): \(p.problem)", colour: .red)
                     }
                 }
                 if !v.resetReviews.isEmpty {
-                    Text("Saving returns to proposed: \(v.resetReviews.joined(separator: ", "))")
-                        .font(.caption2).foregroundStyle(.orange).fixedSize(
-                            horizontal: false, vertical: true)
+                    Text(
+                        "Saving returns to proposed: \(v.resetReviews.map(humanMessage).joined(separator: ", "))"
+                    ).font(.caption2).foregroundStyle(.orange).fixedSize(
+                        horizontal: false, vertical: true)
                 }
             } else if physical.isDirty {
                 Text("Checking the draft…").font(.caption2).foregroundStyle(.secondary)
@@ -543,8 +692,7 @@ struct PhysicalReferencePane: View {
     private func staleRow(_ problem: PhysicalLinkProblem) -> some View {
         let objectID = problem.record.split(separator: "\"").dropFirst().first.map(String.init)
         return VStack(alignment: .leading, spacing: 2) {
-            Text("\(problem.record): \(problem.problem)").font(.caption2).foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
+            diagnostic("\(problem.record): \(problem.problem)", colour: .orange)
             HStack {
                 Button("Remove record", role: .destructive) {
                     physical.edit { _ = PhysicalDraft.remove(problem: problem, from: &$0) }

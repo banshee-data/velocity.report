@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
+	"google.golang.org/protobuf/proto"
 )
 
 var splitNow = func() time.Time { return time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC) }
@@ -338,5 +340,64 @@ func TestAnnotationSplitRefusals(t *testing.T) {
 				t.Fatalf("exit %d, stderr %q; want 1 mentioning %q", code, stderr, tc.want)
 			}
 		})
+	}
+}
+
+// saveFacet saves one facet proposal on obj_a, supported by its two returns
+// at sample 0, as the pack's facet head.
+func saveFacet(t *testing.T, p *annotation.Pack) *pb.FeatureState {
+	t.Helper()
+	s, err := annotation.LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := annotation.LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Document.Author = "operator"
+	state.Document.Features = []*pb.FeatureCandidate{{FeatureId: "tip", ObjectId: "obj_a", Name: "Tip", PartId: "body", PartRelation: "unknown",
+		Geometry: pb.FeatureGeometry_FEATURE_GEOMETRY_PROTRUSION, Observations: []*pb.FeatureObservation{{
+			SampleId: 0, TimestampNs: p.Samples[0].TimestampNs, SourceOrdinal: 0, PointIndices: []uint32{0, 1},
+			Sphere:   &pb.FeatureSphere{XM: 1.5, RadiusM: 0.6},
+			Decision: pb.FeatureDecision_FEATURE_DECISION_ACCEPTED_PROPOSAL, Method: "manual_sphere", Origin: "human_proposal", Author: "operator",
+			MembershipRevision: uint64(s.Revision), MembershipDigest: s.Digest()}}}}
+	saved, err := annotation.SaveFeatures(p, &pb.FeatureEdit{Document: state.Document, MembershipDigest: state.MembershipDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return saved
+}
+
+// No evaluator reads facet proposals, so verify is where their pin is held:
+// it passes while the pinned bytes hold, and fails once they change.
+func TestAnnotationSplitVerifyHoldsTheFacetPin(t *testing.T) {
+	root := t.TempDir()
+	tuned := reviewedPack(t, filepath.Join(root, "tuned"), 1e9)
+	state := saveFacet(t, tuned)
+	pinned := draftPack("tuned", nil)
+	head := 0
+	pinned.FeatureRevision = &head
+	out := filepath.Join(root, "frozen.json")
+	if code, _, stderr := runSplit("freeze", "-draft", writeDraft(t, root, pinned), "-author", "operator", "-output", out); code != 0 {
+		t.Fatalf("freeze: %s", stderr)
+	}
+	code, stdout, stderr := runSplit("verify", "-split", out, "-pack", tuned.Dir)
+	if code != 0 || !strings.Contains(stdout, "facet revision 1 holds against that membership: 1 candidate(s), proposals, not truth") {
+		t.Fatalf("verify: exit %d\n%s\n%s", code, stdout, stderr)
+	}
+
+	// The same revision with other bytes is not the pin.
+	state.Document.Features[0].Name = "Edited after freezing"
+	b, err := proto.Marshal(state.Document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tuned.Dir, "feature-proposals.pb"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr = runSplit("verify", "-split", out, "-pack", tuned.Dir)
+	if code != 1 || !strings.Contains(stderr, "facet bytes or derived summary differ from the frozen pin") || strings.Contains(stdout, "every pin holds") {
+		t.Fatalf("an edited facet pin verified: exit %d\n%s\n%s", code, stdout, stderr)
 	}
 }

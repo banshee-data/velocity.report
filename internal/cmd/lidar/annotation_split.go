@@ -32,7 +32,8 @@ against the pinned annotation revision. Geometry review is recorded beside
 membership review.
 
 verify re-checks a frozen split's digest and every pin against its packs, as
-the per-frame evaluator does before scoring.
+the per-frame evaluator does before scoring. A facet-proposal pin, which no
+evaluator reads, is checked here against the pinned membership.
 
 Run 'velocity lidar annotation-split <freeze|verify> -h' for flags.`
 
@@ -157,9 +158,21 @@ func annotationSplitVerify(args []string, stdout, stderr io.Writer) int {
 			failed = true
 			continue
 		}
+		// No evaluator scores facet proposals, so none binds their pin; this
+		// is where an edited or missing facet revision is caught.
+		facets, err := f.BindFeatures(p, s)
+		if err != nil {
+			fmt.Fprintf(stderr, "pack %s: %v\n", dir, err)
+			failed = true
+			continue
+		}
 		bound[p.Manifest.PackDigest] = true
 		fmt.Fprintf(stdout, "pack %s: every pin holds at annotation revision %d (%d episode(s))\n",
 			p.Manifest.PackDigest, s.Revision, len(view.Episodes))
+		if facets != nil {
+			fmt.Fprintf(stdout, "  facet revision %d holds against that membership: %d candidate(s), proposals, not truth\n",
+				facets.Revision, len(facets.Features))
+		}
 		// A newer revision is not a failure: the split scores the one it
 		// pinned. Saying so keeps the difference from being a surprise.
 		if head, err := annotation.LoadSidecar(p); err == nil && head.Revision > s.Revision {

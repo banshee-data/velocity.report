@@ -9,11 +9,13 @@
 // PhysicalDraft.applyExposure. A held-out pack does not open a report at all.
 
 import Combine
+import CryptoKit
 import Foundation
 
 @MainActor final class PhysicalReportInspector: ObservableObject {
     @Published private(set) var report: PhysicalComparisonReport?
     @Published private(set) var reportName: String?
+    @Published private(set) var reportDigest: String?
     @Published private(set) var error: String?
     /// Which arm is shown: 0 for A, 1 for B.
     @Published var arm = 0
@@ -35,6 +37,7 @@ import Foundation
         generation &+= 1
         report = nil
         reportName = nil
+        reportDigest = nil
         retained = nil
         provenanceNote = nil
         error = nil
@@ -47,6 +50,7 @@ import Foundation
         generation &+= 1
         let asked = generation
         report = nil
+        reportDigest = nil
         retained = nil
         provenanceNote = nil
         error = nil
@@ -56,9 +60,13 @@ import Foundation
                 + "evaluation contract allows it."
             return
         }
-        let decoded: Result<PhysicalComparisonReport, Error> = await Task.detached {
+        let decoded: Result<(PhysicalComparisonReport, String), Error> = await Task.detached {
             Result {
-                try PhysicalComparisonReport.decode(Data(contentsOf: url), packDigest: packDigest)
+                let bytes = try Data(contentsOf: url)
+                return (
+                    try PhysicalComparisonReport.decode(bytes, packDigest: packDigest),
+                    "sha256:" + SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+                )
             }
         }.value
         guard asked == generation else { return }
@@ -66,12 +74,13 @@ import Foundation
         case .failure(let failure):
             error = (failure as? LocalizedError)?.errorDescription ?? String(describing: failure)
             return
-        case .success(let loaded):
+        case .success(let (loaded, digest)):
             if loaded.reference.splitRole == "held_out" {
                 error = "The report scored a held-out split; it is not opened here."
                 return
             }
             report = loaded
+            reportDigest = digest
             reportName = url.lastPathComponent
             arm = 0
         }

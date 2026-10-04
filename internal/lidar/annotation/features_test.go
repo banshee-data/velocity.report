@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,7 +17,11 @@ import (
 
 func featureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
 	t.Helper()
-	p := physPack(t)
+	return featureFixtureForPack(t, physPack(t))
+}
+
+func featureFixtureForPack(t *testing.T, p *Pack) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
 	s := physSidecar(t, p)
 	state, err := LoadFeatures(p)
 	if err != nil {
@@ -60,6 +65,25 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 	if !bytes.Equal(first, archived) {
 		t.Fatal("history changed")
 	}
+	retained, err := LoadFeatureRevision(p, 1)
+	if err != nil || retained.Digest != state.Digest || !proto.Equal(retained.Document, state.Document) {
+		t.Fatalf("retained evidence changed: %v %+v", err, retained)
+	}
+	head, err := LoadFeatureRevision(p, 2)
+	if err != nil || !proto.Equal(head.Document, newState.Document) || head.Digest != newState.Digest || head.PackDirectory != newState.PackDirectory {
+		t.Fatalf("exact head revision: %v", err)
+	}
+	// An exact revision is read-only even while it is the head.
+	if head.MembershipDigest != "" || newState.MembershipDigest == "" {
+		t.Fatal("exact head revision issued a write token")
+	}
+	// A corrupt later head must not erase a valid retained revision.
+	latest, _ := os.ReadFile(filepath.Join(p.Dir, featureFile))
+	os.WriteFile(filepath.Join(p.Dir, featureFile), []byte{0xff}, 0600)
+	if r, err := LoadFeatureRevision(p, 1); err != nil || r.Digest != state.Digest {
+		t.Fatalf("later head damage erased history: %v", err)
+	}
+	os.WriteFile(filepath.Join(p.Dir, featureFile), latest, 0600)
 	maskAfter, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
 	if !bytes.Equal(maskBefore, maskAfter) {
 		t.Fatal("feature save changed membership")
@@ -73,8 +97,99 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 	if _, err = LoadFeatures(p); err != nil {
 		t.Fatalf("historical evidence: %v", err)
 	}
+	if historical, err := LoadFeatureRevision(p, 1); err != nil || historical.Digest != retained.Digest {
+		t.Fatalf("membership edit erased retained revision: %v", err)
+	}
 	if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: newState.Document, BaseDigest: newState.Digest, MembershipDigest: state.MembershipDigest}); !errors.Is(err, ErrMembershipChanged) {
 		t.Fatal(err)
+	}
+}
+
+func TestLoadFeatureRevisionRefusals(t *testing.T) {
+	for _, name := range []string{"zero", "overflow", "root", "membership", "missing", "corrupt", "identity", "schema", "symlink"} {
+		t.Run(name, func(t *testing.T) {
+			p, edit := featureFixture(t)
+			s, err := SaveFeatures(p, edit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: s.MembershipDigest}); err != nil {
+				t.Fatal(err)
+			}
+			revision := uint64(1)
+			archive := filepath.Join(p.Dir, featureRevisionName(1))
+			switch name {
+			case "zero":
+				revision = 0
+			case "overflow":
+				revision = math.MaxInt32 + 1
+			case "root":
+				p.Dir = filepath.Join(p.Dir, "missing")
+			case "membership":
+				os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+			case "missing":
+				os.Remove(archive)
+			case "corrupt":
+				os.WriteFile(archive, []byte{0xff}, 0600)
+			case "identity", "schema":
+				d := proto.Clone(s.Document).(*pb.FeatureAnnotations)
+				if name == "identity" {
+					d.Revision = 9
+				} else {
+					d.SchemaVersion = 2
+				}
+				b, err := proto.Marshal(d)
+				if err != nil {
+					t.Fatal(err)
+				}
+				os.WriteFile(archive, b, 0600)
+			case "symlink":
+				os.Remove(archive)
+				outside := filepath.Join(t.TempDir(), "outside.pb")
+				b, _ := proto.Marshal(s.Document)
+				os.WriteFile(outside, b, 0600)
+				if err := os.Symlink(outside, archive); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := LoadFeatureRevision(p, revision); err == nil {
+				t.Fatal("accepted invalid retained revision")
+			}
+		})
+	}
+}
+
+// A revision that is not archived is looked for at the head. When the head
+// cannot be read, that is the error, not a missing file.
+func TestLoadFeatureRevisionReportsWhyTheHeadFailed(t *testing.T) {
+	p, edit := featureFixture(t)
+	first, err := SaveFeatures(p, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := SaveFeatures(p, &pb.FeatureEdit{Document: first.Document, BaseDigest: first.Digest, MembershipDigest: first.MembershipDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = LoadFeatureRevision(p, 3); err == nil || !errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), "neither archived nor the head (revision 2)") {
+		t.Fatalf("future revision: %v", err)
+	}
+	damaged := proto.Clone(second.Document).(*pb.FeatureAnnotations)
+	damaged.SchemaVersion = 2
+	b, err := proto.Marshal(damaged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFeatureRevision(p, 2)
+	if err == nil || errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), "head cannot be read") || !strings.Contains(err.Error(), "unsupported feature schema") {
+		t.Fatalf("head failure hidden: %v", err)
+	}
+	// The archived revision is still read from its own bytes.
+	if r, err := LoadFeatureRevision(p, 1); err != nil || r.Digest != first.Digest || r.MembershipDigest != "" {
+		t.Fatalf("archived revision: %v", err)
 	}
 }
 
@@ -355,5 +470,324 @@ func TestConcurrentFeatureEditorsDoNotLoseAnAcceptedRevision(t *testing.T) {
 	s, err := LoadFeatures(p)
 	if err != nil || s.Document.Revision != 1 {
 		t.Fatalf("lost revision: %+v %v", s, err)
+	}
+}
+
+func TestFeatureActiveFacetLimitRetainsRetiredEvidence(t *testing.T) {
+	p, edit := featureFixture(t)
+	first := edit.Document.Features[0]
+	for i := 1; i < 5; i++ {
+		f := proto.Clone(first).(*pb.FeatureCandidate)
+		f.FeatureId = fmt.Sprintf("facet-%d", i)
+		edit.Document.Features = append(edit.Document.Features, f)
+	}
+	if _, err := SaveFeatures(p, edit); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("fifth active facet accepted: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, featureFile)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("refused save wrote a file: %v", err)
+	}
+	edit.Document.Features[0].Inactive = true
+	state, err := SaveFeatures(p, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Document.Features) != 5 || len(state.Document.Features[0].Observations) != 1 {
+		t.Fatal("retiring erased evidence")
+	}
+	next := proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = false
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: next, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest}); err == nil {
+		t.Fatal("reactivation bypassed active cap")
+	}
+	for _, f := range next.Features {
+		f.Inactive = true
+	}
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: next, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest}); err != nil {
+		t.Fatalf("zero active facets must support abstention: %v", err)
+	}
+}
+
+// A document saved before the cap existed is not frozen out of editing: it can
+// edit another object, and come down one retirement at a time, but never grow.
+func TestFeatureActiveFacetLimitLetsLegacyDocumentsComeDown(t *testing.T) {
+	p, edit := featureFixture(t)
+	first := edit.Document.Features[0]
+	for i := 1; i < 6; i++ {
+		f := proto.Clone(first).(*pb.FeatureCandidate)
+		f.FeatureId = fmt.Sprintf("legacy-%d", i)
+		edit.Document.Features = append(edit.Document.Features, f)
+	}
+	// Written as the head directly, as authoring before the cap could save it.
+	edit.Document.Revision = 1
+	b, err := (proto.MarshalOptions{Deterministic: true}).Marshal(edit.Document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	state, err := LoadFeatures(p)
+	if err != nil || activeFacets(state.Document)["car-1"] != 6 {
+		t.Fatalf("legacy head: %v", err)
+	}
+	save := func(doc *pb.FeatureAnnotations) (*pb.FeatureState, error) {
+		return SaveFeatures(p, &pb.FeatureEdit{Document: doc, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest})
+	}
+
+	// Another object gains a facet; car-1 stays at six, unchanged.
+	points, err := p.PointsAt(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := proto.Clone(first).(*pb.FeatureCandidate)
+	other.FeatureId, other.ObjectId = "car-2-mirror", "car-2"
+	o := other.Observations[0]
+	o.PointIndices = []uint32{8, 9}
+	o.Sphere = &pb.FeatureSphere{XM: float64(points.X[8]), YM: float64(points.Y[8]), ZM: 0.9, RadiusM: 0.7}
+	next := proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features = append(next.Features, other)
+	if state, err = save(next); err != nil {
+		t.Fatalf("legacy object blocked an edit to another object: %v", err)
+	}
+
+	// Six may come down to five.
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = true
+	if state, err = save(next); err != nil {
+		t.Fatalf("retiring a legacy facet refused: %v", err)
+	}
+	if activeFacets(state.Document)["car-1"] != 5 {
+		t.Fatal(activeFacets(state.Document))
+	}
+
+	// Five may not go back up, by reactivation or by a new facet.
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	next.Features[0].Inactive = false
+	if _, err = save(next); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("reactivation grew a legacy object: %v", err)
+	}
+	next = proto.Clone(state.Document).(*pb.FeatureAnnotations)
+	added := proto.Clone(first).(*pb.FeatureCandidate)
+	added.FeatureId = "new"
+	next.Features = append(next.Features, added)
+	if _, err = save(next); err == nil || !strings.Contains(err.Error(), "four active facets") {
+		t.Fatalf("new facet grew a legacy object: %v", err)
+	}
+}
+
+func registeredFeatureFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
+	p, e := featureFixture(t)
+	return registeredFeatureFixtureForPack(t, p, e)
+}
+
+func registeredFeatureFixtureForPack(t *testing.T, p *Pack, e *pb.FeatureEdit) (*Pack, *pb.FeatureEdit) {
+	t.Helper()
+	r := validPhysical(p)
+	pin := &MembershipPin{Revision: int(e.Document.Features[0].Observations[0].MembershipRevision), Digest: e.MembershipDigest}
+	for i := range r.Objects {
+		if r.Objects[i].Body != nil {
+			r.Objects[i].Body.Review.ReviewedAgainst = pin
+		}
+		for j := range r.Objects[i].Keyframes {
+			if r.Objects[i].Keyframes[j].Review.Status == StatusReviewed {
+				r.Objects[i].Keyframes[j].Review.ReviewedAgainst = pin
+			}
+		}
+	}
+	if err := SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	f := e.Document.Features[0]
+	second := proto.Clone(f.Observations[0]).(*pb.FeatureObservation)
+	second.SampleId, second.TimestampNs, second.SourceOrdinal = 1, physTime(1), 1
+	second.Sphere.XM++
+	f.Observations = append(f.Observations, second)
+	point := uint32(0)
+	distance := math.Hypot(2.25, float64(float32(0.9)))
+	f.PartRelation = "rigid_proposal"
+	f.Anchor = &pb.FeatureAnchor{PartFrameId: "body-car-1_xy", PartFrameRevision: 1, XM: -2.25, YM: float64(float32(-0.9)),
+		PhysicalRevision: uint64(r.Revision), PhysicalDigest: r.Digest(), BodyId: "body-car-1", KeyframeId: "kf-car-1-s0",
+		CoordinateDomain: "body_xy", SourceSample: 0, SourcePointIndex: &point, ReturnBoundM: 0.05,
+		BoundM: 0.2 + distance*2*math.Sin(0.025) + 0.05, Origin: "reference_seeded_proposal", Method: "manual_named_return_v1", IdentityNote: "outer rigid mirror tip, checked in frames 0 and 1"}
+	return p, e
+}
+
+// One validation reads each pinned revision and sample once: a second read is
+// the value already held, not another load from disk.
+func TestFeatureEvidenceReadsEachPinOnce(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	f := e.Document.Features[0]
+	ev := newFeatureEvidence(p)
+	object, err := ev.registeredObject(f)
+	if err != nil || object.Body.BodyID != f.Anchor.BodyId {
+		t.Fatal(err)
+	}
+	membership, err := ev.membershipAt(f.Observations[0].MembershipRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	points, err := ev.pointsAt(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// With the files gone, only the held values can answer.
+	os.Remove(filepath.Join(p.Dir, physicalReferenceFile))
+	os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+	if again, err := ev.registeredObject(f); err != nil || again != object {
+		t.Fatal("physical revision read twice", err)
+	}
+	if again, err := ev.membershipAt(f.Observations[0].MembershipRevision); err != nil || again != membership {
+		t.Fatal("membership revision read twice", err)
+	}
+	if again, err := ev.pointsAt(0); err != nil || &again.X[0] != &points.X[0] {
+		t.Fatal("sample decoded twice", err)
+	}
+	fresh := newFeatureEvidence(p)
+	if _, err := fresh.registeredObject(f); err == nil {
+		t.Fatal("a new validation reused another's evidence")
+	}
+	if _, err := fresh.membershipAt(f.Observations[0].MembershipRevision); err == nil {
+		t.Fatal("a new validation reused another's membership")
+	}
+	if _, err := fresh.pointsAt(uint32(len(p.Samples))); err == nil {
+		t.Fatal("sample outside the pack decoded")
+	}
+}
+
+func TestFeatureBodyRegistrationKeepsMetricOffsetAndPhysicalPin(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	before, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Document.Features[0].Anchor.SourcePointIndex == nil || *s.Document.Features[0].Anchor.SourcePointIndex != 0 {
+		t.Fatal("zero source index was confused with absence")
+	}
+	after, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	if !bytes.Equal(before, after) {
+		t.Fatal("registration changed the physical reference")
+	}
+	r, _ := LoadPhysicalReferences(p)
+	r.Objects[0].Body.BodyID = "new-body-frame"
+	r.Objects[0].Body.Width.ValueM = fp(1.85)
+	if err := SavePhysicalReferences(p, r); err != nil {
+		t.Fatal(err)
+	}
+	oldAnchor := proto.Clone(s.Document.Features[0].Anchor).(*pb.FeatureAnchor)
+	loaded, err := LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(oldAnchor, loaded.Document.Features[0].Anchor) {
+		t.Fatal("dimension edit rescaled the metric anchor")
+	}
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: loaded.Document, BaseDigest: loaded.Digest, MembershipDigest: loaded.MembershipDigest}); err != nil {
+		t.Fatalf("retained physical pin could not be read: %v", err)
+	}
+}
+
+func TestFeatureBodyRegistrationRefusesInventedOrUnpinnedConstraints(t *testing.T) {
+	p, original := registeredFeatureFixture(t)
+	cases := []struct {
+		name   string
+		change func(*pb.FeatureCandidate)
+	}{
+		{"coordinate", func(f *pb.FeatureCandidate) { f.Anchor.XM++ }},
+		{"bound", func(f *pb.FeatureCandidate) { f.Anchor.BoundM = 0 }},
+		{"return bound", func(f *pb.FeatureCandidate) { f.Anchor.ReturnBoundM = 0 }},
+		{"nonfinite", func(f *pb.FeatureCandidate) { f.Anchor.YM = math.NaN() }},
+		{"z unresolved", func(f *pb.FeatureCandidate) { f.Anchor.ZM = 1 }},
+		{"source absent", func(f *pb.FeatureCandidate) { f.Anchor.SourcePointIndex = nil }},
+		{"outside support", func(f *pb.FeatureCandidate) { v := uint32(7); f.Anchor.SourcePointIndex = &v }},
+		{"source frame", func(f *pb.FeatureCandidate) { f.Anchor.SourceSample = 2 }},
+		{"revision", func(f *pb.FeatureCandidate) { f.Anchor.PhysicalRevision = 99 }},
+		{"digest", func(f *pb.FeatureCandidate) { f.Anchor.PhysicalDigest = "wrong" }},
+		{"body", func(f *pb.FeatureCandidate) { f.Anchor.BodyId = "wrong"; f.Anchor.PartFrameId = "wrong_xy" }},
+		{"pose", func(f *pb.FeatureCandidate) { f.Anchor.KeyframeId = "kf-car-1-s3" }},
+		{"point on patch", func(f *pb.FeatureCandidate) { f.Geometry = pb.FeatureGeometry_FEATURE_GEOMETRY_PATCH }},
+		{"one frame", func(f *pb.FeatureCandidate) { f.Observations = f.Observations[:1] }},
+		{"note", func(f *pb.FeatureCandidate) { f.Anchor.IdentityNote = " " }},
+		{"truth origin", func(f *pb.FeatureCandidate) { f.Anchor.Origin = "independent" }},
+		{"frame id", func(f *pb.FeatureCandidate) { f.Anchor.PartFrameRevision = 2 }},
+		{"relation", func(f *pb.FeatureCandidate) { f.PartRelation = "unknown" }},
+		{"unknown anchor", func(f *pb.FeatureCandidate) { f.Anchor.ProtoReflect().SetUnknown([]byte{0xa0, 0x06, 1}) }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := proto.Clone(original.Document).(*pb.FeatureAnnotations)
+			tc.change(doc.Features[0])
+			if err := ValidateFeatures(p, doc); err == nil {
+				t.Fatal("invalid registration accepted")
+			}
+		})
+	}
+}
+
+func TestFeatureBodyRegistrationRetainsAssistedOriginFromEitherBodyOrPose(t *testing.T) {
+	for _, component := range []string{"body", "pose", "both"} {
+		t.Run(component, func(t *testing.T) {
+			p, e := registeredFeatureFixture(t)
+			r, err := LoadPhysicalReferences(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o := &r.Objects[0]
+			if component != "pose" {
+				o.Body.BodyID = "assisted-body"
+				o.Body.Review.Origin, o.Body.Review.TrackerSource = OriginTrackerAssisted, "online seed"
+			}
+			if component != "body" {
+				o.Keyframes[0].KeyframeID = "assisted-pose"
+				o.Keyframes[0].Review.Origin, o.Keyframes[0].Review.TrackerSource = OriginTrackerAssisted, "online seed"
+			}
+			if err := SavePhysicalReferences(p, r); err != nil {
+				t.Fatal(err)
+			}
+			a := e.Document.Features[0].Anchor
+			a.PhysicalRevision, a.PhysicalDigest = uint64(r.Revision), r.Digest()
+			a.BodyId, a.PartFrameId, a.KeyframeId = o.Body.BodyID, o.Body.BodyID+"_xy", o.Keyframes[0].KeyframeID
+			// A reviewed assisted pose must not masquerade as an independent seed.
+			if err := ValidateFeatures(p, e.Document); err == nil {
+				t.Fatal("assistance was erased")
+			}
+			a.Origin = "tracker_seeded_proposal"
+			if _, err := SaveFeatures(p, e); err != nil {
+				t.Fatal(err)
+			}
+			a.Origin = "independent"
+			if err := ValidateFeatures(p, e.Document); err == nil {
+				t.Fatal("proposal became reference truth")
+			}
+		})
+	}
+	p, e := registeredFeatureFixture(t)
+	e.Document.Features[0].Anchor.Origin = "tracker_seeded_proposal"
+	if err := ValidateFeatures(p, e.Document); err == nil {
+		t.Fatal("source origin was invented")
+	}
+}
+
+func TestNewFeatureRegistrationRefusesStaleMembershipButRetainsHistory(t *testing.T) {
+	p, e := registeredFeatureFixture(t)
+	s, err := SaveFeatures(p, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	membership, _ := LoadSidecar(p)
+	membership.Objects[0].Subtype = "updated label"
+	if err := SaveSidecar(p, membership); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: membership.Digest()})
+	if err != nil {
+		t.Fatalf("retained mapping refused: %v", err)
+	}
+	edit := proto.Clone(retained.Document).(*pb.FeatureAnnotations)
+	edit.Features[0].Anchor.IdentityNote += "; revised"
+	if _, err := SaveFeatures(p, &pb.FeatureEdit{Document: edit, BaseDigest: retained.Digest, MembershipDigest: membership.Digest()}); !errors.Is(err, ErrMembershipChanged) {
+		t.Fatalf("new mapping accepted stale feature support: %v", err)
 	}
 }

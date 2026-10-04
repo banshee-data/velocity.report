@@ -420,31 +420,60 @@ answers. The server must hold the same pack folder the window opened, under its
 
 Entering the mode pauses the link with the main view. The main view draws the tracker's boxes, and
 a reference is independent only if its author has not seen them, so keep the main window's boxes
-out of sight while authoring.
+out of sight while authoring. If you have used its estimate, disclose it under **I used the
+main-window estimate** and name the estimate/run/stage. **Declare assisted authoring** marks
+current unsaved and later edits as tracker-assisted. Undo cannot erase that disclosure; unchanged
+saved independent revisions remain in history. A pending independent proposal cannot be reviewed
+as independent after viewing an estimate. **Continue as assisted proposal** forks it without
+changing previously reviewed independent records; save that proposal before reviewing it.
+
+For assisted work on a tuning pack, **Start from tracker estimate · assisted** imports the chosen
+arm of a report already open in Compare. It requires the same pack/object and exact timestamp,
+a unique association, and a stated physical body centre. A medoid, visible OBB centre, nearest-time
+match or unknown point meaning is refused. Direct main-window import is not available: that
+stream does not state its physical position semantics. Save or discard outstanding work first.
+Existing shared size and marked poses are retained; import is available only at an unmarked frame.
+
+The imported values are inferred proposals with lasting tracker provenance and a digest of the
+report bytes. Their bounds remain absent: state conservative bounds and assumptions yourself,
+then save and review. The original estimate is a dashed pink outline in Top while you edit.
+It is a source sketch, not another independent reference. Discard removes that session's ghost.
 
 1. Choose the object in the list. Membership and identity come first, in Points mode.
-2. **Body · whole object** holds one length, width and height for the whole episode. A new body
+2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
    is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
    inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
-   external reference it rests on. A partial span is a lower bound only.
-3. **Keyframe · this frame only** holds this frame's pose. Click in the Top view to place its
+   external reference it rests on. Enter a whole span as **value ± tolerance**: the tolerance
+   states how far either way it could be wrong. **Exact min/max (advanced)** preserves
+   asymmetric bounds. A partial span uses **at least**, a lower bound only. A value without
+   bounds can draw an incomplete sketch; it is not supported geometry for scoring.
+3. **2 · Pose at this frame** holds this frame's pose. Click in the Top view to place its
    position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
    say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
    face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
    and only after the position exists.
+   A named face position is its **face centre**, not an arbitrary point on the face or a patch's
+   changing visible centre. Its offset is only along the inward normal. If the along-face centre
+   is unseen, the position bound must include that uncertainty; use Facets for a repeatable edge
+   or mirror point with a separate body relation.
 4. Give each record its method and uncertainty assumptions. The server checks the draft as you
    edit and says what it would refuse, and which reviews a save would reset.
 5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
    and steps to the next frame. A save never reviews anything. A changed
    body dimension is a new body under a new ID, and every keyframe of that object returns to
    proposed.
-6. Inspect the saved record in both views, then **Review body** and **Review keyframe**,
+6. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
    separately. Review is refused while the draft has unsaved changes, because it confirms the
    saved record.
 
 The object list shows three separate progress lines: membership frames, the body's review, and
-keyframes saved and reviewed. The overlay draws only what a keyframe establishes: a marker and its
-bound for a position, an arrow for a resolved axis, an unsigned line for an ambiguous one, and a
+keyframes saved and reviewed. A pose is a keyframe: one marked instant, with no interpolation
+between it and another. Use **Poses: N marked frames** to return to a recorded pose after saving or
+discarding current edits. The overlay immediately draws an editable marker after placement, even
+before its bound is entered; **bounds not set** marks that sketch as incomplete. A missing bound
+is never written as zero or used for scoring. The supported geometry summary still requires
+bounds. The overlay draws a marker and its bound for a supported position, an arrow for a
+resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
@@ -452,15 +481,20 @@ Unsaved physical work guards stepping, switching objects, opening another pack a
 window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
 **Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
 them. If a save gets no answer, the window will not save again until it has reloaded, because the
-first save may have committed.
+first save may have committed. **Reload** reads the saved physical document and reports the
+revision or explains that none exists. It does not create a body, import a tracker box, or discard
+unsaved object membership.
 
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  the dot at the end of the axis to turn it with the position held, and the diamond at the far end
-  of the body to revise its length with the anchor held. A length drag moves the stated interval
-  with the value, keeping its width, and is a body change: saving it makes a new body and returns
-  every keyframe of the object to proposed. A drag is one undo step.
+  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis),
+  and the diamond at the far end of the body to revise its length with the anchor held. The
+  outlined square labelled **width** revises width about the supported centre, keeping position,
+  heading and length fixed. A side-face anchor has no width handle: its inward offset would need
+  an explicit coupled edit. Resizing carries the dimension's stated interval with its value and
+  is a body change: saving it makes a new body and returns every keyframe of the object to
+  proposed. A drag is one undo step.
 - **Copy keyframe from sample N** starts this frame's keyframe from the nearest one. The copy is
   a proposal: whatever the source observed becomes inferred from the source's frames, and its
   origin stays the source's. Check it against this frame's returns before claiming anything
@@ -483,6 +517,11 @@ Membership saves refuse to make one return belong to two objects in a frame, bec
 the physical service included, refuse a pack where one does. A pack that already has such returns
 lists them at the top of the object column, with a button to go to each frame, and can still be
 saved so they can be repaired.
+
+When a proposal cannot save, common messages name the object, size field or pose frame and say
+which bound or citation is missing. **Service detail** preserves the exact validator message
+and internal IDs for an issue report. A prior-only size still needs its named prior and bounds;
+it is not scored. These explanations do not relax the writer's validation.
 
 ### Comparing with an estimate
 
@@ -519,13 +558,27 @@ window does not author the split: choose a draft file in the CLI's format
 (`velocity.report/split-draft`), naming each pack by its folder beneath the service's annotation
 folder, as the physical-reference service names packs. **Preview** shows what the service would
 pin: for each pack its membership revision and digest, its physical revision and digests (or that
-it has no physical references, in which case the split pins membership only), each object's
+it has no physical reference pin), each object's
 partition, each object's body and keyframe review, the components that reviewed keyframes leave
 unavailable, and every problem that stops the freeze. **Freeze** is enabled only when the preview
 is of the chosen draft and says it would freeze; it writes the split once, under the name you
 give, into `splits/` beneath the annotation folder, and refuses to overwrite. A new revision of an
 existing split names it under **Supersedes**. The same rules refuse a freeze on the command line;
 the button is not where they are enforced.
+
+Open **Optional facet evidence · proposals, not truth** to pin saved facets for a pack. Enabling
+the pack's toggle adds `feature_revision: 0` to this freeze request, which previews the saved
+head. A positive revision already named in the draft is retained; disable the toggle to omit the
+pin. This changes the request, not the draft file. A pin records exact bytes, canonical content
+and counts of active/retired facets, supported frames, absence/rejection decisions and body
+registrations, including how many were tracker-seeded. None becomes physical truth. A body
+registration keeps the physical revision it was made against; when that is not the revision the
+split pins, or the split pins none, the facet pin records the registration's revision and digest
+under `physical_divergences`, and the sheet says so. That is recorded, not refused. Changing a
+facet pin or **Supersedes** requires another preview. Support must remain definite in the frozen
+object mask, even when its original observation pins an older mask revision. An unavailable
+facet revision refuses the freeze. Feature-free freezes keep schema version 3; opting into facet
+pins writes version 4. Existing version-2 and version-3 bundles remain readable.
 
 ### Importing and validating
 
@@ -607,39 +660,131 @@ and the along-path gap waits for persisted paths.
 
 ## Feature candidates
 
-Choose **Feature Candidates** in the editing-mode menu after saving the active object's membership
-in **Object Points**. The same sphere gesture now selects feature support within that object's
-saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
+Choose **Facets** in the editing-mode menu after saving the active object's membership
+in **Object Points**. Choose **Sphere** to click a return, or **Lasso subset** to draw an exact
+subset through the current depth slab. Shift adds to the draft subset; Option removes from it.
+Both tools select only that object's saved, definite returns. It cannot add or subtract object membership. Orange rings mark an unsaved
 feature preview; cyan marks saved support. The mode, feature ID, method and proposal origin remain
 visible. The companion 3D view supplies object context; feature rings are in the orthographic views.
 
-1. Enter **Labelled by**, choose the object, and select **New feature**. Click a return in either
+1. Enter **Labelled by**, choose the object, and select **New facet**. Click a return in either
    orthographic view. Dragging pans rather than painting object points.
-2. Adjust the sphere radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
+2. For a sphere, adjust its radius; it starts at **0.20 m**, a **0.40 m diameter**. Check top and elevation
    views. The selected returns must be saved definite members of this object, with conflicting
-   or uncertain object claims excluded. Different features may overlap.
+   or uncertain object claims excluded. A lasso retains exact selected indices; its enclosing
+   sphere is a selection envelope, and resizing does not broaden it. Different features may
+   overlap, so their support must not later be counted as independent evidence.
 3. Name the feature and choose unknown, edge, corner, patch or protrusion. A semantic hint such as
    “wing mirror” is optional. These are descriptions, not recognition presets: the tool does not
    fit a right-angle corner, recognise a headlight or detect a wheel-well recess.
-4. **Accept and save** retains a proposal under a persistent feature ID. **Reject**, **Missing**
+4. **Save facet proposal** retains a proposal under a persistent feature ID. **Reject**, **Missing**
    and **Occluded** retain decisions without measured support. Missing/occluded can be recorded for
    an existing feature even when this frame has no return to click. **Cancel / stop** drops only
    the unsaved proposal. No feature action reviews a physical pose or changes an object mask.
 5. **Preview next frame** moves to one consecutive source frame and proposes fresh return indices
-   inside that same object's saved domain. Inspect, edit the sphere, accept, reject or stop before
-   continuing. It does not save automatically or jump across gaps. A weak/ambiguous fit, changed
+   inside that same object's saved domain. A lasso carries its occupied voxel shape, rather than
+   selecting every return inside its enclosing sphere. Its radius stays an envelope; edit the
+   subset with a lasso. Inspect, accept, reject or stop before continuing. It does not save
+   automatically or jump across gaps. A weak/ambiguous fit, changed
    membership or already annotated next frame stops it; seed that frame manually if appropriate.
 6. To revise saved support, select the feature and use **Edit this frame**, then click or resize
    and save. Names/types/hints are saved with that frame edit. Reopen the pack and select the same
-   ID to inspect its saved decisions. Historical revisions retain the earlier interpretation.
+   ID to inspect its saved decisions. **Edit this frame** preserves a lasso's exact support.
+   Historical revisions retain the earlier interpretation. At most four facets can be active for
+   one object. **Retire facet, keep evidence** frees a slot without deleting observations; a fifth
+   activation is refused. Zero active facets is a supported abstention.
+
+**Facet frames: N decisions** returns to a recorded support or absence decision. **Previous facet
+frame** and **Next facet frame** keep the selected facet identity. Save or cancel outstanding
+work first; a current frame filter is not bypassed. The panel separates supported frames from
+absence/rejection decisions, so a long list of occlusions is not mistaken for measured support.
+
+**Inspect retained revision** opens one of the twenty most recent saved facet revisions for
+inspection. Its subsets and body registrations retain their original membership/physical pins;
+later mask edits do not silently rewrite them. The revision is read-only, including when it is
+still the latest. **Return to latest** restores the editable head. Save or cancel a draft before
+switching revisions. An unavailable revision is reported rather than substituted with today's
+document. Offline archives can be inspected read-only, but service validation is needed before
+editing. The service also accepts an exact positive `revision` on the facet GET endpoint; POST
+refuses that parameter.
 
 The proposal is deliberately limited: it uses observed-object centroid translation and a small
 local footprint search, with 0.25 m voxels. It does not estimate rotation or establish that every
 selected return belongs to the same physical surface. Nearby competing fits are checked at the
 feature scale. Changing visibility can shift the observed centroid; reject an implausible result.
-A missing or hidden feature is not a new measurement. General feature recognition, body-relative
-anchors, directed front/rear placement, part motion and full rigid registration remain unfinished.
-The panel explicitly shows the part relation and metric anchor as unresolved.
+A missing or hidden feature is not a new measurement. General feature recognition, directed
+front/rear placement, part motion and full rigid registration remain unfinished. The compact
+feature and straight-edge paths below can store horizontal body registration proposals; unresolved relations stay
+explicitly unresolved.
+
+**Geometry check · proposal only** reports an initial line or surface fit, its span, transverse
+spread and residual. A line needs at least three returns and sufficient span; a surface needs
+non-collinear support in two directions. The initial sampling floors are 0.10 m span and 0.05 m
+surface spread, with a covariance ratio at most 0.10; they are experimental support checks, not
+calibrated sensor uncertainty. A scan boundary can still look like an edge. A surface leaves its
+two tangent directions weak, and its visible centre must not become a fixed body anchor. Compact
+features require a repeatability check across frames. These diagnostics neither review a facet
+nor establish a rigid relation.
+
+**Facet support** shows the selected definite returns as a share of the saved object's definite
+returns in this frame. It is not accuracy or a minimum percentage: a small repeatable mirror tip
+can be useful. Facets may overlap. A stale mask pin, unsaved object points or support outside the
+current definite mask withholds the percentage rather than borrowing a new denominator. Missing
+and occluded decisions have no measured support. **New facet** is disabled at four active facets;
+retire an existing one to free a slot without deleting its evidence.
+
+### Registering a compact feature or straight edge to the body
+
+For a repeatable **Corner** or **Protrusion**, first save accepted feature support in two frames.
+The registration panel shows the prerequisites: two distinct saved support frames, this frame's
+current definite mask, and a reviewed resolved body/pose with explicit bounds and named assistance
+where applicable. An incomplete prerequisite keeps registration disabled; point/segment checks
+run when the chosen returns are registered. Save outstanding Physical edits first.
+Review the body and a resolved physical pose at the source frame against the same
+saved membership. In **Body registration · proposal**, select the exact physical spot with
+**Fixed return**. Alternatively, enable **Inspect returns**, hover that spot, press **M**, then
+choose **Use pinned return**. The chosen return is yellow in the orthographic views. Name what
+makes it repeatable, such as the outer rigid mirror tip, and enter a positive return uncertainty
+in metres before choosing **Register to saved body**.
+
+The stored coordinates are metres forward and left from the pinned body centre. They are
+horizontal only; height is unresolved, because physical schema v1 has no vertical uncertainty.
+The conservative bound adds the source position bound, the yaw lever-arm displacement and the
+stated return bound. The Go writer rechecks the coordinates, definite point support, membership,
+body/keyframe IDs and exact physical revision digest. A missing or stale review, ambiguous axis,
+absent source point or understated bound is refused.
+
+For an **Edge**, use **Segment start** and **Segment end**, or pin each return with **M** and
+choose the corresponding pinned-return button. The yellow dashed segment shows the chosen
+direction. These are direction-defining samples on the same physical straight edge, not
+permanent endpoints. Save support in two frames and review the source body/pose as above. Name
+the physical edge and state a positive return bound. At least three distinct finite returns
+must lie within that bound of the chosen 3D line; horizontal span must be at least 0.10 m and
+greater than twice the return bound. A vertical edge cannot establish this horizontal relation.
+
+The stored relation is `normal · body_position = offset`, in the original metric body frame.
+The panel shows normal offset and its bound, normal-angle uncertainty and **along-edge position
+unconstrained**. It stores no point coordinate at the visible midpoint. The angular bound adds
+the source yaw bound and `asin(2 × return_bound / horizontal_span)`; an axial uncertainty reaching
+90° refuses registration. The offset bound conservatively includes source position/return error
+and the angular displacement at the source lever arm. Go recomputes the relation from the exact
+saved returns and refuses understated bounds. Choosing samples farther along the same straight
+edge does not add a tangent anchor. This is still an operator's proposal: straight scan strands
+and mask boundaries need a physical repeatability check. Surface/plane registration remains
+unavailable, and none of these mappings moves the online tracker.
+
+An independently authored body/pose produces a reference-seeded proposal. If either reference
+is tracker-assisted, the mapping is a tracker-seeded proposal and the pane labels its assistance.
+Neither kind is independent registration truth; an assisted relation cannot be relabelled as an
+independent seed. Complete and review the source bounds before registering a tracker sketch.
+
+Changing body dimensions does not rescale the stored offset. A later physical revision is shown
+as needing a recheck, while the mapping retains its original body-frame pin. **Detach
+registration, keep facet** removes the current mapping while preserving its revision history;
+do this before changing the registration's source support. These are annotation proposals seeded
+from references, never independent physical truth or online tracker resets. A folding mirror
+must not be treated as rigid support. Edge and surface point anchors are refused: those need a
+constraint that preserves weak tangent directions, rather than a moving visible centroid.
 
 The local Go annotation service owns feature saves, using the same confined pack root as physical
 references. It must serve the same folder the window opened, not another copy with matching bytes.
@@ -653,6 +798,70 @@ response means nothing reached disk. Changed membership stops propagation; recon
 against its new revision. Old support keeps its original membership pin and is not silently
 reinterpreted. Proposals are not independent reviewed references, and the held-out scoring gate
 is unchanged.
+
+### Checking a fixed relation in another frame
+
+After saving a body registration, move to another frame with a reviewed, bounded, resolved
+Physical pose for the same body. In Facets, choose **Project saved relation here · assisted**.
+The purple dashed Top overlay projects the original metric relation through that frame's pose;
+it does not refit the body, move a tracker box or spend a runtime reanchor event. Height remains
+unresolved, so the overlay is not drawn in the elevations. **Hide projected relation** clears
+the drawing, and stepping frames clears it too.
+
+For a compact facet, the marker is the fixed body spot. For an edge, the drawing is an infinite
+line with its along-edge direction unconstrained; the visible segment is only a camera clipping
+choice. If this frame has accepted facet support against its current saved object membership,
+the panel reports count, mean and maximum absolute horizontal distance to the spot, or normal
+distance to the line. Uncertain members are excluded. These are alignment diagnostics, not
+accuracy or uncertainty-coverage scores. With stale support, the distances are withheld.
+
+The target frame's timestamp, body identity, membership pins and reviewed pose must agree.
+Unsupported schemas, unreviewed poses, missing bounds or broadly uncertain line normals refuse
+the preview with an explanation. A changed Physical revision keeps the original metric body
+mapping, but requires current reviews before projection; a changed body identity cannot be
+substituted. Seeing a projection marks subsequent facet proposals for that object/frame as
+assisted, including after hiding, cancelling or reopening the pack. Existing saved observations
+are not rewritten. Tracker-seeded relations also retain the Physical assistance ledger.
+
+### Offline pose proposal from a manually matched facet
+
+**Offline pose from matched facet · experiment** supplies a separate, read-only estimate. It
+uses a saved source body relation and the target frame's accepted, definite facet returns.
+The target must be a different frame from the registration source. It does **not** require a
+reviewed target pose, and does not borrow one from Physical or Compare. Existing target
+references may be used for a later comparison, never as a hidden solver input.
+
+1. Save the target object's membership and its facet support. Choose the same rigid spot with
+   the return picker, or choose two widely separated direction returns on a straight edge.
+2. Enter an explicit prior centre, yaw, position/yaw bounds, and a named source with uncertainty
+   assumptions. These fields have no target-reference defaults. Prior yaw is the signed direction of the
+   body front, anticlockwise from pack +X; this version does not accept an unsigned axis or
+   two-heading hypothesis. State a positive matched-return
+   bound and describe the same physical part and bound assumptions.
+3. Tick the manual-correspondence confirmation and choose **Propose body pose · read-only
+   assisted**. Go resolves the exact facet revision/digest, current membership and pinned source
+   body. A compact spot constrains planar position given prior yaw. An edge constrains normal
+   displacement; its tangential position and yaw remain from the prior.
+4. Inspect the pink matched returns and orange dashed Top footprint. The footprint uses the
+   unchanged source body's full length/width intervals; absent or partial dimensions withhold
+   it. Height remains unmeasured. Hidden ends are body predictions, not fresh endpoint returns.
+5. Correct the explicit inputs and recompute, or **Discard pose proposal**. Input/frame/facet
+   changes invalidate the displayed result and late responses. This increment has no
+   accept-to-reference or durable proposal-save operation. To reproduce it, retain its request
+   inputs and exact source/evidence pins; reopening alone does not reload the transient result.
+
+For a worked compact example, let the fixed body offset be 2 m forwards and 1 m right. With
+prior yaw 90°, a confirmed return at (11, 7) implies centre (10, 5). A declared prior at
+(9.8, 5.2) ±0.4 m is compatible; yaw remains prior-only. For an edge with body normal (0, 1)
+and offset −1 m at prior yaw 0°, returns along y=2 constrain centre y=3. Prior centre x=10
+remains x=10; changing the visible segment's midpoint does not set the body's tangential origin.
+
+Bounds propagate conservatively and do not shrink below the declared prior position bound.
+Uncertain points are excluded. Sparse/non-straight edges, broad or contradictory directions,
+missing/occluded support, stale membership/revisions and hard-bound prior conflicts refuse the
+proposal. No correspondence search or joint yaw fit is performed. Viewing the result persists
+assistance for later authoring without rewriting saved masks, facets or Physical references.
+This experiment cannot update a live tracker or spend its future reanchor budget.
 
 ## Raw intensity
 
@@ -668,7 +877,10 @@ and marks nothing unsaved.
   class colours, without the intensity brightening the main view uses.
 - **Distribution (experimental)** shows a 16- or 32-bin histogram of the chosen object's saved
   mask at this frame (definite members; uncertain points are counted as excluded), of the unsaved
-  selection, or of the chosen proposal. A proposal is the proposer's own clustering of the pack's
+  selection, of the chosen proposal, or of the chosen **Facet subset** in Facets mode.
+  A facet uses its explicit definite return subset; uncertain members are excluded. Unsaved
+  support and an older membership pin are labelled. This adds a raw-code diagnostic, not a
+  reflectivity matching score or a material map. A proposal is the proposer's own clustering of the pack's
   points, with every member recorded, so it is exact membership; it is an algorithm's suggestion
   and not a review, and not the tracker's output. It also shows up to four peaks by a fixed rule, `intensity-peaks/v1`: each
   with a centre and width (the mean and spread of the raw codes in it), a support count and a
@@ -740,6 +952,7 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
-- Following references are read and kept, but not authored, in the window. Width and height are
-  set numerically; only length has a handle.
+- Following references are read and kept, but not authored, in the window. Height is set
+  numerically. Length and width have separate handles; a side-face position anchor requires a
+  numeric width edit because its centre offset is coupled to width.
 - Compare opens a saved report; it does not start an evaluation.
