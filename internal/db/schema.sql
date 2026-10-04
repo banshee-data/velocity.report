@@ -1290,6 +1290,55 @@ CREATE TRIGGER lidar_track_estimates_state_reference_and_support BEFORE INSERT O
 
 END;
 
+CREATE TRIGGER lidar_capture_jobs_check_insert BEFORE INSERT ON lidar_capture_jobs BEGIN
+   SELECT RAISE (ABORT, 'a capture job is a motion_pass or a vrlog_record')
+    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record');
+
+   SELECT RAISE (
+          ABORT
+        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
+          )
+    WHERE NEW.kind = 'vrlog_record'
+      AND NEW.session_id IS NOT NULL;
+
+END;
+
+CREATE TRIGGER lidar_capture_jobs_check_update BEFORE
+   UPDATE OF kind
+        , session_id ON lidar_capture_jobs BEGIN
+   SELECT RAISE (ABORT, 'a capture job is a motion_pass or a vrlog_record')
+    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record');
+
+   SELECT RAISE (
+          ABORT
+        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
+          )
+    WHERE NEW.kind = 'vrlog_record'
+      AND NEW.session_id IS NOT NULL;
+
+END;
+
+CREATE TRIGGER lidar_capture_motion_periods_check_insert BEFORE INSERT ON lidar_capture_motion_periods BEGIN
+   SELECT RAISE (ABORT, 'a motion period ends no earlier than it starts')
+    WHERE NEW.end_ns < NEW.start_ns;
+
+   SELECT RAISE (ABORT, 'a motion period lasts end_ns - start_ns')
+    WHERE NEW.duration_ns != NEW.end_ns - NEW.start_ns;
+
+END;
+
+CREATE TRIGGER lidar_capture_motion_periods_check_update BEFORE
+   UPDATE OF start_ns
+        , end_ns
+        , duration_ns ON lidar_capture_motion_periods BEGIN
+   SELECT RAISE (ABORT, 'a motion period ends no earlier than it starts')
+    WHERE NEW.end_ns < NEW.start_ns;
+
+   SELECT RAISE (ABORT, 'a motion period lasts end_ns - start_ns')
+    WHERE NEW.duration_ns != NEW.end_ns - NEW.start_ns;
+
+END;
+
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (
           "id"

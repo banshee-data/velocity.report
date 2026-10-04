@@ -6,6 +6,11 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 1, 2026 - Terminology first, data-model improvements second
+
+- {codex/assess-pr631} Split the platform vocabulary programme into four terminology/compatibility work packages and seven feature/data-model work packages, with linked delivery outlines and a Phase 1 exit that preserves behaviour, values and relationships. The original item ledgers and decisions remain; their release allocations need re-baselining after the terminology scope is sized. Capture digests, clock metrics, shared jobs, radar identity/logging, recording conversion and site/survey consolidation follow in Phase 2.
+- {codex/assess-pr631} Rebased the #631 schema-review foundation onto main. Migration 000057 already holds track-estimate reference/support fields, so the capture-job and motion-period checks move to 000058 with their own tests and updated references. D-27 and those guardrails do not claim completion of the terminology rollout; the four Phase 1 work packages remain to be implemented.
+
 ## October 1, 2026 - Recovering the F1 findings from the T4 experiment
 
 - {codex/pr641-findings} Recovered the unpublished F1 write-up from #641: consider-on-entry (T2) reduced body-centre p99 by 4 % to 13 % alone, did not improve face-stable p99, and took 31 % more replay time. The record keeps the original build and results branch, and explains why later arms did not carry T2. Main already records F5 and the decision to stop T4; this recovery adds no tracking option. Corrected the face-leaving comment in the transition summary and used `\ast` in the geometry formula so the pinned Markdown formatter preserves it.

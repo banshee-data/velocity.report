@@ -2,25 +2,31 @@
 
 The [schema ERD](SCHEMA.svg) shows the foreign keys that SQLite knows about. This review records the relationships it cannot draw, and the constraints the segment, job, and capture tables were missing. The source is the generated [schema snapshot](../../internal/db/schema.sql), checked against the segment handlers and capture store. The repository has no tracked `schema.db`; `schema.sql` is the current schema snapshot. Any change to it starts with a migration and `make schema-sync`.
 
-The snapshot contains **44 tables and 601 fields** (including generated fields). The [surface matrix](MATRIX.md) inventories them. Its `?` marks show where a consumer trace remains open; schema membership alone does not prove that a column is populated or shown to a user.
+The snapshot contains **44 tables and 604 fields** (including generated fields). The [surface matrix](MATRIX.md) inventories them. Its `?` marks show where a consumer trace remains open; schema membership alone does not prove that a column is populated or shown to a user.
 
 ## Status
 
-The review raised ten findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables, and the clip-job half of a seventh. The rest wait on a decision about how long a capture, a session, or a site keeps its identity. None of them is a fault in data today: the [audit](#what-the-audit-found) found no contradiction that a constraint would have refused.
+The review raised ten findings about segments, jobs, and captures, and four about the wider schema. [Migration 55](../../internal/db/migrations/000055_lidar_segment_constraints.up.sql) answers the six that concern the segment tables, and the clip-job half of a seventh. The rest waited on decisions about identity and time, taken on September 28, 2026, aligned on September 29 with the [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md), and [recorded below](#decisions-on-the-remaining-findings). [Migration 58](../../internal/db/migrations/000058_lidar_capture_job_period_checks.up.sql) holds the two rules that needed nothing more: the capture queue's job kinds, and motion periods that agree with their bounds. None of the findings is a fault in data today: the [audits](#what-the-audit-found) found no contradiction that a constraint would have refused.
 
-| Finding                                                                                  | Priority | Status                                       |
-| ---------------------------------------------------------------------------------------- | -------- | -------------------------------------------- |
-| [1. A selection's run has no foreign key](#findings-resolved-by-migration-55)            | 1        | Resolved                                     |
-| [2. A clip job names a replay case of its own](#findings-resolved-by-migration-55)       | 1        | Resolved                                     |
-| [3. Role and finder are not checked together](#findings-resolved-by-migration-55)        | 1        | Resolved                                     |
-| [4. Selection JSON is unvalidated and duplicated](#findings-resolved-by-migration-55)    | 1        | Resolved                                     |
-| [5. The held-out guard reads every selection](#findings-resolved-by-migration-55)        | 1        | Resolved; capture identity is still a path   |
-| [6. A clip job borrows the queue's session column](#findings-that-wait-on-a-decision)    | 2        | Resolved for clip jobs; open for the queue   |
-| [7. A pack is an absolute path, and `''` means none](#findings-resolved-by-migration-55) | 2        | Resolved                                     |
-| [8. A replay case repeats its first file](#findings-that-wait-on-a-decision)             | 2        | Deferred: no disagreement in data            |
-| [9. Session keys are unconstrained](#findings-that-wait-on-a-decision)                   | 2        | Deferred: 24 cases name a lost period        |
-| [10. Capture extents permit contradictions](#findings-that-wait-on-a-decision)           | 3        | Deferred: needs a decision on backwards time |
-| [Wider schema watchlist](#wider-schema-watchlist)                                        | 2 to 3   | Deferred                                     |
+| Finding                                                                                  | Priority | Status                                                                     |
+| ---------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
+| [1. A selection's run has no foreign key](#findings-resolved-by-migration-55)            | 1        | Resolved                                                                   |
+| [2. A clip job names a replay case of its own](#findings-resolved-by-migration-55)       | 1        | Resolved                                                                   |
+| [3. Role and finder are not checked together](#findings-resolved-by-migration-55)        | 1        | Resolved                                                                   |
+| [4. Selection JSON is unvalidated and duplicated](#findings-resolved-by-migration-55)    | 1        | Resolved                                                                   |
+| [5. The held-out guard reads every selection](#findings-resolved-by-migration-55)        | 1        | Resolved; the guard moves to the capture digest (Items 3, 6)               |
+| [6. A clip job borrows the queue's session column](#decisions-on-the-remaining-findings) | 2        | Resolved: migration 58 holds two kinds until one job queue                 |
+| [7. A pack is an absolute path, and `''` means none](#findings-resolved-by-migration-55) | 2        | Resolved                                                                   |
+| [8. A replay case repeats its first file](#decisions-on-the-remaining-findings)          | 2        | Decided: case files name the digest; `pcap_file` goes in v0.6.7            |
+| [9. Session keys are unconstrained](#decisions-on-the-remaining-findings)                | 2        | Resolved: notes until v0.6.7 drops them                                    |
+| [10. Capture extents permit contradictions](#decisions-on-the-remaining-findings)        | 3        | Decided: earliest and latest beside first and last (backlog); periods held |
+| [Wider schema watchlist](#wider-schema-watchlist)                                        | 2 to 3   | Two audits on the backlog; two items in the vocabulary plan                |
+
+The vocabulary programme now delivers terminology and compatibility first, then feature and
+data-model improvements. D-27 and migration 58 are this review's guardrail foundation; they do
+not implement capture digests, new clock metrics or a shared queue. Those remain Phase 2 work.
+The [work-package plans](../../docs/plans/platform-vocabulary-and-data-model-plan.md#work-package-plans-and-phase-1-remaining-work)
+state what is still needed for Phase 1. No terminology implementation is claimed by this review.
 
 ## The segment relationships
 
@@ -34,7 +40,7 @@ erDiagram
     lidar_replay_cases ||--o{ lidar_replay_case_files : ordered_files
 ```
 
-The first four lines are foreign keys, and the ERD draws them. The last two are still _intended_ relationships: `lidar_replay_case_files.capture_file_id` and the capture index's `session_id` references are plain text. The ERD correctly leaves those lines out. It is a picture of enforced structure, not a promise that every similarly named column joins safely.
+Five of these lines are foreign keys, and the ERD draws them. The `source_file` line is still an _intended_ relationship: `lidar_replay_case_files.capture_file_id` is plain text, as are the capture index's `session_id` references, and the ERD correctly leaves them out. It is a picture of enforced structure, not a promise that every similarly named column joins safely. By the [decisions below](#decisions-on-the-remaining-findings), a case file will name its capture by digest, and session references stay notes until they are dropped.
 
 A clip job reaches its replay case through its selection. It has no replay case column of its own, so it cannot replay one case and show another segment's status.
 
@@ -80,15 +86,106 @@ The two segment tables first appeared in migration 54 and no release has carried
 
 Rolling the migration back restores every selection and every clip link, including the ones that were set aside.
 
-## Findings that wait on a decision
+## Decisions on the remaining findings
 
-| #   | Current shape and risk                                                                                                                                                                                                                                        | What is needed before a migration                                                                                                                                                                                                                                             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5   | The guard compares capture paths. A capture index ID is derived from its root's path, so it changes when the root moves, exactly as the path does. After a move the guard asks for a random window again, which is the safe direction to fail in.             | A capture identity that survives a move. Finding 9 is the same question for sessions, and should be answered once.                                                                                                                                                            |
-| 6   | `lidar_capture_jobs.session_id` named a segment for a clip job and a capture session for every other kind. A clip job now leaves it empty and names its segment through the link table. Neither `session_id` nor `root_id` has a foreign key for other kinds. | Whether other job kinds get subject tables of their own, as clip jobs have. Do not add a session foreign key to the column while sessions are re-derived (finding 9).                                                                                                         |
-| 8   | `lidar_replay_cases.pcap_file` repeats the first row of `lidar_replay_case_files`. `SetCaseFiles` keeps them in step in one transaction, and the schema cannot enforce it for another writer. `capture_file_id` has no foreign key.                           | Move readers to the ordered file table, then drop the single path. The audit found no case where the two disagree, and no case file that names a `capture_file_id` at all, so the advisory column can be dropped or made durable without losing anything.                     |
-| 9   | `lidar_capture_files.session_id` and a replay case's `session_id` and `source_period_id` are unconstrained, and sessions are re-derived from the capture index. A strict foreign key would make a normal re-derive fail or erase provenance.                  | Separate a capture's durable identity from its mutable session grouping. The audit found 24 of 31 replay cases naming a source period that no longer exists: the orphans a foreign key would have refused are already the normal state.                                       |
-| 10  | Capture extent fields permit `first_packet_ns > last_packet_ns`, a negative packet count, and an `ok` probe with missing bounds. Motion periods store a duration and second offsets beside their nanosecond bounds.                                           | A decision on captures whose clock steps backwards. The probe records the first and last packet in file order, so such a capture would store a first time after its last. A `CHECK` would turn that capture into a scan failure. The audit found none among 112 probed files. |
+Findings 5, 6, 8, 9 and 10 waited on four questions. They were decided on September 28, 2026,
+and are entered in the [decisions register](../../docs/DECISIONS.md) as D-27. On September 29 they
+were aligned with the
+[platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md), which
+renames the capture index, the job queue and the replay case, and gives captures a content
+digest; the decisions below follow it.
+
+| Question                                         | Decision                                                                        | State                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------ |
+| What identifies a capture (5, 8, 9)              | The SHA-256 of its whole file, computed by the probe                            | Vocabulary plan, Items 3 and 6 |
+| How a replay case names its session (9)          | As a note, never a foreign key, until Item 18 drops it                          | Done; a test holds it          |
+| How the probe records a clock stepping back (10) | Earliest and latest packet beside first and last, and a count of backward steps | Backlog, v0.5.4                |
+| Whether motion passes get a subject table (6)    | No; migration 58 holds today's two kinds until one job queue                    | Done                           |
+
+### A capture is its content, not its path
+
+Every capture ID was a hash of paths: `root_id` of the root's path, `capture_file_id` of the root
+and the relative path, and `session_id` of the root and the session's first file. Moving a root
+changed all of them, and the held-out guard compares the capture path a window records. The
+scanner already stores a `content_tag` for each file: SHA-256 of its size and its first and last
+MiB. The probe reads every byte of a capture to find its extent.
+
+The [second audit](#second-audit-september-28-2026) showed what path identity costs. The
+development database indexes 407 files under 217 tags, and each of the 190 shared tags is one file
+reached by two paths: 189 through a root configured inside another (`/Volumes/lidar/lidar/s2`
+inside `/Volumes/lidar/lidar`), and one through a symlink. Each of those captures has two
+identities by path and one by content. No two different files share a tag.
+
+**Decision:** a capture is identified by the SHA-256 of its whole file, which the probe computes
+on the pass that already reads every byte. A path says where a capture was found, not which
+capture it is. This is the capture digest of the vocabulary plan (V1, Item 3) and the content
+identity of the [worker pool plan](../../docs/plans/lidar-worker-pool-and-results-hub-plan.md), so
+captures, clips, packs, exports and workers share one digest. The content tag stays the scan's
+cheap check that a file has not changed. It was first chosen as the identity because it needs no
+whole read, but the probe's read makes that saving small, and two identities would cost more.
+
+- The held-out guard looks for a random window by digest, so a copy, a second volume or a link
+  cannot earn a capture a second random window. Once the selection folds into the clip (Item 6),
+  the clip needs a `capture_id` generated from its selection document for the guard's index.
+- A case's files name their captures by digest (`capture_id`, Item 6). `capture_file_id`, which no
+  case file sets today, goes in v0.6.7, and so does `lidar_replay_cases.pcap_file` (Item 18).
+- A capture that has not been probed has no digest yet; a clip names it by its relative path
+  until the probe links it.
+- Rows that share a digest are one capture found twice. The plan keeps the path-derived row key
+  until v0.6.7, so it has to say whether such rows merge or become locations of one capture before
+  the digest becomes the key.
+
+### A replay case notes where it was cut from
+
+A case's `session_id` and `source_period_id` say which session and motion period it was cut from.
+Re-deriving a root's sessions replaces them and drops their motion periods, which come back only
+when a motion pass runs again. In the development database, 24 of 31 replay cases name a period
+that no longer exists, and no motion period exists at all.
+
+**Decision:** both columns are notes, never foreign keys. A case's own ordered files and window
+are the authority, so a re-derive can lose a note's target but never the case.
+`TestACaseOutlivesTheSessionItWasCutFrom` in `internal/lidar/storage/sqlite` re-derives under a
+case and fails if either column becomes a key. Both columns stay notes until the vocabulary plan
+drops them in v0.6.7 (Item 18), and the test goes with them.
+
+### A capture's clock may step backwards
+
+The probe records the time of the first and last packet in file order, by the clock of the host
+that captured them. A clock stepped backwards would store a first time after the last, and a
+`CHECK` would turn that capture into a scan failure. A Raspberry Pi has no real-time clock, and
+NTP steps its clock at boot. No probed capture shows one yet.
+
+**Decision:** the probe keeps `first_packet_ns` and `last_packet_ns` in file order, because replay
+counts a window's start from the first packet in file order and the vocabulary plan derives a
+clip's bounds from it. Beside them it adds `earliest_packet_ns`, `latest_packet_ns` and
+`backward_steps`, the number of steps back larger than a threshold, so a small reordering passes.
+A capture with such a step stays indexed and flagged, stays out of capture sequences until
+someone looks, and closes a part of a survey's capture export. The extent checks then follow:
+earliest ≤ latest, a packet count of zero or more, and bounds on every `ok` probe. The digest of
+Item 3 is computed on the same pass.
+
+Motion periods needed no decision. Migration 58 requires `end_ns` ≥ `start_ns` and
+`duration_ns` = `end_ns` − `start_ns`. `start_secs` and `end_secs` count from the first frame the
+motion pass analysed, which the row does not hold, so they stay unchecked.
+
+### The capture queue's kinds
+
+`lidar_capture_jobs` holds two kinds of work: `motion_pass`, which names its session in
+`session_id`, and `vrlog_record`, a clip job that names its segment through
+`lidar_segment_clip_jobs`. The vocabulary plan turns this table into one `jobs` queue for both
+sensors: `subject_kind` and `subject_id` for every job and the clip kind rewritten as `pack` in
+v0.5.8 (Item 3), `radar_track_build` in v0.5.10 (Item 9), and the distributed worker's kinds in
+v0.5.11 (Item 11).
+
+**Decision:** motion passes get no subject table of their own; the vocabulary plan's subject
+columns will name every job's subject. Until then migration 58 refuses a job of any other kind,
+and a clip job that names a session. For a motion pass `session_id` stays a note: sessions are
+re-derived, and a key would either block a re-derive or drop the job's session. Each migration
+that renames or adds a kind (Items 3, 9 and 11) replaces migration 58's kind triggers first.
+
+The triggers look only at new writes. A clip job that an interrupted enqueue left without its
+link, before migration 55, still names its segment in `session_id`, and the worker can still move
+it between states.
 
 ## What the audit found
 
@@ -114,9 +211,28 @@ The last two rows shaped the segment work. No database has segment rows to lose.
 
 One database is one sample. It shows that the constraints in migration 55 refuse nothing that exists, and that the deferred ones are questions of design, not of cleaning data. It does not show what another deployment holds.
 
+### Second audit, September 28, 2026
+
+The same database, now at schema version 56, was read from an APFS clone before the remaining
+findings were decided.
+
+| Question                                                    | Count      |
+| ----------------------------------------------------------- | ---------- |
+| Capture files, distinct content tags                        | 407, 217   |
+| Shared tags that are one file reached by two paths          | 190 of 190 |
+| of which through a root nested inside another root          | 189        |
+| of which through a symlink                                  | 1          |
+| Replay cases that name a source period which does not exist | 24 of 31   |
+| Replay cases that name a session which does not exist       | 0          |
+| Motion periods                                              | 0          |
+| Capture jobs                                                | 0          |
+| Probed captures with `first_packet_ns > last_packet_ns`     | 0 of 112   |
+
+Migration 58 refuses nothing this database holds: it has no capture jobs and no motion periods.
+
 ## Wider schema watchlist
 
-These are separate from the segment delivery. They surfaced while comparing every table's declared keys in the refreshed ERD, and need a data and lifecycle audit before a migration is designed.
+These are separate from the segment delivery. They surfaced while comparing every table's declared keys in the refreshed ERD, and need a data and lifecycle audit before a migration is designed. The [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md) settles two of them: one `sites` table for both sensors replaces the two meanings of `site_id` (Item 14, v0.6.6), and `radar_objects`, renamed `radar_detections`, gains `detection_id` (Item 17, v0.6.7). It leaves the estimate tables' parent key to this watchlist and treats those tables as a rebuildable catalogue of a vrlog's analysis stream (V34), which is where that audit starts. The audits of the estimate links and the timestamp units are on the backlog for v0.5.8.
 
 | Priority | Observed shape                                                                                                                                                                                                                                                                                         | Direction to investigate                                                                                                                                                                                                                                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -133,9 +249,9 @@ The same probe against the current schema is now a test. Each of those writes is
 
 ## Suggested order for what remains
 
-1. Decide what a capture's durable identity is. Findings 5 and 9 both wait on it, and finding 8's advisory column can then be given a meaning or removed.
-2. Decide how a capture whose clock steps backwards is recorded, then add the extent checks of finding 10.
-3. Give other job kinds a subject table if they need one, and only then consider keys on the queue's own columns.
-4. Take the watchlist one table at a time, each with its own audit.
+1. Add the probe's earliest and latest packet and its backward steps, then the extent checks of finding 10 (backlog, v0.5.4).
+2. Key captures, the held-out guard and clip files on the capture digest with the vocabulary plan's Items 3 and 6 (findings 5, 8 and 9).
+3. Retire `pcap_file`, `capture_file_id` and the case notes with Item 18 (v0.6.7).
+4. Audit the estimate links and the timestamp units; the site and radar detection items follow the vocabulary plan.
 
 Keep `internal/db/schema.sql` generated from migrations, regenerate [SCHEMA.svg](SCHEMA.svg) after each schema change, and extend [MATRIX.md](MATRIX.md) when a new field becomes a real consumer contract.
