@@ -175,6 +175,23 @@ func TestFrozenFacetHeadPinWithoutSavedFacetsIsAProblem(t *testing.T) {
 	}
 }
 
+// A saved head whose revision no pin can name is refused, not listed: it is a
+// damaged file, not a review problem an operator can fix by editing facets.
+func TestFrozenFacetHeadWithUnpinnableRevisionIsRefused(t *testing.T) {
+	p, state, s, draft := savedFrozenFacets(t)
+	state.Document.Revision = math.MaxInt32 + 1
+	b, err := proto.Marshal(state.Document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if pin, problems, err := freezeFeatures(p, s, draft.FeatureRevision); err == nil || pin != nil || problems != nil {
+		t.Fatal("unpinnable head froze", pin, problems)
+	}
+}
+
 func TestFrozenFacetPinAndLoadRefusals(t *testing.T) {
 	p, state, s, draft := savedFrozenFacets(t)
 	f := mustFreeze(t, freezeOptions(draft))
