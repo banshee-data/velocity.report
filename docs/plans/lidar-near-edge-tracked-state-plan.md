@@ -1,6 +1,6 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649) and is not promoted: small on the tuning pair and mixed on the screen sites (F7b). The tracked arm holds on 17 screen sites and A2 beats A1 (F6s, S2.3); the held-out score is next.
+- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649) and is not promoted: small on the tuning pair and mixed on the screen sites (F7b). The tracked arm holds on 19 of 21 screen sites and A2 beats A1 (F6s, S2.3); the held-out score is next.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
@@ -642,9 +642,9 @@ The results are in `results/s2-f7b/` (see [What the Mac runs show](#what-the-mac
 #### What the Mac runs show
 
 Three Mac runs report together. F7b ran the five arms above on the tuning partition, applied the plan's
-rule, and ran the chosen arm on the screen sites (20 of 21 so far). F6s runs the control and the
-tracked arm on the screen sites (17 of 21 so far, with the coverage survey still to come). S2.3 ran A1
-once on the tuning partition. The results are in `results/s2-f7b/`, `results/s2-f6s/` and
+rule, and ran the chosen arm on all 21 screen sites. F6s runs the control and the tracked arm on
+the screen sites (19 of 21 so far; 3rd-folsom, howard-6th and the coverage survey are still to
+come). S2.3 ran A1 once on the tuning partition. The results are in `results/s2-f7b/`, `results/s2-f6s/` and
 `results/s2-a1/`. The default replay was byte-equal in every case. F7b's tracked arm and control
 reproduce F6 to the last digit, because T5 is off in both. Runs that shared the USB drive and the NAS with other builds and replays ran far slower than one alone (the first T5 arm took 4 hours 19 minutes against about 20 minutes), so the runs are one replay at a time, and evidence databases go to the internal disk.
 
@@ -674,15 +674,16 @@ The per-site screen tables are `results/s2-f6s/progress.md` and `results/s2-f7b/
   on marina and 14 of the 107 mm on columbus, about a fifth and an eighth. The gap to the
   face-stable p99 stays near 2, against S2.1's exit of 1.25, and marina's lapses rise 6 % (573 to
   609). On the shadow, T5 lowers the steady p99 by 13 mm on marina and 2 mm on columbus.
-- **T5 does not hold uniformly on the screen sites.** Against the tracked arm on the 17 sites that F6s
-  has also run, T5 is lower on 10 and higher on 7, by a median of 7 mm lower. The worst are
+- **T5 does not hold uniformly on the screen sites.** Against the tracked arm on the 19 sites that F6s
+  has also run, T5 is lower on 12, higher on 5 and identical on 2 (california-leon-baker and
+  haight-divisadero, to the last digit), by a median of 7 mm lower. The worst are
   fulton-divisadero (0.350 to 0.439 m), laguna-eddy (+37 mm), bush-powell (+34 mm) and
   columbus-north-point (+27 mm); the best are franklin-mcallister (0.232 to 0.187 m),
   hyde-ofarrell and broadway-gough (−23 and −22 mm). Confirmed tracks and births per confirmation stay within 0.5 % of the tracked arm's. So the rank-one drift the plan named is at most a small
   part of the lateral-entry tail, and T5 is not shown to be worth keeping.
-- **The tracked arm holds on the screen sites.** Against the control its steady p99 is lower on all 17
-  sites, by a median of 87 mm (pierce-haight 0.428 to 0.230 m, franklin-mcallister 0.442 to
-  0.232 m). Gate 3's label-free identity counts pass on all 17: confirmed tracks are up by between
+- **The tracked arm holds on the screen sites.** Against the control its steady p99 is lower on all 19
+  sites, by a median of 76 mm (pierce-haight 0.428 to 0.230 m, franklin-mcallister 0.442 to
+  0.232 m). Gate 3's label-free identity counts pass on all 19: confirmed tracks are up by between
   0.1 % and 4.4 %, and births per confirmation are within 5 %, so no site is near the 10 % screen
   bar. Two cautions stand. The summary has no mean confirmed duration, and without labels more
   confirmed tracks cannot be told from fragments. And the five-point residual favours any smoothing
@@ -702,8 +703,8 @@ What this settles, and what is next:
    untried option is the midpoint of the fixing face's own visible span along its tangent, which is
    unbiased while the face is unoccluded, unlike the medoid.
 3. F8, next: the held-out score of S2a without T5, once, on `embarcadero-folsom`, against gates 1 to 5.
-   F6s's last four sites and its coverage survey, and F7b's last screen site, finish in the
-   background.
+   F6s's last two sites and its coverage survey finish in the background; F7b's screen is
+   complete.
 
 ### S2.2: the tracked near-edge update
 
@@ -941,9 +942,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] T5 rank-one medoid across the body at an end-face fix (`solid_body_rank_one_medoid` and its
       tight setting), default-off, on the shadow and the tracked filter
 - [x] F7 (run as F7b): T5 on the tracked arm and the shadow, on the tuning partition, on the Mac:
-      11 and 14 mm, mixed on the screen sites; not promoted
-- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 17 of 21 sites run,
-      tracked arm lower on all 17 and gate 3's counts pass; four sites and the survey remain
+      11 and 14 mm, mixed on all 21 screen sites; not promoted
+- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 19 of 21 sites run,
+      tracked arm lower on all 19 and gate 3's counts pass; two sites and the survey remain
 - [ ] F8: the held-out score of S2a without T5, once, on the Mac
 - [ ] F9: kirk0's reviewed pack (20 road-user objects): identity (per-frame) and near-face
       residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only

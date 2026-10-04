@@ -6,6 +6,16 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 4, 2026 - Two more screen sites for the tracked arm
+
+- {dd/docs/near-edge-f6s-19} F6s's 1st-mission and embarcadero-bryant runs are in. The tracked arm
+  is lower than the control on all 19 screen sites run so far (a median of 76 mm lower steady
+  p99), and its confirmed tracks and births per confirmation stay within gate 3's 5 % on every one.
+  F7b's last screen site, howard-6th, completes T5's screen. Against the tracked arm on the 19
+  sites both have run, T5 is lower on 12, higher on 5 and identical on 2, a median of 7 mm lower,
+  so it stays off. The September 30 count of 7 higher of 17 had included the two identical sites.
+  3rd-folsom, howard-6th and the coverage survey remain for F6s.
+
 ## October 1, 2026 - Terminology first, data-model improvements second
 
 - {codex/assess-pr631} Split the platform vocabulary programme into four terminology/compatibility work packages and seven feature/data-model work packages, with linked delivery outlines and a Phase 1 exit that preserves behaviour, values and relationships. The original item ledgers and decisions remain; their release allocations need re-baselining after the terminology scope is sized. Capture digests, clock metrics, shared jobs, radar identity/logging, recording conversion and site/survey consolidation follow in Phase 2.
