@@ -27,6 +27,9 @@ older entries stay put, however tempting hindsight may be.
   arm's own faces scores the control arm at zero. That is not a result. The first run on the
   reviewed pack is open, and kirk0 is the capture the shadow work was developed on, so it is a
   tuning split and cannot be held out.
+
+## October 1, 2026 - Annotation history grows with every save, and now it can be pruned
+
 - A labelled kirk0 pack (23 objects, 3,683 reviewed masks, 83 s) had grown a revision history of
   1,968 snapshots and 37.9 GB in a day and a half. Both stores write the whole document pretty-printed,
   one point index to a line, about 25 MB at the end, and archive the exact previous bytes on every
@@ -48,6 +51,9 @@ older entries stay put, however tempting hindsight may be.
 - Separated measured intensity zero from the adjustable 1–255 gradient and the unavailable style.
   Updated the Swift, recording-domain and facet plans to distinguish the bounded authoring work
   from the 35–60 engineer-day conditional research programme. Desktop tests are not field evidence.
+
+## September 30, 2026 - The tracked arm is steadier, and the side-face entry is what is left
+
 - Ran F6, the tracked arm (S2a) and the T1 with T3 control on the tuning partition on the Mac. The
   tracked arm lowers body-centre p99 by 26 mm on marina-webster-beach (0.158 to 0.132 m) and 20 mm
   on columbus-broadway (0.280 to 0.260 m), and the gap stays at 2.3 and 2.0. The five-point
