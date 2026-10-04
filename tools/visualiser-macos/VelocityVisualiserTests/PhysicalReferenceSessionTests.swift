@@ -231,16 +231,62 @@ private func sample(_ id: Int) -> AnnotationSample {
         #expect(
             physical.object("car")?.keyframes == [pose],
             "Reviewed independent history remains unchanged")
+        // Undo returns to the saved record, unrelabelled; it still cannot be
+        // reviewed as independent, so nothing is laundered by the undo.
         physical.undo()
+        #expect(physical.object("car")?.body == original)
+        #expect(!physical.isDirty)
+        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
+        physical.redo()
         #expect(physical.object("car")?.body?.review.origin == .trackerAssisted)
         physical.discard()
         #expect(!physical.isDirty)
-        #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
         physical.continueAsAssisted(objectID: "car")
         #expect(await physical.save())
         let savedID = physical.savedBody(objectID: "car")!.bodyID
         #expect(await physical.review(kind: .body, objectID: "car", recordID: savedID))
         #expect(physical.savedBody(objectID: "car")?.review.origin == .trackerAssisted)
+    }
+
+    @Test func undoingOneObjectLeavesAnotherSeenObjectsSavedProposalsAlone() async {
+        let (physical, fake) = makeSession(packDir: temporaryPackDir())
+        fake.digest = "sha256:two-objects"
+        let bodyA = PhysicalBody(bodyID: "body_a")
+        let bodyB = PhysicalBody(bodyID: "body_b")
+        let poseB = PhysicalKeyframe(keyframeID: "kf_b", sampleID: 0, timestampNs: 1_000)
+        fake.objects = [
+            PhysicalObject(objectID: "a", body: bodyA),
+            PhysicalObject(objectID: "b", body: bodyB, keyframes: [poseB]),
+        ]
+        await physical.load()
+        // B's estimate was shown in Compare; A's never was.
+        physical.expose(objectIDs: ["b"], source: "compare run 3")
+        #expect(!physical.isDirty, "seeing an estimate is not an edit")
+
+        physical.edit { $0[0].body?.length = PhysicalDimension(status: .observed, span: .full) }
+        #expect(physical.isDirty)
+        physical.undo()
+        #expect(!physical.isDirty, "Undo to unchanged saved history must not relabel it")
+        #expect(physical.object("b")?.body == bodyB)
+        #expect(physical.object("b")?.keyframes == [poseB])
+        physical.redo()
+        #expect(physical.object("b")?.body?.bodyID == "body_b")
+        #expect(physical.object("b")?.body?.review.origin == .independent)
+        #expect(physical.object("b")?.keyframes.first?.keyframeID == "kf_b")
+
+        // Saving A's edit writes B exactly as it was saved.
+        #expect(await physical.save())
+        let savedB = fake.objects.first { $0.objectID == "b" }
+        #expect(savedB?.body?.bodyID == "body_b" && savedB?.body?.review.origin == .independent)
+        #expect(savedB?.keyframes.map(\.keyframeID) == ["kf_b"])
+        #expect(savedB?.keyframes.first?.review.origin == .independent)
+
+        // An edit to B itself is still bound to what was seen.
+        physical.edit { $0[1].body?.width = PhysicalDimension(status: .observed, span: .full) }
+        #expect(physical.object("b")?.body?.review.origin == .trackerAssisted)
+        #expect(physical.object("b")?.body?.review.trackerSource == "compare run 3")
+        #expect(physical.object("b")?.body?.bodyID != "body_b")
+        #expect(physical.object("b")?.keyframes.first?.keyframeID == "kf_b")
     }
 
     @Test func explicitDeclarationForksAPendingSavedProposal() async {

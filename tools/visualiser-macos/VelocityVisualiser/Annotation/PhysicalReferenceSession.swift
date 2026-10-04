@@ -341,12 +341,18 @@ import Foundation
         scheduleValidation()
     }
 
+    /// Binds the outstanding edits, and only those, to the exposure ledger:
+    /// every record that differs from what is saved, for an object whose
+    /// estimate has been seen, becomes tracker-assisted.
+    ///
+    /// A record undo returns to its saved form is not an edit, and stays as
+    /// it was saved. That holds for a pending independent record too: it
+    /// cannot be reviewed as independent once its estimate has been seen
+    /// (`review` refuses it), and forking it is the operator's explicit
+    /// `continueAsAssisted`, not a side effect of undoing something else.
     private func applyOutstandingExposure() {
         PhysicalDraft.applyExposure(
             before: state?.document.objects ?? [], after: &draft, exposure: exposure)
-        for (objectID, source) in exposure {
-            PhysicalDraft.assistPendingReview(objectID: objectID, source: source, in: &draft)
-        }
     }
 
     /// Drops the working copy for the saved document. Saved history is not
