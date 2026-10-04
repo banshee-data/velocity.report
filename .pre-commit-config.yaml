@@ -13,6 +13,14 @@ repos:
   # Run repository-level formatting targets for changed files
   - repo: local
     hooks:
+      - id: check-no-results
+        name: check-no-results (no generated result directories in git)
+        entry: python3 scripts/check-no-results.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: format-go
         name: format-go (gofmt)
         entry: make format-go

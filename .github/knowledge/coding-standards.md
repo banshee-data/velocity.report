@@ -74,6 +74,16 @@ Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release t
 
 **No leading zeros in version segments.** `0.5.04` is invalid SemVer and will be rejected by npm (`web/package.json`, `public_html/package.json`). Use `0.5.4` instead.
 
+## Generated Experiment Output
+
+Experiment, replay, analysis and benchmark results are never committed on any branch. Keep raw
+outputs, generated reports, recordings, logs, database snapshots and campaign state outside the
+checkout or in ignored local directories. Do not force-add output or rename it to bypass this rule.
+Reusable tools and hand-authored test fixtures stay in their source directories; concise methods
+and conclusions belong in documentation. Run `make check-no-results` before every commit or push.
+The index, pre-commit hook and CI must contain no path under a directory named `results`.
+See [AGENTS.md](../../AGENTS.md) for the complete rule and preservation requirements.
+
 ## Documentation Updates
 
 When changing functionality, update **all** relevant docs:

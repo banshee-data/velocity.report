@@ -1,0 +1,23 @@
+name: No committed results
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: no-results-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-no-results:
+    name: No result directories in Git
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check tracked output and guard behaviour
+        run: make check-no-results test-no-results

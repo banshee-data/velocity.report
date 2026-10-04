@@ -6,6 +6,15 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## October 4, 2026 - Offline campaign diagnostics keep their outputs local
+
+- Added default-off `-campaign-metrics` exports to the offline baseline tool for confirmed
+  intervals and Tracker.Update wall time, with interval, censoring, miss-only expiry and
+  baseline-equivalence tests. The completed campaign's reports and evidence remain local.
+- Added repository-wide agent instructions and a Git ignore for result directories. A pre-commit
+  check and CI reject tracked `results` paths, including force-added output. The publication branch
+  was rebuilt without the campaign's result commits; reusable instrumentation remains reviewable.
+
 ## October 4, 2026 - Two more screen sites for the tracked arm
 
 - {dd/docs/near-edge-f6s-19} F6s's 1st-mission and embarcadero-bryant runs are in. The tracked arm

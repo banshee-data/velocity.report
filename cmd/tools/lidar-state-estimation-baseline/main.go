@@ -122,6 +122,7 @@ func main() {
 		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
+		campaignMetrics     = flag.Bool("campaign-metrics", false, "export confirmed intervals and tracker update timing separately from deterministic artifacts")
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
 		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
@@ -254,6 +255,7 @@ func main() {
 		first := replayeval.Config{
 			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
 			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
+			CampaignMetrics: *campaignMetrics,
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
 			SurfaceGroundRegionMetres: *surfaceGroundRegion,
 			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,

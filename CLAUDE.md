@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Repository-wide agent rules are in [AGENTS.md](AGENTS.md), including the prohibition on committing
+experiment results or bypassing output ignores. Read them before staging changes.
+
 ## Project
 
 **velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII: by architecture, not policy.
