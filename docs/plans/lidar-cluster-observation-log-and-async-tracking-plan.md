@@ -9,16 +9,18 @@ storage, queues, battery operation, and processing elsewhere.
 - **Canonical:** [LiDAR architecture](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Related:** [Bodies in motion](lidar-bodies-in-motion-plan.md),
   [offline analysis](lidar-offline-analysis-tooling-plan.md),
-  [performance measurement](lidar-performance-measurement-harness-plan.md)
-- **Evidence baseline:** Repository commit `3c3b1472d`; source inspection, existing benchmark
+  [performance measurement](lidar-performance-measurement-harness-plan.md),
+  [VRLOG recording contract review](lidar-vrlog-recording-contract-review.md)
+- **Evidence baseline:** Repository commit `9b2014b90`; source inspection, existing benchmark
   documentation, and manufacturer specifications
 
 ## Recommendation
 
-Introduce an immutable **observation log after L4**, with an independently scheduled L5+ worker.
-Keep cluster measurements and, for the accuracy development profile, their supporting foreground
-points. Let the worker revise associations and motion estimates within a bounded interval, then
-publish a versioned final result. Capture must continue when the worker stops.
+Evolve **VRLOG into the immutable observation record after L4**, with an independently scheduled
+L5+ worker. Keep capture, results, and human assertions in one session package and catalogue. Keep
+cluster measurements and, for the accuracy development profile, their supporting foreground points.
+Let the worker revise associations and motion estimates within a bounded interval, then publish a
+versioned final result. Capture must continue when the worker stops.
 
 Start with **one second of look-ahead**: 10 subsequent frames at 10 Hz or 20 at 20 Hz. Compare 0.5,
 1, and 2 seconds against the present causal tracker before choosing a production default. Twenty
@@ -69,7 +71,7 @@ new L4 interpretation over retained points. Rerunning L3 requires fuller input t
 | [L5 association](../../internal/lidar/l5tracks/tracking_association.go) uses a constant-velocity Kalman model, Mahalanobis gates, Hungarian assignment, and velocity limits                               | These provide a baseline, not backward reassociation or a proof of physically valid trajectories                                            |
 | Current persistence writes observations only for matched confirmed tracks                                                                                                                                 | Preserve the distinction between observed and predicted samples in the new contract                                                         |
 | [Database setup](../../internal/db/db.go) uses WAL, `synchronous=NORMAL`, and a 30-second busy timeout                                                                                                    | The new capture guarantee needs an explicit durability contract; a long SQL wait cannot sit in a UDP capture path                           |
-| [VRLOG recorder](../../internal/lidar/l9endpoints/recorder/recorder.go) uses versioned protobuf chunks and an index, downstream of presentation shaping                                                   | Reuse format experience, but audit retained evidence and crash recovery before treating VRLOG as an authoritative observation log           |
+| [VRLOG recorder](../../internal/lidar/l9endpoints/recorder/recorder.go) uses versioned protobuf chunks and an index, downstream of presentation shaping                                                   | Promote VRLOG to the capture boundary only after removing presentation losses and adding crash recovery                                     |
 
 The existing [bodies-in-motion plan](lidar-bodies-in-motion-plan.md) covers richer motion models
 and linking sparse detections. This proposal supplies the durable input and temporal revision
@@ -78,16 +80,149 @@ contract those ideas need. It does not make the planned L7 scene model a prerequ
 ```mermaid
 flowchart TD
     A["L1 packets and optional PCAP archive"] --> B["L2 frames, L3 foreground, L4 clusters"]
-    B --> C["Immutable observation log and durable frontier"]
+    B --> C["VRLOG observation frames and durable frontier"]
     C --> D["Local or external L5 worker"]
     D --> E["Bounded reassociation and motion smoothing"]
     E --> F["Provisional results and revision events"]
     E --> G["Finalised track states for this run"]
     G --> H["L6 classification and L8 reports"]
+    C --> K["Playback for a selected run"]
+    G --> K
+    L["Annotation ledger"] --> K
     C --> I["Later offline analysis run"]
     A --> I
     I --> J["New result version with provenance"]
 ```
+
+## One capture package, one run model, one worker contract
+
+This supersedes the earlier suggestion of a separate point/cluster log alongside VRLOG. The
+existing [VRLOG format](../../data/structures/VRLOG_FORMAT.md) already has seekable protobuf
+frames, background snapshots, counts for empty rotations, and recorder provenance. Adding another
+authoritative recording would duplicate capture identity, retention, transfer, and replay rules.
+Use VRLOG as the only processed-observation recording; keep optional PCAP as the earlier L1 source
+when reprocessing L2–L4 is required. The SQLite catalogue owns jobs, run results, and annotations.
+
+| Concern         | One owner and one identity                                            | What changes                                                                                        |
+| --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Capture         | Session ID, immutable VRLOG observation frames and manifest           | Store every L4 cluster and selected foreground evidence; link any PCAP as a separate earlier source |
+| Analysis        | Run ID, input content identity, exact configuration and code identity | Store provisional and final L5+ track samples, lineage, classification, and reports by run          |
+| Human judgement | Annotation ID, capture/replay time and evidence anchor                | Keep review and labels independent of changing track IDs; retain optional run-specific links        |
+| Execution       | Job ID and attempt/lease epoch                                        | One job contract for either an in-process worker or a remote process                                |
+| Playback        | Capture ID plus selected run ID                                       | Join recorded observations with that run's current track estimates and human assertions             |
+
+This is one **logical capture package**, with VRLOG frame files and a local SQLite catalogue.
+Portable export includes a consistent catalogue snapshot and only the selected run versions and
+annotations. Moving a worker does not itself move ownership of the catalogue. The site or capture
+device that accepted the recording remains its authority during live work; a remote worker sends
+results back and caches them until that authority acknowledges a durable commit. A completed
+offline capture may move authority to a workstation by an explicit, verified package import. Only
+one catalogue may accept edits for that package at a time.
+
+Keep the current [PipelineState](../../internal/lidar/server/pipeline_state.go) source mode
+authoritative for what drives capture or replay. Worker placement and analysis lag are separate
+status fields; switching a worker must not masquerade as a change from live input to VRLOG replay.
+
+### Why current VRLOG needs a new observation contract
+
+The current [frame adapter](../../internal/lidar/l9endpoints/adapter.go) deliberately omits
+clusters matched to tracks: their boxes are rendered as track boxes instead. Its point arrays
+contain XYZ, intensity, and foreground class, but no per-point acquisition time, ring, or link to a
+cluster. The [publisher](../../internal/lidar/l9endpoints/publisher.go) records the presentation
+bundle after foreground decimation; it logs recorder errors and continues. The recorder writes its
+header and index on close. Those are sound presentation choices, but they do not make an
+authoritative, crash-recoverable L4 measurement stream.
+
+For new captures, version a VRLOG **observation contract**: every frame and every cluster appears
+before L5 association, including empty, skipped, and invalid frames with explicit reasons. Retain
+the evidence fields in section 4, use append-safe indexes and committed extents, and make failed
+recording visible to capture health. Feed the recorder at the L4 boundary; derive a visualiser
+`FrameBundle` separately. Do not send presentation-filtered clusters back into estimation.
+The [VRLOG recording contract review](lidar-vrlog-recording-contract-review.md) separates this
+evidence choice from pipeline depth, web exports, diagnostics, transport, and retention.
+
+The existing VRLOG frame schema may evolve, but the source record must not be rewritten when track
+estimates change. New files omit authoritative `Tracks` from observation frames. The replayer
+composes track samples for a selected run at seek or stream time. A run without results still shows
+points and clusters with a clear processing status. Existing v0.5 VRLOGs keep their recorded track
+snapshots as a legacy view; they cannot be promoted to complete observation input. Use a matching
+PCAP to regenerate that input if available. Keep `vrlog-check`, `vrlog-analyse`, Swift replay, web
+scene export, and old JSON read compatibility working through versioned readers.
+
+### Annotations follow evidence, while QC follows a run
+
+Today, human state is split between `lidar_run_tracks` user/quality label columns and
+[`lidar_replay_annotations`][replay-annotation-schema]. The latter requires a replay case and can
+optionally link `run_id + track_id`; the label API verifies that link. The protobuf `LabelEvent`
+and `LabelSet` describe a transport shape, while VRLOG `FrameBundle` has no label field. A new
+tracking run can split, merge, or rename tracks, so copying labels by track ID would silently move
+human judgement to the wrong object.
+
+[replay-annotation-schema]: ../../internal/db/migrations/000033_replay_annotations_and_eval_integrity.up.sql
+
+Use one authoritative annotation ledger in the catalogue. Anchor a claim about an observed object
+to capture ID, time interval, spatial region or point/cluster references, author, and annotation
+revision. Keep the selected run and track as optional context. Keep claims about the _quality of a
+particular computed track_ scoped to its run and track. Store both kinds with an explicit scope and
+provenance; materialise current label columns for existing APIs and HINT rather than maintaining
+two independently editable truths. Replay cases remain named ranges over a capture session, with
+their existing annotation IDs preserved.
+
+When a new run changes identity, project capture-scoped annotations onto candidate tracks by
+evidence/time overlap and mark ambiguous or split/merged mappings for review. Never relabel
+automatically across an uncertain mapping. Run-scoped QC and manual repair remain attached to the
+old run until reviewed. Preserve old and new links plus the human action in an audit record, even
+if a run-track row is deleted; the present foreign key can set its link to null. During migration,
+route both existing label APIs through the ledger and read old rows as compatible projections.
+Swift and web clients select a run to see its labels and QC over the same VRLOG timeline.
+
+Backfill existing run-track labels as **run-scoped** assertions. Older replay annotations may have
+only a replay case and time range: preserve that weaker anchor and request review before carrying
+them to a changed identity. Do not invent point references that the old recording never stored.
+
+| Existing consumer                                              | Planned reading path                                                                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Live `lidar_tracks` and observation APIs                       | Project the selected run's newest accepted states during migration; keep their short live lifetime separate from historical run results |
+| `lidar_run_records`, `lidar_run_tracks`, HINT, and evaluations | Bind a run to capture content identity; score finalised states and ledger projections for that run                                      |
+| Swift replay and run browser                                   | Seek VRLOG observations and fetch the selected run's track/annotation overlay; expose pending and final status                          |
+| Web scene export and reports                                   | Record both capture hash and run/result version; re-export when a different run is selected                                             |
+| Existing VRLOG tools and v0.5 recordings                       | Continue legacy reads; identify snapshots as fixed historical outputs, not complete L4 evidence                                         |
+
+### Moving the same analysis between workers
+
+| Situation                                       | Capture and authority                                        | Worker move and visible result                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Local capture, local worker                     | Device appends and indexes VRLOG; its catalogue owns the run | In-process worker reads committed frames and commits results locally                                    |
+| Local capture, remote worker on LAN             | Device remains owner and transfers verified VRLOG batches    | Remote processes the same run contract; device commits validated result batches and serves UI           |
+| Local capture, intermittent cellular worker     | Device spools frames durably and remains owner               | Remote resumes from acknowledged input; lag is shown; qualified local fallback may take the next lease  |
+| Capture originates on a remote site server      | That server owns its VRLOG and catalogue                     | Its worker runs there or elsewhere through the same contract; the viewer's location changes nothing     |
+| Fully offline backpack, later workstation       | Device closes and verifies package before transfer           | Workstation imports package, becomes sole catalogue owner, and starts or resumes a run                  |
+| Remote worker fails or local processing resumes | Capture and annotations remain with the owner                | Expire/fence remote lease; local worker resumes from checkpoint or replays overlap; reject stale output |
+| Local worker gives way to remote again          | Owner transfers missing input and checkpoint                 | New lease begins at a safe boundary; no duplicate final results or mixed track revisions                |
+
+Job identity is independent of host. A lease epoch fences old attempts; every output batch carries
+run ID, input range/hash, configuration hash, attempt epoch, and its previous committed frontier.
+The owner accepts a contiguous result once, advances its processed and finalised frontiers in the
+same transaction, then acknowledges it. A worker retains unacknowledged output for retry. Changing
+workers never means copying an open SQLite WAL file or treating network receipt as durable input.
+
+A transferable checkpoint contains the last finalised boundary, estimator state and uncertainty,
+open hypotheses, pending observation window, input range/hash, and algorithm/schema versions.
+Switch at a finalised boundary, then replay enough preceding observations to rebuild the open
+window and check continuity. If state formats disagree, replay from an earlier qualified anchor or
+start a new run. Provisional states may be replaced after a switch; finalised states may not jump.
+Only the owning catalogue publishes a run to the UI. Parallelise separate sessions or distinct
+analysis runs first; dividing one live track across workers needs additional boundary ownership.
+For a deliberate authority move after offline capture, quiesce catalogue edits, export and verify
+the package, confirm the imported annotation and run frontiers, then mark the old catalogue
+read-only. Returning authority uses the same process. A remote compute lease is not such a move.
+
+The current [capture job runner](../../internal/lidar/server/capture_jobs.go) handles a local
+session motion pass and requeues interrupted work. The
+[distributed sweep worker design](lidar-distributed-sweep-workers-plan.md) is still proposed and
+assumes shared PCAP files. Reuse their job and acknowledgement ideas, but implement a single
+tracking executor contract for local and remote placement. Tracking jobs need input ranges, durable
+leases, checkpoints, and fencing that the current motion-pass queue does not provide.
 
 ## 2. Accuracy: what can be guaranteed
 
@@ -418,10 +553,10 @@ are **not HDD/SSD benchmarks** and exclude flush, decode, inference, and content
 followed by a rewrite on one device needs roughly twice the transferred bytes. CPU may dominate
 offline processing even when data reads take seconds.
 
-Prototype framed binary records in segments rotated at **10 capture seconds or 64 MiB**, whichever
-comes first. Let local readers consume complete committed frame batches before segment closure;
-otherwise a ten-second segment quietly becomes a ten-second delivery delay. Use independently
-decodable batches and permit small committed batches for low-latency network delivery too.
+Prototype versioned VRLOG chunks rotated at **10 capture seconds or 64 MiB**, whichever comes
+first. Let local readers consume complete committed frame batches before segment closure; otherwise
+a ten-second segment quietly becomes a ten-second delivery delay. Use independently decodable
+batches and permit small committed batches for low-latency network delivery too.
 
 Begin by testing a 250 ms group-commit interval and a separately tested per-frame durable mode. For
 group commit, a loss bound of 250 ms only holds when flush finishes on schedule; include measured
@@ -432,33 +567,23 @@ batches, discard or quarantine torn tails, and rebuild the catalogue from segmen
 
 ### Is SQLite right?
 
-**Yes for catalogues, worker checkpoints, labels, jobs, and canonical track results.** It is also a
-credible first prototype for summary-only observations or one packed BLOB per frame/batch in a
-dedicated database. It is less attractive as a row-per-point store or the shared destination for
-continuous point ingestion and every speculative track rewrite.
+**Yes for the capture catalogue, worker checkpoints, annotation ledger, jobs, and versioned track
+results.** Keep processed observations in VRLOG chunks and avoid a second SQLite observation
+database or a row per point. Store run-scoped per-frame track samples in batches with indexes for
+time and track; `lidar_run_tracks` remains the summary and current labelling view. Measure result
+row/index growth and WAL behaviour before choosing packed samples or ordinary rows.
 
 SQLite WAL permits readers alongside a writer, but there is one writer per database and WAL
 requires a local filesystem. Long read transactions can delay checkpoints. `synchronous=FULL` syncs
 commits; WAL with `NORMAL` can lose recent commits after power failure. These properties are
-documented in [SQLite's WAL reference](https://sqlite.org/wal.html). Use `FULL` for a SQLite-based
-authoritative capture prototype, and benchmark it separately from the present rebuildable-results
-policy.
+documented in [SQLite's WAL reference](https://sqlite.org/wal.html). If SQLite commits are part of
+the authoritative capture acknowledgement, use `FULL` there and benchmark it separately from
+rebuildable result writes. VRLOG chunks must become durable before the catalogue advances their
+committed frontier. Recovery discovers committed chunks missing from the catalogue and rejects
+entries beyond durable extent. The catalogue needs a tested backup and recovery procedure for
+results and human annotations; regenerating it from VRLOG alone would lose both.
 
-Compare two implementations before freezing the format:
-
-1. **Dedicated SQLite observation database:** packed frame/batch BLOBs, minimal time/sequence
-   indexes, short batched transactions, one owner for writes, bounded reader transactions. Easiest
-   atomic catalogue/payload relationship; measure file growth, WAL peaks, and checkpoints.
-2. **Binary segments plus SQLite catalogue:** preferred long-term candidate for point evidence.
-   Sequential payload, compression by batch, independent transfer/retry, simple retention by
-   segment. More engineering for crash recovery and for keeping files and the catalogue consistent.
-
-In the second design, commit and verify payload first, then index it. Recovery must discover
-committed files missing from the catalogue and reject catalogue entries beyond the durable file
-extent. The catalogue should be rebuildable; it is not the only record of the bytes captured.
-Measure WAL and index amplification rather than assuming a universal SQLite multiplier.
-
-Remote workers receive files or framed streams through an API and return results to the database
+Remote workers receive committed VRLOG batches through an API and return results to the catalogue
 owner. Do not open a live SQLite WAL database over SMB/NFS. A central multi-writer fleet service
 may later justify a server database; one sensor and a local worker do not require that change. This
 distinction is consistent with
@@ -644,14 +769,14 @@ qualified site, but should never be required for capture continuity.
 Deliver a measurable boundary before committing to the most elaborate estimator. Each phase should
 produce a reviewable artefact and a decision about the next expense.
 
-| Phase                        | Work and deliverable                                                                                                                                                                                   | Exit decision                                                                                                    |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| 1. Measure the boundary      | Representative quiet, ordinary, congested, turning, occluded, poor-weather, and disturbed-background captures; distributions of points/clusters/tracks; per-stage CPU, heap, disk bytes, battery watts | Choose evidence profiles and a measured capacity envelope; identify field hardware able to sustain L1–L4         |
-| 2. Replayable observations   | Prototype summaries and rich evidence; compare SQLite BLOBs with binary segments; existing tracker consumes the recorded boundary                                                                      | Equivalent observations and baseline results within declared tolerances; restart, gaps, and hashes verified      |
-| 3. Smoothing experiment      | Compare causal tracking, fixed-association smoothing, and bounded reassociation at 0.5/1/2 seconds; test motion models separately                                                                      | Retain the smallest horizon and model that improve accuracy without unacceptable identity or latency regressions |
-| 4. Versioned results         | Provisional intervals, finality watermark, split/merge lineage, observed/inferred flags, corrected analytics, client revision handling                                                                 | No mixed-version trails, duplicate counts, silent revisions, or reports over unprocessed data                    |
-| 5. Field and external worker | RAM/SSD/HDD modes, CPU/I/O isolation, LAN transfer, simulated cellular conditions, full battery sessions                                                                                               | Qualify specific hardware and publish measured queue, energy, loss, and recovery envelopes                       |
-| 6. Retention decision        | Quantify failures recoverable only from PCAP; measure codec compression and total bytes including results                                                                                              | Decide whether and where rich observations can replace routine raw retention                                     |
+| Phase                       | Work and deliverable                                                                                                                                                                                   | Exit decision                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| 1. Measure the boundary     | Representative quiet, ordinary, congested, turning, occluded, poor-weather, and disturbed-background captures; distributions of points/clusters/tracks; per-stage CPU, heap, disk bytes, battery watts | Choose evidence profiles and a measured capacity envelope; identify field hardware able to sustain L1–L4         |
+| 2. Replayable observations  | Version VRLOG for all L4 observations and rich evidence; existing tracker consumes the recorded boundary                                                                                               | Equivalent observations and baseline results within declared tolerances; restart, gaps, and hashes verified      |
+| 3. Smoothing experiment     | Compare causal tracking, fixed-association smoothing, and bounded reassociation at 0.5/1/2 seconds; test motion models separately                                                                      | Retain the smallest horizon and model that improve accuracy without unacceptable identity or latency regressions |
+| 4. Results and annotations  | Provisional intervals, finality watermark, lineage, one annotation ledger and API projections, corrected analytics, replay composition                                                                 | No mixed-version trails, lost labels, duplicate counts, or reports over unprocessed data                         |
+| 5. Field and worker handoff | One executor contract on both hosts; leases, checkpoints, LAN and cellular handoff, RAM/SSD/HDD modes, full battery sessions                                                                           | Qualify hardware; publish measured queue, energy, loss, handoff, and recovery envelopes                          |
+| 6. Retention decision       | Quantify failures recoverable only from PCAP; measure codec compression and total bytes including results                                                                                              | Decide whether and where rich observations can replace routine raw retention                                     |
 
 Accuracy evaluation needs independently aligned reference trajectories or speed measurements; the
 existing track output and a visually smooth trail are not ground truth. Use separate tuning and
