@@ -1,0 +1,53 @@
+schema: "velocity.report/feature-proposals"
+schema_version: 1
+pack_digest: "sha256:shared-fixture"
+dataset_id: "shared-fixture"
+revision: 2
+updated_utc: "2026-09-30T23:00:00Z"
+author: "fixture-operator"
+point_domain: "legacy_pack"
+features {
+  feature_id: "persistent-corner"
+  object_id: "car-1"
+  name: "Corner near headlight?"
+  geometry: FEATURE_GEOMETRY_CORNER
+  semantic_hint: "headlight"
+  part_id: "body"
+  part_relation: "unknown"
+  observations {
+    sample_id: 1
+    timestamp_ns: 9007199254740993
+    source_ordinal: 101
+    point_indices: 0
+    point_indices: 17
+    uncertain_indices: 18
+    sphere { x_m: 1.25 y_m: -2.5 z_m: 0.75 radius_m: 0.2 }
+    decision: FEATURE_DECISION_ACCEPTED_PROPOSAL
+    method: "object_mask_translation_v1"
+    origin: "assisted_proposal"
+    author: "fixture-operator"
+    membership_revision: 3
+    membership_digest: "sha256:membership"
+    proposed_from_sample: 0
+  }
+}
+features {
+  feature_id: "overlapping-edge"
+  object_id: "car-1"
+  geometry: FEATURE_GEOMETRY_EDGE
+  part_id: "body"
+  part_relation: "unknown"
+  observations {
+    sample_id: 1
+    timestamp_ns: 9007199254740993
+    source_ordinal: 101
+    point_indices: 17
+    sphere { x_m: 1.25 y_m: -2.5 z_m: 0.75 radius_m: 0.2 }
+    decision: FEATURE_DECISION_ACCEPTED_PROPOSAL
+    method: "manual_sphere"
+    origin: "human_proposal"
+    author: "fixture-operator"
+    membership_revision: 3
+    membership_digest: "sha256:membership"
+  }
+}

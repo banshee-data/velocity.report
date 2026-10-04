@@ -951,6 +951,8 @@ proto-gen-go:
 	@mkdir -p $(PROTO_RECORDING_GO_OUT)
 	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
 	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/recording.proto
+	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
+	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
 	@echo "✓ Go stubs generated in $(PROTO_GO_OUT) and $(PROTO_RECORDING_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
@@ -977,6 +979,7 @@ proto-gen-swift:
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
+	@protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
 
 # =============================================================================
 # INSTALLATION

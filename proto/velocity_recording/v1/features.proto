@@ -1,0 +1,105 @@
+// Revisioned feature proposals over existing annotation-pack evidence.
+// This is an annotation document, NOT a VRLOG observation or display frame.
+// Field numbers are permanent. Zero sample/point indices are valid; absent
+// anchors stay absent. Legacy pack references do not claim retained IDs.
+syntax = "proto3";
+package velocity.recording.v1;
+option go_package = "github.com/banshee-data/velocity.report/internal/lidar/recordingpb";
+
+enum FeatureGeometry {
+  FEATURE_GEOMETRY_UNKNOWN = 0;
+  FEATURE_GEOMETRY_EDGE = 1;
+  FEATURE_GEOMETRY_CORNER = 2;
+  FEATURE_GEOMETRY_PATCH = 3;
+  FEATURE_GEOMETRY_PROTRUSION = 4;
+}
+
+enum FeatureDecision {
+  FEATURE_DECISION_UNSPECIFIED = 0;
+  // Accepted as an operator's feature proposal, never physical-reference truth.
+  FEATURE_DECISION_ACCEPTED_PROPOSAL = 1;
+  FEATURE_DECISION_REJECTED = 2;
+  FEATURE_DECISION_MISSING = 3;
+  FEATURE_DECISION_OCCLUDED = 4;
+}
+
+message FeatureSphere {
+  double x_m = 1;
+  double y_m = 2;
+  double z_m = 3;
+  double radius_m = 4;
+}
+
+message FeatureObservation {
+  uint32 sample_id = 1;
+  int64 timestamp_ns = 2;
+  uint32 source_ordinal = 3;
+  // Exact indices in this pack sample only. Different features may overlap.
+  repeated uint32 point_indices = 4 [packed = true];
+  repeated uint32 uncertain_indices = 5 [packed = true];
+  FeatureSphere sphere = 6;
+  FeatureDecision decision = 7;
+  string method = 8;
+  string author = 9;
+  uint64 membership_revision = 10;
+  string membership_digest = 11;
+  optional uint32 proposed_from_sample = 12;
+  string note = 13;
+  // Proposals never claim independent-reference provenance. Preserve whether
+  // an algorithmic suggestion or prediction was visible to the operator.
+  string origin = 14;
+}
+
+message FeatureAnchor {
+  // Stable metric part frame, not a changing bounding-box origin.
+  string part_frame_id = 1;
+  uint64 part_frame_revision = 2;
+  double x_m = 3;
+  double y_m = 4;
+  double z_m = 5;
+  uint64 physical_revision = 6;
+  string physical_digest = 7;
+  string body_id = 8;
+  string keyframe_id = 9;
+}
+
+message FeatureCandidate {
+  string feature_id = 1;
+  string object_id = 2;
+  string name = 3;
+  FeatureGeometry geometry = 4;
+  string semantic_hint = 5;
+  string part_id = 6;
+  // Pilot writes "unknown"; it does not assert a rigid/articulated transform.
+  string part_relation = 7;
+  FeatureAnchor anchor = 8;
+  repeated FeatureObservation observations = 9;
+}
+
+message FeatureAnnotations {
+  // Exact kind: velocity.report/feature-proposals. Never an observation stream.
+  string schema = 1;
+  uint32 schema_version = 2;
+  string pack_digest = 3;
+  string dataset_id = 4;
+  uint64 revision = 5;
+  string updated_utc = 6;
+  string author = 7;
+  repeated FeatureCandidate features = 8;
+  // Pilot: legacy_pack. No synthetic mapping to 1.x retained point IDs.
+  string point_domain = 9;
+}
+
+message FeatureState {
+  FeatureAnnotations document = 1;
+  string digest = 2;
+  string membership_digest = 3;
+  // Local writer identity: equal pack bytes in another folder are not this copy.
+  string pack_directory = 4;
+}
+
+message FeatureEdit {
+  FeatureAnnotations document = 1;
+  string base_digest = 2;
+  string membership_digest = 3;
+}

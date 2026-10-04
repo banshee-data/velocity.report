@@ -186,6 +186,9 @@ struct AnnotationSample: Codable, Equatable {
     var sensorID: String
     var pointCount: Int
     var byteOffset: Int64
+    /// Whether this sample's source frame carried an intensity column. Packs
+    /// cut before it was recorded have nil, and only the pack-wide flag.
+    var hasIntensity: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
         case sampleID = "sample_id"
@@ -195,6 +198,7 @@ struct AnnotationSample: Codable, Equatable {
         case sensorID = "sensor_id"
         case pointCount = "point_count"
         case byteOffset = "byte_offset"
+        case hasIntensity = "has_intensity"
     }
 }
 

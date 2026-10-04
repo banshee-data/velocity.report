@@ -25,7 +25,11 @@ freeze builds a reviewed, object-disjoint split over one or more annotation
 packs from a draft, and writes it once. It refuses unless every object it
 partitions has completed membership review, and it pins each pack's digest,
 manifest, selection record and annotation revision, with who froze it, when
-and with which build. Geometry review is recorded beside membership review.
+and with which build. A pack with physical references is pinned at the
+revision the draft names (physical_revision) or its head, with its review
+and coverage summaries; freezing refuses a document that does not hold
+against the pinned annotation revision. Geometry review is recorded beside
+membership review.
 
 verify re-checks a frozen split's digest and every pin against its packs, as
 the per-frame evaluator does before scoring.
@@ -194,8 +198,9 @@ func parseSplitFlags(fs *flag.FlagSet, args []string, stderr io.Writer) (code in
 }
 
 // writeSplitSummary prints what a frozen split holds: its identity, the
-// cases' roles, and per pack the objects in each partition, the episodes and
-// the geometry review, which is not membership review.
+// cases' roles, and per pack the objects in each partition, the episodes,
+// the geometry review, which is not membership review, and the physical
+// revision pinned, with what it reviews and can score.
 func writeSplitSummary(w io.Writer, f *annotation.FrozenSplit) {
 	fmt.Fprintf(w, "split %s, revision %d", f.SplitDigest, f.Revision)
 	if f.Supersedes != "" {
@@ -217,9 +222,32 @@ func writeSplitSummary(w io.Writer, f *annotation.FrozenSplit) {
 			partitions[o.Partition]++
 			geometry[string(o.Geometry.Status)]++
 		}
-		fmt.Fprintf(w, "pack %s (%s) at annotation revision %d: objects %s; %d episode(s); geometry review %s\n",
-			p.PackDigest, p.DatasetID, p.SidecarRevision, counts(partitions), len(p.Episodes), counts(geometry))
+		fmt.Fprintf(w, "pack %s (%s) at annotation revision %d: objects %s; %d episode(s); geometry review %s; %s\n",
+			p.PackDigest, p.DatasetID, p.SidecarRevision, counts(partitions), len(p.Episodes), counts(geometry), describePhysicalPin(p.Physical))
 	}
+}
+
+// describePhysicalPin is one pack's physical pin in a line: the revision and
+// its exact-byte digest, the bodies and keyframes reviewed, and per component
+// how many reviewed independent keyframes can be scored.
+func describePhysicalPin(pin *annotation.FrozenPhysical) string {
+	if pin == nil {
+		return "no physical references"
+	}
+	var bodies, keyframes, reviewed int
+	for _, o := range pin.Objects {
+		if o.Body.Status == annotation.PhysicalBodyReviewed && o.Body.Independent {
+			bodies++
+		}
+		keyframes += o.Keyframes.Total
+		reviewed += o.Keyframes.Reviewed
+	}
+	parts := make([]string, 0, 7)
+	for _, c := range pin.Coverage.Components() {
+		parts = append(parts, fmt.Sprintf("%s %d/%d", c.Name, c.Coverage.Scorable, c.Coverage.Scorable+c.Coverage.Unavailable))
+	}
+	return fmt.Sprintf("physical revision %d (%s): %d object(s), %d reviewed independent bod(ies), %d of %d keyframe(s) reviewed; scorable %s",
+		pin.Revision, pin.SHA256, len(pin.Objects), bodies, reviewed, keyframes, strings.Join(parts, ", "))
 }
 
 func counts(m map[string]int) string {

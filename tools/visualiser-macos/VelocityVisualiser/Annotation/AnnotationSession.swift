@@ -32,6 +32,28 @@ enum AnnotationGuard: Equatable {
     /// A propagation is writing frames; nothing else may move the session.
     case propagating
     case unsavedMembership(sampleID: Int, objectID: String)
+    /// The physical-reference draft differs from what is saved.
+    case unsavedPhysical
+    case unsavedFeature
+}
+
+/// What a gesture in the orthographic views authors. Object membership,
+/// physical pose and feature proposals have separate actions and save paths.
+enum AnnotationWorkMode: String, CaseIterable, Equatable {
+    case points
+    case physical
+    case features
+    /// Read-only: a report's reference and an estimate at one instant.
+    case compare
+
+    var label: String {
+        switch self {
+        case .points: return "Object Points"
+        case .physical: return "Physical"
+        case .features: return "Feature Candidates"
+        case .compare: return "Compare"
+        }
+    }
 }
 
 /// Observable annotation state. `@MainActor` because the selection it holds is
@@ -43,7 +65,108 @@ enum AnnotationGuard: Equatable {
     private let store: SidecarStore
 
     /// The current saved snapshot plus its concurrency token.
-    private var document: SidecarDocument
+    private var document: SidecarDocument {
+        didSet {
+            // Membership changed on disk: the physical references' links are
+            // checked against it, so the physical session has to hear.
+            if physicalStarted, document.loadedDigest != oldValue.loadedDigest {
+                let physical = self.physical
+                Task { await physical.membershipDidChange() }
+            }
+        }
+    }
+
+    /// The exact-byte digest of the membership this window last read or saved.
+    var membershipDigest: String { document.loadedDigest }
+
+    // MARK: Physical references
+
+    /// What a gesture authors. Physical authoring is blind to tracker output:
+    /// entering it stops following the main view, whose boxes would show the
+    /// estimate being judged.
+    @Published var workMode: AnnotationWorkMode = .points {
+        didSet {
+            guard workMode != oldValue else { return }
+            if workMode == .compare { exposeComparedObjects() }
+            if workMode == .features {
+                syncWithMainView = false
+                startFeatures()
+            }
+            if workMode == .physical || workMode == .compare {
+                syncWithMainView = false
+                startPhysical()
+                if physical.availability == .notLoaded {
+                    let physical = self.physical
+                    Task { await physical.load() }
+                }
+            }
+            sceneRevision &+= 1
+        }
+    }
+
+    /// The pack's physical-reference draft, saved through the local service.
+    /// Made on first use, so a window that never authors a pose never asks the
+    /// service anything.
+    private(set) lazy var physical: PhysicalReferenceSession = PhysicalReferenceSession(
+        packDirectory: pack.directory, packDigest: pack.manifest.packDigest, sessionID: sessionID,
+        client: physicalClient, membershipDigest: { [unowned self] in self.document.loadedDigest },
+        author: { [unowned self] in self.operatorName })
+    private var physicalStarted = false
+    private let physicalClient: PhysicalReferenceAPIClient
+    private var physicalForward: AnyCancellable?
+
+    private(set) lazy var features = FeatureAuthoring(pack: pack, client: featureClient)
+    private let featureClient: FeatureAPIClient
+    private var featureForward: AnyCancellable?
+    private func startFeatures() {
+        guard featureForward == nil else { return }
+        featureForward = features.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+        Task { await features.load() }
+    }
+
+    func startPhysicalIfNeeded() { startPhysical() }
+
+    /// Starts following the physical draft: the object list and the views
+    /// read it, so a change to it redraws them.
+    private func startPhysical() {
+        guard !physicalStarted else { return }
+        physicalStarted = true
+        physicalForward = physical.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+
+    // MARK: Intensity
+
+    /// The pack's role from segment.json, "tuning" or "held_out", or nil for
+    /// a pack cut without one.
+    private(set) var packRole: String?
+
+    /// The evaluation report open for comparison.
+    let reportInspector = PhysicalReportInspector()
+
+    /// Whether the pack's intensity is a measurement at all.
+    var intensityAvailability: IntensityAvailability {
+        IntensityAvailability(
+            hasIntensity: pack.manifest.hasIntensity, sample: currentSample?.hasIntensity)
+    }
+
+    /// How the views colour by raw intensity. A display setting: it changes
+    /// no byte, mask, reference or review.
+    @Published var intensityDisplay = IntensityDisplaySpec() {
+        didSet { if intensityDisplay != oldValue { sceneRevision &+= 1 } }
+    }
+
+    /// Whether moving the cursor reads out the return under it.
+    @Published var inspectIntensity = false {
+        didSet { if !inspectIntensity { inspection.clear() } }
+    }
+
+    /// The returns under the cursor and the pinned one. Not published by the
+    /// session: see IntensityInspectionState.
+    let inspection = IntensityInspectionState()
 
     @Published private(set) var sidecar: Sidecar {
         // A review changes no selection and no point, only what a mask is
@@ -51,8 +174,13 @@ enum AnnotationGuard: Equatable {
         didSet {
             labelRevision &+= 1
             summaries = nil
+            pointClaimConflicts = sidecar.pointClaimConflicts()
         }
     }
+
+    /// Returns two objects claim in one sample. Go's tools refuse a pack with
+    /// any, so the pane lists them for repair.
+    @Published private(set) var pointClaimConflicts: [PointClaimConflict] = []
 
     /// What the object list shows of each object, worked out once per change
     /// to the sidecar. The list is redrawn on every publish, and counting an
@@ -223,7 +351,14 @@ enum AnnotationGuard: Equatable {
     /// Keep this window and the main view on the same frame, in both
     /// directions: stepping here seeks the main view, and moving the main view
     /// steps here.
-    @Published var syncWithMainView = true { didSet { if !syncWithMainView { syncStatus = .off } } }
+    @Published var syncWithMainView = true {
+        didSet {
+            // Physical authoring is blind: the main view draws the tracker's
+            // boxes, so it does not follow or lead while a pose is authored.
+            if syncWithMainView, workMode != .points { syncWithMainView = false }
+            if !syncWithMainView { syncStatus = .off }
+        }
+    }
     @Published private(set) var syncStatus: FrameSyncStatus = .off
     /// While the main view plays, keep it inside this pack's frames: when it
     /// runs past the last one, send it back to the first. A pack is a few
@@ -452,15 +587,20 @@ enum AnnotationGuard: Equatable {
 
     init(
         pack: AnnotationPack, store: SidecarStore? = nil,
-        defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard
+        defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
+        physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
+        featureClient: FeatureAPIClient = FeatureAPIClient()
     ) throws {
         self.pack = pack
+        self.physicalClient = physicalClient
+        self.featureClient = featureClient
         self.defaults = defaults
         let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
         self.store = resolvedStore
         self.document = try resolvedStore.load(
             packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
         self.sidecar = document.sidecar
+        self.pointClaimConflicts = document.sidecar.pointClaimConflicts()
         self.orderedSamples = pack.chronologicalSamples
         self.heightBand = pack.manifest.source.heightBand ?? .pipelineDefault
         self.heightBandIsAssumed = pack.manifest.source.heightBand == nil
@@ -523,6 +663,10 @@ enum AnnotationGuard: Equatable {
             }
             if !remaining.frames.isEmpty { proposals.append(remaining) }
         }
+        UnsavedWorkRegistry.shared.register(self)
+        struct Role: Decodable { let role: String? }
+        packRole = (try? Data(contentsOf: pack.directory.appendingPathComponent("segment.json")))
+            .flatMap { try? JSONDecoder().decode(Role.self, from: $0).role }
         let segmentURL = pack.directory.appendingPathComponent("segment.json")
         if let data = try? Data(contentsOf: segmentURL),
             let record = try? JSONDecoder().decode(SegmentOpening.self, from: data),
@@ -715,7 +859,7 @@ enum AnnotationGuard: Equatable {
             edited.sidecar.objects[index].provenance = change
         }
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
             refreshFrameProgress()
             return reviewed
@@ -755,6 +899,8 @@ enum AnnotationGuard: Equatable {
         currentPoints = (try? pack.points(sampleID: orderedSamples[index].sampleID)) ?? PackPoints()
         pendingCandidates = nil
         hover.clear()
+        inspection.clear()
+        if workMode == .compare { exposeComparedObjects() }
         if !slabIsPinned { resetSlabToSampleExtent() }
         loadSelectionForCurrentSample()
         secondViewChecked = false
@@ -777,7 +923,18 @@ enum AnnotationGuard: Equatable {
         {
             return .unsavedMembership(sampleID: sample.sampleID, objectID: objectID)
         }
+        if physicalStarted, physical.isDirty { return .unsavedPhysical }
+        if featureForward != nil, features.isDirty || features.busy { return .unsavedFeature }
         return nil
+    }
+
+    /// Discards everything unsaved: the membership of this frame and the
+    /// physical and feature drafts. What the discard prompts do once the operator has
+    /// chosen to lose the work.
+    func discardAllUnsaved() {
+        reload()
+        if physicalStarted { physical.discard() }
+        if featureForward != nil { features.cancel() }
     }
 
     /// Abandons the in-progress stroke, the explicit way past the guard.
@@ -1397,7 +1554,7 @@ enum AnnotationGuard: Equatable {
         }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
             dirtySamples.remove(here.sampleID)
             savedSelection = history.current
@@ -1575,7 +1732,7 @@ enum AnnotationGuard: Equatable {
             edited.sidecar.datasetID = pack.manifest.datasetID
             for mask in pending { edited.sidecar.upsert(mask: mask) }
             do {
-                document = try store.save(edited, change: change)
+                document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 refreshFrameProgress()
             } catch let error as SidecarStoreError {
@@ -1751,7 +1908,7 @@ enum AnnotationGuard: Equatable {
         if !dismissed.contains(key) { dismissed.append(key) }
         edited.sidecar.dismissedProposals = dismissed
         do {
-            document = try store.save(
+            document = try commit(
                 edited,
                 change: Provenance(
                     author: operatorName, session: sessionID,
@@ -1835,7 +1992,7 @@ enum AnnotationGuard: Equatable {
         }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -1930,7 +2087,7 @@ enum AnnotationGuard: Equatable {
         edited.sidecar.objects.removeAll { others.contains($0.objectID) }
 
         do {
-            document = try store.save(edited, change: change)
+            document = try commit(edited, change: change)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -2086,7 +2243,7 @@ enum AnnotationGuard: Equatable {
         }
 
         do {
-            document = try store.save(edited, change: byHand)
+            document = try commit(edited, change: byHand)
             sidecar = document.sidecar
         } catch let error as SidecarStoreError {
             conflict = error
@@ -2367,7 +2524,7 @@ enum AnnotationGuard: Equatable {
             edited.sidecar.upsert(mask: mask)
 
             do {
-                document = try store.save(edited, change: change)
+                document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 dirtySamples.remove(sample.sampleID)
                 savedSelection = Set(validated)
@@ -2402,6 +2559,17 @@ enum AnnotationGuard: Equatable {
             loadSelectionForCurrentSample()
             refreshFrameProgress()
         } catch { lastError = "\(error)" }
+    }
+
+    /// Every membership write goes through here. It refuses a save that would
+    /// make two objects claim one return, which Go's sidecar validation
+    /// refuses outright. A pack that already has such a return can still be
+    /// saved, so the operator can repair it: only a new one is refused.
+    private func commit(_ edited: SidecarDocument, change: Provenance) throws -> SidecarDocument {
+        let existing = Set(document.sidecar.pointClaimConflicts().map(\.key))
+        let introduced = edited.sidecar.pointClaimConflicts().filter { !existing.contains($0.key) }
+        if !introduced.isEmpty { throw PointClaimError(conflicts: introduced) }
+        return try store.save(edited, change: change)
     }
 
     static func describe(_ error: SidecarStoreError) -> String {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -219,5 +220,118 @@ func TestCanonicalIndicesHasOneEncoding(t *testing.T) {
 	}
 	if got := CanonicalIndices(nil); got == nil || len(got) != 0 {
 		t.Fatalf("empty set = %v, want an empty non-nil slice", got)
+	}
+}
+
+// A pack written before samples recorded their own presence has only the
+// manifest's word, and the reader must say so rather than invent a flag.
+func TestLegacyPackFallsBackToTheManifestIntensityFlag(t *testing.T) {
+	for _, packWide := range []bool{true, false} {
+		dir := filepath.Join(t.TempDir(), "pack")
+		block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
+		m := Manifest{Coverage: CoverageFull, HasIntensity: packWide}
+		if err := WritePack(dir, m, []Sample{{PointCount: 1}}, [][]byte{block}); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, samplesFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "has_intensity") {
+			t.Fatalf("a sample with no recorded presence wrote the key anyway:\n%s", raw)
+		}
+		p, err := OpenPack(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.IntensityPresenceIsPerSample() {
+			t.Error("a legacy pack claimed per-sample presence")
+		}
+		if got := p.SampleHasIntensity(0); got != packWide {
+			t.Errorf("manifest %v: sample 0 has intensity = %v", packWide, got)
+		}
+		if p.SampleHasIntensity(1) || p.SampleHasIntensity(-1) {
+			t.Error("a sample outside the pack reported intensity")
+		}
+	}
+}
+
+func TestWritePackRoundTripsPerSampleIntensityPresence(t *testing.T) {
+	yes, no := true, false
+	dir := filepath.Join(t.TempDir(), "pack")
+	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
+	samples := []Sample{
+		{PointCount: 1, HasIntensity: &yes},
+		{PointCount: 1, HasIntensity: &no},
+		{PointCount: 1}, // recorded by nothing; the manifest speaks for it
+	}
+	m := Manifest{Coverage: CoverageFull, HasIntensity: true}
+	if err := WritePack(dir, m, samples, [][]byte{block, block, block}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := OpenPack(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for sampleID, want := range []bool{true, false, true} {
+		if got := p.SampleHasIntensity(sampleID); got != want {
+			t.Errorf("sample %d has intensity = %v, want %v", sampleID, got, want)
+		}
+	}
+	if p.IntensityPresenceIsPerSample() {
+		t.Error("one sample recorded nothing, yet the pack claims per-sample presence")
+	}
+	if SamplesRecordIntensityPresence(nil) {
+		t.Error("no samples at all record their presence")
+	}
+	if !SamplesRecordIntensityPresence(p.Samples[:2]) {
+		t.Error("two samples with flags do not count as recorded")
+	}
+}
+
+// The manifest says "some sample was measured". When every sample says for
+// itself, the two cannot disagree, and neither writer nor reader lets them.
+func TestPackRefusesAContradictoryIntensityFlag(t *testing.T) {
+	yes, no := true, false
+	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
+	for _, tc := range []struct {
+		name     string
+		samples  []Sample
+		packWide bool
+	}{
+		{"manifest true over samples all false", []Sample{{PointCount: 1, HasIntensity: &no}}, true},
+		{"manifest false over a sample that is true", []Sample{{PointCount: 1, HasIntensity: &yes}, {PointCount: 1, HasIntensity: &no}}, false},
+	} {
+		blocks := make([][]byte, len(tc.samples))
+		for i := range blocks {
+			blocks[i] = block
+		}
+		err := WritePack(filepath.Join(t.TempDir(), "pack"), Manifest{HasIntensity: tc.packWide}, tc.samples, blocks)
+		if err == nil || !strings.Contains(err.Error(), "has_intensity") {
+			t.Errorf("%s: written, or refused for another reason: %v", tc.name, err)
+		}
+	}
+
+	// The manifest sits outside the pack digest, so flipping its flag after
+	// the fact passes every digest check. The reader has to look for itself.
+	dir := filepath.Join(t.TempDir(), "pack")
+	if err := WritePack(dir, Manifest{HasIntensity: true},
+		[]Sample{{PointCount: 1, HasIntensity: &yes}}, [][]byte{block}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, manifestFile)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := strings.Replace(string(raw), `"has_intensity": true`, `"has_intensity": false`, 1)
+	if edited == string(raw) {
+		t.Fatal("fixture manifest did not carry the flag to flip")
+	}
+	if err := os.WriteFile(path, []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenPack(dir); err == nil || !strings.Contains(err.Error(), "has_intensity") {
+		t.Errorf("opened a pack whose manifest denies the intensity its samples record: %v", err)
 	}
 }

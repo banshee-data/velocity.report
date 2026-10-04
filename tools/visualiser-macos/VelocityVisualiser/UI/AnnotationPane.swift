@@ -57,30 +57,92 @@ struct AnnotationPane: View {
                     Divider()
                     objectSection
                 case .editing:
+                    modePicker
+                    Divider()
                     displaySection
                     Divider()
-                    selectionSection
+                    IntensityInspectorSection(session: session)
                     Divider()
-                    slabSection
-                    if session.activeObjectID != nil {
-                        Divider()
-                        propagationSection
+                    if session.workMode == .physical {
+                        PhysicalReferencePane(session: session)
+                    } else if session.workMode == .compare {
+                        PhysicalComparePane(session: session)
+                    } else if session.workMode == .features {
+                        FeatureAuthoringPane(session: session, features: session.features)
+                    } else {
+                        pointsEditingSections
                     }
-                    if session.carried != nil {
-                        Divider()
-                        carriedSection
-                    }
-                    Divider()
-                    reviewSection
                 }
             }.padding(12)
         }.frame(width: AnnotationPane.columnWidth).alert(
-            "Unsaved membership", isPresented: $showDiscardPrompt
+            "Unsaved changes", isPresented: $showDiscardPrompt
         ) {
             Button("Keep editing", role: .cancel) {}
-            Button("Discard and reload", role: .destructive) { session.reload() }
+            Button("Discard and reload", role: .destructive) { session.discardAllUnsaved() }
         } message: {
-            Text("This frame has unsaved changes. Save it, or discard them, before moving on.")
+            Text(
+                "There are unsaved changes: this frame's membership or the physical-reference "
+                    + "or feature draft. Save them, or discard them, before moving on.")
+        }
+    }
+
+    // What a gesture authors. Switching keeps the object, the frame and both
+    // drafts; only a stroke in progress holds it.
+    private var modePicker: some View {
+        Picker("Mode", selection: $session.workMode) {
+            ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
+        }.pickerStyle(.menu).labelsHidden().disabled(session.strokeInProgress).help(
+            "Active editing mode; Object Points and Feature Candidates save separate records")
+    }
+
+    @ViewBuilder private var pointsEditingSections: some View {
+        selectionSection
+        Divider()
+        slabSection
+        if session.activeObjectID != nil {
+            Divider()
+            propagationSection
+        }
+        if session.carried != nil {
+            Divider()
+            carriedSection
+        }
+        Divider()
+        reviewSection
+    }
+
+    // MARK: Points claimed twice
+
+    // Go's tools refuse a pack in which one return belongs to two objects in
+    // a frame, the physical-reference service included. The window refuses
+    // to make a new one; these are ones already saved, to take out of one of
+    // the two objects.
+    @ViewBuilder private var pointClaimBanner: some View {
+        let conflicts = session.pointClaimConflicts
+        if !conflicts.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(
+                    "\(conflicts.count) return\(conflicts.count == 1 ? "" : "s") claimed by two objects",
+                    systemImage: "exclamationmark.triangle"
+                ).font(.caption.bold()).foregroundStyle(.orange)
+                ForEach(Array(conflicts.prefix(4).enumerated()), id: \.offset) { _, c in
+                    HStack {
+                        Text(
+                            "sample \(c.sampleID) point \(c.point): \(session.displayName(objectID: c.first)) and "
+                                + session.displayName(objectID: c.second)
+                        ).font(.caption2)
+                        if let index = session.samples.firstIndex(where: {
+                            $0.sampleID == c.sampleID
+                        }) {
+                            Button("Go") { handleStep { session.step(to: index) } }.controlSize(
+                                .mini)
+                        }
+                    }
+                }
+                Text("Go's tools refuse this pack until each is in one object only.").font(
+                    .caption2
+                ).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -107,6 +169,7 @@ struct AnnotationPane: View {
             // ignorance of that reads as a stronger claim than it is.
             Text(session.pack.coverageCaveat).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+            pointClaimBanner
 
             if let sample = session.currentSample {
                 // The run's own frame number first: it is the one the main
@@ -490,6 +553,11 @@ struct AnnotationPane: View {
                         + "\(session.samples.count) frames · "
                         + "\(session.reviewedSampleCount(objectID: object.objectID)) reviewed"
                 ).font(.caption2).foregroundStyle(.secondary).help(object.objectID)
+                // Membership, body and keyframes are three reviews, shown as
+                // three, so a reviewed mask never reads as a reviewed pose.
+                if let physical = session.physicalProgress(objectID: object.objectID) {
+                    Text(physical).font(.caption2).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             // Of its frames, not of the object record: an object marked
@@ -848,11 +916,16 @@ struct AnnotationPane: View {
             Toggle("Checked from another view", isOn: $session.secondViewChecked).font(.caption)
 
             HStack {
-                Button("Save points") { _ = session.save() }.keyboardShortcut(
-                    "s", modifiers: .command)
-                Button("Save and next") {
+                Button {
+                    _ = session.save()
+                } label: {
+                    shortcutLabel("Save points", key: "s")
+                }.keyboardShortcut("s", modifiers: .command).help("S or ⌘S")
+                Button {
                     if session.save() { handleStep { session.stepForward() } }
-                }.disabled(session.sampleIndex >= session.samples.count - 1)
+                } label: {
+                    shortcutLabel("Save and next", key: "x")
+                }.disabled(session.sampleIndex >= session.samples.count - 1).help("X")
             }
             HStack {
                 Button("Review this frame") {

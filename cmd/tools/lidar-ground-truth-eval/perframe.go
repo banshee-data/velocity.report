@@ -47,7 +47,70 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 	}
 }
 
+// perFrameRequest is one parsed perframe command line: the comparison to run
+// and where its outputs go.
+type perFrameRequest struct {
+	cfg                               perframeeval.Config
+	jsonPath, markdownPath, bundleDir string
+}
+
 func runPerFrame(args []string, stdout, stderr io.Writer) int {
+	req, code := parsePerFrame(args, stderr)
+	if req == nil {
+		return code
+	}
+	if req.bundleDir != "" {
+		if err := prepareBundleDir(req.bundleDir); err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+	}
+	c, err := perframeeval.Run(req.cfg)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+
+	payload, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		fmt.Fprintf(stderr, "error: encode comparison: %v\n", err)
+		return 1
+	}
+	payload = append(payload, '\n')
+	if req.jsonPath == "" {
+		if _, err := stdout.Write(payload); err != nil {
+			fmt.Fprintf(stderr, "error: write comparison: %v\n", err)
+			return 1
+		}
+	} else if err := os.WriteFile(req.jsonPath, payload, 0o644); err != nil {
+		fmt.Fprintf(stderr, "error: write %s: %v\n", req.jsonPath, err)
+		return 1
+	}
+	var markdown []byte
+	if req.markdownPath != "" {
+		markdown = []byte(perframeeval.RenderMarkdown(*c))
+		if err := os.WriteFile(req.markdownPath, markdown, 0o644); err != nil {
+			fmt.Fprintf(stderr, "error: write %s: %v\n", req.markdownPath, err)
+			return 1
+		}
+	}
+	if req.bundleDir != "" {
+		if err := writeBundle(req, args, c, payload, markdown); err != nil {
+			fmt.Fprintf(stderr, "error: write verification bundle %s: %v\n", req.bundleDir, err)
+			return 1
+		}
+		fmt.Fprintf(stderr, "verification bundle %s: physical revision %d, %s\n",
+			req.bundleDir, c.Physical.Reference.PhysicalRevision, c.Physical.Reference.PhysicalRevisionDigest)
+	}
+	printPerFrameSummary(stderr, c)
+	return 0
+}
+
+// parsePerFrame parses a perframe command line. A nil request carries the
+// exit code: zero after -h, two after a usage error, which it has reported.
+// The verifier re-parses a bundle's recorded arguments here, so a bundle
+// is re-run under exactly the rules that produced it.
+func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	fs := flag.NewFlagSet("lidar-ground-truth-eval perframe", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	packDir := fs.String("pack", "", "annotation pack directory (required)")
@@ -63,8 +126,9 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	toleranceMs := fs.Float64("frame-tolerance-ms", 10, "how far a hypothesis point may move in time onto a reference frame")
 	maxUnaligned := fs.Float64("max-unaligned-fraction", 0.01, "refuse an arm when more than this share of its points inside an episode lands on no frame")
 	physical := fs.Bool("physical-reference", false, "also score each estimate arm against the pack's physical references (centre, yaw, dimensions, bumpers, box, following gap); a held-out split is refused")
-	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one); recorded either way")
+	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one, or the revision a frozen split pins, which this must then equal); recorded either way")
 	physicalGate := fs.Float64("physical-gate-metres", perframeeval.DefaultPhysicalGateMetres, "how far a prediction's point may be from a reference body centre (or anchor) and still correspond to it")
+	bundleDir := fs.String("physical-bundle-dir", "", "write a verification bundle of the physical scoring to this new or empty directory: pinned inputs, options and outputs (needs -physical-reference; check it with verify-bundle)")
 	jsonPath := fs.String("json", "", "comparison JSON path (default: stdout)")
 	markdownPath := fs.String("markdown", "", "comparison Markdown path (optional)")
 	armA := registerArm(fs, "a", "A")
@@ -79,18 +143,18 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	}
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			return 0
+			return nil, 0
 		}
-		return 2
+		return nil, 2
 	}
 	if fs.NArg() > 0 {
-		return usageError(fs, stderr, fmt.Errorf("unexpected arguments: %v", fs.Args()))
+		return nil, usageError(fs, stderr, fmt.Errorf("unexpected arguments: %v", fs.Args()))
 	}
 	for _, required := range []struct{ name, value string }{
 		{"-pack", *packDir}, {"-split-manifest", *manifestPath}, {"-split", *split}, {"-a-db", *armA.db}, {"-b-db", *armB.db},
 	} {
 		if required.value == "" {
-			return usageError(fs, stderr, fmt.Errorf("%s is required", required.name))
+			return nil, usageError(fs, stderr, fmt.Errorf("%s is required", required.name))
 		}
 	}
 
@@ -101,7 +165,7 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	policy.Position = annotation.ReferencePosition(*position)
 	policy.ScorePartialMasks = !*ignorePartial
 	if err := policy.Validate(); err != nil {
-		return usageError(fs, stderr, err)
+		return nil, usageError(fs, stderr, err)
 	}
 
 	score := perframeeval.DefaultScoreOptions()
@@ -111,12 +175,12 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	case l8analytics.GateFixed:
 		score.Gate = l8analytics.FixedGate(*gateMetres)
 	default:
-		return usageError(fs, stderr, fmt.Errorf("-gate %q: want footprint or fixed", *gate))
+		return nil, usageError(fs, stderr, fmt.Errorf("-gate %q: want footprint or fixed", *gate))
 	}
 	score.FrameToleranceNanos = int64(*toleranceMs * 1e6)
 	score.MaxUnalignedFraction = *maxUnaligned
 	if err := score.Validate(); err != nil {
-		return usageError(fs, stderr, err)
+		return nil, usageError(fs, stderr, err)
 	}
 
 	var episodeIDs []string
@@ -139,42 +203,22 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		opts := perframeeval.DefaultPhysicalOptions()
 		opts.Revision, opts.GateMetres, opts.FrameToleranceNanos = *physicalRevision, *physicalGate, score.FrameToleranceNanos
 		if err := opts.Validate(); err != nil {
-			return usageError(fs, stderr, err)
+			return nil, usageError(fs, stderr, err)
 		}
 		cfg.Physical = &opts
 	} else if *physicalRevision != 0 {
-		return usageError(fs, stderr, fmt.Errorf("-physical-reference-revision needs -physical-reference"))
+		return nil, usageError(fs, stderr, fmt.Errorf("-physical-reference-revision needs -physical-reference"))
 	} else if flagSet(fs, "physical-gate-metres") {
-		return usageError(fs, stderr, fmt.Errorf("-physical-gate-metres needs -physical-reference"))
+		return nil, usageError(fs, stderr, fmt.Errorf("-physical-gate-metres needs -physical-reference"))
 	}
-	c, err := perframeeval.Run(cfg)
-	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+	if *bundleDir != "" && cfg.Physical == nil {
+		return nil, usageError(fs, stderr, fmt.Errorf("-physical-bundle-dir needs -physical-reference"))
 	}
+	return &perFrameRequest{cfg: cfg, jsonPath: *jsonPath, markdownPath: *markdownPath, bundleDir: *bundleDir}, 0
+}
 
-	payload, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		fmt.Fprintf(stderr, "error: encode comparison: %v\n", err)
-		return 1
-	}
-	payload = append(payload, '\n')
-	if *jsonPath == "" {
-		if _, err := stdout.Write(payload); err != nil {
-			fmt.Fprintf(stderr, "error: write comparison: %v\n", err)
-			return 1
-		}
-	} else if err := os.WriteFile(*jsonPath, payload, 0o644); err != nil {
-		fmt.Fprintf(stderr, "error: write %s: %v\n", *jsonPath, err)
-		return 1
-	}
-	if *markdownPath != "" {
-		if err := os.WriteFile(*markdownPath, []byte(perframeeval.RenderMarkdown(*c)), 0o644); err != nil {
-			fmt.Fprintf(stderr, "error: write %s: %v\n", *markdownPath, err)
-			return 1
-		}
-	}
-
+// printPerFrameSummary writes the operator's one-screen summary.
+func printPerFrameSummary(stderr io.Writer, c *perframeeval.Comparison) {
 	t := c.Total
 	fmt.Fprintf(stderr, "reference %s: split %s (held_out=%v), %d episode(s), %d reference points\n",
 		c.Reference.Digest, c.Reference.Split, c.Reference.HeldOut, len(c.Paired), t.A.NumGT)
@@ -189,8 +233,12 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 			arm.label, arm.s.MOTA, arm.s.IDSwitches, arm.s.Fragmentations, arm.s.HOTA, arm.s.IDF1)
 	}
 	if p := c.Physical; p != nil {
-		fmt.Fprintf(stderr, "physical references: revision %d, content %s, %d expected instants\n",
-			p.Reference.PhysicalRevision, p.Reference.PhysicalContentDigest, p.Reference.ExpectedInstants)
+		pinned := ""
+		if p.Reference.PhysicalPinned {
+			pinned = ", pinned by the frozen split"
+		}
+		fmt.Fprintf(stderr, "physical references: revision %d, content %s, %d expected instants%s\n",
+			p.Reference.PhysicalRevision, p.Reference.PhysicalContentDigest, p.Reference.ExpectedInstants, pinned)
 		for _, arm := range []perframeeval.PhysicalResult{p.A, p.B} {
 			centre, yaw := arm.Summary.Components[perframeeval.ComponentCentre], arm.Summary.Components[perframeeval.ComponentYaw]
 			fmt.Fprintf(stderr, "%s physical: centre %d scored, mean %.3f m  yaw %d scored, mean %.3f rad  gap %d scored, mean %.3f m\n",
@@ -201,7 +249,6 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 	for _, cv := range c.Caveats {
 		fmt.Fprintf(stderr, "caveat: %s\n", cv)
 	}
-	return 0
 }
 
 func usageError(fs *flag.FlagSet, stderr io.Writer, err error) int {

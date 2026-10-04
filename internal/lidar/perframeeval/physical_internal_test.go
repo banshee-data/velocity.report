@@ -166,7 +166,7 @@ func TestPredictionAndReferenceReasons(t *testing.T) {
 		ReasonReferenceUnreviewed:      {Origin: annotation.OriginIndependent, ReviewStatus: annotation.StatusProposed},
 		"":                             {Origin: annotation.OriginIndependent, ReviewStatus: annotation.StatusReviewed},
 	} {
-		if got := referenceReason(g, true); got != want {
+		if got := referenceReason(g, true, nil); got != want {
 			t.Errorf("reference %+v: %q, want %q", g, got, want)
 		}
 	}

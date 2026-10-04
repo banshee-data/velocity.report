@@ -93,6 +93,11 @@ const (
 	ReasonNoKeyframe               = "no_keyframe"
 	ReasonReferenceUnreviewed      = "reference_unreviewed"
 	ReasonReferenceTrackerAssisted = "reference_tracker_assisted"
+	// ReasonReferenceMembershipDrift: the keyframe was reviewed against a
+	// membership revision, and membership in a frame it rests on changed
+	// between that review and the revision scored. The review judged other
+	// returns; the record is not truth until reviewed again.
+	ReasonReferenceMembershipDrift = "reference_membership_drift"
 	ReasonNoReferencePosition      = "no_reference_position"
 	ReasonNoPredictionAtInstant    = "no_prediction_at_instant"
 	ReasonNoPredictionWithinGate   = "no_prediction_within_gate"
@@ -120,8 +125,9 @@ type Outcome struct {
 // PhysicalOptions are the physical path's choices, recorded with its result.
 type PhysicalOptions struct {
 	// Revision pins the physical reference revision; zero scores the
-	// current one. The revision and its content digest are recorded either
-	// way.
+	// current one, or the revision a frozen split pins. A frozen split's
+	// pin is what is scored, and a Revision that names another is refused.
+	// The revision and its content digest are recorded either way.
 	Revision            int
 	GateMetres          float64
 	FrameToleranceNanos int64
@@ -166,7 +172,17 @@ type PhysicalReferenceIdentity struct {
 	FrameToleranceNanos    int64                `json:"frame_tolerance_ns"`
 	GapDefinition          string               `json:"gap_definition"`
 	ExpectedInstants       int                  `json:"expected_instants"`
-	Digest                 string               `json:"digest"`
+	// SplitDigest and SplitRevision identify a frozen split whose pins were
+	// checked before scoring, as in ReferenceIdentity. Both are empty for a
+	// version 1 manifest, so its digest is what it always was.
+	SplitDigest   string `json:"split_digest,omitempty"`
+	SplitRevision int    `json:"split_revision,omitempty"`
+	// PhysicalPinned is true when the frozen split pinned the physical
+	// revision scored, so the score is reproducible from the split alone.
+	// False for a version 1 manifest, and for a frozen split with no pin
+	// for the pack, whose physical revision was the head when scored.
+	PhysicalPinned bool   `json:"physical_pinned,omitempty"`
+	Digest         string `json:"digest"`
 }
 
 // expectedInstant is one object that should be accounted for at one sample.
@@ -201,11 +217,24 @@ type PhysicalReference struct {
 	// no part in matching, so another split's references never change this
 	// one's outcomes.
 	otherSplits map[string]bool
+	// drifted are the reviewed records whose membership changed, in frames
+	// they rest on, between their review and the revision scored, by ledger
+	// key. They are shown and never scored.
+	drifted map[string]bool
+	// unpinnedReviews are reviewed records with no membership pin to check.
+	unpinnedReviews int
+	// FrozenWithoutPhysicalPin is true when the split is frozen but pins no
+	// physical revision for the pack, so the revision scored was the head,
+	// and a later save would change the score. ScorePhysical says so.
+	FrozenWithoutPhysicalPin bool
 }
 
 // LoadPhysicalReference opens the pack, its split manifest and annotation
 // revision as LoadReference does, then the physical references, and lists
-// every instant the split's episodes expect. A held-out split is refused.
+// every instant the split's episodes expect. A frozen split that pins a
+// physical revision is scored at that revision, bound through its pin
+// (FrozenSplit.BindPhysical); opts.Revision must be zero or that revision.
+// A held-out split is refused.
 func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*PhysicalReference, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -217,20 +246,11 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	if err != nil {
 		return nil, fmt.Errorf("open pack: %w", err)
 	}
-	manifest, err := annotation.LoadSplitManifest(ref.SplitManifestPath)
+	// The same binding as LoadReference: a frozen split is held to its pins,
+	// and the links below are checked against the sidecar revision it pins,
+	// not whatever membership has become since.
+	manifest, sidecar, frozen, err := bindSplit(pack, ref.SplitManifestPath)
 	if err != nil {
-		return nil, err
-	}
-	var sidecar *annotation.Sidecar
-	if manifest.SidecarRevision > 0 {
-		sidecar, err = annotation.LoadSidecarRevision(pack, manifest.SidecarRevision)
-	} else {
-		sidecar, err = annotation.LoadSidecar(pack)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("load annotation: %w", err)
-	}
-	if err := manifest.ValidateAgainst(pack, sidecar); err != nil {
 		return nil, err
 	}
 	episodes, err := manifest.SelectEpisodes(ref.Split, ref.Episodes, !ref.AllowTuningSplit)
@@ -244,28 +264,45 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 			"score a tuning split with -allow-tuning-split", ErrPhysicalHeldOut, split.Name)
 	}
 
+	// A frozen split's pin decides the revision; a flag may only agree.
 	var doc *annotation.PhysicalReferenceSet
-	if opts.Revision > 0 {
-		doc, err = annotation.LoadPhysicalReferenceRevision(pack, opts.Revision)
-	} else {
-		doc, err = annotation.LoadPhysicalReferences(pack)
+	pinned := false
+	if frozen != nil {
+		if doc, err = frozen.BindPhysical(pack, sidecar); err != nil {
+			return nil, err
+		}
+		pinned = doc != nil
+		if pinned && opts.Revision != 0 && opts.Revision != doc.Revision {
+			return nil, fmt.Errorf("physical reference revision %d was asked for, but frozen split %s pins revision %d for pack %s: "+
+				"score the pin, or freeze a new split revision", opts.Revision, frozen.SplitDigest, doc.Revision, pack.Manifest.PackDigest)
+		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("load physical references: %w", err)
-	}
-	if doc.Digest() == "" {
-		return nil, fmt.Errorf("pack %s has no physical references: author or import them first", pack.Manifest.PackDigest)
-	}
-	if err := doc.ValidateLinks(pack, sidecar); err != nil {
-		return nil, fmt.Errorf("physical references revision %d against annotation revision %d: %w", doc.Revision, sidecar.Revision, err)
+	if !pinned {
+		if opts.Revision > 0 {
+			doc, err = annotation.LoadPhysicalReferenceRevision(pack, opts.Revision)
+		} else {
+			doc, err = annotation.LoadPhysicalReferences(pack)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("load physical references: %w", err)
+		}
+		if doc.Digest() == "" {
+			return nil, fmt.Errorf("pack %s has no physical references: author or import them first", pack.Manifest.PackDigest)
+		}
+		if err := doc.ValidateLinks(pack, sidecar); err != nil {
+			return nil, fmt.Errorf("physical references revision %d against annotation revision %d: %w", doc.Revision, sidecar.Revision, err)
+		}
 	}
 	content, err := doc.ContentDigest()
 	if err != nil {
 		return nil, err
 	}
 
-	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples, geometry: doc.Geometries(),
-		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{}}
+	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples,
+		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{},
+		drifted: doc.DriftedRecords(pack, sidecar), unpinnedReviews: doc.UnpinnedReviews(),
+		FrozenWithoutPhysicalPin: frozen != nil && !pinned}
+	pr.geometry = driftedGeometries(doc, pr.drifted)
 	for _, sp := range manifest.Splits {
 		if sp.Name != split.Name {
 			for _, obj := range sp.ObjectIDs {
@@ -311,6 +348,9 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 		Episodes: ids, GateMetres: opts.GateMetres, FrameToleranceNanos: opts.FrameToleranceNanos,
 		GapDefinition: annotation.GapAlongFollowerAxis, ExpectedInstants: len(pr.instants),
 	}
+	if frozen != nil {
+		pr.Identity.SplitDigest, pr.Identity.SplitRevision, pr.Identity.PhysicalPinned = frozen.SplitDigest, frozen.Revision, pinned
+	}
 	b, err := json.Marshal(struct {
 		Identity  PhysicalReferenceIdentity `json:"identity"`
 		Instants  [][3]string               `json:"instants"`
@@ -322,6 +362,46 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	sum := sha256.Sum256(b)
 	pr.Identity.Digest = "sha256:" + hex.EncodeToString(sum[:])
 	return pr, nil
+}
+
+// driftedGeometries derives every keyframe with a drifted body treated as
+// unreviewed: its dimensions, ends and box are unavailable, and say why. A
+// drifted keyframe keeps its geometry, for display, and referenceReason
+// keeps it out of the score.
+func driftedGeometries(doc *annotation.PhysicalReferenceSet, drifted map[string]bool) map[string]map[int]annotation.PhysicalGeometry {
+	if len(drifted) == 0 {
+		return doc.Geometries()
+	}
+	view := *doc
+	view.Objects = append([]annotation.PhysicalObject(nil), doc.Objects...)
+	demoted := map[string]bool{}
+	for i, o := range view.Objects {
+		if o.Body != nil && drifted["body/"+o.Body.BodyID] {
+			b := *o.Body
+			b.Review.Status = annotation.StatusProposed
+			view.Objects[i].Body = &b
+			demoted[o.ObjectID] = true
+		}
+	}
+	out := view.Geometries()
+	for obj, byFrame := range out {
+		for s, g := range byFrame {
+			if demoted[obj] {
+				for _, reason := range []*string{&g.LengthUnavailable, &g.WidthUnavailable, &g.HeightUnavailable} {
+					if *reason == annotation.UnavailableBodyUnreviewed {
+						*reason = annotation.UnavailableBodyMembershipDrift
+					}
+				}
+			}
+			// Truth is what may be matched and compared. A drifted keyframe
+			// is shown, and referenceReason names why it is not scored.
+			if drifted["keyframe/"+g.KeyframeID] {
+				g.Truth = false
+			}
+			out[obj][s] = g
+		}
+	}
+	return out
 }
 
 // expectedFollowings is one expected item per follower and sample of an

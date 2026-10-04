@@ -41,6 +41,8 @@ struct LassoOverlay: View {
     }
 
     @State private var strokePoints: [CGPoint] = []
+    /// The physical handle being dragged, if a drag is on one.
+    @State private var physicalHandle: PhysicalHandle?
     @State private var rectangleMode = false
     /// Where a brush was at the last drag event, in world metres.
     @State private var lastBrushPosition: simd_float2?
@@ -62,30 +64,66 @@ struct LassoOverlay: View {
             ZStack(alignment: .topLeading) {
                 // Underneath everything and the only layer that takes input:
                 // the layers above are drawings of the session's state.
+                // In physical-reference mode the left button places the
+                // keyframe's anchor with a click and pans with a drag: a
+                // stroke is never also a placement.
                 ViewportInputLayer(
-                    strokesEnabled: editable, onStrokeChanged: strokeChanged,
-                    onStrokeEnded: strokeEnded,
+                    strokesEnabled: editable && session.workMode == .points,
+                    onStrokeChanged: strokeChanged, onStrokeEnded: strokeEnded,
                     onPan: { session.pan(basisStandard, size: viewport.size, byPoints: $0) },
                     onZoom: { factor, anchor in
                         session.zoom(
                             basisStandard, size: viewport.size, by: factor, aboutScreenPoint: anchor
                         )
-                    }, onClick: { _ in if !editable { session.makeEditingView(basisStandard) } },
+                    },
+                    onClick: { location in
+                        if !editable {
+                            session.makeEditingView(basisStandard)
+                        } else if session.workMode == .physical {
+                            session.placePhysicalAnchor(
+                                in: basisStandard, at: viewport.worldPoint(from: location))
+                        } else if session.workMode == .features {
+                            session.seedFeature(in: basisStandard, viewport: viewport, at: location)
+                        }
+                    },
                     onHover: { location in
-                        guard editable else { return }
+                        if session.inspectIntensity {
+                            session.inspectReturns(
+                                in: basisStandard, viewport: viewport, at: location)
+                        }
+                        guard editable, session.workMode == .points else { return }
                         session.hover(
                             atViewPoint: location.map { viewport.worldPoint(from: $0) },
                             pickDistance: metresPerPoint * 12)
-                    }, onDepthStep: { if editable { session.adjustBrushDepth(steps: $0) } },
-                    onKey: handleKey)
+                    },
+                    onDepthStep: {
+                        if editable, session.workMode == .points {
+                            session.adjustBrushDepth(steps: $0)
+                        }
+                    }, onKey: handleKey,
+                    claimsDrag: { location in
+                        guard editable, basisStandard == .top,
+                            let handle = session.physicalHandle(at: location, viewport: viewport)
+                        else { return false }
+                        physicalHandle = handle
+                        session.beginPhysicalDrag()
+                        return true
+                    })
 
                 if showsGrid { gridLayer }
                 maskLayer
+                if session.workMode == .features {
+                    FeatureSelectionOverlay(session: session, basis: basis, viewport: viewport)
+                }
                 if strokePoints.count > 1 { strokeOutline }
-                if session.pendingSphere != nil || hover.sphere != nil { sphereOutline }
-                if let candidates = session.pendingCandidates, editable {
+                if session.workMode == .points, session.pendingSphere != nil || hover.sphere != nil
+                {
+                    sphereOutline
+                }
+                if let candidates = session.pendingCandidates, editable, session.workMode == .points
+                {
                     candidateBadge(candidates)
-                } else if session.carried != nil, editable {
+                } else if session.carried != nil, editable, session.workMode == .points {
                     carriedBadge
                 } else if let sphere = hover.sphere, editable {
                     hoverBadge(sphere)
@@ -383,7 +421,27 @@ struct LassoOverlay: View {
     // all four arrows, and without one they step frames and move the ground —
     // is one readable function rather than a switch inside a view.
     private func handleKey(_ key: ViewportKey) -> Bool {
+        if session.inspectIntensity {
+            switch key {
+            case .inspectPin:
+                session.inspection.pin()
+                return true
+            case .inspectNext:
+                session.inspection.next()
+                return true
+            default: break
+            }
+        }
         guard editable else { return false }
+        if session.workMode == .features {
+            if case .stepFrame(let forward) = key.meaning(carrying: false) {
+                if (forward ? session.stepForward() : session.stepBackward()) != nil {
+                    NSSound.beep()
+                }
+                return true
+            }
+            return false
+        }
         switch key.meaning(carrying: session.carried != nil) {
         case .nudgeCarried(let right, let up, let coarse):
             let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep
@@ -411,6 +469,12 @@ struct LassoOverlay: View {
     // click with the lasso samples one vertex, which encloses nothing, and
     // ends as a stroke that named nothing.
     private func strokeChanged(_ value: ViewportStroke) {
+        if let handle = physicalHandle {
+            session.updatePhysicalDrag(
+                handle, from: viewport.worldPoint(from: value.startLocation),
+                to: viewport.worldPoint(from: value.location))
+            return
+        }
         switch session.tool {
         case .lasso: lassoChanged(value)
         case .sphere: sphereChanged(value)
@@ -419,6 +483,11 @@ struct LassoOverlay: View {
     }
 
     private func strokeEnded(_ value: ViewportStroke) {
+        if physicalHandle != nil {
+            physicalHandle = nil
+            session.endPhysicalDrag()
+            return
+        }
         defer { resetStroke() }
         session.selectionMode = SelectionMode.from(
             tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),

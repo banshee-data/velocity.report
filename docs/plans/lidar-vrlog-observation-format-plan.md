@@ -725,6 +725,147 @@ compatibility view, not another evidence format. Do not write both canonical JSO
 protobuf indefinitely. Phase 1 compares them on shared supported fields before new binary capture
 becomes authoritative for the selected profile.
 
+### 7.3 Persistent features and revisioned shape beliefs (proposed)
+
+This is the shared domain design for human feature proposals and later backend facet experiments.
+It is not implemented by the current observation protobuf. The
+[three-day Swift pilot](lidar-swift-physical-pose-plan.md#11-next-three-engineering-days-swift-feature-authoring)
+implements the smallest authoring/storage slice; the
+[facet experiment](lidar-facet-registration-experiment-plan.md) later tests its tracking value.
+Do not create a Swift-only meaning of feature identity, support, or body coordinates.
+
+#### Authority and point identity
+
+`velocity.recording.v1` remains authoritative for retained observation evidence. The visualiser
+protobuf remains a display projection, never the source for reconstructing a purported complete
+observation stream. Existing `Membership` clusters partition one frame's retained points;
+their IDs are frame-local. Persistent, overlapping feature support is a separate association.
+Neither cluster membership nor point classifications gain new meanings to accommodate it.
+
+A new feature observation references capture/extraction identity and digest, frame identity,
+ordered retained-point indices, and the selection/decimation map used to reach them. Preserve
+the pack's sample/index identity and source ordinal as well. Do not treat a display array index,
+cluster number, approximate XYZ lookup, or timestamp alone as a durable evidence reference.
+One point may support several features. That overlap does not change its recorded classification
+or existing human object-membership label.
+
+Existing legacy annotation packs remain valid in their own immutable pack/sample/point domain.
+If an exact mapping back to retained observation points is unavailable, declare the legacy source
+domain and absent mapping. Keep those labels usable in Swift and export them with their actual
+provenance; never invent recording-domain IDs or upgrade their coverage. Future migration can
+transfer labels only after proving an exact, digest-bound mapping. Decimation without such a map
+limits what a backend can consume, not the value of the preserved original annotation.
+
+#### Three record families
+
+| Family                           | Identity and content                                                                                                              | Mutability and authority                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Source observation               | Original frame, point values/classifications, capture/calibration, and completeness                                               | Immutable recorded evidence, never rewritten by annotation or model fitting                                  |
+| Feature/shape/association belief | Stable object/part/feature IDs; support observations; geometry and tentative semantics; anchors; relationships; source and review | Revisioned interpretation of evidence, with alternatives and superseded records retained                     |
+| Time-specific estimated pose     | Object/part transform, capture instant, estimator and parameter identity, input belief revision, uncertainty, and visibility      | A named estimate at an instant, distinct from both observed returns and independently reviewed physical pose |
+
+An earlier bumper observation may constrain an enduring body shape after the bumper disappears.
+Its current position is then predicted from that belief and the motion estimate, with uncertainty
+growing according to elapsed time, motion, and unobservable directions. It is not an observed
+bumper at the new instant. A later retrospective result may reinterpret old support through a new
+pose/shape revision; preserve the originally produced result and the inputs of both versions.
+
+#### Minimum feature and part vocabulary
+
+| Record/concept           | Required meaning for the shared contract                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Persistent feature       | Feature ID scoped to object/part identity, independent of which returns hit it in one scan                                                                                      |
+| Geometry class           | Edge, corner, patch, protrusion, or unknown; independent of semantic class                                                                                                      |
+| Tentative semantic class | Optional mirror, tailgate, spoiler, roof, or another versioned/unknown label; hypothesis rather than geometric proof                                                            |
+| Per-frame support        | Exact source point references; definite and uncertain subsets; observed, missing, occluded, or rejected support with reason and temporal applicability                          |
+| Fuzzy boundary           | Definite/uncertain support in the pilot, not a fabricated probability; overlapping features allowed; future weights must declare semantics and calibration                      |
+| Support extent           | Explicit shape and metric parameters: editable sphere radius, or elongated edge/patch bounds and orientation; independent of anchor uncertainty                                 |
+| Stable part frame        | Persistent origin/axis definition and frame revision, with transform provenance; not the current bounding-box minimum or length-normalised coordinates                          |
+| Anchor                   | Position in metres in that part frame, bounded/unknown components, and explicit physical body/pose revision links used to establish the transform                               |
+| Part relationship        | Parent/child identities, fixed/articulated/movable/non-rigid/unknown kind, temporal validity, optional transform/constraints and uncertainty; absent constraints remain unknown |
+| Interpretation/review    | Author or algorithm, method/version, input digests, independent/assisted/model-prior origin, proposed/reviewed/rejected state, supersession and revision                        |
+| Observability            | Supported motion directions or unknown, degeneracy and prior-dependence diagnostics when available; never inferred from feature count alone                                     |
+
+The support-size starting suggestion is **radius 0.2 m**, explicitly labelled as a radius
+(diameter 0.4 m). It is editable and provisional, not a universal vehicle-feature size or an
+uncertainty bound. Long edges need independently editable length and transverse bounds; do not
+force a truck's roof edge into a compact sphere.
+
+A longitudinal percentage is a UI hint derived from a named body-dimension revision. It cannot
+be the authoritative anchor. For example, length changing from 4 m to 5 m must leave a stored
+1.2 m anchor at 1.2 m; a percentage readout may change. Extending bounds must not move the part
+origin or old feature anchors. If the origin itself needs correction, create a new frame/transform
+revision and explicit re-expression, preserving the prior metric coordinates and interpretation.
+
+The three-day target can create multiple named parts and declare their relationship unknown or
+movable; it need only author anchors under a known transform. The first two-hour slice writes
+only a `body` part with unknown relation, and refuses the reserved metric anchor until its
+physical-transform validation and UI are implemented. Articulated buses/trucks and folding roofs
+must be representable without pretending that the whole object is rigid. When a part transform
+is unresolved, save the observed support and an unresolved anchor. Do not attach it to a guessed
+body transform. General articulation/deformation estimation remains later work.
+
+#### Revisioned annotation storage and protobuf evolution
+
+Define common feature/domain protobuf messages in the recording-domain schema family, preferably
+an additive sibling module importing shared identity definitions. Share generated Go/Swift types
+and cross-language fixtures. Human proposals and algorithm outputs use the same vocabulary with
+different provenance and authority. The local pilot now adds
+[`features.proto`](../../proto/velocity_recording/v1/features.proto) and generated Go/Swift types.
+Its field numbers belong to a separate annotation document; existing `FrameRecord` payloads and
+capture/container versions remain unchanged. This is a delivered subset of the proposed model,
+not implementation of every family below.
+
+For the pilot, store a separately versioned feature-annotation document beside the existing
+membership and physical-reference documents. Use the common protobuf payload and an explicitly
+typed/versioned annotation envelope; its exact bytes and logical content have defined digests.
+Do not put an unknown new stream kind into the shipped observation container or create a second
+independent Swift JSON schema. Go owns validation and authoritative commits; Swift uses the
+shared types and local service, retaining pack access for point rendering and reopening.
+
+Preserve parent revision/digest, author, operation, timestamps, input membership/physical pins,
+and temporal validity. Reuse conflict rejection, shared locking, exact-byte history, and atomic
+replacement. Mark deletion/rejection as a revision rather than erasing earlier interpretations.
+Backend split/merge/relink hypotheses refer to the original human IDs and remain separate results
+until explicitly adopted; they never overwrite the operator's feature grouping.
+
+Old clients may continue editing membership without reading the feature file. They must not
+discard it. New clients detect changed/rejected objects or support, flag affected feature links
+and reviews, and refuse claims based on stale inputs until reconciled. A feature review approves
+that annotation's interpretation only; it neither reviews a physical pose nor makes an
+estimator-derived descriptor independent evidence. Mesh/model completion keeps model-prior origin
+and does not count as observed geometry.
+
+Follow the existing evolution rules: never reuse field or enum numbers; reserve retired numbers
+and names; use explicit presence for valid zeros and unresolved values; define handling for new
+enums and unsupported schema versions. Older readers may ignore an optional field only if doing
+so preserves the requested operation's meaning. New semantics needed to interpret a derived
+document require a declared feature/version and refusal by incapable readers. Read-only transport
+of unknown data must preserve it; an older editor must not save a lossy rewrite. Source capture
+manifests remain unchanged. If annotation/analysis streams later enter a VRLOG container, specify
+their kinds, required features, durability, digest and reader gates separately before enabling
+the writer. No re-recording or speculative reinterpretation of observations is needed now.
+
+#### Scope and contract gates
+
+Day one must prove the shared types and local Go/Swift save/reopen path, including zero/presence,
+unknown enum/version behaviour, overlapping support, wrong source/index refusal, revision
+conflicts, and legacy pack references. Days two and three add selection and manual linking; the
+export pins source maps and membership/body/pose/feature revisions. A backend can then consume
+the same annotations without migrating their meaning.
+
+Test bounds extension without anchor movement, ambiguous front/rear axes, unknown part transforms,
+occlusion versus empty/missing support, rejection, alternative association revisions, changed
+membership with historical pins, and round-trip compatibility without modifying existing masks.
+Test stable support identity across decimation/repacking only where an exact mapping exists.
+
+Feature evidence supplements the current constant-velocity and association continuity model.
+Several coplanar patches may constrain no motion along their shared tangent; one corner may
+constrain more than many edges. Future experiments must report data-only observability separately
+from prior-supported prediction and avoid counting repeated/correlated support twice. The initial pilot offers bounded translation-only proposal previews within saved object support;
+it does not implement automatic feature extraction, full rigid registration, a new tracker,
+articulation, mesh completion, or qualification of hidden endpoints.
+
 ## 8. Evidence gates and delivery
 
 No runtime gate below has been passed by writing this design. Assign a named implementation owner

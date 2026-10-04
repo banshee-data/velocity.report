@@ -307,6 +307,25 @@ struct AnnotationWorkspace: View {
         }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
     }
 
+    // S saves and X saves and goes to the next frame, in whichever mode is
+    // active. Two unmodified keys side by side, bound nowhere else in the
+    // app; like the bracket keys they give way to a text field. The buttons
+    // that do the same show the letter underlined.
+    private var saveKeys: some View {
+        Group {
+            Button("Save") { saveFromKey(advance: false) }.keyboardShortcut("s", modifiers: [])
+            Button("Save and next") { saveFromKey(advance: true) }.keyboardShortcut(
+                "x", modifiers: [])
+        }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+    }
+
+    private func saveFromKey(advance: Bool) {
+        Task {
+            // A refusal is explained in the pane; the beep says the key was heard.
+            if !(await session.saveCurrent(advance: advance)) { NSSound.beep() }
+        }
+    }
+
     // A large 3D view over three small orthographic ones, between two
     // sidebars: what is being labelled on the left, how on the right.
     //
@@ -375,41 +394,55 @@ struct AnnotationWorkspace: View {
 
             Divider()
 
-            VStack(spacing: 0) {
-                AnnotationPane(session: session, column: .editing)
-                Divider()
-                HStack {
-                    Menu("Open Another…") {
-                        // Both leave the current pack behind — one for a
-                        // different run's pack, one for a directory already
-                        // on disk — and both must go through the same
-                        // unsaved-membership check AnnotationPane already
-                        // applies to stepping and switching objects.
-                        // Bypassing it here would lose a lasso selection
-                        // silently the moment either is clicked.
-                        Button("Generate from Run…") {
-                            guardedNavigate { showGenerateSheet = true }
-                        }
-                        Button("Open Pack…") { guardedNavigate { controller.choosePack() } }
-                    }.menuStyle(.borderlessButton).fixedSize()
-                    Spacer()
-                    Button("Close") { guardedNavigate { controller.close() } }
-                }.padding(8)
-            }.frame(width: AnnotationPane.columnWidth)
-        }.background { brushSizeKeys }.focusedSceneValue(\.annotationSession, session).alert(
-            "Unsaved membership", isPresented: showDiscardPrompt
+            editingColumn
+        }.background { brushSizeKeys }.background { saveKeys }.background {
+            WindowCloseGuard(blocked: session.navigationGuard() != nil)
+        }.focusedSceneValue(\.annotationSession, session).alert(
+            "Unsaved changes", isPresented: showDiscardPrompt
         ) {
             Button("Keep Editing", role: .cancel) { pendingAction = nil }
             Button("Discard and Continue", role: .destructive) {
                 let action = pendingAction
                 pendingAction = nil
-                session.reload()
+                session.discardAllUnsaved()
                 action?()
             }
         } message: {
             Text(
-                "This sample has unsaved changes. Save it, or discard them, before opening another pack."
-            )
+                "There are unsaved changes: this sample's membership or the physical-reference "
+                    + "draft. Save them, or discard them, before continuing.")
+        }
+    }
+
+    @State private var showFreezeSheet = false
+
+    // The editing column and the window's own actions beneath it.
+    private var editingColumn: some View {
+        VStack(spacing: 0) {
+            AnnotationPane(session: session, column: .editing)
+            Divider()
+            HStack {
+                // Freezing writes nothing to this pack, so it is not
+                // guarded; the sheet's own preview says what it pins.
+                Button("Freeze Split…") { showFreezeSheet = true }.help(
+                    "Freeze a reviewed split, with its physical references pinned, through the service"
+                )
+                Menu("Open Another…") {
+                    // Both leave the current pack behind — one for a
+                    // different run's pack, one for a directory already
+                    // on disk — and both must go through the same
+                    // unsaved-membership check AnnotationPane already
+                    // applies to stepping and switching objects.
+                    // Bypassing it here would lose a lasso selection
+                    // silently the moment either is clicked.
+                    Button("Generate from Run…") { guardedNavigate { showGenerateSheet = true } }
+                    Button("Open Pack…") { guardedNavigate { controller.choosePack() } }
+                }.menuStyle(.borderlessButton).fixedSize()
+                Spacer()
+                Button("Close") { guardedNavigate { controller.close() } }
+            }.padding(8)
+        }.frame(width: AnnotationPane.columnWidth).sheet(isPresented: $showFreezeSheet) {
+            FreezeSplitSheet(session: session)
         }
     }
 
@@ -457,11 +490,21 @@ struct AnnotationViewportView: View {
                     labels: session.effectiveLabelSets,
                     identity: AnnotationPointCanvas.Identity(
                         packDigest: session.pack.manifest.packDigest,
-                        sampleID: session.currentSample?.sampleID ?? -1)
+                        sampleID: session.currentSample?.sampleID ?? -1),
+                    intensity: session.intensityDisplay.enabled
+                        ? AnnotationPointCanvas.IntensityColouring(
+                            spec: session.intensityDisplay,
+                            available: session.intensityAvailability.available) : nil
                 ).equatable()
                 LassoOverlay(
                     session: session, basisStandard: standard, viewport: viewport,
                     editable: editable)
+                if session.workMode == .physical {
+                    PhysicalReferenceOverlay(
+                        session: session, standard: standard, viewport: viewport)
+                } else if session.workMode == .compare {
+                    PhysicalCompareOverlay(session: session, standard: standard, viewport: viewport)
+                }
                 Text(standard.label + (editable ? " · editing" : " · click to edit here")).font(
                     .caption2
                 ).padding(4).foregroundStyle(editable ? Color.accentColor : Color.secondary)
@@ -690,6 +733,14 @@ struct AnnotationPointCanvas: View, Equatable {
     /// them. Compared by revision, not by contents.
     let labels: PointLabelSets?
     let identity: Identity
+    /// Colour by raw intensity instead of by class, from the table the 3D
+    /// view uses too. Nil draws the class palette with no intensity in it.
+    var intensity: IntensityColouring? = nil
+
+    struct IntensityColouring: Equatable {
+        var spec: IntensityDisplaySpec
+        var available: Bool
+    }
 
     // Points are immutable under a pack digest and sample, so two canvases
     // with the same identity draw the same points. Comparing that instead of
@@ -698,13 +749,46 @@ struct AnnotationPointCanvas: View, Equatable {
     static func == (lhs: AnnotationPointCanvas, rhs: AnnotationPointCanvas) -> Bool {
         lhs.identity == rhs.identity && lhs.basis == rhs.basis && lhs.viewport == rhs.viewport
             && lhs.visibility == rhs.visibility && lhs.labels == rhs.labels
+            && lhs.intensity == rhs.intensity
     }
 
     static let backgroundColour = Color(red: 0.55, green: 0.55, blue: 0.62)
     static let foregroundColour = Color(red: 0.35, green: 0.95, blue: 0.4)
     static let groundColour = Color(red: 0.68, green: 0.57, blue: 0.38)
 
-    var body: some View {
+    var body: some View { if let intensity { intensityBody(intensity) } else { classBody } }
+
+    // One path per raw code in use, each filled once from the shared table.
+    private func intensityBody(_ colouring: IntensityColouring) -> some View {
+        let table = colouring.spec.table(available: colouring.available)
+        return Canvas { context, size in
+            var paths = [Path](repeating: Path(), count: table.count)
+            var used = [Bool](repeating: false, count: table.count)
+            let visible = CGRect(origin: .zero, size: size).insetBy(dx: -2, dy: -2)
+            for index in 0..<points.count {
+                guard
+                    PointVisibility.isVisible(
+                        index, classes: classes, under: visibility, labels: labels)
+                else { continue }
+                let p = simd_float3(points.x[index], points.y[index], points.z[index])
+                guard basis.shows(p) else { continue }
+                let screen = viewport.screenPoint(from: basis.project(p))
+                guard visible.contains(screen) else { continue }
+                let code = index < points.intensity.count ? Int(points.intensity[index]) : 0
+                paths[code].addRect(
+                    CGRect(x: screen.x - 0.9, y: screen.y - 0.9, width: 1.8, height: 1.8))
+                used[code] = true
+            }
+            for (code, path) in paths.enumerated() where used[code] {
+                let c = table[code]
+                context.fill(
+                    path,
+                    with: .color(Color(red: Double(c.x), green: Double(c.y), blue: Double(c.z))))
+            }
+        }.allowsHitTesting(false)
+    }
+
+    private var classBody: some View {
         Canvas { context, size in
             var background = Path()
             var foreground = Path()
@@ -739,4 +823,49 @@ struct AnnotationPointCanvas: View, Equatable {
             context.fill(foreground, with: .color(Self.foregroundColour.opacity(0.9)))
         }.allowsHitTesting(false)
     }
+}
+
+// MARK: - Close guard
+
+/// Holds the window open while anything is unsaved.
+///
+/// Disabling the close button is what AppKit itself honours: the red button
+/// does nothing and ⌘W beeps rather than closing. Replacing the window's
+/// delegate to intercept the close would fight SwiftUI, which owns it.
+struct WindowCloseGuard: NSViewRepresentable {
+    var blocked: Bool
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        let blocked = blocked
+        // The view is attached to its window after the first update.
+        DispatchQueue.main.async {
+            view.window?.standardWindowButton(.closeButton)?.isEnabled = !blocked
+        }
+    }
+
+    static func dismantleNSView(_ view: NSView, coordinator: ()) {
+        view.window?.standardWindowButton(.closeButton)?.isEnabled = true
+    }
+}
+
+// MARK: - Shortcut labels
+
+/// A title split around the first occurrence of a shortcut's letter, either
+/// case, or nil when the title does not contain it.
+func shortcutSplit(
+    _ title: String, key: Character
+) -> (before: String, letter: String, after: String)? {
+    guard let i = title.firstIndex(where: { $0.lowercased() == key.lowercased() }) else {
+        return nil
+    }
+    return (String(title[..<i]), String(title[i]), String(title[title.index(after: i)...]))
+}
+
+/// A title with its single-key shortcut underlined, as menus once showed
+/// them. A title without that letter is returned plain.
+func shortcutLabel(_ title: String, key: Character) -> Text {
+    guard let part = shortcutSplit(title, key: key) else { return Text(title) }
+    return Text(part.before) + Text(part.letter).underline() + Text(part.after)
 }
