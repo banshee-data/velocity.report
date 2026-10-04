@@ -637,15 +637,18 @@ for arm in "track:$BASE,near_edge_track" \
 done
 ```
 
-The results are in `results/s2-f7b/` (see [What the Mac runs show](#what-the-mac-runs-show)).
+The results are on `claude/upbeat-galileo-4xbaat-s2-f7b-results`, under `results/s2-f7b/` (see
+[What the Mac runs show](#what-the-mac-runs-show)).
 
 #### What the Mac runs show
 
 Three Mac runs report together. F7b ran the five arms above on the tuning partition, applied the plan's
 rule, and ran the chosen arm on all 21 screen sites. F6s runs the control and the tracked arm on
 the screen sites (19 of 21 so far; 3rd-folsom, howard-6th and the coverage survey are still to
-come). S2.3 ran A1 once on the tuning partition. The results are in `results/s2-f7b/`, `results/s2-f6s/` and
-`results/s2-a1/`. The default replay was byte-equal in every case. F7b's tracked arm and control
+come). S2.3 ran A1 once on the tuning partition. Each test's results are on its own branch, under
+`results/<test>/`: `claude/upbeat-galileo-4xbaat-s2-f7b-results`,
+`claude/upbeat-galileo-4xbaat-s2-f6s-results` and `claude/upbeat-galileo-4xbaat-s2-a1-results`. The
+default replay was byte-equal in every case. F7b's tracked arm and control
 reproduce F6 to the last digit, because T5 is off in both. Runs that shared the USB drive and the NAS with other builds and replays ran far slower than one alone (the first T5 arm took 4 hours 19 minutes against about 20 minutes), so the runs are one replay at a time, and evidence databases go to the internal disk.
 
 Lateral residual p99 in metres on the tuning pair, with the steady-run p99 that the rule reads:
@@ -665,7 +668,8 @@ Lateral residual p99 in metres on the tuning pair, with the steady-run p99 that 
 | `columbus-broadway`    | shadow, T5            |              0.276 |       0.278 |            0.141 | 2.0 |  1,694 | 43,114 |     2,459 |
 | `columbus-broadway`    | tracked, A1           |              0.338 |       0.330 |            0.145 | 2.3 |  3,903 | 36,430 |     2,534 |
 
-The per-site screen tables are `results/s2-f6s/progress.md` and `results/s2-f7b/screen-progress.md`.
+The per-site screen tables are `results/s2-f6s/progress.md` and `results/s2-f7b/screen-progress.md`
+on those branches.
 
 - **T5 passes the rule and buys little.** On the tracked arm it lowers the steady p99 by 11 mm on
   marina and 14 mm on columbus, and columbus lapses rise 0.5 %, so it passes F7's bar; the tight

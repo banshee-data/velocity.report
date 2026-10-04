@@ -15,6 +15,10 @@ older entries stay put, however tempting hindsight may be.
   sites both have run, T5 is lower on 12, higher on 5 and identical on 2, a median of 7 mm lower,
   so it stays off. The September 30 count of 7 higher of 17 had included the two identical sites.
   3rd-folsom, howard-6th and the coverage survey remain for F6s.
+- {dd/docs/results-out-of-main} Took `results/s2-a1/`, `results/s2-f6s/` and `results/s2-f7b/` out
+  of main. #652 to #654 had merged them, against the rule that raw experiment results live on their
+  own pushed branch and main keeps the accounting. The plan names the three results branches,
+  which hold every file that was here.
 
 ## October 1, 2026 - Terminology first, data-model improvements second
 
