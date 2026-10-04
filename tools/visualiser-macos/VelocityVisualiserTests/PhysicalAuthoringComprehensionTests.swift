@@ -61,7 +61,23 @@ import simd
             #expect(PhysicalGeometry.derive(object: o, keyframe: k, gate: .authoring).length == nil)
         }
         let huge = PhysicalDimension(status: .observed, span: .full, lowerM: 1e308, upperM: 1.7e308)
-        #expect(huge.best?.value.isFinite == true, "The interval midpoint must not overflow")
+        #expect(huge.best == nil, "An overflowing midpoint is not a size, and not an infinity")
+    }
+
+    @Test func theMidpointIsGosArithmeticToTheLastBit() {
+        // Go's Best is (lo + hi) / 2. Halving each end first agrees with it
+        // except at the two ends of the range: at the top, where the sum
+        // overflows (above), and at the bottom, where halving rounds. There
+        // it put the midpoint outside the interval.
+        let tiny = Double.leastNonzeroMagnitude
+        let d = PhysicalDimension(status: .observed, span: .full, lowerM: tiny, upperM: tiny)
+        #expect(d.best?.value == (tiny + tiny) / 2)
+        #expect(d.best?.halfWidth == 0)
+        let car = PhysicalDimension(status: .observed, span: .full, lowerM: 4.1, upperM: 4.7)
+        #expect(car.best?.value == (4.1 + 4.7) / 2)
+        let stated = PhysicalDimension(
+            status: .observed, span: .full, lowerM: 4.1, upperM: 4.7, valueM: 4.2)
+        #expect(stated.best?.value == 4.2 && stated.best?.halfWidth == 4.7 - 4.2)
     }
 
     @Test func anUnboundedPlacementIsVisibleOnlyAsAnEditableSketch() {
