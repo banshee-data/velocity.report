@@ -110,6 +110,11 @@ func facetMembershipProblems(s *Sidecar, doc *pb.FeatureAnnotations) []string {
 	return problems
 }
 
+// freezeFeatures pins the facet proposals a draft opts into: the saved head
+// at zero, or an exact retained revision. Asking for the head of a pack that
+// has never saved facets is a facet problem, listed with the others so the
+// preview still shows every pack; a named revision that cannot be loaded is
+// an error, as a named physical revision is.
 func freezeFeatures(p *Pack, s *Sidecar, revision *int) (*FrozenFeatures, []string, error) {
 	if revision == nil {
 		return nil, nil, nil
@@ -127,11 +132,19 @@ func freezeFeatures(p *Pack, s *Sidecar, revision *int) (*FrozenFeatures, []stri
 	if err != nil {
 		return nil, nil, fmt.Errorf("load facet proposals: %w", err)
 	}
+	if state.Digest == "" {
+		return nil, []string{fmt.Sprintf("pack %s: feature_revision 0 pins the saved facet head, but the pack has no saved facet proposals; "+
+			"save facets first, or omit the facet pin", p.Manifest.PackDigest)}, nil
+	}
 	pin, err := newFrozenFeatures(state)
 	if err != nil {
 		return nil, nil, err
 	}
-	return pin, facetMembershipProblems(s, state.Document), nil
+	problems := facetMembershipProblems(s, state.Document)
+	for i := range problems {
+		problems[i] = fmt.Sprintf("pack %s facet revision %d: %s", p.Manifest.PackDigest, pin.Revision, problems[i])
+	}
+	return pin, problems, nil
 }
 
 // BindFeatures rechecks exact retained bytes and summaries against the frozen

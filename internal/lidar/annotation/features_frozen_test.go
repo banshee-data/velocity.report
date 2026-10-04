@@ -142,8 +142,36 @@ func TestFrozenFacetsRejectedMaskGivesNoSupport(t *testing.T) {
 	}
 	preview, err := PreviewFreeze(freezeOptions(draft))
 	if err != nil || preview.WouldFreeze || len(preview.MembershipProblems) != 0 || len(preview.FacetProblems) != 1 ||
+		!strings.HasPrefix(preview.FacetProblems[0], "pack "+p.Manifest.PackDigest+" facet revision 1: facet mirror sample 0") ||
 		!strings.Contains(preview.FacetProblems[0], "is not definite support of object car-1") {
 		t.Fatal(err, preview)
+	}
+}
+
+// Opting a pack with no saved facets into a head pin is a listed facet
+// problem: the preview still reports every pack, and the freeze refuses.
+func TestFrozenFacetHeadPinWithoutSavedFacetsIsAProblem(t *testing.T) {
+	p := physPack(t)
+	physSidecar(t, p)
+	draft := physDraftPack(p, 0)
+	head := 0
+	draft.FeatureRevision = &head
+	preview, err := PreviewFreeze(freezeOptions(draft))
+	if err != nil {
+		t.Fatalf("an unsaved facet head aborted the preview: %v", err)
+	}
+	want := "pack " + p.Manifest.PackDigest + ": feature_revision 0 pins the saved facet head, but the pack has no saved facet proposals"
+	if preview.WouldFreeze || len(preview.Packs) != 1 || preview.Packs[0].Features != nil || len(preview.MembershipProblems) != 0 ||
+		len(preview.FacetProblems) != 1 || !strings.HasPrefix(preview.FacetProblems[0], want) {
+		t.Fatalf("%+v", preview)
+	}
+	if _, err = FreezeSplit(freezeOptions(draft)); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("froze without the facets it asked for: %v", err)
+	}
+	// Omitting the pin freezes the feature-free layout.
+	draft.FeatureRevision = nil
+	if f := mustFreeze(t, freezeOptions(draft)); f.SchemaVersion != FrozenSplitSchemaVersion || f.Packs[0].Features != nil {
+		t.Fatal("feature-free freeze changed")
 	}
 }
 
@@ -211,9 +239,10 @@ func TestFrozenFacetPinAndLoadRefusals(t *testing.T) {
 	if _, _, err := freezeFeatures(p, s, &missing); err == nil {
 		t.Fatal("missing revision")
 	}
+	// With no head and no history the head is unsaved: a problem, not a pin.
 	os.Remove(filepath.Join(p.Dir, featureFile))
-	if _, _, err := freezeFeatures(p, s, draft.FeatureRevision); err == nil {
-		t.Fatal("unsaved revision")
+	if unsaved, problems, err := freezeFeatures(p, s, draft.FeatureRevision); err != nil || unsaved != nil || len(problems) != 1 {
+		t.Fatal("unsaved revision", err, unsaved, problems)
 	}
 	// Protobuf encoding failures are refusals, never synthetic digests.
 	state.Document.Features[0].Name = string([]byte{0xff})
