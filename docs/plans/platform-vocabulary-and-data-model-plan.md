@@ -686,7 +686,9 @@ Old spellings remain accepted for one release and print the new name; the aliase
   columns; sites merge and deployments form; surveys and reports form; readings and detections
   rebuild; aliases go. Each follows the 000055 pattern: verdicts in a temporary table, rejects
   kept whole, a down migration that restores every row, and a row-accounting test. Each is
-  timed on a copy of the largest field database first.
+  timed on a copy of the largest field database first. Every new or rebuilt foreign key declares
+  its `ON DELETE` action and has a delete-path test, and `PRAGMA foreign_key_check` runs after
+  the move: a rename keeps today's cascades silently, and some of them delete people's verdicts.
 
 ## What does not change, and why
 

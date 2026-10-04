@@ -31,6 +31,7 @@ export/redirect PRs with device timing where required.
 - [ ] Every existing report maps to exactly one survey under a documented policy; radar and LiDAR resolve the same site identity.
 - [ ] Mounting/calibration values retain their meaning and conflicts have an inspectable disposition.
 - [ ] Existing public URLs redirect; exports exclude surveyor/contact/trajectory data and retain verifiable capture provenance.
+- [ ] Deleting a site has a declared and tested effect on its deployments. Today `site_config_periods.site_id` is `ON DELETE CASCADE`, so deleting a site deletes its deployment history; the merged model keeps that only by decision.
 
 ## Boundaries and risks
 

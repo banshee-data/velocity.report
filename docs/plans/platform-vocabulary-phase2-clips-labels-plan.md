@@ -31,6 +31,8 @@ with migration and client validation.
 - [ ] Hand-made and finder-made clips replay the same windows; conflicting migration rows are fully accounted for.
 - [ ] A held-out capture cannot be selected for tuning under another path or location.
 - [ ] Labels written through compatibility routes read back consistently and export once; client/workflow tests cover both legacy and new paths.
+- [ ] Deleting a clip has a declared and tested effect on its labels. Today `lidar_replay_annotations.replay_case_id` is `ON DELETE CASCADE`, so deleting a clip deletes reviewed labels, which no recording can rebuild; the cascade stays only by decision.
+- [ ] Nothing writes `pcap_file` once it is a read-only projection; a test fails on any writer.
 
 ## Boundaries and risks
 
