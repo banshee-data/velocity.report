@@ -2,8 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Repository-wide agent rules are in [AGENTS.md](AGENTS.md), including the prohibition on committing
-experiment results or bypassing output ignores. Read them before staging changes.
+Repository-wide agent rules are in [AGENTS.md](AGENTS.md): detailed experiment reports belong in
+Git, while raw outputs stay local. Do not bypass output ignores. Read the rules before staging changes.
 
 ## Project
 

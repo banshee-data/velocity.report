@@ -6,14 +6,21 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
-## October 4, 2026 - Offline campaign diagnostics keep their outputs local
+## October 4, 2026 - Near-edge findings stay in Git; raw outputs stay local
 
 - Added default-off `-campaign-metrics` exports to the offline baseline tool for confirmed
   intervals and Tracker.Update wall time, with interval, censoring, miss-only expiry and
-  baseline-equivalence tests. The completed campaign's reports and evidence remain local.
+  baseline-equivalence tests. The [completed campaign report](lidar/operations/near-edge-campaign-2026-10.md)
+  preserves methods, all 29 case gates, durations, diagnostic comparisons, balanced timing,
+  robustness, and tail interpretation. Raw evidence remains local.
+- Retain B0: A2 breaches observed update cost at all 29 cases and geometry at nine. Complete mean
+  duration decreases at 22 of 23 core sites and by 43% at Claren. No diagnostic correction is
+  selected; physical references, raw-geometry intervals, and Pi validation remain unresolved.
 - Added repository-wide agent instructions and a Git ignore for result directories. A pre-commit
   check and CI reject tracked `results` paths, including force-added output. The publication branch
-  was rebuilt without the campaign's result commits; reusable instrumentation remains reviewable.
+  was rebuilt without raw campaign output commits; reusable instrumentation and the detailed
+  written report remain reviewable. Agent rules explicitly require reports in `docs/` and preserve
+  them when cleaning up output.
 
 ## October 4, 2026 - Two more screen sites for the tracked arm
 

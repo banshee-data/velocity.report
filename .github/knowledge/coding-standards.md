@@ -74,15 +74,23 @@ Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release t
 
 **No leading zeros in version segments.** `0.5.04` is invalid SemVer and will be rejected by npm (`web/package.json`, `public_html/package.json`). Use `0.5.4` instead.
 
-## Generated Experiment Output
+## Experiment Reports and Raw Output
 
-Experiment, replay, analysis and benchmark results are never committed on any branch. Keep raw
-outputs, generated reports, recordings, logs, database snapshots and campaign state outside the
-checkout or in ignored local directories. Do not force-add output or rename it to bypass this rule.
-Reusable tools and hand-authored test fixtures stay in their source directories; concise methods
-and conclusions belong in documentation. Run `make check-no-results` before every commit or push.
-The index, pre-commit hook and CI must contain no path under a directory named `results`.
-See [AGENTS.md](../../AGENTS.md) for the complete rule and preservation requirements.
+Detailed, human-readable experiment reports belong in `docs/` and must be committed. Preserve
+methods, arm definitions, numerical and per-case findings, interpretation, limitations, frozen
+provenance, and recommendations. Link the report from relevant READMEs, plans, and the development
+log. Edited summary tables are part of the report; do not discard reports during output cleanup.
+
+Raw experiment, replay, analysis, and benchmark outputs are never committed on any branch. Keep
+recordings, row-level data, generated metric/configuration dumps, logs, database snapshots, and
+campaign state outside the checkout or in ignored local directories. Do not force-add output,
+attach it to a report, or rename it into documentation to bypass this rule. Reusable tools and
+hand-authored test fixtures stay in their source directories.
+
+Run `make check-no-results` before every commit or push. The index, pre-commit hook, and CI must
+contain no path under a directory named `results`; staged-diff review must catch raw output
+elsewhere. If a written report lives among generated output, move and edit it into `docs/` while
+preserving the raw evidence locally. See [AGENTS.md](../../AGENTS.md) for the complete rule.
 
 ## Documentation Updates
 
