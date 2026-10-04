@@ -38,7 +38,9 @@ func LoadFeatures(p *Pack) (*pb.FeatureState, error) {
 
 // LoadFeatureRevision reads an exact retained proposal revision. Zero is not a
 // revision: callers seeking the editable head must use LoadFeatures instead.
-// Historical observations keep their original membership and physical pins.
+// The result is read-only and carries no membership write token, even when
+// the revision asked for is still the head. Historical observations keep
+// their original membership and physical pins.
 func LoadFeatureRevision(p *Pack, revision uint64) (*pb.FeatureState, error) {
 	if revision == 0 || revision > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid feature revision")
@@ -54,9 +56,17 @@ func LoadFeatureRevision(p *Pack, revision uint64) (*pb.FeatureState, error) {
 		// bytes before replacing it, so retrying the archive closes that race.
 		state, headErr := LoadFeatures(p)
 		if headErr == nil && state.Document.Revision == revision {
+			// Read-only, like an archived revision: no write token.
+			state.MembershipDigest = ""
 			return state, nil
 		}
 		b, err = readAnnotationFile(root, featureRevisionName(revision))
+		if errors.Is(err, os.ErrNotExist) {
+			if headErr != nil {
+				return nil, fmt.Errorf("feature revision %d is not archived, and the head cannot be read: %w", revision, headErr)
+			}
+			return nil, fmt.Errorf("feature revision %d is neither archived nor the head (revision %d): %w", revision, state.Document.Revision, err)
+		}
 	}
 	if err != nil {
 		return nil, err

@@ -70,8 +70,12 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 		t.Fatalf("retained evidence changed: %v %+v", err, retained)
 	}
 	head, err := LoadFeatureRevision(p, 2)
-	if err != nil || !proto.Equal(head, newState) {
+	if err != nil || !proto.Equal(head.Document, newState.Document) || head.Digest != newState.Digest || head.PackDirectory != newState.PackDirectory {
 		t.Fatalf("exact head revision: %v", err)
+	}
+	// An exact revision is read-only even while it is the head.
+	if head.MembershipDigest != "" || newState.MembershipDigest == "" {
+		t.Fatal("exact head revision issued a write token")
 	}
 	// A corrupt later head must not erase a valid retained revision.
 	latest, _ := os.ReadFile(filepath.Join(p.Dir, featureFile))
@@ -152,6 +156,40 @@ func TestLoadFeatureRevisionRefusals(t *testing.T) {
 				t.Fatal("accepted invalid retained revision")
 			}
 		})
+	}
+}
+
+// A revision that is not archived is looked for at the head. When the head
+// cannot be read, that is the error, not a missing file.
+func TestLoadFeatureRevisionReportsWhyTheHeadFailed(t *testing.T) {
+	p, edit := featureFixture(t)
+	first, err := SaveFeatures(p, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := SaveFeatures(p, &pb.FeatureEdit{Document: first.Document, BaseDigest: first.Digest, MembershipDigest: first.MembershipDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = LoadFeatureRevision(p, 3); err == nil || !errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), "neither archived nor the head (revision 2)") {
+		t.Fatalf("future revision: %v", err)
+	}
+	damaged := proto.Clone(second.Document).(*pb.FeatureAnnotations)
+	damaged.SchemaVersion = 2
+	b, err := proto.Marshal(damaged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(p.Dir, featureFile), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadFeatureRevision(p, 2)
+	if err == nil || errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), "head cannot be read") || !strings.Contains(err.Error(), "unsupported feature schema") {
+		t.Fatalf("head failure hidden: %v", err)
+	}
+	// The archived revision is still read from its own bytes.
+	if r, err := LoadFeatureRevision(p, 1); err != nil || r.Digest != first.Digest || r.MembershipDigest != "" {
+		t.Fatalf("archived revision: %v", err)
 	}
 }
 
