@@ -6,7 +6,7 @@ current concepts and marks proposed capabilities as future work.
 - **Status:** Planned; outlined, not implemented by #631
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 1; release allocation follows programme sizing and compatibility gates
-- **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 1)
+- **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Item 1)
 - **Canonical:** [Platform hub](../platform/PLATFORM.md)
 
 ## Dependencies
