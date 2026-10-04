@@ -825,9 +825,11 @@ func TestDecodeAndReflectionHelpers(t *testing.T) {
 			}
 		}
 
+		// An unexported field is skipped before its tag is read; untagged, it
+		// would otherwise surface under its own name.
 		type privateField struct {
 			Public int `json:"public"`
-			hidden int `json:"hidden"`
+			hidden int
 		}
 		if keys := expectedJSONKeys(reflect.TypeOf(privateField{})); !reflect.DeepEqual(keys, []string{"public"}) {
 			t.Fatalf("expectedJSONKeys(privateField) = %v, want [public]", keys)
