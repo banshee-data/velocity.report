@@ -177,6 +177,37 @@ func TestFacetPoseSolverRefusesUnsupportedInputs(t *testing.T) {
 	if proposalDimension(DimensionBound{Status: EvidenceObserved, Span: SpanPartial, LowerM: fp(2)}) != nil {
 		t.Fatal("partial dimension invented a full body")
 	}
+	if proposalDimension(DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(2)}) != nil {
+		t.Fatal("unbounded full dimension invented an upper end")
+	}
+}
+
+// The box takes a dimension's best value by DimensionBound.Best, the one
+// definition the physical geometry and the Swift port share.
+func TestFacetPoseBoxUsesTheDimensionsBestValue(t *testing.T) {
+	for _, d := range []DimensionBound{
+		{Status: EvidenceInferred, Span: SpanFull, LowerM: fp(1.7), UpperM: fp(1.9)},
+		{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(4.1), UpperM: fp(4.7), ValueM: fp(4.3)},
+	} {
+		want, _, _ := d.Best()
+		if got := proposalDimension(d); got == nil || *got != want {
+			t.Fatalf("%+v: %v, want %v", d, got, want)
+		}
+	}
+	// A finite interval whose midpoint overflows is refused, not proposed as an infinite box.
+	_, req := poseRequest(t)
+	req.Prior.XM, req.Prior.YM = fp(7), fp(-.9)
+	feature := &pb.FeatureCandidate{Anchor: &pb.FeatureAnchor{XM: 1, BoundM: .1}}
+	target := &pb.FeatureObservation{PointIndices: []uint32{0, 1, 2}}
+	huge := DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(math.MaxFloat64), UpperM: fp(math.MaxFloat64)}
+	body := &BodyGeometry{Length: huge, Width: DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(1.7), UpperM: fp(1.9)}}
+	if _, err := solveFacetPose(feature, target, body, straightSegment(), req); err == nil || err.Error() != "proposal numeric overflow" {
+		t.Fatalf("infinite box proposed: %v", err)
+	}
+	body.Length = DimensionBound{Status: EvidenceObserved, Span: SpanFull, LowerM: fp(4), UpperM: fp(5)}
+	if result, err := solveFacetPose(feature, target, body, straightSegment(), req); err != nil || result.Box == nil || result.Box.LengthM != 4.5 {
+		t.Fatal(err, result)
+	}
 }
 
 func TestFacetPoseProposalRejectsStaleAndAbsentEvidence(t *testing.T) {

@@ -213,9 +213,7 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		result.Unresolved = append(result.Unresolved, "tangent_from_prior_not_measured")
 		result.MatchedIndices = indices
 	}
-	if !finiteFeature(result.Centre.XM) || !finiteFeature(result.Centre.YM) || !finiteFeature(result.Centre.BoundM) {
-		return nil, fmt.Errorf("proposal numeric overflow")
-	}
+	values := []float64{result.Centre.XM, result.Centre.YM, result.Centre.BoundM}
 	length, width := proposalDimension(body.Length), proposalDimension(body.Width)
 	if length == nil || width == nil {
 		result.BoxUnavailable = "source body lacks full length/width intervals"
@@ -223,17 +221,26 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		result.Box = &BoxBound{CentreXM: result.Centre.XM, CentreYM: result.Centre.YM, YawRad: *prior.YawRad, LengthM: *length, WidthM: *width}
 		result.FrontPrediction = &[2]float64{result.Centre.XM + c**length/2, result.Centre.YM + s**length/2}
 		result.RearPrediction = &[2]float64{result.Centre.XM - c**length/2, result.Centre.YM - s**length/2}
+		values = append(values, *length, *width, result.FrontPrediction[0], result.FrontPrediction[1], result.RearPrediction[0], result.RearPrediction[1])
+	}
+	// A finite body interval can still have an infinite midpoint or end.
+	for _, v := range values {
+		if !finiteFeature(v) {
+			return nil, fmt.Errorf("proposal numeric overflow")
+		}
 	}
 	return result, nil
 }
 
+// proposalDimension is a full, stated dimension's best value, by the one
+// definition DimensionBound.Best gives; nil for an unknown or partial one.
 func proposalDimension(d DimensionBound) *float64 {
-	if d.Status == EvidenceUnknown || d.Span != SpanFull || d.LowerM == nil || d.UpperM == nil {
+	if d.Status == EvidenceUnknown || d.Span != SpanFull {
 		return nil
 	}
-	value := *d.LowerM/2 + *d.UpperM/2
-	if d.ValueM != nil {
-		value = *d.ValueM
+	value, _, ok := d.Best()
+	if !ok {
+		return nil
 	}
 	return &value
 }
