@@ -187,7 +187,7 @@ struct PhysicalReferencePane: View {
                 ).font(.caption2).foregroundStyle(.secondary)
                 if let identity = inspector.armIdentity {
                     Text(identity.source).font(.caption2).textSelection(.enabled)
-                    if let seed = try? session.trackerSeedFromReport() {
+                    if let seed = try? session.trackerSeedEligibility() {
                         Text("Track \(seed.prediction.trackKey) · sample \(seed.sampleID)").font(
                             .caption2)
                         Button("Import report estimate as draft") {

@@ -11,11 +11,25 @@ struct PhysicalTrackerSeed: Equatable {
     var body: PhysicalBody
     var keyframe: PhysicalKeyframe
 
-    static func make(
+    /// A report prediction that has passed every rule a seed must meet, and
+    /// the parts the seed is built from. Nothing is minted: no record IDs, no
+    /// timestamps. Checking is cheap enough for a view to ask on every
+    /// render, and `make` builds from this same answer, so what the pane
+    /// offers and what the import does cannot disagree.
+    struct Eligible: Equatable {
+        var sampleID: Int
+        var prediction: ReportPrediction
+        var heading: ReportPrediction.Heading
+        var length: ReportPrediction.Extent
+        var width: ReportPrediction.Extent
+        var estimator: String
+    }
+
+    static func check(
         instant: ReportInstant, identity: ReportArmIdentity, reportDigest: String,
         reportPackDigest: String, packDigest: String, objectID: String, sample: AnnotationSample,
-        author: String, session: String
-    ) throws -> Self {
+        author: String
+    ) throws -> Eligible {
         guard reportPackDigest == packDigest, instant.objectID == objectID,
             instant.sampleID == sample.sampleID, instant.timestampNs == sample.timestampNs,
             let p = instant.prediction, p.timestampNs == sample.timestampNs
@@ -57,6 +71,21 @@ struct PhysicalTrackerSeed: Equatable {
             throw FeatureError.message(
                 "A body seed needs finite positive length/width and a finite heading.")
         }
+        return Eligible(
+            sampleID: sample.sampleID, prediction: p, heading: heading, length: length,
+            width: width, estimator: estimator)
+    }
+
+    static func make(
+        instant: ReportInstant, identity: ReportArmIdentity, reportDigest: String,
+        reportPackDigest: String, packDigest: String, objectID: String, sample: AnnotationSample,
+        author: String, session: String
+    ) throws -> Self {
+        let checked = try check(
+            instant: instant, identity: identity, reportDigest: reportDigest,
+            reportPackDigest: reportPackDigest, packDigest: packDigest, objectID: objectID,
+            sample: sample, author: author)
+        let p = checked.prediction
         let source =
             identity.source + " · " + reportDigest + " · track " + p.trackKey
             + " · sample \(sample.sampleID) · \(sample.timestampNs) ns"
@@ -65,7 +94,7 @@ struct PhysicalTrackerSeed: Equatable {
         review.trackerSource = source
         review.method = "tracker_report_seed_v1"
         review.provenance.operation = "tracker_seed"
-        review.provenance.algorithm = estimator
+        review.provenance.algorithm = checked.estimator
         review.provenance.algorithmVersion = identity.stage
         let support = PhysicalSupport(frames: [sample.sampleID], external: source)
         func dimension(_ extent: ReportPrediction.Extent?) -> PhysicalDimension {
@@ -74,15 +103,15 @@ struct PhysicalTrackerSeed: Equatable {
                 status: .inferred, span: .full, valueM: extent.metres, support: support)
         }
         let body = PhysicalBody(
-            bodyID: PhysicalDraft.newID("body"), length: dimension(length), width: dimension(width),
-            height: dimension(p.height), review: review)
+            bodyID: PhysicalDraft.newID("body"), length: dimension(checked.length),
+            width: dimension(checked.width), height: dimension(p.height), review: review)
         let pose = PhysicalKeyframe(
             keyframeID: PhysicalDraft.newID("kf"), sampleID: sample.sampleID,
             timestampNs: sample.timestampNs,
             position: PhysicalPosition(status: .inferred, xM: p.x, yM: p.y, support: support),
             yaw: PhysicalYaw(
-                status: .inferred, axis: heading.resolved ? .resolved : .frontRearAmbiguous,
-                yawRad: heading.rad, support: support), review: review)
+                status: .inferred, axis: checked.heading.resolved ? .resolved : .frontRearAmbiguous,
+                yawRad: checked.heading.rad, support: support), review: review)
         return Self(
             objectID: objectID, sampleID: sample.sampleID, source: source, prediction: p,
             body: body, keyframe: pose)
@@ -90,9 +119,20 @@ struct PhysicalTrackerSeed: Equatable {
 }
 
 extension AnnotationSession {
+    /// What a seed at this object and frame would be made from: the one
+    /// report row, and the context it must agree with.
+    private struct TrackerSeedRow {
+        var instant: ReportInstant
+        var identity: ReportArmIdentity
+        var reportDigest: String
+        var reportPackDigest: String
+        var objectID: String
+        var sample: AnnotationSample
+    }
+
     /// One explicitly matched prediction from the report already opened in Compare.
     /// Refuse duplicate object rows rather than guessing which track supplied it.
-    func trackerSeedFromReport() throws -> PhysicalTrackerSeed {
+    private func trackerSeedRow() throws -> TrackerSeedRow {
         guard comparisonAllowed, let objectID = activeObjectID, let sample = currentSample,
             let report = reportInspector.report, let digest = reportInspector.reportDigest,
             let identity = reportInspector.armIdentity
@@ -107,10 +147,27 @@ extension AnnotationSession {
             throw FeatureError.message(
                 "The report has no unique matched estimate for this object at this frame.")
         }
-        return try PhysicalTrackerSeed.make(
+        return TrackerSeedRow(
             instant: rows[0], identity: identity, reportDigest: digest,
-            reportPackDigest: report.reference.packDigest, packDigest: pack.manifest.packDigest,
-            objectID: objectID, sample: sample, author: operatorName, session: sessionID)
+            reportPackDigest: report.reference.packDigest, objectID: objectID, sample: sample)
+    }
+
+    /// Whether the report can seed this object and frame, and from what,
+    /// without building the seed. For the pane, which asks on every render.
+    func trackerSeedEligibility() throws -> PhysicalTrackerSeed.Eligible {
+        let row = try trackerSeedRow()
+        return try PhysicalTrackerSeed.check(
+            instant: row.instant, identity: row.identity, reportDigest: row.reportDigest,
+            reportPackDigest: row.reportPackDigest, packDigest: pack.manifest.packDigest,
+            objectID: row.objectID, sample: row.sample, author: operatorName)
+    }
+
+    func trackerSeedFromReport() throws -> PhysicalTrackerSeed {
+        let row = try trackerSeedRow()
+        return try PhysicalTrackerSeed.make(
+            instant: row.instant, identity: row.identity, reportDigest: row.reportDigest,
+            reportPackDigest: row.reportPackDigest, packDigest: pack.manifest.packDigest,
+            objectID: row.objectID, sample: row.sample, author: operatorName, session: sessionID)
     }
 
     func seedPhysicalFromReport() {

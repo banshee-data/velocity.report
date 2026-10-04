@@ -38,6 +38,56 @@ struct PhysicalTrackerSeedTests {
             author: author, session: "test")
     }
 
+    private func eligible(
+        _ row: ReportInstant, _ identity: ReportArmIdentity, _ sample: AnnotationSample,
+        _ digest: String, reportDigest: String = "sha256:" + String(repeating: "a", count: 64),
+        author: String = "operator"
+    ) throws -> PhysicalTrackerSeed.Eligible {
+        try PhysicalTrackerSeed.check(
+            instant: row, identity: identity, reportDigest: reportDigest, reportPackDigest: digest,
+            packDigest: digest, objectID: row.objectID, sample: sample, author: author)
+    }
+
+    @Test func theCheckAgreesWithTheSeedItWouldBuildAndMintsNothing() throws {
+        let (row, identity, sample, digest) = try fixture()
+        let checked = try eligible(row, identity, sample, digest)
+        #expect(try eligible(row, identity, sample, digest) == checked, "a check minted something")
+        let made = try seed(row, identity, sample, digest)
+        #expect(checked.prediction == made.prediction && checked.sampleID == made.sampleID)
+        #expect(
+            try seed(row, identity, sample, digest).body.bodyID != made.body.bodyID,
+            "make mints fresh records; the check must not need to")
+        var variants: [ReportInstant] = []
+        var v = row
+        v.prediction!.reference = "cluster_medoid"
+        variants.append(v)
+        v = row
+        v.prediction!.physical = false
+        variants.append(v)
+        v = row
+        v.match!.candidates = 2
+        variants.append(v)
+        v = row
+        v.prediction!.length!.metres = .nan
+        variants.append(v)
+        v = row
+        v.prediction!.centreX = row.prediction!.x + 1
+        variants.append(v)
+        v = row
+        v.prediction!.heading!.resolved = false
+        variants.append(v)
+        v = row
+        v.prediction!.height = nil
+        variants.append(v)
+        for variant in variants {
+            let offered = (try? eligible(variant, identity, sample, digest)) != nil
+            let built = (try? seed(variant, identity, sample, digest)) != nil
+            #expect(offered == built, "the pane and the import disagree")
+        }
+        #expect((try? eligible(row, identity, sample, digest, author: " ")) == nil)
+        #expect((try? eligible(row, identity, sample, digest, reportDigest: "sha256:x")) == nil)
+    }
+
     @Test func reportBodyIsAnAssistedSketchWithoutInventedBounds() throws {
         let (row, identity, sample, digest) = try fixture()
         let made = try seed(row, identity, sample, digest)

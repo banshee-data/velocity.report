@@ -139,6 +139,11 @@ struct PhysicalComparisonReportTests {
             url: url, packDigest: session.pack.manifest.packDigest, role: session.packRole,
             physical: session.physical)
         let seed = try session.trackerSeedFromReport()
+        // The pane's check names the same row and mints nothing.
+        let eligible = try session.trackerSeedEligibility()
+        #expect(eligible.prediction == seed.prediction && eligible.sampleID == seed.sampleID)
+        #expect(try session.trackerSeedEligibility() == eligible)
+        #expect(try session.trackerSeedFromReport().body.bodyID != seed.body.bodyID)
         session.seedPhysicalFromReport()
         #expect(session.physical.object(object.objectID)?.body == originalBody)
         #expect(session.physicalKeyframe?.review.origin == .trackerAssisted)
