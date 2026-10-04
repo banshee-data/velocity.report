@@ -61,14 +61,38 @@ extension FeatureObservation {
 
 /// Pure selection rules shared by clicking, resizing, and sequential previews.
 enum FeatureSelection {
+    /// The largest facet sphere Go accepts (validateFeatureObservation).
+    static let maximumRadiusM = 5.0
+    static let minimumRadiusM = 0.02
+    /// How far a lasso's envelope reaches past its farthest return, so that
+    /// a centre and distances taken in Float still enclose every return when
+    /// Go checks them in float64.
+    static let envelopeMarginM = 0.00001
+
     static func indices(points: PackPoints, domain: [Int], sphere: FeatureSphere) -> [UInt32] {
-        guard sphere.radiusM.isFinite, sphere.radiusM > 0, sphere.radiusM <= 5 else { return [] }
+        guard sphere.radiusM.isFinite, sphere.radiusM > 0, sphere.radiusM <= maximumRadiusM else {
+            return []
+        }
         return Set(domain).sorted().compactMap { i in
             guard i >= 0, let p = points.point(at: i), p.x.isFinite, p.y.isFinite, p.z.isFinite,
                 simd_distance_squared(p, sphere.centre) <= Float(sphere.radiusM * sphere.radiusM)
             else { return nil }
             return UInt32(i)
         }
+    }
+
+    /// The sphere that encloses a lasso's exact subset: on its centre, out to
+    /// its farthest return plus the margin, and never smaller than the least
+    /// sphere. Nil when that sphere, margin included, is larger than Go
+    /// accepts: the limit applies to the radius that is saved, so a subset
+    /// whose farthest return is within the margin of it is refused here,
+    /// not built and then refused by the service on save.
+    static func lassoEnvelope(centre: SIMD3<Float>, members: [SIMD3<Float>]) -> FeatureSphere? {
+        let distances = members.map { Double(simd_distance($0, centre)) }
+        guard let reach = distances.max(), distances.allSatisfy(\.isFinite) else { return nil }
+        let radius = max(minimumRadiusM, reach + envelopeMarginM)
+        guard radius <= maximumRadiusM else { return nil }
+        return FeatureSphere(centre: centre, radius: radius)
     }
 
     static func centre(points: PackPoints, domain: [Int]) -> SIMD3<Float>? {
@@ -631,17 +655,16 @@ extension AnnotationSession {
         guard let centre = FeatureSelection.centre(points: currentPoints, domain: indices) else {
             return
         }
-        let radius =
-            indices.compactMap { currentPoints.point(at: $0) }.map {
-                Double(simd_distance($0, centre))
-            }.max() ?? 0
-        guard radius.isFinite, radius < 5 else {
+        guard
+            let envelope = FeatureSelection.lassoEnvelope(
+                centre: centre, members: indices.compactMap { currentPoints.point(at: $0) })
+        else {
             features.message = "Select a smaller facet: its support must fit within a 5 m radius"
             return
         }
         var observation = featureObservation(sample: sample)
         observation.pointIndices = indices.map(UInt32.init)
-        observation.sphere = FeatureSphere(centre: centre, radius: max(0.02, radius + 0.00001))
+        observation.sphere = envelope
         observation.method = "manual_lasso"
         if features.draft?.origin == "assisted_proposal"
             || features.active?.observations.contains(where: { $0.origin == "assisted_proposal" })
@@ -732,7 +755,8 @@ extension AnnotationSession {
             let object = activeObjectID,
             draft.sampleID == currentSample.map({ UInt32($0.sampleID) })
         else { return }
-        features.radius = min(max(radius, 0.02), 5)
+        features.radius = min(
+            max(radius, FeatureSelection.minimumRadiusM), FeatureSelection.maximumRadiusM)
         draft.sphere.radiusM = features.radius
         draft.pointIndices = FeatureSelection.indices(
             points: currentPoints,

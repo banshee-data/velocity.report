@@ -110,6 +110,34 @@ struct FeatureSelectionTests {
         #expect(subset == [0, 1, 2, 3, 4, 5], "the next scan's returns fell between voxels")
     }
 
+    @Test func aLassoEnvelopeNeverExceedsWhatGoAcceptsOnSave() throws {
+        // The farthest return is inside 5 m, so the old check (reach < 5)
+        // passed it, and the margin then carried the saved radius past Go's
+        // limit: built here, refused on save, and the client left read-only.
+        let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
+        #expect(Double(edge) < FeatureSelection.maximumRadiusM)
+        #expect(
+            FeatureSelection.lassoEnvelope(
+                centre: .zero, members: [SIMD3(edge, 0, 0), SIMD3(-edge, 0, 0)]) == nil)
+        let members: [SIMD3<Float>] = [SIMD3(4.9, 0, 0), SIMD3(0, -1, 0.5)]
+        let sphere = try #require(
+            FeatureSelection.lassoEnvelope(centre: SIMD3(0, 0, 0), members: members))
+        #expect(sphere.radiusM <= FeatureSelection.maximumRadiusM)
+        for p in members {
+            // Go's own containment test, in float64.
+            let dx = Double(p.x) - sphere.xM
+            let dy = Double(p.y) - sphere.yM
+            let dz = Double(p.z) - sphere.zM
+            #expect(dx * dx + dy * dy + dz * dz <= sphere.radiusM * sphere.radiusM + 1e-6)
+        }
+        #expect(
+            FeatureSelection.lassoEnvelope(centre: .zero, members: [.zero])?.radiusM
+                == FeatureSelection.minimumRadiusM)
+        #expect(FeatureSelection.lassoEnvelope(centre: .zero, members: []) == nil)
+        #expect(
+            FeatureSelection.lassoEnvelope(centre: .zero, members: [SIMD3(.nan, 0, 0)]) == nil)
+    }
+
     @Test func sparseOrCompetingLocalFitsDoNotBecomeAcceptedObservations() {
         let source = featurePoints([SIMD3(0.05, 0.05, 1), SIMD3(0.1, 0.1, 1.05)])
         var o = FeatureObservation()
@@ -752,6 +780,30 @@ struct FeatureSharedWireTests {
         #expect(!s.features.isDirty)
         #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == mask)
         #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
+    }
+
+    @Test func aLassoTooLargeForGoIsRefusedBeforeItBecomesADraft() async throws {
+        let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
+        let points: [SyntheticPack.Point] = [(-edge, 0, 1, 1), (edge, 0, 1, 1)]
+        let dir = try SyntheticPack.write([points])
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pack = try AnnotationPack.open(directory: dir)
+        let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
+        let service = FakeFeatureService(pack: pack)
+        register { try service.handle($0) }
+        let s = try AnnotationSession(
+            pack: pack, featureClient: FeatureAPIClient(baseURL: url, session: transport))
+        s.operatorName = "op"
+        _ = s.createObject(objectClass: "car")
+        let all = SelectionPolygon(rectFrom: SIMD2(-6, -1), to: SIMD2(6, 1))
+        #expect(s.select(polygon: all, mode: .replace) && s.save())
+        service.state.membershipDigest = s.membershipDigest
+        s.workMode = .features
+        await s.features.load()
+        s.features.selectionTool = .lasso
+        s.selectFacet(polygon: all)
+        #expect(s.features.draft == nil, "a facet Go refuses on save was drafted")
+        #expect(s.features.message?.contains("5 m radius") == true)
     }
 }
 
