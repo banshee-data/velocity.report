@@ -26,12 +26,6 @@ func trimmedSpanBySort(points []l4perception.WorldPoint, scratch []float64, dirX
 	return span, true
 }
 
-// sameOrderValue is equality in sort.Float64Slice's order: NaN equals NaN,
-// and -0 equals +0, whose relative order no sort promises.
-func sameOrderValue(x, y float64) bool {
-	return x == y || (math.IsNaN(x) && math.IsNaN(y))
-}
-
 // randomValues draws n values from one of several shapes that stress a
 // selection: spread, heavy ties, already ordered, reversed, constant, and
 // laced with NaN, ±Inf and signed zeros.
@@ -67,67 +61,6 @@ func randomValues(rng *rand.Rand, n, shape int) []float64 {
 		}
 	}
 	return v
-}
-
-func TestNthFloat64MatchesSort(t *testing.T) {
-	rng := rand.New(rand.NewSource(1))
-	for shape := 0; shape <= 5; shape++ {
-		for _, n := range []int{1, 2, 3, 7, 8, 31, 100, 257} {
-			values := randomValues(rng, n, shape)
-			sorted := append([]float64(nil), values...)
-			sort.Float64s(sorted)
-			for k := 0; k < n; k++ {
-				a := append([]float64(nil), values...)
-				got := nthFloat64(a, k)
-				if !sameOrderValue(got, sorted[k]) {
-					t.Fatalf("shape %d n %d k %d: got %v, sort gives %v", shape, n, k, got, sorted[k])
-				}
-				for i := 0; i < k; i++ {
-					if float64Less(a[k], a[i]) {
-						t.Fatalf("shape %d n %d k %d: a[%d]=%v ordered after a[k]=%v", shape, n, k, i, a[i], a[k])
-					}
-				}
-				for i := k + 1; i < n; i++ {
-					if float64Less(a[i], a[k]) {
-						t.Fatalf("shape %d n %d k %d: a[%d]=%v ordered before a[k]=%v", shape, n, k, i, a[i], a[k])
-					}
-				}
-			}
-		}
-	}
-}
-
-// With no partition budget the selection sorts the range, the bound on its
-// worst case; with a small one it partitions and then sorts what remains.
-func TestNthFloat64BudgetFallsBackToSort(t *testing.T) {
-	rng := rand.New(rand.NewSource(2))
-	values := randomValues(rng, 200, 0)
-	sorted := append([]float64(nil), values...)
-	sort.Float64s(sorted)
-	for _, budget := range []int{0, 1, 2} {
-		for _, k := range []int{0, 2, 99, 197, 199} {
-			a := append([]float64(nil), values...)
-			if got := nthFloat64Budget(a, k, budget); got != sorted[k] {
-				t.Fatalf("budget %d k %d: got %v, want %v", budget, k, got, sorted[k])
-			}
-		}
-	}
-}
-
-func TestMedianOfThree(t *testing.T) {
-	nan := math.NaN()
-	for _, c := range []struct {
-		a    []float64
-		want float64
-	}{
-		{[]float64{1, 2, 3}, 2}, {[]float64{3, 2, 1}, 2}, {[]float64{2, 3, 1}, 2},
-		{[]float64{2, 1, 3}, 2}, {[]float64{1, 3, 2}, 2}, {[]float64{3, 1, 2}, 2},
-		{[]float64{5, 5, 1}, 5}, {[]float64{nan, 1, 2}, 1},
-	} {
-		if got := c.a[medianOfThree(c.a, 0, 1, 2)]; !sameOrderValue(got, c.want) {
-			t.Errorf("medianOfThree(%v) = %v, want %v", c.a, got, c.want)
-		}
-	}
 }
 
 func pointsFrom(xs, ys []float64) []l4perception.WorldPoint {

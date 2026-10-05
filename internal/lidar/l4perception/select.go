@@ -1,4 +1,4 @@
-package l5tracks
+package l4perception
 
 import (
 	"math"
@@ -13,21 +13,23 @@ func float64Less(x, y float64) bool {
 	return x < y || (math.IsNaN(x) && !math.IsNaN(y))
 }
 
-// nthFloat64 rearranges a so that a[k] holds the value sort.Float64s would put
+// NthFloat64 rearranges a so that a[k] holds the value sort.Float64s would put
 // at position k, with nothing after it ordered before it and nothing before it
 // ordered after it, and returns that value. Two order statistics of one slice
-// therefore cost two selections rather than a sort.
+// therefore cost two selections rather than a sort. The only difference from a
+// sort is the one no sort promises either: -0 and +0 order as equal, so which
+// of them lands at k may differ.
 //
 // It is a quickselect with a median-of-three pivot and a three-way partition,
 // so runs of equal values (and NaNs, which order as equal to each other) cost
 // one pass. It runs in linear time on average. After 2·log2(n) partitions that
 // have not isolated k it sorts what remains, which bounds the worst case at
 // O(n log n), a sort's cost.
-func nthFloat64(a []float64, k int) float64 {
+func NthFloat64(a []float64, k int) float64 {
 	return nthFloat64Budget(a, k, 2*bits.Len(uint(len(a))))
 }
 
-// nthFloat64Budget is nthFloat64 with the number of partitions it may make
+// nthFloat64Budget is NthFloat64 with the number of partitions it may make
 // before falling back to a sort.
 func nthFloat64Budget(a []float64, k, budget int) float64 {
 	lo, hi := 0, len(a)-1

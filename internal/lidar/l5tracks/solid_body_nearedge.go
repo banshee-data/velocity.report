@@ -1174,10 +1174,10 @@ func trimmedSpan(points []l4perception.WorldPoint, scratch []float64, dirX, dirY
 	last := len(scratch) - 1
 	lo := int(spanTrimPercent / 100 * float64(last))
 	hi := last - lo
-	upper := nthFloat64(scratch, hi)
+	upper := l4perception.NthFloat64(scratch, hi)
 	lower := upper
 	if lo < hi {
-		lower = nthFloat64(scratch[:hi], lo)
+		lower = l4perception.NthFloat64(scratch[:hi], lo)
 	}
 	span := upper - lower
 	if !(span > 0) || math.IsInf(span, 0) {
