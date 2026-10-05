@@ -109,6 +109,16 @@ a table or prose. Shell commands that show how to _use_ the system are fine.
 
 Specification and architecture documents should target 800 lines or fewer. Dense tables and design discussion justify going over; wandering prose and pre-built code do not.
 
+### Logs and registers
+
+`docs/DEVLOG.md` and `docs/BACKLOG.md` are registers of list items, not running prose.
+
+- **One line per item:** each bullet is a single physical line. Never hard-wrap a bullet, however long. Prettier (`proseWrap: preserve`) and the prose width check both leave list items alone.
+- **One heading per day:** the devlog has exactly one `## Month DD, YYYY - Theme` heading per UTC date, newest first. No date ranges. When more work lands on a day that already has an entry, append to it and broaden its theme.
+- **PR numbers:** every devlog bullet for work that landed through a pull request ends with its number(s) before the final full stop: `(#622)` or `(#605, #606)`. Unlanded work starts with a `{branch-name}` tag instead, which is replaced by the PR number when the branch merges. Work pushed straight to main has no number.
+
+The full devlog format and update procedure live in the `devlog-update` skill (`.claude/skills/devlog-update/SKILL.md`).
+
 ## Dates and Timestamps
 
 **Machine timestamps:** UTC ISO 8601 with trailing `Z`. Example: `2026-04-07T14:32:08Z`. Applies to build metadata, log output, generated files, persisted JSON, and git date attribution. Never use local time for machine-written timestamps.

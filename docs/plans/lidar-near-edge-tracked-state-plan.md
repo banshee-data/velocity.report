@@ -837,9 +837,13 @@ smaller host:
   is kept, and a case is re-run if its rows are needed again.
 - The tool's determinism repeat stays on. It replays without the database, so it costs time, not
   disk.
-- Results are committed as JSON, with a markdown table per arm, to a results branch per test under
-  `results/<test>/`, and pushed. They can then be read and reviewed away from the machine.
-- T0's branch is `claude/upbeat-galileo-4xbaat-s2-t0-results`.
+- Raw outputs (evidence databases, JSON summaries and logs) stay local: outside the checkout, or in
+  an ignored `results/` directory, and never committed on any branch. The findings, with the
+  summary tables a decision rests on, go into a written report under `docs/`, as `AGENTS.md`
+  requires.
+- The results branches named in the findings below (T0's is
+  `claude/upbeat-galileo-4xbaat-s2-t0-results`) predate that rule. They are provenance, not the
+  pattern for new runs.
 
 **Sensor geometry.** Every case needs its geometry declared before the continuity arms or
 `near_edge_track` run on it. The corpus tool's `-survey-coverage` measures it from the case's
@@ -954,16 +958,20 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] F4: T1 with T3, held-out score and tuning re-run, on the Mac; gate 2's reach not met
 - [x] S2.1 T4 per-face bias state on the solid body, with T1 and T3, on the tuning partition
       (F5): 5 mm, not kept; the steady-run anatomy moves to main
-- [ ] S2.1 face-transition remedy chosen
+- [ ] S2.1 face-transition remedy chosen (the October campaign selected no diagnostic correction)
 - [x] F6: `near_edge_track` (S2a) and the T1 with T3 control on the tuning partition, on the Mac:
       lower p99 on both sites, the lateral-entry tail survives, translation buys nothing
 - [x] T5 rank-one medoid across the body at an end-face fix (`solid_body_rank_one_medoid` and its
       tight setting), default-off, on the shadow and the tracked filter
 - [x] F7 (run as F7b): T5 on the tracked arm and the shadow, on the tuning partition, on the Mac:
       11 and 14 mm, mixed on all 21 screen sites; not promoted
-- [ ] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 19 of 21 sites run,
-      tracked arm lower on all 19 and gate 3's counts pass; two sites and the survey remain
-- [ ] F8: the held-out score of S2a without T5, once, on the Mac
+- [x] F6s: `near_edge_track` and the control on the screen sites, on the Mac: 19 of 21 sites run,
+      tracked arm lower on all 19 and gate 3's counts pass. Superseded by the
+      [October campaign](../lidar/operations/near-edge-campaign-2026-10.md) (#672), which ran B0,
+      the shadow and A2 at all 23 core sites, the screen included, on one frozen build and kept B0;
+      the coverage survey is the sensor-geometry item below
+- [ ] F8: the held-out score of S2a without T5, once, on the Mac. The October campaign left the
+      held-out case untouched: scoring it needs a governed split and a single-score audit first
 - [ ] F9: kirk0's reviewed pack (20 road-user objects): identity (per-frame) and near-face
       residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only
       ([near-face evaluation](../lidar/operations/near-face-evaluation.md))
