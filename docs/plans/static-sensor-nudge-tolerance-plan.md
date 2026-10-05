@@ -4,6 +4,7 @@
 - **Layers:** LiDAR pipeline (L3 background model), `pcapsplit`
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the wider sweep
+- **First delivery slice:** [Scene-change recovery sprint](lidar-scene-change-recovery-sprint-plan.md) investigates the Lombard–Laguna 33:21 burst and evaluates bounded recovery against reserved nudge and stopped-object cases
 
 Implementation references below describe [PR #569](https://github.com/banshee-data/velocity.report/pull/569) and its local archive experiments. Capture indexing, session classification, and multi-file replay remain branch work until that PR merges. This investigation document does not announce those capabilities as shipped.
 

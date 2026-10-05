@@ -76,6 +76,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.4 - Estimate display + data completeness (054)
 
+- Survey track evidence contract: export lifecycle, support, last-observed time and scene/model quality with explicit unknowns for legacy recordings; keep measured box geometry separate from minimum display size: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `M` {frontend}
+
 - Trail correctness: align box anchors and trail timestamps; distinguish observed, coasted, provisional and final segments. Test expiry, reacquisition, seek and revised-history display without inventing observed points: [design doc](plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md) `M`
 - Deterministic track identity: derive `track_id` from `(site_id, sensor_id, frame_unix_nanos, cluster_id)` instead of a random UUID, so it stays reproducible across replays of identical input and safe against collision across tracker resets and multi-site corpora alike. Requires threading a per-deployment identity into both the live and replay pipeline configs first: [design doc](plans/lidar-deterministic-track-identity-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
@@ -88,6 +90,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.5 - Visualiser stream + replay stability (055)
 
+- Lombard–Laguna burst reproduction: pin capture/configuration digests and capture-time mapping, reproduce the full-prefix baseline twice, and add bounded L3 decision diagnostics joined to cluster and track births: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `M`
+
 - Consolidate the frame-drop paths: design one accounting surface for publish drops, client eviction, UI dispatch throttling and replay throttling. Preserve each policy's purpose while attributing every missing displayed frame: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `M`
 - Reproduce the visualiser freeze off a single Mac: repeat `make debug-grpc-soak` across hosts, Linux and Pi with the visualiser attached. Record whether the 16MB HTTP/2 window holds under real latency/loss; the loopback soak alone does not prove it: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `M`
 - Account for residual frame-production gaps: add per-frame production timestamps to explain the three unattributed pauses from the soak (worst overall 2.144s). Separately assess the expected 1–2s source-change pause: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `S`
@@ -98,6 +102,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
 ### v0.5.6 - Perception pipeline + extractor foundations (056)
+
+- Scene-change cause decision: compare independent static-patch registration, background-state transitions and local occlusion around 33:21; distinguish physical pose change from a model or decoding fault before choosing recovery: [scene-change experiment](../data/experiments/try/lombard-laguna-scene-change-recovery.md) `M` {math}
 
 - Facet registration integration, conditional on measured benefit: wire the selected geometric measurement through tracked state, uncertainty, persistence and inspection, then qualify association, bounded memory and recovery. F4–F5 budget 20–35 engineer-days; use the simpler arm if the constellation adds no material gain: [plan](plans/lidar-facet-registration-experiment-plan.md) `L` {math}
 - Single-site shape-classification follow-through: add compact descriptor-model inspection to the delivered solid-body pilot after it no longer blocks the headway path: [design doc](plans/lidar-single-site-shape-demo-sprint-plan.md) `S`
@@ -113,6 +119,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 
 ### v0.5.7 - Tracker correctness + robustness (057)
+
+- Bounded scene-change recovery candidate: implement the cause-supported strategy default-off with capture-time deadlines, explicit unavailable intervals and coherent model/pose epochs and track identity; preserve stopped road users: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `L` {math}
 
 - Heading candidate acceptance: finish D2.4 comparison UI and candidate-specific held-out review. Keep axis and association candidates disabled until their gates pass; 0.5.2 still reviews physical heading and identity for the corrected baseline: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
@@ -169,6 +177,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Platform vocabulary Item 9: the radar tracker and the command log: the transit worker moves from `internal/db` to `internal/radar/tracker` as `Tracker` and `Controller` at the same level as `l5tracks`, enqueuing `radar_track_build` jobs; `/api/radar/tracker`, Settings "Radar tracker", `velocity radar tracks build|analyse|delete|migrate`; every command the listener writes and every reply populate `radar_commands` and `radar_command_log` (writer-supplied ids, attribution inside `Monitor`, the insert off the read loop) with a LAN-only `GET /api/radar/commands/log`; the tracker's job rows are inserted pre-claimed so the in-process runner never claims them; a fixture test proves the tracks are unchanged: [design doc](plans/platform-vocabulary-and-data-model-plan.md) `M`
 
 ### v0.5.11 - Performance, sweep observability + experiment persistence (0511)
+
+- Scene-change recovery qualification: freeze the candidate and score reserved physical-nudge, fixed-pose and stopped-road-user captures for false tracks, coverage, identity and speed; archive failed and unevaluated gates as well as passes: [scene-change experiment](../data/experiments/try/lombard-laguna-scene-change-recovery.md) `M` {math}
 
 - Per-layer performance attribution: record reproducible PCAP timings for each stage, including non-zero L4 work, before tuning or promoting geometry changes: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - Recapture stale `mac`/`ci` perf baselines: [#559] added `obb_axis_coherence_enabled` and `association_extent_cost_weight` to the L5 tuning schema, moving the tuning fingerprint and invalidating the committed `mac` baselines for both gated profiles; the comparator correctly refuses them (`tuning fingerprint ... vs ...`) rather than reporting a false regression, but a fresh capture on an idle machine is needed before the gate is informative again `S`
@@ -234,6 +244,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.6.6 - Web scene publishing (066)
 
+- Lombard–Laguna staged survey refresh: carry lifecycle and recovery quality into playback, verify legacy compatibility and reproduce a provenance-pinned export; publish corrected assets only after recovery and Pi gates pass: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `M` {frontend}
+
 - S2 capture provenance: carry canonical L13/L10 through sidecars, summaries, VRLOG headers and run columns. Reconcile legacy splitter tags with the shallow Hugging Face L13 shared-stem convention; keep moving or unresolved captures explicitly unassigned: [design doc](plans/s2-geographic-indexing-plan.md) `L`
 - Platform vocabulary Item 14: one `sites` table for both sensors (surrogate id, slug, name, coordinates with provenance, `map_angle`, S2 tokens, map, vantages) merged from `site` and `lidar_sites` under the surveyed-wins precedence rule, and `deployments` from `site_config_periods` holding the mounting per sensor kind with a `CHECK` and the pose with the one sensor heading (LiDAR azimuth zero, radar beam centre, degrees from north); `geoindex` levels district, neighbourhood, site cell; `location` and `address` dropped after the `name` backfill; the Sites page with map view and deployments; LiDAR calibration derived from the deployment: [design doc](plans/platform-vocabulary-and-data-model-plan.md) `L`
 - Platform vocabulary Item 15: surveys and reports: `surveys` from `lidar_scenes` plus one authored survey per existing report site and period, `reports` keyed to a survey, clip poses moved to their survey; the Surveys page authors radar surveys and publishes LiDAR ones; `velocity survey export|vantages`; headway and charts take `survey=`: [design doc](plans/platform-vocabulary-and-data-model-plan.md) `L`
@@ -248,6 +260,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Identifiability parameter measurement: the publishing thresholds are arithmetic over six quantities and five of them are currently guesses. Measure per-site pass volume by time of day and day of week, local class shares from the site's own observations rather than a national average, and the repeat structure that says how regular the traffic is. None of it identifies anybody, and all of it is needed before a publishable depth can be computed rather than asserted. Also audit whether a scene export needs absolute wall-clock times at all: if playback only needs relative timing, dropping them is the cheapest privacy improvement available: [analysis](platform/architecture/identifiability-analysis.md) `M` {math}
 
 ### v0.6.7 - Raspberry Pi deployment optimisation (067)
+
+- Scene-change recovery Pi gate: measure frame-time tails, memory and dropped frames for normal operation and recovery on target hardware; record the enable, experimental or reject decision before default-on promotion: [scene-change experiment](../data/experiments/try/lombard-laguna-scene-change-recovery.md) `M`
 
 - Static `lidar-bench` binary for Pi benchmarking: extend the zig/musl/libpcap Docker build to emit `lidar-bench`, avoiding on-device development dependencies and matching the shipped server's linking characteristics: [design doc](plans/lidar-performance-measurement-harness-plan.md) `S`
 - Pi performance benchmark automation: the CI regression gate (#566) covers `ci` and `mac` host classes; the `pi` host class — the only one that answers "fast enough for a 10 Hz sensor" — has no baseline and no scheduled run. [#559] adds the host-class dimension to the perf matrix and a manual [Pi benchmark runbook](lidar/operations/pi-benchmark-runbook.md); wiring the runbook into a schedule needs a self-hosted runner attached to a Pi or a webhook-triggered job `M`
