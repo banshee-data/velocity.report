@@ -6,7 +6,20 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
-## October 4, 2026 - Near-edge findings stay in Git; raw outputs stay local
+## October 5, 2026 - Lombard-Laguna scene-change recovery plan
+
+- Planned recovery from the Lombard-Laguna survey's scene change: 45 track IDs appear within 0.2 s
+  around 33:21, existing IDs survive, and near-static tracks persist afterwards. The
+  [sprint plan](plans/lidar-scene-change-recovery-sprint-plan.md) does not assume the sensor was
+  nudged (#675).
+- Scoped a ten-engineer-day sprint: full-prefix reproduction, bounded L3 diagnostics, cause
+  selection, a default-off recovery candidate, a lifecycle and quality export, and reserved-case
+  evaluation. Seven backlog items spread the work from v0.5.4 to v0.6.7 (#675).
+- Wrote an experiment protocol for pose change, model or decoding faults, and occlusion, with
+  stopped-road-user, coverage, identity, speed, and Raspberry Pi gates. A public survey refresh and
+  any default-on recovery wait on that evidence, and no capture experiment has run yet (#675).
+
+## October 5, 2026 - Near-edge findings stay in Git; raw outputs stay local
 
 - Consolidated repository-wide agent guidance in `AGENTS.md`. `CLAUDE.md` imports it, and the
   coding standards link to the experiment policy. The migration preserves the project guide and
@@ -25,28 +38,93 @@ older entries stay put, however tempting hindsight may be.
   written report remain reviewable. Agent rules explicitly require reports in `docs/` and preserve
   them when cleaning up output.
 
+## October 4, 2026 - Physical references and facet authoring reach the Annotation window
+
+- Landed physical-reference authoring in the macOS Annotation window: body and per-frame pose
+  editing, review state, a Compare mode over comparison reports, and raw intensity inspection, saved
+  through one Go editing service and HTTP API (#656).
+- Pinned exact physical-reference revisions in version 3 annotation splits, so scoring refuses stale
+  or mismatched evidence, and added reproducible verification bundles checked by
+  `lidar-ground-truth-eval verify-bundle`. The September 30 entry records the same PR's
+  feature-proposal foundation (#656).
+- Compared the shared Swift fixtures' floats in Go within 1e-9 relative (`testutil.JSONWithin`)
+  instead of byte for byte. Go fuses multiply-adds on arm64 but not on amd64, so fixtures written on
+  a Mac differed from Linux CI in the last digit (#656).
+- Landed facet authoring: an operator marks one to four persistent vehicle parts as exact point
+  subsets of an object, pins them to a body, and registers them across frames without moving the
+  body origin (#673).
+- Registered straight facets with a line constraint (`FeatureLineConstraint`) instead of an invented
+  tangent anchor, kept tracker assistance visible through review, and let a split freeze optional
+  facet proposals with their exact retained revisions (#673).
+- Added offline body-pose proposals from confirmed facet correspondences
+  (`POST /api/annotations/features/pose-proposal`), inspectable in the macOS window. A pose prior
+  stays an explicit experiment input, never a target reference (#673).
+- Fixed 14 of the 15 findings from a review of #673, one commit each with tests. The fifteenth, a
+  body registration made against a different physical revision, became a divergence that the
+  split's facet pin records rather than a refusal (#673).
+- Kept references and facets out of the live tracker. No operator pilot or real-capture
+  measurement has run, so nothing yet shows better boxes, trails, heading, or following metrics
+  (#656, #673).
+
+## October 4, 2026 - Publishing preflight, go vet in CI, and plan follow-ups
+
+- Made the `scene-assets` preflight refuse a `./velocity` whose git sha differs from `HEAD`,
+  because a published asset's provenance cannot be corrected afterwards (#666).
+- Made `publish-scenes.py` follow `DB_PATH` and check the run records are readable before the first
+  replay. A server and publisher reading different databases had looked like a clean batch until
+  every export failed (#666).
+- Added a publishing-run checklist to the agent guide: pull and build, check the version stamp, use
+  one database, keep machine paths in `local.mk`, and pass `make scene-assets-status` first. A
+  failed export reuses the completed VRLOG rather than replaying (#666).
+- Cleared `go vet`'s two "json tag on unexported field" findings in tests and made `make lint-go`
+  run `go vet ./...`, so CI's Lint job now fails on vet findings. The server test gained its missing
+  check that `"skip"` does not resolve (#674).
+- Landed the capture-schema guardrails in migration 000058 and the terminology-first programme
+  plans recorded on October 1, after addressing the schema review comments (#631).
+- Carried two rules from the retired schema v2 freeze plan into the vocabulary programme: a new or
+  rebuilt foreign key declares its `ON DELETE` action and has a delete-path test. Deleting a clip
+  cascaded to its reviewed labels, which no recording can rebuild (#671).
+- Recovered the VRLOG recording contract review and async tracking plan revision written on
+  September 22, left uncommitted in a Codex worktree. The review settles one processed-observation
+  recording, catalogue-held results and annotations, and web scenes as derived exports (#670).
+
 ## October 4, 2026 - Two more screen sites for the tracked arm
 
-- {dd/docs/near-edge-f6s-19} F6s's 1st-mission and embarcadero-bryant runs are in. The tracked arm
+- F6s's 1st-mission and embarcadero-bryant runs are in. The tracked arm
   is lower than the control on all 19 screen sites run so far (a median of 76 mm lower steady
   p99), and its confirmed tracks and births per confirmation stay within gate 3's 5 % on every one.
   F7b's last screen site, howard-6th, completes T5's screen. Against the tracked arm on the 19
   sites both have run, T5 is lower on 12, higher on 5 and identical on 2, a median of 7 mm lower,
   so it stays off. The September 30 count of 7 higher of 17 had included the two identical sites.
   3rd-folsom, howard-6th and the coverage survey remain for F6s.
-- {dd/docs/results-out-of-main} Took `results/s2-a1/`, `results/s2-f6s/` and `results/s2-f7b/` out
+- Took `results/s2-a1/`, `results/s2-f6s/` and `results/s2-f7b/` out
   of main. #652 to #654 had merged them, against the rule that raw experiment results live on their
   own pushed branch and main keeps the accounting. The plan names the three results branches,
   which hold every file that was here.
 
+## October 2, 2026 - Street scenes become street surveys
+
+- Rebuilt the point-cloud assets for all 23 S2 corpus scenes from one build of main (`c962e323`),
+  replayed at 0.5x through the live pipeline, so every published asset is stamped with, and
+  reproducible from, that build (#664).
+- Recovered from two failed batches: the first failed every scene with
+  `unable to open database file`, and the second ran out of disk after 18. Reran the last five after
+  freeing space (#664).
+- Moved the published pages from `/scenes/` to `/surveys/` as "Street surveys", with a redirect at
+  every old URL. The source directory kept its internal name, so the exporter still writes where it
+  did (#665).
+- Regenerated the 25 survey pages, the site index, and the map against the rebuilt assets, and
+  updated the `tools/s2-hilbert` generators, reader, player, and speed-stats wording for
+  `/surveys/<id>/` URLs (#665).
+
 ## October 1, 2026 - Terminology first, data-model improvements second
 
-- {codex/assess-pr631} Split the platform vocabulary programme into four terminology/compatibility work packages and seven feature/data-model work packages, with linked delivery outlines and a Phase 1 exit that preserves behaviour, values and relationships. The original item ledgers and decisions remain; their release allocations need re-baselining after the terminology scope is sized. Capture digests, clock metrics, shared jobs, radar identity/logging, recording conversion and site/survey consolidation follow in Phase 2.
-- {codex/assess-pr631} Rebased the #631 schema-review foundation onto main. Migration 000057 already holds track-estimate reference/support fields, so the capture-job and motion-period checks move to 000058 with their own tests and updated references. D-27 and those guardrails do not claim completion of the terminology rollout; the four Phase 1 work packages remain to be implemented.
+- Split the platform vocabulary programme into four terminology/compatibility work packages and seven feature/data-model work packages, with linked delivery outlines and a Phase 1 exit that preserves behaviour, values and relationships. The original item ledgers and decisions remain; their release allocations need re-baselining after the terminology scope is sized. Capture digests, clock metrics, shared jobs, radar identity/logging, recording conversion and site/survey consolidation follow in Phase 2.
+- Rebased the #631 schema-review foundation onto main. Migration 000057 already holds track-estimate reference/support fields, so the capture-job and motion-period checks move to 000058 with their own tests and updated references. D-27 and those guardrails do not claim completion of the terminology rollout; the four Phase 1 work packages remain to be implemented.
 
 ## October 1, 2026 - Recovering the F1 findings from the T4 experiment
 
-- {codex/pr641-findings} Recovered the unpublished F1 write-up from #641: consider-on-entry (T2) reduced body-centre p99 by 4 % to 13 % alone, did not improve face-stable p99, and took 31 % more replay time. The record keeps the original build and results branch, and explains why later arms did not carry T2. Main already records F5 and the decision to stop T4; this recovery adds no tracking option. Corrected the face-leaving comment in the transition summary and used `\ast` in the geometry formula so the pinned Markdown formatter preserves it.
+- Recovered the unpublished F1 write-up from #641: consider-on-entry (T2) reduced body-centre p99 by 4 % to 13 % alone, did not improve face-stable p99, and took 31 % more replay time. The record keeps the original build and results branch, and explains why later arms did not carry T2. Main already records F5 and the decision to stop T4; this recovery adds no tracking option. Corrected the face-leaving comment in the transition summary and used `\ast` in the geometry formula so the pinned Markdown formatter preserves it.
 
 ## October 1, 2026 - Reviewed labels can score where the believed faces are
 
@@ -75,6 +153,12 @@ older entries stay put, however tempting hindsight may be.
   `lidar-annotation-prune` plans a thinning (newest N, the oldest, one per interval, and any revision
   a frozen split pins), backs the removed revisions up into a verified compressed tar, and only then
   removes them under the writer lock, so the Annotation window can stay open.
+- Planned faster Annotation window saves, which froze the app for seconds per frame: write-behind
+  batching, a writer actor off the main thread, a private recovery journal for durability, cheaper
+  saves in the unchanged format, and thinning at archive time (#660).
+- Bumped devalue to 5.9.4 in `web` (#662) and the documentation group (#661): three,
+  markdown-it-anchor 10, and postcss for the public site, and KaTeX, markdown-it-anchor 10, and
+  Mermaid 12 for the docs site.
 
 ## September 30, 2026 - Feature proposals keep their own evidence
 
@@ -89,6 +173,10 @@ older entries stay put, however tempting hindsight may be.
 - Separated measured intensity zero from the adjustable 1–255 gradient and the unavailable style.
   Updated the Swift, recording-domain and facet plans to distinguish the bounded authoring work
   from the 35–60 engineer-day conditional research programme. Desktop tests are not field evidence.
+- Planned the facet registration experiment: matched evaluation arms, reference requirements,
+  stop/go criteria, and effort ranges, to test whether persistent local vehicle surfaces improve
+  tracking and following enough to justify integration. Kept headway delivery independent of it
+  (#657).
 
 ## September 30, 2026 - The tracked arm is steadier, and the side-face entry is what is left
 
@@ -118,6 +206,36 @@ older entries stay put, however tempting hindsight may be.
   medoid, on the tuning pair. T5 lowers the tuning pair's steady p99 by 11 and 14 mm but is better on 10 and
   worse on 7 of 17 screen sites, so it stays off: the rank-one drift is a small part of the
   lateral-entry tail. Next is the held-out score of the tracked arm without T5.
+- Merged the A1, F6s, and F7b result sets into `results/` on main (#652, #653, #654). #669 took
+  them out again on October 4, because raw results do not belong on main.
+- Bumped undici to 7.30.0 (#642, #645), markdown-it to 15.0.2 (#643, #644), and brace-expansion to
+  1.1.21 (#646, #647) in the docs and public sites, and dompurify to 3.4.16 in the docs site (#651).
+
+## September 29, 2026 - One vocabulary for both sensors, and Markdown formatting in CI
+
+- Replaced the LiDAR data-model simplification plan with the
+  [platform vocabulary and data model plan](plans/platform-vocabulary-and-data-model-plan.md),
+  widened to both sensors. "Scene" had meant five things, "capture" and "source" seven each, and
+  "site" thirteen identities (#630).
+- Settled decisions V1 to V36 one noun at a time, among them track and tracker for both sensors
+  (retiring transit), evidence to estimate to track, survey for the published scene, clip for the
+  evaluation window, and one sites table (#630).
+- Ledgered every surface against its target name and release, from 44 tables down to 39 through
+  routes, protos, web, macOS, CLI, and on-disk formats. Eighteen items split into a
+  forward-compatible v0.5.8 to v0.5.11 group and a data-moving v0.6.x group (#630).
+- Added the [survey capture export plan](plans/platform-survey-capture-export-plan.md): parted
+  pcapng on a 300 s capture-time grid for Hugging Face, with route parts published only by opt-in
+  and both ends trimmed to a 500 m privacy radius (#630).
+- Tidied the v0.5.2 backlog, added missing PR numbers to completed items, and repaired related
+  links in three operations docs that had broken the docs build (#632).
+- Added the geometry-coherent tracking proposal to `.prettierignore`. Prettier 3.9.9 read the
+  asterisks in its inline maths as emphasis, corrupted the formula, and made the `format-docs` hook
+  refuse every commit that staged Markdown (#639).
+- Added `make check-docs-format`, run by `lint-docs` and a new blocking `md-format` CI job with the
+  pinned prettier, so unformatted Markdown, or a prettier bump that rewrites a file, now fails CI
+  rather than only the local hook (#639).
+- Bumped the application dependency group, among them fonttools, ruff, three, and prettier 3.9.9,
+  the release that broke the docs hook (#638).
 
 ## September 29, 2026 - The half-extent state does not close the transition tail
 
@@ -136,6 +254,33 @@ older entries stay put, however tempting hindsight may be.
 ## September 29, 2026 - The near-edge update reaches the tracked filter
 
 - Built S2.2 of the near-edge plan behind `near_edge_track`, default off. The solid body's state machine is one function over a state, covariance, reference and support value, which the shadow runs on its own filter and the new mode runs on the tracked one: a fix replaces the medoid update with the face updates, a faceless frame leaves the prediction alone, a lapse returns to the medoid, and a body-centre track is associated on the pair's face residual (A2), keeping the gate at two degrees of freedom. A re-reference is a translation before it is an update, so velocity is not kicked by half a body. On kirk0 the default replay and the shadow arms are byte-identical to main, the new arm runs identically twice, and its body-centre lateral p99 is 0.130 m against the default point estimates' 0.309 m, label-free and on one capture.
+- Added `reference_point` and `support_instant` to `lidar_track_estimates` in migration 000057, so
+  every persisted estimate states its reference and support and no reader infers them from
+  `measurement_source` (#634).
+- Backfilled old rows with the adapter's existing mapping and added a trigger that refuses a new
+  row leaving either column empty. Under the near-edge tracked state a medoid can feed a
+  body-centre filter, so the old inference would fail (#634).
+
+## September 28, 2026 - Segment finder and selectors land, and the solid body follows its course
+
+- Took the solid body's face axis from its own course instead of the lagging tracked heading while it moves. On columbus-broadway the turning tail goes: at 15 degrees per second or more the body's face-stable p99 falls from 0.369 to 0.143 m, below the point estimate's 0.193 m. Fixes rise 17 % to 26 % because spans along the course let widths converge. With hysteresis as well, the body's all-frame p99 falls 26 % to 33 % on both tuning sites, but stays 2.1 to 2.4 times the face-stable p99, so the transition tail is the half-extent error a new face brings (#624).
+- Built the segment finder that the review queue script planned: Go finders for following, leader changes, lateral jumps, split flags, exposure and capture-random windows, `velocity lidar segments` and `velocity lidar annotation-clip`, a clip job on the capture queue, proposal layers and dismissals that survive a restart in the macOS tool, and a Segments page. A held-out window may only be chosen by traffic or at random, and a capture's random window comes first (#622).
+- Found by replaying kirk0 through a scratch server that the run finders ranked nothing for any current run. They read `lidar_track_observations`, which an analysis replay does not write; in the development database all 67 runs completed since August store none. A run with no stored observations is now read from its VRLOG recording, which holds the same tracker state: 83 s of capture reads in 0.13 s and ranks 6 following windows (#622).
+- Fixed what the review of #622 found: a case made without naming a finder stored `finder = ''` and could never be clipped; a window's peak time depended on map order; a failed or cancelled clip left its recording on disk; the Segments page did not redraw a row after making its case; and the SQL formatter had renamed the shipped column `lag` to `LAG` (#622).
+- Reviewed the SQLite model behind the segment finder and answered the six findings that concern its own tables with migration 000055. A selection's role, finder, capture and window are now generated from its window document, so a column cannot say one thing and the document another; the finder catalogue and the held-out rule are `CHECK` constraints, with a Go test that fails when they and `segments.Allowed` disagree; and the run is a foreign key that is cleared, not cascaded, when the run is deleted (#626).
+- Made a clip job and its link to a segment one write, so a worker can no longer claim a job that does not yet say what it cuts, and gave the pack a relative path and a digest. A retried job adopts a pack that an earlier attempt finished. Ran the migration on a schema-54 database made by replaying kirk0: the selection carried over, nothing was set aside, and the server re-linked the pack when it started (#626).
+- Measured the deferred findings in the development database before deciding on them. No replay case disagrees with its first ordered file and no probed capture has contradictory bounds, but 24 of 31 replay cases name a source period that no longer exists, so session keys wait on a decision about capture identity. `MATRIX.md` now lists all 44 tables and 601 fields, read from SQLite itself and not from a regular expression over `schema.sql` (#626).
+- Moved the choice of annotation windows into a versioned config file, `config/segment-selectors.defaults.json`: each selector names a finder, its parameters, one measure to rank by and the bounds a window must meet, with a label and a category for the Segments page. The six finders become standard selectors that return exactly what they did, pinned by a golden test over every window, order and score; `close_following` is the first new criterion. Held-out windows are still chosen only by the standard following, exposure and random selectors, now at their own parameters: a `min_gap` of 0 would have turned following into a split detector (#627).
+- Migration 000056 records the selector that chose each window, as it ran, held to the window's finder and the held-out rule by a `CHECK`, and the clip job writes it into the pack's `segment.json`. An attempt that holds a person's annotations is no longer removed as unfinished when its segment record cannot be read (#627).
+- Extended the TrueNAS storage runbook: moved the worker VM's `/home` onto its near-empty `/srv`
+  partition without downtime, and fixed a `claude` CPU spin by switching the VM from a model-less
+  custom CPU mode, which strips SSE4.2 and POPCNT, to host passthrough (#620).
+- Recovered from an `e1000e` TX ring hang on the host's `eno1` that also orphaned the VM's macvtap
+  NIC, then disabled EEE and TSO and added a systemd watchdog that recovers in seconds. Bridging
+  `eno1` failed, probably on switch-side BPDU Guard (#620).
+- {claude/s2-1-config-engine-docs} Drafted a tuning-config surface for the solid body: one
+  `l5.cv_kf_v1.solid_body` block, nil by default so the fingerprint stands, with experiments as
+  aliases and live parity or refusal. The branch also recorded F1 and F3 in the near-edge plan.
 
 ## September 28, 2026 - Physical reference tooling joins Sprint 0.5.2.0
 
@@ -145,14 +290,6 @@ older entries stay put, however tempting hindsight may be.
 
 ## September 27, 2026 - Solid bodies, adaptive noise, identity options and the provisional headway field run
 
-- Built the segment finder that the review queue script planned: Go finders for following, leader changes, lateral jumps, split flags, exposure and capture-random windows, `velocity lidar segments` and `velocity lidar annotation-clip`, a clip job on the capture queue, proposal layers and dismissals that survive a restart in the macOS tool, and a Segments page. A held-out window may only be chosen by traffic or at random, and a capture's random window comes first (#622).
-- Found by replaying kirk0 through a scratch server that the run finders ranked nothing for any current run. They read `lidar_track_observations`, which an analysis replay does not write; in the development database all 67 runs completed since August store none. A run with no stored observations is now read from its VRLOG recording, which holds the same tracker state: 83 s of capture reads in 0.13 s and ranks 6 following windows (#622).
-- Fixed what the review of #622 found: a case made without naming a finder stored `finder = ''` and could never be clipped; a window's peak time depended on map order; a failed or cancelled clip left its recording on disk; the Segments page did not redraw a row after making its case; and the SQL formatter had renamed the shipped column `lag` to `LAG` (#622).
-- Reviewed the SQLite model behind the segment finder and answered the six findings that concern its own tables with migration 000055. A selection's role, finder, capture and window are now generated from its window document, so a column cannot say one thing and the document another; the finder catalogue and the held-out rule are `CHECK` constraints, with a Go test that fails when they and `segments.Allowed` disagree; and the run is a foreign key that is cleared, not cascaded, when the run is deleted (#626).
-- Made a clip job and its link to a segment one write, so a worker can no longer claim a job that does not yet say what it cuts, and gave the pack a relative path and a digest. A retried job adopts a pack that an earlier attempt finished. Ran the migration on a schema-54 database made by replaying kirk0: the selection carried over, nothing was set aside, and the server re-linked the pack when it started (#626).
-- Measured the deferred findings in the development database before deciding on them. No replay case disagrees with its first ordered file and no probed capture has contradictory bounds, but 24 of 31 replay cases name a source period that no longer exists, so session keys wait on a decision about capture identity. `MATRIX.md` now lists all 44 tables and 601 fields, read from SQLite itself and not from a regular expression over `schema.sql` (#626).
-- Moved the choice of annotation windows into a versioned config file, `config/segment-selectors.defaults.json`: each selector names a finder, its parameters, one measure to rank by and the bounds a window must meet, with a label and a category for the Segments page. The six finders become standard selectors that return exactly what they did, pinned by a golden test over every window, order and score; `close_following` is the first new criterion. Held-out windows are still chosen only by the standard following, exposure and random selectors, now at their own parameters: a `min_gap` of 0 would have turned following into a split detector (#627).
-- Migration 000056 records the selector that chose each window, as it ran, held to the window's finder and the held-out rule by a `CHECK`, and the clip job writes it into the pack's `segment.json`. An attempt that holds a person's annotations is no longer removed as unfinished when its segment record cannot be read (#627).
 - Consolidated the four 0.5.2.x slices left unfinished when the parallel agents stopped into one branch on main, bumped the version to 0.5.1-pre38, and re-ran the Go suite, the kirk0 pcap replays and the race build over the result (#614).
 - Wired the Section 5.4 solid body: a default-off near-edge shadow estimator that never feeds back into association, course-aligned extent admission, a faceless body-centre lapse to the medoid, and one `lidar_track_solid_bodies` row per point estimate (migration 000052). On kirk0 its body-centre lateral residual is lower than the point estimate's at p95 and higher at p99 and max; with eight moving tracks and no held-out geometry that is wiring evidence, not G-GEO-1 (#614).
 - Landed the Phase 3 adaptive-uncertainty harness behind `-experiment adaptive_uncertainty`, with a per-stratum calibration fit and G-UNC-1 predeclared. On kirk0 the fit lowers R towards a smaller scalar rather than separating the axes and row 2 fails for every arm, which points at the medoid's error shape, the thing Phase 2 changes (#614).
@@ -165,7 +302,6 @@ older entries stay put, however tempting hindsight may be.
 - Stopped calling a tracked position the body centre. The medoid and the centre of the visible box now say what they are, `cluster_medoid` and `visible_obb_centre`, at every stage, so a final-stage OBB row can no longer project a bumper; support tokens and acquisition times survive the adapter, and migration 000053 keeps the support token on each solid-body row (#618).
 - Taught the headway field run to read the persisted solid bodies (`--solid-bodies`). On kirk0 point estimates now fit no follower path at all, and the solid bodies fit 7 of 60 and find 3 encounters, none valid yet: only 3 tracks end classed as rigid vehicles. The first real run also found that the shadow filter's covariance is asymmetric by float32 round-off, as the tracked filter's is (#618).
 - Planned S2, the near-edge measurement as the tracker's own, and gave corpus runs a per-case solid-body summary so the plan can be tested site by site. On kirk0 the summary locates the shadow's p99 tail: within runs on the same faces the body's lateral p99 is 0.083 m against the point estimate's 0.178 m, while over all body-centre frames it is 0.364 m against 0.309 m, so face transitions come before feeding the tracker (#619).
-- Took the solid body's face axis from its own course instead of the lagging tracked heading while it moves. On columbus-broadway the turning tail goes: at 15 degrees per second or more the body's face-stable p99 falls from 0.369 to 0.143 m, below the point estimate's 0.193 m. Fixes rise 17 % to 26 % because spans along the course let widths converge. With hysteresis as well, the body's all-frame p99 falls 26 % to 33 % on both tuning sites, but stays 2.1 to 2.4 times the face-stable p99, so the transition tail is the half-extent error a new face brings (#624).
 - Tried two remedies for the solid body's face-transition tail, and measured faces from full cluster members. Admission hysteresis (a face must be usable on two consecutive frames) cuts the all-frame p99 by 11 % to 41 %, but leaves it about 2.5 times the face-stable p99 on kirk0, marina-webster-beach and columbus-broadway, against a target of 1.25; a consider term on a face's entry changes nothing. Columbus's remaining tail is turning: at 15 degrees per second or more the body's p99 is 0.369 m against the point estimate's 0.152 m, because the tracked heading that picks and orients a face lags the turn. Full members give exactly the fixes of the 256-point sample, and the solid body now refuses a near-edge fix without a declared sensor origin (#621).
 - Ran S2's first corpus test on the Mac: the shadow at 256 and 1,024 sample points on marina-webster-beach, columbus-broadway and embarcadero-folsom. The larger sample changes no fix, fallback or run count, which the face-support rule predicts: a 256-point sample always puts 14 returns on the face, so only small clusters fail. Face changes carry the tail on every site. Over all body-centre frames the body's p99 is 19 % to 53 % above the point estimate's; within runs on the same faces it is lower on marina and embarcadero, but not on columbus-broadway, which has a second tail to explain (#619).
 - Brought the Phase 0/1 corpus back in line with #613, which re-split franklin-mcallister into five captures while the corpus still declared three, so the corpus tool refused the case (#619).
