@@ -12,6 +12,10 @@ duration 20 processes capture seconds 0–55 and records frames starting in seco
 `--require-settled` rejects a run whose grid is not settled before the first scored frame.
 This certifies grid convergence, not a static sensor pose or an empty street.
 
+An offline replay reads packets on its own goroutine rather than through gopacket's packet
+channel, which woke a reader goroutine for every packet; the
+[measurement](pcap-read-in-place-2026-10.md) found 10 % less CPU and the same wall time.
+
 Each successful headless run writes `replay_manifest.json` with source/calibration/tuning
 hashes, build identity, processing/scoring boundaries, retained-state policy, settling status,
 and frame counts. Output directories must be empty. Use identical windows and explicit tuning
