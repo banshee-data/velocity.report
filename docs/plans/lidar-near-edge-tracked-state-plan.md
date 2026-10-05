@@ -44,8 +44,8 @@ is, with the one that decides identity being the biased one.
 | Sensor origin         | `SolidBodyOptions.SensorX/Y`, left at (0, 0) because replay tracks in the sensor frame; nothing declares or checks it                                                  |
 | Member geometry       | `WorldCluster.RetainedPoints`, a uniform subsample capped by `MaxSamplePoints` (at most 1024); the kirk0 field-run test uses 16, the corpus tool 256                   |
 | Persisted reference   | Stated per row in both estimate tables: `reference_point` and `support_instant` (point estimates since migration 000057, backfilled from `measurement_source`)         |
-| Refined stages        | The RTS smoother revises point estimates only; no solid body at `fixed_lag` or `final`                                                                                 |
-| Evidence oracle       | The lossless-batch oracle does not cover `lidar_track_solid_bodies`                                                                                                    |
+| Refined stages        | The smoother ends a chain at a reference change (`reference_changed`); under `near_edge_track` a solid body sits beside each refined estimate, at its stage            |
+| Evidence oracle       | The lossless-batch oracle covers `lidar_track_solid_bodies`, listed only when a run wrote solid bodies; a run without them keeps its digest                            |
 
 ### What the shadow measures on kirk0
 
@@ -974,5 +974,7 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.3 A1 ablation on the tuning partition, on the Mac: A2 has 56 % and 46 % fewer lapses
 - [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
       the adapter reads them
-- [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`
+- [x] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`: the smoother
+      ended chains at each reference change, `fixed_lag_rts` combined with `near_edge_track`, and
+      the oracle covered solid bodies without moving the digest of a run that has none
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report

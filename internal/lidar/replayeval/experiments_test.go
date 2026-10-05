@@ -246,7 +246,6 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 		"alone":                {ExperimentNearEdgeTrack},
 		"with adaptive noise":  append([]string{ExperimentAdaptiveUncertainty}, arm...),
 		"with likelihood cost": append([]string{ExperimentLikelihoodCost}, arm...),
-		"with the smoother":    append([]string{ExperimentFixedLagRTS}, arm...),
 	} {
 		if _, err := trackerConfigFor(l5, "", experiments, nil); err == nil {
 			t.Errorf("near_edge_track %s was accepted", name)
@@ -257,6 +256,11 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementMedoidV0, arm, nil); err != nil {
 		t.Errorf("near_edge_track refused the medoid position model: %v", err)
+	}
+	// The smoother ends a chain at each reference change (S2.4), so it
+	// combines, and observing the tracker changes none of its options.
+	if got, err := trackerConfigFor(l5, "", append([]string{ExperimentFixedLagRTS}, arm...), nil); err != nil || got != want {
+		t.Errorf("near_edge_track with the smoother (%v):\n got %+v\nwant %+v", err, got, want)
 	}
 	// A1 qualifies near_edge_track: it reaches its own option and nothing
 	// else, and is refused alone.

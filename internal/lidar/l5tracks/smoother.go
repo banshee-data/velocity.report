@@ -41,6 +41,16 @@ import (
 // the filter's time: a transition where MaxPredictDt clamped a gap is smoothed
 // with the interval the filter used and flagged ClampedPrediction.
 //
+// Nor does it smooth across a change of the point the state refers to. Under
+// NearEdgeTracking a track re-references from the medoid to the body centre
+// at its first fix, and back on a lapse, by translating its position (plan
+// invariant 3). The prior after that step and the posterior before it
+// describe two different points, so a backward pass across the step would
+// read the translation as motion. The chain ends at the last step with the
+// old reference, released as ReleaseReferenceChanged, and a new chain starts
+// at the step with the new one: every state the smoother releases is revised
+// only by evidence about the point it refers to.
+//
 // The seam for revisable association is the input. A reassociating worker
 // emits its own FilterFrames per hypothesis, re-filtered after changing point
 // ownership; the backward pass here is unchanged, and the revision record's
@@ -222,6 +232,10 @@ const (
 	// (a non-positive-definite prior, a refused step, capture time running
 	// backwards), so the state kept only the evidence before the break.
 	ReleaseBarrier ReleaseReason = "barrier"
+	// ReleaseReferenceChanged: the next step states another reference point
+	// (FilterStep.Reference), so the state kept only the evidence about its
+	// own. The track continues on a new chain.
+	ReleaseReferenceChanged ReleaseReason = "reference_changed"
 )
 
 // EvidenceRef identifies one observation that entered a state's window after
@@ -284,6 +298,11 @@ type SmoothedState struct {
 	// the state, never the point it refers to or what the instant rested on.
 	Reference ReferencePoint
 	Support   ObservationSupport
+	// SolidBody is the step's own (FilterStep.SolidBody): the body's online
+	// reading, whose beliefs a refined solid body carries beside Smoothed.
+	// Nil unless the body's state is this filter's. Shared; not to be
+	// modified.
+	SolidBody *SolidBodyReading
 	// Online is the filter's posterior; Smoothed is the refined estimate.
 	Online   FilterMoments
 	Smoothed FilterMoments
@@ -339,6 +358,13 @@ type SmootherStats struct {
 	HeldSteps                int     `json:"held_steps"`
 	PeakHeldSteps            int     `json:"peak_held_steps"`
 	MaxWindowSteps           int     `json:"max_window_steps"`
+
+	// ReferenceChanges counts chains ended at a reference change, and
+	// ReleasedAtReferenceChange the states they released. Omitted when zero,
+	// so the report of a replay whose tracks never re-reference (any without
+	// NearEdgeTracking) is the one written before they were counted.
+	ReferenceChanges          int64 `json:"reference_changes,omitempty"`
+	ReleasedAtReferenceChange int64 `json:"released_at_reference_change,omitempty"`
 }
 
 // FixedLagSmoother releases each state of each track once, when its lag is
@@ -464,8 +490,15 @@ func (s *FixedLagSmoother) append(out []SmoothedState, step FilterStep) []Smooth
 	s.stats.Steps++
 	if w != nil && len(w.entries) > 0 {
 		prev := &w.entries[len(w.entries)-1]
-		gain, ok := s.transition(prev, step)
-		if !ok {
+		if step.Linked && step.Reference != prev.step.Reference {
+			// The track re-referenced: end the chain before the translation
+			// rather than smooth across it. An unlinked step is a missed
+			// chain end, which the transition reports as a barrier.
+			s.stats.ReferenceChanges++
+			out = s.releaseAll(out, w, ReleaseReferenceChanged, "", step.FrameUnixNanos)
+			s.drop(w)
+			w = nil
+		} else if gain, ok := s.transition(prev, step); !ok {
 			s.stats.Barriers++
 			out = s.releaseAll(out, w, ReleaseBarrier, "", step.FrameUnixNanos)
 			s.drop(w)
@@ -603,7 +636,10 @@ func (s *FixedLagSmoother) releaseAll(out []SmoothedState, w *smootherWindow, re
 			if s.cfg.Lag.IsTrackEnd() {
 				state.Stage = RefinementFinal
 			}
-		} else if reason == ReleaseBarrier {
+		} else if reason == ReleaseBarrier || reason == ReleaseReferenceChanged {
+			// The track goes on: these states had less look-ahead than
+			// their lag asks for, and are fixed_lag even on the whole-track
+			// arm, since the track had not closed.
 			state.LookaheadTruncated = true
 		}
 		out = s.emit(out, state)
@@ -636,6 +672,8 @@ func (s *FixedLagSmoother) emit(out []SmoothedState, state SmoothedState) []Smoo
 		s.stats.ReleasedAtChainEnd++
 	case ReleaseBarrier:
 		s.stats.ReleasedAtBarrier++
+	case ReleaseReferenceChanged:
+		s.stats.ReleasedAtReferenceChange++
 	}
 	if state.LookaheadTruncated {
 		s.stats.LookaheadTruncated++
@@ -704,7 +742,7 @@ func (s *FixedLagSmoother) stateFor(w *smootherWindow, k, j int, mean [4]float64
 		TrackID: step.TrackID, CreationSequence: step.CreationSequence,
 		FrameUnixNanos: step.FrameUnixNanos, StateUnixNanos: step.StateUnixNanos,
 		Lag: s.cfg.Lag, Observed: step.Observed, Confirmed: step.Confirmed, Observation: step.Observation,
-		Reference: step.Reference, Support: step.Support,
+		Reference: step.Reference, Support: step.Support, SolidBody: step.SolidBody,
 		Online:             online,
 		Smoothed:           moments32(mean, cov),
 		LookaheadSteps:     j - k,
@@ -719,7 +757,9 @@ func (s *FixedLagSmoother) stateFor(w *smootherWindow, k, j int, mean [4]float64
 	rev.VelocityMps = math.Hypot(rev.DVX, rev.DVY)
 	for n := k + 1; n <= j; n++ {
 		later := w.entries[n].step
-		if !later.Observed {
+		if !later.Observed || !later.Observation.Applied() {
+			// A coast observed nothing; an observation the filter did not
+			// apply (NearEdgeTracking's faceless frame) moved nothing.
 			continue
 		}
 		rev.Evidence = append(rev.Evidence, EvidenceRef{

@@ -30,7 +30,8 @@ type TrackSolidBody struct {
 	ObservationModelID   string
 	ParamHash            string
 	// Stage is the version stage, with the lidar_track_estimates vocabulary:
-	// "online" for a live estimate, "fixed_lag" for a smoothed one.
+	// "online" for a live estimate; "fixed_lag" or "final" for a smoothed
+	// one, the stage of the refined point estimate it is filed beside.
 	Stage string
 	// CreationSequence is the tracker's deterministic per-run track ordinal;
 	// see TrackEstimate.
@@ -38,14 +39,16 @@ type TrackSolidBody struct {
 	Reading          l5tracks.SolidBodyReading
 }
 
-// persistedStage maps an in-memory estimate stage to the version stage it is
-// stored under. l5tracks has no final stage: a final estimate is only ever
-// read from a persisted final row.
-func persistedStage(s l5tracks.EstimateStage) string {
+// stageAgrees reports whether an in-memory estimate stage may be filed under
+// a version stage. The solid-body contract's stage is two-valued (live or
+// smoothed); the persisted vocabulary is the point estimates' three, so a
+// smoothed body is filed under its refined estimate's stage, fixed_lag or
+// final, and a live one only under online.
+func stageAgrees(s l5tracks.EstimateStage, stage string) bool {
 	if s == l5tracks.StageSmoothed {
-		return "fixed_lag"
+		return stage == EstimateStageFixedLag || stage == EstimateStageFinal
 	}
-	return "online"
+	return stage == EstimateStageOnline
 }
 
 // knownStateModel reports whether this store can read a covariance blob back
@@ -63,7 +66,7 @@ func validateSolidBody(sb TrackSolidBody) error {
 	if !knownStateModel(e.StateModel) {
 		return fmt.Errorf("solid-body estimate %s has state model %q, which this store cannot read back", sb.EstimateID, e.StateModel)
 	}
-	if persistedStage(e.Stage) != sb.Stage {
+	if !stageAgrees(e.Stage, sb.Stage) {
 		return fmt.Errorf("solid-body estimate %s is a %s estimate filed under stage %q", sb.EstimateID, e.Stage, sb.Stage)
 	}
 	if r := sb.Reading.Measurement.Rank; r < 0 || r > 2 {
@@ -147,15 +150,18 @@ func (s *StateEstimateStore) InsertSolidBody(sb TrackSolidBody) error {
 	return InsertSolidBody(s.db, sb)
 }
 
-// ListSolidBodiesBySource returns a source's solid-body estimates in the same
-// deterministic order as ListBySource: creation_sequence, then frame, then
-// estimate_id. A row whose state_model this store does not know is an error,
-// never decoded by guessing.
+// ListSolidBodiesBySource returns a source's online solid-body estimates in
+// the same deterministic order as ListBySource: creation_sequence, then frame,
+// then estimate_id. As for ListBySource, refined stages are not returned: a
+// replay that also writes fixed_lag or final solid bodies must not hand this
+// reader's consumers several bodies per frame. Read those with
+// ListVersionSolidBodies, which names the version. A row whose state_model
+// this store does not know is an error, never decoded by guessing.
 func (s *StateEstimateStore) ListSolidBodiesBySource(sourceID string) ([]TrackSolidBody, error) {
 	rows, err := s.db.Query(`SELECT `+solidBodyColumns+`
 		  FROM lidar_track_solid_bodies
-		 WHERE source_id = ?
-		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID)
+		 WHERE source_id = ? AND stage = ?
+		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`, sourceID, EstimateStageOnline)
 	if err != nil {
 		return nil, fmt.Errorf("list solid-body estimates for source %s: %w", sourceID, err)
 	}
@@ -259,9 +265,9 @@ func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 		return fail("visible faces", err)
 	}
 	switch sb.Stage {
-	case "online":
+	case EstimateStageOnline:
 		e.Stage = l5tracks.StageLive
-	case "fixed_lag":
+	case EstimateStageFixedLag, EstimateStageFinal:
 		e.Stage = l5tracks.StageSmoothed
 	default:
 		return sb, fmt.Errorf("solid-body estimate %s has stage %q, which has no in-memory estimate stage", sb.EstimateID, sb.Stage)

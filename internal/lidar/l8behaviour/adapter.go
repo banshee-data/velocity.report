@@ -500,7 +500,8 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 //
 //   - Stage. The row's, which must be the reading's own: a row cannot
 //     acquire a stage its reading does not state, and no stage turns a
-//     medoid into a body centre.
+//     medoid into a body centre. A smoothed reading is either refined stage,
+//     so a final row of one is final; a live reading is online only.
 //   - Class. Each row holds the classifier's decision at its frame; a
 //     passage has one class, so a trajectory takes its latest row's belief,
 //     the decision made with the most evidence, at its effective class.
@@ -571,6 +572,12 @@ func TrajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.Conv
 			s, err := SampleFromSolidBodyReading(r.Reading, r.FrameUnixNanos, bounds)
 			if err != nil {
 				return nil, fmt.Errorf("track %s at %d: %w", id, r.FrameUnixNanos, err)
+			}
+			if s.Stage == StageFixedLag && stage == StageFinal {
+				// A smoothed reading cannot say which refined stage it is;
+				// a persisted final row can, and is the one place final is
+				// read (see the Stage note at the top of this file).
+				s.Stage = StageFinal
 			}
 			if s.Stage != stage {
 				return nil, fmt.Errorf("track %s at %d: a %s reading is filed under stage %s", id, r.FrameUnixNanos, s.Stage, stage)

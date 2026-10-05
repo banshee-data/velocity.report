@@ -24,7 +24,9 @@ import (
 // of lidar_track_estimates with a revision record, after the frame's own
 // evidence has committed, so the per-frame evaluator can score any arm
 // against reviewed episodes by estimator_id, param_hash and stage. The report
-// lists those keys.
+// lists those keys. Under near_edge_track each such row also has a refined
+// solid body beside it in lidar_track_solid_bodies (see
+// pipeline.RefinedStateEstimate), counted per arm in the report.
 //
 // This is the fixed-assignment half of the reassociation comparison. The
 // revisable-association arm (alternative assignments, point ownership and
@@ -68,6 +70,12 @@ type RefinementSmootherReport struct {
 	Config      l5tracks.SmootherConfig `json:"config"`
 	EstimatorID string                  `json:"estimator_id"`
 	ParamHash   string                  `json:"param_hash"`
+
+	// PersistedSolidBodies counts the refined solid bodies filed beside the
+	// persisted estimates: one each under near_edge_track, and none
+	// otherwise, when it is omitted, so the report is the one written before
+	// it existed.
+	PersistedSolidBodies int `json:"persisted_solid_bodies,omitempty"`
 }
 
 // refinementHarness is the tracker's filter-step observer for the
@@ -88,6 +96,7 @@ type refinementHarness struct {
 	db                 observationsqlite.DBClient
 	pending            []observationsqlite.RevisedStateEstimate
 	persisted          []int
+	persistedBodies    []int
 	err                error
 
 	scoreFrom        int64
@@ -128,6 +137,7 @@ func newRefinementHarness(measurementNoise float64, scoreFrom int64, onlineParam
 		return nil, fmt.Errorf("refinement horizons need a whole-track arm to carry the online estimate")
 	}
 	h.persisted = make([]int, len(h.smoothers))
+	h.persistedBodies = make([]int, len(h.smoothers))
 	return h, nil
 }
 
@@ -154,6 +164,9 @@ func (h *refinementHarness) take(arm int, states []l5tracks.SmoothedState) {
 		}
 		h.pending = append(h.pending, row)
 		h.persisted[arm]++
+		if row.SolidBody != nil {
+			h.persistedBodies[arm]++
+		}
 	}
 }
 
@@ -200,7 +213,8 @@ func (h *refinementHarness) finish(sourceID string) (*RefinementReport, error) {
 		report.Arms = append(report.Arms, metrics)
 		cfg := s.Config()
 		report.Smoothers = append(report.Smoothers, RefinementSmootherReport{
-			Lag: cfg.Lag.String(), WindowCap: cfg.WindowCap(), Stats: s.Stats(), Persisted: h.persisted[i],
+			Lag: cfg.Lag.String(), WindowCap: cfg.WindowCap(), Stats: s.Stats(),
+			Persisted: h.persisted[i], PersistedSolidBodies: h.persistedBodies[i],
 			Config: cfg, EstimatorID: metrics.EstimatorID, ParamHash: metrics.ParamHash,
 		})
 	}

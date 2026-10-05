@@ -237,6 +237,42 @@ func TestTrajectoriesFromSolidBodiesRefusesWhatARowCannotSay(t *testing.T) {
 	}
 }
 
+// TestTrajectoriesFromRefinedSolidBodies: a smoothed reading is read at the
+// refined stage its row states, final included, since only a persisted row
+// can say final; filed as online it is refused, as a live reading filed as
+// either refined stage is.
+func TestTrajectoriesFromRefinedSolidBodies(t *testing.T) {
+	smoothed := func(stage string) []PersistedSolidBody {
+		rows := persistedPass(t)
+		for i := range rows {
+			rows[i].Stage = stage
+			rows[i].Reading.Estimate.Stage = l5tracks.StageSmoothed
+		}
+		return rows
+	}
+	for stage, want := range map[string]EstimateStage{"fixed_lag": StageFixedLag, "final": StageFinal} {
+		trajectories, err := TrajectoriesFromSolidBodies(smoothed(stage), l5tracks.DefaultConvergenceBounds())
+		if err != nil {
+			t.Fatalf("%s: %v", stage, err)
+		}
+		for _, s := range trajectories[0].Samples {
+			if s.Stage != want {
+				t.Fatalf("a smoothed reading filed as %s read back as %s", stage, s.Stage)
+			}
+		}
+	}
+	if _, err := TrajectoriesFromSolidBodies(smoothed("online"), l5tracks.DefaultConvergenceBounds()); err == nil {
+		t.Error("a smoothed reading filed as online was accepted")
+	}
+	live := persistedPass(t)
+	for i := range live {
+		live[i].Stage = "fixed_lag"
+	}
+	if _, err := TrajectoriesFromSolidBodies(live, l5tracks.DefaultConvergenceBounds()); err == nil {
+		t.Error("a live reading filed as fixed_lag was accepted")
+	}
+}
+
 // TestSampleFromSolidBodyReadingAveragesRoundOff: the shadow filter's float32
 // covariance, whose pairs differ in their last places as kirk0's persisted
 // solid bodies do, is averaged into one symmetric matrix; a pair further
