@@ -73,7 +73,16 @@ type FilterObservation struct {
 	// GeometryCovariance is the cluster-shape covariance the online residual
 	// retains beside the scalar R the gain used (see FilterResidual).
 	GeometryCovariance MeasurementCovariance
+	// Disposition and Reason are the online residual's: empty for an update
+	// the filter applied, and otherwise what NearEdgeTracking decided instead
+	// (ResidualNotApplied, ResidualReferenceChanged). An observation whose
+	// update was not applied entered no estimate, so a smoother does not list
+	// it as evidence, and a refined row records it as the online row did.
+	Disposition, Reason string
 }
+
+// Applied reports whether the observation's update entered the state.
+func (o FilterObservation) Applied() bool { return o.Disposition == "" }
 
 // FilterStep is one track's filter record for one Update call.
 type FilterStep struct {
@@ -107,6 +116,13 @@ type FilterStep struct {
 	// them from the observation's measurement source.
 	Reference ReferencePoint
 	Support   ObservationSupport
+	// SolidBody is the track's solid-body reading at the end of the frame,
+	// set only when the reading's dynamic state is this filter's
+	// (NearEdgeTracking), so a refined state can carry the body's online
+	// beliefs beside the state it revises. A shadow body keeps a filter of its
+	// own, which these steps do not record, and leaves it nil. Readers must
+	// not modify it: one step is shared by every smoother observing it.
+	SolidBody *SolidBodyReading
 }
 
 // ChainEndReason says why a track's chain of steps ended.
@@ -256,6 +272,7 @@ func (r *filterStepRecorder) endFrame(tracks map[string]*TrackedObject, nowNanos
 				Source: residual.Measurement.Source, X: residual.Measurement.X, Y: residual.Measurement.Y,
 				InnovationX: residual.InnovationX, InnovationY: residual.InnovationY, NIS: residual.NIS,
 				HasInnovation: true, GeometryCovariance: residual.GeometryCovariance,
+				Disposition: residual.Disposition, Reason: residual.Reason,
 			}
 		case !open && track.StartUnixNanos == nowNanos:
 			// Founded this frame: the state is the measurement, not an update.
@@ -268,6 +285,11 @@ func (r *filterStepRecorder) endFrame(tracks map[string]*TrackedObject, nowNanos
 		default:
 			step.Prior = step.Posterior
 			step.UpdateRefused = pending != nil && pending.hasPrior
+		}
+		if track.solidBody.tracked {
+			if reading, ok := track.SolidBody(); ok {
+				step.SolidBody = &reading
+			}
 		}
 		if !open {
 			r.chains[id] = track.CreationSequence

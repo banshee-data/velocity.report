@@ -150,7 +150,9 @@ the following for each capture and frame, in canonical capture and frame-time
 order:
 
 - row counts for `lidar_observations`, `lidar_track_estimates`, and
-  `lidar_track_residuals`;
+  `lidar_track_residuals`, and for `lidar_track_solid_bodies` when a run wrote any (a run without
+  solid bodies lists only the first three, so its oracle is the one recorded before the table was
+  covered);
 - an ordered row checksum for every table, using stable primary and temporal
   keys before the canonical record payload;
 - a per-frame checksum and count for observations, estimates, and residuals;

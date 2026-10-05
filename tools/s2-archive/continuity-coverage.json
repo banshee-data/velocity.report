@@ -1,4 +1,148 @@
 {
+  "1st-mission": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case 1st-mission, captures sha256:d9d3dcaf5dd19f7d86dc234ff3e3fd38d53783e9e12c0bb885e77b101db507d4, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 81.96 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 82,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "3rd-folsom": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case 3rd-folsom, captures sha256:692cd3dc31a6744aafa28a39a1a5b07ac69a0bc8c4b07b15c1e470d691f6b589, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 89.71 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 90,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "ashbury-downey": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case ashbury-downey, captures sha256:d92b444fb802047cbed8169da5b2fe1b9d2e8962ee7860743a94af6f31aa52de, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 54.99 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 55,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "broadway-gough": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case broadway-gough, captures sha256:e07210253ab7f99870e959b4b5328098c1247267fff429661c9530f82b948900, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 188.98 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 189,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "bush-powell": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case bush-powell, captures sha256:218efc7a1fb761a2df0df1141d3b4b507d56c96e3ee7d132eb80ba000404f20b, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 69.37 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 70,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "california-leon-baker": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case california-leon-baker, captures sha256:4eac9e3e3dd1719849e457e03c43dc2028641015abd9e1d99598c4c10f8361a6, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 191.75 m, rounded up; full circle: the largest arc without an estimate is 1 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 192,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "columbus-broadway": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case columbus-broadway, captures sha256:62558aff8f78942f17f6e5ef2b86c99760fecedee9e3e4469c5831ba6990d8af, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 123.38 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 124,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "columbus-north-point": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case columbus-north-point, captures sha256:0f54acbd9816ece074df6b1f9b5753fe808f2b2b338c043d8606328ef83283ef, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 127.46 m, rounded up; full circle: the largest arc without an estimate is 9 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 128,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "embarcadero-bay": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case embarcadero-bay, captures sha256:29f37cd3f48fccbd9231e293844d7f35c02186e48687e4f32ba31d480361789d, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 74.88 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 75,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "embarcadero-broadway": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case embarcadero-broadway, captures sha256:e4230e2a320604c575e8bca749bb5ac35979fbf3991a1c1d22f9f53d39756d3f, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 125.89 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 126,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "embarcadero-bryant": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case embarcadero-bryant, captures sha256:5ee1e40389d0be6a7e6b517759c154ed864ba052440e3fe0c6d60ae0403c6705, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 208.13 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 209,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "franklin-mcallister": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case franklin-mcallister, captures sha256:66e0675a34efefbf68d862a128dca2f612d13fb1dbe013550a4b79a05364b778, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 192.94 m, rounded up; full circle: the largest arc without an estimate is 6 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 193,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "fulton-divisadero": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case fulton-divisadero, captures sha256:1478d1756e06ccc1944efcadc9f4c95f5195f2e057b050ffda68ac2afb16e241, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 171.69 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 172,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "haight-divisadero": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case haight-divisadero, captures sha256:43c45f4244a536fd7a63994fdc1bd5322892c8560dd62114e1be8a55f8d78f21, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 44.37 m, rounded up; full circle: the largest arc without an estimate is 11 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 45,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "howard-6th": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case howard-6th, captures sha256:f77ad383d3244c75a55a6be9639e76746f9f219745964481197dd1af462c3959, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 69.63 m, rounded up; full circle: the largest arc without an estimate is 1 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 70,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "hyde-ofarrell": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case hyde-ofarrell, captures sha256:2377bd9ef02332930b3a90c5577f247d67cb381757fc32f3a6f4e4637ddf26b8, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 58.49 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 59,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
   "kirk0": {
     "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git unknown, unstamped): case kirk0, captures sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 91.72 m, rounded up; sector from 52 to 257 deg anticlockwise: no estimate in the 155 deg from 257 (sector threshold 90 deg)",
     "sensor_x_m": 0,
@@ -7,5 +151,68 @@
     "max_range_m": 92,
     "azimuth_centre_deg": 154.5,
     "azimuth_half_width_deg": 102.5
+  },
+  "laguna-eddy": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case laguna-eddy, captures sha256:c355c14b93c4024e18043e94663b9b24bd31d3efa009a0a30d109cdf4abbb2af, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 156.59 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 157,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "lombard-broderick": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case lombard-broderick, captures sha256:2efaedeee573917386c300c3506ce2f774c1eb595fa60757f24e34e4177df2d1, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 131.52 m, rounded up; full circle: the largest arc without an estimate is 4 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 132,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "lombard-laguna": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case lombard-laguna, captures sha256:9729c388c4e289e4cf2fb5ae73466fc8fc72388b9171f0604493d269cd0df346, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 145.94 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 146,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "marina-broderick": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case marina-broderick, captures sha256:0131cf6ae105db1b9a198e6734d0eeb1ea4cf4235682acca1d61201ad3983fa2, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 84.68 m, rounded up; full circle: the largest arc without an estimate is 4 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 85,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "marina-webster-beach": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case marina-webster-beach, captures sha256:7abfee5c2b75708ebb7996a138aec5f19b6cf455acb6d3ab9436e48dc8d8bde9, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 79.41 m, rounded up; full circle: the largest arc without an estimate is 1 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 80,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "pierce-haight": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case pierce-haight, captures sha256:146e29975a6c4a6966fb7776a7f68beaeabafb90a85b4ea05fab98abf0540cb5, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 163.57 m, rounded up; full circle: the largest arc without an estimate is 1 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 164,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
+  },
+  "van-ness-sacramento": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case van-ness-sacramento, captures sha256:a26cbe75852089e429a7030cf3b057bb01c8f2b4930399557ed3b0244e58a3e5, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 118.29 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",
+    "sensor_x_m": 0,
+    "sensor_y_m": 0,
+    "min_range_m": 0,
+    "max_range_m": 119,
+    "azimuth_centre_deg": 0,
+    "azimuth_half_width_deg": 180
   }
 }

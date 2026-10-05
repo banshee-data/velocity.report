@@ -179,7 +179,6 @@ func TestSolidBodyReaderRefusesUnknownLayoutsAndNames(t *testing.T) {
 		"provenance":  `UPDATE lidar_track_solid_bodies SET width_provenance = 'measured'`,
 		"estimation":  `UPDATE lidar_track_solid_bodies SET estimation_state = 'settled'`,
 		"faces":       `UPDATE lidar_track_solid_bodies SET visible_faces = 'front,roof'`,
-		"stage":       `UPDATE lidar_track_solid_bodies SET stage = 'final'`,
 	}
 	for name, corrupt := range cases {
 		database, cleanup := setupTestDB(t)
@@ -197,6 +196,25 @@ func TestSolidBodyReaderRefusesUnknownLayoutsAndNames(t *testing.T) {
 		if err == nil {
 			t.Errorf("%s: a row the reader cannot interpret was returned", name)
 		}
+	}
+
+	// A stage outside the estimates' vocabulary has no in-memory stage. The
+	// source-wide reader reads online rows only, so the version reader,
+	// which reads any stage it is asked for, is the one that must refuse it.
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+	sb := testSolidBody("observation/v1/corrupt", 100)
+	if err := store.InsertSolidBody(sb); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE lidar_track_solid_bodies SET stage = 'draft'`); err != nil {
+		t.Fatal(err)
+	}
+	key := EstimateVersionKey{SourceID: sb.SourceID, EstimatorID: sb.EstimatorID, ObservationModelID: sb.ObservationModelID,
+		ParamHash: sb.ParamHash, Stage: "draft"}
+	if _, err := store.ListVersionSolidBodies(key); err == nil || !strings.Contains(err.Error(), "no in-memory estimate stage") {
+		t.Errorf("an unknown stage: error %v", err)
 	}
 }
 

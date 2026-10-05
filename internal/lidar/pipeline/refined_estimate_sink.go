@@ -32,6 +32,15 @@ import (
 // memory but not persisted: a row must name the immutable observation behind
 // it, and a coasted state has none. Their persistence belongs to the VRLOG
 // trajectory record, which carries observed, inferred and unsupported status.
+//
+// Under NearEdgeTracking the solid body's dynamic state is the tracked
+// filter's, so the smoother revises the body too. Each converted state that
+// carries the body's online reading (SmoothedState.SolidBody) is also filed in
+// lidar_track_solid_bodies, beside its refined point estimate: the same
+// version key and stage, the revised state, and the beliefs (extents,
+// orientation, faces, support) the online body held at that frame. A shadow
+// body runs a filter of its own that the smoother never sees, so a shadow run
+// writes no refined solid body.
 
 // RefinedEstimateIdentity names the online estimate family a refined stage
 // revises. The fields are those of TrackingPipelineConfig's state sink.
@@ -117,11 +126,57 @@ func RefinedStateEstimate(id RefinedEstimateIdentity, paramHash string, state l5
 		NIS: obs.NIS, GeometryCovXX: obs.GeometryCovariance.XX, GeometryCovXY: obs.GeometryCovariance.XY,
 		GeometryCovYY: obs.GeometryCovariance.YY, Disposition: "accepted", Reason: "fixed_assignment",
 	}
+	if !obs.Applied() {
+		// The online row said the filter did not apply this observation;
+		// fixed assignment leaves that as it was.
+		residual.Disposition, residual.Reason = obs.Disposition, obs.Reason
+	}
 	revision, err := estimateRevision(id, estimateID, state)
 	if err != nil {
 		return sqlite.RevisedStateEstimate{}, err
 	}
-	return sqlite.RevisedStateEstimate{Estimate: estimate, Residual: residual, Revision: revision}, nil
+	solidBody, err := refinedSolidBody(estimate, state)
+	if err != nil {
+		return sqlite.RevisedStateEstimate{}, err
+	}
+	return sqlite.RevisedStateEstimate{Estimate: estimate, Residual: residual, Revision: revision, SolidBody: solidBody}, nil
+}
+
+// refinedSolidBody files a refined state's solid body beside its estimate,
+// or returns nil when the state carries none. The reading's dynamic state is
+// replaced by the revised one; every belief is the online body's, which
+// fixed assignment and a smoother over position and velocity do not revise.
+// It refuses a reading that does not describe the online state the smoother
+// revised, since then the revised state is another filter's.
+func refinedSolidBody(estimate sqlite.TrackEstimate, state l5tracks.SmoothedState) (*sqlite.TrackSolidBody, error) {
+	if state.SolidBody == nil {
+		return nil, nil
+	}
+	reading := *state.SolidBody
+	online := state.Online
+	if reading.Estimate.Reference != state.Reference || reading.Estimate.X != online.X || reading.Estimate.Y != online.Y ||
+		reading.VX != online.VX || reading.VY != online.VY {
+		return nil, fmt.Errorf("refined state %s at %d: its solid body (%s at %v, %v) is not the %s state the smoother revised (%v, %v)",
+			state.TrackID, state.FrameUnixNanos, reading.Estimate.Reference, reading.Estimate.X, reading.Estimate.Y,
+			state.Reference, online.X, online.Y)
+	}
+	m := state.Smoothed
+	reading.Estimate.X, reading.Estimate.Y, reading.VX, reading.VY = m.X, m.Y, m.VX, m.VY
+	reading.Covariance = m.P
+	reading.Estimate.PositionCovariance = [4]float32{m.P[0*4+0], m.P[0*4+1], m.P[1*4+0], m.P[1*4+1]}
+	reading.Estimate.Stage = l5tracks.StageSmoothed
+	model := string(l5tracks.MeasurementNearEdgeCandidateV1)
+	return &sqlite.TrackSolidBody{
+		EstimateID: fmt.Sprintf("solid_body/%s/%s/%s/%s/%s/%d", estimate.TrackID, estimate.EstimatorID, model,
+			estimate.ParamHash, estimate.Stage, estimate.FrameUnixNanos),
+		TrackID: estimate.TrackID, ObservationID: estimate.ObservationID,
+		SourceID: estimate.SourceID, CalibrationID: estimate.CalibrationID,
+		FrameUnixNanos: estimate.FrameUnixNanos, MeasurementUnixNanos: estimate.MeasurementUnixNanos,
+		EstimatorID: estimate.EstimatorID, ObservationModelID: model,
+		ParamHash: estimate.ParamHash, Stage: estimate.Stage,
+		CreationSequence: estimate.CreationSequence,
+		Reading:          reading,
+	}, nil
 }
 
 func estimateRevision(id RefinedEstimateIdentity, estimateID string, state l5tracks.SmoothedState) (sqlite.EstimateRevision, error) {

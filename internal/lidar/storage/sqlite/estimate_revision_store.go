@@ -53,10 +53,16 @@ type EstimateRevision struct {
 
 // RevisedStateEstimate is a refined estimate, the residual row every estimate
 // carries (the association evidence it was computed under), and its revision.
+//
+// SolidBody, when set, is the refined solid body filed beside the estimate in
+// lidar_track_solid_bodies: the same version, observation and revised state,
+// with the beliefs the online body held at that frame. It is written in the
+// estimate's transaction, so the two rows exist together or not at all.
 type RevisedStateEstimate struct {
-	Estimate TrackEstimate
-	Residual TrackResidual
-	Revision EstimateRevision
+	Estimate  TrackEstimate
+	Residual  TrackResidual
+	Revision  EstimateRevision
+	SolidBody *TrackSolidBody
 }
 
 // InsertRevised writes a batch of refined estimates in one transaction: all
@@ -94,6 +100,17 @@ func InsertRevisedStateEstimates(db DBClient, batch []RevisedStateEstimate) erro
 			_ = tx.Rollback()
 			return fmt.Errorf("insert estimate revision %s: %w", item.Revision.EstimateID, err)
 		}
+		if item.SolidBody == nil {
+			continue
+		}
+		if err := refuseForeignSolidBody(tx, *item.SolidBody); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err := insertSolidBody(tx, *item.SolidBody, insertedAt); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit revised estimates: %w", err)
@@ -125,10 +142,54 @@ func refuseForeignEstimate(tx *sql.Tx, e TrackEstimate) error {
 	return nil
 }
 
+// refuseForeignSolidBody is refuseForeignEstimate for a refined solid body:
+// its estimate_id may replace only a stored row of its own version.
+func refuseForeignSolidBody(tx *sql.Tx, sb TrackSolidBody) error {
+	var estimatorID, observationModelID, paramHash, stage string
+	err := tx.QueryRow(`SELECT estimator_id, observation_model_id, param_hash, stage
+		  FROM lidar_track_solid_bodies WHERE estimate_id = ?`, sb.EstimateID).
+		Scan(&estimatorID, &observationModelID, &paramHash, &stage)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check existing solid body %s: %w", sb.EstimateID, err)
+	}
+	if stage != sb.Stage || estimatorID != sb.EstimatorID || observationModelID != sb.ObservationModelID || paramHash != sb.ParamHash {
+		return fmt.Errorf("revised solid body %s would replace a stored %s solid body of another version (%s/%s/%s)",
+			sb.EstimateID, stage, estimatorID, observationModelID, paramHash)
+	}
+	return nil
+}
+
+// validateRevisedSolidBody refuses a refined solid body that is not the
+// estimate it is filed beside: another version, track, observation or frame,
+// another stated reference, or a dynamic state other than the revised one. The
+// row's own contents are validated on insert, as every solid body's are.
+func validateRevisedSolidBody(e TrackEstimate, sb TrackSolidBody) error {
+	if sb.Stage != e.Stage || sb.EstimatorID != e.EstimatorID || sb.ParamHash != e.ParamHash {
+		return fmt.Errorf("solid body %s is version %s/%s/%s, its estimate %s is %s/%s/%s",
+			sb.EstimateID, sb.EstimatorID, sb.ParamHash, sb.Stage, e.EstimateID, e.EstimatorID, e.ParamHash, e.Stage)
+	}
+	if sb.TrackID != e.TrackID || sb.CreationSequence != e.CreationSequence || sb.ObservationID != e.ObservationID ||
+		sb.SourceID != e.SourceID || sb.CalibrationID != e.CalibrationID || sb.FrameUnixNanos != e.FrameUnixNanos {
+		return fmt.Errorf("solid body %s does not describe the track, observation and frame of estimate %s", sb.EstimateID, e.EstimateID)
+	}
+	if sb.Reading.Estimate.Reference != e.Reference {
+		return fmt.Errorf("solid body %s refers to %s, its estimate %s to %s", sb.EstimateID, sb.Reading.Estimate.Reference, e.EstimateID, e.Reference)
+	}
+	r := sb.Reading
+	if r.Estimate.X != e.X || r.Estimate.Y != e.Y || r.VX != e.VX || r.VY != e.VY || r.Covariance != e.Covariance {
+		return fmt.Errorf("solid body %s does not carry the revised state of estimate %s", sb.EstimateID, e.EstimateID)
+	}
+	return nil
+}
+
 // validateRevisedStateEstimate refuses a stage that is not a revision, or a
-// revision that does not describe the estimate it is attached to. That a
-// write cannot replace a stored row of another version, the online estimate
-// included, is checked inside the transaction by refuseForeignEstimate.
+// revision that does not describe the estimate it is attached to, or a solid
+// body that is not filed beside it. That a write cannot replace a stored row
+// of another version, the online estimate included, is checked inside the
+// transaction by refuseForeignEstimate and refuseForeignSolidBody.
 func validateRevisedStateEstimate(item RevisedStateEstimate) error {
 	e, r := item.Estimate, item.Revision
 	if e.Stage != EstimateStageFixedLag && e.Stage != EstimateStageFinal {
@@ -145,6 +206,9 @@ func validateRevisedStateEstimate(item RevisedStateEstimate) error {
 	}
 	if r.EvidenceCount < 0 || r.LookaheadSteps < 0 {
 		return fmt.Errorf("revision %s has negative counts", e.EstimateID)
+	}
+	if item.SolidBody != nil {
+		return validateRevisedSolidBody(e, *item.SolidBody)
 	}
 	return nil
 }

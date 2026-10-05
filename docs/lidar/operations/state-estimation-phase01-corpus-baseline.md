@@ -483,5 +483,53 @@ go run -tags=pcap -ldflags "$STAMP" ./cmd/tools/lidar-state-estimation-baseline 
 - Survey the tuning and held-out cases first (`marina-webster-beach`, `columbus-broadway`,
   `embarcadero-folsom`), then the screen. Before committing, read each case's statistics:
   `estimates_per_10_deg` and `largest_empty_arc_deg` show whether a sector is the sensor's view or
-  only where traffic happened to go in that capture. Commit the set and its statistics to a
-  results branch, as the S2 tests' results are.
+  only where traffic happened to go in that capture. Commit the set and its statistics in
+  `tools/s2-archive/`, as kirk0's are: the declarations are the tools' input and the statistics
+  their provenance. The evidence databases and recordings stay local.
+- Keep the evidence database on the internal disk. On the USB LiDAR volume SQLite's random reads
+  and writes are seek-bound (about 60 operations a second): a case that takes five minutes on the
+  internal disk had not finished in fifty there, even with the captures read from the NAS.
+
+### The S2 corpus survey, October 2026
+
+The 23 tuning and screen cases were surveyed on 5 October 2026 with build `3ee42366c` (stamped),
+captures read from the NAS share, and the tool's defaults: the maximum online-estimate range, and
+a 90° gap for a sector. Each took 5 to 13 minutes. The held-out case, `embarcadero-folsom`, was not
+surveyed: the tool refuses to replay a held-out case without a frozen split and `-held-out`, so its
+declaration waits on the governed split.
+
+Every case is the full circle. The largest arc with no estimate is 11° (`haight-divisadero`), far
+short of 90°. `ashbury-downey`, a single capture, is the thinnest: 11 of its 36 bins hold fewer
+than 50 estimates, so its full circle rests on little evidence on that side.
+
+The declared range is the maximum, as kirk0's is, and at several sites a sparse far tail sets it:
+`embarcadero-bryant` declares 209 m against a p99 of 81 m, `laguna-eddy` 157 m against 58 m. A
+continuity experiment that classifies an absence against that range will call few of them out of
+view at those sites. A lower `-survey-percentile` would tighten them, and is a separate decision
+from this survey.
+
+| Case                  | `max_range_m` | p95 (m) | p99 (m) | Largest empty arc (°) | Thinnest 10° bin | Tracks |
+| --------------------- | ------------: | ------: | ------: | --------------------: | ---------------: | -----: |
+| 1st-mission           |            82 |      33 |      48 |                     0 |              226 |  1,706 |
+| 3rd-folsom            |            90 |      39 |      60 |                     0 |               85 |  1,476 |
+| ashbury-downey        |            55 |      29 |      34 |                     2 |                7 |    382 |
+| broadway-gough        |           189 |      77 |     115 |                     2 |              130 |  1,728 |
+| bush-powell           |            70 |      25 |      41 |                     2 |               83 |  1,219 |
+| california-leon-baker |           192 |      73 |      85 |                     1 |              163 |  1,209 |
+| columbus-broadway     |           124 |      38 |      75 |                     0 |              548 |  2,671 |
+| columbus-north-point  |           128 |      37 |      84 |                     9 |                5 |    987 |
+| embarcadero-bay       |            75 |      36 |      55 |                     0 |               42 |    858 |
+| embarcadero-broadway  |           126 |      40 |      64 |                     2 |              233 |  1,506 |
+| embarcadero-bryant    |           209 |      64 |      81 |                     0 |              305 |  1,843 |
+| franklin-mcallister   |           193 |      55 |     110 |                     6 |              144 |  1,539 |
+| fulton-divisadero     |           172 |      70 |     108 |                     0 |               70 |  1,774 |
+| haight-divisadero     |            45 |      21 |      30 |                    11 |               20 |    445 |
+| howard-6th            |            70 |      31 |      47 |                     1 |               69 |    684 |
+| hyde-ofarrell         |            59 |      31 |      54 |                     2 |                8 |    856 |
+| laguna-eddy           |           157 |      29 |      58 |                     0 |              129 |  1,208 |
+| lombard-broderick     |           132 |      51 |      69 |                     4 |               34 |  1,860 |
+| lombard-laguna        |           146 |      36 |      57 |                     0 |              173 |  2,878 |
+| marina-broderick      |            85 |      36 |      45 |                     4 |               20 |    968 |
+| marina-webster-beach  |            80 |      29 |      44 |                     1 |               15 |    559 |
+| pierce-haight         |           164 |      52 |     137 |                     1 |              434 |  1,584 |
+| van-ness-sacramento   |           119 |      34 |      62 |                     0 |              338 |  1,771 |

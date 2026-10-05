@@ -44,8 +44,8 @@ is, with the one that decides identity being the biased one.
 | Sensor origin         | `SolidBodyOptions.SensorX/Y`, left at (0, 0) because replay tracks in the sensor frame; nothing declares or checks it                                                  |
 | Member geometry       | `WorldCluster.RetainedPoints`, a uniform subsample capped by `MaxSamplePoints` (at most 1024); the kirk0 field-run test uses 16, the corpus tool 256                   |
 | Persisted reference   | Stated per row in both estimate tables: `reference_point` and `support_instant` (point estimates since migration 000057, backfilled from `measurement_source`)         |
-| Refined stages        | The RTS smoother revises point estimates only; no solid body at `fixed_lag` or `final`                                                                                 |
-| Evidence oracle       | The lossless-batch oracle does not cover `lidar_track_solid_bodies`                                                                                                    |
+| Refined stages        | The smoother ends a chain at a reference change (`reference_changed`); under `near_edge_track` a solid body sits beside each refined estimate, at its stage            |
+| Evidence oracle       | The lossless-batch oracle covers `lidar_track_solid_bodies`, listed only when a run wrote solid bodies; a run without them keeps its digest                            |
 
 ### What the shadow measures on kirk0
 
@@ -850,7 +850,7 @@ smaller host:
 default replay: the maximum online-estimate range rounded up to a whole metre, the sector outside
 any arc of 90° or more that no estimate reached (otherwise the full circle), and the origin of the
 frame the tracker ran in. It appends the declaration to
-[continuity-coverage.json](../../tools/s2-archive/continuity-coverage.json), which holds kirk0's,
+[continuity-coverage.json](../../tools/s2-archive/continuity-coverage.json), which holds kirk0's and the 23 tuning and screen cases',
 and its statistics beside it. On the Mac, one case at a time, from the repository root:
 
 ```bash
@@ -976,11 +976,15 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only
       ([near-face evaluation](../lidar/operations/near-face-evaluation.md))
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
-- [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
+- [x] Sensor geometry surveyed for the tuning and screen cases, on the Mac: all 23 full circle
+      ([survey](../lidar/operations/state-estimation-phase01-corpus-baseline.md#the-s2-corpus-survey-october-2026))
+- [ ] Sensor geometry for the held-out case, once a governed split lets it replay
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [x] S2.3 A1 ablation arm (`near_edge_track_a1`), default-off
 - [x] S2.3 A1 ablation on the tuning partition, on the Mac: A2 has 56 % and 46 % fewer lapses
 - [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
       the adapter reads them
-- [ ] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`
+- [x] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`: the smoother
+      ended chains at each reference change, `fixed_lag_rts` combined with `near_edge_track`, and
+      the oracle covered solid bodies without moving the digest of a run that has none
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report

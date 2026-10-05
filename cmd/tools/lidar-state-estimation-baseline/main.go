@@ -120,6 +120,7 @@ func main() {
 		evidencePerCase     = flag.Bool("evidence-per-case", false, "with -evidence-dir, write each case's evidence to <evidence-dir>/<case>.db rather than one shared observations.db")
 		discardEvidence     = flag.Bool("discard-evidence", false, "with -evidence-per-case, delete each case's database once its summary is written; for a corpus larger than the free disk")
 		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
+		cpuProfileDir       = flag.String("cpuprofile-dir", "", "empty directory for a pprof CPU profile of each case's repeat replay (<case>.repeat.cpu.pprof); the repeat writes no evidence, so the profile is the pipeline's own cost")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
 		campaignMetrics     = flag.Bool("campaign-metrics", false, "export confirmed intervals and tracker update timing separately from deterministic artifacts")
@@ -174,6 +175,11 @@ func main() {
 	}
 	if observationDBPath != "" && *sourceManifestPath == "" && *existingSourceManifestPath == "" {
 		fatal(fmt.Errorf("an evidence output requires -source-manifest so persisted evidence has immutable source identity"))
+	}
+	if *cpuProfileDir != "" {
+		if err := ensureEmptyDir(*cpuProfileDir); err != nil {
+			fatal(fmt.Errorf("-cpuprofile-dir: %w", err))
+		}
 	}
 	if !*sourceManifestOnly {
 		if err := ensureEmptyDir(*outDir); err != nil {
@@ -301,7 +307,12 @@ func main() {
 		repeat.ObservationCalibration = l4bobserve.Calibration{}
 		repeat.ObservationMaxSamplePoints = 0
 		fmt.Printf("%s: repeat run\n", selectedCase.ID)
-		repeatResult, err := replayeval.Run(repeat)
+		var repeatResult *replayeval.Result
+		err = profiled(cpuProfilePath(*cpuProfileDir, selectedCase.ID), func() error {
+			var runErr error
+			repeatResult, runErr = replayeval.Run(repeat)
+			return runErr
+		})
 		if err != nil {
 			fatal(fmt.Errorf("repeat run %s: %w", selectedCase.ID, err))
 		}

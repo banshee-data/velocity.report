@@ -1261,9 +1261,11 @@ func stateObservationModelFor(experiments []string, mode l5tracks.MeasurementSou
 // full members (see ExperimentNearEdgeTrack). Its face updates carry the
 // isotropic tracked noise and its gate its own innovation covariance, so it
 // refuses the adaptive noise model and the likelihood cost, whose terms are
-// the medoid update's; it re-references a medoid-referenced state, so it
-// refuses a position model that is not the medoid; and the smoother does not
-// yet end a chain at a reference change.
+// the medoid update's; and it re-references a medoid-referenced state, so it
+// refuses a position model that is not the medoid. It combines with
+// fixed_lag_rts: the smoother ends a chain at each reference change rather
+// than smooth across the translation, and files a refined solid body beside
+// each refined estimate.
 func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource) error {
 	if !hasExperiment(experiments, ExperimentNearEdgeTrack) {
 		if hasExperiment(experiments, ExperimentNearEdgeTrackA1) {
@@ -1282,11 +1284,6 @@ func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource)
 		if hasExperiment(experiments, refused) {
 			return fmt.Errorf("replay experiment %s does not combine with %s: the face updates and the A2 gate do not carry its noise model", ExperimentNearEdgeTrack, refused)
 		}
-	}
-	if hasExperiment(experiments, ExperimentFixedLagRTS) {
-		// S2.4: until the smoother ends a chain at a reference change, it
-		// would smooth across the half-body translation as if it were motion.
-		return fmt.Errorf("replay experiment %s does not combine with %s yet: the smoother does not end a chain at a reference change", ExperimentNearEdgeTrack, ExperimentFixedLagRTS)
 	}
 	if mode == l5tracks.MeasurementOBBCentreV1 {
 		return fmt.Errorf("replay experiment %s re-references a medoid-referenced state, so it needs the medoid position model, not %s", ExperimentNearEdgeTrack, mode)
