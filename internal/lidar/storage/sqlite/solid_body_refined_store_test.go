@@ -197,6 +197,34 @@ func TestRefinedSolidBodyCannotReplaceAnotherVersionByID(t *testing.T) {
 	}
 }
 
+// A database error while checking for a stored body under the refined body's
+// ID fails the batch, and the estimate already written in the same
+// transaction is rolled back with it, rather than read as "no stored body".
+func TestRefinedSolidBodyCheckErrorRollsBackTheBatch(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	_, _, fixedLag := revisionFixture("trk_a", "observation/v1/a", 100, EstimateStageFixedLag, "sha256:lag3f")
+	fixedLag = withRefinedBody(fixedLag)
+	// The estimate, residual and revision inserts do not touch the solid-body
+	// table, so the check is the first statement to fail.
+	if _, err := database.Exec(`ALTER TABLE lidar_track_solid_bodies RENAME TO lidar_track_solid_bodies_moved`); err != nil {
+		t.Fatal(err)
+	}
+	err := InsertRevisedStateEstimates(database, []RevisedStateEstimate{fixedLag})
+	if err == nil || !strings.Contains(err.Error(), "check existing solid body") {
+		t.Fatalf("got %v, want the solid-body check's error", err)
+	}
+	for _, table := range []string{"lidar_track_estimates", "lidar_track_residuals", "lidar_track_estimate_revisions"} {
+		var n int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n != 0 {
+			t.Fatalf("%s kept %d rows from a failed batch", table, n)
+		}
+	}
+}
+
 // The stage vocabulary a solid body is filed under: live is online only, and
 // smoothed is fixed_lag or final, the stages the smoother releases.
 func TestSolidBodyStageAgreesWithItsVersionStage(t *testing.T) {
