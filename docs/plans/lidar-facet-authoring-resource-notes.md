@@ -6,6 +6,7 @@ reference bounds and association make a credible comparison possible.
 
 - **Status:** Local implementation and scalar timing; field and full-pipeline costs unmeasured
 - **Scope:** Native pose sketches, facet subsets, raw intensity inspection and compact/straight-edge registration proposals
+- **Canonical:** [Point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [Minimum facet specification](lidar-facet-annotation-minimum-spec.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [registration experiment](lidar-facet-registration-experiment-plan.md)
 
 ## What the current increment costs

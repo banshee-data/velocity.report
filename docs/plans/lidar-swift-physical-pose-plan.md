@@ -5,11 +5,11 @@ body, review that evidence separately from point membership, and compare a froze
 named tracker estimates. It also adds raw intensity inspection and experimental distribution
 summaries; the supervised three-site pilot establishes a workflow, not tracker accuracy.
 
-- **Status:** Increments A–D built on this branch: authoring, Compare, frozen-split physical pins with `verify-bundle`, and a native Freeze action previewed through the service. The evaluator refuses drifted reviews, intensity presence is per frame, and the length handle, following instants, elevations in Compare and the proposal population are in. Not yet exercised by the operator pilot. E not started.
+- **Status:** Increments A–D delivered (#656): authoring, Compare, frozen-split physical pins with `verify-bundle`, and a native Freeze action previewed through the service. The evaluator refuses drifted reviews, intensity presence is per frame, and the length handle, following instants, elevations in Compare and the proposal population are in. Not yet exercised by the operator pilot. E not started.
 - **Target:** Native macOS annotation pilot, followed by complete P1 and the P2 inspector
 - **Layers:** L10 Clients, annotation storage, and offline evaluation
-- **Canonical:** [Physical reference review](lidar-physical-reference-review-plan.md)
-- **Related:** [Point annotation tool](../lidar/operations/point-annotation-tool.md), [MVP sprint](lidar-052-mvp-sprint-plan.md), [Annotation datasets](lidar-point-annotation-and-object-dataset-plan.md)
+- **Canonical:** [Point annotation tool](../lidar/operations/point-annotation-tool.md)
+- **Related:** [Physical reference review](lidar-physical-reference-review-plan.md), [MVP sprint](lidar-052-mvp-sprint-plan.md), [Annotation datasets](lidar-point-annotation-and-object-dataset-plan.md)
 
 ## 1. Outcome and working boundary
 
