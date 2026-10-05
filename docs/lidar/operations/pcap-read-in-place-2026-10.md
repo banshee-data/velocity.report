@@ -1,7 +1,7 @@
 # PCAP read in place, October 2026
 
-- **Status:** Complete. Reading PCAP packets on the replay's own goroutine cuts a replay's CPU by about 10 % and halves the Go scheduler's share, with byte-identical output. Neither it nor a batched reader shortens a replay: the per-frame pipeline, not packet ingest, is the critical path.
-- **Scope:** B0 replays of three S2 sites on main against the in-place read and against a batched reader, 300 s scored, AB-BA order, on the Mac.
+- **Status:** Complete. Reading PCAP packets on the replay's own goroutine cuts a replay's CPU by about 10 % and halves the Go scheduler's share, with byte-identical output, and shortens a replay from local disk by about 3 %. Reading captures from the NAS rather than the internal SSD makes a replay twice as long, which outweighs either.
+- **Scope:** B0 replays of three S2 sites on main against the in-place read and a batched reader, captures from the NAS; and 3rd-folsom from the internal SSD against the NAS, and the three builds from the SSD. 300 s scored, balanced order, on the Mac.
 - **Related:** [PCAP analysis mode](pcap-analysis-mode.md), [October near-edge campaign](near-edge-campaign-2026-10.md).
 
 The CPU profiles taken for the near-edge update-cost work showed that about half of every replay's
@@ -47,18 +47,18 @@ Means of the two runs per build. The scheduler share is the profile's flat time 
   system calls.
 - **The scheduler's share falls from between 57 % and 59 % to 34 %.** What remains is the pipeline's
   other handoffs (frame assembly to the frame callback), which this change does not touch.
-- **Wall time does not move.** The likely reason: the reader goroutine used to run beside the
-  pipeline, and now its read sits on the pipeline's own goroutine, so the scheduler time saved is
-  roughly the read time added to the critical path. This run does not isolate that. The one larger difference, at embarcadero-bryant, comes from one
-  slow main run (252 s against 226 s), not from the build.
+- **From the NAS, wall time does not move.** Reading from the NAS is what sets a replay's wall
+  time there, so a change to the read path cannot show (see
+  [Where the captures are read from](#where-the-captures-are-read-from)). The one larger difference,
+  at embarcadero-bryant, comes from one slow main run (252 s against 226 s), not from the build.
 - **Byte-identical.** kirk0 (default replay, with evidence) and 3rd-folsom (300 s) on both builds
   wrote identical tracking baselines, first and repeat, identical frame counts and source digests,
   and on kirk0 identical rows in `lidar_observations` and `lidar_track_estimates`.
 
 ### A batched reader instead
 
-If the read now sat on the replay's critical path, a reader goroutine that hands packets over in
-batches of 256 would keep it in parallel while waking the replay once per batch. That was built
+A reader goroutine that hands packets over in batches of 256 would keep the read beside the replay
+while waking it once per batch. That was built
 (`e81bd2164`), checked byte-identical on kirk0 and 3rd-folsom, and timed against main in the same
 way, AB-BA at the same three sites.
 
@@ -68,30 +68,55 @@ way, AB-BA at the same three sites.
 | pierce-haight      | 230 → 209 (0.91)        | 105 → 105 (1.00)                       | 60 % → 47 %                     |
 | embarcadero-bryant | 219 → 197 (0.90)        | 78 → 76 (0.98)                         | 58 % → 46 %                     |
 
-It saves the same CPU as the in-place read and does not shorten a replay either; 3rd-folsom's
-0.96 comes from one slow main run (79.5 s against 71.8 s). Its scheduler share stays higher, since
-its goroutine still parks and wakes once per batch. It was reverted, and the simpler in-place read
-kept.
+From the NAS it saves the same CPU as the in-place read and does not shorten a replay either;
+3rd-folsom's 0.96 comes from one slow main run (79.5 s against 71.8 s). Its scheduler share stays
+higher, since its goroutine still parks and wakes once per batch.
+
+### Where the captures are read from
+
+All the runs above read their captures from the NAS. A sampled replay spent much of its time with
+threads blocked in `read`, although the NAS delivers 61 to 81 MB/s to `dd` at 4 KiB to 1 MiB reads.
+So 3rd-folsom's four captures were copied to the internal SSD (byte-identical) and the same main
+build replayed from each place, local, NAS, NAS, local:
+
+| Captures from | Whole run (s) | Repeat replay wall (s) | Repeat replay CPU (s) |
+| ------------- | ------------: | ---------------------: | --------------------: |
+| Internal SSD  |    88.9, 87.2 |             41.9, 41.9 |            95.6, 95.6 |
+| NAS           |  191.5, 181.4 |             68.9, 70.6 |            95.9, 96.2 |
+
+The work is the same and the replay from the SSD finishes in about half the time: it keeps 2.3
+cores busy against 1.4 from the NAS. Then the three builds from the SSD, in the order main, in
+place, batched, batched, in place, main:
+
+| Build    | Whole run (s) | Repeat replay wall (s) | Whole-run CPU (s) |
+| -------- | ------------: | ---------------------: | ----------------: |
+| main     |    87.7, 88.0 |             41.7, 41.8 |      211.4, 211.4 |
+| in place |    84.9, 84.8 |             40.7, 40.7 |      188.8, 189.4 |
+| batched  |    83.5, 83.1 |             40.5, 39.8 |      192.6, 192.3 |
+
+From local disk both changes do shorten a replay: the in-place read by about 3 %, the batched reader
+by about 4 %, for 11 % and 9 % less CPU. The batched reader's extra percent of wall time costs a
+goroutine and a percent or two more CPU, so it was reverted and the simpler in-place read kept.
 
 ## Interpretation
 
-A single replay is no faster. What the change buys is CPU: about a tenth of every replay's, and
-two fifths of its system time. That matters when replays run side by side, as a corpus campaign or
-the worker queue does, and on a machine with fewer cores. It also removes a goroutine and a
-1,000-packet buffer from every replay.
+Reading packets in place is a small, safe gain: about a tenth of every replay's CPU, two fifths of
+its system time, and about 3 % of its wall time when the captures are local. It also removes a
+goroutine and a 1,000-packet buffer from every replay. The CPU matters most when replays run side
+by side, as a corpus campaign or the worker queue does.
 
-Taking the read onto the replay's goroutine and moving it off again both left wall time where it
-was. So reading and parsing packets are not on a replay's critical path: they have slack. The
-critical path is the frame callback, which runs L3 to L5 for each assembled frame on a goroutine
-of its own. A faster single replay needs work there, in the background grid, clustering and
-tracking per frame, not in packet ingest.
+Where the captures live matters far more. From the NAS a replay takes twice as long as from the
+internal SSD, for the same work. For a corpus run on this Mac, copying each case's captures to the
+internal disk first (and deleting them after) would roughly halve the wall time; the S2 first
+segments are about 0.7 GB per case, a whole case 3 to 6 GB. The USB LiDAR volume is no substitute:
+it read at 40 MB/s, below the NAS.
 
 ## Limitations
 
 - One machine, 300 s windows, two runs per build and site, B0 only. The shadow and A2 run the same
   read path, so the saving should carry over, but they were not measured.
-- Captures were read from the NAS over SMB. A local disk would change the read cost on the
-  critical path, and so possibly the wall-time result.
+- The SSD comparison is one site with two runs per condition; the size of the NAS penalty will
+  vary with the network and the NAS's load.
 - The live UDP path is unaffected and was not measured.
 
 ## Provenance
