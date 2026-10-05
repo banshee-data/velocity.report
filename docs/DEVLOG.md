@@ -26,7 +26,7 @@ older entries stay put, however tempting hindsight may be.
 - {dd/lidar/span-selection} Timed B0, the shadow and A2 on main and the selection build with the campaign's balanced protocol: the solid body's p99 fell to 30 % to 40 % of main's, but A2 stayed 12 to 20 times B0's, so the cost screen still failed.
 - {dd/lidar/span-selection} Re-ran the label-free D2 comparison on the 23 tuning and screen sites: six of seven measures held, and the OBB centre's contested terminations fell so that it went from worse at 15 sites to better at 16, matching kirk0's identity result.
 - {dd/lidar/span-selection} Profiled A2 after span selection: the span search was under half of its update, and the near-edge measurement in association sorted every projection to read one percentile.
-- {dd/lidar/span-selection} Selected that near-edge percentile instead of sorting: outputs stayed byte-identical and the shadow's and A2's p99 fell 8 % to 12 %, leaving A2 10 to 18 times B0's.
+- {dd/lidar/span-selection} Selected that near-edge percentile instead of sorting: outputs stayed byte-identical, the shadow's p99 fell 10 % and A2's 8 % to 28 %, and A2 stayed 8 to 19 times B0's.
 
 ## October 4, 2026 - Physical references and facet authoring, publishing preflight, and two more screen sites
 

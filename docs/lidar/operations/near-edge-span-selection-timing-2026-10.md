@@ -1,7 +1,7 @@
 # Span selection and balanced update timing, October 2026
 
-- **Status:** Complete. Selecting a span's percentiles cuts the solid body's Tracker.Update p99 to 30 % to 40 % of the sort's, and selecting the near-edge percentile takes about a tenth off what is left, both with byte-identical output. A2 still breaches the campaign's 1.5× cost screen at every site, and would even with a free span search.
-- **Scope:** B0, the shadow and A2 on main and on the selection build, at the October campaign's three timing sites, balanced order, four p99 measurements per condition, on the Mac. A CPU profile of B0 and A2 after selection at 3rd-folsom, and the near-edge percentile's selection timed at 3rd-folsom and embarcadero-bryant.
+- **Status:** Complete. Selecting a span's percentiles cuts the solid body's Tracker.Update p99 to 30 % to 40 % of the sort's, and selecting the near-edge percentile takes a further 8 % to 28 % off A2's (10 % off the shadow's), both with byte-identical output. A2 still breaches the campaign's 1.5× cost screen at every site, and would even with a free span search.
+- **Scope:** B0, the shadow and A2 on main and on the selection build, at the October campaign's three timing sites, balanced order, four p99 measurements per condition, on the Mac. A CPU profile of B0 and A2 after selection at 3rd-folsom, and the near-edge percentile's selection timed at the same three sites.
 - **Related:** [October near-edge campaign](near-edge-campaign-2026-10.md), [near-edge tracked-state plan](../../plans/lidar-near-edge-tracked-state-plan.md).
 
 The October campaign kept B0 partly because A2's Tracker.Update p99 was 15 to 35 times B0's. A
@@ -25,8 +25,8 @@ the campaign's balanced protocol.
   A profile after selection puts under half of A2's update in the span search; even without it,
   A2's update would cost three times B0's.
 - **A second sort, also gone.** The near-edge measurement sorted every projection to read one
-  percentile. Selecting it instead keeps the output byte-identical and takes 8 % to 12 % off the
-  shadow's and A2's p99, leaving A2 at 10 and 18 times B0's at the two sites timed.
+  percentile. Selecting it instead keeps the output byte-identical, takes 10 % off the shadow's
+  p99 and 8 % to 28 % off A2's, and leaves A2 at 8 to 19 times B0's.
 
 ## Method
 
@@ -144,18 +144,26 @@ near-edge percentile (`c33ed5d8a`). B0 ran on the second build only, as it runs 
 | embarcadero-bryant | Shadow | both  | 0.155 | 2.661 | 2.637 to 2.687 |      20.2 |          0.90 |
 | embarcadero-bryant | A2     | spans | 0.161 | 2.651 | 2.622 to 2.895 |      20.1 |               |
 | embarcadero-bryant | A2     | both  | 0.143 | 2.436 | 2.419 to 2.466 |      18.5 |          0.92 |
+| pierce-haight      | B0     | both  | 0.028 | 0.107 | 0.102 to 0.114 |         1 |               |
+| pierce-haight      | Shadow | spans | 0.048 | 1.138 | 1.086 to 1.185 |      10.7 |               |
+| pierce-haight      | Shadow | both  | 0.044 | 1.024 | 0.963 to 1.092 |       9.6 |          0.90 |
+| pierce-haight      | A2     | spans | 0.050 | 1.200 | 1.169 to 1.256 |      11.3 |               |
+| pierce-haight      | A2     | both  | 0.045 | 0.858 | 0.791 to 0.961 |       8.1 |          0.72 |
 
-- **About a tenth off the p99.** Selecting the percentile cuts the shadow's and A2's p99 by 8 % to
-  12 % and their p50 by 7 % to 11 %, at both sites. The four values of each condition do not
-  overlap the other build's. That matches the profile, which put the sort at about a sixth of A2's
-  update CPU.
-- **The screen still fails.** A2 is 10.4 and 18.5 times B0's p99 at these sites.
-- **The two sessions agree.** The span-selection build reproduced its own earlier p99 within 3 %
-  at 3rd-folsom (1.377 against 1.377 for the shadow, 1.341 against 1.362 for A2) and within 4 %
-  at embarcadero-bryant, though the earlier session read its captures from the NAS.
-- One A2 run on the span-selection build was disturbed: a desktop application started during it
-  and the one-minute load reached 36. Its repeat replay's p99 was 4.28 ms where its first replay's
-  was 2.60. It was set aside and that condition run again once the load had settled.
+- **A tenth off the p99, more where few frames set it.** Selecting the percentile cuts the
+  shadow's p99 by 10 % at every site and A2's by 12 % and 8 % at 3rd-folsom and
+  embarcadero-bryant, which matches the profile's sixth of A2's update CPU. At pierce-haight A2's
+  p99 falls by 28 %: there the solid body's cost sits in a few frames with large clusters, and
+  A2's gate measures the near edge for every candidate pair in them. The p50 falls by 7 % to 11 %
+  everywhere. The four values of each condition do not overlap the other build's.
+- **The screen still fails.** A2 is 10.4, 18.5 and 8.1 times B0's p99 at the three sites.
+- **The two sessions agree.** The span-selection build reproduced its own earlier p99 within 4 %
+  at every site (at 3rd-folsom 1.377 against 1.377 for the shadow, 1.341 against 1.362 for A2),
+  though the earlier session read its captures from the NAS.
+- Two runs were disturbed and repeated. During an A2 run on the span-selection build at
+  embarcadero-bryant a desktop application started and the one-minute load reached 36: its repeat
+  replay's p99 was 4.28 ms where its first replay's was 2.60. A B0 run at pierce-haight ended at
+  load 9.5. Both were set aside and their conditions run again once the load had settled.
 
 ## Interpretation
 
@@ -166,8 +174,8 @@ still breaches the observed cost screen, so the screen remains a reason not to p
 What remains is in three parts:
 
 - **The near-edge measurement in association.** Its sort is now a selection too (see
-  [Selecting the near-edge percentile](#selecting-the-near-edge-percentile)), which took about a
-  tenth off the p99; what is left is one measurement per gated pair, which is A2's design.
+  [Selecting the near-edge percentile](#selecting-the-near-edge-percentile)), which took 8 % to
+  28 % off A2's p99; what is left is one measurement per gated pair, which is A2's design.
 - **The span search.** For each visible face, `minimumAxisSpan` projects every member onto 21
   axes, and with `solid_body_full_members` that is the whole cluster. Reducing it changes the
   spans, so it is a tuning change: a coarse-to-fine search (for example 5° steps, then 1° around
@@ -180,7 +188,7 @@ What remains is in three parts:
 
 ## Limitations
 
-- One machine, one session, 300 s windows, three sites. Absolute milliseconds are Mac figures,
+- One machine, two sessions, 300 s windows, three sites. Absolute milliseconds are Mac figures,
   not Pi ones, and the timing is Tracker.Update wall time only, not end-to-end latency.
 - The machine was not idle: one-minute load stayed near 3 to 4 because of macOS background
   processes, and one burst (load 11, from `logd`) came at the end of a B0 run at embarcadero-bryant. The
@@ -189,16 +197,15 @@ What remains is in three parts:
 - Byte-identity was checked on kirk0 with full replays and on synthetic inputs by test; the three
   timing sites were not compared row by row.
 - The profile after selection is one run per arm at one site, and A2's update is 33 of its
-  samples. The near-edge percentile was timed at two of the three sites, and pierce-haight, whose
-  solid-body cost sits in a few frames, was not.
+  samples.
 
 ## Provenance
 
-| Item           | Value                                                                                                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2` (the selection change on that main, later rebased onto #676 unchanged); both stamped                   |
-| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                                                  |
-| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                                                           |
-| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`, and the replay outputs under its `local-full/`                                      |
-| Second session | Span selection at `28d713f2efe3dbf92eb9464533e94e029e369469` and with the near-edge percentile at `c33ed5d8acddaa7d57cbae900258f19bddeb904a`, both stamped; captures from the internal SSD, digests as above |
-| Its outputs    | Profiles, kirk0 byte-identity replays, timing runs, `timing-summary.json` and the set-aside run under `velocity-campaign/a2-profile-20261005/` on the LiDAR volume                                           |
+| Item           | Value                                                                                                                                                                                                           |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2` (the selection change on that main, later rebased onto #676 unchanged); both stamped                      |
+| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                                                     |
+| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                                                              |
+| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`, and the replay outputs under its `local-full/`                                         |
+| Second session | Span selection at `28d713f2efe3dbf92eb9464533e94e029e369469` and with the near-edge percentile at `c33ed5d8acddaa7d57cbae900258f19bddeb904a`, both stamped; captures from the internal SSD, digests as above    |
+| Its outputs    | Profiles, kirk0 byte-identity replays, timing runs, `timing-summary.json` and the set-aside runs under `velocity-campaign/a2-profile-20261005/` on the LiDAR volume, pierce-haight's under its `pierce-haight/` |
