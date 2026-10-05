@@ -24,6 +24,7 @@ older entries stay put, however tempting hindsight may be.
 - Surveyed sensor geometry for the 23 tuning and screen cases, all full circle; the held-out case waits on a governed split, and transient evidence moved to the internal disk after SQLite on the USB volume proved seek-bound (#676).
 - {dd/lidar/span-selection} Replaced the sort in the solid body's span measurement with a selection of its two percentiles; every span stayed bit-identical, and kirk0 shadow and A2 replays wrote identical baselines and solid-body rows.
 - {dd/lidar/span-selection} Timed B0, the shadow and A2 on main and the selection build with the campaign's balanced protocol: the solid body's p99 fell to 30 % to 40 % of main's, but A2 stayed 12 to 20 times B0's, so the cost screen still failed.
+- {dd/lidar/span-selection} Re-ran the label-free D2 comparison on the 23 tuning and screen sites: six of seven measures held, and the OBB centre's contested terminations fell so that it went from worse at 15 sites to better at 16, matching kirk0's identity result.
 
 ## October 4, 2026 - Physical references and facet authoring, publishing preflight, and two more screen sites
 
