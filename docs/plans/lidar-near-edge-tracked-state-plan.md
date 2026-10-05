@@ -846,7 +846,7 @@ smaller host:
 default replay: the maximum online-estimate range rounded up to a whole metre, the sector outside
 any arc of 90° or more that no estimate reached (otherwise the full circle), and the origin of the
 frame the tracker ran in. It appends the declaration to
-[continuity-coverage.json](../../tools/s2-archive/continuity-coverage.json), which holds kirk0's,
+[continuity-coverage.json](../../tools/s2-archive/continuity-coverage.json), which holds kirk0's and the 23 tuning and screen cases',
 and its statistics beside it. On the Mac, one case at a time, from the repository root:
 
 ```bash
@@ -968,7 +968,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only
       ([near-face evaluation](../lidar/operations/near-face-evaluation.md))
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
-- [ ] Sensor geometry surveyed for the tuning, held-out and screen cases, on the Mac
+- [x] Sensor geometry surveyed for the tuning and screen cases, on the Mac: all 23 full circle
+      ([survey](../lidar/operations/state-estimation-phase01-corpus-baseline.md#the-s2-corpus-survey-october-2026))
+- [ ] Sensor geometry for the held-out case, once a governed split lets it replay
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [x] S2.3 A1 ablation arm (`near_edge_track_a1`), default-off
 - [x] S2.3 A1 ablation on the tuning partition, on the Mac: A2 has 56 % and 46 % fewer lapses
