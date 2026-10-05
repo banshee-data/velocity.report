@@ -67,8 +67,10 @@ this and best on segment count.
 
 - Every recorded day keeps or improves its matched-mark count
 - van Ness at Sacramento classifies as one site
-- No site over 30 minutes survives unexamined: `lombard-laguna` is 38.8 min and
-  is probably two stays that the current bridge merges
+- No site over 30 minutes survives unexamined: `lombard-laguna` is 38.8 min and has a
+  sharp detection burst at 33:20.598. The [scene-change recovery sprint](lidar-scene-change-recovery-sprint-plan.md)
+  tests a pose step against a background-model fault; neither two separate stays nor a physical
+  nudge is established by the current export alone
 - The 180 s bridge is gone, or has a stated physical meaning
 
 ## Risks
