@@ -36,6 +36,10 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	diagf("PCAP BPF filter set: %s", filterStr)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	// Registered after handle.Close, so it runs first: the reader goroutine
+	// has returned before the handle closes.
+	reader := newPacketReader(packetSource, pcapBatchSize)
+	defer reader.Close()
 	var packetIndex uint64 // 0-based index across all matching packets
 	packetCount := 0
 	totalPoints := 0
@@ -48,14 +52,14 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	skippingToStart := startSeconds > 0
 
 	for {
-		// Packets are read on this goroutine (nextPacket), not through
-		// gopacket's channel, whose reader goroutine had to be woken for
-		// every packet. Cancellation is checked before each read instead.
+		// Packets arrive in batches from packetReader, not one at a time
+		// through gopacket's channel, whose reader goroutine had to be woken
+		// for every packet. Cancellation is checked before each packet.
 		if err := ctx.Err(); err != nil {
 			diagf("PCAP reader stopping due to context cancellation (processed %d packets)", packetCount)
 			return err
 		}
-		packet := nextPacket(packetSource)
+		packet := reader.Next()
 		if packet == nil {
 			// End of PCAP file
 			elapsed := time.Since(startTime)
