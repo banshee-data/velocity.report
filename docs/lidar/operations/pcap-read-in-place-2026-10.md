@@ -1,7 +1,7 @@
 # PCAP read in place, October 2026
 
-- **Status:** Complete. Reading PCAP packets on the replay's own goroutine cuts a replay's CPU by about 10 % and halves the Go scheduler's share; wall time is unchanged and every output is byte-identical.
-- **Scope:** B0 replays of three S2 sites on main and on the in-place read, 300 s scored, AB-BA order, on the Mac.
+- **Status:** Complete. Reading PCAP packets on the replay's own goroutine cuts a replay's CPU by about 10 % and halves the Go scheduler's share, with byte-identical output. Neither it nor a batched reader shortens a replay: the per-frame pipeline, not packet ingest, is the critical path.
+- **Scope:** B0 replays of three S2 sites on main against the in-place read and against a batched reader, 300 s scored, AB-BA order, on the Mac.
 - **Related:** [PCAP analysis mode](pcap-analysis-mode.md), [October near-edge campaign](near-edge-campaign-2026-10.md).
 
 The CPU profiles taken for the near-edge update-cost work showed that about half of every replay's
@@ -55,6 +55,24 @@ Means of the two runs per build. The scheduler share is the profile's flat time 
   wrote identical tracking baselines, first and repeat, identical frame counts and source digests,
   and on kirk0 identical rows in `lidar_observations` and `lidar_track_estimates`.
 
+### A batched reader instead
+
+If the read now sat on the replay's critical path, a reader goroutine that hands packets over in
+batches of 256 would keep it in parallel while waking the replay once per batch. That was built
+(`e81bd2164`), checked byte-identical on kirk0 and 3rd-folsom, and timed against main in the same
+way, AB-BA at the same three sites.
+
+| Site               | CPU, main → batched (s) | Repeat replay wall, main → batched (s) | Scheduler share, main → batched |
+| ------------------ | ----------------------- | -------------------------------------- | ------------------------------- |
+| 3rd-folsom         | 220 → 200 (0.91)        | 76 → 72 (0.96)                         | 59 % → 48 %                     |
+| pierce-haight      | 230 → 209 (0.91)        | 105 → 105 (1.00)                       | 60 % → 47 %                     |
+| embarcadero-bryant | 219 → 197 (0.90)        | 78 → 76 (0.98)                         | 58 % → 46 %                     |
+
+It saves the same CPU as the in-place read and does not shorten a replay either; 3rd-folsom's
+0.96 comes from one slow main run (79.5 s against 71.8 s). Its scheduler share stays higher, since
+its goroutine still parks and wakes once per batch. It was reverted, and the simpler in-place read
+kept.
+
 ## Interpretation
 
 A single replay is no faster. What the change buys is CPU: about a tenth of every replay's, and
@@ -62,9 +80,11 @@ two fifths of its system time. That matters when replays run side by side, as a 
 the worker queue does, and on a machine with fewer cores. It also removes a goroutine and a
 1,000-packet buffer from every replay.
 
-A faster single replay would need the remaining handoffs, chiefly frame assembly to the frame
-callback, to stop waking a goroutine per frame or per batch, or the read to move to a goroutine
-that hands over batches rather than single packets. Neither is done here.
+Taking the read onto the replay's goroutine and moving it off again both left wall time where it
+was. So reading and parsing packets are not on a replay's critical path: they have slack. The
+critical path is the frame callback, which runs L3 to L5 for each assembled frame on a goroutine
+of its own. A faster single replay needs work there, in the background grid, clustering and
+tracking per frame, not in packet ingest.
 
 ## Limitations
 
@@ -76,9 +96,9 @@ that hands over batches rather than single packets. Neither is done here.
 
 ## Provenance
 
-| Item           | Value                                                                                                                                                 |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Builds         | main `901b250eeb8baadbd73e5a855db5bf4f36822fe0`; in place `29b6df0c9346c43fe9e99fd021d6bf1cc2da82f3`; both stamped                                    |
-| Parameter hash | `sha256:fd35b0b28fc1…` (B0) on both builds                                                                                                            |
-| Source digests | 3rd-folsom `1d19feceed93…`, pierce-haight `c9b3b0f8d588…`, embarcadero-bryant `3c55a2292c59…`                                                         |
-| Raw outputs    | Run script, per-run logs, `time` output, CPU profiles and `throughput-summary.json` on the LiDAR volume under `velocity-campaign/pcap-read-20261005/` |
+| Item           | Value                                                                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Builds         | main `901b250eeb8baadbd73e5a855db5bf4f36822fe0`; in place `29b6df0c9346c43fe9e99fd021d6bf1cc2da82f3`; batched `e81bd2164` (reverted); all stamped                                         |
+| Parameter hash | `sha256:fd35b0b28fc1…` (B0) on both builds                                                                                                                                                |
+| Source digests | 3rd-folsom `1d19feceed93…`, pierce-haight `c9b3b0f8d588…`, embarcadero-bryant `3c55a2292c59…`                                                                                             |
+| Raw outputs    | Run script, per-run logs, `time` output, CPU profiles and `throughput-summary.json` and `throughput-batch-summary.json` on the LiDAR volume under `velocity-campaign/pcap-read-20261005/` |
