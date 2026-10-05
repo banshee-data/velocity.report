@@ -33,6 +33,10 @@ file is just the index — start there for any layer detail.
 | macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
 | Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
 
+The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
+completed experiment's per-case findings, methods, uncertainty limits, and follow-up decisions.
+Raw replay outputs remain local.
+
 ## Terminology
 
 Core domain terms for the LiDAR tracking system. Tuning-pipeline terms (sweep,

@@ -41,4 +41,5 @@ including operational references and distribution notices:
 - [Code of Conduct](CODE_OF_CONDUCT.md) <!-- link-ignore -->
 - [Magic Numbers](MAGIC_NUMBERS.md) <!-- link-ignore -->
 - [Third-party notices](THIRD_PARTY_NOTICES.md) <!-- link-ignore -->
-- [CLAUDE agent context](CLAUDE.md) <!-- link-ignore -->
+- [Agent instructions](AGENTS.md) <!-- link-ignore -->
+- [Claude Code entry point](CLAUDE.md) <!-- link-ignore -->

@@ -40,6 +40,9 @@ archive/
 backup/
 logs/
 
+# Experiment and analysis output is local only at every directory depth.
+results/
+
 # =============================================================================
 # Go Binaries, Tools & Test Outputs
 # =============================================================================

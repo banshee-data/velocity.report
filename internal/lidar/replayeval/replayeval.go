@@ -173,6 +173,8 @@ type Config struct {
 	// ProfileEvidence includes exact frame-evidence persistence timings in the
 	// returned Result. It is diagnostic-only and does not alter recorded data.
 	ProfileEvidence bool
+	// CampaignMetrics exports offline diagnostics separately from deterministic artifacts.
+	CampaignMetrics bool
 	// MeasurementSourceMode selects the replay's position model. Empty (or
 	// medoid_v0) is the production medoid; obb_centre_v1 replays D2's candidate
 	// for an acceptance comparison.
@@ -911,6 +913,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		tracker.DebugCollector = collector
 		pipeCfg.DebugCollector = collector
 	}
+	var campaign *campaignTracker
+	if cfg.CampaignMetrics {
+		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{}}
+		pipeCfg.Tracker = campaign
+	}
 	pipelineCallback := pipeCfg.NewFrameCallback()
 
 	var frameCount int
@@ -1133,6 +1140,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		uncertainty, uncertaintySamples = &report, window.Samples
 	}
 
+	if campaign != nil {
+		if err := campaign.write(runtime, cfg.OutDir); err != nil {
+			return nil, fmt.Errorf("write campaign metrics: %w", err)
+		}
+	}
 	result := &Result{
 		VRLOGPath:           filepath.Clean(cfg.OutDir),
 		FramesRead:          frameCount,

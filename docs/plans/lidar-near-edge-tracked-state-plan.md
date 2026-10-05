@@ -1,10 +1,24 @@
 # Near-edge tracked state (0.5.2 S2)
 
-- **Status:** In progress: S2.0, S2.1 and S2.2 built. The tracked arm lowers the lateral residual on both tuning sites, but the side-face entry tail survives it (F6). T5, the rank-one medoid, is built default-off (#649) and is not promoted: small on the tuning pair and mixed on the screen sites (F7b). The tracked arm holds on 19 of 21 screen sites and A2 beats A1 (F6s, S2.3); the held-out score is next.
+- **Status:** S2.0, S2.1, and S2.2 are built; experimental arms remain opt-in and are not promoted. The completed [October campaign](../lidar/operations/near-edge-campaign-2026-10.md) retains production B0: A2 breaches observed update cost at all 29 core/transfer cases and geometry at nine. Diagnostic variants remain mixed. Governed physical validation and an eligible untouched evaluation remain unresolved. Earlier F6/F6s/F7b findings below retain their original builds, metrics, and populations.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
+
+## Completed October campaign
+
+The [campaign report](../lidar/operations/near-edge-campaign-2026-10.md) records 123 successful
+invocations with deterministic repeats: 69 core, 24 diagnostic, 18 transfer, and 12 balanced timing.
+Geometry compares A2 with same-build shadow, while timing and duration compare A2 with B0.
+The report keeps every case's gates, complete/censored duration counts, diagnostic effects,
+posterior-proxy intervals, and tail associations. It supersedes the earlier expectation of an
+immediate held-out score; prior use, physical references, and alignment require governance first.
+
+Keep B0. Separately declared cost profiling, retained raw geometry with matched transition
+inspection, and Claren continuity investigation precede any correction. Historical F6/F7 sections
+below are not a promotion decision or a substitute for this broader same-build comparison.
+Raw outputs remain outside Git; the written findings remain part of this plan's evidence record.
 
 ## Motivation
 

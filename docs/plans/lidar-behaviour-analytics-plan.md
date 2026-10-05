@@ -516,7 +516,7 @@ the free-flow denominator cannot be established, report `speed_p85` against the 
 distribution instead of inventing an opportunity.
 
 `p85` here is the aggregate over a population of per-passage maxima, matching the existing project
-convention recorded in [CLAUDE.md](../../CLAUDE.md).
+convention recorded in [AGENTS.md](../../AGENTS.md).
 
 ### 8.2 Longitudinal control
 

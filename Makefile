@@ -998,6 +998,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
+	scripts/test_check_no_results.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
@@ -1958,7 +1959,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -2019,6 +2020,14 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
+
+check-no-results: ## Reject experiment result directories in the Git index
+	@python3 scripts/check-no-results.py
+
+test-no-results: ## Exercise the result-directory guard against real Git indexes
+	@python3 -m unittest discover -s scripts -p test_check_no_results.py
+
+.PHONY: check-no-results test-no-results
 
 check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
 	@scripts/check-buildinfo-placeholder.sh

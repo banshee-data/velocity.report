@@ -58,3 +58,6 @@ web/
 
 # macOS
 .DS_Store
+
+# Local experiment evidence must retain its original bytes.
+results/

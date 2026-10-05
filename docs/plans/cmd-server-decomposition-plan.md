@@ -71,7 +71,7 @@ layer:
 
 ### One documentation defect found
 
-CLAUDE.md states: "**Radar ingest** (`internal/radar/`): serial port reader for
+AGENTS.md states: "**Radar ingest** (`internal/radar/`): serial port reader for
 OmniPreSense OPS243-A → inserts `radar_data` and `radar_objects`". `internal/radar/`
 contains `commands.go` and its test, and nothing else — 261 lines of command table.
 The reader is `internal/serialmux/`; the inserts are `internal/db/`.
@@ -84,7 +84,7 @@ The reader is `internal/serialmux/`; the inserts are `internal/db/`.
 | File naming                 | `radar.go` holds no radar code           | Medium   | Cheap to fix alongside the split                    |
 | Domain placement            | Already correct                          | None     | No package moves needed                             |
 | Extraction progress         | ~20 helpers already extracted and tested | Low      | The work is further along than the number suggests  |
-| CLAUDE.md radar description | Names the wrong package                  | Low      | One-line docs fix                                   |
+| AGENTS.md radar description | Names the wrong package                  | Low      | One-line docs fix                                   |
 
 ### F1 — The extraction is already half-done
 
@@ -191,7 +191,7 @@ their own files, each phase taking arguments and returning an error.
 
 **Milestone:** v0.5.2
 
-### Item 4: Fix the CLAUDE.md radar description
+### Item 4: Fix the AGENTS.md radar description
 
 **Summary:** Point the radar-ingest line at the packages that actually do it.
 
@@ -225,14 +225,14 @@ their own files, each phase taking arguments and returning an error.
 - [x] Establish that domain code is correctly placed and no package moves are needed
 - [x] Measure `Main()` at 818 lines against `device`'s 58, and the coverage gap that follows
 - [x] Confirm ~20 helpers are already extracted and covered
-- [x] Identify the CLAUDE.md radar-ingest description as inaccurate
+- [x] Identify the AGENTS.md radar-ingest description as inaccurate
 
 ### Outstanding
 
 - [ ] Item 1: rename and split the entry point (`M`)
 - [ ] Item 2: extract the remaining phases (`M`)
 - [ ] Item 3: cover the extracted phases to ~90% (`M`)
-- [ ] Item 4: fix the CLAUDE.md radar description (`S`)
+- [ ] Item 4: fix the AGENTS.md radar description (`S`)
 
 ### Deferred
 

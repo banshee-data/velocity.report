@@ -250,6 +250,11 @@ and rule-based classification across eight object types (car, truck, bus, pedest
 motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed.
 Today, both run in parallel.
 
+The [October near-edge campaign report](docs/lidar/operations/near-edge-campaign-2026-10.md)
+records the completed geometry, duration, timing, and diagnostic comparisons. It recommends
+retaining the production medoid tracker: the candidate breaches update cost at all 29 cases and
+geometry at nine, while physical accuracy and Pi performance remain unverified.
+
 The next stage fuses them into a single scene model:
 cross-sensor track handoff using Mahalanobis-distance gating,
 Bayesian evidence accumulation for persistent geometry,

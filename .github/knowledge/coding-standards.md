@@ -74,6 +74,11 @@ Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release t
 
 **No leading zeros in version segments.** `0.5.04` is invalid SemVer and will be rejected by npm (`web/package.json`, `public_html/package.json`). Use `0.5.4` instead.
 
+## Experiment Reports and Raw Output
+
+Follow the [repository instructions](../../AGENTS.md#keep-experiment-findings-in-git-and-raw-outputs-local).
+This policy is maintained there.
+
 ## Documentation Updates
 
 When changing functionality, update **all** relevant docs:
