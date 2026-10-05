@@ -30,12 +30,12 @@ have not been recovered. Counts below refer to exported tracks, including tentat
 tracks, rather than confirmed physical objects.
 
 | Playback time | Source frame | Tracks | Unclassified | Speed at most 0.1 m/s |
-| --- | ---: | ---: | ---: | ---: |
-| 33:20.198 | 142195 | 9 | 3 | 6 |
-| 33:20.398 | 142197 | 13 | 7 | 8 |
-| 33:20.598 | 142199 | 58 | 51 | 52 |
-| 33:20.998 | 142203 | 50 | 18 | 31 |
-| 33:30.999 | 142303 | 26 | 1 | 22 |
+| ------------- | -----------: | -----: | -----------: | --------------------: |
+| 33:20.198     |       142195 |      9 |            3 |                     6 |
+| 33:20.398     |       142197 |     13 |            7 |                     8 |
+| 33:20.598     |       142199 |     58 |           51 |                    52 |
+| 33:20.998     |       142203 |     50 |           18 |                    31 |
+| 33:30.999     |       142303 |     26 |            1 |                    22 |
 
 All 13 preceding IDs survive the addition of 45 IDs in 0.2 seconds. The passing bus and older
 tracks retain identity. All 11,440 exported frames have increasing timestamps and source IDs
@@ -58,15 +58,15 @@ code. The site export deliberately retains every packet between the visit's oute
 Effort is for one engineer, with brief independent label and design reviews. Data access delay
 does not consume the ten-day implementation budget. S4 may proceed after S1 while S3 is evaluated.
 
-| ID | Effort | Deliverable | Depends on | Exit condition |
-| --- | ---: | --- | --- | --- |
-| S0 | 1 day | Versioned case manifest, original export reproduction, raw-data availability check, review windows and reference labels | None | Capture digests, exact time mapping, baseline identity and unknowns recorded; no fresh-model substitution for the full prefix |
-| S1 | 1.5 days | Bounded L3 diagnostics and repeatable replay comparison | S0 | Two equivalent baseline runs; foreground causes, model transitions, L4 clusters and L5 births can be joined by capture timestamp |
-| S2 | 1.5 days | Cause decision and diagnostic recovery comparisons | S1 | Evidence accepts or rejects pose change; measured pose correction, model reset and model-fault explanations compared separately |
-| S3 | 3 days | One default-off recovery candidate and lifecycle handling | S2 | Mechanism tests pass; recovery has bounded duration, explicit unavailable output and defined coordinate/identity behaviour |
-| S4 | 1 day | Survey lifecycle/quality metadata and review display | S1 | Tentative, observed, coasted and recovering output are distinguishable; older exports still load |
-| S5 | 1.5 days | Locked-parameter evaluation on reserved captures and target-device performance | S3, S4 | Every release gate scored, including stopped road users, valid coverage, speed and false recoveries |
-| S6 | 0.5 day | Decision report and reproducible staged survey export | S5 | Candidate/configuration/provenance archived; decision is enable, keep experimental, or reject |
+| ID  |   Effort | Deliverable                                                                                                             | Depends on | Exit condition                                                                                                                   |
+| --- | -------: | ----------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| S0  |    1 day | Versioned case manifest, original export reproduction, raw-data availability check, review windows and reference labels | None       | Capture digests, exact time mapping, baseline identity and unknowns recorded; no fresh-model substitution for the full prefix    |
+| S1  | 1.5 days | Bounded L3 diagnostics and repeatable replay comparison                                                                 | S0         | Two equivalent baseline runs; foreground causes, model transitions, L4 clusters and L5 births can be joined by capture timestamp |
+| S2  | 1.5 days | Cause decision and diagnostic recovery comparisons                                                                      | S1         | Evidence accepts or rejects pose change; measured pose correction, model reset and model-fault explanations compared separately  |
+| S3  |   3 days | One default-off recovery candidate and lifecycle handling                                                               | S2         | Mechanism tests pass; recovery has bounded duration, explicit unavailable output and defined coordinate/identity behaviour       |
+| S4  |    1 day | Survey lifecycle/quality metadata and review display                                                                    | S1         | Tentative, observed, coasted and recovering output are distinguishable; older exports still load                                 |
+| S5  | 1.5 days | Locked-parameter evaluation on reserved captures and target-device performance                                          | S3, S4     | Every release gate scored, including stopped road users, valid coverage, speed and false recoveries                              |
+| S6  |  0.5 day | Decision report and reproducible staged survey export                                                                   | S5         | Candidate/configuration/provenance archived; decision is enable, keep experimental, or reject                                    |
 
 S0–S2 are the first four-day slice. If raw evidence does not support pose change, S3 addresses the
 identified model-state or point-decoding fault instead. Do not spend the remaining sprint building
@@ -77,15 +77,15 @@ instrumented reproduction and a narrower follow-up; report the issue as unresolv
 
 The [backlog](../BACKLOG.md) schedules independently deliverable slices across the release train:
 
-| Release | Scope |
-| --- | --- |
-| v0.5.4 | S4 evidence schema and measured/display geometry contract |
-| v0.5.5 | S0–S1 full-prefix reproduction and bounded diagnostics |
-| v0.5.6 | S2 cause decision and diagnostic comparisons |
-| v0.5.7 | S3 default-off recovery candidate |
-| v0.5.11 | S5 reserved-case scoring and evidence archive |
-| v0.6.6 | S4 playback integration and S6 staged survey refresh |
-| v0.6.7 | S5 target-device gate and S6 promotion decision |
+| Release | Scope                                                     |
+| ------- | --------------------------------------------------------- |
+| v0.5.4  | S4 evidence schema and measured/display geometry contract |
+| v0.5.5  | S0–S1 full-prefix reproduction and bounded diagnostics    |
+| v0.5.6  | S2 cause decision and diagnostic comparisons              |
+| v0.5.7  | S3 default-off recovery candidate                         |
+| v0.5.11 | S5 reserved-case scoring and evidence archive             |
+| v0.6.6  | S4 playback integration and S6 staged survey refresh      |
+| v0.6.7  | S5 target-device gate and S6 promotion decision           |
 
 These are release placements, not seven separate ten-day sprints. The work-package dependencies
 still apply: schema work can precede diagnosis, while recovery, promotion and public asset refresh

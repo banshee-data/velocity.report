@@ -68,14 +68,14 @@ motion classification are derived outputs and cannot independently establish any
 
 ### Comparison arms
 
-| Arm | Intervention | Question answered |
-| --- | --- | --- |
-| A0 | Unchanged pipeline, complete prefix | Does this run reproduce the event and how variable is it? |
-| A1 | Apply independently measured pose correction at the known event, with valid L3 ray correspondence | Does correcting pose remove static leakage? Diagnostic upper bound only |
-| A2 | Start a new background epoch at the known event; protect labelled object occupancy and account for unavailable time | Can rebaselining recover clean geometry, and what coverage/identity does it cost? Diagnostic upper bound only |
-| A3 | Cause-specific repair with the sensor pose untouched | If H2 is supported, does the identified state/decoding correction remove the event? |
-| A4 | Automatic detection plus the best supported recovery/repair | Can the mechanism work causally at unknown event times and pass reserved cases? |
-| V1 | Same recorded tracks, distinguish/filter tentative and coasted display | How much is presentation? Never evidence that L3 recovery works |
+| Arm | Intervention                                                                                                        | Question answered                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| A0  | Unchanged pipeline, complete prefix                                                                                 | Does this run reproduce the event and how variable is it?                                                     |
+| A1  | Apply independently measured pose correction at the known event, with valid L3 ray correspondence                   | Does correcting pose remove static leakage? Diagnostic upper bound only                                       |
+| A2  | Start a new background epoch at the known event; protect labelled object occupancy and account for unavailable time | Can rebaselining recover clean geometry, and what coverage/identity does it cost? Diagnostic upper bound only |
+| A3  | Cause-specific repair with the sensor pose untouched                                                                | If H2 is supported, does the identified state/decoding correction remove the event?                           |
+| A4  | Automatic detection plus the best supported recovery/repair                                                         | Can the mechanism work causally at unknown event times and pass reserved cases?                               |
+| V1  | Same recorded tracks, distinguish/filter tentative and coasted display                                              | How much is presentation? Never evidence that L3 recovery works                                               |
 
 Run A1 only if registration is supported and A3 only if a concrete fault is found. A2 may show
 that a new model helps under either H1 or H2; it does not by itself prove a physical nudge. If no
@@ -83,14 +83,14 @@ diagnostic arm explains the burst, stop candidate selection and retain an unreso
 
 ### Cases and split
 
-| Case | Role | Scored evidence |
-| --- | --- | --- |
-| Lombard–Laguna complete visit | Development and diagnosis | Main event, stationary structures, passing bus/pedestrian, five-minute recovery tail; retain full prefix |
-| Lombard–Laguna earlier quiet and busy windows | Development controls | Same sensor/background ageing without the burst; queued/stopped objects and bus occlusions |
-| Van Ness–Sacramento documented nudge visit | Reserved physical transfer case | Independently measured nudge times/magnitudes; stationary intervals and genuine road users |
-| One different-day static visit from the archive, selected and recorded before tuning | Reserved negative control | Busy traffic, long stops and no independently observed sensor motion |
-| Reviewed stop-to-drive transition adjacent to a capture | Reserved out-of-scope-motion control | A sustained drive must remain unavailable or form a new site epoch rather than repeatedly appear recovered |
-| Injected pose steps and no-motion counterexamples on stable geometry | Mechanism tests | Known translation/rotation, stopped-object protection, registration degeneracy and clock behaviour |
+| Case                                                                                 | Role                                 | Scored evidence                                                                                            |
+| ------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Lombard–Laguna complete visit                                                        | Development and diagnosis            | Main event, stationary structures, passing bus/pedestrian, five-minute recovery tail; retain full prefix   |
+| Lombard–Laguna earlier quiet and busy windows                                        | Development controls                 | Same sensor/background ageing without the burst; queued/stopped objects and bus occlusions                 |
+| Van Ness–Sacramento documented nudge visit                                           | Reserved physical transfer case      | Independently measured nudge times/magnitudes; stationary intervals and genuine road users                 |
+| One different-day static visit from the archive, selected and recorded before tuning | Reserved negative control            | Busy traffic, long stops and no independently observed sensor motion                                       |
+| Reviewed stop-to-drive transition adjacent to a capture                              | Reserved out-of-scope-motion control | A sustained drive must remain unavailable or form a new site epoch rather than repeatedly appear recovered |
+| Injected pose steps and no-motion counterexamples on stable geometry                 | Mechanism tests                      | Known translation/rotation, stopped-object protection, registration degeneracy and clock behaviour         |
 
 The existing [site index](../../../tools/s2-archive/site-index.json) and
 [operator joins](../../../tools/s2-archive/site-joins.json) select candidates, not ground truth.
@@ -213,16 +213,16 @@ absorbing stopped objects fails the experiment.
 
 ## Risks and controls
 
-| Risk | Control |
-| --- | --- |
-| A fresh model erases the failure | Carry the entire prefix; verify any complete-state checkpoint |
-| Foreground/motion labels make the diagnosis circular | Use raw static geometry and reviewed physical-object references |
-| Regional overrides make a parameter sweep ineffective | Record effective per-cell/region values and restoration history |
-| Pose registration follows a bus or is geometrically ambiguous | Hold out static patches, test observability, and abstain |
-| Rebaselining learns stopped road users | Protect object occupancy; score stopped intervals and departure |
-| Apparent improvement comes from missing output | Count unavailable time, retain dense frame records and score full-timeline recall |
-| Thresholds overfit the one known timestamp | Lock configuration before reserved events; score automatic onset detection |
-| A clock or schema change corrupts comparison | Use capture timestamps, explicit frame/epoch identity and versioned provenance |
+| Risk                                                          | Control                                                                           |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| A fresh model erases the failure                              | Carry the entire prefix; verify any complete-state checkpoint                     |
+| Foreground/motion labels make the diagnosis circular          | Use raw static geometry and reviewed physical-object references                   |
+| Regional overrides make a parameter sweep ineffective         | Record effective per-cell/region values and restoration history                   |
+| Pose registration follows a bus or is geometrically ambiguous | Hold out static patches, test observability, and abstain                          |
+| Rebaselining learns stopped road users                        | Protect object occupancy; score stopped intervals and departure                   |
+| Apparent improvement comes from missing output                | Count unavailable time, retain dense frame records and score full-timeline recall |
+| Thresholds overfit the one known timestamp                    | Lock configuration before reserved events; score automatic onset detection        |
+| A clock or schema change corrupts comparison                  | Use capture timestamps, explicit frame/epoch identity and versioned provenance    |
 
 ## Outputs
 
