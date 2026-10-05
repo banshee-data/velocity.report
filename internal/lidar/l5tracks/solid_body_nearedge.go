@@ -56,7 +56,6 @@ package l5tracks
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -1161,14 +1160,26 @@ func minimumAxisSpan(points []l4perception.WorldPoint, axisRad float32) (float32
 
 // trimmedSpan is the extent of the points along a unit direction between the
 // spanTrimPercent ends, using scratch for the projections.
+//
+// It needs only two order statistics, so it selects them rather than sorting:
+// the upper one first, which leaves every value ordered before it in
+// scratch[:hi], and then the lower one within that prefix. The values are the
+// ones a sort would put at those positions, so the span is the same, at linear
+// rather than n log n cost. minimumAxisSpan calls this 21 times per face per
+// frame, which made the sort most of a solid body's update cost.
 func trimmedSpan(points []l4perception.WorldPoint, scratch []float64, dirX, dirY float64) (float64, bool) {
 	for i, p := range points {
 		scratch[i] = p.X*dirX + p.Y*dirY
 	}
-	sort.Float64s(scratch)
 	last := len(scratch) - 1
 	lo := int(spanTrimPercent / 100 * float64(last))
-	span := scratch[last-lo] - scratch[lo]
+	hi := last - lo
+	upper := nthFloat64(scratch, hi)
+	lower := upper
+	if lo < hi {
+		lower = nthFloat64(scratch[:hi], lo)
+	}
+	span := upper - lower
 	if !(span > 0) || math.IsInf(span, 0) {
 		return 0, false
 	}
