@@ -22,6 +22,8 @@ older entries stay put, however tempting hindsight may be.
 - Profiled B0, the shadow and A2 at the October campaign's timing sites with a new `-cpuprofile-dir`: the update-cost breach was the solid body's extent admission, a full sort on 21 axes per face, which the shadow paid too (#676).
 - Re-ran D2 on kirk0 under the current solver: OBB-centre identity switches fell from 146 to 128 against the medoid's 92, so the medoid stayed production on a smaller margin, and two errors in the per-frame guide were corrected (#676).
 - Surveyed sensor geometry for the 23 tuning and screen cases, all full circle; the held-out case waits on a governed split, and transient evidence moved to the internal disk after SQLite on the USB volume proved seek-bound (#676).
+- {dd/lidar/span-selection} Replaced the sort in the solid body's span measurement with a selection of its two percentiles; every span stayed bit-identical, and kirk0 shadow and A2 replays wrote identical baselines and solid-body rows.
+- {dd/lidar/span-selection} Timed B0, the shadow and A2 on main and the selection build with the campaign's balanced protocol: the solid body's p99 fell to 30 % to 40 % of main's, but A2 stayed 12 to 20 times B0's, so the cost screen still failed.
 
 ## October 4, 2026 - Physical references and facet authoring, publishing preflight, and two more screen sites
 

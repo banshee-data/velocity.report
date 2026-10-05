@@ -109,9 +109,9 @@ span a lower bound (see the comment on `minimumAxisSpan`).
 
 ## Provenance
 
-| Item           | Value                                                                                                                                                                        |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2`; both stamped                                                          |
-| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                  |
-| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                           |
-| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`; replay outputs on the profiling Mac's internal disk |
+| Item           | Value                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2` (the selection change on that main, later rebased onto #676 unchanged); both stamped |
+| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                                |
+| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                                         |
+| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`; replay outputs on the profiling Mac's internal disk               |
