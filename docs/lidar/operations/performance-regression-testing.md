@@ -207,6 +207,13 @@ this is enforced rather than remembered. Do not recapture to make a regression g
 saying why in the commit: a baseline is a claim about what the code costs, and moving it
 silently retires the only evidence that it grew.
 
+Capture from a checkout whose `.git` is a directory, not from a `git worktree`. A baseline's
+`commit_hash` comes from Go's VCS stamping, which does not recognise a worktree's `.git` file:
+a worktree nested inside another checkout (such as `.claude/worktrees/`) records the outer
+checkout's `HEAD`, and one elsewhere records nothing. The comparator does not check the hash,
+so the gate still works, but the baseline then names the wrong code. A shared clone is cheap:
+`git clone --shared <repo> <dir>`, check out the commit, and capture there.
+
 ## The frame budget
 
 `pipeline.frame_budget_ms` (default **98 ms**) is the per-frame ceiling. Beyond it a
