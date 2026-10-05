@@ -1,7 +1,7 @@
 # PCAP read in place, October 2026
 
 - **Status:** Complete. Reading PCAP packets on the replay's own goroutine cuts a replay's CPU by about 10 % and halves the Go scheduler's share, with byte-identical output, and shortens a replay from local disk by about 3 %. Reading captures from the NAS rather than the internal SSD makes a replay twice as long, which outweighs either.
-- **Scope:** B0 replays of three S2 sites on main against the in-place read and a batched reader, captures from the NAS; and 3rd-folsom from the internal SSD against the NAS, and the three builds from the SSD. 300 s scored, balanced order, on the Mac.
+- **Scope:** B0 replays of three S2 sites on main against the in-place read and a batched reader, captures from the NAS; and 3rd-folsom from the internal SSD against the NAS, and the three builds from the SSD. 300 s scored, balanced order, on the Mac. The perf gate's benchmark on kirk0, both gated profiles.
 - **Related:** [PCAP analysis mode](pcap-analysis-mode.md), [October near-edge campaign](near-edge-campaign-2026-10.md).
 
 The CPU profiles taken for the near-edge update-cost work showed that about half of every replay's
@@ -98,6 +98,28 @@ From local disk both changes do shorten a replay: the in-place read by about 3 %
 by about 4 %, for 11 % and 9 % less CPU. The batched reader's extra percent of wall time costs a
 goroutine and a percent or two more CPU, so it was reverted and the simpler in-place read kept.
 
+### The perf gate's benchmark
+
+`lidar-bench`, the perf gate's tool, reads through `ReadPCAPFile` too. It replays kirk0 (83 s)
+from the repository's copy on the internal disk. Both gated profiles were run on both builds in the
+order main, in place, in place, main, twice. Medians of four runs:
+
+| Profile | Build    | Wall (s) | CPU (s) | User / system (s) | Frame time p95 (ms) |
+| ------- | -------- | -------: | ------: | ----------------- | ------------------: |
+| full    | main     |     9.10 |   12.93 | 12.18 / 0.74      |               34.63 |
+| full    | in place |     9.19 |   12.09 | 11.64 / 0.45      |               34.35 |
+| l3-only | main     |     5.05 |    8.69 | 8.04 / 0.65       |                3.62 |
+| l3-only | in place |     5.00 |    7.79 | 7.45 / 0.35       |                3.61 |
+
+CPU falls by 6 % on `full` and 10 % on `l3-only`, and system time by about 40 %, as in the
+replays. Wall time does not move beyond noise: one in-place `full` run took 11.8 s, the other seven
+`full` runs 8.9 to 9.2 s. The work counters (frames, foreground and background points, clusters,
+confirmed tracks) are identical across the builds.
+
+The committed mac baselines could not judge this: #613 moved the tuning fingerprint without
+recapturing them, so the gate refused both cells. Recaptured on main (branch
+`dd/lidar/perf-baseline-recapture`), the in-place build passes the gate on both profiles.
+
 ## Interpretation
 
 Reading packets in place is a small, safe gain: about a tenth of every replay's CPU, two fifths of
@@ -127,3 +149,4 @@ it read at 40 MB/s, below the NAS.
 | Parameter hash | `sha256:fd35b0b28fc1…` (B0) on both builds                                                                                                                                                |
 | Source digests | 3rd-folsom `1d19feceed93…`, pierce-haight `c9b3b0f8d588…`, embarcadero-bryant `3c55a2292c59…`                                                                                             |
 | Raw outputs    | Run script, per-run logs, `time` output, CPU profiles and `throughput-summary.json` and `throughput-batch-summary.json` on the LiDAR volume under `velocity-campaign/pcap-read-20261005/` |
+| Benchmark      | `lidar-bench` built from the same two commits; run script, per-run benchmark JSON, logs and `time` output under `velocity-campaign/perf-gate-20261005/`                                   |
