@@ -8,6 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 4, 2026 - Near-edge findings stay in Git; raw outputs stay local
 
+- Consolidated repository-wide agent guidance in `AGENTS.md`. `CLAUDE.md` imports it, and the
+  coding standards link to the experiment policy. The migration preserves the project guide and
+  keeps tool entry points from carrying independent copies of the new rules.
 - Added default-off `-campaign-metrics` exports to the offline baseline tool for confirmed
   intervals and Tracker.Update wall time, with interval, censoring, miss-only expiry and
   baseline-equivalence tests. The [completed campaign report](lidar/operations/near-edge-campaign-2026-10.md)
