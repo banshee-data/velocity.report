@@ -2,11 +2,14 @@ package replayeval
 
 import (
 	"encoding/json"
-	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 type campaignFake struct {
@@ -28,7 +31,7 @@ func TestCampaignIntervalsCensorAndUseSupportTime(t *testing.T) {
 	c.observe([]*l5tracks.TrackedObject{a, b, d}, 14e9)
 	c.observe([]*l5tracks.TrackedObject{d}, 20e9)
 	out := t.TempDir()
-	if err := c.write(out); err != nil {
+	if err := c.write(defaultRuntime(), out); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(out, "confirmed_duration.json"))
@@ -59,7 +62,7 @@ func TestCampaignWrapperForwardsWarmupAndScoredUpdates(t *testing.T) {
 	if fake.calls != 2 || len(c.costs) != 1 || !c.left[7] {
 		t.Fatal("update forwarding, timing window or censor boundary failed")
 	}
-	if err := c.write(filepath.Join(t.TempDir(), "missing")); err == nil {
+	if err := c.write(defaultRuntime(), filepath.Join(t.TempDir(), "missing")); err == nil {
 		t.Fatal("write error hidden")
 	}
 }
@@ -78,5 +81,35 @@ func TestCampaignMissOnlyExpiryClosesInterval(t *testing.T) {
 	c.AdvanceMisses(time.Unix(20, 0))
 	if c.intervals[2].RightCensored || c.intervals[2].LastSupportedAt != 12e9 {
 		t.Fatal("miss-only expiry was censored or extended support")
+	}
+}
+
+func TestCampaignWritePropagatesExportFailures(t *testing.T) {
+	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json"} {
+		t.Run(name, func(t *testing.T) {
+			failure := errors.New("disk full")
+			out := t.TempDir()
+			runtime := defaultRuntime()
+			runtime.writeFile = func(path string, data []byte, mode os.FileMode) error {
+				if filepath.Dir(path) != out || mode != 0644 || !json.Valid(data) || data[len(data)-1] != '\n' {
+					t.Fatalf("invalid export: path=%q mode=%v data=%q", path, mode, data)
+				}
+				if filepath.Base(path) == name {
+					return failure
+				}
+				return nil
+			}
+			if err := (&campaignTracker{}).write(runtime, out); !errors.Is(err, failure) {
+				t.Fatalf("write failure not propagated: %v", err)
+			}
+		})
+	}
+}
+
+func TestCampaignWriteRejectsNonFiniteTiming(t *testing.T) {
+	c := &campaignTracker{costs: []float64{math.NaN()}}
+	var unsupported *json.UnsupportedValueError
+	if err := c.write(defaultRuntime(), t.TempDir()); !errors.As(err, &unsupported) {
+		t.Fatalf("invalid timing was not rejected: %v", err)
 	}
 }

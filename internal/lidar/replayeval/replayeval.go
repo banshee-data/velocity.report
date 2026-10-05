@@ -1141,7 +1141,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	if campaign != nil {
-		if err := campaign.write(cfg.OutDir); err != nil {
+		if err := campaign.write(runtime, cfg.OutDir); err != nil {
 			return nil, fmt.Errorf("write campaign metrics: %w", err)
 		}
 	}

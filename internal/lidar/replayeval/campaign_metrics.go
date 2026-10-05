@@ -2,12 +2,12 @@ package replayeval
 
 import (
 	"encoding/json"
-	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"math"
-	"os"
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // campaignTracker observes update cost and capture-time confirmation intervals.
@@ -86,7 +86,7 @@ func campaignQuantile(values []float64, q float64) float64 {
 	sort.Float64s(v)
 	return v[int(math.Ceil(q*float64(len(v))))-1]
 }
-func (c *campaignTracker) write(out string) error {
+func (c *campaignTracker) write(runtime replayRuntime, out string) error {
 	intervals := make([]confirmationInterval, 0, len(c.intervals))
 	sum := 0.0
 	count := 0
@@ -117,7 +117,7 @@ func (c *campaignTracker) write(out string) error {
 		if err != nil {
 			return err
 		}
-		if err = os.WriteFile(filepath.Join(out, name), append(b, '\n'), 0644); err != nil {
+		if err = runtime.writeFile(filepath.Join(out, name), append(b, '\n'), 0644); err != nil {
 			return err
 		}
 	}
