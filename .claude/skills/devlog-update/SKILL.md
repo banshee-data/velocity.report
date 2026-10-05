@@ -187,7 +187,7 @@ Before inserting or appending, verify the new bullets don't duplicate informatio
 
 ### 9. Insert and amend
 
-- **New-day entries:** prepend to `docs/DEVLOG.md` immediately after the `# Development Log` title line, in reverse chronological order (newest first).
+- **New-day entries:** insert into `docs/DEVLOG.md` immediately before the first `## ` entry, after the `# Development log` title, its introduction and the **Formatting:** note, in reverse chronological order (newest first).
 - **Gap-fill bullets:** append to the day's existing entry, after its main-landed bullets and before its `{branch-name}` bullets. Do not reorder or rewrite existing bullets.
 
 ### 10. Verify
