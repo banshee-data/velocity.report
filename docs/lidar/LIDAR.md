@@ -36,7 +36,8 @@ file is just the index — start there for any layer detail.
 The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
 completed experiment's per-case findings, methods, uncertainty limits, and follow-up decisions.
 Raw replay outputs remain local. The [update cost profile](operations/near-edge-update-cost-profile-2026-10.md) answers
-its first follow-up: the cost breach is the solid body's extent admission, which the shadow shares.
+its first follow-up: the cost breach is the solid body's extent admission, which the shadow shares. The [D2 re-run](operations/d2-medoid-obb-current-solver-2026-10.md)
+refreshes the medoid against OBB-centre comparison on the current solver.
 
 ## Terminology
 

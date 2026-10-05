@@ -352,7 +352,9 @@ bin/lidar-ground-truth-eval perframe \
 ```
 
 Run it with no `-a-stage` first if unsure what a database holds: the refusal lists every estimate
-version in it. Then score the held-out split for the change under test:
+version in it. The current evaluator refuses pack `8e422582` at every retained revision, because
+some returns are claimed by two objects; until those claims are settled, run the recipe on the
+fully reviewed pack `ad8b9438`, as the [D2 re-run](d2-medoid-obb-current-solver-2026-10.md) did. Then score the held-out split for the change under test:
 
 ```bash
 bin/lidar-ground-truth-eval perframe \
@@ -401,8 +403,11 @@ candidate twin.
 - **Coordinate frames.** The harness does not check that the pack and the estimates share a frame.
   kirk0's do (sensor origin, no site transform). For a site with a pose transform, check that the
   baseline arm's MOTP is well under a metre before reading anything else.
-- **Episodes inside the scored window.** An evidence run writes no estimates during its warm-up, so
-  an episode that starts before the scored window reads as missed objects.
+- **Episodes inside the evidence.** Evidence starts at the first foreground frame, once L3 has
+  settled, whatever the warm-up: on kirk0 that is sample 59, and runs at 6 s and 20 s write the same
+  estimates. The warm-up sets the recording start and the settled check, not where estimates begin.
+  A track confirms after four hits, so the first frames of an episode read as missed objects in
+  every arm ([D2 re-run](d2-medoid-obb-current-solver-2026-10.md)).
 - **HOTA ignore absorption** is decided per localisation threshold, not once before the sweep as
   TrackEval's preprocessing does. It affects only hypotheses close to an ignored point.
 - **Results from before the exact solver.** Tracker runs recorded before `l5tracks.HungarianAssign`

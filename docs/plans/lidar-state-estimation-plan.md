@@ -2901,6 +2901,12 @@ quantity that is still not the vehicle centre.
 
 #### D2 outcome, 2026-09-24
 
+> **Superseded figures, October 2026.** The OBB-centre figures below came from the padded solver
+> that #600 replaced. The [current-build re-run](../lidar/operations/d2-medoid-obb-current-solver-2026-10.md)
+> keeps D5 (the medoid stays production) on a smaller margin: 128 against 92 identity switches,
+> 63 against 57 fragmentations and IDF1 0.370 against 0.378, at level recall. Quote those, not 146
+> switches or "the direction held at every gate".
+
 E1's real-data run could not satisfy condition 2: its reference path was fitted to estimates the
 tracker had produced from the OBB centre, so the OBB centre's flatness there was circular. The A/B
 below replaced it with evidence that does not depend on either position definition. Both arms ran
