@@ -1,7 +1,7 @@
 # Span selection and balanced update timing, October 2026
 
-- **Status:** Complete. Selecting a span's percentiles cuts the solid body's Tracker.Update p99 to 30 % to 40 % of the sort's, with byte-identical output; A2 still breaches the campaign's 1.5× cost screen at all three sites.
-- **Scope:** B0, the shadow and A2 on main and on the selection build, at the October campaign's three timing sites, balanced order, four p99 measurements per condition, on the Mac.
+- **Status:** Complete. Selecting a span's percentiles cuts the solid body's Tracker.Update p99 to 30 % to 40 % of the sort's, and selecting the near-edge percentile takes about a tenth off what is left, both with byte-identical output. A2 still breaches the campaign's 1.5× cost screen at every site, and would even with a free span search.
+- **Scope:** B0, the shadow and A2 on main and on the selection build, at the October campaign's three timing sites, balanced order, four p99 measurements per condition, on the Mac. A CPU profile of B0 and A2 after selection at 3rd-folsom, and the near-edge percentile's selection timed at 3rd-folsom and embarcadero-bryant.
 - **Related:** [October near-edge campaign](near-edge-campaign-2026-10.md), [near-edge tracked-state plan](../../plans/lidar-near-edge-tracked-state-plan.md).
 
 The October campaign kept B0 partly because A2's Tracker.Update p99 was 15 to 35 times B0's. A
@@ -22,7 +22,11 @@ the campaign's balanced protocol.
   and A2 alike: 2.5 to 3.3 times faster where it is slowest. The p50 falls to 55 % to 60 % where
   the solid body runs on most frames.
 - **Not enough for the screen.** A2's p99 is still 12 to 20 times B0's, against the campaign's 1.5.
-  The cost that remains is the axis search itself: 21 projections of every member per face.
+  A profile after selection puts under half of A2's update in the span search; even without it,
+  A2's update would cost three times B0's.
+- **A second sort, also gone.** The near-edge measurement sorted every projection to read one
+  percentile. Selecting it instead keeps the output byte-identical and takes 8 % to 12 % off the
+  shadow's and A2's p99, leaving A2 at 10 and 18 times B0's at the two sites timed.
 
 ## Method
 
@@ -79,22 +83,100 @@ selection's gain is far outside the run-to-run spread.
   denominator, so the main-build ratios here are this session's own baseline, not a correction of
   the campaign's.
 
+## Where A2's update goes after selection
+
+One CPU profile each of B0 and A2 on the selection build (`28d713f2e`), at 3rd-folsom, 300 s scored, with the
+captures read from the internal SSD; the profile is of the repeat replay. Profiles sample at
+100 Hz, so A2's Tracker.Update is 33 samples: a coarse split, not a two-figure measurement.
+
+| Measure                                                        |    B0 |    A2 |
+| -------------------------------------------------------------- | ----: | ----: |
+| Tracker.Update p50 (ms)                                        | 0.032 | 0.181 |
+| Tracker.Update p99 (ms)                                        | 0.148 | 1.335 |
+| Tracker.Update CPU (s)                                         |  0.06 |  0.33 |
+| of which extent admission, the span search                     |       |  0.15 |
+| of which the near-edge measurement in association's gate       |       |  0.06 |
+| of which sorting inside that measurement (`LateralPercentile`) |       |  0.05 |
+| Frame callback CPU (s)                                         | 13.14 | 13.03 |
+
+- **Extent admission is now under half of A2's update.** Were it free, A2's update would still
+  cost about 0.18 s, three times B0's whole update.
+- **The near-edge measurement costs as much as B0's whole update.** A2's association measures the
+  near edge for every candidate pair it gates, and most of that was another sort:
+  `LateralPercentile` sorted every member's projection to read the 5th percentile.
+- **At the frame, A2's update is small.** It is 2.5 % of the frame callback's CPU, against B0's
+  0.5 %. The frame callback cost 13.14 s under B0 and 13.03 s under A2, one run each, so the 2 %
+  that A2's update adds is smaller than what two single runs can tell apart.
+
+So the span search was not all that remained: no change to it alone can bring A2 within the
+screen's 1.5 times B0's Tracker.Update p99. B0's update is so small a part of the frame that a
+ratio to it is a strict test.
+
+## Selecting the near-edge percentile
+
+`LateralPercentile` now selects its one order statistic with the same quickselect, which moved to
+`l4perception` as `NthFloat64` so both callers share it (`c33ed5d8a`). The near-edge offset is
+the sort's: a test compares every percentile with the sort's on the same input shapes as the span
+test, and bit for bit on cluster-like points. The only value the two could order differently is
+the sign of an exact zero, which no sort promises. Selection is 2.8 times faster than the sort at
+256 points, 3.3 times at 1,024 and 5 times at 4,096. kirk0 replays of the shadow and A2 on
+`28d713f2e` and `c33ed5d8a` wrote identical tracking baselines (first and repeat) and identical
+observation, estimate and solid-body rows (2,423, 1,951 and 1,924; every column but random IDs
+and insert time).
+
+Timing used the same protocol as above, with the captures read from the internal SSD: per site,
+B0, the shadow on both builds and A2 on both builds, in one order and then reversed, four p99
+values per condition. Runs waited for the one-minute load to stay under 3.5 for a minute, and a
+run that ended with the load at 8 or more was set aside and repeated.
+
+Milliseconds, medians of four. "Spans" is the span selection alone (`28d713f2e`); "both" adds the
+near-edge percentile (`c33ed5d8a`). B0 ran on the second build only, as it runs neither change.
+
+| Site               | Arm    | Build |   p50 |   p99 | p99 range      | p99 to B0 | Both to spans |
+| ------------------ | ------ | ----- | ----: | ----: | -------------- | --------: | ------------: |
+| 3rd-folsom         | B0     | both  | 0.031 | 0.113 | 0.101 to 0.116 |         1 |               |
+| 3rd-folsom         | Shadow | spans | 0.182 | 1.377 | 1.329 to 1.418 |      12.1 |               |
+| 3rd-folsom         | Shadow | both  | 0.168 | 1.244 | 1.213 to 1.269 |      11.0 |          0.90 |
+| 3rd-folsom         | A2     | spans | 0.180 | 1.341 | 1.336 to 1.361 |      11.8 |               |
+| 3rd-folsom         | A2     | both  | 0.166 | 1.178 | 1.144 to 1.210 |      10.4 |          0.88 |
+| embarcadero-bryant | B0     | both  | 0.031 | 0.132 | 0.121 to 0.147 |         1 |               |
+| embarcadero-bryant | Shadow | spans | 0.167 | 2.968 | 2.932 to 3.206 |      22.5 |               |
+| embarcadero-bryant | Shadow | both  | 0.155 | 2.661 | 2.637 to 2.687 |      20.2 |          0.90 |
+| embarcadero-bryant | A2     | spans | 0.161 | 2.651 | 2.622 to 2.895 |      20.1 |               |
+| embarcadero-bryant | A2     | both  | 0.143 | 2.436 | 2.419 to 2.466 |      18.5 |          0.92 |
+
+- **About a tenth off the p99.** Selecting the percentile cuts the shadow's and A2's p99 by 8 % to
+  12 % and their p50 by 7 % to 11 %, at both sites. The four values of each condition do not
+  overlap the other build's. That matches the profile, which put the sort at about a sixth of A2's
+  update CPU.
+- **The screen still fails.** A2 is 10.4 and 18.5 times B0's p99 at these sites.
+- **The two sessions agree.** The span-selection build reproduced its own earlier p99 within 3 %
+  at 3rd-folsom (1.377 against 1.377 for the shadow, 1.341 against 1.362 for A2) and within 4 %
+  at embarcadero-bryant, though the earlier session read its captures from the NAS.
+- One A2 run on the span-selection build was disturbed: a desktop application started during it
+  and the one-minute load reached 36. Its repeat replay's p99 was 4.28 ms where its first replay's
+  was 2.60. It was set aside and that condition run again once the load had settled.
+
 ## Interpretation
 
 Selecting rather than sorting is a pure gain: the same spans, two to three times faster where the
 solid body is slowest. It does not change the campaign's decision. A2 at 12 to 20 times B0's p99
 still breaches the observed cost screen, so the screen remains a reason not to promote A2.
 
-What remains is the axis search. For each visible face, `minimumAxisSpan` projects every member
-onto 21 axes, and with `solid_body_full_members` that is the whole cluster. Reducing it changes the
-spans, so it is a tuning change rather than an implementation detail:
+What remains is in three parts:
 
-- a coarse-to-fine search (for example 5° steps, then 1° around the best), or
-- measuring the span on a capped sample of the members rather than all of them, or
-- a smaller search window once the heading has converged.
-
-Any of these needs the corpus screen again, because the minimum over the window is what keeps a
-span a lower bound (see the comment on `minimumAxisSpan`).
+- **The near-edge measurement in association.** Its sort is now a selection too (see
+  [Selecting the near-edge percentile](#selecting-the-near-edge-percentile)), which took about a
+  tenth off the p99; what is left is one measurement per gated pair, which is A2's design.
+- **The span search.** For each visible face, `minimumAxisSpan` projects every member onto 21
+  axes, and with `solid_body_full_members` that is the whole cluster. Reducing it changes the
+  spans, so it is a tuning change: a coarse-to-fine search (for example 5° steps, then 1° around
+  the best), a capped sample of the members, or a smaller window once the heading has converged.
+  Any of these needs the corpus screen again, because the minimum over the window is what keeps a
+  span a lower bound (see the comment on `minimumAxisSpan`).
+- **The screen itself.** It compares Tracker.Update alone, where B0 spends 0.5 % of the frame.
+  Whether A2 should instead be held to the frame's cost, of which its update is about 2.5 %, is a
+  decision for the campaign, not for this record.
 
 ## Limitations
 
@@ -106,12 +188,17 @@ span a lower bound (see the comment on `minimumAxisSpan`).
   minimums.
 - Byte-identity was checked on kirk0 with full replays and on synthetic inputs by test; the three
   timing sites were not compared row by row.
+- The profile after selection is one run per arm at one site, and A2's update is 33 of its
+  samples. The near-edge percentile was timed at two of the three sites, and pierce-haight, whose
+  solid-body cost sits in a few frames, was not.
 
 ## Provenance
 
-| Item           | Value                                                                                                                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2` (the selection change on that main, later rebased onto #676 unchanged); both stamped |
-| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                                |
-| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                                         |
-| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`; replay outputs on the profiling Mac's internal disk               |
+| Item           | Value                                                                                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Builds         | main `acbe1834ace66be9f5a953aaaf9a405627527fa1`; selection `786bd085187e57372cf702eaa291ee40e2da7ff2` (the selection change on that main, later rebased onto #676 unchanged); both stamped                   |
+| Parameter hash | B0 `fd35b0b28fc1…`, shadow `2faa2a0dd8e6…`, A2 `5c7fd88acaa3…` (`params_sha256`, the same on both builds and at every site)                                                                                  |
+| Source digests | 3rd-folsom `1d19feceed93…` (4 captures), pierce-haight `c9b3b0f8d588…` (6), embarcadero-bryant `3c55a2292c59…` (5)                                                                                           |
+| Raw outputs    | Run script, per-run logs and `timing-summary.json` on the LiDAR volume under `velocity-campaign/quiet-timing-20261005/`, and the replay outputs under its `local-full/`                                      |
+| Second session | Span selection at `28d713f2efe3dbf92eb9464533e94e029e369469` and with the near-edge percentile at `c33ed5d8acddaa7d57cbae900258f19bddeb904a`, both stamped; captures from the internal SSD, digests as above |
+| Its outputs    | Profiles, kirk0 byte-identity replays, timing runs, `timing-summary.json` and the set-aside run under `velocity-campaign/a2-profile-20261005/` on the LiDAR volume                                           |
