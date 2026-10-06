@@ -23,9 +23,21 @@ file is just the index — start there for any layer detail.
 | Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
 | Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
 | Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
+| Refinement criteria     | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
+| Uncertainty criteria    | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
+| Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
 | Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
+| Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Per-frame evaluation    | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
+| Headway report oracle   | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
 | macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
 | Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
+
+The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
+completed experiment's per-case findings, methods, uncertainty limits, and follow-up decisions.
+Raw replay outputs remain local. The [update cost profile](operations/near-edge-update-cost-profile-2026-10.md) answers
+its first follow-up: the cost breach is the solid body's extent admission, which the shadow shares. The [D2 re-run](operations/d2-medoid-obb-current-solver-2026-10.md)
+refreshes the medoid against OBB-centre comparison on the current solver.
 
 ## Terminology
 

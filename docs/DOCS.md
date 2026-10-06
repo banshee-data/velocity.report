@@ -35,6 +35,7 @@ For project-wide numeric constants and default thresholds, see
   - Operational guides and implementation status live under `<hub>/operations/`.
 - UI/client surface docs for web/mac/pdf live under [docs/ui/](ui).
 - [docs/plans/](plans) contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
+- Generators for documentation assets live under [tools/](../tools) alongside the other developer tooling, each in its own directory with a README and its committed output under `generated/`. They are tooling, not production code, and must not be imported by the Go server, the web frontend, or the visualiser.
 - Data science and maths references live under `data/`.
   - Specification-grade structures live under [data/structures/](../data/structures).
   - Maths foundations live under [data/maths/](../data/maths) with proposals in [data/maths/proposals/](../data/maths/proposals).

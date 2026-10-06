@@ -162,6 +162,45 @@ L5  Hungarian assignment: clusters matched to existing Kalman tracks
 L6  Classification: confirmed tracks accumulate features → class label
 ```
 
+### Observation evidence tap (opt-in)
+
+`TrackingPipelineConfig.ObservationFrameSink` records L4 evidence for accuracy work. It is off
+by default; `replayeval.Config.ObservationFrames` enables it for offline replays. When on, each
+frame yields one `l4bobserve.FrameRecord` of profile `foreground-complete`, emitted after DBSCAN
+and before L5:
+
+- **Retained domain:** every L3 foreground return, copied before the height-band filter, voxel
+  reduction and the DBSCAN input cap. XYZ are the float64 values L4 computed; acquisition time,
+  intensity, channel, source ordinal and packet locator come from L2.
+- **Membership:** clusters list sorted indices into that domain. The unassigned returns complete
+  the partition with the stage that rejected them: height, voxel, input cap, noise or cluster
+  shape.
+- **Every frame:** empty, unsettled, suppressed and failed frames are recorded too, so a quiet
+  road is distinguishable from missing evidence.
+
+Lineage is carried by a source ordinal on `l4perception.WorldPoint`, stamped before the first
+filter. The field sits in former padding, so enabling nothing costs nothing. The legacy
+`lidar_observations` JSON records are the `reduced-cluster-sample` profile: readable, but refused
+for a full-evidence request. `replayeval.Config.ObservationLogDir` (and
+`velocity lidar pcap-replay --observations`) also writes the records to a VRLOG 1.x observation
+container, typed and checksummed, and readable back bit for bit
+([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)).
+
+### Capture frontier (opt-in)
+
+When the tap's sink is the durable VRLOG writer, the L4 callback appends each frame and moves on:
+the append means accepted. A committer goroutine closes the batch at 100 ms or the target chunk
+size and publishes it as a commit generation, and only after its last directory sync announces
+the durable frontier. L5 runs after the append and never gates the commit; a test holds L5 inside
+`Update` while the frame it holds is committed. Consumers read committed generations only: a live
+one through the writer's announced frontier (`vrlog.Follow`), an offline one through the chain
+(`vrlog.Open`), and an interrupted capture after `vrlog.Recover`. A commit stall, write error or
+full disk stops admission and leaves a failure marker when the disk allows; frames the writer
+cannot admit in time are explicit gaps. Replays use it through `ObservationLogDir`. The server's
+`--lidar-observation-dir` is off by default: power-loss and target-hardware evidence for a live
+default does not exist yet
+([VRLOG plan, phase 2](../../plans/lidar-vrlog-observation-format-plan.md#delivered-capture-and-durable-tail-phase-2-desktop)).
+
 ### Background settling and the 30-second warmup
 
 When a new data source starts (live sensor or PCAP replay), the L3 background grid must _settle_ before foreground extraction begins. During the settling period (default: **100 frames AND 30 seconds**, whichever is longer):
@@ -239,6 +278,7 @@ Documentation for the LiDAR subsystem lives under [docs/lidar/](..).
 | [lidar-pipeline-reference.md](lidar-pipeline-reference.md)                                         | Component inventory, data-flow diagram, deployment topology                    |
 | [network-configuration.md](network-configuration.md)                                               | Network interface selection, diagnostics, and hot-reload plan for UDP listener |
 | [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)           | Proposed path for supporting 3–10 LiDAR models with distinct packet formats    |
+| [time-domain-model.md](time-domain-model.md)                                                       | Capture time versus wall time: which clock each quantity uses, replay, gaps    |
 
 #### Historical (completed designs)
 
@@ -368,6 +408,8 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 | Bernardin & Stiefelhagen (2008): CLEAR MOT metrics                        | Standard MOT evaluation metrics (MOTA, MOTP); used in our L8 Analytics run comparisons                                                   |
 
 **Design choice:** Classical Kalman + Hungarian over learned trackers (e.g. transformer-based); deterministic, real-time on Raspberry Pi hardware, and fully interpretable. The architecture supports future drop-in replacement of the tracker implementation without changing layer boundaries.
+
+**Time domain:** L5 takes elapsed time only from capture timestamps, never from the host clock, so a replay reproduces its tracks at any pace. Which clock each quantity uses, and the guarantees each L1 timestamp mode gives, are in the [time-domain model](time-domain-model.md).
 
 ### L3f velocity-coherent foreground (planned)
 
@@ -532,7 +574,7 @@ The radar and LiDAR operate in fundamentally different domains:
 | Spatial resolution   | 0.2° azimuth, 40 elevation rings           | ~20°×24° beam cone, no angular discrimination   |
 | Velocity information | None (derived by L5 track differentiation) | Direct Doppler measurement, beam-aggregate      |
 | Data transport       | UDP packets (L1), frame assembly (L2)      | Serial JSON, separate ingest path               |
-| Clock source         | Sensor PTP/internal                        | Sensor uptime counter                           |
+| Clock source         | Host arrival (default) or sensor clock     | Sensor uptime counter                           |
 | Pipeline             | L1–L6 LiDAR perception pipeline            | `internal/radar/` → `radar_data` table directly |
 
 **Layer tradeoffs with the current sensor footprint (OPS243-A + Pandar40P):**

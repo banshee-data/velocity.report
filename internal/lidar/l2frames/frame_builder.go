@@ -18,14 +18,35 @@ const (
 	MinFramePointsForCompletion = 10000
 )
 
-// LiDARFrame represents one complete 360° rotation of LiDAR data
+// LiDARFrame represents one complete 360° rotation of LiDAR data.
+//
+// A frame carries two clocks, and they must not be mixed.
+//
+// StartTimestamp and EndTimestamp are capture time: the earliest and latest
+// point timestamps in the frame, which the L1 parser derived from the packet.
+// On replay that is always the PCAP capture time; live, it is what the
+// parser's TimestampMode produced: host arrival time in the default system
+// mode, the sensor's own clock in native LiDAR mode. The estimator runs on
+// this clock alone: the pipeline passes StartTimestamp to the tracker, so it
+// sets the prediction interval, coast age and expiry, and L3 warm-up and
+// settling durations use it too. Because it is the minimum point timestamp,
+// a clock that steps backwards inside a rotation moves the start to the
+// post-step points.
+//
+// StartWallTime and EndWallTime are the host's wall clock when the frame's
+// first and latest points were ingested. They serve runtime concerns only
+// (ageing out stalled frames in the live builder, and diagnostics), and
+// nothing that estimates motion may read them: replay pacing, machine load and host
+// clock steps all move them without the scene changing.
+//
+// See docs/lidar/architecture/time-domain-model.md.
 type LiDARFrame struct {
 	FrameID        string       // unique identifier for this frame
 	SensorID       string       // which sensor generated this frame
-	StartTimestamp time.Time    // timestamp of first point in frame
-	EndTimestamp   time.Time    // timestamp of last point in frame
-	StartWallTime  time.Time    // wall-clock time when frame started (ingest time)
-	EndWallTime    time.Time    // wall-clock time when last point was ingested
+	StartTimestamp time.Time    // capture time: earliest point timestamp in frame (estimator clock)
+	EndTimestamp   time.Time    // capture time: latest point timestamp in frame
+	StartWallTime  time.Time    // host wall clock when the frame's first point was ingested (runtime only)
+	EndWallTime    time.Time    // host wall clock when the frame's latest point was ingested (runtime only)
 	PolarPoints    []PointPolar // sensor-polar view: all points in polar coordinates
 	Points         []Point      // sensor-Cartesian view: all points in Cartesian coordinates
 	MinAzimuth     float64      // minimum azimuth angle observed
@@ -40,28 +61,44 @@ type LiDARFrame struct {
 	PacketGaps        int             // count of missing packets
 	CompletenessRatio float64         // ratio of received/expected packets
 	AzimuthCoverage   float64         // degrees of azimuth covered (0-360)
+	callbackBarrier   chan struct{}   // internal FIFO barrier used to drain callback work
 }
 
 // FrameBuilder accumulates points from multiple packets into complete rotational frames
 // Uses azimuth-based rotation detection and UDP sequence tracking for completeness
 type FrameBuilder struct {
-	sensorID            string            // sensor identifier
-	frameCallback       func(*LiDARFrame) // callback when frame is complete
-	frameCh             chan *LiDARFrame  // serialises frame callback invocations
-	frameDone           chan struct{}     // closed when frameCallbackWorker exits
-	droppedFrames       atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
-	blockOnFrameChannel bool              // when true, block instead of dropping frames (analysis mode)
-	exportNextFrameASC  bool              // flag to export next completed frame
-	exportBatchCount    int               // number of frames to export in batch
-	exportBatchExported int               // number of frames already exported in current batch
-	mu                  sync.Mutex        // protect concurrent access
-	frameCounter        int64             // sequential frame number
+	sensorID      string            // sensor identifier
+	frameCallback func(*LiDARFrame) // callback when frame is complete
+	frameCh       chan *LiDARFrame  // serialises frame callback invocations
+	frameDone     chan struct{}     // closed when frameCallbackWorker exits
+	droppedFrames atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
+	// dropReport rate-limits the drop log. Drops arrive in bursts — a stalled
+	// pipeline fills the queue and every frame behind it is lost — so logging
+	// each one turns a single stall into a wall of near-identical lines. On
+	// 2026-08-26 two stalls produced 84 of them. Summarise per interval instead.
+	dropReportMu        sync.Mutex
+	dropReportStart     time.Time
+	dropReportCount     uint64
+	dropReportFirst     string
+	dropReportLast      string
+	blockOnFrameChannel bool       // when true, block instead of dropping frames (analysis mode)
+	exportNextFrameASC  bool       // flag to export next completed frame
+	exportBatchCount    int        // number of frames to export in batch
+	exportBatchExported int        // number of frames already exported in current batch
+	mu                  sync.Mutex // protect concurrent access
+	frameCounter        int64      // sequential frame number
 
 	// Azimuth-based frame detection
 	currentFrame     *LiDARFrame // frame currently being built
 	lastAzimuth      float64     // previous azimuth to detect 360° wrap
 	azimuthTolerance float64     // tolerance for azimuth wrap detection (default: 10°)
 	minFramePoints   int         // minimum points required for valid frame
+
+	// Capture-file join handling for multi-file replay. dropStraddling marks
+	// the revolution in flight as one that spans a join too wide to stitch, so
+	// it is discarded at the next frame boundary instead of being emitted.
+	dropStraddling    bool
+	straddlingDropped atomic.Uint64 // revolutions discarded at a join
 
 	// UDP sequence tracking for completeness
 	lastSequence     uint32             // last processed UDP sequence
@@ -311,6 +348,9 @@ func (fb *FrameBuilder) addPointsDualInternal(points []Point, polar []PointPolar
 				tracef("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
 					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
+			// finalizeCurrentFrame honours a pending straddling-join drop, so
+			// the revolution spanning the join is discarded here rather than
+			// emitted as a frame assembled from two distant moments.
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp, arrivalNow)
 		}

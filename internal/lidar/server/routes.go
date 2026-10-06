@@ -43,11 +43,7 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
-	assetsFS, err := l9endpoints.LegacyAssetsFS()
-	if err != nil {
-		opsf("failed to prepare echarts assets: %v", err)
-		assetsFS = nil
-	}
+	assetsFS := l9endpoints.LegacyAssetsFS()
 
 	// Core status and health routes
 	coreRoutes := []route{
@@ -109,9 +105,28 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	pcapRoutes := []route{
 		{"GET /api/lidar/data_source", ws.handleDataSource},
 		{"POST /api/lidar/pcap/start", ws.handlePCAPStart},
-		{"POST /api/lidar/pcap/stop", ws.handlePCAPStop},
+		// One stop for every replay kind. The two older paths are aliases of
+		// this handler, kept so existing clients and docs keep working; error
+		// messages name only the canonical route.
+		{"POST /api/lidar/replay/stop", ws.handleReplayStop},
+		{"POST /api/lidar/pcap/stop", ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
+	}
+
+	// Capture index routes: what is on the configured volumes, what changed,
+	// and which files form a continuous session.
+	captureRoutes := []route{
+		{"GET /api/lidar/capture/roots", ws.handleCaptureRoots},
+		{"POST /api/lidar/capture/scan", ws.handleCaptureScan},
+		{"GET /api/lidar/capture/sessions", ws.handleCaptureSessions},
+		{"GET /api/lidar/capture/files", ws.handleCaptureFiles},
+		{"POST /api/lidar/capture/session/label", ws.handleCaptureSessionLabel},
+		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
+		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
+		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
+		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
+		{"GET /api/lidar/scene-map", ws.handleSceneMap},
 	}
 
 	// Chart API routes (structured JSON data for frontend charts)
@@ -149,13 +164,13 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/playback/seek", ws.handlePlaybackSeek},
 		{"POST /api/lidar/playback/rate", ws.handlePlaybackRate},
 		{"POST /api/lidar/vrlog/load", ws.handleVRLogLoad},
-		{"POST /api/lidar/vrlog/stop", ws.handleVRLogStop},
+		{"POST /api/lidar/vrlog/stop", ws.handleReplayStop},
 	}
 
 	// Register all route groups
 	for _, group := range [][]route{
 		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
-		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
+		gridRoutes, pcapRoutes, captureRoutes, chartRoutes, debugRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
 			mux.HandleFunc(r.pattern, r.handler)
@@ -200,6 +215,27 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Scene API routes (scene management for track labelling and auto-tuning)
 	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
+	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
+	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
+	mux.HandleFunc("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
+	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))
+	mux.HandleFunc("/api/annotations/packs", ws.handleAnnotationPacks)
+	mux.HandleFunc("/api/annotations/physical", ws.handlePhysicalReferences)
+	mux.HandleFunc("/api/annotations/features", ws.handleFeatureAnnotations)
+	mux.HandleFunc("/api/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
+	mux.HandleFunc("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
+	mux.HandleFunc("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
+	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
+	mux.HandleFunc("/api/annotations/physical/history", ws.handlePhysicalHistory)
+	mux.HandleFunc("/api/annotations/physical/restore", ws.handlePhysicalRestore)
+	mux.HandleFunc("/api/annotations/split/preview", ws.handleSplitPreview)
+	mux.HandleFunc("/api/annotations/split/freeze", ws.handleSplitFreeze)
+	mux.HandleFunc("/api/annotations/splits", ws.handleSplits)
+
+	// Site API routes (canonical pose for a located site, e.g. a surveyed
+	// intersection midpoint) — distinct from a case's own sensor pose.
+	mux.HandleFunc("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
 
 }
 

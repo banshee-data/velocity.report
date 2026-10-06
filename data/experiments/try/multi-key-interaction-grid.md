@@ -1,6 +1,12 @@
 # Experiment: multi-key parameter interaction grid search
 
-- **Status:** Proposed (depends on per-layer sweep results)
+- **Status:** Proposed (depends on per-layer sweep results). Scheduled as
+  **Batch 5** of the
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md#batch-5--multi-key-interaction-grid) —
+  not scoped further until Batches 1-4 identify which keys actually show
+  consistent, non-circular sensitivity. `pcap-analyse`, named below, has
+  been removed from the codebase; whichever per-layer tool proves out a key
+  (`settling-eval` for L3 today) is what this batch will actually run.
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks
 
 ## Hypothesis

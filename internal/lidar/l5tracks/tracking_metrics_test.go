@@ -16,27 +16,30 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		t.Parallel()
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: time.Second,
+			DeletedTrackRenderFade:  time.Second,
 		})
 
 		deleted := tracker.GetRecentlyDeletedTracks(time.Now().UnixNano())
 		assert.Empty(t, deleted)
 	})
 
-	t.Run("returns empty slice with default grace period", func(t *testing.T) {
+	t.Run("returns empty slice with no render fade window", func(t *testing.T) {
 		t.Parallel()
 		tracker := NewTracker(TrackerConfig{
-			DeletedTrackGracePeriod: 0, // Uses default
+			DeletedTrackGracePeriod: 0,
+			DeletedTrackRenderFade:  0,
 		})
 
 		deleted := tracker.GetRecentlyDeletedTracks(time.Now().UnixNano())
 		assert.Empty(t, deleted)
 	})
 
-	t.Run("returns deleted tracks within grace period", func(t *testing.T) {
+	t.Run("returns deleted tracks within the render fade window", func(t *testing.T) {
 		t.Parallel()
 		gracePeriod := time.Second
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: gracePeriod,
+			DeletedTrackRenderFade:  gracePeriod,
 		})
 
 		now := time.Now().UnixNano()
@@ -57,15 +60,16 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		assert.Equal(t, TrackDeleted, deleted[0].TrackState)
 	})
 
-	t.Run("excludes tracks past grace period", func(t *testing.T) {
+	t.Run("excludes tracks past the render fade window", func(t *testing.T) {
 		t.Parallel()
 		gracePeriod := time.Second
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: gracePeriod,
+			DeletedTrackRenderFade:  gracePeriod,
 		})
 
 		now := time.Now().UnixNano()
-		deletedAt := now - int64(2*time.Second) // 2 seconds ago (past grace period)
+		deletedAt := now - int64(2*time.Second) // 2 seconds ago (past the render fade window)
 
 		track := &TrackedObject{
 			TrackID: "track-old-deleted", TrackMeasurement: TrackMeasurement{TrackState: TrackDeleted,
@@ -81,6 +85,7 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		t.Parallel()
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: time.Second,
+			DeletedTrackRenderFade:  time.Second,
 		})
 
 		now := time.Now().UnixNano()
@@ -102,6 +107,7 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		t.Parallel()
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: time.Second,
+			DeletedTrackRenderFade:  time.Second,
 		})
 
 		now := time.Now().UnixNano()
@@ -130,6 +136,7 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		t.Parallel()
 		tracker := NewTracker(TrackerConfig{
 			DeletedTrackGracePeriod: time.Second,
+			DeletedTrackRenderFade:  time.Second,
 		})
 
 		now := time.Now().UnixNano()

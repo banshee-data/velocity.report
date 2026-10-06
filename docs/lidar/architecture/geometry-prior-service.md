@@ -4,7 +4,7 @@
 - **Parent:** [vector-scene-map.md](./vector-scene-map.md)
 - **Layers:** L4 Perception (extends Prior Loader interface)
 
-Community-maintained supplemental geometry priors: ground surfaces, kerbs, vegetation; not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, keyed by coarsened GPS coordinates. Remote prior fetches are explicit opt-in and optional; local LiDAR-only operation remains the default.
+Community-maintained supplemental geometry priors: ground surfaces, kerbs, vegetation; not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, partitioned by canonical S2 cells. Remote prior fetches are explicit opt-in and optional; local LiDAR-only operation remains the default. The S2 representation follows the repository-wide [geographic-indexing decision](geographic-indexing.md).
 
 ---
 
@@ -16,7 +16,7 @@ Enable a public file tree of supplemental geometry priors that any velocity.repo
 
 ## Architecture: local-first with optional static fetch
 
-The prior service is purely additive. Without GPS or network access, the system runs LiDAR-only using its own learned background. With GPS and opt-in enabled, the Prior Loader fetches static GeoJSON files for the coarsened grid cell, applies them as soft-constraint weights, and never phones home with precise coordinates.
+The prior service is purely additive. Without GPS or network access, the system runs LiDAR-only using its own learned background. With GPS and opt-in enabled, the Prior Loader calculates the canonical S2 L13 cell, derives its L10 parent with S2 CellID semantics, fetches that partition's static GeoJSON, applies it as soft-constraint weights, and never sends the precise WGS84 measurement.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -24,39 +24,42 @@ The prior service is purely additive. Without GPS or network access, the system 
 │                                                          │
 │  1. Read local prior files (always)                      │
 │  2. If GPS available AND prior_service.enabled:          │
-│     a. Coarsen GPS → 0.01° grid cell (e.g. 51.75_-1.26)  │
-│     b. Fetch {base_url}/{lat_int}/{lon_int}/{cell}.geojson│
-│     c. Validate schema, apply as weighted priors         │
+│     a. Convert GPS → canonical S2 L13 CellID/token       │
+│     b. Derive L10 with CellID.Parent(10)                 │
+│     c. Fetch {base_url}/{l10}/{l13}.geojson              │
+│     d. Validate schema, apply as weighted priors         │
 │  3. Merge local + remote priors (local wins on conflict) │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Grid-Based folder structure
+## S2 folder structure
 
-The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km N-S × ~0.7 km E-W at UK latitudes), matching the coarsening applied to GPS coordinates before any network request. This prevents precise deployment location disclosure while providing sufficient locality for scene priors.
+The data uses S2 L13 as its canonical fine geographic partition and S2 L10 as
+the coarse filesystem partition. Both path components are canonical S2 tokens:
 
-| Path Component        | Resolution    | Example       | Max entries per parent                  |
-| --------------------- | ------------- | ------------- | --------------------------------------- |
-| `{lat_int}/`          | 1° (~111 km)  | `51/`         | 180 (−90 to +89)                        |
-| `{lon_int}/`          | 1° (~70 km)   | `-1/`         | 360 (−180 to +179)                      |
-| `{lat}_{lon}.geojson` | 0.01° (~1 km) | `51.75_-1.26` | up to 10,000 per `{lat_int}/{lon_int}/` |
+```text
+priors/
+  808581/             # canonical L10 token
+    80858004.geojson  # canonical L13 token
+```
 
-**Negative longitudes** use the minus sign in the folder and filename (e.g. `-1/51.75_-1.26.geojson`).
+An L10 cell contains exactly 64 L13 descendants (`4³` for the three S2 levels
+between L10 and L13), so a directory has at most 64 aggregate cell files before
+any deliberately separate contribution/version objects. Sparse areas simply
+omit cells for which no prior exists. The four-child subdivision and
+face-local Hilbert ordering are explained in the canonical
+[geographic-indexing decision](geographic-indexing.md#how-s2-positions-and-numbers-cells)
+and the official [S2 Cells developer
+guide](https://s2geometry.io/devguide/s2cell_hierarchy).
 
-**File count analysis:**
-
-Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files** (the 0.01° grid over one 1°×1° block). In practice, populated cells are heavily sparse: a typical UK town produces 50–200 files across 2–4 parent directories.
-
-| Scope                  | Approximate file count                             |
-| ---------------------- | -------------------------------------------------- |
-| Single intersection    | 1–4 files                                          |
-| Residential street     | 5–20 files                                         |
-| Town / suburb          | 50–300 files                                       |
-| County / large city    | 1,000–5,000 files                                  |
-| Full UK coverage       | ~50,000–200,000 files                              |
-| Global theoretical max | 648 million cells (unpopulated cells have no file) |
+The L10 parent must be calculated from the L13 CellID with `Parent(10)`. It must
+never be obtained by truncating the L13 token or extracting a lexical prefix.
+The optional family displays (`80858-1` and `80858-004`) are for human-facing
+text only; they do not appear in paths. UI may add the non-text scan cue inside
+the family prefix, but selection and copying must still yield `80858-1` or
+`80858-004` with no space character.
 
 ---
 
@@ -90,20 +93,23 @@ Design choices in v1.0 that ensure the online service is additive, not a rewrite
 
 All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are **immutable once merged**: CI never modifies the contributor-uploaded content, ensuring that detached GPG signatures remain independently verifiable.
 
-**File structure (each grid cell):** `{lat}_{lon}.geojson`
+**File structure (each fine partition):** `{s2-l13-token}.geojson`, beneath its
+canonical `{s2-l10-token}/` parent directory.
 
 Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and a `features` array.
 
 **Top-level metadata:**
 
-| Field               | Type   | Required | Notes                           |
-| ------------------- | ------ | -------- | ------------------------------- |
-| `schema_version`    | string | Yes      | Currently `"1"`                 |
-| `grid_cell`         | string | Yes      | `"{lat}_{lon}"` cell identifier |
-| `created_at`        | string | Yes      | ISO 8601 timestamp              |
-| `contributor_name`  | string | Yes      | Display name                    |
-| `contributor_email` | string | No       | For GPG key lookup              |
-| `gpg_fingerprint`   | string | No       | Fingerprint of signing key      |
+| Field               | Type   | Required | Notes                                             |
+| ------------------- | ------ | -------- | ------------------------------------------------- |
+| `schema_version`    | string | Yes      | Currently `"1"`                                   |
+| `s2_level`          | int    | Yes      | Canonical fine level; `13`                        |
+| `s2_l13_token`      | string | Yes      | Canonical S2 L13 token                            |
+| `s2_l10_token`      | string | Yes      | Canonical parent token, derived with `Parent(10)` |
+| `created_at`        | string | Yes      | ISO 8601 timestamp                                |
+| `contributor_name`  | string | Yes      | Display name                                      |
+| `contributor_email` | string | No       | For GPG key lookup                                |
+| `gpg_fingerprint`   | string | No       | Fingerprint of signing key                        |
 
 **Feature properties (per feature):**
 
@@ -118,8 +124,8 @@ Additional class-specific properties (`plane_normal`, `z_min`, etc.) vary by cla
 When a contributor provides a GPG key, the export tool produces a detached signature file submitted alongside the GeoJSON in the same PR:
 
 ```
-51.75_-1.26.geojson
-51.75_-1.26.geojson.sig   # detached ASCII-armoured GPG signature
+80858004.geojson
+80858004.geojson.sig   # detached ASCII-armoured GPG signature
 ```
 
 CI verifies the signature against the declared `gpg_fingerprint` at merge time. The result is recorded in the `_trust/` manifest: **the GeoJSON file itself is not touched**.
@@ -134,10 +140,9 @@ Because prior files are immutable, CI maintains signature status in a separate d
 priors/
   _trust/
     manifest.json   # CI-owned; updated on every merge
-  51/
-    -1/
-      51.75_-1.26.geojson
-      51.75_-1.26.geojson.sig
+  808581/
+    80858004.geojson
+    80858004.geojson.sig
 ```
 
 **`_trust/manifest.json` structure:**
@@ -177,7 +182,7 @@ With `require_signed: true` the Prior Loader fetches `_trust/manifest.json` firs
 
 **Privacy safeguards:**
 
-1. Location queries use coarsened coordinates (0.01° grid snapping, ~1 km²): no precise deployment location disclosure.
+1. Location queries use a canonical S2 L13 partition rather than transmitting the precise WGS84 measurement. The requested partition still reveals an approximate area and must remain explicit opt-in; S2 is an index, not anonymisation.
 2. No authentication required for read access (public static files).
 3. Contributor identity is a **freely chosen name**: no accounts, no verification of real-world identity. Email and GPG key are entirely optional. Signatures authenticate the _key_, not the person; status is recorded only in `_trust/manifest.json`.
 4. All prior data is geometry only: no speed, transit, or vehicle data.
@@ -233,7 +238,7 @@ No dedicated LiDAR PCAP repository exists for low-speed urban traffic data. Hugg
 
 These questions should be addressed before the v2.0 contribution pipeline is built.
 
-**Q1: Multi-contributor merging for the same grid cell.** Each 0.01° cell is a single file. If two contributors both submit priors for `51.75_-1.26.geojson`, whose data wins? Options range from last-write-wins to weighted polygon union to versioned per-contributor sub-files. Considerations: immutability constraint prevents in-place merge; per-contributor files (e.g. `51.75_-1.26.<fingerprint>.geojson`) preserve immutability but multiply file count; a server-side merge artefact (unsigned, clearly marked synthetic) could live alongside originals.
+**Q1: Multi-contributor merging for the same geographic partition.** Each S2 L13 cell has a single aggregate file. If two contributors both submit priors for `80858004.geojson`, whose data wins? Options range from last-write-wins to weighted polygon union to versioned per-contributor sub-files. Considerations: immutability prevents in-place merge; per-contributor files (for example, `80858004.<fingerprint>.geojson`) preserve immutability but multiply file count; a server-side merge artefact (unsigned, clearly marked synthetic) could live alongside originals.
 
 **Q2: Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
 
@@ -252,7 +257,9 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 | **5a** | v1.0      | Define GeoJSON schema for local prior files                  |
 | **5b** | v1.0      | Implement Prior Loader with file-system backend              |
 | **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring      |
-| **5d** | v2.0      | Add HTTP backend to Prior Loader (static file fetch, opt-in) |
-| **5e** | v2.0      | Define canonical grid folder structure and CI validation     |
+| **5d** | v2.0      | Implement shared WGS84 → L13 and `Parent(10)` S2 utilities   |
+| **5e** | v2.0      | Define canonical L10/L13 folder structure and CI validation  |
 | **5f** | v2.0      | Create public prior repository with contribution guidelines  |
-| **5g** | v2.0      | Add GeoJSON scene-map export command for prior contribution  |
+| **5g** | v2.0      | Add HTTP backend to Prior Loader (static file fetch, opt-in) |
+| **5h** | v2.0      | Add GeoJSON scene-map export command for prior contribution  |
+| **5i** | v2.0      | Add known-vector, hierarchy, and non-lexical-parent tests    |

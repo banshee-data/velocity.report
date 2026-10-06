@@ -98,7 +98,7 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Connect to the gRPC server and start streaming frames.
     func connect() async throws {
-        print("[VisualiserClient] 🔌 connect() called, address: \(address)")
+        vlog("[VisualiserClient] 🔌 connect() called, address: \(address)")
         logger.info("connect() called, address: \(self.address)")
 
         guard !isConnected else {
@@ -118,7 +118,7 @@ enum VisualiserClientError: Error, LocalizedError {
 
         // Create gRPC transport and client
         do {
-            print("[VisualiserClient] Creating gRPC transport to \(host):\(port)...")
+            vlog("[VisualiserClient] Creating gRPC transport to \(host):\(port)...")
 
             // Configure max message size for large point clouds (64k+ points).
             // Default 4MB is insufficient; use 16MB to handle full-resolution frames.
@@ -129,8 +129,18 @@ enum VisualiserClientError: Error, LocalizedError {
             )
             let serviceConfig = ServiceConfig(methodConfig: [methodConfig])
 
+            // Set the HTTP/2 window explicitly rather than inheriting the
+            // default. On 2026-08-28 the server sat blocked in Send for 105s
+            // while this client waited for a message that never came, with the
+            // main thread responsive and the read loop idle on a background
+            // thread — both ends waiting on each other, which is what
+            // exhausted flow control looks like from the outside.
+            var config = HTTP2ClientTransport.Posix.Config.defaults
+            config.http2.targetWindowSize = 16 * 1024 * 1024
+            config.http2.maxFrameSize = 1 << 20
+
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port), transportSecurity: .plaintext,
+                target: .dns(host: host, port: port), transportSecurity: .plaintext, config: config,
                 serviceConfig: serviceConfig)
 
             let grpcClient = GRPCClient(transport: transport)
@@ -144,18 +154,18 @@ enum VisualiserClientError: Error, LocalizedError {
             try await Task.sleep(for: .milliseconds(100))
 
             _isConnected.value = true
-            print("[VisualiserClient] ✅ gRPC client created and running")
+            vlog("[VisualiserClient] ✅ gRPC client created and running")
             logger.info("gRPC client created and running")
 
             await MainActor.run { self.delegate?.clientDidConnect(self) }
-            print("[VisualiserClient] 🚀 Starting gRPC stream...")
+            vlog("[VisualiserClient] 🚀 Starting gRPC stream...")
             logger.debug("Delegate notified, starting streaming task...")
 
             // Start streaming frames from the server
             startStreamingTask()
 
         } catch {
-            print("[VisualiserClient] ❌ Failed to create gRPC transport: \(error)")
+            vlog("[VisualiserClient] ❌ Failed to create gRPC transport: \(error)")
             logger.error("Failed to create gRPC transport: \(error.localizedDescription)")
             throw VisualiserClientError.connectionFailed(error.localizedDescription)
         }
@@ -164,7 +174,7 @@ enum VisualiserClientError: Error, LocalizedError {
     /// Disconnect from the gRPC server.
     func disconnect() {
         guard isConnected else { return }
-        print("[VisualiserClient] 🔌 Disconnecting...")
+        vlog("[VisualiserClient] 🔌 Disconnecting...")
         logger.info("disconnect() called")
 
         // Cancel streaming task
@@ -179,16 +189,16 @@ enum VisualiserClientError: Error, LocalizedError {
 
         _isConnected.value = false
         delegate?.clientDidDisconnect(self, error: nil)
-        print("[VisualiserClient] Disconnected")
+        vlog("[VisualiserClient] Disconnected")
     }
 
     /// Restart the frame stream (used after seek when replay has finished).
     func restartStream() {
         guard isConnected else {
-            print("[VisualiserClient] restartStream() — not connected, skipping")
+            vlog("[VisualiserClient] restartStream() — not connected, skipping")
             return
         }
-        print("[VisualiserClient] Restarting stream...")
+        vlog("[VisualiserClient] Restarting stream...")
         _streamTask.value?.cancel()
         startStreamingTask()
     }
@@ -219,7 +229,7 @@ enum VisualiserClientError: Error, LocalizedError {
                 }
             } catch {
                 if !Task.isCancelled {
-                    print("[VisualiserClient] ❌ Stream error: \(error)")
+                    vlog("[VisualiserClient] ❌ Stream error: \(error)")
                     logger.error("Stream error: \(error.localizedDescription)")
                     // Do not mark the stream as naturally finished here: this is
                     // an error path. Let EOF/normal completion paths invoke
@@ -247,7 +257,7 @@ enum VisualiserClientError: Error, LocalizedError {
         request.pointDecimation = decimationMode
         request.decimationRatio = decimationRatio
 
-        print("[VisualiserClient] 📡 Starting StreamFrames RPC...")
+        vlog("[VisualiserClient] 📡 Starting StreamFrames RPC...")
         logger.info("Starting StreamFrames RPC with request: sensor=\(request.sensorID)")
 
         // Call the streaming RPC
@@ -257,11 +267,11 @@ enum VisualiserClientError: Error, LocalizedError {
             onResponse: {
                 [weak self] (response: StreamingClientResponse<Velocity_Visualiser_V1_FrameBundle>)
                 in
-                print("[VisualiserClient] 📥 Received stream response")
+                vlog("[VisualiserClient] 📥 Received stream response")
 
                 switch response.accepted {
                 case .success(let contents):
-                    print("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
+                    vlog("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
 
                     var frameCount: UInt64 = 0
                     var skippedFrames: UInt64 = 0
@@ -272,6 +282,14 @@ enum VisualiserClientError: Error, LocalizedError {
                     let minFrameInterval: ContinuousClock.Duration = .milliseconds(33)
                     var lastDispatchTime = ContinuousClock.now - minFrameInterval
                     do {
+                        // Which thread drains the stream decides whether a
+                        // wedged main thread can starve it. If this reports the
+                        // main thread, the read loop and the UI are competing
+                        // for the same one and a stall on either stops both.
+                        vlog(
+                            "[VisualiserClient] read loop running on "
+                                + (Thread.isMainThread ? "the MAIN thread" : "a background thread"))
+
                         for try await protoFrame in response.messages {
                             frameCount += 1
 
@@ -293,7 +311,7 @@ enum VisualiserClientError: Error, LocalizedError {
 
                             // Log every 100 frames
                             if frameCount % 100 == 1 {
-                                print(
+                                vlog(
                                     "[VisualiserClient] frame \(frameCount): type=\(protoFrame.frameType) points=\(protoFrame.pointCloud.pointCount) skipped=\(skippedFrames)"
                                 )
                             }
@@ -310,7 +328,7 @@ enum VisualiserClientError: Error, LocalizedError {
                                 streamDelegate?.client(self, didReceiveFrame: frame)
                             }
                         }
-                        print(
+                        vlog(
                             "[VisualiserClient] 🏁 Stream ended normally after \(frameCount) frames")
                     } catch {
                         // grpc-swift-v2 may throw when the server closes the
@@ -319,7 +337,7 @@ enum VisualiserClientError: Error, LocalizedError {
                         // fatal error — the gRPC transport error is expected at
                         // EOF and should not prevent the UI from showing the
                         // finished state.
-                        print(
+                        vlog(
                             "[VisualiserClient] 🏁 Stream ended after \(frameCount) frames (transport: \(error.localizedDescription))"
                         )
                     }
@@ -328,7 +346,7 @@ enum VisualiserClientError: Error, LocalizedError {
                         wasCancelled: Task.isCancelled, streamDelegate: streamDelegate)
 
                 case .failure(let error):
-                    print("[VisualiserClient] ❌ Stream rejected: \(error)")
+                    vlog("[VisualiserClient] ❌ Stream rejected: \(error)")
                     throw VisualiserClientError.streamError(String(describing: error))
                 }
             })
@@ -354,13 +372,13 @@ enum VisualiserClientError: Error, LocalizedError {
         // Only notify delegate of a natural finish (replay complete). If the task
         // was cancelled (e.g. restartStream()), the stream exit is intentional.
         guard !wasCancelled else {
-            print("[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
+            vlog("[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
             return
         }
         // Idempotency: streamFrames() and startStreamingTask() can both trigger
         // this for the same stream.  Only notify once per stream.
         guard !_streamTerminationNotified else {
-            print("[VisualiserClient] Stream termination already notified — skipping duplicate")
+            vlog("[VisualiserClient] Stream termination already notified — skipping duplicate")
             return
         }
         _streamTerminationNotified = true
@@ -392,17 +410,17 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Resume playback (replay mode only).
     func play() async throws -> VisualiserPlaybackStatus {
-        print(
+        vlog(
             "[VisualiserClient] play() — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
         )
         guard isConnected, let grpcClient = _grpcClient.value else {
-            print("[VisualiserClient] play() — not connected")
+            vlog("[VisualiserClient] play() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PlayRequest()
         let response = try await serviceClient.play(request: ClientRequest(message: request))
-        print(
+        vlog(
             "[VisualiserClient] play() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
         )
         return Self.decodePlaybackStatus(response)
@@ -410,18 +428,18 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Seek to a timestamp (replay mode only).
     func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus {
-        print(
+        vlog(
             "[VisualiserClient] seek(to: \(timestampNanos)) — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
         )
         guard isConnected, let grpcClient = _grpcClient.value else {
-            print("[VisualiserClient] seek() — not connected")
+            vlog("[VisualiserClient] seek() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.timestampNs = timestampNanos
         let response = try await serviceClient.seek(request: ClientRequest(message: request))
-        print(
+        vlog(
             "[VisualiserClient] seek() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
         )
         return Self.decodePlaybackStatus(response)
@@ -666,12 +684,16 @@ final class LockedState<Value>: @unchecked Sendable {
         // Playback info
         if proto.hasPlaybackInfo {
             frame.playbackInfo = PlaybackInfo(
-                isLive: proto.playbackInfo.isLive, logStartNs: proto.playbackInfo.logStartNs,
-                logEndNs: proto.playbackInfo.logEndNs,
+                settling: proto.playbackInfo.settling,
+                settlingElapsedSeconds: proto.playbackInfo.settlingElapsedSeconds,
+                sensorSilent: proto.playbackInfo.sensorSilent,
+                logStartNs: proto.playbackInfo.logStartNs, logEndNs: proto.playbackInfo.logEndNs,
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,
                 totalFrames: proto.playbackInfo.totalFrames, seekable: proto.playbackInfo.seekable,
-                replayEpoch: proto.playbackInfo.replayEpoch)
+                replayEpoch: proto.playbackInfo.replayEpoch,
+                sourceMode: sourceMode(from: proto.playbackInfo.sourceMode),
+                recording: proto.playbackInfo.recording)
         }
 
         // Debug overlays
@@ -730,6 +752,20 @@ final class LockedState<Value>: @unchecked Sendable {
 
 /// Convert a proto ObjectClass enum value to its canonical string label.
 /// Returns empty string only for unspecified, otherwise a valid label.
+/// Maps the wire source mode to the client enum.
+///
+/// `.unspecified` means no source was reported; callers keep it unspecified
+/// rather than deriving one from seekability.
+private func sourceMode(from proto: Velocity_Visualiser_V1_SourceMode) -> SourceMode {
+    switch proto {
+    case .live: return .live
+    case .pcap: return .pcap
+    case .pcapAnalysis: return .pcapAnalysis
+    case .vrlog: return .vrlog
+    default: return .unspecified
+    }
+}
+
 private func objectClassLabel(_ oc: Velocity_Visualiser_V1_ObjectClass) -> String {
     switch oc {
     case .car: return "car"

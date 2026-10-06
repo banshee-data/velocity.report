@@ -63,6 +63,11 @@ type RealtimeReplayConfig struct {
 	// OnProgress is called periodically during replay with the current
 	// packet index and total packet count, enabling seek-bar updates.
 	OnProgress func(currentPacket, totalPackets uint64)
+
+	// PacingAnchor shares one pacing clock across the files of a sequence, so
+	// a join does not reset the pacer and produce a catch-up burst. Nil means
+	// this file keeps its own clock, which is what a single-file replay wants.
+	PacingAnchor *PacingAnchor
 }
 
 const (
@@ -81,8 +86,40 @@ const (
 	// pcapBackoffMinYield is the minimum sleep inserted per packet when behind.
 	pcapBackoffMinYield = 1 * time.Millisecond
 
-	// pcapBackoffMaxYield caps the per-packet yield to avoid stalling replay.
-	pcapBackoffMaxYield = 50 * time.Millisecond
+	// pcapBackoffMaxYield caps the per-packet yield.
+	//
+	// Deliberately small. Yielding when behind is close to self-defeating: the
+	// sleep is subtracted from elapsed wall time, so it does not reduce the
+	// measured deficit, and it costs throughput that could have closed it. At
+	// 50 ms a replay that fell behind advanced at 20 packets per second against
+	// a target of 925 — forty-five times slower — which guaranteed it stayed
+	// behind. Its purpose is only to take the edge off a burst; the real
+	// backpressure is the frame channel, which blocks the reader when the
+	// pipeline is full and cannot be outrun.
+	pcapBackoffMaxYield = 2 * time.Millisecond
+
+	// pcapBackoffCooldown suppresses backoff for a while after a deficit has
+	// been forgiven. Without it the pacer forgives, immediately measures itself
+	// behind again, re-enters backoff, and oscillates: seven forgiveness events
+	// in an hour while advancing at a fortieth of the requested rate. After
+	// forgiving, the replay needs a clear run to find its own pace.
+	pcapBackoffCooldown = 60 * time.Second
+
+	// pcapPacingForgiveThreshold is the deficit beyond which the pacer stops
+	// trying to make up lost time and paces from where it is instead.
+	//
+	// Yielding cannot recover a large deficit. Each yield is subtracted from
+	// elapsed wall time — deliberately, so that sleeping does not itself read
+	// as lateness — which means the measured deficit is frozen while the yield
+	// is being served. Past a certain size the replay therefore yields the
+	// maximum on every packet forever and advances at the yield rate: observed
+	// at 18 packets per second against a target of 925, still 139 s behind
+	// after 116,800 consecutive backoffs.
+	//
+	// Pacing exists to stop catch-up bursts flooding the frame builder, not to
+	// hold a replay to a total duration. So when the deficit is past saving,
+	// forgive it and keep pacing from here.
+	pcapPacingForgiveThreshold = 30 * time.Second
 
 	// pcapStartupGracePeriod suppresses backoff during initial pipeline warm-up.
 	// The background grid and tracker need a few seconds to initialise; the
@@ -122,11 +159,10 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	startTime := time.Now()
 	warmupRemaining := config.WarmupPackets
 	var backoffCount int64
-	var inBackoff bool                // Track backoff state for recovery logging
-	var maxBehindBy time.Duration     // Peak pipeline lag observed
-	var backoffPacketStart int        // Packet count when current backoff sequence started
-	var totalBackoffPackets int       // Total packets processed during backoff sequences
-	var cumulativeYield time.Duration // Total time spent sleeping in backoff
+	var inBackoff bool            // Track backoff state for recovery logging
+	var maxBehindBy time.Duration // Peak pipeline lag observed
+	var backoffPacketStart int    // Packet count when current backoff sequence started
+	var totalBackoffPackets int   // Total packets processed during backoff sequences
 
 	// Diagnostic: track cumulative time spent in processing phases
 	var cumulativeParseTime time.Duration  // ParsePacket time
@@ -137,8 +173,21 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	// Offset-based seek: skip packets until we reach PacketOffset
 	skippingToOffset := config.PacketOffset > 0
 
+	var cumulativeYield time.Duration // Total time spent sleeping in backoff, carried across a sequence
+	var lastForgive time.Time         // When a deficit was last written off, for the backoff cooldown
 	var firstPacketTime time.Time
 	replayStartTime := time.Now()
+	// pacingStart is the capture instant the pacer measures elapsed capture
+	// time from. It is deliberately not startThreshold: that selects this
+	// file's window and each step of a sequence has its own, whereas the pacer
+	// needs the one origin the whole sequence shares.
+	var pacingStart time.Time
+	// A sequence step that is not the first inherits the origin fixed by the
+	// first, so elapsed capture and wall time both continue across the join.
+	if config.PacingAnchor.Anchored() {
+		replayStartTime = config.PacingAnchor.WallStart
+		cumulativeYield = config.PacingAnchor.CumulativeYield
+	}
 	var startThreshold time.Time
 	var endThreshold time.Time
 	skippingToStart := config.StartSeconds > 0
@@ -203,9 +252,14 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				} else {
 					// When no start offset, use first packet time as the baseline
 					startThreshold = firstPacketTime
-					// Reset replay start time for accurate pacing when not skipping
-					replayStartTime = time.Now()
+					// Reset replay start time for accurate pacing when not
+					// skipping — unless a sequence already fixed the origin,
+					// in which case this file continues it.
+					if !config.PacingAnchor.Anchored() {
+						replayStartTime = time.Now()
+					}
 				}
+
 				if config.DurationSeconds > 0 {
 					// Duration is always relative to the effective start threshold
 					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
@@ -221,7 +275,19 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if skippingToStart {
 				skippingToStart = false
 				diagf("PCAP replay: started at %.2fs offset", config.StartSeconds)
-				replayStartTime = time.Now() // Reset start time for accurate speed reporting
+				if !config.PacingAnchor.Anchored() {
+					replayStartTime = time.Now() // Reset start time for accurate speed reporting
+				}
+			}
+			// Fix the sequence origin on the first packet actually played, so
+			// every later step measures against this one.
+			config.PacingAnchor.Anchor(startThreshold, replayStartTime)
+			if pacingStart.IsZero() {
+				if config.PacingAnchor.Anchored() {
+					pacingStart = config.PacingAnchor.CaptureStart
+				} else {
+					pacingStart = startThreshold
+				}
 			}
 
 			// Stop if we've reached the end threshold
@@ -254,7 +320,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// and cause track breaks from dropped frames.
 			if config.SpeedMultiplier < 100 && firstPacketTime != captureTime {
 				// How much PCAP time has elapsed since the effective start?
-				pcapElapsed := captureTime.Sub(startThreshold)
+				pcapElapsed := captureTime.Sub(pacingStart)
 				// How much wall clock time should have elapsed at this speed?
 				targetWallElapsed := time.Duration(float64(pcapElapsed) / config.SpeedMultiplier)
 				// How much wall clock time has actually elapsed?
@@ -282,13 +348,26 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						// Continue
 					}
 					cumulativePacingTime += time.Since(pacingStart)
-				} else if waitTime < -pcapBackoffThreshold && time.Since(replayStartTime) > pcapStartupGracePeriod {
+				} else if waitTime < -pcapBackoffThreshold &&
+					time.Since(replayStartTime) > pcapStartupGracePeriod &&
+					(lastForgive.IsZero() || time.Since(lastForgive) > pcapBackoffCooldown) {
 					// Pipeline is behind schedule. Apply dynamic backoff:
 					// yield proportionally to how far behind we are, capped
 					// at pcapBackoffMaxYield. This lets the pipeline drain
 					// without a full stop and avoids the positive feedback
 					// loop (slow frame → burst → more slow frames).
 					behindBy := -waitTime
+					if behindBy > pcapPacingForgiveThreshold {
+						// Forgive the deficit: charge it to the yield account,
+						// which is what elapsed wall time is measured against,
+						// so the next comparison starts level.
+						cumulativeYield += behindBy
+						config.PacingAnchor.AddYield(behindBy)
+						lastForgive = time.Now()
+						opsf("PCAP pacing: %.1fs behind is past recovering by yielding; "+
+							"pacing from here instead", behindBy.Seconds())
+						continue
+					}
 					yield := behindBy / 4 // 25% of lag as yield
 					if yield > pcapBackoffMaxYield {
 						yield = pcapBackoffMaxYield
@@ -323,6 +402,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						return ctx.Err()
 					case <-time.After(yield):
 						cumulativeYield += yield
+						config.PacingAnchor.AddYield(yield)
 					}
 				} else if inBackoff {
 					// waitTime is between -threshold and 0: still slightly behind

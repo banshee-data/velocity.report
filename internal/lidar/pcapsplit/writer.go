@@ -31,9 +31,46 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		return nil
 	}
 
-	handle, err := pcap.OpenOffline(cfg.PCAPFile)
+	// segs must be the run's complete, contiguous segment list, because
+	// segmentIndexForTime deliberately clamps: a packet before the first
+	// segment routes to the first and one after the last routes to the last, so
+	// that no packet is silently dropped. Handing it a filtered subset would
+	// make every out-of-range packet land in whichever segment survived the
+	// filter. Selection is therefore applied here, on the write side, leaving
+	// routing to see the whole timeline.
+	wanted := selectionMask(segs, cfg.SelectSegments)
+
+	writers := make([]*segWriter, len(segs))
+	defer func() {
+		for _, w := range writers {
+			if w != nil {
+				_ = w.close()
+			}
+		}
+	}()
+
+	prog := newWriteProgress(cfg)
+
+	// Segments are routed by packet timestamp, so a segment spanning a
+	// capture-file boundary needs no special handling here: the writers stay
+	// open across the sources and the packets simply keep arriving.
+	for _, source := range cfg.InputFiles() {
+		if err := writeSegmentsFrom(cfg, source, segs, wanted, writers, prog); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeSegmentsFrom copies one capture's matching packets into the segment
+// writers, opening each output lazily so a segment that draws nothing from this
+// source does not produce an empty file.
+func writeSegmentsFrom(cfg SplitConfig, source string, segs []Segment, wanted []bool,
+	writers []*segWriter, prog *network.ProgressStats) error {
+
+	handle, err := pcap.OpenOffline(source)
 	if err != nil {
-		return fmt.Errorf("open pcap: %w", err)
+		return fmt.Errorf("open pcap %s: %w", source, err)
 	}
 	defer handle.Close()
 
@@ -47,19 +84,8 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		snaplen = defaultSnaplen
 	}
 
-	writers := make([]*segWriter, len(segs))
-	defer func() {
-		for _, w := range writers {
-			if w != nil {
-				_ = w.close()
-			}
-		}
-	}()
-
-	prog := newWriteProgress(cfg)
-
-	source := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range source.Packets() {
+	packets := gopacket.NewPacketSource(handle, handle.LinkType())
+	for packet := range packets.Packets() {
 		data := packet.Data()
 		if len(data) == 0 {
 			continue
@@ -80,7 +106,7 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		}
 
 		idx := segmentIndexForTime(segs, ci.Timestamp)
-		if idx < 0 {
+		if idx < 0 || !wanted[idx] {
 			continue
 		}
 		if writers[idx] == nil {

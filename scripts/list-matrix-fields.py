@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import argparse
 import re
+import sqlite3
 import sys
+from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -406,65 +408,38 @@ def extract_grpc(root: Path) -> list[GRPCMethod]:
 # §4-5  Database tables and columns
 # ---------------------------------------------------------------------------
 
-_CREATE_TABLE_RE = re.compile(
-    r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?(\w+)["`]?\s*\(',
-    re.IGNORECASE,
-)
-
-_COLUMN_RE = re.compile(
-    r'^\s*[,]?\s*["`]?(\w+)["`]?\s+'  # column name
-    r"[^,]+",  # rest of column definition (type, constraints, generated expr) up to comma
-    re.IGNORECASE | re.MULTILINE,
-)
-
 
 def extract_db_tables(root: Path) -> list[DBTable]:
     schema = root / "internal" / "db" / "schema.sql"
     text = _read(schema)
     if not text:
         return []
-
-    # Split on CREATE TABLE to process each table block
-    blocks = re.split(r"(?=CREATE\s+TABLE)", text, flags=re.IGNORECASE)
-    results: list[DBTable] = []
-    for block in blocks:
-        tm = _CREATE_TABLE_RE.match(block)
-        if not tm:
-            continue
-        table_name = tm.group(1)
-        # Find the parenthesised body
-        paren_start = block.find("(")
-        if paren_start == -1:
-            continue
-        # Extract columns from the body
-        body = block[paren_start:]
-        columns = [
-            cm.group(1)
-            for cm in _COLUMN_RE.finditer(body)
-            if cm.group(1).upper()
-            not in {
-                "PRIMARY",
-                "UNIQUE",
-                "FOREIGN",
-                "CHECK",
-                "CONSTRAINT",
-                "CREATE",
-                "INDEX",
-                "TABLE",
-                "NOT",
-                "NULL",
-                "DEFAULT",
-            }
+    # SQLite itself parses nested generated expressions, constraints, triggers,
+    # and quoted identifiers. A line-oriented regex misses real fields and can
+    # mistake a constraint for a column. table_xinfo includes generated fields.
+    with closing(sqlite3.connect(":memory:")) as connection:
+        connection.executescript(text)
+        names = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
         ]
-        results.append(
+        return [
             DBTable(
-                name=table_name,
-                columns=columns,
+                name=name,
+                columns=[
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM pragma_table_xinfo(?) ORDER BY cid",
+                        (name,),
+                    )
+                ],
                 file=_rel(schema, root),
             )
-        )
-
-    return results
+            for name in names
+        ]
 
 
 # ---------------------------------------------------------------------------

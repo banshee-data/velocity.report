@@ -67,11 +67,11 @@
     "misalignment": -0.5,
     "alignment": -0.01,
     "nonzero_cells": 0.1,
-    "active_tracks": 0.3,
+    "active_tracks": 0,
     "foreground_capture": 1.0,
     "empty_boxes": -3.0,
     "fragmentation": -5.0,
-    "heading_jitter": -2.0,
+    "heading_jitter": 0,
     "speed_jitter": -2.0
   },
   "acceptance_criteria": {

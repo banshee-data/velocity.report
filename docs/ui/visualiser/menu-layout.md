@@ -6,13 +6,15 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 
 ## Current VelocityVisualiser menu bar
 
-| Menu         | Items                                                     |
-| ------------ | --------------------------------------------------------- |
-| **App Info** | About VelocityReport.app                                  |
-| **File**     | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)          |
-| **Playback** | Play/Pause (Space), Step (./,), Rate (]/[), Time Display  |
-| **Overlays** | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g) |
-| **Labels**   | Label Selected Track (l), Classify submenu (1–9)          |
+| Menu           | Items                                                     |
+| -------------- | --------------------------------------------------------- |
+| **App Info**   | About VelocityReport.app                                  |
+| **File**       | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)          |
+| **Playback**   | Play/Pause (Space), Step (./,), Rate (]/[), Time Display  |
+| **Overlays**   | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g) |
+| **Labels**     | Label Selected Track (l), Classify submenu (1–9)          |
+| **Annotation** | Open Annotation Window (⇧⌘A)                              |
+| **Edit**       | Undo (⌘Z), Redo (⇧⌘Z)                                     |
 
 ## Single-Key shortcuts (immutable)
 
@@ -31,6 +33,25 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 
 > Never change existing single-key shortcuts. They are optimised for rapid
 > one-handed operation during replay review.
+
+### In the Annotation window
+
+The single keys above are bound app-wide with no modifier, so with the Annotation window in
+front they are given that window's meaning rather than acting on a replay the operator is not
+looking at. In the main window they are unchanged.
+
+| Key      | In the Annotation window                           |
+| -------- | -------------------------------------------------- |
+| . / ,    | Next / previous frame of the pack                  |
+| ] / [    | Larger / smaller brush                             |
+| ⌘] / ⌘[  | Carry the mask forward / back                      |
+| ⌘S       | Save points                                        |
+| ⌘Z / ⇧⌘Z | Undo / redo a selection edit                       |
+| Space    | Play/Pause the main view, which the window follows |
+
+The routing is a focused scene value read by the menu commands. A bracket that reaches the
+window both through its own binding and through the menu is applied once, by the key event's
+timestamp. Undo and redo fall through to a text field that is being edited.
 
 ## Proposed new shortcuts (Wireshark-aligned)
 

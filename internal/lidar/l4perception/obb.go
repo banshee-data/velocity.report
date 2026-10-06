@@ -59,20 +59,21 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	// For symmetric 2x2 matrix, eigenvalues are:
 	// λ = (trace ± sqrt(trace² - 4*det)) / 2
 	trace := c00 + c11
-	det := c00*c11 - c01*c01
-	discriminant := trace*trace - 4*det
 
-	var lambda1 float64
-	if discriminant < 0 {
-		// Degenerate case (e.g., all points collinear or single point)
-		// Fall back to axis-aligned box
-		lambda1 = c00
-		_ = c11 // Use c11 as lambda2 conceptually, but we only need lambda1
-	} else {
-		sqrtDisc := math.Sqrt(discriminant)
-		lambda1 = (trace + sqrtDisc) / 2 // Larger eigenvalue (principal axis)
-		// lambda2 = (trace - sqrtDisc) / 2 // Smaller eigenvalue (not used)
-	}
+	// The discriminant of a symmetric 2x2 is trace² - 4·det, which expands to
+	// (c00-c11)² + 4·c01² — a sum of squares, so it can never be negative and
+	// the eigenvalues are always real. The expanded form is used here because
+	// the compact one subtracts two nearly-equal quantities for a nearly
+	// circular cluster and can round to a small negative value. That then
+	// needs a fallback branch, and the obvious fallback (lambda1 = c00) is the
+	// wrong eigenvalue whenever c11 > c00. Computing it this way removes the
+	// branch instead of guarding it (gap P2).
+	spread := c00 - c11
+	discriminant := spread*spread + 4*c01*c01
+
+	sqrtDisc := math.Sqrt(discriminant)
+	lambda1 := (trace + sqrtDisc) / 2 // Larger eigenvalue (principal axis)
+	// lambda2 = (trace - sqrtDisc) / 2 // Smaller eigenvalue (not used)
 
 	// Eigenvector corresponding to lambda1 (principal axis)
 	// For 2x2 symmetric matrix: eigenvector = [c01, lambda1 - c00] (unnormalized)

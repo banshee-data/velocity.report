@@ -1,0 +1,456 @@
+{
+  "exposure as held_out": [
+    {
+      "id": "seg-d0948264ccf90e38c7dca383",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466700000000000,
+      "window_end_unix_nanos": 1788466710000000000,
+      "peak_timestamp_ns": 1788466702900000000,
+      "score": 60,
+      "track_ids": [
+        "follower",
+        "leader"
+      ],
+      "events": 60,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 60,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-fdc28742fdfe8d009ca426d0",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466681900000000,
+      "score": 40,
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "events": 40,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 40,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-50f2d8b4f1281b0e68eef65c",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466720000000000,
+      "window_end_unix_nanos": 1788466730000000000,
+      "peak_timestamp_ns": 1788466720400000000,
+      "score": 5,
+      "track_ids": [
+        "jump"
+      ],
+      "events": 5,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 80,
+      "status": "candidate"
+    }
+  ],
+  "exposure as tuning": [
+    {
+      "id": "seg-56400b84817f34ab7ab955ed",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466700000000000,
+      "window_end_unix_nanos": 1788466710000000000,
+      "peak_timestamp_ns": 1788466702900000000,
+      "score": 60,
+      "track_ids": [
+        "follower",
+        "leader"
+      ],
+      "events": 60,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 60,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-b089a9119b2de950e70d41d2",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466681900000000,
+      "score": 40,
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "events": 40,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 40,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-8e3e339e6009d52401ba6e0c",
+      "finder": "exposure",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466720000000000,
+      "window_end_unix_nanos": 1788466730000000000,
+      "peak_timestamp_ns": 1788466720400000000,
+      "score": 5,
+      "track_ids": [
+        "jump"
+      ],
+      "events": 5,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 80,
+      "status": "candidate"
+    }
+  ],
+  "following as held_out": [
+    {
+      "id": "seg-affcdc843c525402d0c41933",
+      "finder": "following",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466700000000000,
+      "window_end_unix_nanos": 1788466710000000000,
+      "peak_timestamp_ns": 1788466700000000000,
+      "score": 30,
+      "pair_frames": 30,
+      "pair_seconds": 3,
+      "pairs": 1,
+      "followers": 1,
+      "leaders": 1,
+      "closest_gap_m": 10,
+      "follower_ids": [
+        "follower"
+      ],
+      "leader_ids": [
+        "leader"
+      ],
+      "track_ids": [
+        "follower",
+        "leader"
+      ],
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 60,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-37851977de298d9e61a0b846",
+      "finder": "following",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466680000000000,
+      "score": 20,
+      "pair_frames": 20,
+      "pair_seconds": 2,
+      "pairs": 2,
+      "followers": 1,
+      "leaders": 2,
+      "leader_changes": 1,
+      "closest_gap_m": 10,
+      "follower_ids": [
+        "near-follower"
+      ],
+      "leader_ids": [
+        "near-first",
+        "near-second"
+      ],
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 40,
+      "status": "candidate"
+    }
+  ],
+  "following as tuning": [
+    {
+      "id": "seg-eaac0e49d69b08acd881c18b",
+      "finder": "following",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466700000000000,
+      "window_end_unix_nanos": 1788466710000000000,
+      "peak_timestamp_ns": 1788466700000000000,
+      "score": 30,
+      "pair_frames": 30,
+      "pair_seconds": 3,
+      "pairs": 1,
+      "followers": 1,
+      "leaders": 1,
+      "closest_gap_m": 10,
+      "follower_ids": [
+        "follower"
+      ],
+      "leader_ids": [
+        "leader"
+      ],
+      "track_ids": [
+        "follower",
+        "leader"
+      ],
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 60,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-ef25b749a199572b58b7067d",
+      "finder": "following",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466680000000000,
+      "score": 20,
+      "pair_frames": 20,
+      "pair_seconds": 2,
+      "pairs": 2,
+      "followers": 1,
+      "leaders": 2,
+      "leader_changes": 1,
+      "closest_gap_m": 10,
+      "follower_ids": [
+        "near-follower"
+      ],
+      "leader_ids": [
+        "near-first",
+        "near-second"
+      ],
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 40,
+      "status": "candidate"
+    }
+  ],
+  "lateral_jump as tuning": [
+    {
+      "id": "seg-43dbc710611b75d8425dee7d",
+      "finder": "lateral_jump",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466720000000000,
+      "window_end_unix_nanos": 1788466730000000000,
+      "peak_timestamp_ns": 1788466720200000000,
+      "score": 0.8,
+      "track_ids": [
+        "jump"
+      ],
+      "events": 1,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 80,
+      "status": "candidate"
+    }
+  ],
+  "leader_changes as tuning": [
+    {
+      "id": "seg-87f9552d87d7a5d3aa69a214",
+      "finder": "leader_changes",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466681000000000,
+      "score": 1,
+      "pair_frames": 20,
+      "pair_seconds": 2,
+      "pairs": 2,
+      "followers": 1,
+      "leaders": 2,
+      "leader_changes": 1,
+      "closest_gap_m": 10,
+      "follower_ids": [
+        "near-follower"
+      ],
+      "leader_ids": [
+        "near-first",
+        "near-second"
+      ],
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 40,
+      "status": "candidate"
+    }
+  ],
+  "random as held_out": [
+    {
+      "id": "seg-71e9f82e58c8e93177e490cd",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466685000000000,
+      "window_end_unix_nanos": 1788466695000000000,
+      "peak_timestamp_ns": 0,
+      "score": 0.844597723795733,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 45,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-25a2958c22a54e0733e03f77",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "held_out",
+      "window_start_unix_nanos": 1788466835000000000,
+      "window_end_unix_nanos": 1788466845000000000,
+      "peak_timestamp_ns": 0,
+      "score": 0.7346010356047322,
+      "capture": "/captures/b.pcap",
+      "offset_seconds": 55,
+      "status": "candidate"
+    }
+  ],
+  "random as tuning": [
+    {
+      "id": "seg-762cb2d5fbf607b019e6a2a0",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466685000000000,
+      "window_end_unix_nanos": 1788466695000000000,
+      "peak_timestamp_ns": 0,
+      "score": 0.844597723795733,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 45,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-98df1cb048593a9455f19c1d",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466835000000000,
+      "window_end_unix_nanos": 1788466845000000000,
+      "peak_timestamp_ns": 0,
+      "score": 0.7346010356047322,
+      "capture": "/captures/b.pcap",
+      "offset_seconds": 55,
+      "status": "candidate"
+    }
+  ],
+  "random as tuning, without the capture": [
+    {
+      "id": "seg-4bb313c91543be26f9f6b4ad",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466720000000000,
+      "window_end_unix_nanos": 1788466730000000000,
+      "peak_timestamp_ns": 1788466720400000000,
+      "score": 0.42459307012408276,
+      "track_ids": [
+        "jump"
+      ],
+      "events": 5,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-0246b3bb968cbf7d064c99f1",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466700000000000,
+      "window_end_unix_nanos": 1788466710000000000,
+      "peak_timestamp_ns": 1788466702900000000,
+      "score": 0.26563035672391,
+      "track_ids": [
+        "follower",
+        "leader"
+      ],
+      "events": 60,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-ca637b4dd14a8173769e9c35",
+      "finder": "random",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466680000000000,
+      "window_end_unix_nanos": 1788466690000000000,
+      "peak_timestamp_ns": 1788466681900000000,
+      "score": 0.076883497750176,
+      "track_ids": [
+        "near-first",
+        "near-follower",
+        "near-second"
+      ],
+      "events": 40,
+      "status": "candidate"
+    }
+  ],
+  "split_flags as tuning": [
+    {
+      "id": "seg-cd1d1e1c0e6c4b06017714c3",
+      "finder": "split_flags",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466730000000000,
+      "window_end_unix_nanos": 1788466740000000000,
+      "peak_timestamp_ns": 1788466730200000000,
+      "score": 3,
+      "track_ids": [
+        "split-a"
+      ],
+      "events": 3,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 90,
+      "status": "candidate"
+    },
+    {
+      "id": "seg-adbee536a913e8ccf5bfeb4b",
+      "finder": "split_flags",
+      "version": 1,
+      "source": "golden",
+      "role": "tuning",
+      "window_start_unix_nanos": 1788466740000000000,
+      "window_end_unix_nanos": 1788466750000000000,
+      "peak_timestamp_ns": 1788466740100000000,
+      "score": 2,
+      "track_ids": [
+        "split-b"
+      ],
+      "events": 2,
+      "capture": "/captures/a.pcap",
+      "offset_seconds": 100,
+      "status": "candidate"
+    }
+  ]
+}

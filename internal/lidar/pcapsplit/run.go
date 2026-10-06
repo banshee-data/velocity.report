@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // Run performs a full two-pass split: it analyses the capture (pass 1), builds
@@ -38,15 +41,24 @@ func Run(cfg SplitConfig) error {
 	// Pass 2: write segment files (fills in PacketCount), unless this is a
 	// non-destructive preview used to calibrate real captures.
 	if !cfg.DryRun {
-		if cfg.Verbose {
-			log.Printf("pass 2: writing %d segment(s) ...", len(segments))
+		toWrite, unmatched := SelectSegments(segments, cfg.SelectSegments)
+		if len(unmatched) > 0 {
+			return fmt.Errorf("no such segment(s): %s (run with --dry-run to list them)",
+				strings.Join(unmatched, ", "))
 		}
+		if cfg.Verbose {
+			log.Printf("pass 2: writing %d of %d segment(s) ...", len(toWrite), len(segments))
+		}
+		// The complete list goes to the writer even when only some of it is
+		// wanted: routing packets by time needs the whole timeline, and the
+		// writer applies the selection itself. See WriteSegments.
 		if err := WriteSegments(cfg, segments); err != nil {
 			return err
 		}
 	}
 
 	report := Report{
+		BuildVersion:     version.Version,
 		InputFile:        cfg.PCAPFile,
 		ProcessingTimeMs: time.Since(start).Milliseconds(),
 		TotalPackets:     analysis.TotalPackets,

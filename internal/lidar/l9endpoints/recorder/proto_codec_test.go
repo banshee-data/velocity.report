@@ -100,7 +100,6 @@ func TestSerializeDeserialize_FullFrame(t *testing.T) {
 			},
 		},
 		PlaybackInfo: &l9endpoints.PlaybackInfo{
-			IsLive:            false,
 			LogStartNs:        1000,
 			LogEndNs:          5000,
 			PlaybackRate:      1.0,

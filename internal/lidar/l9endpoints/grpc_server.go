@@ -57,9 +57,138 @@ type Server struct {
 	pcapEndNs         int64
 	replayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 
+	// sourceModeProvider pulls the canonical source mode and recording flag
+	// from whoever owns them — the monitor server. It is a pull rather than a
+	// stored copy on purpose: mirroring the mode here is exactly what let this
+	// layer and the monitor server disagree about what was playing.
+	sourceModeProvider func() (mode string, recording bool)
+
+	// settlingProvider pulls background settling progress. It comes from the
+	// grid rather than the pipeline state, so it is wired separately.
+	settlingProvider func() (settling bool, elapsedSecs float32)
+
+	// sensorSilentProvider reports live input with no packets arriving. Frames
+	// keep flowing while a sensor is silent, so this cannot be inferred from
+	// frame arrival.
+	sensorSilentProvider func() bool
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
+}
+
+// SetSourceModeProvider wires the authoritative source-mode lookup. Without
+// one, streamed frames carry SOURCE_MODE_UNSPECIFIED rather than guessing a
+// source the monitor server has not reported.
+func (s *Server) SetSourceModeProvider(fn func() (string, bool)) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.sourceModeProvider = fn
+}
+
+// currentSourceMode returns the canonical source mode and recording flag,
+// or ("", false) when no provider is wired.
+func (s *Server) currentSourceMode() (string, bool) {
+	s.playbackMu.RLock()
+	fn := s.sourceModeProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return "", false
+	}
+	return fn()
+}
+
+// SetSensorSilentProvider wires the live-input presence lookup.
+func (s *Server) SetSensorSilentProvider(fn func() bool) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.sensorSilentProvider = fn
+}
+
+// currentSensorSilent reports whether live input has gone quiet.
+func (s *Server) currentSensorSilent() bool {
+	s.playbackMu.RLock()
+	fn := s.sensorSilentProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return false
+	}
+	return fn()
+}
+
+// SetSettlingProvider wires the background settling lookup.
+func (s *Server) SetSettlingProvider(fn func() (bool, float32)) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.settlingProvider = fn
+}
+
+// currentSettling reports whether the background grid is still settling.
+func (s *Server) currentSettling() (bool, float32) {
+	s.playbackMu.RLock()
+	fn := s.settlingProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return false, 0
+	}
+	return fn()
+}
+
+// decoratePlaybackInfo adds the server-owned playback state to a frame before
+// it is serialised. Keeping the composition in one testable step matters: the
+// source, settling state and sensor-presence flag come from three providers,
+// but they form one wire contract and must agree on which source they describe.
+func (s *Server) decoratePlaybackInfo(frame *FrameBundle) {
+	// Inject PlaybackInfo for replay mode (PCAP) if not already set.
+	if s.replayMode && frame.PlaybackInfo == nil {
+		s.playbackMu.RLock()
+		frame.PlaybackInfo = &PlaybackInfo{
+			LogStartNs:        s.pcapStartNs,
+			LogEndNs:          s.pcapEndNs,
+			PlaybackRate:      s.playbackRate,
+			Paused:            s.paused,
+			CurrentFrameIndex: s.pcapCurrentPacket,
+			TotalFrames:       s.pcapTotalPackets,
+			Seekable:          false,
+			ReplayEpoch:       s.replayEpoch,
+		}
+		s.playbackMu.RUnlock()
+	}
+
+	// Stamp epoch on existing PlaybackInfo (for example, from a VRLOG recorder).
+	if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
+		s.playbackMu.RLock()
+		frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
+		s.playbackMu.RUnlock()
+	}
+
+	// Stamp the source on every frame, live included. Live frames otherwise
+	// carry no PlaybackInfo, so create one rather than make the client infer it.
+	mode, recording := s.currentSourceMode()
+	if mode != "" {
+		if frame.PlaybackInfo == nil {
+			frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
+		}
+		frame.PlaybackInfo.SourceMode = mode
+		frame.PlaybackInfo.Recording = recording
+	}
+
+	// Settling and silence describe current live input. Set both
+	// deterministically rather than only setting their true cases: a VRLOG
+	// frame may contain the values recorded while it was live, and replaying
+	// that frame must not resurrect an old SETTLING or IDLE badge.
+	if frame.PlaybackInfo != nil {
+		if mode == "live" {
+			settling, elapsedSecs := s.currentSettling()
+			frame.PlaybackInfo.Settling = settling
+			frame.PlaybackInfo.SettlingElapsedSecs = elapsedSecs
+			frame.PlaybackInfo.SensorSilent = s.currentSensorSilent()
+		} else if mode != "" {
+			frame.PlaybackInfo.Settling = false
+			frame.PlaybackInfo.SettlingElapsedSecs = 0
+			frame.PlaybackInfo.SensorSilent = false
+		}
+	}
 }
 
 // NewServer creates a new gRPC server.
@@ -114,6 +243,27 @@ func (s *Server) SetVRLogMode(enabled bool) {
 		// frame, resulting in frames_sent=0 for connected clients.
 		s.paused = false
 	}
+}
+
+// sendStallTimeout bounds a single stream.Send. It is deliberately far longer
+// than any legitimate hiccup — at ten frames a second it is fifty frames of
+// slack — because the cost of ending a stream early is a reconnect, while the
+// cost of not bounding it is an indefinite stall that the send instrumentation
+// cannot even report.
+// sendStallTimeout is how long a single stream.Send may make no progress
+// before it is reported. It is a reporting threshold, not a deadline: the send
+// is still waited for. See the stall handling in streamFromPublisher.
+//
+// A var rather than a const so tests can shorten it; nothing else reassigns it.
+var sendStallTimeout = 5 * time.Second
+
+// currentReplayEpoch returns the epoch that identifies the current source.
+// It is bumped whenever a replay is loaded, so a change means frame IDs from
+// here on belong to a different sequence than the ones before it.
+func (s *Server) currentReplayEpoch() uint64 {
+	s.playbackMu.RLock()
+	defer s.playbackMu.RUnlock()
+	return s.replayEpoch
 }
 
 // SetPCAPProgress updates the current packet position for seek-bar display.
@@ -235,7 +385,19 @@ func (sc *sendCooldown) inSkipMode() bool {
 // coalesceBufferedFrames drains queued frames and keeps only the newest one.
 // This is used for replay catch-up so we stop serialising stale frames when
 // the client is already behind. Any discarded point clouds are released.
+//
+// Background frames are never coalesced away. A foreground frame can be dropped
+// because a later one supersedes it, but a background frame carries scene state
+// no later frame reproduces: the client renders whatever background it last
+// received until another arrives. Discarding one during a source change left the
+// previous source's settled grid on screen underneath the new source's
+// foreground, for as long as it took another background frame to survive — which
+// is why coalescing has to stop at one rather than skip past it.
 func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*FrameBundle, int) {
+	if frame != nil && frame.FrameType == FrameTypeBackground {
+		return frame, 0
+	}
+
 	skipped := 0
 	for len(frameCh) > 0 {
 		select {
@@ -245,6 +407,9 @@ func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*Fra
 			}
 			frame = newerFrame
 			skipped++
+			if frame != nil && frame.FrameType == FrameTypeBackground {
+				return frame, skipped
+			}
 		default:
 			return frame, skipped
 		}
@@ -257,19 +422,19 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	// Create a unique client ID
 	clientID := fmt.Sprintf("grpc-%d", time.Now().UnixNano())
 
-	// Subscribe to frames
-	frameCh := make(chan *FrameBundle, 10)
+	// Cumulative volume on this stream, for diagnosing a blocked send. An
+	// HTTP/2 connection window opens at 65535 bytes and grows only by
+	// WINDOW_UPDATE, so where a stall begins says whether it is flow control.
+	var bytesSentOnStream int64
+	var framesSentOnStream int64
 
-	// Register with publisher
-	s.publisher.clientsMu.Lock()
-	s.publisher.clients[clientID] = &clientStream{
-		id:      clientID,
-		request: req,
-		frameCh: frameCh,
-		doneCh:  make(chan struct{}),
-	}
-	s.publisher.clientsMu.Unlock()
-	s.publisher.clientCount.Add(1)
+	// Subscribe through the publisher rather than registering here. Doing it
+	// inline duplicated addClient and so skipped what it does beyond
+	// registration — handing the new client the current background. A replay
+	// whose recording carries its background early looked fine; one carrying it
+	// at frame 116 drew foreground over an empty grid until the next refresh.
+	client := s.publisher.addClient(clientID, req)
+	frameCh := client.frameCh
 
 	lidar.Diagf("[gRPC] Client %s subscribed: points=%v clusters=%v tracks=%v",
 		clientID, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
@@ -286,7 +451,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	lastLogTime := time.Now()
 	const logInterval = 5 * time.Second
 	const slowSendThresholdMs = 50    // Warn if Send() takes > 50ms
-	const sendTimeoutMs = 100         // Skip frame if send would take > 100ms
+	const sendTimeoutMs = 100         // Log a send slower than this at trace level
 	const maxConsecutiveSlowSends = 3 // After 3 slow sends, start skipping
 	const minConsecutiveFastSends = 5 // Require 5 fast sends before exiting skip mode (hysteresis)
 
@@ -294,12 +459,24 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	var totalBytesSent int64
 	cooldown := newSendCooldown(maxConsecutiveSlowSends, minConsecutiveFastSends)
 	var lastFrameID uint64
+	// Frame IDs are only comparable within one source. A live stream and a
+	// recording number their frames independently, so the switch between them
+	// is a discontinuity, not a gap. lastEpoch detects the switch; see the gap
+	// accounting below.
+	var lastEpoch uint64
+	var totalFramesSent uint64
 
 	for {
 		select {
 		case <-ctx.Done():
-			lidar.Diagf("[gRPC] Client %s disconnected: frames_sent=%d dropped=%d slow_sends=%d avg_send_time_ms=%.2f",
-				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
+			// framesSent, slowSends and totalSendTimeNs are reset by the
+			// periodic stats block below, so on their own they describe the
+			// last partial interval, not the connection. droppedFrames is
+			// cumulative. Reporting the two side by side read as a lifetime
+			// total and made a healthy client look starved, so name the
+			// interval ones and carry a genuine lifetime count alongside.
+			lidar.Diagf("[gRPC] Client %s disconnected: frames_sent_total=%d frames_sent_last_interval=%d dropped_total=%d slow_sends_last_interval=%d avg_send_time_ms=%.2f",
+				clientID, totalFramesSent+framesSent, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
 			// Respect pause state — drop frames silently while paused,
@@ -341,6 +518,17 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Track frame ID gaps for detecting frames dropped before they reached
 			// this stream (for example, in the publisher when the client queue is full).
 			// Local catch-up skips are already counted above, so exclude them here.
+			//
+			// A change of replay epoch means the source changed, and the new
+			// source numbers its frames from its own sequence: a live stream at
+			// frame 500 followed by a recording starting at frame 6400 is not
+			// 5900 losses. Restart the comparison instead of measuring across
+			// the discontinuity.
+			epoch := s.currentReplayEpoch()
+			if epoch != lastEpoch {
+				lastFrameID = 0
+				lastEpoch = epoch
+			}
 			if lastFrameID > 0 && frame.FrameID > lastFrameID+1 {
 				gap := frame.FrameID - lastFrameID - 1
 				if skippedGap := uint64(skipped); gap > skippedGap {
@@ -349,29 +537,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			}
 			lastFrameID = frame.FrameID
 
-			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
-			// This allows the client to show "REPLAY" instead of "LIVE".
-			if s.replayMode && frame.PlaybackInfo == nil {
-				s.playbackMu.RLock()
-				frame.PlaybackInfo = &PlaybackInfo{
-					IsLive:            false,
-					LogStartNs:        s.pcapStartNs,
-					LogEndNs:          s.pcapEndNs,
-					PlaybackRate:      s.playbackRate,
-					Paused:            s.paused,
-					CurrentFrameIndex: s.pcapCurrentPacket,
-					TotalFrames:       s.pcapTotalPackets,
-					Seekable:          false,
-					ReplayEpoch:       s.replayEpoch,
-				}
-				s.playbackMu.RUnlock()
-			}
-			// Stamp epoch on existing PlaybackInfo (e.g. from VRLOG recorder)
-			if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
-				s.playbackMu.RLock()
-				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
-				s.playbackMu.RUnlock()
-			}
+			s.decoratePlaybackInfo(frame)
 
 			// Measure serialisation and send time
 			sendStart := time.Now()
@@ -381,24 +547,84 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			msgSize := proto.Size(pbFrame)
 			totalBytesSent += int64(msgSize)
 
-			if err := stream.Send(pbFrame); err != nil {
-				// M7: Release on error path - protobuf data has been marshalled
-				// by Send(), so it's safe to release the source slices now.
-				if frame.PointCloud != nil {
-					frame.PointCloud.Release()
+			// stream.Send blocks for as long as the client declines to read:
+			// gRPC flow control stalls the write and the call carries no
+			// deadline of its own. Every piece of send instrumentation below
+			// runs after Send returns, so such a stall is not merely unbounded
+			// but invisible — on 2026-08-26 a visualiser stopped reading for
+			// four minutes and produced no slow-send log at all, only the
+			// publisher discarding every frame into a queue nobody was
+			// emptying.
+			//
+			// Bound it. Send runs on its own goroutine so this loop can give up
+			// on it; the goroutine owns the PointCloud release because
+			// frameBundleToProto aliases the point slices into pbFrame rather
+			// than copying them, so they must stay alive until Send has
+			// finished marshalling on every path, including the one where we
+			// have already stopped waiting.
+			sendResult := make(chan error, 1)
+			go func(pc *PointCloudFrame) {
+				sendErr := stream.Send(pbFrame)
+				if pc != nil {
+					pc.Release()
 				}
-				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
-				return err
-			}
+				sendResult <- sendErr
+			}(frame.PointCloud)
 
-			// M7: Release PointCloud reference after stream.Send() completes.
-			// The protobuf message has been marshalled and sent, so we can
-			// safely decrement the reference count. When all clients have
-			// released, the slices are returned to the pool.
-			// NOTE: frameBundleToProto assigns X/Y/Z slices directly into the
-			// protobuf (no deep copy), so Release must happen AFTER Send.
-			if frame.PointCloud != nil {
-				frame.PointCloud.Release()
+			// Wait for the send, reporting a stall rather than acting on it.
+			//
+			// Severing the stream here was tried and made things worse. A
+			// client that has stopped reading is usually one whose UI thread is
+			// blocked, and a client in that state cannot run its reconnect
+			// logic either: on 2026-08-26 closing the stream after five seconds
+			// left the replay streaming to nobody for the remaining two and a
+			// half minutes, where previously the same client had recovered on
+			// its own after four. A genuinely departed client is already
+			// covered — its context is cancelled and the case below fires.
+			//
+			// So the timeout exists purely to make the stall visible, which is
+			// what was missing: every other piece of send instrumentation runs
+			// after Send returns, so a stalled send produced no diagnostic at
+			// all.
+			var sendErr error
+			waitingSince := time.Now()
+			reportedStall := false
+		awaitSend:
+			for {
+				select {
+				case sendErr = <-sendResult:
+					if sendErr == nil {
+						bytesSentOnStream += int64(msgSize)
+						framesSentOnStream++
+					}
+					if reportedStall {
+						opsf("[gRPC] Client %s resumed reading after %v",
+							clientID, time.Since(waitingSince).Round(time.Millisecond))
+					}
+					break awaitSend
+				case <-ctx.Done():
+					// The stream is going away; the pending Send unblocks as it
+					// is torn down and its goroutine releases the frame.
+					return ctx.Err()
+				case <-time.After(sendStallTimeout):
+					reportedStall = true
+					// Name the frame. A stall is nearly always one specific
+					// message the client cannot digest, and without its
+					// identity the log says only that something is stuck.
+					// Cumulative bytes matter as much as this frame's size. An
+					// HTTP/2 connection window opens at 65535 bytes and grows
+					// only by WINDOW_UPDATE, so a stall that always begins near
+					// a round multiple of that is flow control rather than a
+					// slow client.
+					opsf("[gRPC] Client %s has not read for %v: blocked sending frame %d (type=%v points=%d msg=%.1fKB, %.1fKB sent on this stream in %d frames), frames are being dropped for it",
+						clientID, time.Since(waitingSince).Round(time.Second),
+						frame.FrameID, frame.FrameType, framePointCount(frame), float64(msgSize)/1024,
+						float64(bytesSentOnStream)/1024, framesSentOnStream)
+				}
+			}
+			if sendErr != nil {
+				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, sendErr)
+				return sendErr
 			}
 			sendDuration := time.Since(sendStart)
 			totalSendTimeNs += sendDuration.Nanoseconds()
@@ -443,7 +669,9 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					opsf("[gRPC] WARNING: Client %s queue backing up: %d/10 frames buffered", clientID, queueDepth)
 				}
 
-				// Reset counters for next interval
+				// Reset counters for next interval, carrying the lifetime total
+				// so the disconnect line can report both.
+				totalFramesSent += framesSent
 				framesSent = 0
 				totalSendTimeNs = 0
 				slowSends = 0
@@ -452,6 +680,19 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			}
 		}
 	}
+}
+
+// framePointCount reports how many points a frame carries, from wherever it
+// keeps them. A background frame has no PointCloud — its points live in the
+// snapshot — so counting only the cloud reports a large background as empty.
+func framePointCount(frame *FrameBundle) int {
+	if n := getPointCount(frame); n > 0 {
+		return n
+	}
+	if frame != nil && frame.Background != nil {
+		return len(frame.Background.X)
+	}
+	return 0
 }
 
 // getPointCount safely extracts point count from a frame bundle.
@@ -616,4 +857,57 @@ func (s *Server) StartRecording(ctx context.Context, req *pb.RecordingRequest) (
 // StopRecording stops recording.
 func (s *Server) StopRecording(ctx context.Context, req *pb.RecordingRequest) (*pb.RecordingStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "recording not yet supported")
+}
+
+// PlaybackPositionInfo is the replay position owned by this streaming layer.
+//
+// It mirrors server.PlaybackPosition structurally rather than importing it:
+// internal/lidar/server already imports this package, so declaring the
+// interface there and satisfying it here keeps the dependency edge one-way.
+//
+// It carries no mode field on purpose. Which source is driving the pipeline is
+// owned by the monitor server, which initiates every transition; this layer is
+// told, and duplicating the answer here is what previously let the two
+// disagree.
+type PlaybackPositionInfo struct {
+	Paused       bool
+	Rate         float32
+	Seekable     bool
+	CurrentFrame uint64
+	TotalFrames  uint64
+	TimestampNs  int64
+	LogStartNs   int64
+	LogEndNs     int64
+	ReplayEpoch  uint64
+}
+
+// PlaybackPosition returns the current replay position. Live streaming has no
+// meaningful position, so the zero value (with a unit rate) is returned.
+func (s *Server) PlaybackPosition() PlaybackPositionInfo {
+	s.playbackMu.RLock()
+	info := PlaybackPositionInfo{
+		Paused:       s.paused,
+		Rate:         s.playbackRate,
+		Seekable:     s.vrlogMode,
+		CurrentFrame: s.pcapCurrentPacket,
+		TotalFrames:  s.pcapTotalPackets,
+		LogStartNs:   s.pcapStartNs,
+		LogEndNs:     s.pcapEndNs,
+		ReplayEpoch:  s.replayEpoch,
+	}
+	vrlogMode := s.vrlogMode
+	s.playbackMu.RUnlock()
+
+	// Frame counts come from the VRLOG reader, which tracks them per frame;
+	// the packet counters above are the PCAP equivalent.
+	if vrlogMode && s.publisher != nil {
+		if reader := s.publisher.VRLogReader(); reader != nil {
+			info.CurrentFrame = reader.CurrentFrame()
+			info.TotalFrames = reader.TotalFrames()
+		}
+	}
+	if info.Rate == 0 {
+		info.Rate = 1.0
+	}
+	return info
 }

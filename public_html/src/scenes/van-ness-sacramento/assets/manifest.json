@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "van-ness-sacramento",
+    "title": "van Ness at Sacramento"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

@@ -349,15 +349,14 @@ func TestDebugOverlaySet_Creation(t *testing.T) {
 
 func TestPlaybackInfo_Creation(t *testing.T) {
 	pi := &PlaybackInfo{
-		IsLive:       false,
 		LogStartNs:   1000000000,
 		LogEndNs:     2000000000,
 		PlaybackRate: 1.0,
 		Paused:       false,
 	}
 
-	if pi.IsLive {
-		t.Error("expected IsLive=false")
+	if pi.SourceMode == "live" {
+		t.Error("expected a non-live source mode")
 	}
 	if pi.LogStartNs != 1000000000 {
 		t.Errorf("expected LogStartNs=1000000000, got %d", pi.LogStartNs)

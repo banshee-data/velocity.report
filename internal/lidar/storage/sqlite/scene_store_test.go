@@ -42,7 +42,15 @@ func setupTestSceneDB(t *testing.T) *sql.DB {
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
-		)
+		);
+
+	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
+		replay_case_id TEXT NOT NULL,
+		ordinal INTEGER NOT NULL,
+		capture_file_id TEXT,
+		pcap_file TEXT NOT NULL,
+		PRIMARY KEY (replay_case_id, ordinal)
+	)
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
@@ -119,6 +127,66 @@ func TestSceneStore_InsertAndGet(t *testing.T) {
 	}
 	if retrieved.Description != scene.Description {
 		t.Errorf("description mismatch: got %s, want %s", retrieved.Description, scene.Description)
+	}
+}
+
+// TestSceneStore_FileCount checks that GetScene and ListScenes both report how
+// many captures a case covers without the caller having to load the file list
+// itself — a legacy case with no lidar_replay_case_files rows still counts as
+// 1 via its pcap_file projection, and a multi-file case counts every one.
+func TestSceneStore_FileCount(t *testing.T) {
+	db := setupTestSceneDB(t)
+	defer db.Close()
+
+	store := NewReplayCaseStore(db)
+
+	legacy := &ReplayCase{SensorID: "sensor-001", PCAPFile: "solo.pcap"}
+	if err := store.InsertScene(legacy); err != nil {
+		t.Fatalf("InsertScene failed: %v", err)
+	}
+
+	multi := &ReplayCase{SensorID: "sensor-001", PCAPFile: "part-0.pcap"}
+	if err := store.InsertScene(multi); err != nil {
+		t.Fatalf("InsertScene failed: %v", err)
+	}
+	files := []ReplayCaseFile{
+		{Ordinal: 0, PCAPFile: "part-0.pcap"},
+		{Ordinal: 1, PCAPFile: "part-1.pcap"},
+		{Ordinal: 2, PCAPFile: "part-2.pcap"},
+	}
+	if err := store.SetCaseFiles(multi.ReplayCaseID, files); err != nil {
+		t.Fatalf("SetCaseFiles failed: %v", err)
+	}
+
+	gotLegacy, err := store.GetScene(legacy.ReplayCaseID)
+	if err != nil {
+		t.Fatalf("GetScene(legacy) failed: %v", err)
+	}
+	if gotLegacy.FileCount != 1 {
+		t.Errorf("legacy case file_count: got %d, want 1", gotLegacy.FileCount)
+	}
+
+	gotMulti, err := store.GetScene(multi.ReplayCaseID)
+	if err != nil {
+		t.Fatalf("GetScene(multi) failed: %v", err)
+	}
+	if gotMulti.FileCount != 3 {
+		t.Errorf("multi-file case file_count: got %d, want 3", gotMulti.FileCount)
+	}
+
+	listed, err := store.ListScenes("")
+	if err != nil {
+		t.Fatalf("ListScenes failed: %v", err)
+	}
+	counts := map[string]int{}
+	for _, s := range listed {
+		counts[s.ReplayCaseID] = s.FileCount
+	}
+	if counts[legacy.ReplayCaseID] != 1 {
+		t.Errorf("ListScenes legacy file_count: got %d, want 1", counts[legacy.ReplayCaseID])
+	}
+	if counts[multi.ReplayCaseID] != 3 {
+		t.Errorf("ListScenes multi-file file_count: got %d, want 3", counts[multi.ReplayCaseID])
 	}
 }
 

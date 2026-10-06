@@ -1,0 +1,141 @@
+{
+  "measurement_noise_m2": 0.05,
+  "sigma_r_configured_m": 0.22360679774997896,
+  "stationary_max_speed_mps": 0.3,
+  "stationary_min_frames": 50,
+  "stationary_tracks": 68,
+  "e1_4_noise_floor": {
+    "estimate": {
+      "0-20": {
+        "tracks": 22,
+        "observations": 4946,
+        "median_sigma_major_m": 0.5658491202851124,
+        "median_sigma_minor_m": 0.10706927635641113,
+        "median_sigma_isotropic_m": 0.40217185369943453
+      },
+      "20-40": {
+        "tracks": 37,
+        "observations": 7610,
+        "median_sigma_major_m": 0.44787164738931684,
+        "median_sigma_minor_m": 0.06168033562063047,
+        "median_sigma_isotropic_m": 0.3229365347633785
+      },
+      "40+": {
+        "tracks": 9,
+        "observations": 1573,
+        "median_sigma_major_m": 0.04047662363765604,
+        "median_sigma_minor_m": 0.01877762157557111,
+        "median_sigma_isotropic_m": 0.0321001415742115
+      }
+    },
+    "medoid": {
+      "0-20": {
+        "tracks": 2,
+        "observations": 963,
+        "median_sigma_major_m": 1.1288798818919221,
+        "median_sigma_minor_m": 0.08621489392825724,
+        "median_sigma_isotropic_m": 0.8010397616654727
+      },
+      "20-40": {
+        "tracks": 1,
+        "observations": 66,
+        "median_sigma_major_m": 0.24083550450253036,
+        "median_sigma_minor_m": 0.176695406782553,
+        "median_sigma_isotropic_m": 0.21121435439742275
+      }
+    },
+    "near_edge": {
+      "0-20": {
+        "tracks": 2,
+        "observations": 963,
+        "median_sigma_major_m": 1.2035231298770843,
+        "median_sigma_minor_m": 0.126879309053739,
+        "median_sigma_isotropic_m": 0.8557858673309464
+      },
+      "20-40": {
+        "tracks": 1,
+        "observations": 66,
+        "median_sigma_major_m": 0.5879612395531689,
+        "median_sigma_minor_m": 0.256758929922649,
+        "median_sigma_isotropic_m": 0.4536648362568575
+      }
+    },
+    "nearest_corner": {
+      "0-20": {
+        "tracks": 2,
+        "observations": 963,
+        "median_sigma_major_m": 1.0381921113988055,
+        "median_sigma_minor_m": 0.24846196394450099,
+        "median_sigma_isotropic_m": 0.7571420147080248
+      },
+      "20-40": {
+        "tracks": 1,
+        "observations": 66,
+        "median_sigma_major_m": 1.147411588892614,
+        "median_sigma_minor_m": 0.379501488119935,
+        "median_sigma_isotropic_m": 0.8545685267461932
+      }
+    },
+    "obb_centre": {
+      "0-20": {
+        "tracks": 2,
+        "observations": 963,
+        "median_sigma_major_m": 1.1606999529353739,
+        "median_sigma_minor_m": 0.071546474267938,
+        "median_sigma_isotropic_m": 0.8224478135405346
+      },
+      "20-40": {
+        "tracks": 1,
+        "observations": 66,
+        "median_sigma_major_m": 0.3993632589345826,
+        "median_sigma_minor_m": 0.25806494384930423,
+        "median_sigma_isotropic_m": 0.3362205584365678
+      }
+    }
+  },
+  "straight_tracks": 165,
+  "e1_2_whiteness": {
+    "estimate": {
+      "tracks": 165,
+      "white_at_95": 13,
+      "white_share": 0.07878787878787878,
+      "median_rho1": 0.7769519695259913,
+      "median_q10": 65.06846668253148,
+      "median_residual_sigma_m": 0.24267354361198348
+    },
+    "medoid": {
+      "tracks": 42,
+      "white_at_95": 6,
+      "white_share": 0.14285714285714285,
+      "median_rho1": 0.7065283810991647,
+      "median_q10": 51.262702555650755,
+      "median_residual_sigma_m": 0.27638118896686714
+    },
+    "near_edge": {
+      "tracks": 41,
+      "white_at_95": 9,
+      "white_share": 0.21951219512195122,
+      "median_rho1": 0.6068203884513795,
+      "median_q10": 53.64833069434497,
+      "median_residual_sigma_m": 0.26761535438897593
+    },
+    "nearest_corner": {
+      "tracks": 42,
+      "white_at_95": 11,
+      "white_share": 0.2619047619047619,
+      "median_rho1": 0.5643196764658871,
+      "median_q10": 28.034234119560967,
+      "median_residual_sigma_m": 0.4183869457491194
+    },
+    "obb_centre": {
+      "tracks": 42,
+      "white_at_95": 7,
+      "white_share": 0.16666666666666666,
+      "median_rho1": 0.7044111201289557,
+      "median_q10": 57.2278030551291,
+      "median_residual_sigma_m": 0.24659852271894547
+    }
+  },
+  "ljung_box_lags": 10,
+  "ljung_box_critical_95": 18.307
+}

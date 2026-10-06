@@ -113,7 +113,13 @@ func TestSettlingEvalMain_MissingArg(t *testing.T) {
 }
 
 func TestSettlingEvalMain_ReplayError(t *testing.T) {
-	if code := SettlingEvalMain([]string{"/nonexistent.pcap"}); code != 1 {
+	if code := SettlingEvalMain([]string{"--port", "2369", "/nonexistent.pcap"}); code != 1 {
 		t.Errorf("settling-eval bad pcap = %d, want 1", code)
+	}
+}
+
+func TestSettlingEvalMain_PortDetectionError(t *testing.T) {
+	if code := SettlingEvalMain([]string{"/nonexistent.pcap"}); code != 1 {
+		t.Errorf("settling-eval port detection error = %d, want 1", code)
 	}
 }

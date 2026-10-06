@@ -42,6 +42,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
@@ -85,6 +86,11 @@ const (
 	deployedRuntimeDBPath      = "/var/lib/velocity-report/sensor_data.db"
 	deployedVelocityBinaryPath = "/opt/velocity-report/current/velocity"
 )
+
+// sensorSilentAfter is how long without a packet counts as a silent sensor.
+// Long enough not to trip on a dropped frame or a brief hiccup, short enough
+// that an operator watching an empty scene is told why within a few seconds.
+const sensorSilentAfter = 3 * time.Second
 
 func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
 	dbPath := defaultDBPath
@@ -152,22 +158,58 @@ func installedApplianceLayoutPresent() bool {
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar    = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen    = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
-	lidarUDPPort   = serveFlags.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarUDPRcvBuf = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
-	lidarNoParse   = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarForward   = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort   = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr   = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarFGForward = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
-	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
-	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
-	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar      = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen      = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
+	lidarUDPPort     = serveFlags.Int("lidar-udp-port", 2369, "LiDAR UDP port in PCAP captures and the default live listener port")
+	lidarLiveUDPPort = serveFlags.Int("lidar-live-udp-port", 0, "Override the live LiDAR UDP listener port (0 = use lidar-udp-port)")
+	lidarUDPRcvBuf   = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
+	lidarNoParse     = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarForward     = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort     = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr     = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward   = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort   = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr   = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir     = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	// Write paths are set independently of --lidar-pcap-dir rather than derived
+	// from it.
+	//
+	// Captures are large and usually live on an external volume; recordings and
+	// plots are written continuously while those captures are being read. When
+	// the write path is derived from the capture path, pointing the capture path
+	// at an external disk silently moves the writes there too, and a replay then
+	// contends with itself for one device's bandwidth.
+	//
+	// Both defaults are the path the derived form produced under the default
+	// --lidar-pcap-dir, so a deployment that sets neither flag is unchanged.
+	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
+	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
+	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	// Read once at startup. Empty uses the repository's file when the server
+	// runs from the repository, and the binary's own copy anywhere else.
+	lidarSegmentSelectors = serveFlags.String("lidar-segment-selectors", "",
+		"Segment selector file (JSON); empty uses "+segments.DefaultSelectorsPath+" when present, else the copy built into the binary")
+	// Off unless set. Experimental: the power-loss and target-hardware
+	// evidence a live default needs does not exist yet (VRLOG plan, G-OBS-CRASH
+	// and G-OBS-PI).
+	lidarObservationDir = serveFlags.String("lidar-observation-dir", "",
+		"Experimental, off when empty: commit the live session's foreground-complete L4 observation frames to a new VRLOG 1.x container in this directory")
+	// Repeatable. Capture roots are the volumes the capture index scans; the
+	// web UI selects among them and cannot add one, which is what keeps the
+	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
+	// omitting this leaves an existing deployment unchanged.
+	lidarCaptureRoots captureRootList
 	// Visualiser gRPC streaming (M2)
 	lidarForwardMode = serveFlags.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
 	lidarGRPCListen  = serveFlags.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
 )
+
+// A flag.Value cannot be registered inside a var block the way the scalar flags
+// above are, so the repeatable capture-root flag is bound here.
+func init() {
+	serveFlags.Var(&lidarCaptureRoots, "lidar-capture-root",
+		"Capture volume to index; repeat for several. --lidar-pcap-dir is always one.")
+}
 
 // Transit worker options (compute radar_data -> radar_data_transits)
 var (
@@ -282,6 +324,9 @@ func Main(args []string) int {
 	// don't collide with the server's flags.
 	if len(args) > 0 && args[0] == "pdf" {
 		return runPDF(args[1:], os.Stdout, os.Stderr)
+	}
+	if len(args) > 0 && args[0] == "headway" {
+		return runHeadway(args[1:], os.Stdout, os.Stderr)
 	}
 	if len(args) > 0 && args[0] == "sql" {
 		return runSQL(args[1:], os.Stdout, os.Stderr)
@@ -418,6 +463,7 @@ func Main(args []string) int {
 		log.Fatalf("Failed to load tuning config from %s: %v. Check the file exists and is valid JSON", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration (config=%s)", *configFile)
+	selectors := mustLoadSegmentSelectors(*lidarSegmentSelectors, log.Fatalf, log.Printf)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
 	if *enableLidar {
 		ensureValidLidarNetworkingFlags(
@@ -427,6 +473,9 @@ func Main(args []string) int {
 			*lidarFGFwdPort,
 			log.Fatalf,
 		)
+		if err := validateOptionalLidarPortFlag("--lidar-live-udp-port", *lidarLiveUDPPort); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Compute tuning config hash for VRLOG provenance.
@@ -502,7 +551,11 @@ func Main(args []string) int {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		lidarSensorID := tuningCfg.GetSensor()
-		lidarUDPListenPort := *lidarUDPPort
+		lidarUDPReplayPort := *lidarUDPPort
+		lidarUDPListenPort := lidarUDPReplayPort
+		if *lidarLiveUDPPort != 0 {
+			lidarUDPListenPort = *lidarLiveUDPPort
+		}
 		lidarUDPRcvBuf := *lidarUDPRcvBuf
 		lidarForwardPortCfg := *lidarFwdPort
 		lidarFGForwardPortCfg := *lidarFGFwdPort
@@ -554,6 +607,7 @@ func Main(args []string) int {
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
+		var liveObservations *liveObservationCapture // nil unless --lidar-observation-dir is set
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
@@ -609,13 +663,10 @@ func Main(args []string) int {
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
-				if err := visualiserPublisher.Start(); err != nil {
+				if err := visualiserPublisher.StartWithService(visualiserServer); err != nil {
 					log.Fatalf("Could not start visualiser publisher: %v. Check the gRPC listen address is free and not already in use", err)
 				}
 				defer visualiserPublisher.Stop()
-
-				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
-				l9endpoints.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
 				frameAdapter = l9endpoints.NewFrameAdapter(lidarSensorID)
 
@@ -652,10 +703,37 @@ func Main(args []string) int {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        25, // Must exceed sensor max Hz (20) to avoid dropping live frames
+				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled, nor is analysis mode (see ReplayActive, AnalysisModeActive)
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
+				Profile:             tuningCfg.Profile(),
+			}
+			// State the profile at startup unconditionally. A pipeline that is
+			// not running L4-L6 looks identical to a broken one from the
+			// outside — no detections — so the reason belongs in the log
+			// before anyone starts diagnosing the silence.
+			lidarProfile := tuningCfg.Profile()
+			log.Printf("LiDAR pipeline profile: %s (runs L1-L%d)", lidarProfile, lidarProfile.TopLayer())
+			if *lidarObservationDir != "" {
+				tuningJSON, err := json.Marshal(tuningCfg)
+				if err != nil {
+					log.Fatalf("marshal tuning for the observation capture: %v", err)
+				}
+				// ReplayActive is wired after the web server exists; until
+				// then, and whenever it reads false, input is the live sensor.
+				live := func() bool { return pipelineConfig.ReplayActive == nil || !pipelineConfig.ReplayActive.Load() }
+				setup, err := startLiveObservationCapture(*lidarObservationDir, lidarSensorID, tuningJSON,
+					liveObservationPolicy(lidarFrameChCapacity), live, log.Printf)
+				if err != nil {
+					log.Printf("Live observation capture disabled: %v", err)
+				} else {
+					liveObservations = setup.capture
+					pipelineConfig.ObservationFrameSink = setup.capture
+					pipelineConfig.ObservationSourceID = setup.sourceID
+					pipelineConfig.ObservationCalibrationID = setup.calibrationID
+					defer liveObservations.End("server shutting down")
+				}
 			}
 			callback := pipelineConfig.NewFrameCallback()
 
@@ -669,7 +747,7 @@ func Main(args []string) int {
 				CleanupInterval: 250 * time.Millisecond,
 				// Larger callback channel buffer absorbs short processing
 				// stalls during PCAP replay without dropping frames.
-				FrameChCapacity: 32,
+				FrameChCapacity: lidarFrameChCapacity,
 			})
 		}
 
@@ -703,47 +781,52 @@ func Main(args []string) int {
 			UDPPort:        lidarUDPListenPort,
 		}
 
+		// A new extractor configuration is a new extraction: a live
+		// observation capture's identities no longer describe what follows.
+		endLiveObservationsOnTuning := func() {
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "runtime tuning changed")
+		}
+
+		onPCAPStarted := pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf)
+		closeLiveObservationsOnReplayStart := func() {
+			closeLiveObservationBoundary(liveObservations, frameBuilder, "the pipeline left live input")
+			onPCAPStarted()
+		}
+
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
 		lidarServer = server.NewServer(server.Config{
-			Address:           *lidarListen,
-			Stats:             packetStats,
-			ForwardingEnabled: *lidarForward && lidarForwardPortCfg > 0,
-			ForwardAddr:       *lidarFwdAddr,
-			ForwardPort:       lidarForwardPortCfg,
-			ParsingEnabled:    !*lidarNoParse,
-			UDPPort:           lidarUDPListenPort,
-			DB:                lidarDB,
-			SensorID:          lidarSensorID,
-			Parser:            parser,
-			FrameBuilder:      frameBuilder,
-			PCAPSafeDir:       *lidarPCAPDir,
-			VRLogSafeDir: func() string {
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
-				if err != nil {
-					log.Printf("Warning: failed to resolve VRLOG safe dir: %v", err)
-					return filepath.Join(*lidarPCAPDir, "vrlog")
-				}
-				return baseDir
-			}(),
-			PacketForwarder:   packetForwarder,
-			UDPListenerConfig: udpListenerConfig,
-			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
-			TuningConfig:      tuningCfg,
-			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPStopped: func() {
-				if visualiserServer != nil {
-					visualiserServer.SetReplayMode(false)
-					log.Printf("[Visualiser] PCAP stopped: switched to live mode")
-				}
-			},
-			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
-			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
-			OnRecordingStart: func(runID string) {
+			Address:            *lidarListen,
+			Stats:              packetStats,
+			ForwardingEnabled:  *lidarForward && lidarForwardPortCfg > 0,
+			ForwardAddr:        *lidarFwdAddr,
+			ForwardPort:        lidarForwardPortCfg,
+			ParsingEnabled:     !*lidarNoParse,
+			UDPPort:            lidarUDPReplayPort,
+			DB:                 lidarDB,
+			SensorID:           lidarSensorID,
+			Parser:             parser,
+			FrameBuilder:       frameBuilder,
+			PCAPSafeDir:        *lidarPCAPDir,
+			CaptureRoots:       lidarCaptureRoots,
+			VRLogSafeDir:       resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
+			PacketForwarder:    packetForwarder,
+			UDPListenerConfig:  udpListenerConfig,
+			PlotsBaseDir:       *lidarPlotsDir,
+			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
+			TuningConfig:       tuningCfg,
+			SegmentSelectors:   selectors,
+			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
+			OnTuningChange:     endLiveObservationsOnTuning,
+			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
+			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
+			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
+			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
-					return
+					return ""
 				}
 				vrlogRecorderMu.Lock()
 				defer vrlogRecorderMu.Unlock()
@@ -755,19 +838,19 @@ func Main(args []string) int {
 					vrlogRecorderPath = ""
 				}
 
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
+				baseDir, err := filepath.Abs(*lidarVRLogDir)
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				if err := os.MkdirAll(baseDir, 0755); err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				recordPath := filepath.Join(baseDir, runID)
 				rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, lidarSensorID, log.Printf)
 				if rec == nil {
-					return
+					return ""
 				}
 
 				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
@@ -775,7 +858,22 @@ func Main(args []string) int {
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
+
+				// Open the recording with the background, so a replay of it has
+				// a scene from its first frame. Without this the background
+				// lands wherever the refresh interval happened to fall — one
+				// recording carries it at frame 2 and another at frame 116, and
+				// the second draws foreground over nothing until it arrives.
+				//
+				// The settle-before-recording flow reaches here with the grid
+				// already settled and restored, which is what makes the
+				// snapshot worth writing rather than empty.
+				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
+					log.Printf("[Visualiser] could not open the recording with a background: %v", err)
+				}
+
 				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
+				return vrlogRecorderPath
 			},
 			OnRecordingStop: func(runID string) string {
 				if visualiserPublisher == nil {
@@ -810,13 +908,20 @@ func Main(args []string) int {
 					return "", fmt.Errorf("failed to open vrlog: %w", err)
 				}
 				frameEncoding := string(replayer.FrameEncoding())
+				// Drop the previous source's background BEFORE the replay
+				// starts. Clients keep the last background they were sent, so
+				// without this the live settled grid stays on screen under
+				// replayed foreground — it reads as a real scene and is not
+				// obviously wrong until something moves through it.
+				//
+				// Order matters: StartVRLogReplay emits the recording's own
+				// background, so clearing afterwards would wipe the very frame
+				// that replaces this one.
+				visualiserPublisher.ClearBackground()
 				// Start replay through the publisher
 				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
 					replayer.Close()
 					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
-				}
-				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
-					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
 				log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
 				return frameEncoding, nil
@@ -832,6 +937,47 @@ func Main(args []string) int {
 				}
 			},
 		})
+		// A VRLOG that plays to its end stays loaded and stays the data source.
+		// Only the replay slot is released, so another replay can start; the
+		// recording remains on screen at its final frame and the visualiser's
+		// Live toggle stays off until an operator turns it back on.
+		if visualiserPublisher != nil {
+			srv := lidarServer
+			visualiserPublisher.SetOnReplayEnded(func() {
+				srv.ParkFinishedReplay("VRLOG replay reached the end of its recording")
+			})
+		}
+
+		// Report background settling to the client. Until the grid settles
+		// there is no usable background, so the scene renders empty and looks
+		// exactly like a sensor that has stopped.
+		if visualiserServer != nil {
+			sensor := lidarSensorID
+			// A sensor that has stopped still produces frames, empty ones, so
+			// silence has to come from packet arrival rather than the stream.
+			visualiserServer.SetSensorSilentProvider(func() bool {
+				return sensorIsSilent(lidarServer.LastPacketAt(), time.Now(), sensorSilentAfter)
+			})
+
+			visualiserServer.SetSettlingProvider(func() (bool, float32) {
+				mgr := l3grid.GetBackgroundManager(sensor)
+				if mgr == nil {
+					return false, 0
+				}
+				status := mgr.SettlingStatus()
+				return !status.Complete, float32(status.Elapsed.Seconds())
+			})
+		}
+
+		// Let the streaming layer read the source mode from its single owner
+		// rather than keeping a second copy that can drift out of agreement.
+		if visualiserServer != nil {
+			srv := lidarServer
+			visualiserServer.SetSourceModeProvider(func() (string, bool) {
+				state := srv.PipelineState()
+				return state.DataSourceWire(), state.Recording
+			})
+		}
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarServer.SetTracker(tracker)
@@ -844,6 +990,8 @@ func Main(args []string) int {
 		if pipelineConfig != nil {
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
+			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()
+			pipelineConfig.AnalysisModeActive = lidarServer.AnalysisModeFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
@@ -1019,6 +1167,13 @@ func Main(args []string) int {
 		} else {
 			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
 		}
+		if handler, err := docsite.DiskHandler(docsite.PublicHTMLDiskDir); err != nil {
+			log.Printf("Offline homepage route %s unavailable on main HTTP server: %v", docsite.PublicHTMLMount, err)
+		} else if err := docsite.Mount(mux, docsite.PublicHTMLMount, handler); err != nil {
+			log.Printf("Offline homepage route %s unavailable on main HTTP server: %v", docsite.PublicHTMLMount, err)
+		} else {
+			log.Printf("Offline homepage available on main HTTP server at %s", docsite.PublicHTMLMount)
+		}
 		serialManager.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 
@@ -1160,6 +1315,14 @@ func runTransitsCommand(args []string) {
 // the lidar and visualiser packages.
 type backgroundManagerBridge struct {
 	mgr *l3grid.BackgroundManager
+}
+
+// IsSettlingComplete forwards the grid's settling state so the publisher can
+// send a snapshot the moment settling ends. Without it the bridge satisfies
+// only the required interface, the publisher's optional check finds nothing,
+// and the client waits out the full refresh interval over an empty grid.
+func (b *backgroundManagerBridge) IsSettlingComplete() bool {
+	return b.mgr.IsSettlingComplete()
 }
 
 func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, error) {

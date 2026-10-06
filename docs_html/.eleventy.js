@@ -8,6 +8,7 @@ const katex = require("katex");
 
 const embedStubMarker =
   "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts.\n";
+const repoRoot = path.resolve(__dirname, "..");
 
 function isExternalHref(href) {
   return (
@@ -74,6 +75,10 @@ function isWithin(parent, child) {
 function outputURLForSourcePath(inputRoot, targetPath) {
   const rel = path.relative(inputRoot, targetPath).replace(/\\/g, "/");
   if (!rel || rel.startsWith("../")) return null;
+  // `docs/ui/DESIGN.md` and `docs/ui/design/` cannot both occupy the same
+  // output path on case-insensitive filesystems. Keep the prototype directory
+  // at its repository route and give the design document a distinct one.
+  if (rel === "docs/ui/DESIGN.md") return "/docs/ui/design-document/";
   if (rel === "README.md") return "/README/";
   if (rel.endsWith("/README.md")) {
     return `/${rel.slice(0, -"README.md".length)}`;
@@ -84,14 +89,42 @@ function outputURLForSourcePath(inputRoot, targetPath) {
   return `/${rel}`;
 }
 
-function resolveHrefForInput(href, inputPath) {
-  if (isExternalHref(href) || !inputPath) return { href, resolved: false };
+function githubRepositoryPath(href) {
+  const match = String(href).match(
+    /^https:\/\/github\.com\/banshee-data\/velocity\.report\/(?:blob|tree)\/[^/]+\/(.+?)(?:[?#].*)?$/i,
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
-  const inputRoot = path.resolve("src");
-  const sourceDir = path.dirname(path.resolve(inputPath));
-  const { pathname, query, hash } = splitHref(href);
-  if (!pathname) return { href, resolved: false };
+function buildGitSHA() {
+  const value = process.env.VELOCITY_DOCS_GIT_SHA || "main";
+  return /^[0-9a-f]{7,40}$/i.test(value) ? value : "main";
+}
 
+function githubRepositoryHref(candidate) {
+  try {
+    const resolved = fs.realpathSync(candidate);
+    const relative = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+    const stat = fs.statSync(resolved);
+    if (
+      relative === ".." ||
+      relative.startsWith("../") ||
+      path.isAbsolute(relative) ||
+      (!stat.isFile() && !stat.isDirectory())
+    ) {
+      return null;
+    }
+    const view = stat.isDirectory() ? "tree" : "blob";
+    return `https://github.com/banshee-data/velocity.report/${view}/${buildGitSHA()}/${relative
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+  } catch {
+    return null;
+  }
+}
+
+function candidatesForPath(pathname, sourceDir) {
   const candidates = [];
   const direct = path.resolve(sourceDir, pathname);
   candidates.push(direct);
@@ -100,8 +133,57 @@ function resolveHrefForInput(href, inputPath) {
   }
   candidates.push(path.join(direct, "README.md"));
   candidates.push(path.join(direct, "index.md"));
+  return candidates;
+}
 
-  for (const candidate of candidates) {
+function documentationURLForRepositoryPath(candidate) {
+  if (!isWithin(repoRoot, candidate)) return null;
+  const relative = path.relative(repoRoot, candidate).replace(/\\/g, "/");
+  if (!relative.startsWith("docs/") && !relative.startsWith("data/")) {
+    return null;
+  }
+  try {
+    const stat = fs.statSync(candidate);
+    if (stat.isDirectory()) return `/${relative}/`;
+    if (!stat.isFile()) return null;
+  } catch {
+    return null;
+  }
+  return outputURLForSourcePath(repoRoot, candidate);
+}
+
+function isPublicHomepageRoot(candidate) {
+  try {
+    return fs.realpathSync(candidate) === fs.realpathSync(path.join(repoRoot, "public_html"));
+  } catch {
+    return false;
+  }
+}
+
+function resolveHrefForInput(href, inputPath) {
+  const githubPath = githubRepositoryPath(href);
+  if ((isExternalHref(href) && !githubPath) || !inputPath) {
+    return { href, resolved: false };
+  }
+
+  const inputRoot = path.resolve("src");
+  const documentSourceDir = path.dirname(path.resolve(inputPath));
+  let repositorySourceDir = documentSourceDir;
+  try {
+    repositorySourceDir = path.dirname(fs.realpathSync(inputPath));
+  } catch {
+    // Keep the docs-input path as the fallback for generated pages.
+  }
+  const split = splitHref(href);
+  const pathname = githubPath || split.pathname;
+  const query = githubPath ? "" : split.query;
+  const hash = githubPath ? "" : split.hash;
+  if (!pathname) return { href, resolved: false };
+
+  const documentCandidates = candidatesForPath(pathname, documentSourceDir);
+  const repositoryCandidates = candidatesForPath(pathname, repositorySourceDir);
+
+  for (const candidate of documentCandidates) {
     if (!isWithin(inputRoot, candidate)) continue;
     try {
       if (!require("fs").statSync(candidate).isFile()) continue;
@@ -114,7 +196,38 @@ function resolveHrefForInput(href, inputPath) {
     }
   }
 
-  return { href: rewriteMarkdownHref(href), resolved: false };
+  for (const candidate of repositoryCandidates) {
+    const documentationURL = documentationURLForRepositoryPath(candidate);
+    if (documentationURL) {
+      return { href: `${documentationURL}${query}${hash}`, resolved: true };
+    }
+    if (isPublicHomepageRoot(candidate)) {
+      return { href: "/public_html/", resolved: false, appSurface: true };
+    }
+    const sourceURL = githubRepositoryHref(candidate);
+    if (sourceURL) return { href: `${sourceURL}${query}${hash}`, resolved: false };
+  }
+
+  // Documentation frequently refers to repository-root source paths such as
+  // `internal/...` from within docs/ or data/. Link those files to the exact
+  // repository revision carried by this documentation build.
+  const repositoryPath = pathname.replace(/^\/+/, "");
+  if (repositoryPath && !repositoryPath.startsWith("../")) {
+    const repositoryCandidate = path.resolve(repoRoot, repositoryPath);
+    const documentationURL = documentationURLForRepositoryPath(repositoryCandidate);
+    if (documentationURL) {
+      return { href: `${documentationURL}${query}${hash}`, resolved: true };
+    }
+    if (isPublicHomepageRoot(repositoryCandidate)) {
+      return { href: "/public_html/", resolved: false, appSurface: true };
+    }
+    const sourceURL = githubRepositoryHref(repositoryCandidate);
+    if (sourceURL) {
+      return { href: `${sourceURL}${query}${hash}`, resolved: false };
+    }
+  }
+
+  return { href: rewriteMarkdownHref(href), resolved: false, unavailable: true };
 }
 
 function humanizePath(inputPath) {
@@ -144,6 +257,65 @@ function humanizeSegment(segment) {
   return String(segment)
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+// Markdown files make pages, but an otherwise unadorned folder does not.  A
+// direct link to one of those folders would otherwise make Go's FileServer
+// return its directory listing, outside the documentation application shell.
+// Build small index pages for those folders so all docs/data routes remain in
+// the offline site.
+function buildFolderPages(inputRoot, outputPrefix, relativeDir = "") {
+  const directory = path.join(inputRoot, relativeDir);
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  const childFolders = [];
+  const children = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const entryPath = path.join(directory, entry.name);
+    const entryStat = fs.statSync(entryPath);
+    const childRelative = path.join(relativeDir, entry.name);
+    if (entryStat.isDirectory()) {
+      const pages = buildFolderPages(inputRoot, outputPrefix, childRelative);
+      childFolders.push(...pages);
+      const childURL = `/${outputPrefix}/${childRelative.replace(/\\/g, "/")}/`;
+      if (pages.some((page) => page.url === childURL)) {
+        children.push({
+          title: humanizeSegment(entry.name),
+          url: childURL,
+        });
+      }
+      continue;
+    }
+    if (!entryStat.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    const sourcePath = path.join(inputRoot, childRelative);
+    const url = outputURLForSourcePath(path.resolve("src"), sourcePath);
+    if (url) children.push({ title: humanizePath(sourcePath), url });
+  }
+
+  if (!relativeDir) return childFolders;
+
+  const hasFolderIndex = entries.some(
+    (entry) => {
+      const entryStat = fs.statSync(path.join(directory, entry.name));
+      return (
+        entryStat.isFile() &&
+        (entry.name.toLowerCase() === "readme.md" ||
+          entry.name.toLowerCase() === "index.md")
+      );
+    },
+  );
+  if (hasFolderIndex) return childFolders;
+
+  const normalized = relativeDir.replace(/\\/g, "/");
+  return [
+    ...childFolders,
+    {
+      title: normalized.split("/").map(humanizeSegment).join(" / "),
+      url: `/${outputPrefix}/${normalized}/`,
+      children,
+    },
+  ];
 }
 
 // Build a hierarchical tree of pages keyed by URL segments. Each node has:
@@ -243,7 +415,7 @@ function githubSlugify(value) {
     .replace(/ /g, "-");
 }
 
-module.exports = function (eleventyConfig) {
+function configureOfflineDocs(eleventyConfig) {
   eleventyConfig.setUseGitIgnore(false);
 
   const markdownLibrary = markdownIt({
@@ -301,9 +473,11 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addGlobalData("eleventyComputed", {
     permalink: (data) => {
       const inputPath = data.page?.inputPath || "";
-      if (!inputPath.endsWith("/README.md")) return data.permalink;
-
       const rel = path.relative(path.resolve("src"), path.resolve(inputPath));
+      if (rel === "docs/ui/DESIGN.md") {
+        return "docs/ui/design-document/index.html";
+      }
+      if (!inputPath.endsWith("/README.md")) return data.permalink;
       if (rel === "README.md") return "README/index.html";
       return `${rel.slice(0, -"README.md".length)}index.html`;
     },
@@ -360,7 +534,6 @@ module.exports = function (eleventyConfig) {
     "src/**/*.{png,jpg,jpeg,gif,svg,webp,json,yml,yaml,bib,txt,py,toml}",
   );
 
-  const repoRoot = path.resolve(__dirname, "..");
   const rootMarkdownWatchTargets = fs
     .readdirSync(repoRoot, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
@@ -376,6 +549,11 @@ module.exports = function (eleventyConfig) {
       .filter((item) => item.inputPath.endsWith(".md"))
       .sort((a, b) => a.url.localeCompare(b.url));
   });
+
+  eleventyConfig.addGlobalData("folderPages", () => [
+    ...buildFolderPages(path.resolve("src/docs"), "docs"),
+    ...buildFolderPages(path.resolve("src/data"), "data"),
+  ]);
 
   eleventyConfig.addFilter("docsTitle", (item) => {
     if (item?.data?.title) return item.data.title;
@@ -416,10 +594,20 @@ module.exports = function (eleventyConfig) {
     const $ = cheerio.load(content, { decodeEntities: false });
     $("a[href]").each((_, element) => {
       if ($(element).attr("data-docs-internal") !== undefined) return;
+      if ($(element).attr("data-docs-app-surface") !== undefined) return;
       const href = $(element).attr("href");
       const result = resolveHrefForInput(href, this.inputPath);
       if (result.resolved) {
         $(element).attr("data-docs-internal", "true");
+      }
+      if (result.appSurface) {
+        $(element).attr("data-docs-app-surface", "true");
+        $(element).attr("href", result.href);
+        return;
+      }
+      if (result.unavailable) {
+        $(element).replaceWith(`<code>${$(element).text()}</code>`);
+        return;
       }
       $(element).attr(
         "href",
@@ -441,4 +629,27 @@ module.exports = function (eleventyConfig) {
     htmlTemplateEngine: false,
     markdownTemplateEngine: false,
   };
+}
+
+module.exports = configureOfflineDocs;
+module.exports._test = {
+  buildBreadcrumbs,
+  buildDocsTree,
+  buildFolderPages,
+  candidatesForPath,
+  documentationURLForRepositoryPath,
+  githubRepositoryHref,
+  githubRepositoryPath,
+  githubSlugify,
+  humanizePath,
+  humanizeSegment,
+  isExternalHref,
+  isPublicHomepageRoot,
+  isWithin,
+  navGroup,
+  outputURLForSourcePath,
+  relativeURLForPage,
+  resolveHrefForInput,
+  rewriteMarkdownHref,
+  splitHref,
 };

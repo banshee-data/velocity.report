@@ -78,9 +78,12 @@ jobs:
         run: ./scripts/ensure-web-stub.sh
 
       - name: Run LiDAR tests with race detector
+        # Bounded kirk0.pcapng fixture replays also run in the per-PR LiDAR
+        # suite; retain the wider timeout here for the remaining nightly work.
         run: |
-          go test -race -tags=pcap -p 2 \
+          go test -race -tags=pcap -p 2 -timeout 50m \
             ./internal/lidar/... \
+            ./internal/cmd/lidar/... \
             ./internal/cmd/server/... \
             ./internal/cmd/tune/... \
             ./cmd/velocity/...
@@ -454,7 +457,12 @@ jobs:
         run: go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
       - name: Run performance benchmark
-        run: make test-perf
+        # Gates every profile in PERF_GATED_PROFILES (full, l3-only) and
+        # reports all of them rather than stopping at the first failure:
+        # which profiles moved is the diagnostic. l3-only isolates
+        # background-model regressions from clustering noise for ~5 s of
+        # extra runtime.
+        run: make test-perf-all
 
       - name: Upload benchmark results
         if: always()

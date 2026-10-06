@@ -446,14 +446,14 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -478,14 +478,14 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -511,7 +511,7 @@
 					"@loader_path/../../../VelocityVisualiser.app/Contents/MacOS",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -537,7 +537,7 @@
 					"@loader_path/../../../VelocityVisualiser.app/Contents/MacOS",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -556,7 +556,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -574,7 +574,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.5.1-pre28;
+				MARKETING_VERSION = 0.5.1-pre44;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;

@@ -4,6 +4,7 @@ package recorder
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/vrlog"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -56,12 +58,27 @@ var (
 
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
-	Version         string `json:"version"`
-	CreatedNs       int64  `json:"created_ns"`
-	SensorID        string `json:"sensor_id"`
-	TotalFrames     uint64 `json:"total_frames"`
-	StartNs         int64  `json:"start_ns"`
-	EndNs           int64  `json:"end_ns"`
+	Version   string `json:"version"`
+	CreatedNs int64  `json:"created_ns"`
+	SensorID  string `json:"sensor_id"`
+
+	// TotalFrames is every record written, and therefore every entry in
+	// index.bin. It is the count a reader seeks against.
+	TotalFrames uint64 `json:"total_frames"`
+
+	// RotationFrames counts sensor rotations only: foreground, full and
+	// empty placeholder frames. Background snapshots are pipeline state, not
+	// observations of the street, so they are excluded. This is the count
+	// that must equal the analysis run's frame count and the source PCAP's
+	// rotation count; TotalFrames cannot, because it also counts snapshots.
+	RotationFrames uint64 `json:"rotation_frames"`
+
+	// BackgroundFrames counts background snapshots. TotalFrames is always
+	// RotationFrames + BackgroundFrames.
+	BackgroundFrames uint64 `json:"background_frames"`
+
+	StartNs         int64 `json:"start_ns"`
+	EndNs           int64 `json:"end_ns"`
 	CoordinateFrame struct {
 		FrameID        string `json:"frame_id"`
 		ReferenceFrame string `json:"reference_frame"`
@@ -78,8 +95,14 @@ type LogHeader struct {
 	ParamsHash    string  `json:"params_hash,omitempty"`    // SHA-256 of effective param-set JSON
 	SchemaVersion string  `json:"schema_version,omitempty"` // parameter-set schema version
 	ParamSetType  string  `json:"param_set_type,omitempty"` // effective/requested/legacy
-	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report version that wrote this
-	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA that wrote this
+	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report binary that wrote this VRLOG
+	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA of the binary that wrote this VRLOG
+
+	// The immutable run configuration may have been composed by an older
+	// binary. Keep its identity separate: it must not overwrite the identity
+	// of the recorder which actually created this file.
+	ConfigBuildVersion string `json:"config_build_version,omitempty"`
+	ConfigBuildGitSHA  string `json:"config_build_git_sha,omitempty"`
 }
 
 // IndexEntry is an entry in the seek index.
@@ -103,9 +126,11 @@ type Recorder struct {
 	chunkOffset     uint32
 	framesInChunk   int // frames written to the current chunk
 
-	frameCount uint64
-	startNs    int64
-	endNs      int64
+	frameCount      uint64
+	rotationFrames  uint64
+	backgroundCount uint64
+	startNs         int64
+	endNs           int64
 
 	mu     sync.Mutex
 	closed bool
@@ -133,6 +158,7 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 			CreatedNs:    time.Now().UnixNano(),
 			SensorID:     sensorID,
 			BuildVersion: version.Version,
+			BuildGitSHA:  version.GitSHA,
 		},
 	}
 
@@ -158,7 +184,10 @@ func (r *Recorder) Record(frame *l9endpoints.FrameBundle) error {
 	// Track timestamps — only from foreground/full frames.  Background
 	// frames may carry wall-clock timestamps that contaminate the VRLOG
 	// time range when recording a PCAP replay.
-	if frame.FrameType != l9endpoints.FrameTypeBackground {
+	if frame.FrameType == l9endpoints.FrameTypeBackground {
+		r.backgroundCount++
+	} else {
+		r.rotationFrames++
 		if r.startNs == 0 {
 			r.startNs = frame.TimestampNanos
 		}
@@ -256,6 +285,8 @@ func (r *Recorder) Close() error {
 
 	// Write header
 	r.header.TotalFrames = r.frameCount
+	r.header.RotationFrames = r.rotationFrames
+	r.header.BackgroundFrames = r.backgroundCount
 	r.header.StartNs = r.startNs
 	r.header.EndNs = r.endNs
 
@@ -327,10 +358,8 @@ func (r *Recorder) SetDeterministicConfig(runConfigID, paramSetID, configHash, p
 	r.header.ParamsHash = paramsHash
 	r.header.SchemaVersion = schemaVersion
 	r.header.ParamSetType = paramSetType
-	if buildVersion != "" {
-		r.header.BuildVersion = buildVersion
-	}
-	r.header.BuildGitSHA = buildGitSHA
+	r.header.ConfigBuildVersion = buildVersion
+	r.header.ConfigBuildGitSHA = buildGitSHA
 	if len(executionConfig) > 0 {
 		r.executionConfig = append([]byte(nil), executionConfig...)
 	}
@@ -514,8 +543,20 @@ type Replayer struct {
 	mu sync.Mutex
 }
 
+// ErrObservationContainer is returned by NewReplayer for a VRLOG 1.x
+// observation container, which shares the .vrlog name but not this layout.
+var ErrObservationContainer = errors.New("VRLOG observation container, not a FrameBundle recording")
+
 // NewReplayer opens a log for replay.
 func NewReplayer(basePath string) (*Replayer, error) {
+	// Refuse an observation container by its root before looking for
+	// header.json. Its records are protobuf whose field numbers overlap
+	// FrameBundle's, so the payload probe below could accept one as a frame;
+	// the root magic is the only safe discriminator.
+	if vrlog.IsContainer(basePath) {
+		return nil, fmt.Errorf("%s: %w (container %d.x); inspect it with `velocity lidar observations inspect`",
+			basePath, ErrObservationContainer, vrlog.FormatMajor)
+	}
 	r := &Replayer{
 		basePath:     basePath,
 		currentChunk: -1,
@@ -698,7 +739,6 @@ func (r *Replayer) ReadFrame() (*l9endpoints.FrameBundle, error) {
 
 	// Add playback info with current frame index (before incrementing)
 	frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-		IsLive:            false,
 		LogStartNs:        r.header.StartNs,
 		LogEndNs:          r.header.EndNs,
 		PlaybackRate:      r.rate,

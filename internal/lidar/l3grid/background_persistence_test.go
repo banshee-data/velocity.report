@@ -22,6 +22,26 @@ type mockPersistBgStore struct {
 	snapshots []*BgSnapshot
 }
 
+type stagedRegionStore struct {
+	*mockRegionStore
+	onInsertBg      func()
+	regionInsertErr error
+}
+
+func (s *stagedRegionStore) InsertBgSnapshot(snap *BgSnapshot) (int64, error) {
+	if s.onInsertBg != nil {
+		s.onInsertBg()
+	}
+	return s.mockRegionStore.InsertBgSnapshot(snap)
+}
+
+func (s *stagedRegionStore) InsertRegionSnapshot(snap *RegionSnapshot) (int64, error) {
+	if s.regionInsertErr != nil {
+		return 0, s.regionInsertErr
+	}
+	return s.mockRegionStore.InsertRegionSnapshot(snap)
+}
+
 func (m *mockPersistBgStore) InsertBgSnapshot(s *BgSnapshot) (int64, error) {
 	if m.insertErr != nil {
 		return 0, m.insertErr
@@ -159,19 +179,39 @@ func TestPersist_ConcurrentChanges(t *testing.T) {
 }
 
 func TestPersist_DefensiveChangeCounter(t *testing.T) {
-	t.Parallel()
 	g := makeTestGridWithData(4, 8)
 	bm := &BackgroundManager{Grid: g}
 	g.Manager = bm
-	// Simulate a race: changesSince copied was larger than current counter
-	g.ChangesSinceSnapshot = 0 // Will be 0 when we get to the write lock
+	g.ChangesSinceSnapshot = 10
 
-	store := &mockPersistBgStore{}
+	store := &stagedRegionStore{
+		mockRegionStore: newMockRegionStore(),
+		onInsertBg: func() {
+			// Simulate another owner resetting the counter after Persist copied it.
+			g.ChangesSinceSnapshot = 0
+		},
+	}
 	err := bm.Persist(store, "defensive")
 	require.NoError(t, err)
 
 	// Should be 0, not negative
 	assert.Equal(t, 0, g.ChangesSinceSnapshot)
+}
+
+func TestPersist_RegionInsertFailureDoesNotLoseGridSnapshot(t *testing.T) {
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	g.RegionMgr.IdentificationComplete = true
+	g.RegionMgr.Regions = []*Region{{ID: 0, CellList: []int{0}, CellCount: 1}}
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	store := &stagedRegionStore{
+		mockRegionStore: newMockRegionStore(),
+		regionInsertErr: assert.AnError,
+	}
+
+	require.NoError(t, bm.Persist(store, "region-error"))
+	assert.Equal(t, int64(1), store.lastInsertedID)
 }
 
 // ---------------------------------------------------------------------------
@@ -683,6 +723,74 @@ func TestBackgroundManager_RestoreFromSnapshot_Integration(t *testing.T) {
 	})
 }
 
+func TestRestoreSettledSnapshotBySourcePath(t *testing.T) {
+	t.Run("validates manager and path", func(t *testing.T) {
+		var nilManager *BackgroundManager
+		_, err := nilManager.RestoreSettledSnapshotBySourcePath("capture.pcap")
+		assert.ErrorContains(t, err, "manager or grid nil")
+
+		g := makeTestGrid(4, 8)
+		_, err = g.Manager.RestoreSettledSnapshotBySourcePath("")
+		assert.ErrorContains(t, err, "source path is empty")
+	})
+
+	t.Run("reports lookup and restore failures", func(t *testing.T) {
+		path := "/captures/error.pcap"
+		store := newMockRegionStore()
+		g := makeTestGrid(4, 8)
+		g.Manager.store = store
+		store.getErr = assert.AnError
+		_, err := g.Manager.RestoreSettledSnapshotBySourcePath(path)
+		assert.ErrorContains(t, err, "look up settled snapshot")
+
+		store.getErr = nil
+		store.addRegionSnapshotBySourcePath(g.SensorID, path, &RegionSnapshot{
+			SensorID:    g.SensorID,
+			RegionsJSON: "not-json",
+		})
+		_, err = g.Manager.RestoreSettledSnapshotBySourcePath(path)
+		assert.ErrorContains(t, err, "restore settled snapshot")
+	})
+
+	t.Run("restores immediately from exact source path", func(t *testing.T) {
+		store := newMockRegionStore()
+		g := makeTestGrid(4, 8)
+		g.Manager.store = store
+		g.SettlingComplete = false
+		path := "/captures/example.pcap"
+		store.addRegionSnapshotBySourcePath(g.SensorID, path, &RegionSnapshot{
+			SensorID:    g.SensorID,
+			RegionCount: 1,
+			RegionsJSON: `[{"id":0,"cell_list":[0,1],"cell_count":2}]`,
+			SourcePath:  path,
+		})
+
+		restored, err := g.Manager.RestoreSettledSnapshotBySourcePath(path)
+		require.NoError(t, err)
+		assert.True(t, restored)
+		assert.True(t, g.SettlingComplete)
+		assert.Equal(t, path, g.Manager.GetSourcePath())
+	})
+
+	t.Run("reports missing snapshot", func(t *testing.T) {
+		store := newMockRegionStore()
+		g := makeTestGrid(4, 8)
+		g.Manager.store = store
+
+		restored, err := g.Manager.RestoreSettledSnapshotBySourcePath("/captures/missing.pcap")
+		require.NoError(t, err)
+		assert.False(t, restored)
+	})
+
+	t.Run("requires a region store", func(t *testing.T) {
+		g := makeTestGrid(4, 8)
+		g.Manager.store = &mockPersistBgStore{}
+
+		_, err := g.Manager.RestoreSettledSnapshotBySourcePath("/captures/example.pcap")
+		assert.ErrorContains(t, err, "does not support region restoration")
+	})
+}
+
 // mockRegionStore is a test double for RegionStore interface.
 type mockRegionStore struct {
 	regionSnapshots map[string]*RegionSnapshot // key: gridHash or sourcePath
@@ -839,6 +947,31 @@ func TestTryRestoreRegionsByGridHash(t *testing.T) {
 		assert.True(t, result)
 		assert.True(t, g.RegionMgr.IdentificationComplete)
 	})
+
+	t.Run("returns false when matching snapshot cannot be restored", func(t *testing.T) {
+		g := makeTestGridWithData(4, 8)
+		bm := &BackgroundManager{Grid: g}
+		store := newMockRegionStore()
+		gridHash := g.SceneSignature()
+		store.addRegionSnapshotByGridHash(g.SensorID, gridHash, &RegionSnapshot{
+			SensorID:    g.SensorID,
+			GridHash:    gridHash,
+			RegionsJSON: "not-json",
+		})
+
+		assert.False(t, bm.TryRestoreRegionsByGridHash(store))
+	})
+}
+
+func TestTryRestoreRegionsFromStoreLocked_EmptyGridHash(t *testing.T) {
+	g := &BackgroundGrid{SensorID: "empty-hash", Cells: []BackgroundCell{}}
+	bm := &BackgroundManager{Grid: g, store: newMockRegionStore()}
+	g.Manager = bm
+
+	g.mu.Lock()
+	restored := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+	assert.False(t, restored)
 }
 
 // makeTestGridWithData creates a test grid with populated cell data.
@@ -1131,6 +1264,7 @@ func TestPersistRegionsOnSettleLocked(t *testing.T) {
 		g.RegionMgr.Regions = []*Region{
 			{ID: 0, CellList: []int{0, 1, 2}, CellCount: 3},
 		}
+		g.RingElevations = []float64{-15, -5, 5, 15}
 		store := newMockRegionStore()
 		bm := &BackgroundManager{
 			Grid:       g,
@@ -1144,6 +1278,24 @@ func TestPersistRegionsOnSettleLocked(t *testing.T) {
 
 		// Verify snapshot was inserted
 		assert.Equal(t, int64(2), store.lastInsertedID) // 1 for grid, 1 for region
+	})
+
+	t.Run("handles region snapshot insert error", func(t *testing.T) {
+		g := makeTestGridWithData(4, 8)
+		g.RegionMgr = NewRegionManager(4, 8)
+		g.RegionMgr.IdentificationComplete = true
+		g.RegionMgr.Regions = []*Region{{ID: 0, CellList: []int{0}, CellCount: 1}}
+		store := &stagedRegionStore{
+			mockRegionStore: newMockRegionStore(),
+			regionInsertErr: assert.AnError,
+		}
+		bm := &BackgroundManager{Grid: g, store: store}
+
+		g.mu.Lock()
+		bm.persistRegionsOnSettleLocked()
+		g.mu.Unlock()
+
+		assert.Equal(t, int64(1), store.lastInsertedID)
 	})
 
 	t.Run("handles grid snapshot insert error", func(t *testing.T) {

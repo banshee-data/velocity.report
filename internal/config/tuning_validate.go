@@ -26,6 +26,26 @@ func (c *TuningConfig) Validate() error {
 	if err := c.Pipeline.Validate(); err != nil {
 		return fmt.Errorf("pipeline: %w", err)
 	}
+	if err := c.validateLayerDepth(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateLayerDepth enforces that disabled layers form a suffix: once a layer
+// is switched off, every layer above it must be too.
+//
+// This is what keeps the depth a closed set without enumerating the legal
+// combinations anywhere. Tracking cannot consume clusters that were never
+// produced, so `l4.engine: "none"` with a live L5 is not a configuration with
+// surprising behaviour — it is one with no coherent meaning, and it is
+// rejected at load rather than discovered at runtime.
+func (c *TuningConfig) validateLayerDepth() error {
+	if c.L4.Engine == EngineNone && c.L5.Engine != EngineNone {
+		return fmt.Errorf(
+			"l5.engine is %q but l4.engine is %q: a layer cannot run when the layer below it is disabled",
+			c.L5.Engine, EngineNone)
+	}
 	return nil
 }
 
@@ -49,6 +69,9 @@ func (c *L1Config) Validate() error {
 
 // Validate validates pipeline values.
 func (c *PipelineConfig) Validate() error {
+	if c.FrameBudgetMs < 0 {
+		return fmt.Errorf("frame_budget_ms must be non-negative, got %v", c.FrameBudgetMs)
+	}
 	if _, err := time.ParseDuration(c.BufferTimeout); err != nil {
 		return fmt.Errorf("invalid buffer_timeout %q: %w", c.BufferTimeout, err)
 	}
@@ -81,6 +104,9 @@ func (c *L3Config) Validate() error {
 
 // Validate validates the selected L4 engine and its block.
 func (c *L4Config) Validate() error {
+	if c.Engine == EngineNone {
+		return nil
+	}
 	switch c.Engine {
 	case "dbscan_xy_v1":
 		if c.DbscanXyV1 == nil {
@@ -104,6 +130,9 @@ func (c *L4Config) Validate() error {
 
 // Validate validates the selected L5 engine and its block.
 func (c *L5Config) Validate() error {
+	if c.Engine == EngineNone {
+		return nil
+	}
 	switch c.Engine {
 	case "cv_kf_v1":
 		if c.CvKfV1 == nil {
@@ -238,6 +267,9 @@ func (c *L4Common) Validate() error {
 	if c.ForegroundMaxInputPoints < 1 {
 		return fmt.Errorf("foreground_max_input_points must be >= 1, got %d", c.ForegroundMaxInputPoints)
 	}
+	if c.MaxSamplePoints < 0 || c.MaxSamplePoints > 1024 {
+		return fmt.Errorf("max_sample_points must be between 0 and 1024, got %d", c.MaxSamplePoints)
+	}
 	if c.HeightBandFloor > c.HeightBandCeiling {
 		return fmt.Errorf("height_band_floor must be <= height_band_ceiling, got %f > %f", c.HeightBandFloor, c.HeightBandCeiling)
 	}
@@ -332,6 +364,18 @@ func (c *L5Common) Validate() error {
 	}
 	if c.OBBHeadingSmoothingAlpha < 0 || c.OBBHeadingSmoothingAlpha > 1 {
 		return fmt.Errorf("obb_heading_smoothing_alpha must be in [0, 1], got %f", c.OBBHeadingSmoothingAlpha)
+	}
+	if c.AssociationExtentCostWeight < 0 {
+		return fmt.Errorf("association_extent_cost_weight must be non-negative, got %f", c.AssociationExtentCostWeight)
+	}
+	if c.MinAssociableExtentMetres < 0 {
+		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)
+	}
+	if _, err := time.ParseDuration(c.DeletedTrackRenderFade); err != nil {
+		return fmt.Errorf("deleted_track_render_fade must be a valid duration, got %q: %w", c.DeletedTrackRenderFade, err)
+	}
+	if c.OBBHeadingLockMaxRejections < 0 {
+		return fmt.Errorf("obb_heading_lock_max_rejections must be non-negative, got %d", c.OBBHeadingLockMaxRejections)
 	}
 	if c.OBBAspectRatioLockThreshold < 0 {
 		return fmt.Errorf("obb_aspect_ratio_lock_threshold must be non-negative, got %f", c.OBBAspectRatioLockThreshold)

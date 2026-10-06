@@ -1,0 +1,20 @@
+{
+  "_comment": "Tier 1, sized to one night. Measured 2026-09-19: 163 s for a cold 200 s run with evidence, faster for later configs at the same site (the sweep is site-major, so the capture stays cached). 9 configs x 24 sites is about 8 h. pass7-configs-tier2.json holds the rest; run it next, or merge the two for a machine with more time. Every config is scored against `baseline` at the same site, and `baseline_again` is the determinism proof, so neither can be dropped.",
+  "baseline": {},
+  "baseline_again": {},
+  "likelihood_cost": { "experiments": ["likelihood_cost"], "keep_vrlog": true },
+  "occlusion_inflation_0": {
+    "overrides": { "l5.cv_kf_v1.occlusion_cov_inflation": 0 }
+  },
+  "hits_to_confirm_1": { "overrides": { "l5.cv_kf_v1.hits_to_confirm": 1 } },
+  "hits_to_confirm_1__likelihood_cost": {
+    "overrides": { "l5.cv_kf_v1.hits_to_confirm": 1 },
+    "experiments": ["likelihood_cost"]
+  },
+  "cascade": { "experiments": ["cascade"] },
+  "no_region_overrides": { "experiments": ["no_region_overrides"] },
+  "closeness_2": {
+    "overrides": { "l3.ema_baseline_v1.closeness_multiplier": 2 },
+    "keep_vrlog": true
+  }
+}

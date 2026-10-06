@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "3rd-folsom",
+    "title": "3rd at Folsom"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

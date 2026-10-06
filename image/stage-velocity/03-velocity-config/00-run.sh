@@ -31,9 +31,9 @@ chown velocity:velocity /var/lib/velocity-report
 # data migrate down/force/...) deliberately require an interactive password.
 #
 # Commands granted to the `velocity` service user:
-#   velocity device tailscale {enable,disable}-tailscaled — literal argv that
-#       lets the Go server unmask/start/stop tailscaled when the operator
-#       toggles Tailscale in the web UI. Nothing else escalates.
+#   velocity device tailscale {install,enable,disable}-tailscaled — literal
+#       argv that lets the Go server install the pinned static payload and
+#       unmask/start/stop it when the operator toggles Tailscale in the web UI.
 cat > /etc/sudoers.d/020_velocity-nopasswd <<'SUDOEOF'
 pi ALL=(root) NOPASSWD: \
     /usr/bin/getent shadow pi, \
@@ -52,6 +52,7 @@ pi ALL=(root) NOPASSWD: \
     /usr/local/bin/velocity data migrate version
 
 velocity ALL=(root) NOPASSWD: \
+    /usr/local/bin/velocity device tailscale install, \
     /usr/local/bin/velocity device tailscale enable-tailscaled, \
     /usr/local/bin/velocity device tailscale disable-tailscaled
 SUDOEOF
@@ -74,7 +75,8 @@ if [ -d files/data ]; then
     cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"
 fi
 
-# Install built documentation site (velocity.report public pages)
+# Install the built public homepage. The Go service mounts it at /public_html/;
+# repository docs remain embedded in the binary and mounted separately at /docs/.
 if [ -d files/public_html ]; then
     cp -r files/public_html "${ROOTFS_DIR}/opt/velocity-report/public_html"
 fi

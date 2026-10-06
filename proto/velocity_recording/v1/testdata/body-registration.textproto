@@ -1,0 +1,63 @@
+schema: "velocity.report/feature-proposals"
+schema_version: 1
+pack_digest: "sha256:wire-fixture"
+dataset_id: "registration-wire-fixture"
+revision: 3
+author: "fixture-operator"
+point_domain: "legacy_pack"
+features {
+  feature_id: "mirror-tip"
+  object_id: "car-1"
+  name: "Outer mirror tip"
+  geometry: FEATURE_GEOMETRY_PROTRUSION
+  part_id: "body"
+  part_relation: "rigid_proposal"
+  anchor {
+    part_frame_id: "body-car-1_xy"
+    part_frame_revision: 1
+    x_m: 1.25
+    y_m: -0.875
+    physical_revision: 7
+    physical_digest: "sha256:pinned-physical-fixture"
+    body_id: "body-car-1"
+    keyframe_id: "pose-0"
+    coordinate_domain: "body_xy"
+    source_sample: 0
+    source_point_index: 0
+    bound_m: 0.35
+    return_bound_m: 0.05
+    origin: "reference_seeded_proposal"
+    method: "manual_named_return_v1"
+    identity_note: "Outer rigid tip, repeated in two frames; height unresolved"
+  }
+  observations {
+    sample_id: 0
+    timestamp_ns: 9007199254740993
+    point_indices: 0
+    decision: FEATURE_DECISION_ACCEPTED_PROPOSAL
+    method: "manual_lasso"
+    author: "fixture-operator"
+    membership_revision: 2
+    membership_digest: "sha256:membership-fixture"
+    origin: "human_proposal"
+  }
+  observations {
+    sample_id: 1
+    timestamp_ns: 9007199354740993
+    point_indices: 17
+    decision: FEATURE_DECISION_ACCEPTED_PROPOSAL
+    method: "manual_lasso"
+    author: "fixture-operator"
+    membership_revision: 2
+    membership_digest: "sha256:membership-fixture"
+    origin: "human_proposal"
+  }
+}
+features {
+  feature_id: "retired-side-patch"
+  object_id: "car-1"
+  geometry: FEATURE_GEOMETRY_PATCH
+  part_id: "body"
+  part_relation: "unknown"
+  inactive: true
+}

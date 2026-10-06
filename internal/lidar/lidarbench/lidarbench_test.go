@@ -72,7 +72,10 @@ func TestCompareWithBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 50% slower wall clock + 50% fewer fps → regressions on both.
+	// 50% slower wall clock, and the fps that mechanically follows from it.
+	// Only the wall clock is reported: frames_per_second is frames divided by
+	// that same wall clock, so gating both turned one runner slowdown into two
+	// independent-looking regressions.
 	current := &PerformanceMetrics{
 		WallClockMs:     1500,
 		FrameTimeStats:  FrameTimeStats{AvgMs: 2.0, P95Ms: 3.0},
@@ -94,8 +97,12 @@ func TestCompareWithBaseline(t *testing.T) {
 			sawFPS = true
 		}
 	}
-	if !sawWall || !sawFPS {
-		t.Fatalf("expected wall_clock_ms and frames_per_second regressions, got %+v", comparison.Regressions)
+	if !sawWall {
+		t.Fatalf("expected a wall_clock_ms regression, got %+v", comparison.Regressions)
+	}
+	if sawFPS {
+		t.Errorf("frames_per_second is derived from wall_clock_ms and must not be gated separately, got %+v",
+			comparison.Regressions)
 	}
 
 	// Identical metrics → no regression, no improvement.

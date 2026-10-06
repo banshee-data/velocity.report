@@ -15,14 +15,10 @@
 
 </div>
 
-**Lines of code · test coverage shown as hatched (uncovered)**
-
-<img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
-
-Street-level speed measurement for neighbourhood change-makers, researchers,
-and anyone who needs evidence instead of guesswork about what traffic does.
-Radar and LiDAR sensors measure speeds and movement: no cameras, no licence plates,
-no individual is identified, tracked, or recorded. The data belongs to the community that collected it.
+velocity.report measures what traffic does on a street, so the people who live there can make
+their case with evidence rather than being asked to bring louder anecdotes. Radar and LiDAR
+measure speed and movement: no cameras, no licence plates, and no person is identified, tracked,
+or recorded. The data belongs to the community that collected it.
 
 <div align="center">
 
@@ -165,12 +161,12 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 
 ## What's included
 
-| Component            | What it does                                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API -> [cmd/](cmd/), [internal/](internal/)                                 |
-| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + Typst -> [internal/report/](internal/report/)               |
-| **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript -> [web/](web/README.md)                                                 |
-| **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. macOS/Metal -> [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
+| Component            | What it does                                                                                                                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API -> [cmd/](cmd/), [internal/](internal/)                                                                                         |
+| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + Typst -> [internal/report/](internal/report/)                                                                       |
+| **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript -> [web/](web/README.md)                                                                                                         |
+| **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, debug overlays, and point-cloud annotation for building reference datasets. macOS/Metal -> [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
 
 ## Quick start
 
@@ -236,6 +232,10 @@ Check out [docs/plans](docs/plans/) and [BACKLOG.md](docs/BACKLOG.md) for any wo
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, coding standards,
 and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
 
+**Codebase breakdown, hatched area denotes code not covered by tests**
+
+<img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
+
 ## Deployment
 
 The Go server runs as a systemd service on Raspberry Pi.
@@ -249,6 +249,11 @@ Kalman-filtered multi-object tracking with state and covariance estimation,
 and rule-based classification across eight object types (car, truck, bus, pedestrian, cyclist,
 motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed.
 Today, both run in parallel.
+
+The [October near-edge campaign report](docs/lidar/operations/near-edge-campaign-2026-10.md)
+records the completed geometry, duration, timing, and diagnostic comparisons. It recommends
+retaining the production medoid tracker: the candidate breaches update cost at all 29 cases and
+geometry at nine, while physical accuracy and Pi performance remain unverified.
 
 The next stage fuses them into a single scene model:
 cross-sensor track handoff using Mahalanobis-distance gating,

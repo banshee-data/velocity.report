@@ -4,8 +4,9 @@ ____ ____ ____ _  _ _ ___ ____ ____ ___ _  _ ____ ____
 |  | |  \ |___ |  | |  |  |___ |___  |  |__| |  \ |___
 ```
 
-This document describes the system architecture, component relationships, data flow,
-and integration points for the velocity.report traffic monitoring system.
+# Architecture
+
+tl;dr a map of the running system: sensors, services, data paths, and the seams where they meet.
 
 For canonical numeric constants (ports, tuning defaults, and hard-coded thresholds),
 see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
@@ -635,7 +636,7 @@ These three sources will be compared for initial reporting, with eventual goal o
 
 - High-precision timestamps (DOUBLE for subsecond accuracy via `UNIXEPOCH('subsec')`)
 - Sessionization via `radar_data_transits` (avoids expensive CTEs in queries)
-- LiDAR background modeling for change detection (grid stored as BLOB)
+- LiDAR background modelling for change detection (grid stored as BLOB)
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
 - Time-based site configuration via `site_config_periods` (Type 6 Slowly Changing Dimension)
@@ -1207,15 +1208,18 @@ Canonical layer reference:
 Development is tracked in the [backlog](docs/BACKLOG.md), organised by version.
 The versions most relevant to system architecture:
 
-| Version | Theme                  | Key Capabilities                                                                                             |
-| ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| v0.5.2  | Data Contracts         | Track speed metric redesign, metric registry, data structure remediation, replay case terminology            |
-| v0.5.3  | Replay Stabilisation   | VRLOG timestamp index, SSE backpressure, visualiser debug overlays, dynamic background segmentation          |
-| v0.5.4  | Product Polish         | Serial port configuration UI, frontend theme compliance, metrics consolidation                               |
-| v0.6.0  | Deployment & Packaging | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking |
-| v0.7.0  | United Frontend        | Svelte migration (retire Go-embedded dashboards), ECharts → LayerChart, track labelling UI in Swift          |
-| v1.0    | Scene Layer            | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                    |
-| v2.0    | ML & Automation        | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction         |
+| Version | Theme                     | Key Capabilities                                                                                             |
+| ------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| v0.5.2  | Tailgating Metric         | Solid-body geometry, occlusion continuity, calibrated uncertainty, bumper-to-bumper gap, scenes distribution |
+| v0.5.3  | PET & Behaviour Metrics   | Post-encroachment time, passing clearance, transit record and behaviour-label pipeline                       |
+| v0.5.4  | Estimate Display          | Trail correctness, deterministic track identity, speed metric redesign, data structure remediation           |
+| v0.5.5  | Stream Stability          | Frame-drop accounting, gRPC stream cleanup, VRLOG timestamp index, transport soak across hosts               |
+| v0.6.0  | TDL Query Foundations     | Transit query table, radar transit union, vocabulary registry, parser, query builder, aggregation API        |
+| v0.6.1  | TDL Description Interface | Transit browser, aggregate statistics dashboard, vector-scene replay, TDL-scoped PDF reports                 |
+| v0.6.2  | Deployment & Packaging    | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking |
+| v0.7.0  | United Frontend           | Svelte migration (retire Go-embedded dashboards), ECharts → LayerChart, track labelling UI in Swift          |
+| v1.0    | Scene Layer               | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                    |
+| v2.0    | ML & Automation           | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction         |
 
 The project ships incrementally.
 Each version has a design document per work item; the backlog links to all of them.

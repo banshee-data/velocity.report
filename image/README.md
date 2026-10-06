@@ -80,8 +80,6 @@ image/
     │   └── files/
     │       ├── NetworkManager.state
     │       └── velocity-wired-dhcp.nmconnection
-    ├── 07-velocity-tailscale/      # Tailscale package install, masked by default
-    │   └── 01-run.sh
     └── EXPORT_IMAGE
 ```
 
@@ -162,7 +160,7 @@ sudo nmcli device connect eth0
 | --------------------------------------------- | --------------- |
 | Raspberry Pi OS Lite (base)                   | ~450 MB         |
 | Static Go binary with embedded Typst/docs/web | ~65 MB          |
-| LiDAR + system config + Tailscale package     | ~60 MB          |
+| LiDAR + system config                         | ~60 MB          |
 | **Total (xz compressed)**                     | **~150–300 MB** |
 
 ## Design document

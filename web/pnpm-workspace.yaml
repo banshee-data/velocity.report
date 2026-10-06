@@ -1,6 +1,7 @@
 # pnpm 11 replaced the `onlyBuiltDependencies` list with the `allowBuilds` map.
 # These are the only dependencies permitted to run install scripts.
 allowBuilds:
+  '@parcel/watcher': true
   '@tailwindcss/oxide': true
   esbuild: true
   svelte-preprocess: true

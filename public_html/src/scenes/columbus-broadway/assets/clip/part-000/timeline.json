@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "bucket_seconds": 5,
+  "duration_sec": 29.799773,
+  "buckets": [
+    {
+      "t": 0,
+      "veh": 5.74,
+      "ped": 12.06,
+      "cyc": 0,
+      "oth": 36.22,
+      "spd": 9.38,
+      "n": 50
+    },
+    {
+      "t": 5,
+      "veh": 4.88,
+      "ped": 6.61,
+      "cyc": 0,
+      "oth": 35.84,
+      "spd": 9.22,
+      "n": 51
+    },
+    {
+      "t": 10,
+      "veh": 2.98,
+      "ped": 6.34,
+      "cyc": 0,
+      "oth": 35.58,
+      "spd": 10.12,
+      "n": 50
+    },
+    {
+      "t": 15,
+      "veh": 2.32,
+      "ped": 4.32,
+      "cyc": 0.42,
+      "oth": 31.34,
+      "spd": 8.06,
+      "n": 50
+    },
+    {
+      "t": 20,
+      "veh": 1.61,
+      "ped": 5.59,
+      "cyc": 0.37,
+      "oth": 22.02,
+      "spd": 9.25,
+      "n": 49
+    },
+    {
+      "t": 25,
+      "veh": 1,
+      "ped": 5.31,
+      "cyc": 0,
+      "oth": 18.82,
+      "spd": 9.87,
+      "n": 49
+    }
+  ],
+  "vehicle_speed": {
+    "units": "mph",
+    "bucket_size": 5,
+    "minimum_speed": 5,
+    "track_count": 10,
+    "p50": 14.74,
+    "p85": 20.89,
+    "p98": 20.98,
+    "max": 20.98,
+    "histogram": [
+      {
+        "start_mph": 5,
+        "count": 3
+      },
+      {
+        "start_mph": 10,
+        "count": 2
+      },
+      {
+        "start_mph": 15,
+        "count": 3
+      },
+      {
+        "start_mph": 20,
+        "count": 2
+      }
+    ]
+  },
+  "max_total": 54.02,
+  "max_speed": 10.12
+}

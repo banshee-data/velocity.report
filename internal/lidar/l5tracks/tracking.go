@@ -2,10 +2,33 @@ package l5tracks
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+const (
+	// CourseAlignmentBins is the number of histogram bins spanning [0, 90]
+	// degrees of course-alignment error. Twenty gives 4.5° resolution, which is
+	// finer than the quantity is trustworthy at a 5 Hz effective observation
+	// rate and cheap enough to keep per track.
+	CourseAlignmentBins = 20
+
+	// CourseAlignmentBinWidthDeg is the width of one bin, in degrees.
+	CourseAlignmentBinWidthDeg = 90.0 / CourseAlignmentBins
+
+	// CourseAlignmentMinSpeedMps is the speed below which course is not a
+	// meaningful reference direction: the velocity heading is dominated by
+	// estimator noise, so comparing the box against it measures nothing.
+	CourseAlignmentMinSpeedMps = 2.0
+
+	// SustainedLockFrames is how many consecutive locked frames count as a
+	// sustained heading lock, and equally how many consecutive unlocked frames
+	// count as a genuine release. Short locks are the guards doing their job on
+	// a single bad cluster; a sustained one that never releases is the trap.
+	SustainedLockFrames = 5
 )
 
 // TrackPoint represents a single point in a track's history.
@@ -13,13 +36,19 @@ type TrackPoint struct {
 	X         float32
 	Y         float32
 	Timestamp int64 // Unix nanos
+	// Support says whether this point was observed or coasted, and when
+	// coasted, why. A trail is otherwise a smooth line through evidence and
+	// hypothesis alike. Zero for points not produced by the live tracker,
+	// such as history restored from storage. See continuity.go.
+	Support ObservationSupport
 }
 
 // TrackedObject represents a single tracked object in the tracker.
 type TrackedObject struct {
 	// Identity + shared measurement fields (persisted to both lidar_tracks
 	// and lidar_run_tracks)
-	TrackID string
+	TrackID          string
+	CreationSequence int64 // Deterministic association ordering; UUID remains public identity
 	TrackMeasurement
 
 	// Lifecycle counters
@@ -35,6 +64,49 @@ type TrackedObject struct {
 	// Kalman covariance (4x4, row-major)
 	P [16]float32
 
+	// LastMeasurement is the source and acquisition time of the accepted L4
+	// geometry that produced the current state. It is copied into the legacy
+	// per-track observation row; it is not a mutable replacement for the raw
+	// DetectionObservation record.
+	LastMeasurementSource    MeasurementSource
+	LastMeasurementUnixNanos int64
+	LastClusterID            int64
+	LastResidual             FilterResidual
+
+	// Capture-time state and coast accounting; see time_domain.go.
+	//
+	// StateUnixNanos is the capture time the Kalman state refers to: the
+	// frame time after each prediction, or the measurement time after a
+	// MeasurementTimePrediction update. When an interval is clamped (to
+	// MaxPredictDt by default, or to the CaptureGapPrediction limit) the
+	// state is re-anchored at the frame time and the unpredicted remainder is
+	// counted in TimeDomainStats, the convention the default clamp has always
+	// followed. LastObservedUnixNanos is the state
+	// time of the last accepted observation. It differs from
+	// LastMeasurementUnixNanos, which is evidence (the acquisition time of
+	// the cluster geometry), while this is the estimator's own clock.
+	//
+	// CoastAgeSecs is how long, in capture time, the track has now gone
+	// without an observation: zero on a frame it is observed. MaxCoastAgeSecs
+	// is the longest unobserved interval it has closed. Unlike Misses and
+	// MaxOcclusionFrames these count elapsed capture time, so frames that
+	// never reached the tracker are not silently forgiven.
+	StateUnixNanos        int64
+	LastObservedUnixNanos int64
+	CoastAgeSecs          float32
+	MaxCoastAgeSecs       float32
+
+	// Existence, separate from observation; see continuity.go. LastSupport is
+	// the latest instant's support token, recorded whether or not the instant
+	// reached History. Existence is the continuity hypothesis it implies,
+	// distinct from TrackState and from the solid-body EstimationState.
+	// ExpiryReason says why a deleted track was deleted. inflatedCoastSecs is
+	// the coast age CaptureTimeInflation has already charged for.
+	LastSupport       ObservationSupport
+	Existence         ExistenceState
+	ExpiryReason      ExpiryReason
+	inflatedCoastSecs float32
+
 	// History of positions
 	History []TrackPoint
 
@@ -46,9 +118,25 @@ type TrackedObject struct {
 	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
-	OBBLength float32 // Latest frame bounding box length (metres)
-	OBBWidth  float32 // Latest frame bounding box width (metres)
-	OBBHeight float32 // Latest frame bounding box height (metres)
+	OBBLength         float32 // Latest frame bounding box length (metres)
+	OBBWidth          float32 // Latest frame bounding box width (metres)
+	OBBHeight         float32 // Latest frame bounding box height (metres)
+	AxisScoreGap      float32 // Heuristic cost margin, not calibrated confidence
+	AxisAbstentionRun int     // Consecutive axis-path abstentions, running
+
+	// Extent beliefs: revisable lower-bound estimates of the object's body
+	// dimensions, built from confidently assigned observations only. They are
+	// deliberately not running means of raw spans; see heading_extent.go.
+	lengthBelief, widthBelief extentBelief
+	// reacquisitionExtent is the same kind of belief about the longest span,
+	// fed only under OcclusionContinuity.ReacquisitionGuard, which reads it;
+	// see reacquisitionBelief.
+	reacquisitionExtent extentBelief
+
+	// solidBody is the near-edge solid-body estimate, populated only under
+	// TrackerConfig.SolidBody and read through SolidBody(). It is a value, so
+	// a snapshot copy of the track is an independent copy of it.
+	solidBody solidBodyTrack
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -72,8 +160,57 @@ type TrackedObject struct {
 
 	// Heading Jitter Metrics
 	// Measures frame-to-frame OBB heading instability (spinning bounding boxes).
+	//
+	// Caution: a heading that never updates has zero jitter. This metric alone
+	// cannot distinguish a stable box from a locked one, so it must be read
+	// alongside CourseAlignment below, which measures whether the box is
+	// pointing the right way at all.
 	HeadingJitterSumSq float64 // Running sum of squared heading deltas (radians²)
 	HeadingJitterCount int     // Number of heading delta samples
+
+	// Course Alignment Metrics
+	// Measures the angle between the OBB heading and the direction of travel,
+	// folded to [0, 90]: 0 means the box is aligned with the course, 90 means
+	// it lies across it. An OBB is symmetric, so a 180° difference is the same
+	// physical box and folds to 0; a 90° difference is a length/width swap and
+	// is the worst case.
+	//
+	// Stored as a fixed-bin histogram rather than a sample slice so that the
+	// per-track cost stays constant on the Pi. Percentiles are recovered by
+	// CourseAlignmentPercentileDeg.
+	CourseAlignmentHist  [CourseAlignmentBins]uint32 // 5° bins over [0, 90]
+	CourseAlignmentCount int                         // Number of samples taken
+
+	// Heading Lock Telemetry
+	// The heading guards in tracking_update.go suppress the OBB heading update
+	// and record HeadingSourceLocked. Guard 3 compares each measurement against
+	// the *smoothed* heading, so once that has drifted more than 60° from the
+	// truth every correct measurement is rejected and the lock cannot release
+	// on its own. These counters exist to make that trap visible: a track that
+	// enters a sustained lock and never leaves it is the failure mode.
+	HeadingSourceCounts  [HeadingSourceCount]uint32 // Frames attributed to each source
+	HeadingLockedFrames  int                        // Total frames with the heading locked
+	CurrentLockRun       int                        // Consecutive locked frames, running
+	LongestLockRun       int                        // Longest consecutive locked run
+	currentUnlockRun     int                        // Consecutive unlocked frames, running
+	EnteredSustainedLock bool                       // Reached SustainedLockFrames consecutively
+	RecoveredAfterLock   bool                       // Any unlocked frame after a sustained lock
+	ReleasedAfterLock    bool                       // Ran unlocked for SustainedLockFrames after that
+	LockEpisodes         int                        // Number of distinct lock runs
+	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
+	HeadingLockReleases  int                        // Times the rejection counter forced a release
+	HeadingEpisodes      HeadingEpisodeState        // Terminal episode, unlike the lifetime flags above
+
+	// Residuals and Association are Phase 0 filter-consistency instrumentation:
+	// what the observation disagreed with the prediction about, and how often
+	// there was an observation at all. See residuals.go.
+	Residuals   ResidualBands
+	Association AssociationBands
+
+	// FragmentPairingsRejected counts cluster/track pairings forbidden by the
+	// fragment guard in associate(). It is per evaluated pairing per frame, not
+	// per frame, so it indicates pressure rather than a count of lost frames.
+	FragmentPairingsRejected int
 
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).
@@ -98,8 +235,17 @@ type Tracker struct {
 	NextTrackID int64
 	Config      TrackerConfig
 
-	// Last update timestamp for dt computation
+	// Last update timestamp for dt computation: the frame clock, in capture
+	// time. See time_domain.go.
 	LastUpdateNanos int64
+
+	// timeStats records the capture-time stream for diagnostics.
+	timeStats TimeDomainStats
+	// continuity records support, expiry and reacquisition for diagnostics.
+	// A track whose CreationSequence exceeds continuityBornAfter was born in
+	// the current continuity window.
+	continuity          ContinuityStats
+	continuityBornAfter int64
 
 	// Fragmentation counters (reset via ResetFragmentation)
 	TracksCreated   int
@@ -114,6 +260,13 @@ type Tracker struct {
 	EmptyBoxFrames int64 // Running sum of unmatched active tracks across frames
 	TotalBoxFrames int64 // Running sum of active tracks across frames
 
+	// solidBodyReferenceChanges counts the solid bodies' reference changes;
+	// read via SolidBodyReferenceChanges().
+	solidBodyReferenceChanges SolidBodyReferenceChanges
+	// nearEdgePairs keeps this frame's near-edge measurement per pairing the
+	// A2 gate made, for the update to reuse. Cleared per frame.
+	nearEdgePairs map[nearEdgePairKey]nearEdgeFrame
+
 	// lastAssociations stores the result of the most recent associate() call.
 	// It is a slice indexed by cluster index; each element is the trackID
 	// the cluster was associated with, or "" if unassociated.
@@ -122,6 +275,25 @@ type Tracker struct {
 
 	// DebugCollector captures algorithm internals for visualisation (optional)
 	DebugCollector DebugCollector
+	// filterSteps records each frame's prior and posterior for an attached
+	// offline observer (a smoother). Nil, the default, records nothing. See
+	// filter_steps.go.
+	filterSteps *filterStepRecorder
+	// Window baselines outlive individual tracks and exclude warm-up when reset
+	// at the scoring boundary. Per-track lifetime metrics remain unchanged.
+	baselineEnabled     bool
+	baselineResiduals   ResidualBands
+	baselineAssociation AssociationBands
+
+	// Calibration window: pre-gate samples, the pre-gate band set and open
+	// gate-rejection events (pregate.go). Off unless
+	// BeginUncertaintyCalibration opened it; read-only with respect to tracks.
+	calibrationEnabled        bool
+	preGate                   PreGateBands
+	uncertaintySamples        []UncertaintySample
+	uncertaintySamplesDropped int
+	uncertaintySampleCap      int
+	pendingRejections         map[string]*pendingGateRejection
 
 	mu sync.RWMutex
 }
@@ -142,7 +314,27 @@ type DebugCollector interface {
 func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	previousAxisMode := t.Config.OBBAxisCoherenceEnabled
+	previousSolidBody := t.Config.SolidBody
+	previousNearEdge := t.Config.NearEdgeTracking
 	fn(&t.Config)
+	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
+		for _, track := range t.Tracks {
+			track.lengthBelief, track.widthBelief = extentBelief{}, extentBelief{}
+			track.AxisScoreGap, track.AxisAbstentionRun = 0, 0
+		}
+	}
+	if previousSolidBody != t.Config.SolidBody || previousNearEdge != t.Config.NearEdgeTracking {
+		// A solid body built under other options, or no longer maintained,
+		// would be read as current. Each track reseeds at its next
+		// observation if the option is still on. A tracked state already on
+		// the body centre keeps its position: the reseeded body is on the
+		// medoid, so its next fix translates by the little that remains.
+		// Nothing switches these options at runtime today.
+		for _, track := range t.Tracks {
+			track.solidBody = solidBodyTrack{}
+		}
+	}
 }
 
 // GetConfig returns a snapshot of the tracker's current configuration
@@ -163,11 +355,25 @@ func (t *Tracker) Reset() {
 	t.Tracks = make(map[string]*TrackedObject)
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
+	t.timeStats = TimeDomainStats{}
+	t.continuity = ContinuityStats{}
+	t.continuityBornAfter = 0
 	t.lastAssociations = nil
 	t.TotalForegroundPoints = 0
 	t.ClusteredPoints = 0
 	t.EmptyBoxFrames = 0
 	t.TotalBoxFrames = 0
+	t.baselineEnabled = false
+	t.baselineResiduals = ResidualBands{}
+	t.baselineAssociation = AssociationBands{}
+	t.filterSteps.endAll(ChainEndReset)
+	t.calibrationEnabled = false
+	t.preGate = PreGateBands{}
+	t.uncertaintySamples = nil
+	t.uncertaintySamplesDropped = 0
+	t.pendingRejections = nil
+	t.solidBodyReferenceChanges = SolidBodyReferenceChanges{}
+	t.nearEdgePairs = nil
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -185,27 +391,19 @@ func NewTracker(config TrackerConfig) *Tracker {
 
 // Update processes a new frame of clusters and updates tracks.
 // This is the main entry point for the tracking pipeline.
+//
+// timestamp is the frame's capture time, never the host's wall clock: it is
+// the only source of elapsed time the estimator has. See time_domain.go.
 func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	nowNanos := timestamp.UnixNano()
 
-	// Compute dt (time delta since last update)
-	var dt float32
-	if t.LastUpdateNanos > 0 {
-		dt = float32(nowNanos-t.LastUpdateNanos) / 1e9 // Convert to seconds
-	} else {
-		dt = 0.1 // Default 100ms for first frame
-	}
-	// Clamp dt to MaxPredictDt so throttle-induced gaps (e.g. 250 ms at
-	// 12 fps cap) don't create an inflated time step for association gating.
-	// Predict() also clamps independently, but the raw dt flows into
-	// associate() where it affects implied-speed plausibility checks
-	// (task 7.1).
-	if dt > t.Config.MaxPredictDt {
-		dt = t.Config.MaxPredictDt
-	}
+	// Compute dt (time delta since last update). Never negative; a gap beyond
+	// MaxPredictDt is clamped unless CaptureGapPrediction is set, and the
+	// unclamped gap is recorded either way. See frameInterval.
+	dt := t.frameInterval(nowNanos)
 	t.LastUpdateNanos = nowNanos
 
 	if traceLogger != nil {
@@ -215,20 +413,48 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				activeBefore++
 			}
 		}
-		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f",
-			nowNanos, len(clusters), activeBefore, dt)
+		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f gap=%.3f",
+			nowNanos, len(clusters), activeBefore, dt, t.timeStats.LastGapSecs)
 	}
 
-	// Step 1: Predict all active tracks to current time
+	// Step 1: Refresh each active track's capture-time coast age, expire any
+	// that have outlived their capture-time bound (a no-op unless
+	// MaxCoastSecs* or ClassCoastBounds is set), and predict the rest to the
+	// current time. The expiry precedes association on purpose: see
+	// TrackerConfig. The class bound is judged here against the last
+	// instant's explanation, the latest there is.
+	deletedThisFrame := 0
 	for _, track := range t.Tracks {
-		if track.TrackState != TrackDeleted {
-			t.predict(track, dt)
+		if track.TrackState == TrackDeleted {
+			continue
 		}
+		if t.observeCoastAge(track, nowNanos) {
+			t.deleteExpired(track, nowNanos, ExpiryCoastAge)
+			deletedThisFrame++
+			continue
+		}
+		if reason, expired := t.classCoastExpired(track, track.LastSupport); expired {
+			t.deleteExpired(track, nowNanos, reason)
+			deletedThisFrame++
+			continue
+		}
+		t.predictSpan(track, t.trackInterval(track, dt, nowNanos))
+		track.StateUnixNanos = nowNanos
 	}
 
-	// Step 2: Associate clusters to tracks using gating
+	// Step 2: Associate clusters to tracks using gating. Inside a calibration
+	// window the pairings are also evaluated before the gate, from the same
+	// predicted state, and resolved against the assignment; neither step
+	// writes to a track.
+	var preGate *preGateFrame
+	if t.calibrationEnabled {
+		preGate = t.observePreGate(clusters, dt)
+	}
 	associations := t.associate(clusters, dt)
 	t.lastAssociations = associations
+	if preGate != nil {
+		t.resolvePreGate(preGate, associations)
+	}
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
@@ -236,15 +462,20 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	for clusterIdx, trackID := range associations {
 		if trackID != "" {
 			track := t.Tracks[trackID]
-			t.update(track, clusters[clusterIdx], nowNanos)
-			track.Hits++
-			track.Misses = 0
+			t.observeBaselineAssociation(track, true)
 			matchedTracks[trackID] = true
+			t.attachNearEdgePair(track, clusterIdx)
+			if !t.updateMatched(track, clusters[clusterIdx], nowNanos) {
+				continue
+			}
 
 			// Promote tentative → confirmed
 			if track.TrackState == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
 				track.TrackState = TrackConfirmed
 				t.TracksConfirmed++
+				if track.CreationSequence > t.continuityBornAfter {
+					t.continuity.TracksConfirmed++
+				}
 				newlyConfirmed++
 				diagf("Track confirmed: track_id=%s hits=%d observations=%d cluster_id=%d",
 					track.TrackID, track.Hits, track.ObservationCount, clusters[clusterIdx].ClusterID)
@@ -277,35 +508,43 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		track.SplitCandidate = ratio < splitSizeRatio
 	}
 
+	// Step 3c: Update each matched track's solid body (default off). It runs
+	// after 3b so this frame's merge flag can refuse this frame's extents, and
+	// it reads the tracked state without writing it.
+	if t.Config.SolidBody.Enabled {
+		for clusterIdx, trackID := range associations {
+			if trackID != "" {
+				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
+			}
+		}
+	}
+
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
 	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
 	// than tentative tracks (MaxMisses). During occlusion the Kalman
 	// prediction step (already applied above) keeps the position estimate
 	// coasting, and we inflate the covariance to widen the gating gate
-	// so re-association is easier when the object reappears.
-	deletedThisFrame := 0
+	// so re-association is easier when the object reappears. The instant is
+	// recorded as coasted, or classified when absence explanation is on;
+	// under ClassCoastBounds the capture-time class bound replaces the miss
+	// count as the expiry rule.
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
+			t.observeBaselineAssociation(track, false)
 			track.Misses++
 			track.Hits = 0
 			track.OcclusionCount++
 			if track.Misses > track.MaxOcclusionFrames {
 				track.MaxOcclusionFrames = track.Misses
 			}
+			support := t.supportForAbsence(track, clusters)
+			t.recordSupport(track, support)
 
 			// Inflate covariance during occlusion so the gating
 			// ellipse grows and re-association becomes easier.
-			// Capped at MaxCovarianceDiag to prevent unbounded growth
-			// over long coasting periods (e.g. 15 frames × 0.5 = +7.5).
-			if t.Config.OcclusionCovInflation > 0 {
-				track.P[0*4+0] += t.Config.OcclusionCovInflation
-				track.P[1*4+1] += t.Config.OcclusionCovInflation
-				if track.P[0*4+0] > t.Config.MaxCovarianceDiag {
-					track.P[0*4+0] = t.Config.MaxCovarianceDiag
-				}
-				if track.P[1*4+1] > t.Config.MaxCovarianceDiag {
-					track.P[1*4+1] = t.Config.MaxCovarianceDiag
-				}
+			inflation := t.inflateCoastCovariance(track)
+			if t.Config.SolidBody.Enabled {
+				t.coastSolidBody(track, inflation)
 			}
 
 			// Append predicted (coasted) position to history
@@ -315,10 +554,19 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 					X:         track.X,
 					Y:         track.Y,
 					Timestamp: nowNanos,
+					Support:   support,
 				})
 				if len(track.History) > t.Config.MaxTrackHistoryLength {
 					track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 				}
+			}
+
+			if t.Config.OcclusionContinuity.ClassCoastBounds {
+				if reason, expired := t.classCoastExpired(track, support); expired {
+					t.deleteExpired(track, nowNanos, reason)
+					deletedThisFrame++
+				}
+				continue
 			}
 
 			// Determine miss limit based on track maturity.
@@ -328,8 +576,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			}
 			if track.Misses >= maxMisses {
 				prevState := track.TrackState
-				track.TrackState = TrackDeleted
-				track.EndUnixNanos = nowNanos
+				t.deleteExpired(track, nowNanos, ExpiryMisses)
 				deletedThisFrame++
 				diagf("Track deleted after misses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 					track.TrackID, prevState, track.Misses, maxMisses)
@@ -340,9 +587,14 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Step 4b: Update empty box accumulators.
 	// Count active tracks not matched to any cluster this frame.
 	activeCount := int64(0)
-	for _, track := range t.Tracks {
+	for trackID, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeCount++
+			// Phase 0: association rate by speed band. Recorded for every
+			// live track each frame, matched or not, so the denominator is
+			// frames the track existed for rather than frames it was seen in.
+			speed := float32(math.Hypot(float64(track.VX), float64(track.VY)))
+			track.Association.Observe(speed, matchedTracks[trackID])
 		}
 	}
 	matchedCount := int64(len(matchedTracks))
@@ -359,6 +611,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	}
 
 	// Step 6: Cleanup deleted tracks (keep for grace period, then remove)
+	t.filterSteps.endFrame(t.Tracks, nowNanos)
 	t.cleanupDeletedTracks(nowNanos)
 
 	if traceLogger != nil {
@@ -379,9 +632,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
 	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
+	measurement := t.measurementForCluster(cluster, nowNanos)
+	// The initial state is the measurement itself, so under
+	// MeasurementTimePrediction it refers to the measurement's own time.
+	stateNanos := nowNanos
+	if t.Config.MeasurementTimePrediction && measurement.UnixNanos > 0 {
+		stateNanos = measurement.UnixNanos
+	}
 
 	track := &TrackedObject{
-		TrackID: trackID,
+		TrackID:          trackID,
+		CreationSequence: t.NextTrackID,
 		TrackMeasurement: TrackMeasurement{
 			SensorID:             cluster.SensorID,
 			TrackState:           TrackTentative,
@@ -397,9 +658,15 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		Hits:   1,
 		Misses: 0,
 
-		// Initialise position from cluster centroid
-		X: cluster.CentroidX,
-		Y: cluster.CentroidY,
+		// Decision D2: use the measured OBB centre when it is valid. The
+		// source is retained with the per-frame record so historical medoid
+		// rows remain distinguishable from this corrected stopgap.
+		X:                        measurement.X,
+		Y:                        measurement.Y,
+		LastMeasurementSource:    measurement.Source,
+		LastMeasurementUnixNanos: measurement.UnixNanos,
+		StateUnixNanos:           stateNanos,
+		LastObservedUnixNanos:    stateNanos,
 		// Initialise velocity to zero
 		VX: 0,
 		VY: 0,
@@ -416,10 +683,12 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
-			X:         cluster.CentroidX,
-			Y:         cluster.CentroidY,
-			Timestamp: nowNanos,
+			X:         measurement.X,
+			Y:         measurement.Y,
+			Timestamp: measurement.UnixNanos,
+			Support:   SupportObserved,
 		}},
+		LastClusterID: cluster.ClusterID,
 
 		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),
 	}
@@ -434,7 +703,18 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	}
 
 	t.Tracks[trackID] = track
+	t.observeReacquisitionExtent(track, &cluster)
+	if t.Config.OBBAxisCoherenceEnabled {
+		t.updateAxisHeading(track, cluster)
+	} else {
+		track.HeadingEpisodes.Observe(track.HeadingSource, nowNanos)
+	}
+	if t.Config.SolidBody.Enabled {
+		t.seedSolidBody(track, cluster)
+	}
 	t.TracksCreated++
+	t.continuity.TracksBorn++
+	t.recordSupport(track, SupportObserved)
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
 	return track
@@ -466,31 +746,90 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 // and deletes tracks that exceed their miss budget. This is called on
 // throttled frames where the full Update() is skipped so that tracks are
 // not artificially kept alive by the lack of cluster delivery (task 7.2).
+//
+// timestamp is the skipped frame's capture time. It refreshes coast age and
+// applies the capture-time bounds, but it does not move LastUpdateNanos: no
+// prediction happened here, so the next Update must still predict across the
+// whole interval since the last one. No clusters were seen, so no absence is
+// classified and no support instant recorded; a class bound is judged against
+// the last instant's explanation, as before association in Update.
 func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := 0
+	t.timeStats.AdvancedFrames++
+	classBounds := t.Config.OcclusionContinuity.ClassCoastBounds
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
 			continue
 		}
+		t.observeBaselineAssociation(track, false)
 		track.Misses++
 		track.Hits = 0
+		if t.Config.SolidBody.Enabled && track.solidBody.seeded {
+			// No prediction and no evidence here, as for the tracked state:
+			// only the count of unmeasured frames moves.
+			track.solidBody.support.CoastedFrames++
+			track.solidBody.support.Instant = SupportCoasted
+		}
+		coastExpired := t.observeCoastAge(track, nowNanos)
 
 		maxMisses := t.Config.MaxMisses
 		if track.TrackState == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
 			maxMisses = t.Config.MaxMissesConfirmed
 		}
-		if track.Misses >= maxMisses {
+		switch {
+		case !classBounds && track.Misses >= maxMisses:
 			prevState := track.TrackState
-			track.TrackState = TrackDeleted
-			track.EndUnixNanos = nowNanos
+			t.deleteExpired(track, nowNanos, ExpiryMisses)
 			deletedTracks++
 			diagf("Track deleted during AdvanceMisses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 				track.TrackID, prevState, track.Misses, maxMisses)
+		case coastExpired:
+			t.deleteExpired(track, nowNanos, ExpiryCoastAge)
+			deletedTracks++
+		case classBounds:
+			if reason, expired := t.classCoastExpired(track, track.LastSupport); expired {
+				t.deleteExpired(track, nowNanos, reason)
+				deletedTracks++
+			}
 		}
 	}
 	tracef("AdvanceMisses complete: ts=%d deleted_tracks=%d", nowNanos, deletedTracks)
+}
+
+// updateMatched applies an associated cluster to its track and does the
+// observed bookkeeping: coast reset, support, hit and miss counts. It returns
+// false, having done none of that, when the update deleted the track (the
+// non-finite guard); a deleted track is never marked observed.
+func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowNanos int64) bool {
+	if t.Config.MeasurementTimePrediction {
+		t.predictToMeasurement(track, cluster, nowNanos)
+	}
+	t.update(track, cluster, nowNanos)
+	if track.TrackState == TrackDeleted {
+		return false
+	}
+	t.markObserved(track)
+	t.recordSupport(track, SupportObserved)
+	track.Hits++
+	track.Misses = 0
+	return true
+}
+
+// predictToMeasurement moves an associated track's state from the frame time
+// Step 1 predicted it to, forward to its measurement's acquisition time, so
+// the update compares the measurement with the prediction for the instant it
+// was taken (MeasurementTimePrediction, plan question Q3). A cluster without
+// its own timestamp falls back to the frame time, which makes this a no-op.
+func (t *Tracker) predictToMeasurement(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
+	measurement := t.measurementForCluster(cluster, nowNanos)
+	dt := t.stateInterval(track, measurement.UnixNanos)
+	if dt <= 0 {
+		return
+	}
+	t.predictSpan(track, dt)
+	track.StateUnixNanos = measurement.UnixNanos
 }

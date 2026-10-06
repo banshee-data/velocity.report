@@ -2,7 +2,44 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre28
+VERSION := 0.5.1-pre44
+
+# =============================================================================
+# LIDAR DATA DIRECTORIES
+# =============================================================================
+# Four independent paths, because they have different access patterns and
+# belong on different devices.
+#
+# Captures are read-only and large: tens of gigabytes per site, usually on an
+# external volume. Recordings, annotation packs and plots are written, often
+# while those captures are being read. Deriving the write paths from the capture
+# — which is what the code used to do — puts both on one device, and a replay
+# then contends with itself for its bandwidth. So the three write paths default
+# to the internal disk and the capture path is the only one an operator points
+# at external storage.
+#
+# Defaults are repo-relative so they work on any machine. Machine-specific
+# paths belong in local.mk (untracked, included below), not in this file:
+#
+#     # local.mk
+#     LIDAR_PCAP_DIR = /Volumes/lidar/lidar
+#
+# or per invocation: make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+# Untracked local overrides, included before the defaults so that either `=`
+# or `?=` in local.mk takes effect: the `?=` below then leaves anything it
+# already set alone. Optional, so a fresh clone needs no such file.
+-include local.mk
+
+LIDAR_DATA_DIR ?= ../sensor_data/lidar
+LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
+LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
+LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
+LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
+
+# Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
+# the defaults and passes them as explicit CLI flags so the binary gets the
+# same resolved paths regardless of its working directory.
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR))
 
 # =============================================================================
 # HELP TARGET (default)
@@ -56,10 +93,13 @@ help:
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
+	@echo "  debug-mac-cycles     Run under lldb, logging the stack behind every AttributeGraph cycle"
+	@echo "  debug-grpc-probe     Stream with a second gRPC client to isolate a stall (ADDR/GAP/WINDOW)"
+	@echo "  debug-grpc-soak      Long multi-client soak to confirm the transport fix (CLIENTS/DURATION)"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
-	@echo "  proto-gen-go         Generate Go protobuf stubs"
+	@echo "  proto-gen-go         Generate Go protobuf stubs (visualiser + recording domain)"
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
@@ -69,6 +109,8 @@ help:
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
+	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
+	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
@@ -94,20 +136,38 @@ help:
 	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
+	@echo "  test                 Run all tests (Go + Python + Web + offline docs + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
-	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
+	@echo "  test-go-coverage-gate Enforce the 82% per-file Go coverage floor"
+	@echo "  test-python          Run Python script/tool tests"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-docs-offline    Run embedded offline docs tests"
+	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
+	@echo ""
+	@echo "PERFORMANCE:"
+	@echo "  test-perf            Perf gate for one profile (PROFILE=full|l3-only|detect)"
+	@echo "  test-perf-all        Perf gate across every gated profile"
+	@echo "  perf-baseline        Capture a baseline for one profile (median of 5 runs)"
+	@echo "  perf-baseline-all    Capture baselines for every gated profile"
+	@echo ""
+	@echo "EVIDENCE:"
+	@echo "  evidence-run         Replay the corpus, writing immutable observations (RUN=, CASE=, EVIDENCE_DURATION=)"
+	@echo "  evidence-paths       Show the capture, recording, evidence, vrlog and plot paths"
+	@echo "  run-settling-eval    Measure a capture's convergence frame (PCAP=)"
+	@echo ""
+	@echo "  Captures are read from LIDAR_PCAP_DIR; recordings, evidence and plots are"
+	@echo "  written under LIDAR_DATA_DIR so a replay does not contend with its own"
+	@echo "  reads. Set either in local.mk (untracked) or on the command line."
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
@@ -137,9 +197,11 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  check-docs-format    Check Markdown formatting with the pinned prettier"
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
+	@echo "  selectors-validate   Validate a segment selector file (SELECTORS=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
@@ -150,6 +212,21 @@ help:
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
+	@echo "  render-scene-map-mac|-linux  Rebuild the scene index, map and pages from the archive at its Mac or Linux path"
+	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
+	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
+	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
+	@echo ""
+	@echo "SCENE WEB ASSETS (from the S2 corpus of trimmed captures):"
+	@echo "  scene-assets         Rebuild every outstanding scene recording, then the pages"
+	@echo "  scene-assets-status  What is outstanding and roughly how long it will take"
+	@echo "  scene-assets-clean   Drop the .rebuilt markers so a rebuild runs again"
+	@echo "  scene-corpus-verify  Check the corpus against its manifest (SHA=1 for digests)"
+	@echo "    SITES=\"a b\" limits any of these to named sites; FORCE=1 ignores markers"
+	@echo ""
+	@echo "SCENE CAPTURE:"
+	@echo "  capture-scene RECIPE=path.json  Capture deterministic stills from a recipe (see docs/plans/lidar-deterministic-scene-capture-plan.md)"
+	@echo "  test-scene-capture              Run the scene-capture tool's own test suite"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  version-exact        Update version across codebase (VER=0.5.1 [TARGETS=...])"
@@ -555,7 +632,7 @@ ensure-dev-web-build:
 		$(MAKE) build-web; \
 	fi
 
-.PHONY: build-docs
+.PHONY: build-docs build-docs-public-html verify-docs-public-html-build
 build-docs:
 	@echo "Building documentation site..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
@@ -567,10 +644,31 @@ build-docs:
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
 
+# The Pi image serves the public site beneath /public_html/. Keep this as a
+# separate target so normal public-site builds continue to target the origin.
+build-docs-public-html:
+	@echo "Building offline homepage site..."
+	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/public_html/" && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@printf '%s\n' "/public_html/" > public_html/_site/.velocity-public-html-path-prefix
+	@$(MAKE) verify-docs-public-html-build
+	@echo "✓ Offline homepage build complete: public_html/_site/"
+
+verify-docs-public-html-build:
+	@python3 scripts/verify-public-html-build.py
+
 .PHONY: build-docs-offline
 build-docs-offline:
 	@echo "Building embedded offline docs site..."
+	@python3 scripts/verify-docs-source-case.py
 	@./scripts/docs-offline-symlinks.sh create
+	@rm -rf docs_html/_site
+	@mkdir -p docs_html/_site
 	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
@@ -684,8 +782,78 @@ run-mac:
 		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
 		exit 1; \
 	fi
-	@echo "Running macOS visualiser..."
-	@$(VISUALISER_BIN)
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	maclog=$(CURDIR)/logs/visualiser-$${ts}.log; \
+	echo "Running macOS visualiser..."; \
+	echo "  app log: $$maclog"; \
+	: > "$$maclog"; \
+	$(VISUALISER_BIN) >> "$$maclog" 2>&1 & \
+	app_pid=$$!; \
+	tail -f "$$maclog" & \
+	tail_pid=$$!; \
+	trap 'kill $$app_pid 2>/dev/null; kill $$tail_pid 2>/dev/null; wait $$app_pid 2>/dev/null; exit 130' INT TERM HUP; \
+	wait $$app_pid; \
+	status=$$?; \
+	kill $$tail_pid 2>/dev/null; \
+	exit $$status
+
+## debug-grpc-probe: stream from the visualiser server with a second client, reporting gaps
+##   Isolates a stall: if this stalls too the server is at fault, if it streams
+##   cleanly while the visualiser stalls the fault is the Swift client's.
+debug-grpc-probe:
+	@mkdir -p $(CURDIR)/logs
+	@go build -o $(CURDIR)/bin/grpc-probe ./cmd/tools/grpc-probe
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	probelog=$(CURDIR)/logs/grpc-probe-$${ts}.log; \
+	echo "Streaming from $${ADDR:-localhost:50051}. Reproduce the stall, then interrupt."; \
+	echo "  probe log: $$probelog"; \
+	echo ""; \
+	$(CURDIR)/bin/grpc-probe \
+	  -addr "$${ADDR:-localhost:50051}" \
+	  -gap "$${GAP:-1s}" \
+	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$probelog"
+
+## debug-grpc-soak: long multi-client stream to confirm the transport-window fix
+##   Defaults to 4 clients for an hour. The stall it hunts was intermittent, so
+##   absence over minutes proved little; this is the run that can close it out.
+debug-grpc-soak:
+	@mkdir -p $(CURDIR)/logs
+	@go build -o $(CURDIR)/bin/grpc-probe ./cmd/tools/grpc-probe
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	soaklog=$(CURDIR)/logs/grpc-soak-$${ts}.log; \
+	echo "Soaking $${CLIENTS:-4} streams for $${DURATION:-1h}. Run the visualiser alongside."; \
+	echo "  soak log: $$soaklog"; \
+	echo ""; \
+	$(CURDIR)/bin/grpc-probe \
+	  -addr "$${ADDR:-localhost:50051}" \
+	  -clients "$${CLIENTS:-4}" \
+	  -duration "$${DURATION:-1h}" \
+	  -gap "$${GAP:-1s}" \
+	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$soaklog"; \
+	echo ""; \
+	echo "Gaps over $${GAP:-1s}: $$(grep -cE 'gap [0-9]' "$$soaklog" || echo 0)"
+
+## debug-mac-cycles: run the visualiser under lldb, logging the stack behind every AttributeGraph cycle
+debug-mac-cycles:
+	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
+		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	cyclelog=$(CURDIR)/logs/visualiser-cycles-$${ts}.log; \
+	echo "Running the visualiser under lldb. Reproduce, then quit the app."; \
+	echo "  cycle log: $$cyclelog"; \
+	echo ""; \
+	lldb \
+	  -o "breakpoint set --name 'AG::Graph::print_cycle' --auto-continue true" \
+	  -o "breakpoint command add --one-liner 'bt 24'" \
+	  -o "run" -o "quit" \
+	  "$(VISUALISER_BIN)" 2>&1 | tee "$$cyclelog"; \
+	echo ""; \
+	echo "Cycles: $$(grep -c 'cycle detected' "$$cyclelog" || echo 0)"; \
+	grep -oE "AppKit\`[-+]\[NS[A-Za-z]+ [a-zA-Z:]+\]" "$$cyclelog" | sort | uniq -c | sort -rn | head -5 || true
 
 dev-mac:
 	@echo "Stopping any running visualiser instances..."
@@ -747,6 +915,10 @@ release-mac:
 PROTO_DIR = proto/velocity_visualiser/v1
 PROTO_GO_OUT = internal/lidar/l9endpoints/pb
 PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
+# Recording domain (VRLOG 1.x payloads). Go only: no Swift reader exists yet,
+# and it has no gRPC service, so it needs protoc-gen-go alone.
+PROTO_RECORDING_DIR = proto/velocity_recording/v1
+PROTO_RECORDING_GO_OUT = internal/lidar/recordingpb
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
 
@@ -776,7 +948,12 @@ proto-gen-go:
 	@protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
 	       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
-	@echo "✓ Go stubs generated in $(PROTO_GO_OUT)"
+	@mkdir -p $(PROTO_RECORDING_GO_OUT)
+	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
+	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/recording.proto
+	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
+	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
+	@echo "✓ Go stubs generated in $(PROTO_GO_OUT) and $(PROTO_RECORDING_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
 proto-gen-swift:
@@ -802,12 +979,13 @@ proto-gen-swift:
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
+	@protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
 
 # =============================================================================
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -818,12 +996,23 @@ PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
+	scripts/test_check_go_coverage.py \
+	scripts/test_check_quarter_blocks.py \
+	scripts/test_check_no_results.py \
+	scripts/test_lidar_following_windows.py \
+	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
+	scripts/test_spider_docs_404s.py \
 	scripts/test_sqlite_erd.py \
+	scripts/test_static_build_context.py \
+	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
+	tools/s2-archive/test_export_static_pcaps.py \
+	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
 install-python:
@@ -925,6 +1114,25 @@ install-docs-offline:
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
 
+SCENE_CAPTURE_DIR = tools/scene-capture
+
+# Kept separate from install-scene-capture: this tool's own dependencies are
+# pure JS, but Playwright's browser download is a few hundred MB and should
+# never be an implicit cost of running the aggregate `test` target.
+install-scene-capture:
+	@echo "Installing scene-capture tool dependencies..."
+	@cd $(SCENE_CAPTURE_DIR) && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm install; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+
+install-scene-capture-browser: install-scene-capture
+	@echo "Downloading the pinned headless Chromium for scene-capture..."
+	@cd $(SCENE_CAPTURE_DIR) && npx playwright install chromium
+
 .PHONY: ensure-python-tools
 ensure-python-tools:
 	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
@@ -935,17 +1143,18 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: debug-grpc-probe debug-grpc-soak debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
 # escape $ to $$ inside the define so the resulting shell script receives
 # single-dollar variables.
 define run_dev_go
+	set -e; \
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
-	logfile=logs/velocity-$${ts}.log; \
-	debuglog=logs/velocity-debug-$${ts}.log; \
+	logfile=$(CURDIR)/logs/velocity-$${ts}.log; \
+	debuglog=$(CURDIR)/logs/velocity-debug-$${ts}.log; \
 	piddir=logs/pids; \
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
@@ -954,7 +1163,9 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity; \
 	mkdir -p "$$piddir"; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH"; \
+	echo "  ops log:   $$logfile"; \
+	echo "  debug log: $$debuglog"; \
 	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
 endef
@@ -991,17 +1202,22 @@ dev-go:
 	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go,)
 
+# LIDAR_PCAP_DIR was hardcoded to /Volumes/lidar/lidar here, which both tied
+# the target to one machine's disk and — because recordings were derived from
+# it — put vrlog writes on the same external volume the replay was reading.
+# Set the capture path in local.mk if your captures are not under
+# LIDAR_DATA_DIR; the write paths stay on the internal disk regardless.
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-both:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -1115,12 +1331,16 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
+
+# Per-file Go coverage floor enforced by test-go-coverage-gate.
+COVERAGE_THRESHOLD ?= 82
+COVERAGE_TAGS ?= pcap
 
 MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, and macOS tests in sequence
-test: test-go test-web test-mac
+# Aggregate test target: every maintained unit-test suite in the repository.
+test: test-go test-python test-web test-docs-offline test-mac test-s2-hilbert test-scene-capture
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1168,6 +1388,45 @@ test-go-changed-coverage:
 	@echo "Checking branch-added internal Go file coverage..."
 	@python3 scripts/check_changed_go_coverage.py --run-go-test --threshold 98 --diff-filter=A --include-prefix internal/
 
+# Enforce the repo-wide per-file coverage floor. Exclusions (generated code,
+# process entrypoints, build-tag stubs) live in scripts/coverage_exclusions.json
+# and are validated on every run, so a stale entry fails the gate.
+#
+# Built with -tags=pcap so PCAP replay is the real implementation rather than
+# the refusing stub — settling evaluation and the offline replay tooling are
+# only reachable that way, and it matches how the shipped binary is built.
+# Needs libpcap (brew install libpcap / apt-get install libpcap-dev); CI
+# installs libpcap-dev in every job that runs this.
+#
+# Both ways of losing PCAP coverage are made loud rather than silent: a missing
+# libpcap is reported with the install command instead of a raw cgo error, and
+# dropping the tag from COVERAGE_TAGS refuses to run at all. Falling back to the
+# untagged build would still pass the gate while measuring ~400 fewer
+# statements, which is worse than failing.
+test-go-coverage-gate:
+	@case ",$(COVERAGE_TAGS)," in \
+		*,pcap,*) ;; \
+		*) echo "ERROR: COVERAGE_TAGS is '$(COVERAGE_TAGS)' and does not include 'pcap'."; \
+		   echo "       The untagged build stubs out ReadPCAPFile, so every PCAP replay"; \
+		   echo "       path becomes unreachable and unmeasured — the gate would pass"; \
+		   echo "       while covering ~400 fewer statements. Install libpcap instead:"; \
+		   echo "         macOS: brew install libpcap"; \
+		   echo "         Linux: sudo apt-get install libpcap-dev"; \
+		   exit 1 ;; \
+	esac
+	@env -u GOROOT go build -tags=$(COVERAGE_TAGS) ./internal/lidar/l1packets/network/ >/dev/null 2>&1 || { \
+		echo "ERROR: cannot build with -tags=$(COVERAGE_TAGS); libpcap headers are probably missing."; \
+		echo "         macOS: brew install libpcap"; \
+		echo "         Linux: sudo apt-get install libpcap-dev"; \
+		exit 1; \
+	}
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
+	@echo "  (running the bounded kirk0.pcapng fixture replays)"
+	@env -u GOROOT go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
+
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:
 	@echo "Running web (Jest) tests..."
@@ -1178,6 +1437,33 @@ test-web-cov:
 	@echo "Running web (Jest) tests with coverage..."
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+test-docs-offline:
+	@./scripts/docs-offline-symlinks.sh create
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+
+test-docs-offline-cov: ensure-python-tools
+	@./scripts/docs-offline-symlinks.sh create
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests with coverage..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test:coverage; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test:coverage; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@$(VENV_PYTHON) -m coverage erase
+	@$(VENV_PYTHON) -m coverage run -m pytest scripts/test_verify_embedded_docs_server.py
+	@$(VENV_PYTHON) -m coverage report --fail-under=98 scripts/verify-embedded-docs-server.py
 
 # Run macOS visualiser tests (XCTest)
 test-mac:
@@ -1251,12 +1537,14 @@ test-mac-cov:
 	fi
 
 # Generate coverage reports for all components
-coverage: test-go-cov test-web-cov test-mac-cov
+coverage: test-go-cov test-python-cov test-web-cov test-docs-offline-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
-	@echo "  - Go:     coverage.html"
-	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
-	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo "  - Go:           coverage.html"
+	@echo "  - Python:       htmlcov-python/index.html"
+	@echo "  - Web:          $(WEB_DIR)/coverage/lcov-report/index.html"
+	@echo "  - Offline docs: terminal reports (98% line thresholds)"
+	@echo "  - macOS:        $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
 # Reads coverage.out, coverage/lcov.info, and $(MAC_DIR)/coverage.info if
@@ -1277,13 +1565,55 @@ loc-coverage-chart:
 	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
-PERF_REGRESSION_THRESHOLD ?= 0.30
+.PHONY: test-perf test-perf-all perf-baseline perf-baseline-all
 
-test-perf:
-	@NAME="$${NAME:-kirk0}"; \
-	BASE_NAME="$${NAME%.*}"; \
-	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
-	echo "Target: $$BASE_NAME"; \
+# The performance matrix has one cell per (capture, profile, host class).
+# Host class is explicit rather than inferred from the platform pair, because
+# a Pi and an ARM CI runner are both linux/arm64 and share nothing else. See
+# docs/lidar/operations/performance-regression-testing.md.
+ifeq ($(origin PERF_HOST_CLASS), undefined)
+  ifeq ($(CI),true)
+    PERF_HOST_CLASS := ci
+  else ifeq ($(shell uname -s),Darwin)
+    PERF_HOST_CLASS := mac
+  else ifeq ($(shell uname -m),aarch64)
+    PERF_HOST_CLASS := pi
+  else
+    PERF_HOST_CLASS := $(shell uname -s | tr 'A-Z' 'a-z')-$(shell uname -m)
+  endif
+endif
+
+# Regression thresholds are per host class, because their noise floors differ
+# by more than the regressions worth catching. The Pi is quiet and
+# single-purpose, a workstation is quiet but shares a desktop, and a hosted
+# runner is virtualised and shares a physical host with strangers. One number
+# across all three is either too loose to catch anything on the Pi or a source
+# of false failures in CI.
+PERF_REGRESSION_THRESHOLD_pi ?= 0.20
+PERF_REGRESSION_THRESHOLD_mac ?= 0.30
+PERF_REGRESSION_THRESHOLD_ci ?= 0.50
+PERF_REGRESSION_THRESHOLD ?= $(or $(PERF_REGRESSION_THRESHOLD_$(PERF_HOST_CLASS)),0.30)
+
+# Repeats when capturing a baseline, also per host class: a shared runner needs
+# more samples to produce a median worth committing.
+PERF_BASELINE_REPEATS_pi ?= 5
+PERF_BASELINE_REPEATS_mac ?= 5
+PERF_BASELINE_REPEATS_ci ?= 9
+
+# Profiles the perf gate runs. `detect` is measurable on demand but not gated:
+# an unexercised gated profile is a set of numbers nobody can explain when it
+# moves. See docs/plans/lidar-pipeline-profiles-plan.md.
+PERF_GATED_PROFILES ?= full l3-only
+
+# Share of frames allowed past pipeline.frame_budget_ms before the run fails.
+PERF_MAX_OVER_BUDGET_PCT ?= 1.0
+
+# Repeats used when capturing a baseline. One sample on a shared runner is not
+# a measurement; the median of several is.
+PERF_BASELINE_REPEATS ?= $(or $(PERF_BASELINE_REPEATS_$(PERF_HOST_CLASS)),5)
+
+# perf-pcap-path resolves NAME to a capture, honouring .pcapng then .pcap.
+define perf-resolve-pcap
 	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
 		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
 	elif [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcap" ]; then \
@@ -1291,28 +1621,161 @@ test-perf:
 	else \
 		echo "Error: PCAP file not found for $$BASE_NAME (.pcap or .pcapng)"; \
 		exit 1; \
-	fi; \
-	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-ci.json"; \
-	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
-	fi; \
+	fi
+endef
+
+test-perf:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	PROFILE="$${PROFILE:-full}"; \
+	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
+	echo "Target: $$BASE_NAME  profile: $$PROFILE"; \
+	$(perf-resolve-pcap); \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
+	echo "Host class: $(PERF_HOST_CLASS)"; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
 	echo "Building lidar-bench..."; \
 	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
 	EXIT_CODE=0; \
 	if [ ! -f "$$BASELINE_FILE" ]; then \
-		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
-		./lidar-bench -pcap "$$PCAP_FILE" -benchmark-output "$$BASELINE_FILE"; \
-		echo "Created baseline: $$BASELINE_FILE"; \
+		echo "No baseline at $$BASELINE_FILE."; \
+		echo "Capture one with: make perf-baseline PROFILE=$$PROFILE"; \
+		echo "Running the absolute frame-budget check only."; \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-max-frames-over-budget-pct "$(PERF_MAX_OVER_BUDGET_PCT)" \
+			-benchmark-output "$${BASE_NAME}_$${PROFILE}_benchmark.json" || EXIT_CODE=$$?; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -regression-threshold "$(PERF_REGRESSION_THRESHOLD)" -quiet || EXIT_CODE=$$?; \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-compare-baseline "$$BASELINE_FILE" \
+			-regression-threshold "$(PERF_REGRESSION_THRESHOLD)" \
+			-max-frames-over-budget-pct "$(PERF_MAX_OVER_BUDGET_PCT)" \
+			-benchmark-output "$${BASE_NAME}_$${PROFILE}_benchmark.json" -quiet || EXIT_CODE=$$?; \
 	fi; \
 	rm -f lidar-bench; \
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
+
+# =============================================================================
+# EVIDENCE RUNS
+# =============================================================================
+# Replay the committed corpus through the production pipeline, writing
+# immutable observations. CASE selects one corpus case (default: all of them);
+# RUN names the output directories.
+#
+# The three paths are separate on purpose and the defaults keep them that way:
+# captures are read from LIDAR_PCAP_DIR, which may be an external volume, while
+# recordings and the observation database are written to the internal disk. A
+# run that read and wrote one external device would spend its time waiting on
+# it. The tool itself refuses -evidence-dir equal to -out, so the recorded
+# artefacts and the immutable evidence cannot land on top of each other.
+.PHONY: evidence-paths evidence-run
+evidence-paths:
+	@R="$${RUN:-<RUN>}"; \
+	echo "captures (read):  $(abspath $(LIDAR_PCAP_DIR))"; \
+	echo "recordings:       $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/out"; \
+	echo "observations:     $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/observations"; \
+	echo "vrlogs:           $(abspath $(LIDAR_VRLOG_DIR))"; \
+	echo "plots:            $(abspath $(LIDAR_PLOTS_DIR))"; \
+	echo "annotation packs: $(abspath $(LIDAR_ANNOTATION_DIR))"
+	@echo ""
+	@echo "override any of these in local.mk (untracked) or on the command line"
+
+# DURATION caps the scored window in seconds (0 = the whole case, the
+# default). A capped run still pays the -warmup cost, so it does not scale
+# down proportionally, but skips scoring and recording everything after the
+# cutoff — the difference between a 6-minute, 2 GB Columbus pass and a
+# roughly one-minute one. It scores a different, smaller population than a
+# full run, so the two are not byte-comparable; use a capped run to check
+# that a code change reproduces (first vs. repeat, same DURATION) quickly,
+# and an uncapped one when the comparison must match a prior full baseline.
+EVIDENCE_DURATION ?= 0
+
+evidence-run:
+	@RUN="$${RUN:-evidence-$$(date +%Y%m%d-%H%M%S)}"; \
+	ROOT="$(LIDAR_EVIDENCE_DIR)/$$RUN"; \
+	OUT_DIR="$$ROOT/out"; \
+	OBS_DIR="$$ROOT/observations"; \
+	MANIFEST="$$ROOT/source-manifest.json"; \
+	if [ -e "$$ROOT" ]; then \
+		echo "Error: $$ROOT already exists. Evidence is write-once; choose another RUN."; \
+		exit 1; \
+	fi; \
+	echo "Evidence run $$RUN (duration=$(EVIDENCE_DURATION)s, 0 = whole case)"; \
+	$(MAKE) --no-print-directory evidence-paths RUN="$$RUN"; \
+	echo ""; \
+	echo "Writing the immutable source manifest..."; \
+	mkdir -p "$$ROOT"; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-source-manifest "$$MANIFEST" -source-manifest-only \
+		$${CASE:+-case "$$CASE"} || exit $$?; \
+	echo "Replaying..."; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-existing-source-manifest "$$MANIFEST" \
+		-out "$$OUT_DIR" -evidence-dir "$$OBS_DIR" \
+		-duration "$(EVIDENCE_DURATION)" $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
+	echo ""; \
+	echo "Evidence written to $$OBS_DIR/observations.db"
+
+# Print which cell of the performance matrix this machine is in, and the policy
+# that applies to it. Run this before reading any perf number: the same command
+# means different things on different hosts, and the cell is what says which.
+.PHONY: perf-policy
+perf-policy:
+	@echo "host class:            $(PERF_HOST_CLASS)   (override with PERF_HOST_CLASS=)"
+	@echo "regression threshold:  $(PERF_REGRESSION_THRESHOLD)"
+	@echo "baseline repeats:      $(PERF_BASELINE_REPEATS)"
+	@echo "frames over budget:    $(PERF_MAX_OVER_BUDGET_PCT)% of $(shell python3 -c "import json;print(json.load(open('config/tuning.defaults.json'))['pipeline']['frame_budget_ms'])" 2>/dev/null)ms"
+	@echo "gated profiles:        $(PERF_GATED_PROFILES)"
+	@echo "baselines for this cell:"
+	@ls internal/lidar/perf/baseline/*-$(PERF_HOST_CLASS).json 2>/dev/null || echo "  (none captured yet: make perf-baseline-all)"
+
+# Run the gate across every gated profile, reporting all failures rather than
+# stopping at the first: which profiles moved is the diagnostic.
+test-perf-all:
+	@EXIT_CODE=0; \
+	for profile in $(PERF_GATED_PROFILES); do \
+		echo ""; \
+		echo "=== perf gate: $$profile ==="; \
+		$(MAKE) --no-print-directory test-perf PROFILE=$$profile || EXIT_CODE=1; \
+	done; \
+	exit $$EXIT_CODE
+
+# Capture a baseline for one profile as the median of PERF_BASELINE_REPEATS
+# runs. Run this on the hardware the gate runs on: a baseline captured
+# elsewhere measures that other machine.
+perf-baseline:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	PROFILE="$${PROFILE:-full}"; \
+	$(perf-resolve-pcap); \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
+	./scripts/ensure-web-stub.sh; \
+	./scripts/ensure-docs-stub.sh; \
+	echo "Capturing $$PROFILE baseline on host class $(PERF_HOST_CLASS) from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
+	EXIT_CODE=0; \
+	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench || EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE -eq 0 ]; then \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-repeat "$(PERF_BASELINE_REPEATS)" \
+			-max-frames-over-budget-pct 100 \
+			-benchmark-output "$$BASELINE_FILE" || EXIT_CODE=$$?; \
+	fi; \
+	rm -f lidar-bench; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "Capture failed ($$EXIT_CODE); $$BASELINE_FILE not updated"; \
+		exit $$EXIT_CODE; \
+	fi; \
+	echo "Wrote $$BASELINE_FILE"
+
+# Capture baselines for every gated profile.
+perf-baseline-all:
+	@for profile in $(PERF_GATED_PROFILES); do \
+		$(MAKE) --no-print-directory perf-baseline PROFILE=$$profile || exit 1; \
+	done
 
 # =============================================================================
 # DATABASE MIGRATIONS
@@ -1443,11 +1906,13 @@ format-web:
 			cd $(WEB_DIR) && pnpm exec prettier --write \
 				../public_html/src/js \
 				../public_html/src/css \
+				../tools/scene-capture \
 				2>/dev/null || echo "public_html src prettier skipped"; \
 		elif command -v npx >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && npx prettier --write \
 				../public_html/src/js \
 				../public_html/src/css \
+				../tools/scene-capture \
 				2>/dev/null || echo "public_html src prettier skipped"; \
 		else \
 			echo "pnpm/npx not found; skipping public_html src formatting"; \
@@ -1492,16 +1957,31 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
+.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
-	@scripts/check-quarter-blocks.sh
+	@python3 scripts/check-quarter-blocks.py
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
+
+# The check-only twin of format-docs: the same files, the same ignore list and the
+# prettier that web/package.json pins. It does not fall back to a bare `npx prettier`
+# as format-docs does, because that could check against a different version than the
+# pre-commit hook writes with.
+check-docs-format: ensure-web-cache ## [gated] Check Markdown formatting with the pinned prettier (check-only twin of format-docs)
+	@if command -v pnpm >/dev/null 2>&1; then \
+		echo "Checking Markdown formatting with prettier $$(pnpm --dir $(WEB_DIR) exec prettier --version)..."; \
+		pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --check '../**/*.md'; status=$$?; \
+		if [ $$status -eq 1 ]; then echo "Markdown is not prettier-formatted. Run 'make format-docs' and commit the result."; fi; \
+		exit $$status; \
+	else \
+		echo "pnpm not found; cannot run the pinned prettier (install pnpm and retry)"; \
+		exit 2; \
+	fi
 
 check-prose-width: ## Advisory: report prose lines over 99 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
@@ -1518,7 +1998,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 
@@ -1541,13 +2021,30 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
 
+check-no-results: ## Reject experiment result directories in the Git index
+	@python3 scripts/check-no-results.py
+
+test-no-results: ## Exercise the result-directory guard against real Git indexes
+	@python3 -m unittest discover -s scripts -p test_check_no_results.py
+
+.PHONY: check-no-results test-no-results
+
+check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
+	@scripts/check-buildinfo-placeholder.sh
+
+fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
+	@scripts/check-buildinfo-placeholder.sh --fix
+
 .PHONY: check-agent-drift report-backtick-paths check-md-links
+
+.PHONY: check-buildinfo fix-buildinfo
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
-.PHONY: config-migrate config-validate
+.PHONY: config-migrate config-validate selectors-validate
 
 TUNING_CONFIG ?= config/tuning.defaults.json
+SELECTORS ?= config/segment-selectors.defaults.json
 
 config-migrate:
 	@if [ -z "$(IN)" ]; then \
@@ -1558,6 +2055,9 @@ config-migrate:
 
 config-validate:
 	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(TUNING_CONFIG)"
+
+selectors-validate:
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --selectors "$(SELECTORS)"
 
 check-config-order:
 	@./scripts/config-order-sync \
@@ -1602,6 +2102,10 @@ lint-go:
 	@bash scripts/check-db-sql-imports.sh
 	@echo "Checking SQLite driver standardisation..."
 	@bash scripts/check-single-sqlite-driver.sh
+	@echo "Running go vet..."
+	@./scripts/ensure-web-stub.sh >/dev/null
+	@./scripts/ensure-docs-stub.sh >/dev/null
+	@go vet ./...
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."
@@ -1669,6 +2173,236 @@ render-overlays:
 	@echo "✓ Overlays written"
 
 render: render-diagrams render-overlays
+
+# S2 Hilbert-curve documentation assets. Node tooling under tools/, kept
+# out of the production Go and web builds; see tools/s2-hilbert/README.md.
+S2_HILBERT_DIR = tools/s2-hilbert
+
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-s2-composite test-s2-hilbert cache-basemap site-index
+
+install-s2-hilbert:
+	@if [ ! -d node_modules/s2js ]; then \
+		echo "Installing root documentation tooling dependencies (pnpm)..."; \
+		pnpm install; \
+	fi
+
+render-s2-hilbert: install-s2-hilbert
+	@echo "Generating S2 Hilbert SVG assets..."
+	@pnpm run --silent s2-hilbert:assets
+	@echo "Generating the four-cell L10 composite..."
+	@pnpm run --silent s2-hilbert:composite
+	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
+
+# Regenerate scene-sites.json, the published scene map, and the data the scenes
+# page reads. All three derive: each export is joined to an archive site by the
+# clock in its header, and takes that site's position. The hand-authored inputs
+# are tools/s2-archive/map-marks.json and public_html/scene-overrides.json.
+# Cache the basemap tiles the scene map draws on, into the site's own assets.
+# Fetched once and skipped when present, so a rebuild costs nothing. Tiles are
+# gitignored: they are OpenStreetMap's to serve and ours only to cache, and the
+# point of caching them is that a visitor's address never reaches a tile server.
+cache-basemap: install-s2-hilbert
+	@echo "Caching basemap tiles (once; cached on disk)..."
+	@pnpm run --silent s2-hilbert:basemap
+
+# Rebuild the archive site index from the field marks and the segment analysis.
+# Everything downstream — scene identity, titles, positions, the map — derives
+# from it, so it runs first whenever the scenes are regenerated.
+site-index:
+	@echo "Rebuilding the archive site index from $(abspath $(LIDAR_PCAP_DIR))/s2..."
+	@python3 tools/s2-archive/build-site-index.py --archive "$(LIDAR_PCAP_DIR)"
+
+# Regenerate everything the scenes pages are made of, in dependency order: the
+# site index, then scene-sites.json, the map and each scene's page, then the
+# site itself.
+#
+# The last step is not optional. This target writes a page for every published
+# scene, but a page only becomes a URL when Eleventy runs, so stopping before
+# the build leaves a freshly published scene answering 404 — which is exactly
+# what kept happening while this ended one step early.
+render-scene-map: install-s2-hilbert site-index
+	@echo "Deriving scene-sites.json, the scene map and the scene pages..."
+	@pnpm run --silent s2-hilbert:scene-map
+	@$(MAKE) --no-print-directory build-docs
+	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
+
+# The analysis the index is built from lives in the archive, and each machine
+# mounts that archive somewhere different. These pin the location per platform
+# whatever local.mk says; override the path with SCENE_ARCHIVE_MAC/_LINUX.
+SCENE_ARCHIVE_MAC ?= /Volumes/lidar/lidar
+SCENE_ARCHIVE_LINUX ?= /mnt/captures/lidar
+
+render-scene-map-mac:
+	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_MAC)"
+
+render-scene-map-linux:
+	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_LINUX)"
+
+render-s2-composite: install-s2-hilbert
+	@echo "Generating the four-cell L10 composite..."
+	@pnpm run --silent s2-hilbert:composite
+
+test-s2-hilbert: install-s2-hilbert
+	@echo "Running S2 Hilbert generator tests..."
+	@pnpm run --silent test:s2-hilbert
+
+# =============================================================================
+# SCENE WEB ASSETS
+# =============================================================================
+# The point-cloud recordings behind the published scene pages, rebuilt from the
+# S2 corpus of trimmed captures — one PCAPNG per site, already clipped to the
+# site bounds, as published in the dataset. Each one is replayed through the
+# live pipeline, recorded as a VRLOG and exported to
+# public_html/src/scenes/<site>/assets/.
+#
+# The corpus is the source rather than the original rolling captures because it
+# is the thing anyone else can download: a scene rebuilt from it is a scene a
+# reader can reproduce. `SCENE_SOURCE=archive` still replays the originals, for
+# reproducing a scene published before the dataset existed.
+#
+# This is slow and it needs a running server. In one shell:
+#
+#     make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+#
+# and in another:
+#
+#     make scene-assets-status     # what is outstanding, and how long it will take
+#     make scene-assets            # rebuild everything outstanding
+#     make scene-assets SITES=laguna-eddy
+#
+# Resumable: a finished scene carries a .rebuilt marker and is skipped, so an
+# interrupted batch — or an unplugged drive — costs only the scene in flight.
+# `make scene-assets-clean` drops the markers when the settings change and the
+# scenes have to be made again.
+
+# The published dataset root: the directory holding manifest.json, raw/ and
+# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
+# replay path against that directory and refuses anything outside it.
+S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
+
+# Replay settings. Not the pipeline defaults, and the reason each one is not is
+# in tools/s2-archive/publish-scenes.py — in short, analysis mode replays faster
+# than the background model settles, and the settling pass would train that
+# model on the very traffic the recording exists to show. They live here so a
+# rebuild does not depend on somebody remembering to export three variables.
+SCENE_SPEED_MODE ?= scaled
+SCENE_SPEED_RATIO ?= 0.5
+SCENE_SETTLE ?= 0
+SCENE_SOURCE ?= corpus
+
+SCENE_ASSETS_ENV := \
+	LIDAR_PCAP_DIR=$(abspath $(LIDAR_PCAP_DIR)) \
+	S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) \
+	SCENE_SOURCE=$(SCENE_SOURCE) \
+	REPLAY_SPEED_MODE=$(SCENE_SPEED_MODE) \
+	REPLAY_SPEED_RATIO=$(SCENE_SPEED_RATIO) \
+	REPLAY_SETTLE=$(SCENE_SETTLE)
+
+SCENE_PUBLISH := tools/s2-archive/publish-scenes.py
+SCENES_DIR := public_html/src/scenes
+
+.PHONY: scene-assets scene-assets-status scene-assets-clean scene-corpus-verify
+
+# Rebuild every outstanding scene, then the pages and map that list them.
+# publish-scenes.py refreshes the map after each scene too, so a fourteen-hour
+# batch never leaves a finished scene looking unpublished; this last call is for
+# the case where every scene was already done and none of them triggered it.
+scene-assets:
+	@$(MAKE) --no-print-directory scene-assets-preflight
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) $(if $(FORCE),--force)
+	@$(MAKE) --no-print-directory render-scene-map
+
+# What a rebuild would do: which scenes are published, which are outstanding,
+# which sites cannot be resolved to packets, and roughly how long it will take.
+# Reads the corpus manifest and the markers only — no server, no replay.
+scene-assets-status:
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status
+
+# Drop the .rebuilt markers so the next rebuild does the work again. The assets
+# themselves stay put: a scene keeps serving its old recording until there is a
+# new one to swap in.
+scene-assets-clean:
+	@if [ -n "$(SITES)" ]; then \
+		for site in $(SITES); do rm -f $(SCENES_DIR)/$$site/.rebuilt; done; \
+		echo "✓ markers dropped for: $(SITES)"; \
+	else \
+		find $(SCENES_DIR) -name .rebuilt -delete; \
+		echo "✓ every scene marker dropped; the next rebuild starts from nothing"; \
+	fi
+
+# The corpus is 70-odd GB on an external volume, and a capture that is present
+# but truncated fails in the middle of a replay rather than at the start. Check
+# the sizes the manifest recorded before committing an evening to it; SHA=1
+# checks the digests too, which reads every byte and takes a while.
+scene-corpus-verify:
+	@S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) SHA=$(SHA) \
+		python3 tools/s2-archive/verify-corpus.py
+
+# Everything the batch needs before it starts: a binary that answers to the
+# name `velocity`, the server running, and every wanted site resolvable to a
+# capture. Each of these has, at least once, been discovered an hour into a run.
+#
+# The binary is multi-call and dispatches on argv[0], so `scene export` is only
+# reachable under that name. Do not build to ./velocity — that is the operator's
+# symlink to whichever build is current, and overwriting it with a second
+# 131 MB copy is not what anyone meant.
+.PHONY: scene-assets-preflight
+scene-assets-preflight:
+	@if [ ! -e velocity ]; then \
+		if [ -x velocity-report-local ]; then \
+			ln -s velocity-report-local velocity; \
+			echo "✓ linked velocity -> velocity-report-local (scene export dispatches on argv[0])"; \
+		else \
+			echo "No velocity binary. Build one first:"; \
+			echo "    make build-radar-local"; \
+			exit 1; \
+		fi; \
+	fi
+	@# An existing `velocity` is taken as given above, so a stale one is accepted
+	@# in silence — and every asset it exports records the build that made it.
+	@# Published provenance cannot be corrected after the fact, so refuse here.
+	@sha=$$(./velocity version 2>/dev/null | awk '/git sha:/ {print $$3}'); \
+	head=$$(git rev-parse HEAD 2>/dev/null); \
+	if [ "$$sha" != "$$head" ]; then \
+		echo "./velocity is not this checkout: it reports git sha '$$sha', HEAD is '$$head'."; \
+		echo "A run would publish assets stamped with the wrong build. Rebuild and relink:"; \
+		echo "    make build-radar-local && ln -sf velocity-report-local velocity"; \
+		exit 1; \
+	fi
+	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
+		echo "$$report"; \
+		echo "Some sites could not be resolved to packets; nothing ran."; \
+		exit 1; }
+	@curl -fsS --max-time 5 http://localhost:8080/api/lidar/playback/status >/dev/null 2>&1 || { \
+		echo "The LiDAR server is not answering on :8080."; \
+		echo "Start it in another shell:"; \
+		echo "    make dev-go-lidar LIDAR_PCAP_DIR=$(LIDAR_PCAP_DIR)"; \
+		exit 1; }
+
+# =============================================================================
+# LIDAR SCENE CAPTURE
+# =============================================================================
+# Deterministic multi-angle stills of a recorded scene export, per
+# docs/plans/lidar-deterministic-scene-capture-plan.md. tools/scene-capture is
+# a self-contained Node/Playwright project with its own lockfile — kept out of
+# the root and web/ dependency trees so its Chromium download is never an
+# implicit cost of an unrelated install.
+
+.PHONY: capture-scene test-scene-capture
+
+capture-scene: install-scene-capture-browser
+	@test -n "$(RECIPE)" || (echo "Usage: make capture-scene RECIPE=path/to/recipe.json [ARGS='--overwrite']"; exit 1)
+	@case "$(RECIPE)" in \
+		/*) recipe="$(RECIPE)" ;; \
+		*) recipe="$(CURDIR)/$(RECIPE)" ;; \
+	esac; \
+	cd $(SCENE_CAPTURE_DIR) && node cli.mjs "$$recipe" $(ARGS)
+
+# Pure recipe/geometry logic, no Playwright import: safe to run without the
+# Chromium download, and included in the aggregate `test` target below.
+test-scene-capture: install-scene-capture
+	@echo "Running scene-capture tool tests..."
+	@cd $(SCENE_CAPTURE_DIR) && node --test "test/*.test.mjs"
 
 # =============================================================================
 # UTILITIES

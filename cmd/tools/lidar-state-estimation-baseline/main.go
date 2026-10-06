@@ -1,0 +1,671 @@
+// Command lidar-state-estimation-baseline runs the committed Phase 0 corpus
+// through the offline pipeline. It deliberately resolves captures through the
+// checked-in index rather than accepting an arbitrary set of PCAP paths: a
+// baseline is useful only when another operator can reproduce its population.
+//
+// -out, -observations-db, and -evidence-dir should live on a different
+// device from -pcap-root. Reading source PCAPs and writing evidence to the
+// same mounted volume queues both against one disk's I/O and silently slows
+// replay well below its normal throughput; the underlying replay logs a
+// warning when it detects this (see replayeval.warnIfSharedVolume).
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"reflect"
+	"slices"
+	"sort"
+	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
+)
+
+type corpus struct {
+	Cases []corpusCase `json:"cases"`
+}
+
+type corpusCase struct {
+	ID                   string `json:"id"`
+	ExpectedCaptureCount int    `json:"expected_capture_count"`
+}
+
+type indexEntry struct {
+	ID       string   `json:"id"`
+	Captures []string `json:"captures"`
+	// NorthAzimuthDeg is the sensor's operator-measured compass bearing
+	// (clockwise from true north, 0-360) from the "Align from above" scene
+	// tool: see tools/s2-archive/README.md. It is the only real per-site
+	// extrinsic orientation this index carries today.
+	NorthAzimuthDeg float64 `json:"north_azimuth_deg"`
+}
+
+type caseSummary struct {
+	ID                    string  `json:"id"`
+	Captures              int     `json:"captures"`
+	DurationSeconds       float64 `json:"duration_seconds"`
+	FirstRunFrames        int     `json:"first_run_frames"`
+	RepeatRunFrames       int     `json:"repeat_run_frames"`
+	BaselineEqual         bool    `json:"baseline_equal"`
+	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
+	MeasurementSourceMode string  `json:"measurement_source_mode"`
+	// Experiments is the sorted list of default-off options this case ran
+	// with. Always present, empty for a shipped-behaviour replay, so a
+	// summary can never be read without knowing which it was.
+	Experiments []string `json:"experiments"`
+	// RefinementArms is the first run's online-versus-refined comparison when
+	// the fixed_lag_rts experiment ran, identical on the repeat by check.
+	RefinementArms []l8analytics.RefinementArmMetrics `json:"refinement_arms,omitempty"`
+	// Ground surface fields are populated only when -surface-ground was
+	// passed and the background settled in time to fit a P11 ground plane
+	// for this case; omitted otherwise.
+	GroundSurfaceSupport       int     `json:"ground_surface_support,omitempty"`
+	GroundSurfaceGradientMetre float64 `json:"ground_surface_gradient_metre,omitempty"`
+	GroundSurfaceRMSEMetres    float64 `json:"ground_surface_rmse_metres,omitempty"`
+	GroundSurfaceRegionCount   int     `json:"ground_surface_region_count,omitempty"`
+	GroundSurfaceCellMetres    float64 `json:"ground_surface_cell_metres,omitempty"`
+	// TimeDomain is the first run's capture-time diagnostics: backward or
+	// duplicate frame timestamps and gaps the tracker clamped. A corpus case
+	// with any of them needs reading before its temporal results are trusted.
+	TimeDomain l5tracks.TimeDomainStats `json:"time_domain"`
+	// Continuity is the first run's scoring-window continuity diagnostics:
+	// support per track-instant, expiries by reason, coast-age histograms and
+	// births against confirmations. Compare it between a default run and an
+	// -experiment occlusion_continuity run of the same corpus.
+	Continuity l5tracks.ContinuityStats `json:"continuity"`
+	// UncertaintyReport is the first run's uncertainty_calibration.json,
+	// relative to -out, when -uncertainty-report was passed; identical on
+	// the repeat by check.
+	UncertaintyReport string `json:"uncertainty_report,omitempty"`
+	// SolidBody is the first run's solid-body evidence, read back from its
+	// database, when the solid_body experiment ran with one.
+	SolidBody *replayeval.SolidBodySummary `json:"solid_body,omitempty"`
+	// SplitRole is the case's role in -split-manifest, when one was given.
+	SplitRole string `json:"split_role,omitempty"`
+	// CoverageSurvey is the declaration -survey-coverage measured from the
+	// first run, and its statistics, as added to the declaration set.
+	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
+}
+
+func main() {
+	var (
+		corpusPath                 = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
+		indexPath                  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
+		pcapRoot                   = flag.String("pcap-root", "", "directory holding archive capture subdirectories (required; make passes LIDAR_PCAP_DIR)")
+		pcapSubdir                 = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
+		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required); put this on a different device from -pcap-root, or replay will run slower than it should")
+		evidenceDir                = flag.String("evidence-dir", "", "empty directory for observations.db; put this on a different device from -pcap-root and -out, or replay will run slower than it should")
+		sourceManifestPath         = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
+		existingSourceManifestPath = flag.String("existing-source-manifest", "", "existing immutable source manifest to verify before replay")
+		sourceManifestOnly         = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
+		tuning                     = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
+		sensorID                   = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
+		duration                   = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
+		// Marina's first capture reaches the configured L3 convergence threshold
+		// at 56.5 seconds. Keep a measured 20% margin so the default preserves
+		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
+		warmup              = flag.Float64("warmup", 70, "warm-up seconds before scoring")
+		requireSettled      = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
+		observations        = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations; put this on a different device from -pcap-root, or replay will run slower than it should")
+		samplePoints        = flag.Int("sample-points", 256, "retained sample points per observation in the evidence database (1 to 1024); the solid body's near-edge measurement reads this sample")
+		evidencePerCase     = flag.Bool("evidence-per-case", false, "with -evidence-dir, write each case's evidence to <evidence-dir>/<case>.db rather than one shared observations.db")
+		discardEvidence     = flag.Bool("discard-evidence", false, "with -evidence-per-case, delete each case's database once its summary is written; for a corpus larger than the free disk")
+		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
+		cpuProfileDir       = flag.String("cpuprofile-dir", "", "empty directory for a pprof CPU profile of each case's repeat replay (<case>.repeat.cpu.pprof); the repeat writes no evidence, so the profile is the pipeline's own cost")
+		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
+		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
+		campaignMetrics     = flag.Bool("campaign-metrics", false, "export confirmed intervals and tracker update timing separately from deterministic artifacts")
+		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
+		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
+		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
+		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
+		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
+		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
+		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
+		heldOut             = flag.Bool("held-out", false, "declare the run a held-out score: every selected case must be held out in -split-manifest; without it no held-out case may run")
+		survey              surveyFlags
+	)
+	flag.StringVar(&survey.setPath, "survey-coverage", "", "measure each case's continuity coverage from its first run's online estimates and add it to this declaration set (created if absent), with the statistics in <set>.survey.json beside it; needs an evidence output and the default replay")
+	flag.Float64Var(&survey.percentile, "survey-percentile", replayeval.DefaultCoverageRangePercentile, "percentile of the online-estimate horizontal range declared as max_range_m, rounded up to a whole metre; 100 is the maximum")
+	flag.Float64Var(&survey.gap, "survey-min-gap-deg", replayeval.DefaultCoverageMinSectorGapDeg, "narrowest arc without an estimate that makes the declaration a sector rather than the full circle")
+	flag.Parse()
+	experiments, err := replayeval.ParseExperiments(*experimentFlag)
+	if err != nil {
+		fatal(err)
+	}
+	if err := validateUncertaintyFlags(*uncertaintyCalFile, experiments); err != nil {
+		fatal(err)
+	}
+	var coverage map[string]replayeval.ContinuityCoverage
+	if *coverageFile != "" {
+		if coverage, err = replayeval.LoadContinuityCoverageSet(*coverageFile); err != nil {
+			fatal(err)
+		}
+	}
+	if *sourceManifestOnly && *sourceManifestPath == "" {
+		fatal(fmt.Errorf("-source-manifest-only requires -source-manifest"))
+	}
+	if *sourceManifestPath != "" && *existingSourceManifestPath != "" {
+		fatal(fmt.Errorf("-source-manifest and -existing-source-manifest are mutually exclusive"))
+	}
+	if !*sourceManifestOnly && *outDir == "" {
+		fatal(fmt.Errorf("-out is required"))
+	}
+	if *pcapRoot == "" {
+		fatal(fmt.Errorf("-pcap-root is required"))
+	}
+	var observationDBPath string
+	if !*sourceManifestOnly {
+		observationDBPath, err = resolveObservationDBPath(*observations, *evidenceDir, *outDir)
+		if err != nil {
+			fatal(err)
+		}
+	}
+	if err := validateEvidenceFlags(*samplePoints, *evidencePerCase, *discardEvidence, *evidenceDir); err != nil {
+		fatal(err)
+	}
+	if observationDBPath != "" && *sourceManifestPath == "" && *existingSourceManifestPath == "" {
+		fatal(fmt.Errorf("an evidence output requires -source-manifest so persisted evidence has immutable source identity"))
+	}
+	if *cpuProfileDir != "" {
+		if err := ensureEmptyDir(*cpuProfileDir); err != nil {
+			fatal(fmt.Errorf("-cpuprofile-dir: %w", err))
+		}
+	}
+	if !*sourceManifestOnly {
+		if err := ensureEmptyDir(*outDir); err != nil {
+			fatal(err)
+		}
+	}
+	selected, err := readCorpus(*corpusPath)
+	if err != nil {
+		fatal(err)
+	}
+	// Case selection narrows the corpus before anything is resolved or hashed,
+	// so a single-case run writes a manifest describing exactly that case
+	// rather than one that claims the whole corpus.
+	if *caseFilter != "" {
+		selected, err = filterCorpusCases(selected, *caseFilter)
+		if err != nil {
+			fatal(err)
+		}
+	}
+	split, err := corpusSplit(*splitPath, *heldOut, selected)
+	if err != nil {
+		fatal(err)
+	}
+	if err := survey.validate(experiments, *measurementMode, *surfaceGround, observationDBPath, selected.ids()); err != nil {
+		fatal(err)
+	}
+	index, err := readIndex(*indexPath)
+	if err != nil {
+		fatal(err)
+	}
+	resolvedCases, err := resolveCorpusCases(selected, index, *pcapRoot, *pcapSubdir)
+	if err != nil {
+		fatal(err)
+	}
+	if err := split.checkCaptures(resolvedCases); err != nil {
+		fatal(err)
+	}
+	var sourceManifestSHA256 string
+	var verifiedSourceManifest *sourceManifest
+	if *sourceManifestPath != "" {
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		if err != nil {
+			fatal(err)
+		}
+		digest, err := writeSourceManifest(*sourceManifestPath, manifest)
+		if err != nil {
+			fatal(err)
+		}
+		sourceManifestSHA256 = digest
+		verifiedSourceManifest = &manifest
+		fmt.Printf("wrote immutable source manifest %s (%s)\n", *sourceManifestPath, sourceManifestSHA256)
+	}
+	if *existingSourceManifestPath != "" {
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		if err != nil {
+			fatal(err)
+		}
+		sourceManifestSHA256, err = verifySourceManifest(*existingSourceManifestPath, manifest)
+		if err != nil {
+			fatal(err)
+		}
+		verifiedSourceManifest = &manifest
+		fmt.Printf("verified immutable source manifest %s (%s)\n", *existingSourceManifestPath, sourceManifestSHA256)
+	}
+	if *sourceManifestOnly {
+		return
+	}
+
+	summaries := make([]caseSummary, 0, len(selected.Cases))
+	var uncertaintyCases []uncertaintyCase
+	for _, resolved := range resolvedCases {
+		selectedCase := resolved.corpusCase
+		paths := resolved.paths
+		sequence, err := replayeval.PrepareCaptureSequence(paths, 2369)
+		if err != nil {
+			fatal(fmt.Errorf("prepare capture sequence %s: %w", selectedCase.ID, err))
+		}
+		caseOut := filepath.Join(*outDir, selectedCase.ID)
+		first := replayeval.Config{
+			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
+			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
+			CampaignMetrics: *campaignMetrics,
+			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
+			SurfaceGroundRegionMetres: *surfaceGroundRegion,
+			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
+			Experiments: experiments, UncertaintyReport: *uncertaintyReport, UncertaintyCalibrationFile: *uncertaintyCalFile,
+		}
+		if c, ok := coverage[selectedCase.ID]; ok {
+			first.ContinuityCoverage = &c
+		}
+		first.Split = split.uses[selectedCase.ID]
+		if verifiedSourceManifest != nil {
+			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
+			if err != nil {
+				fatal(err)
+			}
+		}
+		if observationDBPath != "" {
+			first.ObservationDBPath = observationDBPath
+			if *evidencePerCase {
+				first.ObservationDBPath = filepath.Join(*evidenceDir, selectedCase.ID+".db")
+			}
+			first.ReplayCaseID = selectedCase.ID
+			first.ObservationCalibration = siteCalibration(*sensorID, index[selectedCase.ID].NorthAzimuthDeg)
+			first.ObservationMaxSamplePoints = *samplePoints
+			first.ProfileEvidence = *evidenceProfile
+		}
+		fmt.Printf("%s: first run across %d capture(s)\n", selectedCase.ID, len(paths))
+		firstResult, err := replayeval.Run(first)
+		if err != nil {
+			fatal(fmt.Errorf("first run %s: %w", selectedCase.ID, err))
+		}
+		if firstResult.EvidencePersistence != nil {
+			stats := firstResult.EvidencePersistence
+			fmt.Printf("%s: evidence profile frames=%d empty_frames=%d observations=%d estimates=%d begin=%s prepare=%s execute=%s commit=%s\n",
+				selectedCase.ID, stats.Frames, stats.EmptyFrames, stats.Observations, stats.Estimates,
+				stats.Begin, stats.Prepare, stats.Execute, stats.Commit)
+		}
+		repeat := first
+		repeat.OutDir = filepath.Join(caseOut, "repeat")
+		// Replaying the same evidence into the same immutable database must be
+		// rejected. The repeat is intentionally read-only with respect to it.
+		repeat.ObservationDBPath = ""
+		repeat.ReplayCaseID = ""
+		repeat.ObservationCalibration = l4bobserve.Calibration{}
+		repeat.ObservationMaxSamplePoints = 0
+		fmt.Printf("%s: repeat run\n", selectedCase.ID)
+		var repeatResult *replayeval.Result
+		err = profiled(cpuProfilePath(*cpuProfileDir, selectedCase.ID), func() error {
+			var runErr error
+			repeatResult, runErr = replayeval.Run(repeat)
+			return runErr
+		})
+		if err != nil {
+			fatal(fmt.Errorf("repeat run %s: %w", selectedCase.ID, err))
+		}
+		firstBaseline, err := os.ReadFile(filepath.Join(first.OutDir, "tracking_baseline.json"))
+		if err != nil {
+			fatal(err)
+		}
+		repeatBaseline, err := os.ReadFile(filepath.Join(repeat.OutDir, "tracking_baseline.json"))
+		if err != nil {
+			fatal(err)
+		}
+		if !bytes.Equal(firstBaseline, repeatBaseline) {
+			fatal(fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID))
+		}
+		// Every refinement horizon must reproduce too. Persistence is on for
+		// the first run only, which must not change a single figure.
+		var refinementArms []l8analytics.RefinementArmMetrics
+		if firstResult.Refinement != nil {
+			if repeatResult.Refinement == nil || !reflect.DeepEqual(firstResult.Refinement.Arms, repeatResult.Refinement.Arms) {
+				fatal(fmt.Errorf("refinement comparison differs on repeat for %s", selectedCase.ID))
+			}
+			refinementArms = firstResult.Refinement.Arms
+		}
+		if *uncertaintyReport {
+			if err := sameFile(filepath.Join(first.OutDir, "uncertainty_calibration.json"),
+				filepath.Join(repeat.OutDir, "uncertainty_calibration.json")); err != nil {
+				fatal(fmt.Errorf("uncertainty report differs on repeat for %s: %w", selectedCase.ID, err))
+			}
+			uncertaintyCases = append(uncertaintyCases, uncertaintyCase{
+				ID: selectedCase.ID, Report: firstResult.Uncertainty, Samples: firstResult.UncertaintySamples,
+			})
+		}
+		summary := caseSummary{
+			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
+			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
+			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
+			MeasurementSourceMode: string(first.MeasurementSourceMode),
+			RefinementArms:        refinementArms,
+			Experiments:           experiments,
+			TimeDomain:            firstResult.TimeDomain,
+			Continuity:            firstResult.Continuity,
+		}
+		if use := first.Split; use != nil {
+			summary.SplitRole = use.Role
+		}
+		td := firstResult.TimeDomain
+		fmt.Printf("%s: capture time frames=%d backward=%d duplicate=%d clamped_gaps=%d max_gap=%.3fs\n",
+			selectedCase.ID, td.Frames, td.BackwardTimestamps, td.DuplicateTimestamps, td.ClampedGaps, td.MaxGapSecs)
+		cs := firstResult.Continuity
+		fmt.Printf("%s: continuity born=%d confirmed=%d reacquired=%d expired misses=%d coast_age=%d missed_unknown=%d occluded_inferred=%d out_of_fov=%d\n",
+			selectedCase.ID, cs.TracksBorn, cs.TracksConfirmed, cs.Reacquisitions, cs.ExpiredByReason.Misses,
+			cs.ExpiredByReason.CoastAge, cs.ExpiredByReason.MissedUnknown, cs.ExpiredByReason.OccludedInferred,
+			cs.ExpiredByReason.OutOfFOV)
+		if fit := firstResult.GroundSurfaceFit; fit != nil {
+			summary.GroundSurfaceSupport = fit.Global.Support
+			summary.GroundSurfaceGradientMetre = fit.Global.GradientMetre
+			summary.GroundSurfaceRMSEMetres = fit.Global.RMSEMetres
+			summary.GroundSurfaceRegionCount = fit.RegionCount
+			summary.GroundSurfaceCellMetres = fit.CellMetres
+			fmt.Printf("%s: ground surface support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm\n",
+				selectedCase.ID, fit.Global.Support, fit.Global.GradientMetre, fit.Global.RMSEMetres,
+				fit.RegionCount, fit.CellMetres)
+		} else if *surfaceGround {
+			fmt.Printf("%s: -surface-ground set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
+		}
+		if *uncertaintyReport {
+			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
+		}
+		if first.ObservationDBPath != "" && slices.Contains(experiments, replayeval.ExperimentSolidBody) {
+			sb, err := summariseSolidBodies(first.ObservationDBPath, firstResult.ObservationSourceID)
+			if err != nil {
+				fatal(fmt.Errorf("solid-body summary %s: %w", selectedCase.ID, err))
+			}
+			sb.RetainedSamplePoints = *samplePoints
+			summary.SolidBody = &sb
+			fmt.Printf("%s: solid bodies=%d near_edge_fixes=%d (%.1f%%) lapses=%d; lateral p99 point estimates %.3f m, solid bodies %.3f m over %d body-centre windows\n",
+				selectedCase.ID, sb.SolidBodies, sb.NearEdgeFixes, 100*sb.FixShare, sb.Lapses,
+				sb.AnchorPointsCentred.P99Metres, sb.AnchorBodiesCentred.P99Metres, sb.AnchorBodiesCentred.Windows)
+		}
+		if survey.setPath != "" {
+			s, err := survey.survey(first.ObservationDBPath, first.OutDir, selectedCase.ID)
+			if err != nil {
+				fatal(fmt.Errorf("coverage survey %s: %w", selectedCase.ID, err))
+			}
+			summary.CoverageSurvey = s
+			d := s.Declaration
+			fmt.Printf("%s: coverage max_range_m=%g azimuth_centre_deg=%g azimuth_half_width_deg=%g (range p%g %.2f m, max %.2f m; largest arc without an estimate %d deg) added to %s\n",
+				selectedCase.ID, d.MaxRangeMetres, d.AzimuthCentreDeg, d.AzimuthHalfWidthDeg, s.Stats.RangePercentile,
+				s.Stats.RangeAtPercentile, s.Stats.RangeMetres.Max, s.Stats.Azimuth.LargestEmptyArcDeg, survey.setPath)
+		}
+		if *discardEvidence {
+			if err := removeDatabase(first.ObservationDBPath); err != nil {
+				fatal(fmt.Errorf("discard evidence %s: %w", selectedCase.ID, err))
+			}
+		}
+		summaries = append(summaries, summary)
+	}
+	if *uncertaintyReport {
+		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases, split.record); err != nil {
+			fatal(err)
+		}
+		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
+			filepath.Join(*outDir, pooledUncertaintyFile))
+	}
+	b, err := json.MarshalIndent(struct {
+		SchemaVersion        int           `json:"schema_version"`
+		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
+		Split                *splitRecord  `json:"split,omitempty"`
+		Cases                []caseSummary `json:"cases"`
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split.record, Cases: summaries}, "", "  ")
+	if err != nil {
+		fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(*outDir, "phase0-summary.json"), append(b, '\n'), 0644); err != nil {
+		fatal(err)
+	}
+	fmt.Printf("wrote %d repeat-verified baseline(s) to %s\n", len(summaries), *outDir)
+}
+
+// sameFile reports whether two files hold identical bytes.
+func sameFile(a, b string) error {
+	left, err := os.ReadFile(a)
+	if err != nil {
+		return err
+	}
+	right, err := os.ReadFile(b)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(left, right) {
+		return fmt.Errorf("%s and %s differ", a, b)
+	}
+	return nil
+}
+
+func identityCalibration(sensorID string) l4bobserve.Calibration {
+	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",
+		Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+}
+
+// siteCalibration is identityCalibration's per-site replacement for the
+// evidence a real replay records: a pure yaw rotation built from the
+// sensor's operator-measured compass bearing (site-index.json's
+// north_azimuth_deg, from the "Align from above" scene tool — see
+// tools/s2-archive/README.md), rather than every site sharing one
+// placeholder identity transform.
+//
+// Convention: site frame is local East-North-Up (+X east, +Y north, +Z
+// up); the sensor's origin is the frame origin; northAzimuthDeg is the
+// sensor's own azimuth-zero direction as a standard compass bearing
+// (clockwise from north, degrees). This is an explicit, reasonable
+// default — not yet cross-checked against the alignment tool's own axis
+// convention — safe today because nothing applies Transform to actual
+// points; CalibrationID only hashes it as content, so a wrong sign
+// changes an identity string, not a measurement.
+//
+// Height and mounting tilt are deliberately not encoded here. A per-run
+// ground-plane fit (l3grid.RegionalGroundSurface) can estimate them, but
+// baking a measurement into an identity value would make calibration_id
+// wobble with ordinary measurement noise between otherwise-identical
+// replays of the same site; report that estimate as evidence instead (see
+// caseSummary's GroundSurface fields), not as part of this identity.
+func siteCalibration(sensorID string, northAzimuthDeg float64) l4bobserve.Calibration {
+	mathRad := (90 - northAzimuthDeg) * math.Pi / 180
+	c, s := math.Cos(mathRad), math.Sin(mathRad)
+	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",
+		Transform: [16]float64{
+			c, -s, 0, 0,
+			s, c, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}}
+}
+
+func ensureEmptyDir(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err == nil && len(entries) != 0 {
+		return fmt.Errorf("output directory must be empty: %s", dir)
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("inspect output directory: %w", err)
+	}
+	return os.MkdirAll(dir, 0755)
+}
+
+// validateEvidenceFlags checks the evidence-sizing flags against each other.
+func validateEvidenceFlags(samplePoints int, perCase, discard bool, evidenceDir string) error {
+	if samplePoints < 1 || samplePoints > 1024 {
+		return fmt.Errorf("-sample-points must be between 1 and 1024, got %d", samplePoints)
+	}
+	if perCase && evidenceDir == "" {
+		return fmt.Errorf("-evidence-per-case requires -evidence-dir")
+	}
+	if discard && !perCase {
+		return fmt.Errorf("-discard-evidence requires -evidence-per-case, so only one case's database is ever deleted")
+	}
+	return nil
+}
+
+// summariseSolidBodies opens a case's evidence database and reads its solid
+// bodies back. The database must already exist: db.NewDB would create a
+// fresh one at a wrong path, and its empty tables would read as a replay
+// that filed no solid bodies.
+func summariseSolidBodies(path, sourceID string) (replayeval.SolidBodySummary, error) {
+	if _, err := os.Stat(path); err != nil {
+		return replayeval.SolidBodySummary{}, fmt.Errorf("evidence database: %w", err)
+	}
+	database, err := db.NewDB(path)
+	if err != nil {
+		return replayeval.SolidBodySummary{}, err
+	}
+	defer database.Close()
+	return replayeval.SummariseSolidBodyEvidence(database, sourceID)
+}
+
+// removeDatabase deletes a SQLite database and its write-ahead files.
+func removeDatabase(path string) error {
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolveObservationDBPath(observationsDB, evidenceDir, outDir string) (string, error) {
+	if observationsDB != "" && evidenceDir != "" {
+		return "", fmt.Errorf("-observations-db and -evidence-dir are mutually exclusive")
+	}
+	if evidenceDir == "" {
+		return observationsDB, nil
+	}
+	if samePath(evidenceDir, outDir) {
+		return "", fmt.Errorf("-evidence-dir must differ from -out so recorded artefacts and immutable evidence remain separate")
+	}
+	if err := ensureEmptyDir(evidenceDir); err != nil {
+		return "", fmt.Errorf("prepare evidence directory: %w", err)
+	}
+	return filepath.Join(evidenceDir, "observations.db"), nil
+}
+
+func samePath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	left, err := filepath.Abs(a)
+	if err != nil {
+		return false
+	}
+	right, err := filepath.Abs(b)
+	if err != nil {
+		return false
+	}
+	return filepath.Clean(left) == filepath.Clean(right)
+}
+
+func sourceManifestCaseDigests(manifest sourceManifest, caseID string, captureCount int) ([]string, error) {
+	for _, manifestCase := range manifest.Cases {
+		if manifestCase.ID != caseID {
+			continue
+		}
+		if len(manifestCase.Captures) != captureCount {
+			return nil, fmt.Errorf("source manifest case %q has %d captures, want %d", caseID, len(manifestCase.Captures), captureCount)
+		}
+		digests := make([]string, captureCount)
+		for ordinal, capture := range manifestCase.Captures {
+			if capture.Ordinal != ordinal {
+				return nil, fmt.Errorf("source manifest case %q has capture ordinal %d at position %d", caseID, capture.Ordinal, ordinal)
+			}
+			digests[ordinal] = capture.SHA256
+		}
+		return digests, nil
+	}
+	return nil, fmt.Errorf("source manifest has no case %q", caseID)
+}
+
+func readCorpus(name string) (corpus, error) {
+	b, err := os.ReadFile(name)
+	if err != nil {
+		return corpus{}, fmt.Errorf("read corpus: %w", err)
+	}
+	var value corpus
+	if err := json.Unmarshal(b, &value); err != nil {
+		return corpus{}, fmt.Errorf("decode corpus: %w", err)
+	}
+	if len(value.Cases) == 0 {
+		return corpus{}, fmt.Errorf("corpus has no cases")
+	}
+	return value, nil
+}
+
+// filterCorpusCases keeps only the named cases, preserving the corpus order.
+//
+// Order is preserved rather than following the argument, because the corpus
+// file is what declares replay order and a caller reordering cases on the
+// command line would change what the run means. An unknown ID is an error
+// rather than an empty selection: silently replaying nothing, and writing a
+// manifest to prove it, is the worst available outcome.
+func filterCorpusCases(value corpus, list string) (corpus, error) {
+	wanted := map[string]bool{}
+	for _, raw := range strings.Split(list, ",") {
+		if id := strings.TrimSpace(raw); id != "" {
+			wanted[id] = true
+		}
+	}
+	if len(wanted) == 0 {
+		return corpus{}, fmt.Errorf("-case was given but names no case")
+	}
+
+	kept := make([]corpusCase, 0, len(wanted))
+	for _, c := range value.Cases {
+		if wanted[c.ID] {
+			kept = append(kept, c)
+			delete(wanted, c.ID)
+		}
+	}
+	if len(wanted) > 0 {
+		missing := make([]string, 0, len(wanted))
+		for id := range wanted {
+			missing = append(missing, id)
+		}
+		sort.Strings(missing)
+		available := make([]string, 0, len(value.Cases))
+		for _, c := range value.Cases {
+			available = append(available, c.ID)
+		}
+		return corpus{}, fmt.Errorf("corpus has no case(s) %s; available: %s",
+			strings.Join(missing, ", "), strings.Join(available, ", "))
+	}
+
+	value.Cases = kept
+	return value, nil
+}
+
+func readIndex(name string) (map[string]indexEntry, error) {
+	b, err := os.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("read index: %w", err)
+	}
+	var entries []indexEntry
+	if err := json.Unmarshal(b, &entries); err != nil {
+		return nil, fmt.Errorf("decode index: %w", err)
+	}
+	result := make(map[string]indexEntry, len(entries))
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.ID) != "" {
+			result[entry.ID] = entry
+		}
+	}
+	return result, nil
+}
+
+func fatal(err error) {
+	fmt.Fprintln(os.Stderr, "lidar-state-estimation-baseline:", err)
+	os.Exit(1)
+}

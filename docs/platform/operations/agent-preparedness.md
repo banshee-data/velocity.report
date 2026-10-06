@@ -13,7 +13,8 @@ velocity.report uses several named AI agents. The system previously suffered fro
 2. **Tool lock-in**: all knowledge was in Copilot-specific formats. Adding Claude Code meant duplicating everything or restructuring.
 3. **Scaling problem**: growing the agent roster with each agent carrying its own copy of project knowledge would mean maintaining many copies of the same facts.
 
-All three problems are resolved. The architecture is now live across both Copilot and Claude Code.
+Repository-wide guidance is maintained in [AGENTS.md](../../../AGENTS.md), with tool entry
+points and shared knowledge modules described below.
 
 ## Layered knowledge model
 
@@ -56,10 +57,29 @@ All three problems are resolved. The architecture is now live across both Copilo
 ├─────────────────────────────────────────────────────┤
 │  Layer 4: TOOL ENTRY POINTS (thin shims)            │
 │  .github/copilot-instructions.md   (Copilot)        │
-│  CLAUDE.md                         (Claude Code)    │
-│  ← Import tenets + knowledge + tool config only     │
+│  AGENTS.md                         (shared guide)   │
+│  CLAUDE.md → @AGENTS.md            (Claude Code)    │
+│  ← Tool entry points import or link shared guidance │
 └─────────────────────────────────────────────────────┘
 ```
+
+## Repository entry-point migration
+
+[AGENTS.md](../../../AGENTS.md) owns repository-wide agent guidance. The former project guide in
+`CLAUDE.md` moved there, including commands, build provenance, replay preflight, architecture
+navigation, and workflow discovery. The experiment policy also lives there; the coding standards
+link to its section. Domain knowledge modules retain their own canonical responsibilities.
+
+[CLAUDE.md](../../../CLAUDE.md) is a thin compatibility wrapper containing an `@AGENTS.md` import.
+[Claude Code supports these imports](https://code.claude.com/docs/en/memory#import-additional-files)
+and expands them relative to the importing file. Keeping the wrapper preserves the existing
+entry point for clients where direct AGENTS discovery is unavailable or configured differently.
+A symlink is unnecessary, and a one-time copy would reintroduce the duplication this migration
+removes. The wrapper contains no separate repository policy.
+
+The [Copilot entry point](../../../.github/copilot-instructions.md) explicitly directs agents to
+read the shared guide. Its existing platform context and the paired persona definitions retain
+their separate roles. Root guidance must not rely on a Markdown link being expanded automatically.
 
 ## DRY enforcement rules
 
@@ -196,7 +216,8 @@ Make target: `make check-agent-drift`
     ├── review-pr/SKILL.md
     ├── ship-change/SKILL.md
     └── weekly-retro/SKILL.md
-CLAUDE.md                              # Layer 4: Claude Code entry point
+AGENTS.md                              # Layer 4: shared repository guide
+CLAUDE.md                              # Layer 4: import of AGENTS.md
 scripts/
 └── check-agent-drift.sh               # Drift detection
 ```

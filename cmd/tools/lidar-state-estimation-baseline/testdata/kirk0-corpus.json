@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "name": "kirk0",
+  "source_index": "kirk0-index.json",
+  "purpose": "The in-repo reference capture as a one-case corpus, so the corpus tool runs it with -pcap-root internal/lidar/perf -pcap-subdir pcap.",
+  "cases": [
+    {
+      "id": "kirk0",
+      "expected_capture_count": 1,
+      "role": "in-repo reference capture on UDP 2369; settles by 20 s, so run it with -warmup 20"
+    }
+  ]
+}

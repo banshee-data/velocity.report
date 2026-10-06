@@ -1,0 +1,316 @@
+# Repository instructions
+
+This is the canonical repository-wide guide for coding agents. Tool-specific entry points import
+or link to this file; update shared agent instructions here rather than copying them into wrappers.
+
+Read [the coding standards](.github/knowledge/coding-standards.md) for repository conventions.
+Domain-specific knowledge remains in its canonical module under `.github/knowledge/`; reference
+that module when adding guidance instead of restating its rules here.
+
+## Keep experiment findings in Git and raw outputs local
+
+Commit detailed, human-readable experiment reports in `docs/`. Preserve the question, methods,
+arm definitions, numerical findings (including per-case summaries where they affect the decision),
+interpretation, limitations, frozen provenance, and recommendations. Reports must distinguish
+observed measurements from physical validation and explain what the evidence does not establish.
+Link reports from the relevant README, plan, and development-log entry. A report is part of the
+engineering record, not disposable output; do not remove it when cleaning up raw results.
+
+Never commit raw experiment, replay, analysis, or benchmark outputs on any branch or PR. Recordings,
+row-level data, generated metric/configuration dumps, runtime logs, coverage output, database
+snapshots, and campaign state belong outside the checkout or in ignored local output directories.
+Do not attach raw output to a report or rename it into `docs/` to evade this rule. Edited summary
+tables and numerical findings that explain the experiment belong in the written report.
+
+Directories named `results` at any depth are local output only. Never stage them, create a raw
+results branch, or bypass the ignore rule with `git add -f`. Keep reusable implementation and
+hand-authored test fixtures in their normal source locations. Reports must be readable without
+links to untracked repository output; describe archived evidence and retain provenance identifiers
+without importing raw artefacts.
+
+Before committing or pushing, run `make check-no-results` and inspect the staged diff. The guard
+rejects `results` directories; review must also catch raw outputs placed elsewhere. Fix a failing
+check by removing output from the index while preserving needed local evidence. When a report is
+mixed into an output directory, move and edit the report into `docs/` before removing that directory
+from Git. For a branch that has already committed raw results, remove them from the proposed
+commits as well as its final tree before publishing the PR. Do not rewrite shared main history.
+
+## Project
+
+**velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII: by architecture, not policy.
+
+Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Commands
+
+The Makefile is the canonical entry point. Run `make help` for all targets.
+
+### Quality gate (every commit must pass)
+
+```bash
+make lint      # Check all code formatting (Go, Web)
+make format    # Auto-format all code
+make test      # Run all test suites
+```
+
+### Per-language validation
+
+```bash
+# Go
+make format-go && make lint-go && make test-go && make build-radar-local
+
+# Web
+make format-web && make lint-web && make test-web && make build-web
+```
+
+### Building
+
+```bash
+make build-velocity        # Single multi-call velocity binary (server + device + tune)
+make build-radar-local     # Alias: build velocity for local dev (requires libpcap)
+make build-radar-linux     # Alias: build velocity for ARM64 cross-compile
+make build-radar-mac       # Go server, macOS ARM64 with pcap
+make build-radar-mac-intel # Go server, macOS AMD64 with pcap
+make build-radar-static    # Fully-static linux/{amd64,arm64} ELF via Docker (zig+musl+libpcap.a) — see D-26
+make build-web             # Svelte frontend → web/build/
+make build-docs            # Eleventy docs site → docs_html/_site/
+make build-docs-offline    # Embedded offline docs site (Eleventy)
+make build-mac             # macOS visualiser (requires Xcode)
+```
+
+If `make build-radar-local` fails due to missing pcap: `brew install libpcap` (macOS) or `sudo apt-get install libpcap-dev` (Linux).
+
+Build through `make`, never a bare `go build`. The Makefile's LDFLAGS stamp `version.Version`, `GitSHA` and `BuildTime`, and a bare build leaves all three unset: the binary then reports `vdev` / `git sha: unknown`, and so does everything it writes. A VRLOG header and a published scene asset both record `build_version` and `build_git_sha`, which is how a recording is traced back to the code that made it — once it says `dev`/`unknown` that cannot be reconstructed. A bare build also drops the `typst_embed` tag.
+
+`make build-radar-local` builds the embedded offline docs first, so it needs pnpm on PATH and fails with `pnpm/npm not found` without it. Install once with `pnpm i` (see Setup below), then confirm the stamp took:
+
+```bash
+./velocity-report-local version   # expect v<VERSION> and git sha == HEAD
+```
+
+### Development servers
+
+```bash
+make dev-go              # Go server with radar disabled (localhost:8080)
+make dev-go-lidar        # Go server with LiDAR enabled (gRPC mode)
+make dev-go-lidar-both   # Go server with LiDAR + 2370 foreground forward
+make dev-web             # Vite dev server (localhost:5173)
+make dev-docs            # Eleventy docs dev server
+make dev-docs-offline    # Embedded offline docs dev server
+```
+
+### Running a single test
+
+```bash
+# Go: single package or test
+go test ./internal/lidar/l4perception/... -v
+go test ./internal/lidar/l5tracks -run '^TestKalmanPredict$' -v
+
+# Web (Jest): single file or test name
+cd web
+pnpm run test -- path/to/file.test.ts
+pnpm run test -- -t "test name regex"
+```
+
+### Setup (first time)
+
+```bash
+make install-web      # Installs web deps via pnpm
+make install-docs     # Installs Eleventy deps for docs site
+make install-python   # Local dev Python tooling
+```
+
+### Other useful targets
+
+```bash
+make proto-gen        # Regenerate Go + Swift protobuf stubs
+go run ./cmd/velocity report pdf --config report.json --db sensor_data.db --output ./reports
+make test-go-cov      # Go tests with coverage (→ coverage.html)
+make test-perf-all    # LiDAR perf gate across every gated profile
+make perf-baseline-all # Recapture perf baselines (median of 5 runs)
+```
+
+A tuning change moves the config fingerprint, which makes the perf gate refuse the
+committed baselines rather than compare against them. Recapture in the same change:
+see [performance-regression-testing.md](docs/lidar/operations/performance-regression-testing.md).
+
+### Publishing runs (`make scene-assets`)
+
+A run replays every site in full — around forty minutes each, most of a day for
+the set — so anything it starts with wrong is paid for twice. Check all of this
+before starting one, not an hour in.
+
+1. **Pull, then build.** `git pull` and `make build-radar-local`. A run from a
+   stale checkout publishes tracks the current pipeline would not produce, and
+   the perception commits that move them land often. Being a few days behind is
+   enough to matter.
+2. **Check the stamp.** `./velocity-report-local version` must report the
+   Makefile's `VERSION` and a git sha equal to `HEAD`. `vdev` / `unknown` means
+   it was not built by `make`; rebuild rather than publishing assets that cannot
+   say what made them.
+3. **One database.** The server's `--db-path` and `publish-scenes.py` must name
+   the same file — the script reads the run records the server writes, and
+   `DB_PATH` sets both. A mismatch is invisible until each replay finishes and
+   the export that follows fails on a database that was never there.
+4. **Machine paths go in `local.mk`**, untracked, per the header of the Makefile.
+   Passing them per-invocation is how they end up disagreeing between the server
+   and the publisher.
+5. **`make scene-assets-status` is the preflight.** It resolves every site to
+   packets and checks the run records are readable. It must pass clean first.
+
+If a replay finished but its export failed, the VRLOG on disk is complete: export
+from it again rather than replaying. The recording is the expensive half, and a
+failed run leaves it behind on purpose.
+
+## Architecture
+
+The system has four independent components communicating over HTTP and gRPC:
+
+```mermaid
+flowchart TB
+	Radar["Radar <br> (serial)"]
+	Lidar["LiDAR <br> (ethernet)"]
+	GRPC[gRPC API <br> :50051]
+	GRPC --> Vis[macOS visualiser]
+	LiDAR_API[LiDAR API <br> :8081]
+	API[HTTP API <br> :8080]
+	LiDAR_API --> Vis
+	LiDAR_API --> Web
+	API --> Web["Web <br> (Svelte)"]
+	API --> PDF[PDF report]
+	Go --> LiDAR_API
+	Go --> API
+	Go --> GRPC
+	Go["Go binary"]
+	DB <--> Go
+	DB[("SQLite")]
+	Radar --> Go
+	Lidar --> Go
+```
+
+### Data-flow notes for AI agents
+
+- The physical deployment diagram in [ARCHITECTURE.md](ARCHITECTURE.md) was simplified on purpose.
+- Detailed host and network facts now live in tables: network configuration and key runtime paths.
+- Canonical LiDAR layer topology (including the L1-L10 concept chart and reading notes) lives in [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
+- Treat this file as the high-level map; use [ARCHITECTURE.md](ARCHITECTURE.md) for authoritative detail.
+
+### Go server (`cmd/`, `internal/`)
+
+The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
+
+- **Radar ingest** (`internal/radar/`): serial port reader for OmniPreSense OPS243-A → inserts `radar_data` and `radar_objects`
+- **LiDAR ingest** (`internal/lidar/`): UDP packet decoder for Hesai Pandar40P → layered perception pipeline (L1–L9)
+- **Transit worker**: background sessionisation of `radar_data` → `radar_data_transits`
+- **HTTP API** ([internal/api/](internal/api/)): radar stats, config, capabilities, report generation, sites, site-config periods, timeline, transit worker control, DB stats, SVG chart endpoints (`/api/charts/timeseries|histogram|comparison`)
+- **Offline docs** ([internal/docsite/](internal/docsite/)): serves the embedded Eleventy docs site at `/docs/` on the main HTTP mux; source is `embed` (default) or `disk`
+- **gRPC server** (`internal/lidar/l9endpoints/`): streams `FrameBundle` protobufs to the macOS visualiser; supports live, PCAP replay, VRLOG replay, and synthetic modes
+
+### LiDAR perception pipeline (`internal/lidar/l*`)
+
+Layer pipeline (L1–L9; L7 is unimplemented):
+
+For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
+
+| Layer | Package         | Purpose                                                                          |
+| ----- | --------------- | -------------------------------------------------------------------------------- |
+| L1    | `l1packets/`    | Hesai UDP decode, PCAP replay; sub-packages `network/` and `parse/`              |
+| L2    | `l2frames/`     | Frame assembly from raw points, polar↔Cartesian geometry, frame export           |
+| L3    | `l3grid/`       | Background model (EMA + Welford variance), foreground extraction, region mgmt    |
+| L4    | `l4perception/` | DBSCAN clustering, OBB estimation (PCA), ground removal, voxel downsampling      |
+| L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, OBB heading smoothing, track coasting |
+| L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment         |
+| L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                  |
+| L8    | `l8behaviour/`  | Behaviour: following gap and time gap, local path, leader choice, exposure       |
+| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI    |
+
+**`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.
+
+**Pipeline depth** is set by the per-layer `engine` selector in the tuning config: `"none"` disables a layer, and disabled layers must form a suffix (L5 cannot run without L4). That yields three depths — `l3-only`, `detect`, `full` — derived rather than configured separately, with ready-made configs in `config/profiles/`.
+
+Parameter tuning: `internal/lidar/sweep/`; combinatorial sweep, auto-tuner, and HINT (human-involved) tuner.
+
+Mathematical references for each layer: `data/maths/`.
+
+### Database (`internal/db/`)
+
+SQLite via `modernc.org/sqlite` (pure-Go; bundled SQLite version pinned in `go.mod`). JSON-first schema: raw sensor events stored as JSON with generated columns for indexed fields. WAL mode enabled.
+
+Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit_links`, `lidar_bg_snapshot`, `site`, `site_config_periods`. Migrations: `internal/db/migrations/`. Use `DROP COLUMN` directly in new migrations (SQLite 3.35+).
+
+### Go PDF report pipeline (`internal/report/`)
+
+Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Typst data/templates ([internal/report/typst](internal/report/typst)) → `typst compile`. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity report pdf` (CLI subcommand in [internal/cmd/server/pdf.go](internal/cmd/server/pdf.go)).
+
+### Python PDF generator — removed
+
+`tools/pdf-generator/` was removed from the repository. The Go pipeline above handles all PDF generation.
+
+### Web frontend (`web/`)
+
+Svelte 5 + TypeScript + Vite. Fetches from Go HTTP API. Dev server on `:5173`; production build served as static files by the Go server.
+
+### macOS visualiser (`tools/visualiser-macos/`)
+
+Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` protos from the Go server. Renders 3D point clouds, track bounding boxes, and trails. Supports live, replay, and synthetic modes.
+
+### Protobuf (`proto/`)
+
+[proto/velocity_visualiser/v1/visualiser.proto](proto/velocity_visualiser/v1/visualiser.proto) defines `VisualiserService` and `FrameBundle`. Regenerate with `make proto-gen`.
+
+## Agents
+
+The Claude Code personas are defined in `.claude/agents/`; their invocation syntax is specific to
+that client. Use the agent mechanism supported by the active tool.
+
+| Agent      | Domain                                    | Class     | File                                                 |
+| ---------- | ----------------------------------------- | --------- | ---------------------------------------------------- |
+| **Appius** | Implementation, code review, migrations   | Technical | [.claude/agents/appius.md](.claude/agents/appius.md) |
+| **Euler**  | Algorithms, maths, statistical validation | Technical | [.claude/agents/euler.md](.claude/agents/euler.md)   |
+| **Grace**  | Architecture, design docs, feature specs  | Technical | [.claude/agents/grace.md](.claude/agents/grace.md)   |
+| **Malory** | Security, pen test, privacy verification  | Technical | [.claude/agents/malory.md](.claude/agents/malory.md) |
+| **Flo**    | Planning, sequencing, risk, coordination  | Editorial | [.claude/agents/flo.md](.claude/agents/flo.md)       |
+| **Terry**  | Documentation, UX copy, release notes     | Editorial | [.claude/agents/terry.md](.claude/agents/terry.md)   |
+| **Ruth**   | Scope decisions, tradeoffs, arbitration   | Both      | [.claude/agents/ruth.md](.claude/agents/ruth.md)     |
+
+Paired Copilot definitions live in [.github/agents/](.github/agents/). Check drift with `make check-agent-drift`.
+
+Each agent references the shared knowledge modules in `.github/knowledge/` rather than restating project facts. See `docs/platform/operations/agent-preparedness.md` for the full layered knowledge architecture.
+
+## Skills
+
+The following repository workflow skills are available as Claude Code slash commands:
+
+| Skill                 | Command                           | Purpose                                                                     |
+| --------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| plan-graduation       | `/plan-graduation <plan>`         | Graduate a completed plan to symlink, consolidate into hub doc              |
+| plan-review           | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan                          |
+| review-pr             | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review                           |
+| address-pr-comments   | `/address-pr-comments [PR]`       | Triage PR review comments, apply fixes in per-area commits, draft replies   |
+| ship-change           | `/ship-change`                    | Format → lint → test → build → commit                                       |
+| weekly-retro          | `/weekly-retro`                   | Weekly backlog health, plan consistency, and drift check                    |
+| standup               | `/standup`                        | Daily repo and worktree standup with priorities                             |
+| security-review       | `/security-review [path]`         | Security audit: static analysis, fuzz targets, checklist                    |
+| trace-matrix          | `/trace-matrix [task-group]`      | Trace backend surfaces against MATRIX.md                                    |
+| fix-links             | `/fix-links [path]`               | Fix dead links and stale backtick paths in Markdown                         |
+| style-fix             | `/style-fix [path]`               | STYLE.md conformance pass: auto-fix safe issues, honour ignore markers      |
+| width-check           | `/width-check [path]`             | Advisory: report Markdown prose lines over 100 columns (never fails CI)     |
+| devlog-update         | `/devlog-update`                  | Update devlog from git history since last entry                             |
+| backlog-prune         | `/backlog-prune [--scan-all-prs]` | Groom backlog: PR audit, release theme coherence, L/XL splits               |
+| update-pr-description | `/update-pr-description [PR]`     | Generate PR title and description from the branch diff                      |
+| docs-release-prep     | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep              |
+| release-prep          | `/release-prep [--scope X]`       | Full release gate: format, lint, test, build, drift, style, docs, changelog |
+
+Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
+
+## Commit format
+
+See [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md) for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.
+
+Commits that change behaviour must include test updates for affected code in the same commit. Do not split the test update into a follow-up.
+
+## Key conventions
+
+See [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md) for production paths, product names, version format, formatting rules, and documentation update policy.
+
+- **Speed percentiles** (`p85`, `p98`) are aggregate over a population of vehicle max speeds, not per-track observations

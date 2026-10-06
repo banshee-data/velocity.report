@@ -239,7 +239,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte) (scene + run selectors)
 - [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte) (label controls)
 - [web/src/lib/components/lidar/TimelinePane.svelte](../../web/src/lib/components/lidar/TimelinePane.svelte) (linked track connectors)
-- [web/src/lib/components/lidar/MapPane.svelte](../../web/src/lib/components/lidar/MapPane.svelte) (label colour coding)
+- [web/src/lib/components/lidar/ScenePane.svelte](../../web/src/lib/components/lidar/ScenePane.svelte) (label colour coding; replaced MapPane.svelte in [#559])
 - [web/src/lib/api.ts](../../web/src/lib/api.ts) (new API calls)
 - [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) (label types)
 

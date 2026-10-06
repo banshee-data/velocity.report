@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "l1": {
+    "sensor": "hesai-pandar40p",
+    "data_source": "live"
+  },
+  "l3": {
+    "engine": "ema_baseline_v1",
+    "ema_baseline_v1": {
+      "background_update_fraction": 0.02,
+      "closeness_multiplier": 3,
+      "safety_margin_metres": 0.15,
+      "noise_relative": 0.02,
+      "neighbour_confirmation_count": 3,
+      "seed_from_first": true,
+      "warmup_duration_nanos": 30000000000,
+      "warmup_min_frames": 50,
+      "post_settle_update_fraction": 0,
+      "enable_diagnostics": false,
+      "freeze_duration": "5s",
+      "freeze_threshold_multiplier": 3,
+      "settling_period": "5m",
+      "snapshot_interval": "2h",
+      "change_threshold_snapshot": 100,
+      "reacquisition_boost_multiplier": 5,
+      "min_confidence_floor": 3,
+      "locked_baseline_threshold": 50,
+      "locked_baseline_multiplier": 4,
+      "sensor_movement_foreground_threshold": 0.2,
+      "sensor_movement_drift_ratio_threshold": 0.5,
+      "background_drift_threshold_metres": 0.5,
+      "background_drift_ratio_threshold": 0.1,
+      "settling_min_coverage": 0.8,
+      "settling_max_spread_delta": 0.001,
+      "settling_min_region_stability": 0.95,
+      "settling_min_confidence": 10
+    }
+  },
+  "l4": {
+    "engine": "none"
+  },
+  "l5": {
+    "engine": "none"
+  },
+  "pipeline": {
+    "buffer_timeout": "500ms",
+    "min_frame_points": 1000,
+    "flush_interval": "60s",
+    "background_flush": false,
+    "frame_budget_ms": 98
+  }
+}

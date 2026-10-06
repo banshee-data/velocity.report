@@ -613,7 +613,15 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
-		)
+		);
+
+	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
+		replay_case_id TEXT NOT NULL,
+		ordinal INTEGER NOT NULL,
+		capture_file_id TEXT,
+		pcap_file TEXT NOT NULL,
+		PRIMARY KEY (replay_case_id, ordinal)
+	)
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
@@ -681,7 +689,7 @@ func TestSceneCov2_ReplayPCAPInProgress(t *testing.T) {
 
 	// Mark PCAP as already in progress
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
 	// Insert scene

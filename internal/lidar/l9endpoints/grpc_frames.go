@@ -102,16 +102,17 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:    c.ClusterID,
+				SensorId:     c.SensorID,
+				TimestampNs:  c.TimestampNanos,
+				CentroidX:    c.CentroidX,
+				CentroidY:    c.CentroidY,
+				CentroidZ:    c.CentroidZ,
+				AabbLength:   c.AABBLength,
+				AabbWidth:    c.AABBWidth,
+				AabbHeight:   c.AABBHeight,
+				PointsCount:  int32(c.PointsCount),
+				SamplePoints: c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -205,15 +206,19 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 	// Include playback info
 	if frame.PlaybackInfo != nil {
 		pbFrame.PlaybackInfo = &pb.PlaybackInfo{
-			IsLive:            frame.PlaybackInfo.IsLive,
-			LogStartNs:        frame.PlaybackInfo.LogStartNs,
-			LogEndNs:          frame.PlaybackInfo.LogEndNs,
-			PlaybackRate:      frame.PlaybackInfo.PlaybackRate,
-			Paused:            frame.PlaybackInfo.Paused,
-			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
-			TotalFrames:       frame.PlaybackInfo.TotalFrames,
-			Seekable:          frame.PlaybackInfo.Seekable,
-			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
+			LogStartNs:             frame.PlaybackInfo.LogStartNs,
+			LogEndNs:               frame.PlaybackInfo.LogEndNs,
+			PlaybackRate:           frame.PlaybackInfo.PlaybackRate,
+			Paused:                 frame.PlaybackInfo.Paused,
+			CurrentFrameIndex:      frame.PlaybackInfo.CurrentFrameIndex,
+			TotalFrames:            frame.PlaybackInfo.TotalFrames,
+			Seekable:               frame.PlaybackInfo.Seekable,
+			SourceMode:             sourceModeToProto(frame.PlaybackInfo.SourceMode),
+			Recording:              frame.PlaybackInfo.Recording,
+			Settling:               frame.PlaybackInfo.Settling,
+			SettlingElapsedSeconds: frame.PlaybackInfo.SettlingElapsedSecs,
+			SensorSilent:           frame.PlaybackInfo.SensorSilent,
+			ReplayEpoch:            frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 
@@ -239,6 +244,9 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		}
 	}
 
+	if req.IncludeDebug {
+		pbFrame.Debug = DebugToProto(frame.Debug)
+	}
 	return pbFrame
 }
 
@@ -249,4 +257,22 @@ func byteSliceToUint32(b []uint8) []uint32 {
 		result[i] = uint32(v)
 	}
 	return result
+}
+
+// sourceModeToProto maps the canonical source-mode token to its wire enum.
+// An unrecognised or empty token yields SOURCE_MODE_UNSPECIFIED rather than
+// asserting a source the monitor server did not report.
+func sourceModeToProto(mode string) pb.SourceMode {
+	switch mode {
+	case "live":
+		return pb.SourceMode_SOURCE_MODE_LIVE
+	case "pcap":
+		return pb.SourceMode_SOURCE_MODE_PCAP
+	case "pcap_analysis":
+		return pb.SourceMode_SOURCE_MODE_PCAP_ANALYSIS
+	case "vrlog":
+		return pb.SourceMode_SOURCE_MODE_VRLOG
+	default:
+		return pb.SourceMode_SOURCE_MODE_UNSPECIFIED
+	}
 }

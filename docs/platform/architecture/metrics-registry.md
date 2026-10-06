@@ -22,28 +22,29 @@ aggregate-only.
 | `avg` / `mean` | Arithmetic mean over the stated sample set                    | Any level if explicitly defined                | `avg` can remain as transport/storage name where already stable |
 | `typical`      | Robust central estimate after metric-specific filtering       | Track, scene, or session metrics               | Use when intentionally not a mean or percentile                 |
 | `max`          | Raw observed maximum with no outlier rejection                | Any level                                      | Canonical raw-maximum term repo-wide                            |
+| `min`          | Raw observed minimum with no outlier rejection                | Any level                                      | Canonical raw-minimum term; estimator `raw_min`                 |
 | `peak`         | Filtered or context-aware top value                           | Only when filtering rule is explicitly defined | Reserve for future filtered metrics, not raw maxima             |
 | `p50/p85/p98`  | Percentiles across a population of values                     | Aggregate/report/transit/grouped outputs       | For speed, keep on grouped/report outputs only                  |
 | `p95`          | Valid percentile term in general, but not canonical for speed | Family-specific                                | `height_p95` can stay; speed `p95` is historical-only legacy    |
-| unit suffixes  | Explicit physical units in the leaf name                      | Any level                                      | Prefer `_mps`, `_mph`, `_ms`, `_count`, `_ratio`, `_m`          |
+| unit suffixes  | Explicit physical units in the leaf name                      | Any level                                      | Prefer `_mps`, `_mph`, `_ms`, `_s`, `_count`, `_ratio`, `_m`    |
 
 ## Canonical metric shape
 
 Each metric is defined conceptually using these fields:
 
-| Field            | Meaning                                             | Example                                                                               |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `id`             | Stable repo-wide identifier                         | `track.max_observed_speed_mps`                                                        |
-| `family`         | Metric family                                       | `speed`, `height`, `performance`, `ops`                                               |
-| `level`          | Observation level                                   | `track`, `transit`, `aggregate`, `cluster`, `scene`, `performance`, `ops`             |
-| `estimator`      | Measure type                                        | `mean`, `raw_max`, `filtered_peak`, `p50`, `p85`, `p98`, `count`, `ratio`, `duration` |
-| `unit`           | Canonical unit token                                | `mps`, `mph`, `ms`, `count`, `m`                                                      |
-| `visibility`     | Surface expectation                                 | `public`, `internal`, `future_stub`, `deprecated`                                     |
-| `status`         | Lifecycle state                                     | `stable`, `provisional`, `future_stub`, `deprecated`                                  |
-| `aliases`        | Temporary or historical names                       | `peak_speed_mps`                                                                      |
-| `source_modes`   | Valid runtime contexts                              | `live`, `pcap`, `pcap_analysis`, `vrlog`                                              |
-| `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                 |
-| `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                       |
+| Field            | Meaning                                             | Example                                                                                                           |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `id`             | Stable repo-wide identifier                         | `track.max_observed_speed_mps`                                                                                    |
+| `family`         | Metric family                                       | `speed`, `height`, `following`, `performance`, `ops`                                                              |
+| `level`          | Observation level                                   | `track`, `transit`, `aggregate`, `cluster`, `scene`, `interaction`, `performance`, `ops`                          |
+| `estimator`      | Measure type                                        | `mean`, `raw_max`, `raw_min`, `filtered_peak`, `p50`, `p85`, `p98`, `count`, `ratio`, `duration`, `instantaneous` |
+| `unit`           | Canonical unit token                                | `mps`, `mph`, `ms`, `s`, `count`, `ratio`, `m`                                                                    |
+| `visibility`     | Surface expectation                                 | `public`, `internal`, `review_only`, `future_stub`, `deprecated`                                                  |
+| `status`         | Lifecycle state                                     | `stable`, `provisional`, `future_stub`, `deprecated`                                                              |
+| `aliases`        | Temporary or historical names                       | `peak_speed_mps`                                                                                                  |
+| `source_modes`   | Valid runtime contexts                              | `live`, `pcap`, `pcap_analysis`, `vrlog`                                                                          |
+| `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                                             |
+| `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                                                   |
 
 ## Seed naming decisions
 
@@ -59,6 +60,122 @@ These are the design anchors the registry must enforce first.
 | Aggregate speed percentile 85 | `aggregate.speed_p85_mph`          | Aggregate-only                                                                   |
 | Aggregate speed percentile 98 | `aggregate.speed_p98_mph`          | Canonical high-end speed percentile                                              |
 | Aggregate raw max speed       | `aggregate.speed_max_mph`          | Use `max`, not `peak`                                                            |
+
+Level `interaction` is one pairwise encounter between two passages at one site. Estimator
+`instantaneous` is a value at one synchronised instant. Visibility `review_only` is shown on review
+surfaces, clearly separated, and never enters a published distribution, a rate or an exposure
+denominator.
+
+## Following metrics
+
+Reserved for the v0.5.2 headway report, per
+[behaviour plan Section 8.3](../../plans/lidar-behaviour-analytics-plan.md#83-following-behaviour).
+Every row is `provisional`. The code mirror is
+[internal/lidar/l8behaviour/metrics.go](../../../internal/lidar/l8behaviour/metrics.go), and its
+tests fail when a row here is missing or disagrees with it on unit or visibility.
+
+| id                                              | family      | level         | estimator       | unit    | visibility    | status        | benchmark                  | aliases                                        |
+| ----------------------------------------------- | ----------- | ------------- | --------------- | ------- | ------------- | ------------- | -------------------------- | ---------------------------------------------- |
+| `interaction.following_spatial_gap_m`           | `following` | `interaction` | `instantaneous` | `m`     | `public`      | `provisional` | `external_distribution`    | `distance_headway`, `gap`                      |
+| `interaction.following_net_time_gap_s`          | `following` | `interaction` | `instantaneous` | `s`     | `public`      | `provisional` | `no_established_threshold` | `time_headway`, `thw`                          |
+| `interaction.following_valid_time_s`            | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | none                       | `following_valid_time`, `valid_following_time` |
+| `interaction.following_spatial_gap_min_m`       | `following` | `interaction` | `raw_min`       | `m`     | `public`      | `provisional` | `local_distribution`       | none                                           |
+| `interaction.following_spatial_gap_p50_m`       | `following` | `interaction` | `p50`           | `m`     | `public`      | `provisional` | `local_distribution`       | none                                           |
+| `interaction.following_net_time_gap_min_s`      | `following` | `interaction` | `raw_min`       | `s`     | `public`      | `provisional` | `local_distribution`       | `thw_min`                                      |
+| `interaction.following_net_time_gap_p50_s`      | `following` | `interaction` | `p50`           | `s`     | `public`      | `provisional` | `local_distribution`       | `thw_median`                                   |
+| `interaction.following_time_below_2000ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_2.0_seconds`                        |
+| `interaction.following_time_below_1500ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_1.5_seconds`                        |
+| `interaction.following_time_below_1000ms_s`     | `following` | `interaction` | `duration`      | `s`     | `public`      | `provisional` | `no_established_threshold` | `thw_below_1.0_seconds`                        |
+| `interaction.following_rate_below_2000ms_ratio` | `following` | `interaction` | `ratio`         | `ratio` | `public`      | `provisional` | `local_distribution`       | `thw_below_2.0_rate`, `following_close_rate`   |
+| `interaction.following_rate_below_1500ms_ratio` | `following` | `interaction` | `ratio`         | `ratio` | `public`      | `provisional` | `local_distribution`       | `thw_below_1.5_rate`, `following_close_rate`   |
+| `interaction.following_rate_below_1000ms_ratio` | `following` | `interaction` | `ratio`         | `ratio` | `public`      | `provisional` | `local_distribution`       | `thw_below_1.0_rate`, `following_close_rate`   |
+| `interaction.observed_surface_gap_m`            | `following` | `interaction` | `instantaneous` | `m`     | `review_only` | `provisional` | none                       | `observed_surface_gap`                         |
+| `interaction.following_predicted_gap_m`         | `following` | `interaction` | `instantaneous` | `m`     | `review_only` | `provisional` | none                       | `predicted_gap`                                |
+
+Fields shared by every row:
+
+| Field            | Value                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| `source_modes`   | `live`, `pcap`, `pcap_analysis`, `vrlog`                                                |
+| `allowed_tags`   | `site_id`, `sensor_id`, `source_mode`                                                   |
+| `forbidden_tags` | `track_id`, `event_id`, `run_id`, `pcap_file`, `vrlog_path`, `frame_id`, `timestamp_ns` |
+
+Definitions that every surface must keep:
+
+- **Spatial gap** is bumper to bumper along a shared directed path: the leader's trailing footprint
+  extreme less the follower's leading one. It is never centre to centre, and a non-positive value
+  is suppressed for geometry review rather than reported as zero headway or contact.
+- **Net time gap** is spatial gap over the follower's along-path speed. It is not front-to-front
+  passage headway at a fixed detector, and it is suppressed below the speed floor.
+- **Valid following time** counts supported opportunity only: observed instants where net time gap
+  is supported. Coasted, standstill and otherwise suppressed time is excluded, and a rate over too
+  little of it is suppressed with `insufficient_observation`, never reported as zero.
+- **Encounter statistics** (`raw_min`, `p50`) are over the supported instants of one
+  leader/follower encounter, not weighted by time: the spatial gap over every instant whose gap is
+  supported, standstill included, and the net time gap over valid following instants. They are an
+  extremum and an order statistic of a correlated series, so their uncertainty is a Monte Carlo
+  interval with its coverage and sample count, never a sigma. An empty series is suppressed with
+  `insufficient_observation`.
+- **Bands** are descriptive bins with no established threshold, never a tailgating verdict.
+  Membership is strict (`THW < X`). Band ids carry the threshold in milliseconds, because a decimal
+  `p` would read as a percentile and a literal `.` would collide with the level separator.
+- **Review-only metrics** never enter a published distribution, a rate or valid following time. The
+  observed-surface gap is the separation of two directly observed faces; the predicted gap is the
+  body-model gap while either party coasts, with coast age and widening uncertainty.
+- Every value is a result or a suppression with a registered reason from the
+  [label vocabulary](../../lidar/architecture/label-vocabulary.md#suppression-reasons); a
+  suppressed metric has no value at all.
+
+### Following metric surfaces
+
+The surface completeness check for the following family. Persistence, the scene API and the
+headway report's data file (`headway_report_v2`) are built
+([behaviour plan Sections 10.3 and 10.4](../../plans/lidar-behaviour-analytics-plan.md#103-persistence)),
+and all use the same names. Stored metric values are keyed by id inside
+each row's JSON payload, and no column names a metric. `event_json`, `instant_json` and
+`window_json` are the payloads of `lidar_interaction_events`, `lidar_interaction_instants` and
+`lidar_exposure_windows`.
+
+| Metric ids                                                     | Persistence names                                                                                                                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interaction.following_spatial_gap_m`                          | `instant_json.values.<id>` (value and sigma) on observed instants whose gap is supported                                                                                                                |
+| `interaction.following_net_time_gap_s`                         | `instant_json.values.<id>` (value and sigma) on valid instants only                                                                                                                                     |
+| `interaction.following_valid_time_s`                           | `event_json.measurements.<id>`; its denominator is the sum of `window_json.duration_nanos` where `basis` is `observed` and `kind` is `valid_following`, divided by 10⁹ because the metric is in seconds |
+| `interaction.following_{spatial_gap,net_time_gap}_{min,p50}_*` | `event_json.measurements.<id>`                                                                                                                                                                          |
+| `interaction.following_time_below_{2000,1500,1000}ms_s`        | `event_json.measurements.<id>`; bookkeeping in `event_json.accounting.band_nanos.<id>` and, per observed window, `window_json.band_nanos.<id>`                                                          |
+| `interaction.following_rate_below_{2000,1500,1000}ms_ratio`    | `event_json.measurements.<id>`                                                                                                                                                                          |
+| `interaction.following_predicted_gap_m`                        | `instant_json.values.<id>` on `predicted_only` instants only, with `coast_age_nanos`; never in a measurement, a window or a denominator                                                                 |
+| `interaction.observed_surface_gap_m`                           | Not persisted: the encounter method does not produce it                                                                                                                                                 |
+| Provisional values of a non-final encounter                    | `event_json.provisional.<id>`, present exactly when `estimate_stage` is not `final`                                                                                                                     |
+| Suppression reasons                                            | `reason` on a measurement and an instant, `reasons` on an instant in precedence order, and `event_json.accounting.suppressions.<token>`                                                                 |
+
+Every name a surface emits is checked by `AuditSurfaceJSON` in
+[internal/lidar/l8behaviour/surface.go](../../../internal/lidar/l8behaviour/surface.go): an object
+key must be a registered metric id, a suppression reason token or a structural name from one shared
+list, no key or value may be an alias, and a value claiming the `interaction.` level must be a
+registered id. The persisted payloads, table columns and scene API responses are audited in
+tests, and so is the report's `data.json`, both as rendered and by a walk over every field its
+contract can write; the report's structural names sit in their own section of the shared list.
+Contract v2 renamed the report's spatial gap series from `gap`, an alias, to `spatial_gap`.
+
+The scene API, `GET /api/scenes/<id>/headway`, serves one version group's distribution under
+`distribution` and one row per encounter under `encounters`
+([server_scenes_headway.go](../../../internal/api/server_scenes_headway.go)). The SVG at
+`/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution and writes metric ids,
+reason tokens and the band benchmark kind verbatim.
+
+| Metric ids                                                                    | API names                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interaction.following_net_time_gap_s`, `interaction.following_spatial_gap_m` | `distribution.histograms.<id>.bins[]`: `lower`, `upper` (absent on the open last bin), `instants`, `nanos` of valid time and the one-sigma reach, `sigma_inside_nanos` and `sigma_overlap_nanos`   |
+| `interaction.following_time_below_{2000,1500,1000}ms_s`                       | `distribution.bands[].name`, with `threshold`, `instants`, `nanos` and `events` over encounters whose band exposure is supported; `distribution.accounting.band_nanos.<id>` covers every encounter |
+| `interaction.following_rate_below_{2000,1500,1000}ms_ratio`                   | `distribution.bands[].rate.name`: time below over supported valid time, with `opportunity_seconds` and uncertainty `none`                                                                          |
+| Encounter statistics and `interaction.following_valid_time_s`                 | `encounters[].measurements.<id>` as stored, without the provenance each repeats, and `encounters[].provisional.<id>` below the final stage                                                         |
+| `interaction.following_predicted_gap_m`, `interaction.observed_surface_gap_m` | Not served                                                                                                                                                                                         |
+| Suppression reasons                                                           | `distribution.excluded.<token>` (`instants`, `nanos`, `predicted_only_nanos`), `distribution.accounting.suppressions.<token>`, and `reason` on every measurement                                   |
+
+The envelope adds `scene_id`, `status` (`provisional`, or `synthetic_oracle` for the analytic
+fixture estimator; never promoted), `availability`, the scene's capture window as
+`start_unix_nanos` and `end_unix_nanos`, `source_id` and `sources`, and `version` and `versions`.
 
 ## Consistency across pipeline strata
 
@@ -132,6 +249,7 @@ No new public metric should merge unless:
 | --------------------------- | ------------------------------------------ |
 | `track_id`                  | Unbounded cardinality                      |
 | `run_id`                    | Unbounded cardinality                      |
+| `event_id`                  | Unbounded cardinality                      |
 | `pcap_file`                 | File-name explosion and local-path leakage |
 | `vrlog_path`                | Same problem as `pcap_file`                |
 | `client_id`                 | Short-lived and effectively unbounded      |

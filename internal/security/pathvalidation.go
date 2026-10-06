@@ -11,18 +11,29 @@ import (
 // It prevents path traversal attacks by ensuring the resolved path doesn't escape
 // the specified safe directory. This includes protection against symlink-based attacks.
 func ValidatePathWithinDirectory(filePath, safeDir string) error {
+	_, err := ResolvePathWithinDirectory(filePath, safeDir)
+	return err
+}
+
+// ResolvePathWithinDirectory validates that filePath resolves within safeDir,
+// following symlinks, and returns the canonical resolved path. Callers that go
+// on to open, store, or echo the path back should use the returned canonical
+// path rather than their original input: validating a symlink's target and
+// then acting on the original unresolved string reopens the same
+// time-of-check-to-time-of-use gap this validation exists to close.
+func ResolvePathWithinDirectory(filePath, safeDir string) (string, error) {
 	// Clean the path to resolve . and .. components
 	cleanPath := filepath.Clean(filePath)
 
 	// Get absolute paths for proper validation
 	absPath, err := filepath.Abs(cleanPath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve absolute path: %w", err)
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	absSafeDir, err := filepath.Abs(safeDir)
 	if err != nil {
-		return fmt.Errorf("failed to resolve safe directory path: %w", err)
+		return "", fmt.Errorf("failed to resolve safe directory path: %w", err)
 	}
 
 	// Resolve symlinks to get canonical paths (prevents symlink-based traversal attacks)
@@ -58,21 +69,21 @@ func ValidatePathWithinDirectory(filePath, safeDir string) error {
 
 	canonicalSafeDir, err := filepath.EvalSymlinks(absSafeDir)
 	if err != nil {
-		return fmt.Errorf("failed to resolve safe directory symlinks: %w", err)
+		return "", fmt.Errorf("failed to resolve safe directory symlinks: %w", err)
 	}
 
 	// Check if canonical path is within canonical safe directory
 	relPath, err := filepath.Rel(canonicalSafeDir, canonicalPath)
 	if err != nil {
-		return fmt.Errorf("path is outside safe directory: %w", err)
+		return "", fmt.Errorf("path is outside safe directory: %w", err)
 	}
 
 	// Reject paths that escape the safe directory
 	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
-		return fmt.Errorf("path traversal detected: %s attempts to escape %s", filePath, safeDir)
+		return "", fmt.Errorf("path traversal detected: %s attempts to escape %s", filePath, safeDir)
 	}
 
-	return nil
+	return canonicalPath, nil
 }
 
 // ValidatePathWithinAllowedDirs checks if a file path is within any of the allowed directories.

@@ -18,14 +18,17 @@ type SampleResult struct {
 	Timestamp        time.Time
 
 	// Track health metrics (best-effort; zero if tracker unavailable)
-	ActiveTracks       int
-	MeanAlignmentDeg   float64
-	MisalignmentRatio  float64
-	HeadingJitterDeg   float64
-	SpeedJitterMps     float64
-	FragmentationRatio float64
-	TracksCreated      int
-	TracksConfirmed    int
+	ActiveTracks           int
+	TrackMetricsAvailable  bool
+	CourseAlignmentP50Deg  float64
+	CourseAlignmentSamples int
+	MeanAlignmentDeg       float64
+	MisalignmentRatio      float64
+	HeadingJitterDeg       float64
+	SpeedJitterMps         float64
+	FragmentationRatio     float64
+	TracksCreated          int
+	TracksConfirmed        int
 
 	// Scene-level foreground capture metrics
 	ForegroundCaptureRatio float64

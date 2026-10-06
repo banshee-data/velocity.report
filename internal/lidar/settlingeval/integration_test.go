@@ -54,7 +54,7 @@ func truncatedCapture(t *testing.T, maxPackets int) string {
 }
 
 func TestRun_Integration(t *testing.T) {
-	report, err := Run(truncatedCapture(t, 3000), "", "test-sensor", 2369)
+	report, err := Run(Config{PCAPFile: truncatedCapture(t, 3000), SensorID: "test-sensor", UDPPort: 2369})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRun_CorruptPCAP(t *testing.T) {
 	if err := os.WriteFile(junk, []byte("not a pcap"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Run(junk, "", "s", 2369); err == nil {
+	if _, err := Run(Config{PCAPFile: junk, SensorID: "s", UDPPort: 2369}); err == nil {
 		t.Error("expected error replaying a corrupt pcap")
 	}
 }

@@ -404,3 +404,93 @@ func TestSanitizeFilename(t *testing.T) {
 		})
 	}
 }
+
+// ResolvePathWithinDirectory exists for one reason the Validate wrapper
+// cannot express: it hands back the canonical path, so a caller opens what
+// was checked rather than the string it was given. These tests pin that
+// contract directly. Through the wrapper the return value is discarded, and
+// a regression that returned the unresolved input would pass every other
+// test in this file.
+
+func TestResolvePathWithinDirectoryReturnsTheSymlinkTargetNotTheInput(t *testing.T) {
+	safeDir := canonicalTempDir(t)
+	target := filepath.Join(safeDir, "real.pack")
+	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(safeDir, "alias.pack")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	got, err := ResolvePathWithinDirectory(link, safeDir)
+	if err != nil {
+		t.Fatalf("a symlink that stays inside the safe directory was rejected: %v", err)
+	}
+	if got != target {
+		t.Errorf("resolved to %q, want the symlink's target %q: acting on the unresolved input reopens the check-to-use gap", got, target)
+	}
+}
+
+func TestResolvePathWithinDirectoryRejectsASymlinkThatLeavesTheSafeDir(t *testing.T) {
+	safeDir := canonicalTempDir(t)
+	outside := filepath.Join(canonicalTempDir(t), "secret")
+	if err := os.WriteFile(outside, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(safeDir, "innocent.pack")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	got, err := ResolvePathWithinDirectory(link, safeDir)
+	if err == nil {
+		t.Fatalf("a symlink out of the safe directory resolved to %q, want it rejected", got)
+	}
+	if got != "" {
+		t.Errorf("rejection returned %q alongside the error, want the empty string: a caller that ignores the error must not be handed a usable path", got)
+	}
+}
+
+func TestResolvePathWithinDirectoryCanonicalisesAPathThatDoesNotExistYet(t *testing.T) {
+	// An export names a directory it is about to create. The path cannot be
+	// resolved itself, so its nearest existing parent is, and the remainder
+	// is rejoined onto that canonical parent.
+	realDir := canonicalTempDir(t)
+	safeDir := filepath.Join(canonicalTempDir(t), "packs")
+	if err := os.Symlink(realDir, safeDir); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	got, err := ResolvePathWithinDirectory(filepath.Join(safeDir, "run-1", "pack"), safeDir)
+	if err != nil {
+		t.Fatalf("a not-yet-created path under the safe directory was rejected: %v", err)
+	}
+	if want := filepath.Join(realDir, "run-1", "pack"); got != want {
+		t.Errorf("resolved to %q, want %q: the symlinked safe directory should be resolved away", got, want)
+	}
+}
+
+func TestResolvePathWithinDirectoryFailsWhenTheSafeDirDoesNotExist(t *testing.T) {
+	missing := filepath.Join(canonicalTempDir(t), "never-created")
+
+	got, err := ResolvePathWithinDirectory(filepath.Join(missing, "pack"), missing)
+	if err == nil {
+		t.Fatalf("resolved to %q against a safe directory that does not exist, want an error: a boundary that cannot be resolved cannot be enforced", got)
+	}
+	if got != "" {
+		t.Errorf("failure returned %q alongside the error, want the empty string", got)
+	}
+}
+
+// canonicalTempDir returns a temp dir with its own symlinks resolved. On
+// macOS t.TempDir() sits under /var, itself a symlink to /private/var, so an
+// unresolved temp path never equals the canonical path these tests compare.
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}

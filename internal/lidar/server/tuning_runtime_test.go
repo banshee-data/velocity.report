@@ -118,9 +118,9 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	})
 
 	ws := &Server{
-		sensorID:      "runtime-sensor",
-		currentSource: DataSourcePCAP,
-		tracker:       tracker,
+		sensorID: "runtime-sensor",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		tracker:  tracker,
 	}
 	ws.storeTuningConfig(cfg)
 
@@ -151,7 +151,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		t.Fatalf("unexpected L5 runtime sync: %+v", runtimeCfg.L5.CvKfV1)
 	}
 
-	wsNoStored := &Server{sensorID: "no-store-sensor", currentSource: DataSourcePCAPAnalysis}
+	wsNoStored := &Server{sensorID: "no-store-sensor", state: PipelineState{Source: SourceModePCAP, GridPreserved: true, TotalPasses: 1}}
 	fallback := wsNoStored.runtimeTuningConfig(bm)
 	if fallback.L1.Sensor != "no-store-sensor" || fallback.L1.DataSource != string(DataSourcePCAPAnalysis) {
 		t.Fatalf("unexpected fallback L1 sync: %+v", fallback.L1)
@@ -261,7 +261,7 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	type container struct {
 		*embedded
 		Name string `json:"name"`
-		skip string `json:"skip"`
+		skip string // unexported: never resolves, even by its own name
 	}
 	type emptyTag struct {
 		Value int `json:",omitempty"`
@@ -272,6 +272,9 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	}
 	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "missing"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
 		t.Fatalf("expected missing field error, got %v", err)
+	}
+	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "skip"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
+		t.Fatalf("expected unexported field error, got %v", err)
 	}
 	if _, err := fieldByJSONName(reflect.ValueOf(struct {
 		Hidden int `json:"-"`
@@ -321,10 +324,10 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	classifier := l6objects.NewTrackClassifierWithMinObservations(5)
 	ws := &Server{
-		sensorID:      "patch-sensor",
-		tracker:       tracker,
-		classifier:    classifier,
-		currentSource: DataSourceLive,
+		sensorID:   "patch-sensor",
+		tracker:    tracker,
+		classifier: classifier,
+		state:      PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 	ws.storeTuningConfig(cfg)
 
@@ -549,5 +552,31 @@ func TestCompactDuration(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("compactDuration(%v): got %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+// OnTuningChange runs once per applied patch, after validation and before
+// any value changes, and never for a patch that is refused.
+func TestOnTuningChangeRunsBeforeAValueChanges(t *testing.T) {
+	params := l3grid.DefaultBackgroundConfig().ToBackgroundParams()
+	bm := l3grid.NewBackgroundManager("hook-sensor", 16, 360, params, nil)
+	var calls int
+	var seen float32
+	ws := &Server{sensorID: "hook-sensor", state: PipelineState{Source: SourceModeLive, TotalPasses: 1},
+		onTuningChange: func() { calls++; seen = bm.GetParams().NoiseRelativeFraction }}
+	ws.storeTuningConfig(cloneTuningConfig(cfgpkg.MustLoadDefaultConfig()))
+	before := bm.GetParams().NoiseRelativeFraction
+
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"l3.ema_baseline_v1.noise_relative": -1.0}); err == nil {
+		t.Fatal("an invalid patch was applied")
+	}
+	if calls != 0 {
+		t.Fatal("the hook ran for a refused patch")
+	}
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"l3.ema_baseline_v1.noise_relative": 0.25}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || seen != before || bm.GetParams().NoiseRelativeFraction != 0.25 {
+		t.Fatalf("hook ran %d times and saw %v (before %v)", calls, seen, before)
 	}
 }

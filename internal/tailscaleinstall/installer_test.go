@@ -1,0 +1,153 @@
+package tailscaleinstall
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func testArchive(t *testing.T) []byte {
+	t.Helper()
+	var compressed bytes.Buffer
+	gz := gzip.NewWriter(&compressed)
+	tw := tar.NewWriter(gz)
+	prefix := "tailscale_" + Version + "_arm64/"
+	for _, name := range []string{prefix + "tailscale", prefix + "tailscaled"} {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: 4}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte("test")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return compressed.Bytes()
+}
+
+func TestInstallerInstallAndIdempotence(t *testing.T) {
+	payload := testArchive(t)
+	hash := sha256.Sum256(payload)
+	original := releases["arm64"]
+	releases["arm64"] = Release{Version: Version, Architecture: "arm64", URL: "https://example.invalid/tailscale.tgz", SHA256: hex.EncodeToString(hash[:])}
+	t.Cleanup(func() { releases["arm64"] = original })
+	root := t.TempDir()
+	osRelease := filepath.Join(root, "os-release")
+	if err := os.WriteFile(osRelease, []byte("ID=debian\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fetches, runs := 0, 0
+	i := Installer{
+		Root: root, SystemdDir: filepath.Join(root, "systemd"), LinkDir: filepath.Join(root, "bin"), OSRelease: osRelease,
+		Architecture: func() string { return "arm64" },
+		Fetch: func(context.Context, string) (io.ReadCloser, error) {
+			fetches++
+			return io.NopCloser(bytes.NewReader(payload)), nil
+		},
+		Run: func(context.Context, string, ...string) error { runs++; return nil },
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 1 || runs != 1 {
+		t.Fatalf("first install fetches/runs = %d/%d, want 1/1", fetches, runs)
+	}
+	for _, name := range []string{"tailscale", "tailscaled"} {
+		if info, err := os.Stat(filepath.Join(root, "current", name)); err != nil || info.Mode()&0111 == 0 {
+			t.Fatalf("installed %s is not executable: %v", name, err)
+		}
+	}
+	info, err := os.Stat(filepath.Join(root, Version))
+	if err != nil {
+		t.Fatalf("stat installed version directory: %v", err)
+	}
+	if got, want := info.Mode().Perm(), os.FileMode(0755); got != want {
+		t.Fatalf("installed version directory mode = %o, want %o", got, want)
+	}
+	if target, err := os.Readlink(filepath.Join(root, "bin", "tailscale")); err != nil || target != filepath.Join(root, "current", "tailscale") {
+		t.Fatalf("tailscale link target = %q, %v", target, err)
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 1 || runs != 1 {
+		t.Fatalf("idempotent install fetches/runs = %d/%d, want 1/1", fetches, runs)
+	}
+
+	if err := os.Remove(filepath.Join(root, "bin", "tailscale")); err != nil {
+		t.Fatal(err)
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 2 || runs != 2 {
+		t.Fatalf("missing-link repair fetches/runs = %d/%d, want 2/2", fetches, runs)
+	}
+
+	tailscaledLink := filepath.Join(root, "bin", "tailscaled")
+	if err := os.Remove(tailscaledLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/tmp/not-tailscaled", tailscaledLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 3 || runs != 3 {
+		t.Fatalf("repointed-link repair fetches/runs = %d/%d, want 3/3", fetches, runs)
+	}
+	if target, err := os.Readlink(tailscaledLink); err != nil || target != filepath.Join(root, "current", "tailscaled") {
+		t.Fatalf("repaired tailscaled link target = %q, %v", target, err)
+	}
+}
+
+func TestExtractRejectsOversizedBinary(t *testing.T) {
+	var compressed bytes.Buffer
+	gz := gzip.NewWriter(&compressed)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: "tailscale_" + Version + "_arm64/tailscale",
+		Mode: 0755,
+		Size: maxBinarySize + 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	archive := filepath.Join(root, "oversized.tgz")
+	if err := os.WriteFile(archive, compressed.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := (Installer{Root: root}).extract(archive, Release{Version: Version})
+	if err == nil || !strings.Contains(err.Error(), "exceeds limit") {
+		t.Fatalf("extract oversized binary error = %v, want size limit error", err)
+	}
+}
+
+func TestInstallerRejectsUnsupportedHost(t *testing.T) {
+	root := t.TempDir()
+	osRelease := filepath.Join(root, "os-release")
+	if err := os.WriteFile(osRelease, []byte("ID=fedora\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := (Installer{OSRelease: osRelease}).requireDebianFamily()
+	if err == nil {
+		t.Fatal("expected unsupported distribution error")
+	}
+}

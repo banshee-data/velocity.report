@@ -361,7 +361,7 @@ struct DebugOverlayExtendedTests {
 struct PlaybackInfoExtendedTests {
     @Test func playbackInfoLongRecording() throws {
         var info = PlaybackInfo()
-        info.isLive = false
+        info.sourceMode = .vrlog
         info.logStartNs = 0
         info.logEndNs = 3600_000_000_000  // 1 hour
         info.totalFrames = 360_000  // 10 Hz for 1 hour

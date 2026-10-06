@@ -468,7 +468,7 @@ This ensures that **every query returns something if any coverage exists**, rega
 
 ### 8.1 The global map problem
 
-At the global level (Tier 2, lat/long-aligned), the map should be navigable as a coherent simplified representation:
+At the global level (Tier 2, WGS84-aligned and partitioned by canonical S2 L13 cells), the map should be navigable as a coherent simplified representation. S2 supplies the geographic index; it does not replace polygon coordinates or the scene-map LOD hierarchy:
 
 - **Street-level polygons** (LOD 0–1) form a continuous surface with major boundaries visible: road edges, building outlines, vegetation zones.
 - **Detail zones** (LOD 2–3) appear as nested refinements visible only when queried at higher LOD.
@@ -694,7 +694,7 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 
 ### Supplemental geometry-prior service
 
-Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM. Local-first with optional static fetch from a public CDN; 0.01° grid-based folder structure; immutable contributor files with optional GPG signatures and CI-maintained trust manifest. Full architecture, file format specification, trust model, and hosting options: **[geometry-prior-service.md](./geometry-prior-service.md)**.
+Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM. Local-first with optional static fetch from a public CDN; canonical S2 L13 files beneath S2 L10 filesystem groups; immutable contributor files with optional GPG signatures and a CI-maintained trust manifest. Full architecture, file format specification, trust model, and hosting options: **[geometry-prior-service.md](./geometry-prior-service.md)**. The repository-wide CellID, token, and presentation rules are in **[geographic-indexing.md](./geographic-indexing.md)**.
 
 ### Multi-Device fusion
 

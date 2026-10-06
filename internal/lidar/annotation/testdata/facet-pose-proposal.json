@@ -1,0 +1,108 @@
+{
+  "schema": "velocity.report/facet-pose-proposal",
+  "schema_version": 1,
+  "status": "read_only_assisted_proposal",
+  "request": {
+    "schema_version": 1,
+    "pack": "clip/pack",
+    "pack_digest": "sha256:pack",
+    "feature_id": "tip",
+    "feature_revision": 7,
+    "feature_digest": "sha256:feature",
+    "membership_revision": 3,
+    "membership_digest": "sha256:members",
+    "sample_id": 2,
+    "timestamp_ns": 9007199254740993,
+    "point_index": 0,
+    "return_bound_m": 0.05,
+    "correspondence_confirmed": true,
+    "author": "op",
+    "identity_note": "outer rigid tip and hard return bound",
+    "prior": {
+      "x_m": 9.8,
+      "y_m": 5.2,
+      "yaw_rad": 1.5707963267948966,
+      "position_bound_m": 0.4,
+      "yaw_bound_rad": 0.03,
+      "source": "declared prior with conservative hard bounds"
+    }
+  },
+  "object_id": "car",
+  "source_physical_revision": 5,
+  "source_physical_digest": "sha256:physical",
+  "source_sample": 0,
+  "source_origin": "reference_seeded_proposal",
+  "target_origin": "human_proposal",
+  "body": {
+    "body_id": "body",
+    "axis_convention": "x_front_y_left_z_up",
+    "length": {
+      "status": "inferred",
+      "span": "full",
+      "lower_m": 4,
+      "upper_m": 5,
+      "value_m": 4.3,
+      "support": {
+        "external": "source body"
+      }
+    },
+    "width": {
+      "status": "prior_only",
+      "span": "full",
+      "lower_m": 1.7,
+      "upper_m": 1.9,
+      "support": {
+        "external": "source width"
+      }
+    },
+    "height": {
+      "status": "unknown",
+      "support": {}
+    },
+    "review": {
+      "status": "reviewed",
+      "origin": "independent",
+      "method": "manual_box",
+      "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+      "provenance": {
+        "author": "op",
+        "created_utc": "",
+        "revision": 0
+      }
+    }
+  },
+  "centre": {
+    "x_m": 10,
+    "y_m": 5,
+    "bound_m": 0.4
+  },
+  "yaw": {
+    "rad": 1.5707963267948966,
+    "bound_rad": 0.03,
+    "axis": "resolved",
+    "status": "prior_only"
+  },
+  "constraint": "planar_position_given_prior_yaw",
+  "unresolved": [
+    "yaw_from_prior_not_measured",
+    "height_not_measured"
+  ],
+  "matched_indices": [
+    0
+  ],
+  "box": {
+    "centre_x_m": 10,
+    "centre_y_m": 5,
+    "yaw_rad": 1.5707963267948966,
+    "length_m": 4.3,
+    "width_m": 1.7999999999999998
+  },
+  "front_prediction": [
+    10,
+    7.15
+  ],
+  "rear_prediction": [
+    10,
+    2.85
+  ]
+}

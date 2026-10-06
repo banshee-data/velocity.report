@@ -174,40 +174,49 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 
 	ws := &Server{sensorID: sensorID}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
+	// A grid that will not clear is still reported: live data would otherwise
+	// composite onto the recorded scene.
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+	// ...but the source must still have reached live. Returning early on the
+	// reset error used to leave Source naming the replay that had already
+	// stopped, which is how the state went stale behind a failed teardown.
+	if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
+		t.Errorf("state did not reach live despite the reset error: %s", got)
 	}
 }
 
 func TestPlayback_HandlePCAPStop_StartLiveListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-stop-start-listener-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-start-listener-error", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
 }
 
@@ -223,17 +232,17 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-callback", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
@@ -250,7 +259,7 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 func TestPlayback_HandlePCAPResumeLive_StartListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-resume-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-error", nil)
@@ -274,7 +283,7 @@ func TestPlayback_HandlePCAPResumeLive_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-callback", nil)
@@ -293,6 +302,13 @@ func TestPlayback_HandlePCAPResumeLive_OnStoppedCallback(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 }
 
+// TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding covers the
+// unconfigured-vrlogSafeDir fallback to /var/lib/velocity-report. That
+// directory is a production path, unlikely to exist on a dev or CI machine,
+// so a request against it can only be confirmed to consult the right
+// default: it cannot be expected to fully resolve there. The full success
+// path (encoding, loaded path) is covered against a real temp directory by
+// TestHandleVRLogLoad in playback_api_test.go.
 func TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding(t *testing.T) {
 	var loadedPath string
 	ws := &Server{
@@ -306,6 +322,14 @@ func TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding(t *testing.T)
 	w := httptest.NewRecorder()
 	ws.handleVRLogLoad(w, req)
 
+	if _, err := os.Stat("/var/lib/velocity-report"); err != nil {
+		// The default directory doesn't exist here; confirm the handler at
+		// least consulted it rather than silently using something else.
+		if !strings.Contains(w.Body.String(), "/var/lib/velocity-report") {
+			t.Fatalf("expected the error to name the default safe directory, got %s", w.Body.String())
+		}
+		return
+	}
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}

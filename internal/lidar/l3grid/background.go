@@ -17,11 +17,21 @@ type BackgroundParams struct {
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
 	FreezeThresholdMultiplier      float32 // e.g., 3.0
 	NeighbourConfirmationCount     int     // e.g., 5 of 8 neighbours
-	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
+	WarmupDurationNanos            int64   // settle-time ceiling: settle by here regardless
 	WarmupMinFrames                int     // optional minimum frames before considering settled
-	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
-	ForegroundMinClusterPoints     int     // min points for a cluster to be forwarded/considered
-	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
+	// SettlingThresholds, when set, lets a grid finish settling as soon as it
+	// has demonstrably converged rather than waiting out WarmupDurationNanos.
+	// The duration becomes a ceiling for scenes that never converge — busy
+	// ones, or a sensor watching moving traffic — rather than a fixed cost
+	// every scene pays. WarmupMinFrames is still required either way.
+	SettlingThresholds *SettlingThresholds
+	// SettlingCheckInterval is how many frames apart convergence is evaluated.
+	// Evaluation walks every cell, so it is not run per frame. Zero means the
+	// default.
+	SettlingCheckInterval      int
+	PostSettleUpdateFraction   float32 // optional lower alpha after settle for stability
+	ForegroundMinClusterPoints int     // min points for a cluster to be forwarded/considered
+	ForegroundDBSCANEps        float32 // clustering radius for foreground gating
 	// ForegroundMaxInputPoints caps the number of points fed into the core DBSCAN
 	// loop. When the input exceeds this value, uniform random subsampling is
 	// applied to keep runtime bounded. If this value is zero or negative, a
@@ -33,6 +43,19 @@ type BackgroundParams struct {
 	// absolute noise) aren't biased as foreground. Typical values: 0.01
 	// (1%) to 0.02 (2%). If zero, a sensible default (0.01) is used.
 	NoiseRelativeFraction float32
+
+	// DisableRegionOverrides makes every cell use the global
+	// NoiseRelativeFraction, NeighbourConfirmationCount and update fraction
+	// even after regions have been identified (gap analysis B8). With it off,
+	// the shipped behaviour, a settled cell runs at its region's values:
+	// NoiseRelativeFraction x4 for the most stable third of cells, x3 for the
+	// middle third and x8 for the most variable, fixed from the config in
+	// force when settling completed, then persisted and restored. A later
+	// change to the global value never reaches such a cell. Regions are still
+	// identified and persisted with the option on; only their parameter
+	// overrides are ignored. Go-level and default false, so the config
+	// fingerprint does not move.
+	DisableRegionOverrides bool
 
 	// SeedFromFirstObservation, when true, will initialize empty background cells
 	// from the first observation seen for that cell. This is useful for PCAP
@@ -66,7 +89,7 @@ type BackgroundParams struct {
 	// SensorMovementDriftRatioThreshold is the fraction of settled cells whose
 	// range has drifted from its locked baseline that indicates sustained sensor
 	// motion (driving). Robust to busy parked scenes, which shift only a small
-	// fraction of cells. Default: 0.35.
+	// fraction of cells. Default: 0.5.
 	SensorMovementDriftRatioThreshold float32
 	// BackgroundDriftThresholdMetres is the drift distance in metres that indicates
 	// a cell has drifted significantly. Default: 0.5m.
@@ -205,7 +228,11 @@ type BackgroundGrid struct {
 	// Performance tracking for system_events table integration
 	LastProcessingTimeUs  int64
 	WarmupFramesRemaining int
-	SettlingComplete      bool
+	// settlingCheckCounter paces convergence evaluation during warm-up.
+	settlingCheckCounter int
+	// settlingAnnounced ensures the settling plan is logged once per warm-up.
+	settlingAnnounced bool
+	SettlingComplete  bool
 
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64
@@ -336,7 +363,7 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 	noiseRel = defaultNoiseRel
 	neighbourConfirm = defaultNeighbourConfirm
 	alpha = defaultAlpha
-	if g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
+	if g.Params.DisableRegionOverrides || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
 		return
 	}
 	regionID := g.RegionMgr.GetRegionForCell(cellIdx)

@@ -66,9 +66,9 @@ Currently parsed fields (22 of 22 bytes - COMPLETE):
 
 TIMESTAMP MODES SUPPORTED:
 - TimestampModeSystemTime: Use system reception time (reliable for street analytics)
-- TimestampModePTP: PTP synchronized microseconds with static detection fallback
-- TimestampModeGPS: GPS synchronized microseconds with static detection fallback
-- TimestampModeInternal: Microseconds since device boot with bootTime offset
+- TimestampModePTP: Sensor UTC time with static detection fallback
+- TimestampModeGPS: Sensor UTC time with static detection fallback
+- TimestampModeInternal: Sensor UTC time without static detection fallback
 - TimestampModeLiDAR: Native LiDAR DateTime+Timestamp fields (most accurate)
 
 CALIBRATION DATA:
@@ -194,9 +194,9 @@ type TimestampMode int
 
 const (
 	TimestampModeSystemTime TimestampMode = iota // Use system reception time (reliable, default for street analytics)
-	TimestampModePTP                             // PTP synchronized microseconds with static detection and fallback
-	TimestampModeGPS                             // GPS synchronized microseconds with static detection and fallback
-	TimestampModeInternal                        // Microseconds since device boot with bootTime offset alignment
+	TimestampModePTP                             // Use sensor UTC time with static detection and fallback
+	TimestampModeGPS                             // Use sensor UTC time with static detection and fallback
+	TimestampModeInternal                        // Use sensor UTC time directly
 	TimestampModeLiDAR                           // Use LiDAR's native DateTime + Timestamp fields (most accurate)
 )
 
@@ -206,9 +206,8 @@ const (
 type Pandar40PParser struct {
 	config          Pandar40PConfig // Sensor-specific calibration parameters (angles & firetimes)
 	timestampMode   TimestampMode   // How to interpret timestamp field (affects frame timing accuracy)
-	bootTime        time.Time       // Device boot time reference for internal timestamp mode
 	packetCount     int             // Packet counter for debugging and diagnostic purposes
-	lastTimestamp   uint32          // Previous timestamp for static detection in PTP/GPS modes
+	lastSensorTime  time.Time       // Previous sensor timestamp for static detection in PTP/GPS modes
 	staticCount     int             // Counter for static timestamp detection and fallback logic
 	debugPackets    int             // Number of initial packets to trace log (prevents log spam)
 	lastMotorSpeed  uint16          // Last parsed motor speed in RPM (cached for frame builder integration)
@@ -223,7 +222,6 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 	return &Pandar40PParser{
 		config:        config,
 		timestampMode: TimestampModeSystemTime, // Default to system time for reliability
-		bootTime:      time.Now(),              // Initialise boot time reference for internal mode
 		debugPackets:  10,                      // Default to 10 initial packets for debug logging
 	}
 }
@@ -232,9 +230,6 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 // This affects frame timing accuracy and synchronization with external systems
 func (p *Pandar40PParser) SetTimestampMode(mode TimestampMode) {
 	p.timestampMode = mode
-	if mode == TimestampModeInternal {
-		p.bootTime = time.Now() // Reset boot time reference for internal timestamp calculations
-	}
 }
 
 // SetDebugPackets sets the number of initial packets to trace log (prevents log spam)
@@ -455,39 +450,46 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 
 	switch p.timestampMode {
 	case TimestampModePTP, TimestampModeGPS:
-		// Check if PTP timestamps are static (not incrementing) - indicates synchronization issues
-		// Only check once per packet (not per block) to avoid false positives
-		if p.packetCount > 1 && tail.Timestamp == p.lastTimestamp {
+		sensorTime := tail.CombinedTimestamp
+		modeLabel := "PTP"
+		if p.timestampMode == TimestampModeGPS {
+			modeLabel = "GPS"
+		}
+		// Check if sensor timestamps are static (not incrementing) - indicates
+		// synchronization issues. Only check once per packet (not per block) to
+		// avoid false positives.
+		if !p.lastSensorTime.IsZero() && sensorTime.Equal(p.lastSensorTime) {
 			p.staticCount++
+		} else {
+			p.staticCount = 0
 		}
 
-		// If timestamps are consistently static, fall back to system time for frame building
+		// If timestamps are consistently static, fall back to system time for
+		// frame building.
 		if p.staticCount > STATIC_TIMESTAMP_THRESHOLD {
-			// Use system time for proper frame building when PTP timestamps are frozen
+			// Use system time for proper frame building when timestamps are frozen.
 			packetTime = time.Now()
 
 			// Log fallback (first occurrence only to prevent log spam)
 			if p.staticCount == STATIC_TIMESTAMP_THRESHOLD+1 {
-				opsf("PTP static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
+				opsf("%s sensor timestamps detected as static (raw: %d us), falling back to system time for frame building",
+					modeLabel, tail.Timestamp)
 			}
 		} else {
-			// PTP free-run mode: timestamps are microseconds since device boot
-			// Apply boot time offset to align with system time domain for proper frame building
-			packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
+			packetTime = sensorTime
 
-			// Trace logging for PTP timestamps (first few packets and periodic intervals)
+			// Trace logging for sensor UTC timestamps (first few packets and periodic intervals)
 			if p.packetCount < p.debugPackets || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
-				tracef("PTP [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
-					p.packetCount, tail.Timestamp, packetTime, time.Now())
+				tracef("%s [pkt %d] - Raw timestamp: %d us, Sensor time: %v, System time: %v",
+					modeLabel, p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
 		}
 
 		// Update last timestamp for static detection logic
-		p.lastTimestamp = tail.Timestamp
+		p.lastSensorTime = sensorTime
 
 	case TimestampModeInternal:
-		// Interpret as microseconds since device boot with boot time alignment
-		packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
+		packetTime = tail.CombinedTimestamp
 	case TimestampModeLiDAR:
 		// Use LiDAR's own high-precision timestamp from DateTime + Timestamp fields (most accurate)
 		packetTime = tail.CombinedTimestamp

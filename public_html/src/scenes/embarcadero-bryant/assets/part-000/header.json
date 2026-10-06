@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "embarcadero-bryant",
+  "title": "Embarcadero at Bryant",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 6615,
+  "start_ns": "1788471677426254330",
+  "duration_sec": 1322.74505697,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "b04fb97fb242e5e1ffbf01eaf7a9181acbcccf1703146d9829b26e4b86fc4659",
+  "tuning_hash": "sha256:2319c8f8aaf95e70887ced03d7e9f42f631eabf82c0ac593d32feb1880ba2e3f",
+  "build_version": "0.5.1-pre43",
+  "generated_at": "2026-10-01T20:44:51Z"
+}

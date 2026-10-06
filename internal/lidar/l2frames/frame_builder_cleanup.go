@@ -17,12 +17,20 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	for {
 		select {
 		case frame := <-fb.frameCh:
+			if frame != nil && frame.callbackBarrier != nil {
+				close(frame.callbackBarrier)
+				continue
+			}
 			fb.frameCallback(frame)
 		case <-fb.closeCh:
 			// Drain remaining frames so no sends block.
 			for {
 				select {
 				case frame := <-fb.frameCh:
+					if frame != nil && frame.callbackBarrier != nil {
+						close(frame.callbackBarrier)
+						continue
+					}
 					fb.frameCallback(frame)
 				default:
 					return
@@ -32,21 +40,68 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	}
 }
 
-// Close shuts down the frame callback worker and waits for it to drain.
-// Must be called when the FrameBuilder is no longer needed to avoid
-// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
-func (fb *FrameBuilder) Close() {
+// WaitForCallbacks blocks until every frame queued before this call has
+// completed its callback. PCAP replay uses this between passes so resetting the
+// grid cannot race trailing warm-up frames still in the callback queue.
+func (fb *FrameBuilder) WaitForCallbacks() {
+	if fb == nil {
+		return
+	}
+
 	fb.mu.Lock()
-	if fb.closed {
+	if fb.closed || fb.frameCh == nil {
 		fb.mu.Unlock()
 		return
 	}
-	// Flush the final partial rotation and every buffered completed rotation
-	// before closing closeCh. Offline PCAP readers commonly finish before the
-	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
-	// appear to contain no data at all. Map iteration is unordered, so finish
-	// frames oldest-first to preserve capture ordering for callback consumers.
+	frameCh := fb.frameCh
+	closeCh := fb.closeCh
+	fb.mu.Unlock()
+
+	done := make(chan struct{})
+	barrier := &LiDARFrame{callbackBarrier: done}
+	select {
+	case frameCh <- barrier:
+	case <-closeCh:
+		return
+	}
+	select {
+	case <-done:
+	case <-closeCh:
+	}
+}
+
+func azimuthCoverage(frame *LiDARFrame) float64 {
+	coverage := frame.MaxAzimuth - frame.MinAzimuth
+	if coverage < 0 {
+		coverage += 360.0 // Handle wrap-around
+	}
+	return coverage
+}
+
+// FlushPendingFrames finalises the current partial rotation and buffered
+// completed rotations without closing the builder. It is used at PCAP EOF so
+// a reusable runtime builder can finish one pass before starting the next.
+func (fb *FrameBuilder) FlushPendingFrames() {
+	if fb == nil {
+		return
+	}
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	if fb.closed {
+		return
+	}
+	for _, frame := range fb.takePendingFramesLocked() {
+		fb.finalizeFrame(frame, "flush")
+	}
+}
+
+// takePendingFramesLocked removes and returns pending frames in capture order.
+// Caller must hold fb.mu.
+func (fb *FrameBuilder) takePendingFramesLocked() []*LiDARFrame {
 	frames := make([]*LiDARFrame, 0, len(fb.frameBuffer)+1)
+	// A replay that ends while a join drop is pending must not emit the
+	// straddling revolution on the way out.
+	fb.consumeStraddlingDropLocked()
 	if fb.currentFrame != nil {
 		if fb.currentFrame.PointCount >= fb.minFramePoints {
 			frame := fb.currentFrame
@@ -64,6 +119,24 @@ func (fb *FrameBuilder) Close() {
 	sort.Slice(frames, func(i, j int) bool {
 		return frames[i].StartTimestamp.Before(frames[j].StartTimestamp)
 	})
+	return frames
+}
+
+// Close shuts down the frame callback worker and waits for it to drain.
+// Must be called when the FrameBuilder is no longer needed to avoid
+// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
+func (fb *FrameBuilder) Close() {
+	fb.mu.Lock()
+	if fb.closed {
+		fb.mu.Unlock()
+		return
+	}
+	// Flush the final partial rotation and every buffered completed rotation
+	// before closing closeCh. Offline PCAP readers commonly finish before the
+	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
+	// appear to contain no data at all. Map iteration is unordered, so finish
+	// frames oldest-first to preserve capture ordering for callback consumers.
+	frames := fb.takePendingFramesLocked()
 	for _, frame := range frames {
 		fb.finalizeFrame(frame, "close")
 	}
@@ -79,6 +152,58 @@ func (fb *FrameBuilder) Close() {
 	if fb.frameCh != nil {
 		<-fb.frameDone
 	}
+	// A burst that ended inside the reporting interval would otherwise go
+	// unreported entirely.
+	fb.FlushDroppedFrameReport()
+}
+
+// DropNextFrame marks the revolution currently in flight for discard rather
+// than emission. It reports whether there was one to mark.
+//
+// Multi-file replay calls this at a capture-file join that is continuous
+// enough to cross but not seamless. Feeding two files across such a join does
+// not fail: the azimuth simply carries on, and the frame builder assembles one
+// plausible-looking revolution from points captured either side of the gap.
+// That frame is worse than a missing one, because L3 records it as observed
+// background. Discarding it costs a single revolution per join.
+//
+// The drop is consumed at the next frame boundary, so the discarded revolution
+// is the whole straddling one — the tail of the earlier file and the head of
+// the later — not merely the points already buffered when this is called.
+func (fb *FrameBuilder) DropNextFrame() bool {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	// With no revolution in flight there is nothing straddling the join, and
+	// arming the flag would discard the next complete frame instead.
+	if fb.currentFrame == nil {
+		return false
+	}
+	fb.dropStraddling = true
+	return true
+}
+
+// consumeStraddlingDropLocked discards the revolution in flight when a join
+// drop is pending, and reports whether it did. Lock must be held by caller.
+func (fb *FrameBuilder) consumeStraddlingDropLocked() bool {
+	if !fb.dropStraddling {
+		return false
+	}
+	fb.dropStraddling = false
+	if fb.currentFrame != nil {
+		diagf("[FrameBuilder] Dropping revolution %s straddling a capture-file join: points=%d",
+			fb.currentFrame.FrameID, fb.currentFrame.PointCount)
+		fb.currentFrame = nil
+	}
+	fb.straddlingDropped.Add(1)
+	return true
+}
+
+// StraddlingFramesDropped returns the number of revolutions discarded at
+// capture-file joins. Expected to equal the number of non-seamless joins
+// crossed by a replay.
+func (fb *FrameBuilder) StraddlingFramesDropped() uint64 {
+	return fb.straddlingDropped.Load()
 }
 
 // DroppedFrames returns the number of frames dropped due to a full
@@ -109,6 +234,8 @@ func (fb *FrameBuilder) Reset() {
 	// Discard current frame in progress
 	fb.currentFrame = nil
 	fb.lastAzimuth = 0
+	// A pending join drop belongs to the run being reset, not the next one.
+	fb.dropStraddling = false
 
 	// Clear frame buffer
 	for k := range fb.frameBuffer {
@@ -176,6 +303,9 @@ func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
 
 // finalizeCurrentFrame completes the current frame and moves it to buffer
 func (fb *FrameBuilder) finalizeCurrentFrame() {
+	if fb.consumeStraddlingDropLocked() {
+		return
+	}
 	if fb.currentFrame == nil {
 		return
 	}
@@ -245,23 +375,82 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 		return
 	}
 
-	// Find sequence range for this frame
-	var minSeq, maxSeq uint32 = ^uint32(0), 0
-	for seq := range frame.ReceivedPackets {
-		if seq < minSeq {
-			minSeq = seq
+	// A Pandar40P rotation carries far fewer than this many UDP packets in
+	// practice. If the reconstructed interval is larger, the received set is
+	// pathological (for example disjoint runs from corrupt or hostile input),
+	// and expanding it would turn one bad frame into billions of map writes.
+	const maxExpectedPacketSpan = 4096
+
+	if frame.ExpectedPackets == nil {
+		frame.ExpectedPackets = make(map[uint32]bool, len(frame.ReceivedPackets))
+	} else {
+		for seq := range frame.ExpectedPackets {
+			delete(frame.ExpectedPackets, seq)
 		}
-		if seq > maxSeq {
-			maxSeq = seq
+	}
+	frame.MissingPackets = nil
+
+	seqs := make([]uint32, 0, len(frame.ReceivedPackets))
+	for seq := range frame.ReceivedPackets {
+		seqs = append(seqs, seq)
+	}
+	sort.Slice(seqs, func(i, j int) bool { return seqs[i] < seqs[j] })
+
+	const seqSpace = uint64(1) << 32
+	forwardDistance := func(from, to uint32) uint64 {
+		if to >= from {
+			return uint64(to - from)
+		}
+		return seqSpace - uint64(from) + uint64(to)
+	}
+	start := seqs[0]
+	var expectedCount uint64
+	if len(seqs) == 1 {
+		expectedCount = 1
+	} else {
+		var (
+			largestGap uint64
+			largestIdx int
+		)
+		for i, seq := range seqs {
+			next := seqs[(i+1)%len(seqs)]
+			gap := forwardDistance(seq, next)
+			// Equal-sized arcs are ambiguous in circular sequence space, so pick
+			// the arc whose successor is numerically smallest. That keeps the
+			// reconstructed interval deterministic even on pathological input.
+			if gap > largestGap || (gap == largestGap && next < seqs[(largestIdx+1)%len(seqs)]) {
+				largestGap = gap
+				largestIdx = i
+			}
+		}
+		// The received packet set should be one contiguous interval in the
+		// circular uint32 sequence space. In sorted order, that means the
+		// largest forward gap is the excluded arc outside the frame: on a
+		// non-wrapping interval it is the last->first wrap gap, and on a
+		// wrapping interval it is the interior hole between the two ends.
+		start = seqs[(largestIdx+1)%len(seqs)]
+		expectedCount = seqSpace - largestGap + 1
+		if largestGap == 0 {
+			// With distinct map keys this branch is only reached on defensive
+			// duplicate input, so the received set itself is the whole interval.
+			start = seqs[0]
+			expectedCount = uint64(len(seqs))
 		}
 	}
 
-	// Calculate expected packets in range
-	expectedCount := maxSeq - minSeq + 1
-	receivedCount := uint32(len(frame.ReceivedPackets))
+	if expectedCount > maxExpectedPacketSpan {
+		for seq := range frame.ReceivedPackets {
+			frame.ExpectedPackets[seq] = true
+		}
+		frame.MissingPackets = nil
+		frame.PacketGaps = 1
+		frame.CompletenessRatio = 0
+		frame.AzimuthCoverage = azimuthCoverage(frame)
+		return
+	}
 
-	// Identify missing packets
-	for seq := minSeq; seq <= maxSeq; seq++ {
+	receivedCount := uint64(len(frame.ReceivedPackets))
+	for offset, seq := uint64(0), start; offset < expectedCount; offset, seq = offset+1, uint32(seq+1) {
 		frame.ExpectedPackets[seq] = true
 		if !frame.ReceivedPackets[seq] {
 			frame.MissingPackets = append(frame.MissingPackets, seq)
@@ -270,10 +459,7 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 
 	frame.PacketGaps = len(frame.MissingPackets)
 	frame.CompletenessRatio = float64(receivedCount) / float64(expectedCount)
-	frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
-	if frame.AzimuthCoverage < 0 {
-		frame.AzimuthCoverage += 360.0 // Handle wrap-around
-	}
+	frame.AzimuthCoverage = azimuthCoverage(frame)
 }
 
 // cleanupFrames periodically checks for frames that should be finalized
@@ -313,10 +499,27 @@ func (fb *FrameBuilder) cleanupFrames() {
 		}
 	}
 
-	// Finalize old frames
+	// Finalize old frames, oldest first.
+	//
+	// frameIDsToFinalize comes from ranging over a map, so it arrives in
+	// whatever order Go felt like. This is the path every live frame takes —
+	// completed rotations wait here for the buffer timeout and a tick usually
+	// releases two or three together — so an unsorted batch hands the tracking
+	// pipeline rotations out of capture order. The Kalman filters and the
+	// track timestamps both assume time moves forward. Close already sorts for
+	// exactly this reason; see takePendingFramesLocked.
+	batch := make([]*LiDARFrame, 0, len(frameIDsToFinalize))
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
+		if frame != nil {
+			batch = append(batch, frame)
+		}
+	}
+	sort.Slice(batch, func(i, j int) bool {
+		return batch[i].StartTimestamp.Before(batch[j].StartTimestamp)
+	})
+	for _, frame := range batch {
 		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
@@ -459,10 +662,69 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 				// This handles back-pressure when the tracking pipeline cannot
 				// keep up with frame arrival rate.
 				count := fb.droppedFrames.Add(1)
-				opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
+				fb.reportDroppedFrame(frame.FrameID, count)
 			}
 		}
 	}
+}
+
+// dropReportInterval is how often a burst of dropped frames is summarised.
+const dropReportInterval = 5 * time.Second
+
+// reportDroppedFrame records a dropped frame and emits at most one line per
+// dropReportInterval.
+//
+// Drops are bursty by nature: the pipeline stalls, the queue fills, and every
+// frame arriving behind it is lost until the backlog clears. Logging each one
+// individually reports the same event dozens of times — and buries the far more
+// useful facts, which are how many were lost and over what span.
+func (fb *FrameBuilder) reportDroppedFrame(frameID string, total uint64) {
+	now := time.Now()
+
+	fb.dropReportMu.Lock()
+	if fb.dropReportCount == 0 {
+		fb.dropReportStart = now
+		fb.dropReportFirst = frameID
+	}
+	fb.dropReportCount++
+	fb.dropReportLast = frameID
+
+	if now.Sub(fb.dropReportStart) < dropReportInterval {
+		fb.dropReportMu.Unlock()
+		return
+	}
+
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := now.Sub(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, total)
+}
+
+// FlushDroppedFrameReport emits any pending drop summary. Called on shutdown so
+// a burst that ends inside the reporting interval is still reported.
+func (fb *FrameBuilder) FlushDroppedFrameReport() {
+	fb.dropReportMu.Lock()
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := time.Since(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	if count == 0 {
+		return
+	}
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, fb.droppedFrames.Load())
 }
 
 // RequestExportNextFrameASC schedules export of the next completed frame to ASC format.

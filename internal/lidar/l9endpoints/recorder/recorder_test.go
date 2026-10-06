@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // testFrameBundle creates a FrameBundle for testing.
@@ -530,8 +531,8 @@ func TestReplayerReadFrame(t *testing.T) {
 
 		if frame.PlaybackInfo == nil {
 			t.Errorf("ReadFrame() frame %d PlaybackInfo is nil", i)
-		} else if frame.PlaybackInfo.IsLive {
-			t.Errorf("ReadFrame() PlaybackInfo.IsLive = true, want false")
+		} else if frame.PlaybackInfo.SourceMode == "live" {
+			t.Errorf("ReadFrame() PlaybackInfo.SourceMode = live, want a replay source")
 		} else if !frame.PlaybackInfo.Seekable {
 			t.Errorf("ReadFrame() PlaybackInfo.Seekable = false, want true")
 		}
@@ -1322,7 +1323,7 @@ func TestReplayerPlaybackInfoTimestamps(t *testing.T) {
 		if pi.CurrentFrameIndex != uint64(i) {
 			t.Errorf("frame %d CurrentFrameIndex = %d, want %d", i, pi.CurrentFrameIndex, i)
 		}
-		if pi.IsLive {
+		if pi.SourceMode == "live" {
 			t.Errorf("frame %d IsLive = true, want false", i)
 		}
 		if !pi.Seekable {
@@ -1640,6 +1641,10 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 }
 
 func TestRecorder_WritesDeterministicConfigMetadata(t *testing.T) {
+	oldVersion, oldSHA := version.Version, version.GitSHA
+	version.Version, version.GitSHA = "0.5.1-recorder-test", "recorder-sha"
+	t.Cleanup(func() { version.Version, version.GitSHA = oldVersion, oldSHA })
+
 	dir := t.TempDir()
 	rec, err := NewRecorder(dir, "test-config")
 	if err != nil {
@@ -1694,11 +1699,17 @@ func TestRecorder_WritesDeterministicConfigMetadata(t *testing.T) {
 	if header.ParamSetType != "effective" {
 		t.Fatalf("header.ParamSetType = %q, want effective", header.ParamSetType)
 	}
-	if header.BuildVersion != "0.5.0-test" {
-		t.Fatalf("header.BuildVersion = %q, want 0.5.0-test", header.BuildVersion)
+	if header.BuildVersion != "0.5.1-recorder-test" {
+		t.Fatalf("header.BuildVersion = %q, want recorder binary version", header.BuildVersion)
 	}
-	if header.BuildGitSHA != "deadbeef" {
-		t.Fatalf("header.BuildGitSHA = %q, want deadbeef", header.BuildGitSHA)
+	if header.BuildGitSHA != "recorder-sha" {
+		t.Fatalf("header.BuildGitSHA = %q, want recorder binary SHA", header.BuildGitSHA)
+	}
+	if header.ConfigBuildVersion != "0.5.0-test" {
+		t.Fatalf("header.ConfigBuildVersion = %q, want 0.5.0-test", header.ConfigBuildVersion)
+	}
+	if header.ConfigBuildGitSHA != "deadbeef" {
+		t.Fatalf("header.ConfigBuildGitSHA = %q, want deadbeef", header.ConfigBuildGitSHA)
 	}
 
 	executionConfigData, err := os.ReadFile(filepath.Join(dir, "execution_config.json"))

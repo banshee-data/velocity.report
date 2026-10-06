@@ -1,14 +1,36 @@
 package device
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 )
 
+func TestRunTailscaleInstall(t *testing.T) {
+	original := installTailscalePayload
+	t.Cleanup(func() { installTailscalePayload = original })
+	called := 0
+	installTailscalePayload = func(ctx context.Context) error {
+		called++
+		return nil
+	}
+
+	if err := runTailscale([]string{"install"}); err != nil {
+		t.Fatalf("runTailscale install returned error: %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("install payload calls = %d, want 1", called)
+	}
+}
+
 func TestRunTailscaleWithActions(t *testing.T) {
-	var enabled, disabled int
+	var installed, enabled, disabled int
 	actions := tailscaleActions{
+		install: func() error {
+			installed++
+			return nil
+		},
 		enable: func() error {
 			enabled++
 			return nil
@@ -19,20 +41,24 @@ func TestRunTailscaleWithActions(t *testing.T) {
 		},
 	}
 
+	if err := runTailscaleWithActions([]string{"install"}, actions); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
 	if err := runTailscaleWithActions([]string{"enable-tailscaled"}, actions); err != nil {
 		t.Fatalf("enable failed: %v", err)
 	}
 	if err := runTailscaleWithActions([]string{"disable-tailscaled"}, actions); err != nil {
 		t.Fatalf("disable failed: %v", err)
 	}
-	if enabled != 1 || disabled != 1 {
-		t.Fatalf("actions called enabled=%d disabled=%d, want 1/1", enabled, disabled)
+	if installed != 1 || enabled != 1 || disabled != 1 {
+		t.Fatalf("actions called installed/enabled/disabled=%d/%d/%d, want 1/1/1", installed, enabled, disabled)
 	}
 }
 
 func TestRunTailscaleErrors(t *testing.T) {
 	boom := errors.New("boom")
 	actions := tailscaleActions{
+		install: func() error { return boom },
 		enable:  func() error { return boom },
 		disable: func() error { return boom },
 	}
@@ -43,6 +69,7 @@ func TestRunTailscaleErrors(t *testing.T) {
 	}{
 		{"missing subcommand", nil, "usage:"},
 		{"unknown subcommand", []string{"bogus"}, "unknown tailscale subcommand"},
+		{"install error", []string{"install"}, "boom"},
 		{"enable error", []string{"enable-tailscaled"}, "boom"},
 		{"disable error", []string{"disable-tailscaled"}, "boom"},
 		{"flag parse error", []string{"--bogus"}, "flag provided but not defined"},

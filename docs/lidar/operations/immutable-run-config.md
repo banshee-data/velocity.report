@@ -139,4 +139,6 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 - No build-specific `run_config_id` used as a mutable recommendation pointer
 - No duplicate run creation paths
 - No grouping across schema changes by raw hash alone
+- S2 L13/L10 capture tags belong to replay/run execution provenance, not to
+  deterministic parameter-set or run-config identity hashes
 - `statistics_json` must not duplicate exact config, build identity, or top-level typed counters

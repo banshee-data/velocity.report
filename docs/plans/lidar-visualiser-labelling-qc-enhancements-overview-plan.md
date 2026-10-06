@@ -1,8 +1,17 @@
 # Labelling + QC enhancements (features 1, 2, 3, 5, 7, 8, 10)
 
-- **Status:** Proposed (February 2026)
+This roadmap makes track-level quality review explainable and auditable. Point membership
+annotation is a separate workflow, even where the two share playback and display controls.
+
+- **Status:** Proposed; the seven-feature suite is not delivered by this branch
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [qc-enhancements-overview.md](../ui/visualiser/qc-enhancements-overview.md)
+
+Point-level reference data has a separate
+[annotation and object-dataset contract](lidar-point-annotation-and-object-dataset-plan.md),
+with a [three-day demo slice](lidar-single-site-shape-demo-sprint-plan.md). Run-track identity
+remains the unit for this QC workflow; human point masks use stable physical-object identities
+that can span predicted track splits and reruns.
 
 ## Scope
 
@@ -37,7 +46,8 @@ Feature-specific designs are in:
 ## Shared constraints
 
 - Existing run-track API is under `/api/lidar/runs/*` in `internal/lidar/monitor/run_track_api.go`.
-- Existing run-track storage is `lidar_run_tracks` in [internal/db/schema.sql](../../internal/db/schema.sql).
+- Existing run-track storage is `lidar_run_tracks` in
+  [internal/db/schema.sql](../../internal/db/schema.sql).
 - macOS visualiser state and controls are in:
   - [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
   - [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)

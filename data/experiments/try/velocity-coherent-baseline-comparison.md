@@ -1,6 +1,15 @@
 # Experiment: velocity-coherent vs background-subtraction baseline comparison
 
-- **Status:** Proposed
+- **Status:** Blocked, out of scope for the
+  [2026-09 parameter experiment campaign](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md).
+  Two independent blockers, either one sufficient on its own: (1) no
+  `velocity_coherent` L4 engine exists anywhere in `internal/lidar/l4perception`
+  or the config engine registry — only `dbscan_xy_v1` is implemented, so
+  there is nothing to A/B against the baseline yet; (2) `GroundTruthEvaluator`
+  needs ≥ 5 sites of labelled reference tracks per this doc's own acceptance
+  criteria, and only kirk0 has any labelled tracks today. Revisit once the
+  extractor is built; the labelling gap would still need to be closed
+  separately.
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks
 
 ## Hypothesis

@@ -101,7 +101,7 @@ import XCTest
     func testTogglePlayPauseDoesNotMutateWhenDisconnected() throws {
         let state = AppState()
         state.isConnected = false
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isPaused = false
 
         state.togglePlayPause()
@@ -113,7 +113,7 @@ import XCTest
     func testIncreaseRateDoesNotMutateWhenClientMissing() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.playbackRate = 1.0
         state.playbackCommandClientOverride = nil
 
@@ -128,8 +128,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.playbackMode = .replaySeekable
         state.logStartTimestamp = 0
         state.logEndTimestamp = 1_000_000_000
@@ -156,7 +155,7 @@ import XCTest
         frame.frameID = 99
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false,
             currentFrameIndex: 1, totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame, generation: 999)
@@ -178,8 +177,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.playbackMode = .replaySeekable
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
@@ -229,7 +227,7 @@ import XCTest
         XCTAssertTrue(state.shouldShowReplayMetadataUnavailable)
 
         state.setPlaybackModeForTesting(.live)
-        XCTAssertTrue(state.isLive)
+        XCTAssertEqual(state.playbackMode, .live)
         XCTAssertFalse(state.isSeekable)
     }
 
@@ -241,7 +239,7 @@ import XCTest
         state.setPlaybackModeForTesting(.unknown)
 
         XCTAssertEqual(state.displayPlaybackMode, .unknown)
-        XCTAssertFalse(state.isLive)
+        XCTAssertNotEqual(state.playbackMode, .live)
         XCTAssertFalse(state.isSeekable)
     }
 
@@ -249,7 +247,7 @@ import XCTest
         let state = AppState()
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.playbackMode = .unknown
         state.playbackCommandClientOverride = fake
 
@@ -427,12 +425,12 @@ import XCTest
 
     func testDeferredFrameUpdateDroppedAfterGenerationChanges() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         var frame = FrameBundle()
         frame.frameID = 12
         frame.timestampNanos = 1_500
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
+            logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
             currentFrameIndex: 1, totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame)
@@ -445,12 +443,12 @@ import XCTest
 
     func testFrameUpdateUsesFrameIndexFallbackProgressWhenTimelineInvalid() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         var frame = FrameBundle()
         frame.frameID = 9
         frame.timestampNanos = 500
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000, logEndNs: 1_000, playbackRate: 1.0, paused: true,
+            logStartNs: 1_000, logEndNs: 1_000, playbackRate: 1.0, paused: true,
             currentFrameIndex: 3, totalFrames: 5, seekable: false)
 
         state.onFrameReceived(frame)
@@ -476,7 +474,7 @@ import XCTest
         // Playback state
         XCTAssertFalse(state.isPaused)
         XCTAssertEqual(state.playbackRate, 1.0)
-        XCTAssertTrue(state.isLive)
+        XCTAssertEqual(state.playbackMode, .live)
         XCTAssertEqual(state.currentTimestamp, 0)
         XCTAssertEqual(state.currentFrameID, 0)
 
@@ -504,7 +502,7 @@ import XCTest
         let state = AppState()
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
-        state.isLive = false  // Required for playback controls
+        state.setPlaybackMode(.replayNonSeekable)  // Required for playback controls
         state.playbackCommandClientOverride = fake
         XCTAssertFalse(state.isPaused)
 
@@ -522,7 +520,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false  // Required for playback controls
+        state.setPlaybackMode(.replayNonSeekable)  // Required for playback controls
         XCTAssertEqual(state.playbackRate, 1.0)
 
         state.increaseRate()
@@ -560,7 +558,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false  // Required for playback controls
+        state.setPlaybackMode(.replayNonSeekable)  // Required for playback controls
         XCTAssertEqual(state.playbackRate, 1.0)
 
         state.decreaseRate()
@@ -578,7 +576,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.playbackRate = 8.0
 
         state.resetRate()
@@ -602,7 +600,7 @@ import XCTest
 
     func testSeekIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.replayProgress = 0.0
 
         // Seek should be ignored when live
@@ -615,8 +613,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
 
@@ -666,7 +663,7 @@ import XCTest
 
     func testOnFrameReceivedUpdatesReplayProgress() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
 
@@ -792,28 +789,28 @@ import XCTest
 
     func testStepForwardIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.currentFrameIndex = 0
         state.totalFrames = 100
 
         state.stepForward()
         // No crash, no state change expected (would need client)
-        XCTAssertTrue(state.isLive)
+        XCTAssertEqual(state.playbackMode, .live)
     }
 
     func testStepBackwardIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.currentFrameIndex = 50
 
         state.stepBackward()
         // No crash, no state change expected
-        XCTAssertTrue(state.isLive)
+        XCTAssertEqual(state.playbackMode, .live)
     }
 
     func testStepBackwardIgnoredAtStart() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.currentFrameIndex = 0
 
         state.stepBackward()
@@ -858,7 +855,7 @@ import XCTest
 
     func testIncreaseRateIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.playbackRate = 1.0
 
         state.increaseRate()
@@ -868,7 +865,7 @@ import XCTest
 
     func testDecreaseRateIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.playbackRate = 1.0
 
         state.decreaseRate()
@@ -878,7 +875,7 @@ import XCTest
 
     func testResetRateIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.playbackRate = 4.0
 
         state.resetRate()
@@ -888,7 +885,7 @@ import XCTest
 
     func testTogglePlayPauseIgnoredWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.isPaused = false
 
         state.togglePlayPause()
@@ -944,19 +941,19 @@ import XCTest
 
     func testPlaybackInfoUpdatesFromFrame() async throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
 
         var frame = FrameBundle()
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
             paused: false, currentFrameIndex: 50, totalFrames: 500)
 
         state.onFrameReceived(frame)
         await Task.yield()
 
-        XCTAssertFalse(state.isLive)
+        XCTAssertNotEqual(state.playbackMode, .live)
         XCTAssertEqual(state.logStartTimestamp, 1_000_000_000)
         XCTAssertEqual(state.logEndTimestamp, 2_000_000_000)
         XCTAssertEqual(state.playbackRate, 2.0)
@@ -985,7 +982,7 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
             currentFrameIndex: 99, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1004,7 +1001,7 @@ import XCTest
         frame.frameID = 50
         frame.timestampNanos = 500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
             currentFrameIndex: 49, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1022,8 +1019,8 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 99, totalFrames: 100)
+            logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100, sourceMode: .live)
 
         state.onFrameReceived(frame)
         await Task.yield()
@@ -1050,7 +1047,7 @@ import XCTest
 
     func testProgressCalculationInReplayMode() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.logStartTimestamp = 0
         state.logEndTimestamp = 1_000_000_000
 
@@ -1066,7 +1063,7 @@ import XCTest
 
     func testProgressNotUpdatedWhileSeeking() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.logStartTimestamp = 0
         state.logEndTimestamp = 1_000_000_000
         state.isSeekingInProgress = true
@@ -1443,7 +1440,7 @@ import XCTest
 
     func testStepForwardIgnoredWhenNotSeekable() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.currentFrameIndex = 0
         state.totalFrames = 100
@@ -1453,8 +1450,7 @@ import XCTest
 
     func testStepForwardIgnoredAtEnd() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.currentFrameIndex = 99
         state.totalFrames = 100
 
@@ -1463,7 +1459,7 @@ import XCTest
 
     func testStepBackwardIgnoredWhenNotSeekable() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.currentFrameIndex = 50
 
@@ -1472,7 +1468,7 @@ import XCTest
 
     func testSeekIgnoredWhenNotSeekable() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.replayProgress = 0.0
 
@@ -1486,8 +1482,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.replayFinished = true
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
@@ -1509,7 +1504,7 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 0, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1551,7 +1546,7 @@ import XCTest
 
     func testReplayProgressClampedToZeroOne() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
 
@@ -1638,7 +1633,7 @@ import XCTest
 
     func testHistoryTruncatesOnBackwardSeek() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
 
         // Simulate 5 frames of forward playback
         for i: UInt64 in 0..<5 {
@@ -1646,7 +1641,7 @@ import XCTest
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
@@ -1664,7 +1659,7 @@ import XCTest
         backFrame.frameID = 2
         backFrame.timestampNanos = 200_000_000
         backFrame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
             currentFrameIndex: 2, totalFrames: 10)
         backFrame.tracks = TrackSet(
             frameID: 2, timestampNanos: 200_000_000,
@@ -1679,14 +1674,14 @@ import XCTest
 
     func testHistoryGrowsNormallyOnForwardPlay() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
 
         for i: UInt64 in 0..<10 {
             var frame = FrameBundle()
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 100)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
@@ -1701,7 +1696,7 @@ import XCTest
 
     func testHistoryDoesNotDuplicateOnSameFrame() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
 
         // Receive the same frame index twice (e.g. pause + step to same frame)
         for _ in 0..<2 {
@@ -1709,7 +1704,7 @@ import XCTest
             frame.frameID = 5
             frame.timestampNanos = 500_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: true, currentFrameIndex: 5, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: 5, timestampNanos: 500_000_000,
@@ -1729,8 +1724,7 @@ import XCTest
 
     func testStepBackwardWhenFinishedDoesNotCrash() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.replayFinished = true
         state.isPaused = true
         state.currentFrameIndex = 99
@@ -1742,8 +1736,7 @@ import XCTest
 
     func testStepForwardBlockedAtEnd() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.replayFinished = true
         state.isPaused = true
         state.currentFrameIndex = 99
@@ -1755,8 +1748,7 @@ import XCTest
 
     func testStepForwardAllowedBeforeEnd() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.replayFinished = true
         state.isPaused = true
         state.currentFrameIndex = 50
@@ -1889,8 +1881,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         state.currentTimestamp = 1_000_000_000
@@ -1906,8 +1897,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         state.currentTimestamp = 1_500_000_000
@@ -1922,8 +1912,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         state.currentTimestamp = 1_000_000_000
@@ -1935,7 +1924,7 @@ import XCTest
 
     func testSeekIgnoredWhenLiveDoesNotUpdateTimestamp() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         state.currentTimestamp = 1_000_000_000
@@ -2013,7 +2002,7 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 1_500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 100, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 100, timestampNanos: 1_500_000_000,
@@ -2067,14 +2056,14 @@ import XCTest
 
         // Prepare for new replay
         state.prepareForNewReplay()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
 
         // Simulate first frame of the NEW replay
         var frame = FrameBundle()
         frame.frameID = 0
         frame.timestampNanos = 500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
+            logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 0, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 0, timestampNanos: 500_000_000,
@@ -2101,7 +2090,7 @@ import XCTest
     /// without prepareForNewReplay the new VRLOG appears stuck.
     func testWithoutPrepareNewReplayInheritsStaleState() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.logEndTimestamp = 2_000_000_000
 
         // Simulate clientDidFinishStream side effects (old replay ended)
@@ -2140,7 +2129,7 @@ import XCTest
     /// then firing clientDidFinishStream() AFTER, and verify clean state survives.
     func testPrepareForNewReplayIsNotOverwrittenByLateFinishStream() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
 
         // Simulate old replay with data
         state.logEndTimestamp = 2_000_000_000

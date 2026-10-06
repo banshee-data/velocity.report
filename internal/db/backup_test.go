@@ -95,3 +95,38 @@ func TestBackupDatabaseRejectsURLDelimiters(t *testing.T) {
 		}
 	}
 }
+
+// TestBackupDatabaseUnclearableDestination covers the destination-clearing
+// step. VACUUM INTO refuses to overwrite, so the destination is removed first;
+// a removal failure that is not "already absent" must surface rather than
+// being swallowed into a confusing VACUUM error.
+func TestBackupDatabaseUnclearableDestination(t *testing.T) {
+	dir := t.TempDir()
+
+	srcPath := filepath.Join(dir, "src.db")
+	src, err := sql.Open("sqlite", srcPath)
+	if err != nil {
+		t.Fatalf("opening source: %v", err)
+	}
+	if _, err := src.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY)"); err != nil {
+		t.Fatalf("creating table: %v", err)
+	}
+	if err := src.Close(); err != nil {
+		t.Fatalf("closing source: %v", err)
+	}
+
+	// A non-empty directory cannot be removed, and the failure is not
+	// os.IsNotExist, so BackupDatabase must report it.
+	destPath := filepath.Join(dir, "dest-dir")
+	if err := os.MkdirAll(filepath.Join(destPath, "child"), 0o755); err != nil {
+		t.Fatalf("creating destination directory: %v", err)
+	}
+
+	err = BackupDatabase(srcPath, destPath)
+	if err == nil {
+		t.Fatal("BackupDatabase to an unclearable destination succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "clearing") {
+		t.Errorf("error = %v, want it to report the failed destination clear", err)
+	}
+}

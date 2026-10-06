@@ -17,7 +17,16 @@ on:
       - "internal/cmd/server/**"
       - "internal/**"
       - "image/Dockerfile.static-build*"
+      - "docs_html/**"
+      - "docs/**"
+      - "data/**"
+      - "*.md"
+      - "Makefile"
       - "scripts/build-radar-static.sh"
+      - "scripts/docs-offline-symlinks.sh"
+      - "scripts/write-embedded-docs-manifest.py"
+      - "scripts/verify-docs-source-case.py"
+      - "scripts/verify-embedded-docs-server.py"
       - "scripts/*static*.sh"
       - "third_party/libpcap-static/**"
       - ".gitmodules"
@@ -51,8 +60,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      - name: Set up Node.js and pnpm for embedded docs
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: "22"
+          working-directory: docs_html
+
+      - name: Build complete embedded docs site
+        run: make build-docs-offline
+
       - name: Build static binaries (amd64 + arm64)
         run: make build-radar-static
+
+      - name: Verify embedded docs routes in the amd64 binary
+        run: |
+          bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
+          python3 scripts/verify-embedded-docs-server.py "$bin"
 
       - name: Verify static ELF and embedded release features
         run: |

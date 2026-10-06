@@ -62,7 +62,7 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 	extractTracks := func(r *AnalysisReport) []trackDesc {
 		out := make([]trackDesc, 0, len(r.Tracks))
 		for _, t := range r.Tracks {
-			if t.State != "confirmed" {
+			if t.State != "confirmed" && !t.EverConfirmed {
 				continue
 			}
 			out = append(out, trackDesc{
@@ -223,6 +223,7 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 			TemporalIoU:      overlap,
 		},
 		TrackMatching: TrackMatching{
+			Method:       "temporal_overlap_proxy_not_identity",
 			ATotalTracks: len(tracksA),
 			BTotalTracks: len(tracksB),
 			MatchedPairs: len(matches),
@@ -252,6 +253,35 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 		},
 	}
 
+	aCo, bCo := reportA.FrameSummary.CoLocation, reportB.FrameSummary.CoLocation
+	if aCo != nil && bCo != nil && aCo.ScoredFrames > 0 && bCo.ScoredFrames > 0 && aCo.RadiusMetres == bCo.RadiusMetres {
+		a, b := float64(aCo.PairFrames)/float64(aCo.ScoredFrames), float64(bCo.PairFrames)/float64(bCo.ScoredFrames)
+		comparison.QualityDelta.CoLocatedFrameRatio = &DeltaPair{A: a, B: b, Delta: b - a}
+	}
+	aAlign, bAlign := reportA.TrackSummary.Alignment, reportB.TrackSummary.Alignment
+	if aAlign != nil {
+		comparison.QualityDelta.CourseTracksA = aAlign.CourseAlignmentTracks
+	}
+	if bAlign != nil {
+		comparison.QualityDelta.CourseTracksB = bAlign.CourseAlignmentTracks
+	}
+	if aAlign != nil && bAlign != nil && aAlign.CourseAlignmentTracks > 0 && bAlign.CourseAlignmentTracks > 0 &&
+		aAlign.CourseAlignmentP50Deg != nil && bAlign.CourseAlignmentP50Deg != nil &&
+		aAlign.CourseAlignmentP50Deg.P50 != nil && bAlign.CourseAlignmentP50Deg.P50 != nil {
+		a, b := *aAlign.CourseAlignmentP50Deg.P50, *bAlign.CourseAlignmentP50Deg.P50
+		comparison.QualityDelta.CourseAlignmentP50 = &DeltaPair{A: a, B: b, Delta: b - a}
+	}
+	aLock, bLock := reportA.TrackSummary.HeadingLock, reportB.TrackSummary.HeadingLock
+	if aLock != nil && bLock != nil &&
+		aLock.AcceptedFrames+aLock.HeldFrames > 0 && bLock.AcceptedFrames+bLock.HeldFrames > 0 {
+		a, b := aLock.AcceptanceRatio, bLock.AcceptanceRatio
+		comparison.QualityDelta.HeadingAcceptanceRatio = &DeltaPair{A: a, B: b, Delta: b - a}
+	}
+	if aLock != nil && bLock != nil && aLock.TerminalAssessed > 0 && bLock.TerminalAssessed > 0 {
+		a := float64(aLock.TerminalUnrecovered) / float64(aLock.TerminalAssessed)
+		b := float64(bLock.TerminalUnrecovered) / float64(bLock.TerminalAssessed)
+		comparison.QualityDelta.TerminalUnrecoveredRatio = &DeltaPair{A: a, B: b, Delta: b - a}
+	}
 	if outPath != "" {
 		data, err := json.MarshalIndent(comparison, "", "  ")
 		if err != nil {

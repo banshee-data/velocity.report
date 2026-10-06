@@ -346,8 +346,23 @@ message LabelSet {
 // Frame Bundle (Main Streaming Message)
 // =============================================================================
 
+// SourceMode names what is driving the pipeline. Clients once inferred this
+// from is_live plus seekable, which could not distinguish a preserved analysis
+// grid from an ordinary PCAP replay and said nothing about recording.
+enum SourceMode {
+  SOURCE_MODE_UNSPECIFIED = 0;   // proto3 requires a zero value; the server always sets a real one
+  SOURCE_MODE_LIVE = 1;
+  SOURCE_MODE_PCAP = 2;          // PCAP replay in progress
+  SOURCE_MODE_PCAP_ANALYSIS = 3; // PCAP replay finished, background grid retained
+  SOURCE_MODE_VRLOG = 4;         // replay of a recorded frame log
+}
+
 message PlaybackInfo {
-  bool is_live = 1;              // true if live, false if replay
+  // 1 held is_live, which was only ever (source_mode == SOURCE_MODE_LIVE).
+  // Server and client ship from one repository and one version, so there was
+  // no mismatched pair for it to serve, and two spellings of the same fact
+  // invite the question of which is authoritative.
+  reserved 1;
   int64 log_start_ns = 2;        // first frame timestamp in log
   int64 log_end_ns = 3;          // last frame timestamp in log
   float playback_rate = 4;       // 1.0 = real-time
@@ -356,6 +371,26 @@ message PlaybackInfo {
   uint64 total_frames = 7;        // total frames in log
   bool seekable = 8;              // true if seek/step is supported (e.g. .vrlog replay)
   uint64 replay_epoch = 9;        // monotonically increasing epoch; bumped on each new replay load
+
+  // Seekability is a capability, not a mode: source_mode and seekable are
+  // independent axes and clients must not derive one from the other.
+  SourceMode source_mode = 10;
+  bool recording = 11;            // true while a VRLOG is being recorded
+
+  // Background settling. Until the grid settles there is no usable background,
+  // so foreground extraction yields nothing and the scene renders empty — which
+  // is indistinguishable from a dead sensor unless the client is told.
+  bool settling = 12;             // true while the background grid is still settling
+  // Seconds spent settling so far. Settling can finish on convergence well
+  // before its ceiling, so a fraction of an unknown total says less than the
+  // time on the clock; 13 carried that fraction and nothing ever read it.
+  reserved 13;
+  float settling_elapsed_seconds = 14;
+
+  // True when the source is live but no packets have arrived recently. Frames
+  // keep flowing while a sensor is silent — they are simply empty — so a client
+  // cannot tell a quiet scene from a stopped sensor by frame arrival alone.
+  bool sensor_silent = 15;
 }
 
 message FrameBundle {

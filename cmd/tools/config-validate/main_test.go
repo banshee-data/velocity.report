@@ -61,7 +61,8 @@ func TestRun(t *testing.T) {
 				"remove_ground": true,
 				"max_cluster_diameter": 12.0,
 				"min_cluster_diameter": 0.05,
-				"max_cluster_aspect_ratio": 15.0
+				"max_cluster_aspect_ratio": 15.0,
+				"max_sample_points": 0
 			}
 		},
 		"l5": {
@@ -83,6 +84,11 @@ func TestRun(t *testing.T) {
 				"min_points_for_pca": 4,
 				"obb_heading_smoothing_alpha": 0.08,
 				"obb_aspect_ratio_lock_threshold": 0.25,
+				"obb_heading_lock_max_rejections": 5,
+				"obb_axis_coherence_enabled": false,
+				"min_associable_extent_metres": 0.5,
+				"association_extent_cost_weight": 0,
+				"deleted_track_render_fade": "500ms",
 				"max_track_history_length": 200,
 				"max_speed_history_length": 100,
 				"merge_size_ratio": 2.5,
@@ -106,7 +112,7 @@ func TestRun(t *testing.T) {
 		if code := run(nil, &stdout, &stderr); code != 2 {
 			t.Fatalf("run returned %d, want 2", code)
 		}
-		requireContains(t, stderr.String(), "--in is required")
+		requireContains(t, stderr.String(), "--in or --selectors is required")
 	})
 
 	t.Run("flag parse error", func(t *testing.T) {
@@ -140,6 +146,28 @@ func TestRun(t *testing.T) {
 			t.Fatalf("expected empty stderr, got %q", stderr.String())
 		}
 	})
+}
+
+func TestRunValidatesSelectorFiles(t *testing.T) {
+	t.Parallel()
+	shipped := filepath.Join("..", "..", "..", "config", "segment-selectors.defaults.json")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-selectors", shipped}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run returned %d: %s", code, stderr.String())
+	}
+	requireContains(t, stdout.String(), "valid selectors:")
+	requireContains(t, stdout.String(), "selectors=7 held_out=3")
+
+	invalid := filepath.Join(t.TempDir(), "selectors.json")
+	if err := os.WriteFile(invalid, []byte(`{"version": 1, "selectors": []}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"-selectors", invalid}, &stdout, &stderr); code != 1 {
+		t.Fatalf("run returned %d, want 1", code)
+	}
+	requireContains(t, stderr.String(), "invalid selectors:")
 }
 
 func TestMain(t *testing.T) {

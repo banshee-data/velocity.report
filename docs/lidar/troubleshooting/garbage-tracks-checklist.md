@@ -23,7 +23,7 @@ It combines the original review and checklist into one maintained source.
   - [track_api.go](../../../internal/lidar/server/track_api.go)
   - [track_api_format.go](../../../internal/lidar/server/track_api_format.go)
   - [lidar.ts](../../../web/src/lib/types/lidar.ts)
-  - [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
+  - [ScenePane.svelte](../../../web/src/lib/components/lidar/ScenePane.svelte) (replaced MapPane.svelte in [#559])
   - [api.ts](../../../web/src/lib/api.ts)
 
 ---
@@ -32,16 +32,16 @@ It combines the original review and checklist into one maintained source.
 
 ### Completed P0/P1 remediation
 
-| Item                                   | Status  | Implemented behaviour                                                                                          |
-| -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| 1.1 globally unique track identity     | ✅ Done | `initTrack` now emits UUID-based IDs (`trk_<uuid>`), preventing reset/restart ID collisions.                   |
-| 1.2 scoped observation/history queries | ✅ Done | `GetTracksInRange` and `GetActiveTracks` now use `GetTrackObservationsInRange` (time-bounded + sensor-scoped). |
-| 2.1 dt clamp in predict                | ✅ Done | `predict()` clamps dt to `MaxPredictDt=0.5s`.                                                                  |
-| 2.2 covariance inflation cap           | ✅ Done | covariance diagonal is capped (`MaxCovarianceDiag=100`) in predict and occlusion paths.                        |
-| 4.1 race-safe confirmed snapshots      | ✅ Done | `GetConfirmedTracks()` returns deep-copied snapshots, not live pointers.                                       |
-| 4.2 serialised frame callbacks         | ✅ Done | frame callback now uses a single worker + buffered channel in `FrameBuilder`.                                  |
-| 5.1 observation envelope parsing       | ✅ Done | `getTrackObservations()` now returns `data.observations ?? []`.                                                |
-| 6.1 polyline gap breaking              | ✅ Done | renderer breaks strokes on temporal (>1s) or spatial (>2m) gaps.                                               |
+| Item                                   | Status  | Implemented behaviour                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1 globally unique track identity     | ✅ Done | `initTrack` now emits UUID-based IDs (`trk_<uuid>`), preventing reset/restart ID collisions. Confirmed against real data 2026-09: the pre-fix `track_%d` scheme is the root cause of a 27-track identity-mixing episode found in production `sensor_data.db` from before this fix landed — see [jump-track replacement review](../operations/lidar-jump-track-replacement-review.md). |
+| 1.2 scoped observation/history queries | ✅ Done | `GetTracksInRange` and `GetActiveTracks` now use `GetTrackObservationsInRange` (time-bounded + sensor-scoped).                                                                                                                                                                                                                                                                        |
+| 2.1 dt clamp in predict                | ✅ Done | `predict()` clamps dt to `MaxPredictDt=0.5s`.                                                                                                                                                                                                                                                                                                                                         |
+| 2.2 covariance inflation cap           | ✅ Done | covariance diagonal is capped (`MaxCovarianceDiag=100`) in predict and occlusion paths.                                                                                                                                                                                                                                                                                               |
+| 4.1 race-safe confirmed snapshots      | ✅ Done | `GetConfirmedTracks()` returns deep-copied snapshots, not live pointers.                                                                                                                                                                                                                                                                                                              |
+| 4.2 serialised frame callbacks         | ✅ Done | frame callback now uses a single worker + buffered channel in `FrameBuilder`.                                                                                                                                                                                                                                                                                                         |
+| 5.1 observation envelope parsing       | ✅ Done | `getTrackObservations()` now returns `data.observations ?? []`.                                                                                                                                                                                                                                                                                                                       |
+| 6.1 polyline gap breaking              | ✅ Done | renderer breaks strokes on temporal (>1s) or spatial (>2m) gaps.                                                                                                                                                                                                                                                                                                                      |
 
 ### Validation already completed
 
@@ -144,13 +144,13 @@ It combines the original review and checklist into one maintained source.
 #### 6.2 Per-track colour differentiation within class ✅ done
 
 - **Severity:** Medium
-- **Files:** [lidar.ts](../../../web/src/lib/types/lidar.ts), [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
+- **Files:** [lidar.ts](../../../web/src/lib/types/lidar.ts); the consuming pane was `MapPane.svelte`, deleted in [#559] and replaced by [ScenePane.svelte](../../../web/src/lib/components/lidar/ScenePane.svelte)
 - **Implemented behaviour:** `trackColour(trackId, objectClass, state)` utility function computes a deterministic hue-shifted colour for each track ID (±25° around the class base hue) using a string hash → HSL conversion. `MapPane.svelte`'s `renderTrack()` now uses `trackColour()` instead of the static `TRACK_COLORS` lookup, making same-class tracks visually distinguishable.
 
 #### 6.3 Temporal fade on trails ✅ done
 
 - **Severity:** Low
-- **Files:** [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
+- **Files:** `MapPane.svelte`, deleted in [#559]; trails are now drawn by the shared scene player ([scene-player.js](../../../public_html/src/js/scene-player.js)), so the age-based alpha below describes the retired implementation rather than current behaviour
 - **Implemented behaviour:** Trail rendering replaced from a single polyline stroke at fixed `globalAlpha=0.5` to per-segment drawing with age-based alpha interpolation. Oldest visible segments render at α=0.1, newest at α=0.8, linearly interpolated across the trail's time span.
 
 #### 6.5 Foreground observation sampling bias ✅ done

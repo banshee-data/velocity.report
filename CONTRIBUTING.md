@@ -4,6 +4,8 @@
  ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀ ▀▀▀ ▀▀  ▀▀▀  ▀  ▀▀▀ ▀ ▀ ▀▀▀
 ```
 
+# Contributing
+
 This is a project that measures how fast vehicles move through neighbourhoods so the people who
 live there can do something about it. It does this without cameras, without licence plates, and
 without collecting the sort of personal data that keeps a privacy officer up at night.

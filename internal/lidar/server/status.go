@@ -16,6 +16,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
+// statusTemplate is the operator status page, parsed once at initialisation.
+// Parsing per request cost a template compile on every hit and left a load
+// failure to be reported as a 500 — but the source is embedded and validated at
+// build time, so a failure here is a build mistake and belongs at startup.
+var statusTemplate = template.Must(
+	template.ParseFS(l9endpoints.LegacyStatusFS(), "status.html"),
+)
+
 // handleGridStatus returns simple statistics about the in-memory BackgroundGrid
 // for a sensor: distribution of TimesSeenCount, number of frozen cells, and totals.
 // Query params: sensor_id (required)
@@ -184,11 +192,8 @@ func (ws *Server) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// bm.Grid is non-nil above, which is the only case GetGridHeatmap declines.
 	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
-	if heatmap == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "could not generate heatmap: check grid data is populated")
-		return
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(heatmap)
@@ -201,8 +206,8 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("wait_for_done") == "true" {
 		ws.pcapMu.Lock()
 		done := ws.pcapDone
-		inProgress := ws.pcapInProgress
 		ws.pcapMu.Unlock()
+		inProgress := ws.PipelineState().PCAPInProgress()
 
 		if inProgress && done != nil {
 			select {
@@ -215,24 +220,37 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ws.dataSourceMu.RLock()
-	currentSource := ws.currentSource
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
+	// One snapshot, not a field-by-field read across two mutexes: the source
+	// and the replay flag used to be guarded separately, so a status read could
+	// interleave with a transition and report a combination that never existed.
+	state := ws.PipelineState()
 
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	analysisMode := ws.pcapAnalysisMode
-	lastRunID := ws.pcapLastRunID
-	ws.pcapMu.Unlock()
+	var settling l3grid.SettlingStatus
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
+		settling = mgr.SettlingStatus()
+	}
 
 	response := map[string]interface{}{
 		"status":           "ok",
-		"data_source":      string(currentSource),
-		"pcap_file":        currentPCAPFile,
-		"pcap_in_progress": pcapInProgress,
-		"analysis_mode":    analysisMode,
-		"last_run_id":      lastRunID,
+		"data_source":      state.DataSourceWire(),
+		"pcap_file":        state.PCAPFile(),
+		"pcap_in_progress": state.PCAPInProgress(),
+		"analysis_mode":    state.AnalysisMode(),
+		"last_run_id":      state.LastRunID,
+
+		// SourcePath covers VRLOG replays too, which pcap_file cannot.
+		"source_path":           state.SourcePath,
+		"replay_active":         state.ReplayActive,
+		"replay_pass":           string(state.Pass),
+		"replay_total_passes":   state.TotalPasses,
+		"grid_preserved":        state.GridPreserved,
+		"live_listener_running": state.LiveListenerRunning,
+		// Until the grid settles there is no usable background, so the scene is
+		// empty for reasons that have nothing to do with the sensor.
+		"settling":                 !settling.Complete,
+		"settling_elapsed_seconds": settling.Elapsed.Seconds(),
+		"recording":                state.Recording,
+		"recording_path":           state.RecordingPath,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -246,14 +264,9 @@ func (ws *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
-	ws.dataSourceMu.RLock()
-	currentSource := ws.currentSource
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
-
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	ws.pcapMu.Unlock()
+	state := ws.PipelineState()
+	currentPCAPFile := state.PCAPFile()
+	pcapInProgress := state.PCAPInProgress()
 
 	var statsSnapshot *StatsSnapshot
 	if ws.stats != nil {
@@ -288,7 +301,7 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 		ForwardAddr:      ws.forwardAddr,
 		ForwardPort:      ws.forwardPort,
 		ParsingEnabled:   ws.parsingEnabled,
-		DataSource:       string(currentSource),
+		DataSource:       state.DataSourceWire(),
 		PCAPFile:         currentPCAPFile,
 		PCAPInProgress:   pcapInProgress,
 		Uptime:           uptime,
@@ -321,22 +334,15 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		parsingStatus = "disabled"
 	}
 
-	ws.dataSourceMu.RLock()
-	mode := "Live UDP"
-	switch ws.currentSource {
-	case DataSourcePCAP:
-		mode = "PCAP Replay"
-	case DataSourceLive:
-		mode = "Live UDP"
-	}
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
-
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	pcapSpeedMode := ws.pcapSpeedMode
-	pcapSpeedRatio := ws.pcapSpeedRatio
-	ws.pcapMu.Unlock()
+	// StatusLabel covers every source. The switch this replaced had no case for
+	// pcap_analysis, so the page rendered "Live UDP" while the pipeline was
+	// sitting on a preserved PCAP grid.
+	state := ws.PipelineState()
+	mode := state.StatusLabel()
+	currentPCAPFile := state.PCAPFile()
+	pcapInProgress := state.PCAPInProgress()
+	pcapSpeedMode := state.SpeedMode
+	pcapSpeedRatio := state.SpeedRatio
 
 	// Get background manager to show current params
 	var bgParams *l3grid.BackgroundParams
@@ -357,17 +363,8 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Refresh foreground snapshot counts for status rendering.
 	ws.updateLatestFgCounts(ws.sensorID)
 
-	// Load and parse the HTML template from embedded filesystem
-	statusFS, statusFSErr := l9endpoints.LegacyStatusFS()
-	if statusFSErr != nil {
-		http.Error(w, "could not load status assets: "+statusFSErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	tmpl, err := template.ParseFS(statusFS, "status.html")
-	if err != nil {
-		http.Error(w, "could not load status template: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// The template is parsed once at initialisation, not per request.
+	tmpl := statusTemplate
 
 	// Template data
 	data := struct {
@@ -391,6 +388,12 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPSpeedMode     string
 		PCAPSpeedRatio    float64
 		FgSnapshotCounts  map[string]int
+		ReplayPass        string
+		ReplayTotalPasses int
+		Recording         bool
+		RecordingPath     string
+		GridPreserved     bool
+		LiveListener      bool
 	}{
 		Version:           version.Version,
 		GitSHA:            version.GitSHA,
@@ -411,6 +414,12 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPInProgress:    pcapInProgress,
 		PCAPSpeedMode:     pcapSpeedMode,
 		PCAPSpeedRatio:    pcapSpeedRatio,
+		ReplayPass:        string(state.Pass),
+		ReplayTotalPasses: state.TotalPasses,
+		Recording:         state.Recording,
+		RecordingPath:     state.RecordingPath,
+		GridPreserved:     state.GridPreserved,
+		LiveListener:      state.LiveListenerRunning,
 		FgSnapshotCounts:  ws.getLatestFgCounts(),
 	}
 

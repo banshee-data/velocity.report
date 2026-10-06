@@ -1,0 +1,364 @@
+{
+  "schema": 1,
+  "evidence_type": "diagnostic_ab_not_physical_ground_truth",
+  "binary_sha256": "120eb0b11145aca2f1649e2fa507aaf84e2f7ba3b449d7beb759a8eccaf5025d",
+  "base_commit": "4d3bc0fe5",
+  "uncommitted_build": true,
+  "baseline": {
+    "manifest": {
+      "build_git_sha": "4d3bc0fe5-dirty-d2-final",
+      "build_stamped": true,
+      "build_version": "dev",
+      "calibration_sha256": "sha256:4f8af2a45258072c993a85ee3c72cf089cec74db7ee6866ee761a23efe626316",
+      "frames_processed": 551,
+      "frames_recorded": 200,
+      "include_points": false,
+      "params_sha256": "sha256:034ce04bf5f603ab0f7637e50079b0b40f620962727521608e7764f7babc5fe4",
+      "processing_start_seconds": 0,
+      "require_settled": true,
+      "schema_version": 1,
+      "scoring_duration_seconds": 20,
+      "scoring_start_ns": 1788388405101422000,
+      "scoring_start_seconds": 35,
+      "sensor_id": "pcap-replay",
+      "settled_at_boundary": true,
+      "source_basename": "s2_sf_4_20260902153250_00003.pcap",
+      "source_first_ns": 1788388370101422000,
+      "source_last_ns": 1788388670459426000,
+      "source_sha256": "sha256:6d1270ccd6a9aa239b831f560cfb1db6615c28ffe0fa871e1134b8b0d651dd7b",
+      "tracker_boundary_policy": "retain",
+      "udp_port": 2369,
+      "warmup_frames": 351,
+      "warmup_seconds": 35,
+      "warmup_static_verified": false
+    },
+    "frame_summary": {
+      "co_location": {
+        "radius_metres": 3,
+        "scored_frames": 200,
+        "live_frames": 199,
+        "pair_frames": 93
+      },
+      "total_frames": 200,
+      "frames_with_tracks": 199,
+      "frames_with_clusters": 31,
+      "avg_points_per_frame": 0,
+      "avg_foreground_points_per_frame": 0,
+      "foreground_pct": 0,
+      "avg_clusters_per_frame": 0.175,
+      "avg_tracks_per_frame": 6.57,
+      "frame_interval_ms": {
+        "samples": 199,
+        "min": 95.968,
+        "avg": 100.00061306532665,
+        "p50": 99.996,
+        "p85": 100.103,
+        "p98": 100.635,
+        "max": 104.162
+      }
+    },
+    "track_summary": {
+      "total_tracks": 41,
+      "confirmed_tracks": 4,
+      "tentative_tracks": 18,
+      "deleted_tracks": 19,
+      "fragmentation_ratio": 0.43902439024390244,
+      "observation_count": {
+        "samples": 4,
+        "min": 41,
+        "avg": 60.5,
+        "p50": 62,
+        "max": 93
+      },
+      "track_duration_secs": {
+        "samples": 4,
+        "min": 4.000087,
+        "avg": 7.300030249999999,
+        "p50": 6.100042,
+        "max": 13.099959
+      },
+      "track_length_metres": {
+        "samples": 4,
+        "min": 0.5753152370452881,
+        "avg": 10.345561355352402,
+        "p50": 18.711055755615234,
+        "max": 20.355880737304688
+      },
+      "occlusion": {
+        "mean_occlusion_count": 17,
+        "max_occlusion_count": 39,
+        "total_occlusions": 68
+      },
+      "jitter": {
+        "heading_jitter_deg": {
+          "samples": 4,
+          "min": 4.105588912963867,
+          "avg": 32.051780462265015,
+          "p50": 52.311031341552734,
+          "max": 58.527587890625
+        },
+        "speed_jitter_mps": {
+          "samples": 4,
+          "min": 0.013126731850206852,
+          "avg": 0.11584261409007013,
+          "p50": 0.1804853230714798,
+          "max": 0.2468506544828415
+        }
+      },
+      "alignment": {
+        "alignment_mean_deg": {
+          "samples": 4,
+          "min": 3.1557483673095703,
+          "avg": 23.958138465881348,
+          "p50": 36.996726989746094,
+          "max": 47.633445739746094
+        },
+        "misalignment_ratio": {
+          "samples": 4,
+          "min": 0,
+          "avg": 0.16146451327949762,
+          "p50": 0.2977099120616913,
+          "max": 0.31481480598449707
+        },
+        "course_alignment_p50_deg": {
+          "samples": 11,
+          "min": 2.6444647312164307,
+          "avg": 39.832635684446856,
+          "p50": 42.26520919799805,
+          "p85": 77.76702117919922,
+          "max": 78.12459564208984
+        },
+        "course_alignment_p90_deg": {
+          "samples": 11,
+          "min": 2.6444647312164307,
+          "avg": 55.706133950840346,
+          "p50": 59.71565246582031,
+          "p85": 77.76702117919922,
+          "max": 85.40882110595703
+        },
+        "course_alignment_tracks": 11
+      },
+      "heading_lock": {
+        "terminal_unrecovered": 0,
+        "terminal_censored": 1,
+        "terminal_recovered": 0,
+        "terminal_assessed": 0,
+        "source_frames": {
+          "ambiguous": 0,
+          "axis": 0,
+          "displacement": 59,
+          "insufficient": 0,
+          "locked": 259,
+          "pca": 303,
+          "released": 14,
+          "velocity": 572
+        },
+        "locked_frame_ratio": 0.21458160729080364,
+        "sustained_lock_tracks": 9,
+        "never_recovered_tracks": 6,
+        "relocked_tracks": 0,
+        "released_tracks": 3,
+        "trapped_ratio": 0.2608695652173913,
+        "forced_releases": 14,
+        "longest_lock_run_frames": 20,
+        "tracks": 23
+      }
+    }
+  },
+  "candidate": {
+    "manifest": {
+      "build_git_sha": "4d3bc0fe5-dirty-d2-final",
+      "build_stamped": true,
+      "build_version": "dev",
+      "calibration_sha256": "sha256:4f8af2a45258072c993a85ee3c72cf089cec74db7ee6866ee761a23efe626316",
+      "frames_processed": 551,
+      "frames_recorded": 200,
+      "include_points": false,
+      "params_sha256": "sha256:532f00ae81bbd248319e011755c0c404c98acfab69e52a823accca74e965082d",
+      "processing_start_seconds": 0,
+      "require_settled": true,
+      "schema_version": 1,
+      "scoring_duration_seconds": 20,
+      "scoring_start_ns": 1788388405101422000,
+      "scoring_start_seconds": 35,
+      "sensor_id": "pcap-replay",
+      "settled_at_boundary": true,
+      "source_basename": "s2_sf_4_20260902153250_00003.pcap",
+      "source_first_ns": 1788388370101422000,
+      "source_last_ns": 1788388670459426000,
+      "source_sha256": "sha256:6d1270ccd6a9aa239b831f560cfb1db6615c28ffe0fa871e1134b8b0d651dd7b",
+      "tracker_boundary_policy": "retain",
+      "udp_port": 2369,
+      "warmup_frames": 351,
+      "warmup_seconds": 35,
+      "warmup_static_verified": false
+    },
+    "frame_summary": {
+      "co_location": {
+        "radius_metres": 3,
+        "scored_frames": 200,
+        "live_frames": 199,
+        "pair_frames": 93
+      },
+      "total_frames": 200,
+      "frames_with_tracks": 199,
+      "frames_with_clusters": 31,
+      "avg_points_per_frame": 0,
+      "avg_foreground_points_per_frame": 0,
+      "foreground_pct": 0,
+      "avg_clusters_per_frame": 0.175,
+      "avg_tracks_per_frame": 6.57,
+      "frame_interval_ms": {
+        "samples": 199,
+        "min": 95.968,
+        "avg": 100.00061306532665,
+        "p50": 99.996,
+        "p85": 100.103,
+        "p98": 100.635,
+        "max": 104.162
+      }
+    },
+    "track_summary": {
+      "total_tracks": 41,
+      "confirmed_tracks": 4,
+      "tentative_tracks": 18,
+      "deleted_tracks": 19,
+      "fragmentation_ratio": 0.43902439024390244,
+      "observation_count": {
+        "samples": 4,
+        "min": 41,
+        "avg": 60.5,
+        "p50": 62,
+        "max": 93
+      },
+      "track_duration_secs": {
+        "samples": 4,
+        "min": 4.000087,
+        "avg": 7.300030249999999,
+        "p50": 6.100042,
+        "max": 13.099959
+      },
+      "track_length_metres": {
+        "samples": 4,
+        "min": 0.5753152370452881,
+        "avg": 10.345561355352402,
+        "p50": 18.711055755615234,
+        "max": 20.355880737304688
+      },
+      "occlusion": {
+        "mean_occlusion_count": 17,
+        "max_occlusion_count": 39,
+        "total_occlusions": 68
+      },
+      "jitter": {
+        "heading_jitter_deg": {
+          "samples": 4,
+          "min": 4.105588912963867,
+          "avg": 32.051780462265015,
+          "p50": 52.311031341552734,
+          "max": 58.527587890625
+        },
+        "speed_jitter_mps": {
+          "samples": 4,
+          "min": 0.013126731850206852,
+          "avg": 0.11584261409007013,
+          "p50": 0.1804853230714798,
+          "max": 0.2468506544828415
+        }
+      },
+      "alignment": {
+        "alignment_mean_deg": {
+          "samples": 4,
+          "min": 3.1557483673095703,
+          "avg": 23.958138465881348,
+          "p50": 36.996726989746094,
+          "max": 47.633445739746094
+        },
+        "misalignment_ratio": {
+          "samples": 4,
+          "min": 0,
+          "avg": 0.16146451327949762,
+          "p50": 0.2977099120616913,
+          "max": 0.31481480598449707
+        },
+        "course_alignment_p50_deg": {
+          "samples": 11,
+          "min": 0.3036888837814331,
+          "avg": 40.58616754141721,
+          "p50": 35.61332321166992,
+          "p85": 75.81118774414062,
+          "max": 79.99259185791016
+        },
+        "course_alignment_p90_deg": {
+          "samples": 11,
+          "min": 0.48112717270851135,
+          "avg": 42.65033833818002,
+          "p50": 35.61332321166992,
+          "p85": 84.18953704833984,
+          "max": 84.32025909423828
+        },
+        "course_alignment_tracks": 11
+      },
+      "heading_lock": {
+        "terminal_unrecovered": 3,
+        "terminal_censored": 4,
+        "terminal_recovered": 2,
+        "terminal_assessed": 5,
+        "source_frames": {
+          "ambiguous": 648,
+          "axis": 558,
+          "displacement": 0,
+          "insufficient": 1,
+          "locked": 0,
+          "pca": 0,
+          "released": 0,
+          "velocity": 0
+        },
+        "locked_frame_ratio": 0.5376967688483845,
+        "sustained_lock_tracks": 15,
+        "never_recovered_tracks": 7,
+        "relocked_tracks": 2,
+        "released_tracks": 6,
+        "trapped_ratio": 0.30434782608695654,
+        "forced_releases": 0,
+        "longest_lock_run_frames": 106,
+        "tracks": 23
+      }
+    }
+  },
+  "quality_delta": {
+    "co_located_frame_ratio": {
+      "a": 0.465,
+      "b": 0.465,
+      "delta": 0
+    },
+    "course_alignment_p50": {
+      "a": 42.26520919799805,
+      "b": 35.61332321166992,
+      "delta": -6.651885986328125
+    },
+    "course_tracks_a": 11,
+    "course_tracks_b": 11,
+    "fragmentation_ratio": {
+      "a": 0.43902439024390244,
+      "b": 0.43902439024390244,
+      "delta": 0
+    },
+    "mean_observations": {
+      "a": 60.5,
+      "b": 60.5,
+      "delta": 0
+    },
+    "mean_occlusion_count": {
+      "a": 17,
+      "b": 17,
+      "delta": 0
+    }
+  },
+  "repeat": {
+    "frame_summary_equal": true,
+    "track_summary_equal": true,
+    "speed_histogram_equal": true,
+    "per_track_metrics_equal_ignoring_uuid": true
+  }
+}

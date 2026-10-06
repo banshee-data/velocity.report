@@ -48,7 +48,7 @@ curl -s "http://127.0.0.1:8081/api/lidar/data_source?sensor_id=hesai-pandar40p" 
 ## 5. Switch back to live
 
 ```bash
-curl -s "http://127.0.0.1:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p" | jq .
+curl -s "http://127.0.0.1:8081/api/lidar/replay/stop?sensor_id=hesai-pandar40p" | jq .
 ```
 
 Confirm:

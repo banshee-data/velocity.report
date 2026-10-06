@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "recorded": "2026-09-24",
+  "capture": {
+    "path": "sf-street-speeds/raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng",
+    "sha256": "aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66",
+    "duration_seconds": 2032.925,
+    "lidar_packets": 3659580,
+    "frames": 20330
+  },
+  "replay": {
+    "analysis_mode": true,
+    "speed_mode": "scaled",
+    "speed_ratio": 0.25,
+    "settle_before_recording": false
+  },
+  "arms": {
+    "main": {
+      "revision": "7bc810c9b",
+      "version": "0.5.1-pre35",
+      "run_id": "e1fe508b-a8c1-4a30-a53e-a9aa7621e89d"
+    },
+    "pr559": {
+      "revision": "399f10b4d",
+      "note": "97c9cf766 merged with main #593",
+      "version": "0.5.1-pre36",
+      "run_id": "1429d7cc-4381-4332-9b39-e4f8ce3f4606"
+    }
+  },
+  "vrlog_compare": {
+    "sha256": "f1316aa7a0fa189f1246392057bf8d772056a5dfb3337fc5f84e1c7589a8e2e3",
+    "temporal_iou": 1.0,
+    "matched_pairs": 3891,
+    "main_only": 24,
+    "pr559_only": 33,
+    "class_agreement": 0.894,
+    "matched_speed_delta_median_mps": 0.217,
+    "heading_acceptance_ratio": {
+      "main": 0.605,
+      "pr559": 0.789
+    },
+    "course_alignment_p50_deg": {
+      "main": 51.888,
+      "pr559": 24.035
+    },
+    "terminal_unrecovered_ratio": {
+      "main": 0.449,
+      "pr559": 0.099
+    },
+    "never_confirmed_ratio": {
+      "main": 0.455,
+      "pr559": 0.461
+    },
+    "mean_observations": {
+      "main": 73.467,
+      "pr559": 86.0
+    },
+    "overlap_frames": {
+      "main": 11843,
+      "pr559": 12849,
+      "scored_frames": 20599
+    }
+  },
+  "run_tracks": {
+    "tracks": {
+      "main": 3915,
+      "pr559": 3924
+    },
+    "lifetime_p50_s": {
+      "main": 2.8,
+      "pr559": 2.84
+    },
+    "lifetime_p90_s": {
+      "main": 14.7,
+      "pr559": 14.63
+    },
+    "share_under_1s": {
+      "main": 0.26,
+      "pr559": 0.26
+    },
+    "max_speed_mph": {
+      "car_bus": {
+        "n": {
+          "main": 285,
+          "pr559": 299
+        },
+        "p50": {
+          "main": 18.49,
+          "pr559": 18.52
+        },
+        "p85": {
+          "main": 22.09,
+          "pr559": 22.24
+        },
+        "p98": {
+          "main": 26.3,
+          "pr559": 26.24
+        }
+      },
+      "pedestrian": {
+        "n": {
+          "main": 229,
+          "pr559": 233
+        },
+        "p50": {
+          "main": 3.0,
+          "pr559": 2.97
+        },
+        "p85": {
+          "main": 5.99,
+          "pr559": 5.89
+        },
+        "p98": {
+          "main": 12.3,
+          "pr559": 12.07
+        }
+      },
+      "cyclist": {
+        "n": {
+          "main": 33,
+          "pr559": 34
+        },
+        "p50": {
+          "main": 14.47,
+          "pr559": 14.59
+        },
+        "p85": {
+          "main": 19.66,
+          "pr559": 23.27
+        },
+        "p98": {
+          "main": 27.55,
+          "pr559": 28.26
+        }
+      }
+    }
+  }
+}

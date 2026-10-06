@@ -158,9 +158,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		effectiveAlpha = postSettleAlpha
 	}
 	if !g.SettlingComplete {
-		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
-		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
-		if framesReady && durReady {
+		if bm.settlingCompleteLocked(nowNanos) {
 			g.SettlingComplete = true
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha
@@ -227,13 +225,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if az < 0 {
 			az += 360.0
 		}
+		// az is normalised into [0, 360) above, so the bin is already in range.
 		azBin := int((az / 360.0) * float64(azBins))
-		if azBin < 0 {
-			azBin = 0
-		}
-		if azBin >= azBins {
-			azBin = azBins - 1
-		}
 
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
@@ -277,10 +270,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if cellNeighbourConfirm > 0 {
 			// Search radius should be at least equal to the required confirmation count
 			// to make it possible to satisfy the condition.
+			// cellNeighbourConfirm is > 0 here, so the radius needs no floor.
 			searchRadius := cellNeighbourConfirm
-			if searchRadius < 1 {
-				searchRadius = 1
-			}
 			// Cap search radius to avoid excessive checks
 			if searchRadius > 10 {
 				searchRadius = 10
@@ -295,7 +286,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				neighbourCell := g.Cells[neighbourIdx]
 				if neighbourCell.TimesSeenCount > 0 {
 					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - p.Distance)
-					neighbourCloseness := closenessMultiplier * (float64(neighbourCell.RangeSpreadMeters) + cellNoiseRel*float64(neighbourCell.AverageRangeMeters) + 0.01)
+					neighbourCloseness := ClosenessThresholdMetres(
+						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
+						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
 					if neighbourDiff <= neighbourCloseness {
 						neighbourConfirmCount++
 					}
@@ -308,13 +301,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		// When a cell is new (low confidence), we haven't learned its true variance yet.
 		// We should be more tolerant (higher threshold) to avoid classifying noise as foreground,
 		// which prevents "initialization trails" where wall points are flagged as FG before spread converges.
-		warmupMultiplier := 1.0
-		if cell.TimesSeenCount < 100 {
-			// Linear decay from 4.0x at count=0 to 1.0x at count=100
-			warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
-		}
+		warmupMultiplier := WarmupMultiplier(cell.TimesSeenCount)
 
-		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*p.Distance+0.01)*warmupMultiplier + safety
+		closenessThreshold := ForegroundClosenessWindowMetres(
+			closenessMultiplier, float64(cell.RangeSpreadMeters),
+			cellNoiseRel, p.Distance, safety, warmupMultiplier)
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
 		// Locked baseline classification: if cell has a locked baseline, use it for classification
@@ -324,11 +315,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if cell.LockedBaseline > 0 && cell.LockedAtCount >= lockedThresholdU32 {
 			// Use locked baseline for classification - more stable than EMA average
 			lockedDiff := math.Abs(float64(cell.LockedBaseline) - p.Distance)
-			// Acceptance window: locked spread * multiplier + noise-based margin + safety
-			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + cellNoiseRel*p.Distance + safety
-			if lockedWindow < 0.1 {
-				lockedWindow = 0.1 // Minimum 10cm window
-			}
+			lockedWindow := LockedBaselineWindowMetres(
+				lockedMultiplier, float64(cell.LockedSpread),
+				cellNoiseRel, p.Distance, safety)
 			isWithinLockedRange = lockedDiff <= lockedWindow
 		}
 
@@ -421,16 +410,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				cell.RecentForegroundCount++
 			}
 
-			// Decrease confidence for divergent observations, but maintain minimum floor
-			// to prevent cells from "forgetting" their settled background
+			// Decrease confidence for divergent observations, down to the
+			// floor, so a cell does not "forget" a settled background after a
+			// few transits.
+			//
+			// There is no full-drain branch. The one removed here required
+			// TimesSeenCount <= minConfFloor and TimesSeenCount > 0 and
+			// minConfFloor == 0 at once, which cannot hold — and minConfFloor
+			// is never 0 anyway, because an unset floor is coerced to
+			// DefaultMinConfidenceFloor above. TimesSeenCount therefore cannot
+			// reach zero here, which is why no nonzeroCellCount bookkeeping
+			// belongs on this path.
 			if cell.TimesSeenCount > minConfFloor {
 				cell.TimesSeenCount--
-			} else if cell.TimesSeenCount > 0 && minConfFloor == 0 {
-				// Only allow full drain if MinConfidenceFloor is explicitly 0
-				cell.TimesSeenCount--
-				if cell.TimesSeenCount == 0 && g.nonzeroCellCount > 0 {
-					g.nonzeroCellCount--
-				}
 			}
 			// Freeze cell if divergence is very large, but only if we are not confident
 			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),

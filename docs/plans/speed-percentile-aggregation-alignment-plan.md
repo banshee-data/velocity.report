@@ -2,6 +2,7 @@
 
 - **Status:** Proposed - design reset documented; implementation and contract rework pending
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
+- **Target:** v0.5.4 alongside provisional headway report aggregation
 - **Scope:** reserve percentiles for grouped/report aggregates only, back out the old single-track speed-label proto/API work, rename raw `peak` to `max`, define replacement track-level speed metrics, and keep one canonical aggregate percentile path
 - **Related:** [Traffic Description Language plan](data-traffic-description-language-plan.md), [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Metrics Registry and Observability Plan](metrics-registry-and-observability-plan.md), [Executive Decisions Register](../DECISIONS.md), [radar percentile queries](../../internal/db/queries_histograms.md)
 - **Canonical:** [percentile-aggregation-semantics.md](../radar/architecture/percentile-aggregation-semantics.md)
@@ -202,7 +203,7 @@ The high-level direction is now clear and should not be reopened:
 | PDF generator                  | P50/P85/P98 aggregate stats, correct usage   |
 | Web charts (`+page.svelte`)    | P50/P85/P98/Max aggregate display            |
 
-### ⚠️ needs migration 000030 (v0.5.x)
+### ⚠️ needs migration 000030 (v0.5.4)
 
 | Surface                                       | Issue                                                   |
 | --------------------------------------------- | ------------------------------------------------------- |

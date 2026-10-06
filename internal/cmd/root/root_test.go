@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
 func runDispatch(t *testing.T, prog string, args []string) (code int, stdout, stderr string) {
@@ -122,6 +124,7 @@ func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
 		{[]string{"data", "transits", "list"}, 10, "server", []string{"transits", "list"}},
 		{[]string{"data", "sql", "SELECT 1"}, 10, "server", []string{"sql", "SELECT 1"}},
 		{[]string{"report", "pdf", "--version"}, 10, "server", []string{"pdf", "--version"}},
+		{[]string{"report", "headway", "--oracle"}, 10, "server", []string{"headway", "--oracle"}},
 		{[]string{"tune", "sweep", "--dry-run"}, 12, "tune", []string{"--dry-run"}},
 		{[]string{"lidar", "pcap-split", "-pcap", "x.pcap"}, 13, "lidar", []string{"pcap-split", "-pcap", "x.pcap"}},
 	}
@@ -146,5 +149,18 @@ func TestVelocityCtlShimRemoved(t *testing.T) {
 	}
 	if c, _, _ := runDispatch(t, "velocity-ctl", []string{"upgrade"}); c != 2 {
 		t.Errorf("velocity-ctl upgrade = %d, want 2", c)
+	}
+}
+
+// A deployed binary runs where no selector file is on disk, so it ranks with
+// the copy it carries. That copy must be registered and must parse.
+func TestTheBinaryCarriesItsSelectorFile(t *testing.T) {
+	t.Chdir(t.TempDir())
+	c, err := segments.DefaultCatalogue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Source != "embedded" || len(c.ForRole("held_out")) == 0 {
+		t.Fatalf("selectors from %q, %d for held-out windows", c.Source, len(c.ForRole("held_out")))
 	}
 }

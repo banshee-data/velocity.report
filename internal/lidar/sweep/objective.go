@@ -12,6 +12,10 @@ type ObjectiveWeights struct {
 	Alignment    float64 `json:"alignment"`
 	NonzeroCells float64 `json:"nonzero_cells"`
 	ActiveTracks float64 `json:"active_tracks"`
+	// Course is a proxy, opt-in and subordinate to labelled acceptance gates.
+	CourseAlignment float64 `json:"course_alignment"`
+	// A site/window-specific count band replaces an unbounded default reward.
+	ActiveTrackBand *TrackCountBand `json:"active_track_band,omitempty"`
 
 	// Scene-level weights (opt-in; zero by default)
 	ForegroundCapture float64 `json:"foreground_capture"` // Positive = maximise capture ratio
@@ -28,15 +32,32 @@ func DefaultObjectiveWeights() ObjectiveWeights {
 		Misalignment: -0.5,
 		Alignment:    -0.01,
 		NonzeroCells: 0.1,
-		ActiveTracks: 0.3,
+		ActiveTracks: 0,
 	}
 }
 
 // ScoreResult computes a scalar score for a ComboResult using the given weights.
-// Log-scale is used for NonzeroCells and ActiveTracks; all other terms are linear.
+// Log-scale is used for NonzeroCells and explicitly requested legacy ActiveTracks.
+// Course is a proxy requiring eligible samples; a count band requires a labelled
+// site/window reference. Neither term should reward missing evidence or extra IDs.
 // Note: minimisation weights (e.g. Misalignment, EmptyBoxes) should be negative.
 func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 	score := 0.0
+	if weights.CourseAlignment != 0 {
+		if weights.CourseAlignment > 0 || math.IsNaN(weights.CourseAlignment) || math.IsInf(weights.CourseAlignment, 0) || result.CourseAlignmentP50Mean == nil || result.CourseAlignmentSnapshots == 0 ||
+			math.IsNaN(*result.CourseAlignmentP50Mean) || math.IsInf(*result.CourseAlignmentP50Mean, 0) ||
+			*result.CourseAlignmentP50Mean < 0 || *result.CourseAlignmentP50Mean > 90 {
+			return -math.MaxFloat64
+		}
+		score += weights.CourseAlignment * *result.CourseAlignmentP50Mean
+	}
+	if band := weights.ActiveTrackBand; band != nil {
+		if !band.valid() || result.TrackMetricsSnapshots == 0 || result.ActiveTracksMean < 0 || math.IsNaN(result.ActiveTracksMean) || math.IsInf(result.ActiveTracksMean, 0) {
+			return -math.MaxFloat64
+		}
+		distance := math.Max(0, math.Max(band.Min-result.ActiveTracksMean, result.ActiveTracksMean-band.Max))
+		score -= band.Penalty * distance
+	}
 
 	// Acceptance rate (0-1, higher is better)
 	score += weights.Acceptance * result.OverallAcceptMean
@@ -52,8 +73,8 @@ func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 		score += weights.NonzeroCells * math.Log(result.NonzeroCellsMean)
 	}
 
-	// Active tracks (log scale, more tracks is better for detection)
-	if result.ActiveTracksMean > 0 {
+	// Explicit legacy reward only; defaults and supplied bands do not reward IDs.
+	if weights.ActiveTrackBand == nil && result.ActiveTracksMean > 0 {
 		score += weights.ActiveTracks * math.Log(result.ActiveTracksMean)
 	}
 
@@ -73,6 +94,19 @@ func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 	score += weights.SpeedJitter * result.SpeedJitterMpsMean
 
 	return score
+}
+
+// TrackCountBand is supplied from a declared site/window reference population.
+// It is not inferred from whichever candidate happens to create the most tracks.
+type TrackCountBand struct {
+	Min     float64 `json:"min"`
+	Max     float64 `json:"max"`
+	Penalty float64 `json:"penalty"`
+}
+
+func (b TrackCountBand) valid() bool {
+	return b.Min >= 0 && b.Max >= b.Min && b.Penalty > 0 &&
+		!math.IsInf(b.Max, 0) && !math.IsInf(b.Penalty, 0)
 }
 
 // AcceptanceCriteria defines hard thresholds that a ComboResult must satisfy

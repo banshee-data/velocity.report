@@ -63,8 +63,8 @@ func (g *SyntheticGenerator) NextFrame() *FrameBundle {
 		Clusters:   g.generateClusters(frameID, now, elapsed),
 		Tracks:     g.generateTracks(frameID, now, elapsed),
 		PlaybackInfo: &PlaybackInfo{
-			IsLive:       true,
 			PlaybackRate: 1.0,
+			SourceMode:   "live",
 		},
 	}
 

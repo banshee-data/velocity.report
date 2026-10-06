@@ -826,6 +826,7 @@ export async function updateLidarReplayCase(
 		optimal_params_json?: Record<string, unknown> | null;
 		pcap_start_secs?: number;
 		pcap_duration_secs?: number;
+		pcap_files?: string[];
 	}
 ): Promise<LidarReplayCase> {
 	// Omit null optimal_params_json to avoid persisting the JSON literal "null";
@@ -1334,6 +1335,522 @@ export async function reloadSerialConfig(): Promise<SerialReloadResult> {
 	if (!res.ok) {
 		const error = await res.text();
 		throw new Error(`Failed to apply serial configuration: ${error}`);
+	}
+	return res.json();
+}
+
+/**
+ * A publishable LiDAR scene: the index entry giving a recording a place, a
+ * time and a name.
+ *
+ * `latitude`/`longitude` are optional overrides. Leave them empty and the
+ * scene inherits its linked site's position; `effective_*` and
+ * `position_source` report what the server resolved, so a caller placing a map
+ * marker never has to work out where the number came from.
+ */
+export interface Scene {
+	scene_id: string;
+	site_id: number | null;
+	title: string;
+	description: string | null;
+
+	latitude: number | null;
+	longitude: number | null;
+	effective_latitude?: number | null;
+	effective_longitude?: number | null;
+	position_source?: 'scene' | 'site' | 'none';
+
+	captured_start_ns: number | null;
+	captured_end_ns: number | null;
+	duration_secs: number | null;
+	/** RFC 3339 rendering of the capture window, for display and editing. */
+	captured_start?: string | null;
+	captured_end?: string | null;
+
+	source_capture: string | null;
+	source_vrlog_sha256: string | null;
+	frame_count: number | null;
+	frame_stride: number | null;
+
+	asset_path: string | null;
+	published: boolean;
+
+	created_at: string;
+	updated_at: string;
+}
+
+export async function getScenes(): Promise<Scene[]> {
+	const res = await fetch(`${API_BASE}/scenes`);
+	if (!res.ok) throw apiError('Could not load scenes', res.status);
+	return res.json();
+}
+
+export async function getScene(sceneId: string): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`);
+	if (!res.ok) throw apiError('Could not load scene', res.status);
+	return res.json();
+}
+
+/** Surfaces the server's own message, which explains what to fix. */
+async function sceneError(res: Response, fallback: string): Promise<Error> {
+	const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+	return new Error(data.error || `${fallback}: ${res.status}`);
+}
+
+export async function createScene(scene: Partial<Scene>): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not create scene');
+	return res.json();
+}
+
+export async function updateScene(sceneId: string, scene: Partial<Scene>): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not update scene');
+	return res.json();
+}
+
+export async function deleteScene(sceneId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not delete scene');
+}
+
+// Scene headway: GET /api/scenes/<id>/headway and its SVG through
+// /api/charts/histogram?kind=headway. Field names are the Go payload's,
+// which are behaviour registry ids and structural names; metric-keyed maps
+// are keyed by registry id (for example interaction.following_net_time_gap_s)
+// and suppression maps by reason token. Durations are integer nanoseconds.
+
+/** Estimate stages, least final first. */
+export type EstimateStage = 'online' | 'fixed_lag' | 'final';
+
+/** Every served headway result is provisional; fixture output is a synthetic oracle. */
+export type HeadwayStatus = 'provisional' | 'synthetic_oracle';
+
+export type HeadwayAvailability =
+	'available' | 'no_capture_window' | 'no_encounters' | 'source_ambiguous' | 'no_matching_version';
+
+export interface InteractionVersion {
+	estimate_stage: EstimateStage;
+	estimator_id: string;
+	obs_model_id: string;
+	method_id: string;
+	param_hash: string;
+}
+
+export interface HeadwayUncertainty {
+	kind: 'none' | 'sigma' | 'interval' | 'bounds';
+	sigma?: number;
+	lower?: number;
+	upper?: number;
+	coverage?: number;
+	method?: string;
+	samples?: number;
+}
+
+/** A measurement without its provenance: a value, or a suppression and its reason. */
+export interface HeadwayMeasurement {
+	name: string;
+	unit: string;
+	value?: number;
+	uncertainty?: HeadwayUncertainty;
+	suppressed: boolean;
+	reason?: string;
+	opportunity_seconds?: number;
+}
+
+export interface HeadwaySuppressionCount {
+	instants: number;
+	nanos: number;
+}
+
+export interface HeadwayAccounting {
+	instants: number;
+	valid_nanos: number;
+	/** Valid time below each band, keyed by the band's duration metric id. */
+	band_nanos: Record<string, number>;
+	predicted_only_nanos: number;
+	record_gap_nanos: number;
+	suppressions?: Record<string, HeadwaySuppressionCount>;
+}
+
+export interface HeadwayHistogramBin {
+	lower: number;
+	/** Absent on the open last bin. */
+	upper?: number;
+	instants: number;
+	nanos: number;
+	sigma_inside_nanos: number;
+	sigma_overlap_nanos: number;
+}
+
+export interface HeadwayExcludedTime {
+	instants: number;
+	nanos: number;
+	predicted_only_nanos: number;
+}
+
+export interface HeadwayBandExposure {
+	/** The band's duration metric id. */
+	name: string;
+	/** The band's net time gap, in seconds. */
+	threshold: number;
+	events: number;
+	instants: number;
+	nanos: number;
+	/** Pooled rate, keyed by the band's rate metric id. */
+	rate: HeadwayMeasurement;
+}
+
+export interface HeadwayDistribution {
+	schema: string;
+	version: InteractionVersion;
+	events: number;
+	exposure_events: number;
+	accounting: HeadwayAccounting;
+	accounted_nanos: number;
+	histograms: Record<string, { unit: string; bins: HeadwayHistogramBin[] }>;
+	/** Accounted time outside the bins, keyed by reason token. */
+	excluded: Record<string, HeadwayExcludedTime>;
+	bands: HeadwayBandExposure[];
+}
+
+export interface HeadwayEncounter {
+	event_id: string;
+	/** The follower. */
+	primary_track_id: string;
+	/** The leader. */
+	secondary_track_id: string;
+	start_unix_nanos: number;
+	end_unix_nanos: number;
+	geometry_id: string;
+	worst_support: string;
+	accounting: HeadwayAccounting;
+	/** The production block: suppressed as estimate_not_final below the final stage. */
+	measurements: Record<string, HeadwayMeasurement>;
+	/** Review-only values, present exactly when the stage is not final. */
+	provisional?: Record<string, HeadwayMeasurement>;
+}
+
+export interface HeadwaySource {
+	source_id: string;
+	events: number;
+	first_unix_nanos: number;
+	last_unix_nanos: number;
+}
+
+export interface HeadwayVersionSummary {
+	version: InteractionVersion;
+	events: number;
+	status: HeadwayStatus;
+}
+
+export interface SceneHeadway {
+	scene_id: string;
+	status: HeadwayStatus;
+	availability: HeadwayAvailability;
+	start_unix_nanos?: number;
+	end_unix_nanos?: number;
+	source_id?: string;
+	sources: HeadwaySource[];
+	version?: InteractionVersion;
+	versions: HeadwayVersionSummary[];
+	distribution?: HeadwayDistribution;
+	encounters: HeadwayEncounter[];
+}
+
+/** Which analysis to read: a source, and a stage or one exact version. */
+export interface HeadwaySelection {
+	sourceId?: string;
+	stage?: EstimateStage;
+	version?: InteractionVersion;
+}
+
+function headwaySelectionParams(selection: HeadwaySelection = {}) {
+	const v = selection.version;
+	return {
+		source_id: selection.sourceId,
+		stage: v ? v.estimate_stage : selection.stage,
+		estimator_id: v?.estimator_id,
+		obs_model_id: v?.obs_model_id,
+		method_id: v?.method_id,
+		param_hash: v?.param_hash
+	};
+}
+
+export function buildSceneHeadwayPath(sceneId: string, selection: HeadwaySelection = {}): string {
+	return buildRelativeApiPath(
+		`/scenes/${encodeURIComponent(sceneId)}/headway`,
+		headwaySelectionParams(selection)
+	);
+}
+
+export interface HeadwayChartRequest extends HeadwaySelection {
+	sceneId: string;
+	/** A distributed metric id; the server defaults to the net time gap. */
+	metric?: string;
+	paperSize?: 'a4' | 'letter';
+}
+
+export function buildHeadwayChartPath(request: HeadwayChartRequest): string {
+	return buildRelativeApiPath('/charts/histogram', {
+		kind: 'headway',
+		scene: request.sceneId,
+		...headwaySelectionParams(request),
+		metric: request.metric,
+		paper_size: request.paperSize
+	});
+}
+
+export async function getSceneHeadway(
+	sceneId: string,
+	selection: HeadwaySelection = {}
+): Promise<SceneHeadway> {
+	const res = await fetch(buildSceneHeadwayPath(sceneId, selection));
+	if (!res.ok) throw await sceneError(res, 'Could not load following distribution');
+	return res.json();
+}
+
+// Capture index API
+//
+// The capture index records what is on the configured capture volumes, what
+// changed since the last look, and which files form a continuous session.
+
+import type {
+	CaptureFile,
+	CaptureJob,
+	CaptureRoot,
+	CaptureSession,
+	PeriodsResponse,
+	ScanResponse
+} from '$lib/types/captures';
+
+export async function getCaptureRoots(): Promise<CaptureRoot[]> {
+	const res = await fetch(`${API_BASE}/lidar/capture/roots`);
+	if (!res.ok) throw apiError('Could not load capture volumes', res.status);
+	const data = await res.json();
+	return data.roots || [];
+}
+
+/**
+ * scanCaptureRoots re-indexes the configured volumes.
+ *
+ * probe defaults to true, which reads every new or changed capture in full to
+ * learn its packet extent. That is minutes per volume on a first scan, so a
+ * caller wanting a quick listing passes false and probes later.
+ */
+export async function scanCaptureRoots(options?: {
+	rootId?: string;
+	probe?: boolean;
+	async?: boolean;
+}): Promise<ScanResponse> {
+	const params = new URLSearchParams();
+	if (options?.rootId) params.set('root_id', options.rootId);
+	if (options?.probe === false) params.set('probe', 'false');
+	if (options?.async) params.set('async', 'true');
+	const url = `${API_BASE}/lidar/capture/scan${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url, { method: 'POST' });
+	if (!res.ok) throw apiError('Could not scan the capture volumes', res.status);
+	return res.json();
+}
+
+export async function getCaptureSessions(rootId?: string): Promise<CaptureSession[]> {
+	const params = new URLSearchParams();
+	if (rootId) params.set('root_id', rootId);
+	const url = `${API_BASE}/lidar/capture/sessions${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture sessions', res.status);
+	const data = await res.json();
+	return data.sessions || [];
+}
+
+export async function getCaptureFiles(options?: {
+	rootId?: string;
+	sessionId?: string;
+}): Promise<CaptureFile[]> {
+	const params = new URLSearchParams();
+	if (options?.sessionId) params.set('session_id', options.sessionId);
+	else if (options?.rootId) params.set('root_id', options.rootId);
+	const url = `${API_BASE}/lidar/capture/files${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture files', res.status);
+	const data = await res.json();
+	return data.files || [];
+}
+
+export async function getCapturePeriods(sessionId: string): Promise<PeriodsResponse> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/periods?session_id=${encodeURIComponent(sessionId)}`
+	);
+	if (!res.ok) throw apiError('Could not load the motion timeline', res.status);
+	return res.json();
+}
+
+export async function startCaptureMotionPass(sessionId: string): Promise<CaptureJob> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/motion-pass?session_id=${encodeURIComponent(sessionId)}`,
+		{ method: 'POST' }
+	);
+	if (!res.ok) throw apiError('Could not queue the motion pass', res.status);
+	const data = await res.json();
+	return data.job;
+}
+
+export async function getCaptureJobs(options?: {
+	sessionId?: string;
+	limit?: number;
+}): Promise<CaptureJob[]> {
+	const params = new URLSearchParams();
+	if (options?.sessionId) params.set('session_id', options.sessionId);
+	if (options?.limit) params.set('limit', String(options.limit));
+	const url = `${API_BASE}/lidar/capture/jobs${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture jobs', res.status);
+	const data = await res.json();
+	return data.jobs || [];
+}
+
+export async function cancelCaptureJob(jobId: string): Promise<void> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/jobs/cancel?job_id=${encodeURIComponent(jobId)}`,
+		{ method: 'POST' }
+	);
+	if (!res.ok) throw apiError('Could not cancel the job', res.status);
+}
+
+export async function setCaptureSessionLabel(
+	sessionId: string,
+	label: string,
+	sensorId?: string
+): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/capture/session/label`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ session_id: sessionId, label, sensor_id: sensorId ?? '' })
+	});
+	if (!res.ok) throw apiError('Could not name the session', res.status);
+}
+
+/**
+ * createReplayCaseFromCaptures creates a case covering an ordered set of
+ * captures.
+ *
+ * The offsets are measured from the start of the whole sequence, not of any one
+ * capture: a case describes a stretch of a site visit, and where the capture
+ * tool happened to roll its output is not part of that description. The server
+ * refuses a set whose captures do not abut.
+ */
+export async function createReplayCaseFromCaptures(request: {
+	sensor_id: string;
+	pcap_files: string[];
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+	session_id?: string;
+	source_period_id?: string;
+}): Promise<LidarReplayCase> {
+	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || 'Could not create the replay case', res.status);
+	}
+	return res.json();
+}
+
+// Geographic identity of located replay cases
+
+import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '$lib/types/captures';
+
+/**
+ * setReplayCaseLocation records where a case was captured.
+ *
+ * Only the position is sent. The S2 tokens are derived server-side with
+ * Parent — a family assembled by a client could disagree with itself, which is
+ * a provenance error rather than something to reconcile.
+ */
+export async function setReplayCaseLocation(
+	replayCaseId: string,
+	location: { origin_lat: number; origin_lon: number; geographic_source?: string }
+): Promise<CaseLocation> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(location)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || 'Could not record the capture location', res.status);
+	}
+	const data = await res.json();
+	return data.location;
+}
+
+export async function clearReplayCaseLocation(replayCaseId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw apiError('Could not clear the capture location', res.status);
+}
+
+/** getSceneMap returns every area captures have been taken in, with the sites
+ * and cases within each. */
+export async function getSceneMap(): Promise<SceneMapResponse> {
+	const res = await fetch(`${API_BASE}/lidar/scene-map`);
+	if (!res.ok) throw apiError('Could not load the scene map', res.status);
+	return res.json();
+}
+
+/**
+ * setSiteCanonicalPose records a site's fixed position — a surveyed or
+ * hand-entered point such as the midpoint of the intersection — distinct
+ * from any one case's sensor pose. An empty label leaves whatever the site
+ * is already labelled.
+ */
+export async function setSiteCanonicalPose(
+	l16Token: string,
+	pose: {
+		canonical_lat: number;
+		canonical_lon: number;
+		canonical_source: SiteSource;
+		label?: string;
+	}
+): Promise<LidarSite> {
+	const res = await fetch(`${API_BASE}/lidar/sites/${l16Token}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(pose)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || "Could not record the site's canonical pose", res.status);
 	}
 	return res.json();
 }

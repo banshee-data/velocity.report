@@ -41,7 +41,11 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
 	// Use the full path as-is (relative to PCAP safe directory on the server)
-	payload := map[string]string{"pcap_file": pcapFile}
+	// analysis_mode is sent explicitly rather than omitted: the server defaults
+	// an omitted field to true, and this simple client's callers (parameter
+	// sweeps reading live tracking output, not recorded VRLOG/analysis-run
+	// data) don't want an analysis run and recording created for every replay.
+	payload := map[string]interface{}{"pcap_file": pcapFile, "analysis_mode": false}
 	data, _ := json.Marshal(payload)
 
 	diagf("Requesting PCAP replay for sensor %s: file=%s", c.SensorID, pcapFile)
@@ -256,13 +260,14 @@ func (c *Client) SetTuningParams(params map[string]interface{}) error {
 
 // PCAPReplayConfig holds configuration for starting a PCAP replay.
 type PCAPReplayConfig struct {
-	PCAPFile        string
-	StartSeconds    float64
-	DurationSeconds float64
-	MaxRetries      int
-	AnalysisMode    bool    // When true, preserve grid after PCAP completion
-	SpeedMode       string  // "analysis", "realtime", or "scaled"
-	SpeedRatio      float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
+	PCAPFile              string
+	StartSeconds          float64
+	DurationSeconds       float64
+	MaxRetries            int
+	AnalysisMode          bool    // When true, preserve grid after PCAP completion
+	SettleBeforeRecording bool    // When true, warm and reload the grid before recording
+	SpeedMode             string  // "analysis", "realtime", or "scaled"
+	SpeedRatio            float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
@@ -279,8 +284,12 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	if cfg.DurationSeconds != 0 {
 		payload["duration_seconds"] = cfg.DurationSeconds
 	}
-	if cfg.AnalysisMode {
-		payload["analysis_mode"] = true
+	// Always sent explicitly, never omitted: the server defaults an omitted
+	// analysis_mode to true, so omitting it here whenever cfg.AnalysisMode is
+	// false would silently flip the caller's intent instead of honouring it.
+	payload["analysis_mode"] = cfg.AnalysisMode
+	if cfg.SettleBeforeRecording {
+		payload["settle_before_recording"] = true
 	}
 	if cfg.SpeedMode != "" {
 		payload["speed_mode"] = cfg.SpeedMode
@@ -334,7 +343,7 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 
 // StopPCAPReplay stops any running PCAP replay for this sensor.
 func (c *Client) StopPCAPReplay() error {
-	url := fmt.Sprintf("%s/api/lidar/pcap/stop?sensor_id=%s", c.BaseURL, c.SensorID)
+	url := fmt.Sprintf("%s/api/lidar/replay/stop?sensor_id=%s", c.BaseURL, c.SensorID)
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)

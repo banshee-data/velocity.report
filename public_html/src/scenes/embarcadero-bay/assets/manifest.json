@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "embarcadero-bay",
+    "title": "Embarcadero at Bay"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

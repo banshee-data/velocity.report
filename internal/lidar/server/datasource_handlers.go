@@ -24,9 +24,15 @@ type replayFrameBuilder interface {
 	DroppedFrames() uint64
 }
 
+type replayCallbackDrainer interface {
+	FlushPendingFrames()
+	WaitForCallbacks()
+}
+
 var (
 	countPCAPPackets       = network.CountPCAPPackets
 	readPCAPFile           = network.ReadPCAPFile
+	readPCAPSequence       = network.ReadPCAPSequence
 	readPCAPFileRealtime   = network.ReadPCAPFileRealtime
 	newForegroundForwarder = network.NewForegroundForwarder
 	absPath                = filepath.Abs
@@ -38,6 +44,33 @@ var (
 		}
 		return fb
 	}
+	prepareSettledPCAPReplay = func(ws *Server, sensorID, sourcePath string) error {
+		if fb := getReplayFrameBuilder(sensorID); fb != nil {
+			if drainer, ok := fb.(replayCallbackDrainer); ok {
+				drainer.FlushPendingFrames()
+				drainer.WaitForCallbacks()
+			}
+		}
+
+		mgr := l3grid.GetBackgroundManager(sensorID)
+		if mgr == nil {
+			return fmt.Errorf("no background manager is registered for sensor %s", sensorID)
+		}
+		if !mgr.IsSettlingComplete() {
+			return fmt.Errorf("PCAP ended before the background grid settled")
+		}
+		if err := ws.resetAllState(); err != nil {
+			return fmt.Errorf("reset state between PCAP passes: %w", err)
+		}
+		restored, err := mgr.RestoreSettledSnapshotBySourcePath(sourcePath)
+		if err != nil {
+			return err
+		}
+		if !restored {
+			return fmt.Errorf("no settled background snapshot was persisted for %s", sourcePath)
+		}
+		return nil
+	}
 )
 
 // StartLiveListener starts the live UDP listener via DataSourceManager.
@@ -48,21 +81,6 @@ func (ws *Server) StartLiveListener(ctx context.Context) error {
 // StopLiveListener stops the live UDP listener via DataSourceManager.
 func (ws *Server) StopLiveListener() error {
 	return ws.dataSourceManager.StopLiveListener()
-}
-
-// GetCurrentSource returns the currently active data source.
-func (ws *Server) GetCurrentSource() DataSource {
-	return ws.dataSourceManager.CurrentSource()
-}
-
-// GetCurrentPCAPFile returns the current PCAP file being replayed.
-func (ws *Server) GetCurrentPCAPFile() string {
-	return ws.dataSourceManager.CurrentPCAPFile()
-}
-
-// IsPCAPInProgress returns true if PCAP replay is currently active.
-func (ws *Server) IsPCAPInProgress() bool {
-	return ws.dataSourceManager.IsPCAPInProgress()
 }
 
 // --- ServerDataSourceOperations implementation ---
@@ -117,7 +135,7 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 	for retry := 0; retry < maxRetries; retry++ {
 		ws.dataSourceMu.Lock()
 
-		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
+		if ws.PipelineState().Source == SourceModePCAP {
 			ws.dataSourceMu.Unlock()
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
@@ -137,11 +155,6 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 			return fmt.Errorf("reset state: %w", err)
 		}
 
-		// Set source path on BackgroundManager for region restoration
-		if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-			mgr.SetSourcePath(pcapFile)
-		}
-
 		if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
 			StartSeconds:     startSeconds,
 			DurationSeconds:  durationSeconds,
@@ -156,7 +169,6 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 			return fmt.Errorf("start PCAP: %w", err)
 		}
 
-		ws.currentSource = DataSourcePCAP
 		ws.dataSourceMu.Unlock()
 
 		if ws.onPCAPStarted != nil {
@@ -170,7 +182,7 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 // StopPCAPForSweep cancels any running PCAP replay and restores live mode.
 func (ws *Server) StopPCAPForSweep() error {
 	ws.dataSourceMu.Lock()
-	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
+	if ws.PipelineState().Source != SourceModePCAP {
 		ws.dataSourceMu.Unlock()
 		return nil // not in PCAP mode: nothing to do
 	}
@@ -179,7 +191,6 @@ func (ws *Server) StopPCAPForSweep() error {
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
 	// Unlock before waiting so PCAP goroutine can finish
@@ -195,10 +206,7 @@ func (ws *Server) StopPCAPForSweep() error {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	ws.pcapMu.Lock()
-	analysisMode := ws.pcapAnalysisMode
-	ws.pcapAnalysisMode = false
-	ws.pcapMu.Unlock()
+	analysisMode := ws.PipelineState().AnalysisMode()
 
 	if !analysisMode {
 		if err := ws.resetAllState(); err != nil {
@@ -216,8 +224,8 @@ func (ws *Server) StopPCAPForSweep() error {
 		return fmt.Errorf("restart live listener: %w", err)
 	}
 
-	ws.currentSource = DataSourceLive
-	ws.currentPCAPFile = ""
+	// The sweep stop path resets the grid unless the replay was an analysis run.
+	ws.setSourceLive(false)
 
 	if ws.onPCAPStopped != nil {
 		ws.onPCAPStopped()
@@ -225,9 +233,9 @@ func (ws *Server) StopPCAPForSweep() error {
 	return nil
 }
 
-// PCAPDone returns a channel that is closed when the current PCAP replay
-// finishes, or nil if no replay is in progress. The caller must not close
-// the returned channel.
+// PCAPDone returns the current or most-recent replay's completion channel.
+// A completed replay leaves a closed channel in place so callers cannot mistake
+// cleanup in progress for the absence of a replay. The caller must not close it.
 func (ws *Server) PCAPDone() <-chan struct{} {
 	ws.pcapMu.Lock()
 	defer ws.pcapMu.Unlock()
@@ -239,7 +247,7 @@ func (ws *Server) PCAPDone() <-chan struct{} {
 func (ws *Server) LastAnalysisRunID() string {
 	ws.pcapMu.Lock()
 	defer ws.pcapMu.Unlock()
-	return ws.pcapLastRunID
+	return ws.PipelineState().LastRunID
 }
 
 // ResetAllStateDirect exposes the internal resetAllState for in-process callers.
@@ -257,6 +265,7 @@ var _ ServerDataSourceOperations = (*Server)(nil)
 
 func (ws *Server) startLiveListenerLocked() error {
 	if ws.udpListener != nil {
+		ws.setLiveListenerRunning(true)
 		return nil
 	}
 	baseCtx := ws.baseContext()
@@ -306,11 +315,13 @@ func (ws *Server) startLiveListenerLocked() error {
 		ws.udpListener = nil
 		ws.udpListenerCancel = nil
 		ws.udpListenerDone = nil
+		ws.setLiveListenerRunning(false)
 		return fmt.Errorf("failed to start UDP listener: %w", err)
 	case <-time.After(500 * time.Millisecond):
 		// Timeout elapsed without receiving an error.
 		// This means Start() successfully bound the socket and entered the read loop.
 		// The listener is now running in the background goroutine.
+		ws.setLiveListenerRunning(true)
 		return nil
 	}
 }
@@ -329,6 +340,7 @@ func (ws *Server) stopLiveListenerLocked() {
 	ws.udpListener = nil
 	ws.udpListenerCancel = nil
 	ws.udpListenerDone = nil
+	ws.setLiveListenerRunning(false)
 }
 
 func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
@@ -454,16 +466,10 @@ func (ws *Server) failReplayAnalysisRun(runID, errMsg string) {
 
 func (ws *Server) resetFailedPCAPStartState() {
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = false
 	ws.pcapCancel = nil
 	ws.pcapDone = nil
-	ws.pcapAnalysisMode = false
-	ws.pcapDisableRecording = false
-	ws.pcapSpeedMode = ""
-	ws.pcapSpeedRatio = 0
-	ws.plotsEnabled = false
-	ws.pcapLastRunID = ""
 	ws.pcapMu.Unlock()
+	ws.abandonReplayStart()
 }
 
 func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
@@ -487,20 +493,20 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		replayCfg.SpeedRatio = 1.0
 	}
 
-	ws.pcapMu.Lock()
-	if ws.pcapInProgress {
-		ws.pcapMu.Unlock()
-		return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress: stop it first via POST /pcap/stop")}
+	if ok, blocker := ws.tryBeginPCAPReplay(replayCfg); !ok {
+		// Name what is holding the slot, but only ever one endpoint to clear
+		// it. Pointing PCAP and VRLOG callers at different stops is what
+		// produced a pair of errors that referred callers to each other.
+		kind := "a PCAP replay"
+		if blocker == SourceModeVRLog {
+			kind = "a VRLOG replay"
+		}
+		return &switchError{status: http.StatusConflict, err: fmt.Errorf(
+			"%s is already running: stop it first via POST /api/lidar/replay/stop", kind)}
 	}
-	ws.pcapInProgress = true
-	ws.pcapAnalysisMode = replayCfg.AnalysisMode
-	ws.pcapDisableRecording = replayCfg.DisableRecording
+	ws.pcapMu.Lock()
 	ws.pcapCancel = nil
 	ws.pcapDone = nil
-	ws.pcapSpeedMode = ""
-	ws.pcapSpeedRatio = 0
-	ws.plotsEnabled = false
-	ws.pcapLastRunID = ""
 	ws.pcapMu.Unlock()
 
 	resolvedPath, resolveErr := ws.resolvePCAPPath(pcapFile)
@@ -514,6 +520,31 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 		ws.resetFailedPCAPStartState()
 		return resolveErr
+	}
+
+	// A multi-file replay is planned before anything starts, so a join too wide
+	// to cross is reported to the caller instead of surfacing as a log line
+	// half way through a twenty-minute replay.
+	var plan *replayPlan
+	if len(replayCfg.ReplayFiles) > 1 {
+		builtPlan, planErr := ws.buildReplaySequence(
+			replayCfg.ReplayFiles, replayCfg.StartSeconds, replayCfg.DurationSeconds)
+		if planErr != nil {
+			ws.resetFailedPCAPStartState()
+			return planErr
+		}
+		plan = builtPlan
+		diagf("PCAP sequence planned: %d files, %d join(s), %v lost at joins, %d revolution(s) will be dropped",
+			len(plan.Steps), plan.JoinsCrossed, plan.Lost, plan.FrameDrops)
+	}
+
+	// Identify persisted region snapshots by the resolved path. Callers pass a
+	// bare filename — the documented curl example and the status page form both
+	// do — and the settled-snapshot restore looks up the resolved path, so
+	// recording the caller's spelling here meant the two never matched and
+	// settle-before-recording failed on every relative path.
+	if mgr := l3grid.GetBackgroundManager(ws.replayAnalysisSensorID(replayCfg)); mgr != nil {
+		mgr.SetSourcePath(resolvedPath)
 	}
 
 	runID := ""
@@ -540,10 +571,6 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	ws.pcapMu.Lock()
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
-	ws.pcapSpeedMode = replayCfg.SpeedMode
-	ws.pcapSpeedRatio = replayCfg.SpeedRatio
-	ws.plotsEnabled = replayCfg.EnablePlots
-	ws.pcapLastRunID = runID
 	ws.pcapMu.Unlock()
 
 	// Initialize grid plotter if enabled
@@ -559,10 +586,14 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 	}
 
-	ws.currentPCAPFile = resolvedPath
+	ws.markReplayRunning(resolvedPath, replayCfg.SpeedMode, replayCfg.SpeedRatio, runID)
 
-	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string) {
+	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string, plan *replayPlan) {
 		defer close(finished)
+		// Release the slot claimed by tryBeginPCAPReplay on every exit path,
+		// whatever the source is by then. See releaseReplaySlot for what the
+		// old conditional teardown stranded.
+		defer ws.releaseReplaySlot()
 		defer cancel()
 		sensorID := ws.replayAnalysisSensorID(replayCfg)
 		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)
@@ -572,12 +603,6 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if replayCfg.AnalysisMode || replayCfg.DisableRecording {
 			ws.pcapDisableTrackPersistence.Store(true)
 			defer ws.pcapDisableTrackPersistence.Store(false)
-		}
-
-		var recordingStarted bool
-		if runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
-			ws.onRecordingStart(runID)
-			recordingStarted = true
 		}
 
 		// Configure parser to use LiDAR timestamps for PCAP replay
@@ -603,15 +628,27 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			diagf("PacketForwarder started for PCAP replay")
 		}
 
-		// Pre-count packets for progress tracking and timeline display.
-		countResult, countErr := countPCAPPackets(path, ws.udpPort)
-		if countErr != nil {
+		// Pre-count packets for progress tracking and timeline display. A
+		// planned sequence probed every file while validating its joins, so its
+		// aggregate figures are used rather than re-counting the primary file,
+		// whose own count would scale progress to the wrong total.
+		var countResult network.PCAPCountResult
+		if plan != nil {
+			countResult = network.PCAPCountResult{
+				Count:            plan.TotalPackets,
+				FirstTimestampNs: plan.FirstTimestampNs,
+				LastTimestampNs:  plan.LastTimestampNs,
+			}
+			ws.setReplayProgress(0, countResult.Count)
+			diagf("PCAP sequence: %d packets across %d files", countResult.Count, len(plan.Steps))
+			if ws.onPCAPTimestamps != nil {
+				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
+			}
+		} else if result, countErr := countPCAPPackets(path, ws.udpPort); countErr != nil {
 			opsf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
-			ws.pcapMu.Lock()
-			ws.pcapTotalPackets = countResult.Count
-			ws.pcapCurrentPacket = 0
-			ws.pcapMu.Unlock()
+			countResult = result
+			ws.setReplayProgress(0, countResult.Count)
 			diagf("PCAP pre-count: %d packets", countResult.Count)
 			if ws.onPCAPTimestamps != nil {
 				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
@@ -620,13 +657,35 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 		// Progress callback: update internal state and notify external listeners
 		onProgress := func(current, total uint64) {
-			ws.pcapMu.Lock()
-			ws.pcapCurrentPacket = current
-			ws.pcapTotalPackets = total
-			ws.pcapMu.Unlock()
+			ws.setReplayProgress(current, total)
 			if ws.onPCAPProgress != nil {
 				ws.onPCAPProgress(current, total)
 			}
+		}
+
+		// runPass replays the requested window once: as a multi-file sequence
+		// when one was planned, and as the single file otherwise. Both passes
+		// below share it so the settling and recording passes cannot drift
+		// apart in how they read.
+		runPass := func(forwarder *network.PacketForwarder) error {
+			if plan == nil {
+				return readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats,
+					forwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0,
+					countResult.Count, onProgress)
+			}
+			res, seqErr := readPCAPSequence(ctx, plan.Steps, network.SequenceReplayConfig{
+				UDPPort:      ws.udpPort,
+				Parser:       ws.parser,
+				FrameBuilder: ws.frameBuilder,
+				Stats:        ws.stats,
+				Forwarder:    forwarder,
+				OnProgress:   onProgress,
+			})
+			if seqErr == nil && res.FramesDropped > 0 {
+				diagf("PCAP sequence: dropped %d revolution(s) straddling capture-file joins",
+					res.FramesDropped)
+			}
+			return seqErr
 		}
 
 		var err error
@@ -638,9 +697,47 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			fb.SetBlockOnFrameChannel(true)
 			defer fb.SetBlockOnFrameChannel(false)
 		}
-		if replayCfg.SpeedMode == "analysis" {
-			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
-		} else {
+
+		if replayCfg.SettleBeforeRecording {
+			// Name the pass. Both passes replay the same window and report the
+			// same source and in-progress flag, and packet progress restarts
+			// between them, so without this a progress display runs 0-100%
+			// twice with nothing to say why.
+			ws.setReplayPass(ReplayPassSettling)
+			diagf("Starting PCAP settling pass before VRLOG recording: %s", path)
+			err = runPass(nil)
+			if err == nil {
+				err = prepareSettledPCAPReplay(ws, sensorID, path)
+			}
+			if err == nil {
+				if ws.stats != nil {
+					ws.stats.GetAndReset()
+				}
+				ws.setReplayProgress(0, countResult.Count)
+				ws.setReplayPass(ReplayPassRecording)
+				diagf("Settled background restored from disk; starting recorded PCAP pass from the requested offset")
+			}
+		}
+
+		var recordingStarted bool
+		if err == nil && runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
+			// Publish where the recorder is writing so the status surfaces can
+			// report it. Previously this was a goroutine-local bool paired with
+			// a closure local in the radar command, so nothing could observe it.
+			//
+			// An empty path means the recorder could not start — most often no
+			// visualiser publisher is configured. Reporting recording=true then
+			// would be its own small lie, so only the successful case is marked.
+			recordingPath := ws.onRecordingStart(runID)
+			recordingStarted = true
+			if recordingPath != "" {
+				ws.setRecording(runID, recordingPath)
+			}
+		}
+
+		if err == nil && replayCfg.SpeedMode == "analysis" {
+			err = runPass(ws.packetForwarder)
+		} else if err == nil {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
 			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
@@ -727,7 +824,33 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 				OnProgress:      onProgress,
 			}
 
-			err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			if plan != nil {
+				// A paced sequence reads the same way a paced single file
+				// does, one clock shared across the joins, so the ordered
+				// list plays as one stream.
+				res, seqErr := readPCAPSequence(ctx, plan.Steps, network.SequenceReplayConfig{
+					UDPPort:      ws.udpPort,
+					Parser:       ws.parser,
+					FrameBuilder: ws.frameBuilder,
+					Stats:        ws.stats,
+					Forwarder:    ws.packetForwarder,
+					OnProgress:   onProgress,
+					Paced:        config,
+				})
+				if seqErr == nil && res.FramesDropped > 0 {
+					diagf("PCAP sequence: dropped %d revolution(s) straddling capture-file joins",
+						res.FramesDropped)
+				}
+				err = seqErr
+			} else {
+				err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			}
+		}
+		if fb := getReplayFrameBuilder(sensorID); fb != nil {
+			if drainer, ok := fb.(replayCallbackDrainer); ok {
+				drainer.FlushPendingFrames()
+				drainer.WaitForCallbacks()
+			}
 		}
 
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -755,6 +878,9 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			}
 		}
 
+		if recordingStarted {
+			ws.clearRecording()
+		}
 		if recordingStarted && ws.onRecordingStop != nil {
 			vrlogPath := ws.onRecordingStop(runID)
 			if vrlogPath != "" && ws.db != nil {
@@ -779,45 +905,24 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 
 		ws.pcapMu.Lock()
-		ws.pcapInProgress = false
 		ws.pcapCancel = nil
-		ws.pcapDone = nil
-		ws.pcapSpeedMode = ""
-		ws.pcapSpeedRatio = 0.0
-		ws.plotsEnabled = false
 		ws.pcapMu.Unlock()
 
-		ws.dataSourceMu.Lock()
-		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
-			ws.pcapMu.Lock()
-			analysisMode := ws.pcapAnalysisMode
-			ws.pcapMu.Unlock()
-
-			if analysisMode {
-				// Analysis mode: keep grid intact, switch to analysis state
-				ws.currentSource = DataSourcePCAPAnalysis
-				diagf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
-			} else {
-				// Normal mode: reset all state and return to live
-				if err := ws.resetAllState(); err != nil {
-					opsf("Failed to reset state after PCAP: %v", err)
-				}
-				if err := ws.startLiveListenerLocked(); err != nil {
-					opsf("Failed to restart live listener after PCAP: %v", err)
-				} else {
-					ws.currentSource = DataSourceLive
-					ws.currentPCAPFile = ""
-					diagf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
-
-					// Notify visualiser gRPC server that replay has ended
-					if ws.onPCAPStopped != nil {
-						ws.onPCAPStopped()
-					}
-				}
-			}
-		}
-		ws.dataSourceMu.Unlock()
-	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
+		// A finished replay stays the data source until an operator says
+		// otherwise. Playback stops, the last frame stays on screen, and the
+		// grid the replay built is left intact for inspection.
+		//
+		// Deciding this automatically is what the previous designs kept getting
+		// wrong. Choosing from the analysis flag stranded settle-before-recording
+		// runs, which carry that flag only because the handler requires
+		// analysis_mode=true so the second pass can record. Choosing from whether
+		// the sensor happened to be streaming replaced that with a different
+		// surprise: the pipeline could be taken back to live, and the grid reset,
+		// while someone was still looking at the replay. Going live is now an
+		// explicit request — POST /api/lidar/pcap/stop, which the visualiser's
+		// Live toggle calls.
+		ws.parkFinishedReplay("PCAP replay finished")
+	}(resolvedPath, ctx, cancel, done, replayCfg, runID, plan)
 
 	return nil
 }

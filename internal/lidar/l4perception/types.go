@@ -1,6 +1,7 @@
 package l4perception
 
 import (
+	"math"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -9,10 +10,40 @@ import (
 // WorldPoint represents a point in Cartesian world coordinates (site frame).
 // This is the canonical definition; internal/lidar aliases it for backward compatibility.
 type WorldPoint struct {
-	X, Y, Z   float64   // World frame position (meters)
-	Intensity uint8     // Laser return intensity
-	Timestamp time.Time // Acquisition time
-	SensorID  string    // Source sensor
+	X, Y, Z   float64 // World frame position (meters)
+	Intensity uint8   // Laser return intensity
+	// sourceOrdinal is acquisition lineage for an opt-in evidence tap: one plus
+	// the return's index in its L2 frame, or zero when nothing stamped it. It
+	// travels with the value through every copy, filter, voxel representative
+	// and DBSCAN subsample, which is what lets the tap account for each return
+	// without a parallel index array per stage. It is unexported, so JSON
+	// records built from WorldPoint are unchanged, and it occupies alignment
+	// padding after Intensity, so the struct is no larger.
+	sourceOrdinal uint32
+	Timestamp     time.Time // Acquisition time
+	SensorID      string    // Source sensor
+}
+
+// SourceOrdinal reports the return's index in its L2 frame's point list when
+// an evidence tap stamped it. Ordinal zero is a real return, so absence is
+// reported by ok rather than encoded as a value.
+func (p WorldPoint) SourceOrdinal() (ordinal int, ok bool) {
+	if p.sourceOrdinal == 0 {
+		return 0, false
+	}
+	return int(p.sourceOrdinal - 1), true
+}
+
+// SetSourceOrdinal stamps acquisition lineage onto the point. An ordinal that
+// cannot be represented clears the lineage and returns false; the tap then
+// reports lost lineage instead of attributing the return to another ordinal.
+func (p *WorldPoint) SetSourceOrdinal(ordinal int) bool {
+	if ordinal < 0 || uint64(ordinal) >= math.MaxUint32 {
+		p.sourceOrdinal = 0
+		return false
+	}
+	p.sourceOrdinal = uint32(ordinal) + 1
+	return true
 }
 
 // FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".
@@ -52,6 +83,11 @@ type WorldCluster struct {
 	PointsCount       int     // matches points_count INTEGER
 	HeightP95         float32 // matches height_p95 REAL
 	IntensityMean     float32 // matches intensity_mean REAL
+	// GroundClipped says that lower surface-relative filtering removed a point
+	// within this cluster's footprint. It is evidence about geometry quality,
+	// not a track disposition: L5 may still use the cluster while a later
+	// measurement model accounts for the clipped face.
+	GroundClipped bool
 
 	// Debug hints matching schema optional fields
 	SensorRingHint  *int     // matches sensor_ring_hint INTEGER
@@ -60,6 +96,15 @@ type WorldCluster struct {
 	// Optional in-memory only fields (not persisted to schema)
 	SamplePoints [][3]float32         // for debugging/thumbnails
 	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
+	// RetainedPoints preserve acquisition times and intensities for observation
+	// research. They are sampled cluster members, not annotation point indices.
+	RetainedPoints []WorldPoint
+	// Members are every point of the cluster, for the frame it was clustered
+	// in, when DBSCANParams.KeepMembers is set: the geometry a measurement
+	// model reads, where RetainedPoints is a capped sample kept as evidence.
+	// In memory only: no record, store or log carries them, and the JSON
+	// encoding the observation store uses for a cluster leaves them out.
+	Members []WorldPoint `json:"-"`
 }
 
 // PointPolar is a backward-compatible alias for the canonical definition in l2frames.

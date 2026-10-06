@@ -10,6 +10,18 @@ tools/visualiser-macos/DerivedData/
 build/
 dist/
 
+# Vendored third-party sources — not ours to reformat. The format-docs target
+# globs '**/*.md' from the repo root, so without this every docs commit rewrites
+# libpcap's own README and INSTALL files as incidental churn.
+third_party/
+
+# Maths that prettier rewrites. Prettier 3.9.9 reads the asterisk pairs in
+# `$\mathbf{z}^* = (L^*, W^*, H^*, \theta^*)$` as emphasis and prints them as `^_`,
+# which corrupts the LaTeX, and the format-docs hook then refuses every commit that
+# stages Markdown. 3.9.6 and 3.9.8 leave the file alone; 3.9.9 is the latest release.
+# Remove this entry when a release does too.
+data/maths/proposals/20260222-geometry-coherent-tracking.md
+
 # Dependencies
 node_modules/
 .venv/
@@ -46,3 +58,6 @@ web/
 
 # macOS
 .DS_Store
+
+# Local experiment evidence must retain its original bytes.
+results/

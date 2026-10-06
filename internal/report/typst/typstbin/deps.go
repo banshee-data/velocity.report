@@ -22,7 +22,7 @@ var (
 	osCreateTemp   = os.CreateTemp
 	osRename       = os.Rename
 	osChmod        = os.Chmod
-	createTempExec = func(dir, pattern string) (tempExecutable, error) { return osCreateTemp(dir, pattern) }
+	createTempExec = defaultCreateTempExec
 
 	cacheDirFunc       = cacheDir
 	typstTargetFunc    = typstTarget
@@ -32,6 +32,14 @@ var (
 	embeddedTypstFunc  = embeddedTypst
 	cachedDownloadFunc = cachedDownload
 )
+
+// defaultCreateTempExec is the production implementation behind the
+// createTempExec seam. It is a named function rather than an inline closure so
+// tests can exercise it directly: every test that touches createTempExec
+// replaces it, which would otherwise leave the real one unexercised.
+func defaultCreateTempExec(dir, pattern string) (tempExecutable, error) {
+	return osCreateTemp(dir, pattern)
+}
 
 func isExecutableMode(goos string, mode os.FileMode) bool {
 	return goos == "windows" || mode&0o111 != 0

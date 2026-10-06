@@ -2,6 +2,7 @@
 
 - **Status:** Implemented
 - **Layers:** CLI Tools, L1–L6 (pcap-analyse pipeline)
+- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 - **Scope:** add a `lidar` namespace to the single `velocity` binary exposing `pcap-analyse`, `pcap-split`, and `settling-eval` as `velocity lidar <command>`, each sharing one implementation between the namespace applet and the standalone tool
 - **Related:** [internal/cmd/lidar/](../../internal/cmd/lidar/), [internal/cmd/root/root.go](../../internal/cmd/root/root.go), [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go)
 

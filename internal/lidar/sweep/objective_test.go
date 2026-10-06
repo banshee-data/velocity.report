@@ -19,8 +19,8 @@ func TestDefaultObjectiveWeights(t *testing.T) {
 	if weights.NonzeroCells != 0.1 {
 		t.Errorf("expected NonzeroCells=0.1, got %v", weights.NonzeroCells)
 	}
-	if weights.ActiveTracks != 0.3 {
-		t.Errorf("expected ActiveTracks=0.3, got %v", weights.ActiveTracks)
+	if weights.ActiveTracks != 0 {
+		t.Errorf("unbounded track reward must be opt-in, got %v", weights.ActiveTracks)
 	}
 	// New scene-level weights should default to 0 (opt-in)
 	if weights.ForegroundCapture != 0 {

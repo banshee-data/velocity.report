@@ -1,0 +1,30 @@
+# Configuration only: there is deliberately no [project] table, because the
+# repository is not a Python package. These sections exist so that `black` and
+# `ruff` — run over the whole tree by `make format-python` and the pre-commit
+# hook — agree on what is ours to format.
+
+[tool.black]
+# Vendored code is not ours to reformat, and libpcap's test programs are
+# Python 2, which black cannot parse at all: without this it fails the whole
+# run rather than skipping the file.
+extend-exclude = '''
+/(
+    third_party
+  | web/node_modules
+  | docs_html/node_modules
+)/
+'''
+
+[tool.ruff]
+extend-exclude = [
+    "third_party",
+    "web/node_modules",
+    "docs_html/node_modules",
+]
+
+[tool.ruff.lint]
+# Stated rather than inherited: ruff 0.16 widened its default rule set, and
+# `make format-python` applies every fixable rule across the repository, so a
+# version bump would otherwise rewrite files and fail the pre-commit hook.
+# Widen this deliberately, with the churn in its own commit.
+select = ["E4", "E7", "E9", "F"]

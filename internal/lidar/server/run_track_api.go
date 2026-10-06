@@ -73,6 +73,12 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/annotation-export
+	if subPath == "annotation-export" {
+		ws.handleAnnotationExport(w, r, runID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/missed-regions
 	if subPath == "missed-regions" {
 		ws.handleMissedRegions(w, r, runID)

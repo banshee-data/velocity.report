@@ -2,6 +2,8 @@
 
 > **Canonical knowledge lives in `.github/knowledge/`.** This file summarises the essentials that every Copilot interaction needs. For deeper detail, read the referenced module.
 
+Read [AGENTS.md](../AGENTS.md) for repository-wide agent instructions before making changes.
+
 ## Tenets
 
 See [TENETS.md](../TENETS.md) for the full project constitution. The short version:

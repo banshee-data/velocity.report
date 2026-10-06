@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "embarcadero-broadway",
+    "title": "Embarcadero at Broadway"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

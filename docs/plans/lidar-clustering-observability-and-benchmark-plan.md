@@ -236,8 +236,8 @@ Store baselines as checked-in JSON files (existing pattern):
 
 ```
 internal/lidar/perf/baseline/
-├── baseline-kirk0.json           # local Mac ARM64 baseline
-├── baseline-kirk0-ci.json        # CI (Linux x86_64) baseline
+├── baseline-kirk0-full.json      # local baseline, full profile
+├── baseline-kirk0-full-ci.json   # CI baseline, full profile
 ├── baseline-kirk0-pi.json        # Raspberry Pi ARM64 baseline (manual)
 └── baseline-lidar_20Hz.json      # second fixture
 ```
@@ -342,7 +342,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 2. Collect per-frame foreground counts, cluster counts, DBSCAN timings.
 3. Extend baseline format to v2 with `clustering` key.
 4. Add comparison logic with per-metric thresholds.
-5. Update `baseline-kirk0.json` and `baseline-kirk0-ci.json`.
+5. Recapture baselines with `make perf-baseline-all`.
 
 **Files:** [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go), `internal/lidar/perf/baseline/*.json`
 

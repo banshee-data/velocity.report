@@ -5,11 +5,13 @@
              _/ _/     _/
 ```
 
-Debugging is the subtle art of persuading a very literal machine to confess what it has been
-doing all along.
+# Debugging
 
-This guide is your map, torch, and occasional pep talk: real errors, likely causes, and practical
-fixes for the velocity.report system across all components.
+Debugging is the subtle art of persuading a very literal machine to confess what it has been doing
+all along. This guide gives you the shortest sensible route from a symptom to the evidence and fix
+for velocity.report, before a small fault grows hobbies.
+
+It covers real errors, likely causes, and practical fixes across the system's components.
 
 ## Debugging table of contents
 

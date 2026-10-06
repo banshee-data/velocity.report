@@ -8,19 +8,22 @@ instead.
 
 ## What's vendored
 
-The Pi image installs `tailscaled` and the `tailscale` CLI from the
-upstream apt repo, then **masks** the systemd unit. Nothing reaches
-out to Tailscale's coordination server unless the operator opts in
-through the web UI. This is a privacy tenet, not a configuration
-detail: the image is published publicly and may run in environments
-where outbound traffic is sensitive, so the default state is
-"installed but inert."
+The Pi image contains neither Tailscale nor a Tailscale apt repository.
+The first time the operator opts in through the web UI, the binary
+downloads the project's pinned static Tailscale payload, verifies its
+SHA-256, installs it under `/opt/velocity-report/tailscale/`, links
+`tailscale` and `tailscaled` into `/usr/local/bin`, and writes its own
+`tailscaled.service`. Nothing reaches out to Tailscale's coordination
+server until then. This is a privacy tenet, not a configuration detail:
+the image is published publicly and may run in environments where
+outbound traffic is sensitive, so the default state is "absent until
+asked for." Disabling stops and **masks** the unit.
 
 | Concern             | Where it lives                                                                                                                |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Package install     | [image/stage-velocity/07-velocity-tailscale/01-run.sh](../../../image/stage-velocity/07-velocity-tailscale/01-run.sh)         |
+| Pinned payload      | [internal/tailscaleinstall/installer.go](../../../internal/tailscaleinstall/installer.go)                                     |
 | systemd unmask flow | [internal/cmd/device/tailscale.go](../../../internal/cmd/device/tailscale.go)                                                 |
-| sudoers grant       | [image/stage-velocity/03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) (lines 49–51) |
+| sudoers grant       | [image/stage-velocity/03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) (lines 54–57) |
 | Manager / IPN bus   | [internal/tailscale/manager.go](../../../internal/tailscale/manager.go)                                                       |
 | HTTP endpoints      | [internal/api/server_tailscale.go](../../../internal/api/server_tailscale.go)                                                 |
 | Web UI              | [web/src/routes/settings/+page.svelte](../../../web/src/routes/settings/+page.svelte)                                         |
@@ -29,17 +32,19 @@ where outbound traffic is sensitive, so the default state is
 
 Three boundaries, each enforced by something other than convention:
 
-1. **Daemon lifecycle requires root** (unmask/enable/start/stop/mask).
-   The non-root `velocity` service user is granted exactly two sudo
-   actions, by literal argv with no wildcards:
+1. **Installing and the daemon lifecycle require root** (install,
+   unmask/enable/start/stop/mask). The non-root `velocity` service user
+   is granted exactly three sudo actions, by literal argv with no
+   wildcards:
 
    ```
-   /usr/local/bin/velocity-ctl tailscale enable-tailscaled
-   /usr/local/bin/velocity-ctl tailscale disable-tailscaled
+   /usr/local/bin/velocity device tailscale install
+   /usr/local/bin/velocity device tailscale enable-tailscaled
+   /usr/local/bin/velocity device tailscale disable-tailscaled
    ```
 
 2. **Daemon configuration runs as `velocity`** over the local API
-   socket. After the daemon starts, `velocity-ctl` runs
+   socket. After the daemon starts, `enable-tailscaled` runs
    `tailscale set --operator=velocity`, which authorises the service
    user to drive `tailscaled` without root for everything else
    (login, prefs, serve config, status).
@@ -53,16 +58,19 @@ Three boundaries, each enforced by something other than convention:
 
 When the operator toggles Tailscale on in Settings:
 
-1. The web UI POSTs `/api/tailscale/enable`. The Go server shells
-   out to `sudo /usr/local/bin/velocity-ctl tailscale
-enable-tailscaled`, which unmasks, enables, and starts the
-   service, waits up to 15 s for `/var/run/tailscale/tailscaled.sock`
-   to appear, and runs `tailscale set --operator=velocity`.
+1. The web UI POSTs `/api/tailscale/enable`. The Go server runs
+   `sudo /usr/local/bin/velocity device tailscale install`, which
+   installs the pinned payload if it is not already current, then
+   `sudo /usr/local/bin/velocity device tailscale enable-tailscaled`,
+   which unmasks, enables, and starts the service, waits up to 15 s for
+   `/var/run/tailscale/tailscaled.sock` to appear, and runs
+   `tailscale set --operator=velocity`.
 2. The manager subscribes to the IPN bus, calls
    `StartLoginInteractive`, and caches the resulting `BrowseToURL`
    for up to 5 minutes.
-3. The web UI fast-polls `/api/tailscale/status` (every 2 s during
-   login) and renders the URL plus a QR code. The user opens it in
+3. The web UI long-polls `/api/tailscale/status?v=<version>&wait=<secs>`,
+   which returns as soon as the status changes, and renders the URL
+   plus a QR code. The user opens it in
    their tailnet account and approves the device.
 4. Once the node reaches `Running`, `applyDevicePolicy` runs **once
    per Enable**:
@@ -81,8 +89,8 @@ the same membership without a fresh login.
 
 ## What the operator still has to do
 
-The image vendors the daemon and the lifecycle plumbing. It does
-**not** vendor anything that has to live in your tailnet account:
+The binary carries the pinned daemon and the lifecycle plumbing. It
+does **not** carry anything that has to live in your tailnet account:
 
 - A Tailscale account and tailnet (free personal plan is fine).
 - HTTPS certificates enabled at
@@ -98,9 +106,16 @@ The image vendors the daemon and the lifecycle plumbing. It does
 
 There is no headless / auth-key path in the web UI. The flow is
 always interactive login. If you need headless enrolment for fleet
-deployment, run `sudo tailscale up --auth-key=…` on the Pi over SSH
-_before_ using the web UI; the manager picks up the running daemon
-on its first poll.
+deployment, run `sudo velocity device tailscale install`,
+`sudo velocity device tailscale enable-tailscaled` and
+`sudo tailscale up --auth-key=…` on the Pi over SSH _before_ using
+the web UI; the manager picks up the running daemon on its first
+poll.
+
+Tailscale is pinned and updated with velocity.report releases; it
+does not use apt or Tailscale auto-update. A released version
+refreshes on the next opt-in or console
+`velocity device tailscale install`.
 
 ## Capability grants
 
@@ -154,7 +169,7 @@ Source classification rules:
   is how `tailscale serve` forwards tailnet requests to the local
   HTTP server.
 - **Loopback with no XFF** → host-local (the Go server itself,
-  `velocity-ctl`, a local `curl`). Treated as admin.
+  `velocity device`, a local `curl`). Treated as admin.
 - **Non-loopback `RemoteAddr`** → LAN or direct hit on `:8080`.
   `X-Forwarded-For` is **ignored** entirely so a LAN attacker who
   can reach the server directly cannot forge a tailnet identity by
@@ -171,7 +186,7 @@ Failure modes:
 ### Caveats
 
 - **Non-tailnet sources are always admin.** Loopback (`127.0.0.1`,
-  `velocity-ctl`) and LAN sources bypass the cap check entirely.
+  `velocity device`) and LAN sources bypass the cap check entirely.
   Gate LAN access at the network layer (firewall, VLAN) if that
   isn't acceptable.
 - **`/api/tailscale/status` is unconditionally reachable** so an

@@ -54,6 +54,14 @@ func TestSplitConfigEffectiveOutputPrefix(t *testing.T) {
 	}
 }
 
+func TestDeriveOutputPrefixFallsBackForEmptyNames(t *testing.T) {
+	for _, input := range []string{"", ".pcap"} {
+		if got := deriveOutputPrefix(input); got != "out" {
+			t.Errorf("deriveOutputPrefix(%q) = %q, want out", input, got)
+		}
+	}
+}
+
 func TestSegmentIndexForTime(t *testing.T) {
 	segs := BuildSegments(periodsFixture(), "out")
 	base := segs[0].StartTime

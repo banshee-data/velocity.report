@@ -270,7 +270,7 @@ Routes:
 - `POST /api/lidar/playback/seek`
 - `POST /api/lidar/playback/rate`
 - `POST /api/lidar/vrlog/load` (input `run_id`, resolves stored `vrlog_path`)
-- `POST /api/lidar/vrlog/stop`
+- `POST /api/lidar/replay/stop` (alias: `/api/lidar/vrlog/stop`)
 
 [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go) wires callbacks to server/publisher.
 

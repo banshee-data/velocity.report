@@ -20,6 +20,9 @@ class LabelAPIClient {
     /// URL session for HTTP requests.
     private let session: URLSession
 
+    /// Test-only view of the session, so cache policy can be asserted.
+    var sessionForTesting: URLSession { session }
+
     /// Current session ID for grouping labels.
     var sessionID: String = UUID().uuidString
 
@@ -34,7 +37,10 @@ class LabelAPIClient {
 
     // MARK: - Initialisation
 
-    init(baseURL: URL = URL(string: "http://localhost:8080")!, session: URLSession = .shared) {
+    init(
+        baseURL: URL = URL(string: "http://localhost:8080")!,
+        session: URLSession = APISession.shared
+    ) {
         self.baseURL = baseURL
         self.session = session
     }

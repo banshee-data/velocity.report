@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
@@ -19,6 +21,28 @@ import (
 
 type logfFunc func(string, ...any)
 
+// resolveLidarDir makes a configured LiDAR directory absolute.
+//
+// The safe-directory check compares cleaned absolute paths, so a relative
+// configuration value has to be resolved before it can act as a boundary:
+// left relative it would be re-resolved against whatever working directory
+// the process happened to have, and a path that escapes the boundary would
+// then compare as if it were inside it.
+//
+// A failure to resolve is logged and the configured value returned unchanged.
+// That is deliberately not fatal: filepath.Abs only fails when the working
+// directory cannot be read, and refusing to start the whole server over a
+// plots directory would be the wrong trade. The caller still gets a usable,
+// if relative, path. `kind` names the directory in that warning.
+func resolveLidarDir(dir, kind string, logf logfFunc) string {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		logf("Warning: failed to resolve %s directory %q: %v", kind, dir, err)
+		return dir
+	}
+	return abs
+}
+
 type ringElevationsSetter interface {
 	SetRingElevations([]float64) error
 }
@@ -26,6 +50,7 @@ type ringElevationsSetter interface {
 type vrlogReplayController interface {
 	IsVRLogActive() bool
 	StopVRLogReplay()
+	ClearBackground()
 }
 
 type replayModeController interface {
@@ -39,6 +64,14 @@ type pcapProgressSetter interface {
 
 type pcapTimestampsSetter interface {
 	SetPCAPTimestamps(int64, int64)
+}
+
+type callbackDrainer interface {
+	WaitForCallbacks()
+}
+
+type liveObservationEnder interface {
+	End(string)
 }
 
 type recordingMetadataSink interface {
@@ -69,6 +102,16 @@ func isNilHelperTarget(target any) bool {
 	default:
 		return false
 	}
+}
+
+func closeLiveObservationBoundary(capture liveObservationEnder, drainer callbackDrainer, reason string) {
+	if isNilHelperTarget(capture) {
+		return
+	}
+	if !isNilHelperTarget(drainer) {
+		drainer.WaitForCallbacks()
+	}
+	capture.End(reason)
 }
 
 func validateSupportedTuning(tuningCfg *config.TuningConfig) error {
@@ -164,6 +207,15 @@ func handlePCAPStartedVisualiser(publisher vrlogReplayController, server replayM
 		publisher.StopVRLogReplay()
 		logf("[Visualiser] Stopped VRLOG replay before PCAP start")
 	}
+	if !isNilHelperTarget(publisher) {
+		// Drop the live scene the client is holding. A PCAP replay rebuilds the
+		// grid from the capture, so until it settles there is no background to
+		// show — and a settle-before-recording run publishes nothing new until
+		// its settled snapshot is restored. Without this the live grid stays on
+		// screen underneath replayed foreground for that whole stretch.
+		publisher.ClearBackground()
+		logf("[Visualiser] Cleared client background for PCAP start")
+	}
 	if !isNilHelperTarget(server) {
 		server.SetVRLogMode(false)
 		server.SetReplayMode(false)
@@ -188,6 +240,34 @@ func pcapStartedCallback(publisher vrlogReplayController, server replayModeContr
 	return func() {
 		handlePCAPStartedVisualiser(publisher, server, logf)
 	}
+}
+
+func handleReplayStoppedVisualiser(publisher vrlogReplayController, server replayModeController, logf logfFunc) {
+	if !isNilHelperTarget(publisher) {
+		// Returning to live resets the grid, so the replay's cached background
+		// no longer describes anything. Clear it before a reconnecting client
+		// can be handed the recording's scene under live foreground.
+		publisher.ClearBackground()
+	}
+	if !isNilHelperTarget(server) {
+		server.SetReplayMode(false)
+		logf("[Visualiser] Replay stopped: switched to live mode")
+	}
+}
+
+func replayStoppedCallback(publisher vrlogReplayController, server replayModeController, logf logfFunc) func() {
+	return func() {
+		handleReplayStoppedVisualiser(publisher, server, logf)
+	}
+}
+
+// sensorIsSilent applies the live-input timeout without reading the wall clock
+// internally, so the never-seen, boundary and clock-skew cases stay explicit.
+func sensorIsSilent(lastPacketAt, now time.Time, silentAfter time.Duration) bool {
+	if lastPacketAt.IsZero() {
+		return true
+	}
+	return now.Sub(lastPacketAt) > silentAfter
 }
 
 func pcapTimestampsCallback(server pcapTimestampsSetter) func(int64, int64) {
@@ -271,5 +351,35 @@ func recoverOrphanedSweepsOnStart(sweepStore orphanedSweepRecoverer, logger *log
 		logger.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
 	} else if n > 0 {
 		logger.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+	}
+}
+
+// visualiserPlaybackProbe adapts the visualiser gRPC server to the monitor
+// server's PlaybackProbe interface.
+//
+// The two packages describe the same replay position with structurally
+// identical types rather than a shared one: internal/lidar/server already
+// imports l9endpoints, so a shared type would need l9endpoints to import back.
+// Converting here — in the composition root that already knows both — keeps
+// that dependency edge one-way.
+type visualiserPlaybackProbe struct {
+	server *l9endpoints.Server
+}
+
+func (p visualiserPlaybackProbe) PlaybackPosition() server.PlaybackPosition {
+	if p.server == nil {
+		return server.PlaybackPosition{Rate: 1.0}
+	}
+	info := p.server.PlaybackPosition()
+	return server.PlaybackPosition{
+		Paused:       info.Paused,
+		Rate:         info.Rate,
+		Seekable:     info.Seekable,
+		CurrentFrame: info.CurrentFrame,
+		TotalFrames:  info.TotalFrames,
+		TimestampNs:  info.TimestampNs,
+		LogStartNs:   info.LogStartNs,
+		LogEndNs:     info.LogEndNs,
+		ReplayEpoch:  info.ReplayEpoch,
 	}
 }

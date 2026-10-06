@@ -40,6 +40,9 @@ archive/
 backup/
 logs/
 
+# Experiment and analysis output is local only at every directory depth.
+results/
+
 # =============================================================================
 # Go Binaries, Tools & Test Outputs
 # =============================================================================
@@ -70,6 +73,17 @@ mock_serial_port*
 [0-9]*-velocity-report-*
 velocity-deploy*
 velocity-report-*
+
+# Built tool binaries dropped in the repo root by `make build-*`.
+/lidar-bench
+/pcap-split
+/settling-eval
+/lidar-ground-truth-eval
+
+# Local analysis scratch: throwaway Go tools written against a recording to
+# answer one question. Findings belong in a plan or in internal/lidar/analysis,
+# not here. Ignored so they do not trip `gofmt -l` in the lint gate.
+/.scratch-analysis/
 
 # =============================================================================
 # Pi Image Build (pi-gen)
@@ -216,6 +230,8 @@ data/**/results/*
 data/maths/papers/*.pdf
 data/maths/papers/download-status.md
 data/structures/SCHEMA.dot
+data/experiments/try/campaign/bin/*
+.scratch-analysis
 
 # =============================================================================
 # Embedded Typst Binary
@@ -224,5 +240,30 @@ internal/report/typst/typstbin/dist/typst
 internal/report/typst/typstbin/dist/typst.exe
 
 # Developer-installed typst binary (make install-typst / runtime auto-download)
+bin/grpc-probe
+/grpc-probe
 bin/typst
 bin/typst.exe
+
+# =============================================================================
+# LiDAR benchmark output
+# =============================================================================
+# `make test-perf` writes <capture>_<profile>_benchmark.json at the repo root
+# and removes it again outside CI. One escaped into the tree in #564; ignoring
+# the pattern stops the next one. Committed baselines live under
+# internal/lidar/perf/baseline/ and are not matched by this.
+*_benchmark.json
+
+# =============================================================================
+# Local make overrides
+# =============================================================================
+# Machine-specific paths — chiefly LIDAR_PCAP_DIR, when captures sit on an
+# external volume rather than under LIDAR_DATA_DIR. Untracked on purpose: one
+# developer's mount point is not a project default, and hardcoding one in the
+# Makefile is the thing local.mk replaces.
+local.mk
+
+# Basemap tiles for the scene map: a build artefact, fetched once by
+# `make cache-basemap` and cached on disk. 21 MB of PNGs that OpenStreetMap
+# already serves is not something to keep in git history.
+public_html/src/images/tiles/

@@ -276,3 +276,24 @@ func (db *DB) DeleteBgSnapshots(snapshotIDs []int64) (int64, error) {
 
 	return res.RowsAffected()
 }
+
+// ListBgSnapshotSensorIDs returns every sensor_id that has background snapshots,
+// so an offline audit can enumerate what a database holds without being told
+// which sensors to look for.
+func (db *DB) ListBgSnapshotSensorIDs() ([]string, error) {
+	rows, err := db.Query(`SELECT DISTINCT sensor_id FROM lidar_bg_snapshot ORDER BY sensor_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sensorIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		sensorIDs = append(sensorIDs, id)
+	}
+	return sensorIDs, rows.Err()
+}

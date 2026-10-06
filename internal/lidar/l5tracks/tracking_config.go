@@ -26,20 +26,250 @@ const (
 	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
 	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
 	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+	// HeadingSourceReleased marks the frame on which the rejection counter
+	// forced a locked heading to release and snap to the measurement. It is a
+	// distinct source rather than a counter so that the event survives into
+	// the recorded stream: a VRLOG carries heading source per frame, and
+	// without this a forced release is indistinguishable from an ordinary
+	// unlocked frame on replay.
+	HeadingSourceReleased HeadingSource = 4
+	HeadingSourceAxis     HeadingSource = 5 // Supported axis interpretation, not directed body yaw
+	// HeadingSourceAmbiguous means the aligned and swapped interpretations
+	// scored too closely to separate. This is the genuine quarter-turn
+	// ambiguity, and forcing a winner here is not an improvement.
+	HeadingSourceAmbiguous    HeadingSource = 6
+	HeadingSourceInsufficient HeadingSource = 7 // Missing or invalid geometry, or too few points
+	// The two abstentions below were previously reported as ambiguous too.
+	// They are separated because they call for different fixes: a near-square
+	// observation carries no axis to recover, whereas an observation that
+	// matches neither interpretation indicts the support reference.
+	HeadingSourceAxisSquare HeadingSource = 8 // No distinguishable long axis
+	HeadingSourceAxisNoFit  HeadingSource = 9 // Neither interpretation fits the support reference
+	// HeadingSourceAxisReleased marks the frame on which a sustained run of
+	// abstentions re-seeded the support reference and snapped the heading to
+	// the observation. As with HeadingSourceReleased it is a source rather
+	// than a counter so the event survives into a recording.
+	HeadingSourceAxisReleased HeadingSource = 10
+	// HeadingSourceAxisLowSupport marks a view showing too little of the
+	// believed long axis to orient the box. Extent alone cannot refuse it — a
+	// short span is consistent with any longer object — so this is the floor
+	// that does.
+	HeadingSourceAxisLowSupport HeadingSource = 11
+
+	// HeadingSourceCount is the number of heading sources, for sizing
+	// per-source counters. Keep it one past the last source above.
+	HeadingSourceCount = 12
 )
+
+// IsLocked reports a decision that held the previous heading instead of
+// accepting a measured one. The complement is the acceptance rate, which is
+// the figure to compare across heading paths: the guard path and the axis
+// path label their accepted frames differently, so held share alone is not
+// like for like between them.
+func (h HeadingSource) IsLocked() bool {
+	switch h {
+	case HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit, HeadingSourceAxisLowSupport:
+		return true
+	}
+	return false
+}
+
+// String names a heading source for diagnostics and JSON keys.
+func (h HeadingSource) String() string {
+	switch h {
+	case HeadingSourcePCA:
+		return "pca"
+	case HeadingSourceVelocity:
+		return "velocity"
+	case HeadingSourceDisplacement:
+		return "displacement"
+	case HeadingSourceLocked:
+		return "locked"
+	case HeadingSourceReleased:
+		return "released"
+	case HeadingSourceAxis:
+		return "axis"
+	case HeadingSourceAmbiguous:
+		return "ambiguous"
+	case HeadingSourceInsufficient:
+		return "insufficient"
+	case HeadingSourceAxisSquare:
+		return "axis_square"
+	case HeadingSourceAxisNoFit:
+		return "axis_no_fit"
+	case HeadingSourceAxisReleased:
+		return "axis_released"
+	case HeadingSourceAxisLowSupport:
+		return "axis_low_support"
+	default:
+		return "unknown"
+	}
+}
 
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
-	MaxTracks               int           // Maximum number of concurrent tracks
-	MaxMisses               int           // Consecutive misses before tentative track deletion
-	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
-	HitsToConfirm           int           // Consecutive hits needed for confirmation
-	GatingDistanceSquared   float32       // Squared gating distance for association (metres²)
-	ProcessNoisePos         float32       // Process noise for position (σ²)
-	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
-	MeasurementNoise        float32       // Measurement noise (σ²)
+	MaxTracks             int     // Maximum number of concurrent tracks
+	MaxMisses             int     // Consecutive misses before tentative track deletion
+	MaxMissesConfirmed    int     // Consecutive misses before confirmed track deletion (coasting)
+	HitsToConfirm         int     // Consecutive hits needed for confirmation
+	GatingDistanceSquared float32 // Squared gating distance for association (metres²)
+	ProcessNoisePos       float32 // Process noise for position (σ²)
+	ProcessNoiseVel       float32 // Process noise for velocity (σ²)
+	MeasurementNoise      float32 // Measurement noise (σ²)
+
+	// CoupledProcessNoise switches the prediction step from the shipped
+	// diagonal Q to the continuous white-noise-acceleration form, which adds
+	// the position-velocity cross terms the diagonal form omits (gap K1).
+	//
+	// JosephCovarianceUpdate switches the posterior covariance from
+	// P' = (I-KH)P to the Joseph stabilised form, which stays symmetric under
+	// float error rather than only starting that way (gap K2).
+	//
+	// Both are Go-level options with the shipped behaviour as the default, and
+	// deliberately not tuning keys: TuningConfig.Fingerprint hashes the whole
+	// resolved config, so adding keys would make the committed perf baselines
+	// refuse to compare before anyone had measured whether the change helps.
+	CoupledProcessNoise    bool
+	JosephCovarianceUpdate bool
+
+	// LikelihoodAssociationCost changes the assignment cost from the bare
+	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood
+	// d² + ln|S| (gap analysis S3). With d² alone, a track whose innovation
+	// covariance S is large pays less for the same miss, so a track coasting
+	// through a missed frame outbids a freshly updated one for the same
+	// cluster, and OcclusionCovInflation widens that discount on purpose. The
+	// log-determinant charges a vague track for its vagueness. The gate is
+	// unchanged: it stays on d². Default false, and not a tuning key, for the
+	// same fingerprint reason as the two options above.
+	LikelihoodAssociationCost bool
+
+	// CascadedAssociation matches confirmed tracks to clusters first and
+	// offers only the clusters they leave to tentative tracks (gap analysis
+	// S2, after DeepSORT's final stage; it does not address S3, whose two
+	// bidders are both confirmed). With one joint assignment a
+	// tentative track a frame old can outbid a confirmed track coasting
+	// through one miss for the same cluster, because the assignment sees two
+	// costs and no history. Default false: the campaign's ground-truth and
+	// label-free harnesses measure it against the shipped behaviour first.
+	CascadedAssociation bool
+	// AdaptiveMeasurementNoise replaces the isotropic MeasurementNoise with
+	// the Phase 3 anisotropic model in adaptive_noise.go: R is diagonal along
+	// and across the sensor's line of sight to the measurement, conditioned on
+	// range, cluster support, the visible-face aspect under the track's
+	// heading and the measurement source, then rotated into the site frame.
+	// It applies alike to the gate, the likelihood cost and the update.
+	// Default false, and not a tuning key, for the fingerprint reason above;
+	// G-UNC-1 decides whether it ships.
+	AdaptiveMeasurementNoise bool
+	// MeasurementNoiseCalibration supplies the fitted per-stratum
+	// coefficients the adaptive model adds to its physics terms. Nil uses the
+	// shipped MeasurementNoise as every stratum's coefficient. It has no
+	// effect unless AdaptiveMeasurementNoise is set. The table is shared, not
+	// copied, when the config is copied, so it must not be mutated after
+	// assignment.
+	MeasurementNoiseCalibration *NoiseCalibration
+	// NoiseSensorX and NoiseSensorY are the sensor origin in the tracker's
+	// frame, which fixes each measurement's line of sight. The pipeline
+	// clusters without a pose, so the tracker frame is the sensor frame and
+	// zero is correct today; a site transform must set them.
+	NoiseSensorX, NoiseSensorY float32
+
+	// TentativePriority is the gated form of S2's remedy. Confirmed tracks
+	// are matched first, but only to clusters inside their χ²₂ 99% ellipse
+	// (d² ≤ 9.21), the region in which a cluster is statistically theirs;
+	// every track still unmatched, confirmed or tentative, then competes
+	// jointly for what is left under the shipped gate. CascadedAssociation
+	// gives confirmed tracks first choice anywhere inside the shipped gate,
+	// which K10 shows admits almost everything within reach, so a confirmed
+	// track whose own object dropped out takes a newborn's cluster instead of
+	// coasting. This option cannot do that beyond the 99% ellipse. It
+	// supersedes CascadedAssociation when both are set. Default false. See
+	// identity.go.
+	TentativePriority bool
+
+	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
+	// cyclist or motorcyclist with a cluster outside that label's geometric
+	// envelope: larger than anything L6 would accept as the label (gap
+	// analysis K4). Such a cluster is a merge with, or a view of, a larger
+	// body, and identity must not cross to it. A vehicle label carries no
+	// refusal, because a partial view of a vehicle can be any size below it;
+	// the soft extent-compatibility cost (AssociationExtentCostWeight) is
+	// what charges that direction. Default false. See identity.go.
+	ClassIdentity bool
+	// MeasurementSourceMode selects the position model. Empty means the
+	// production medoid; obb_centre_v1 opts into D2's candidate.
+	MeasurementSourceMode   MeasurementSource
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
+
+	// Capture-time options. Every one is default-off and, like the options
+	// above, deliberately not a tuning key: the shipped estimator's temporal
+	// behaviour is pinned by replay before any of it is tuned. See
+	// time_domain.go for the boundary they sit inside.
+	//
+	// MaxCoastSecsTentative and MaxCoastSecsConfirmed bound how long, in
+	// capture time, a track may go without an accepted observation. Zero
+	// disables the bound, leaving the frame-count rule (MaxMisses,
+	// MaxMissesConfirmed) as the only expiry. The two rules measure different
+	// things: misses count frames that reached the tracker, so a frame that
+	// was throttled, lost in transport or dropped at a capture join extends a
+	// coasting track's life for free; the capture-time bound does not care
+	// how many frames arrived. The bound is checked before association, so an
+	// observation arriving after it has lapsed seeds a new track rather than
+	// reviving a hypothesis nothing supported in the interval.
+	MaxCoastSecsTentative float32
+	MaxCoastSecsConfirmed float32
+
+	// CaptureGapPrediction predicts across the whole capture-time gap
+	// between frames, in steps of at most MaxPredictDt, instead of clamping
+	// the step to MaxPredictDt. The clamp was written for throttle-sized gaps;
+	// across a longer transport gap it predicts a moving object a fraction of
+	// the distance it travelled, so reacquisition compares the returning
+	// cluster against a stale position. Sub-stepping keeps the covariance cap
+	// applying per step exactly as it does frame to frame. Default false.
+	CaptureGapPrediction bool
+
+	// MeasurementTimePrediction predicts each associated track to its
+	// measurement's own acquisition time (WorldCluster.TSUnixNanos) before the
+	// update, instead of treating every cluster as observed at the frame's
+	// start. A rotation takes about 100 ms, so an object near the end of the
+	// sweep is measured up to one frame period after the time the filter
+	// assumes, and near the azimuth wrap that offset changes abruptly between
+	// consecutive frames. This is state-estimation plan question Q3. Gating
+	// and assignment still use the frame-time prediction; only the update is
+	// moved. Default false.
+	MeasurementTimePrediction bool
+
+	// OcclusionContinuity holds the Sprint 0.5.2.2 continuity options:
+	// absence explanation, capture-time coast uncertainty, per-class
+	// capture-time coast bounds and the reacquisition guard. The zero value
+	// switches every one off; DefaultOcclusionContinuity switches them all
+	// on with starting values. See continuity.go.
+	OcclusionContinuity OcclusionContinuityConfig
+
+	// SolidBody populates a solid-body estimate per track from the near-edge
+	// measurement model, as a shadow of the tracked filter that never feeds
+	// back into association or the tracked state. Default off; see
+	// solid_body_nearedge.go.
+	SolidBody SolidBodyOptions
+
+	// NearEdgeTracking runs the solid body's near-edge state machine on the
+	// tracked filter instead of on a shadow of it: fixes, re-references and
+	// lapses move the tracked state, association gates a body-centre track
+	// on the pair's face residual (A2), and the solid body reads the tracked
+	// state. It needs SolidBody, which carries the origin, the remedies and
+	// the beliefs; without it nothing changes. Like SolidBody it is a Go-level
+	// option and not a tuning key. Default off; see near_edge_tracking.go.
+	NearEdgeTracking bool
+	// NearEdgeMedoidGate is S2.3's ablation arm, A1: under NearEdgeTracking a
+	// body-centre track is gated on the cluster medoid against its predicted
+	// centre with the tracked R, as a medoid-referenced track is, rather than
+	// on A2's face residual. The medoid sits half a body toward the sensor
+	// from that centre, so the gate is biased by that much across; it is the
+	// do-nothing option A2 is measured against. The update is unchanged.
+	// Without NearEdgeTracking it does nothing. Default off.
+	NearEdgeMedoidGate bool
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
@@ -51,6 +281,29 @@ type TrackerConfig struct {
 	MinPointsForPCA             int     // Minimum cluster points for PCA heading
 	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
+	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
+	OBBAxisCoherenceEnabled     bool    // Experimental axis selection and coherent observed envelope
+	// OBBHeadingFlipRule applies AB3DMOT's orientation correction before
+	// Guard 3: a PCA heading more than 90 degrees from the track's smoothed
+	// heading is flipped by 180 degrees, on the grounds that a body cannot
+	// reverse its orientation within one frame (gap analysis P3). It is
+	// stated without reference to velocity, so it also disambiguates a
+	// stationary object, where the velocity and displacement resolvers have
+	// nothing to work with. Default false; measured before it ships.
+	OBBHeadingFlipRule bool
+
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. 0 disables the fragment guard.
+	MinAssociableExtentMetres float32
+
+	// AssociationExtentCostWeight scales the bounded extent-compatibility term
+	// in the association cost. 0 keeps the hard fragment guard instead.
+	AssociationExtentCostWeight float32
+
+	// DeletedTrackRenderFade is how long a deleted track is still published to
+	// clients, fading out. Separate from DeletedTrackGracePeriod, which governs
+	// internal re-association.
+	DeletedTrackRenderFade time.Duration
 
 	// History limits
 	MaxTrackHistoryLength int // Maximum position trail length
@@ -98,6 +351,11 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
+		OBBAxisCoherenceEnabled:          l5cfg.OBBAxisCoherenceEnabled,
+		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
+		AssociationExtentCostWeight:      float32(l5cfg.AssociationExtentCostWeight),
+		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
 		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),

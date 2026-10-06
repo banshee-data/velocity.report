@@ -1485,9 +1485,9 @@ func TestServer_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
+	if rr.Code != http.StatusOK {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
@@ -1505,10 +1505,10 @@ func TestServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=test-sensor", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	if rr.Code != http.StatusConflict {
-		t.Errorf("expected 409, got %d", rr.Code)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
 	}
 }
 
@@ -2318,8 +2318,8 @@ func TestServer_DataSourceManager_Integration(t *testing.T) {
 	}
 
 	// Check current source
-	if server.GetCurrentSource() != DataSourceLive {
-		t.Errorf("Expected source DataSourceLive, got %s", server.GetCurrentSource())
+	if server.CurrentSource() != DataSourceLive {
+		t.Errorf("Expected source DataSourceLive, got %s", server.CurrentSource())
 	}
 
 	// Stop live listener
@@ -2332,13 +2332,13 @@ func TestServer_DataSourceManager_Integration(t *testing.T) {
 	}
 
 	// Check PCAP not in progress
-	if server.IsPCAPInProgress() {
+	if server.PipelineState().PCAPInProgress() {
 		t.Error("Expected PCAP not in progress")
 	}
 
 	// Test PCAP file returns empty when not set
-	if server.GetCurrentPCAPFile() != "" {
-		t.Errorf("Expected empty PCAP file, got '%s'", server.GetCurrentPCAPFile())
+	if server.CurrentPCAPFile() != "" {
+		t.Errorf("Expected empty PCAP file, got '%s'", server.CurrentPCAPFile())
 	}
 }
 
@@ -2376,20 +2376,31 @@ func TestServer_RealDataSourceManager(t *testing.T) {
 
 	server := NewServer(config)
 
-	// These should use RealDataSourceManager
-	source := server.GetCurrentSource()
+	// State comes from the server's own store, not the manager. The accessors
+	// this replaced read a manager-held copy that production never wrote, so
+	// they reported "live" no matter what was actually running.
+	source := server.CurrentSource()
 	if source != DataSourceLive {
 		t.Errorf("Expected DataSourceLive, got %s", source)
 	}
 
-	pcapFile := server.GetCurrentPCAPFile()
+	pcapFile := server.CurrentPCAPFile()
 	if pcapFile != "" {
 		t.Errorf("Expected empty PCAP file, got '%s'", pcapFile)
 	}
 
-	inProgress := server.IsPCAPInProgress()
-	if inProgress {
+	if server.PipelineState().PCAPInProgress() {
 		t.Error("Expected PCAP not in progress")
+	}
+
+	// The divergence this replaced: a replay used to leave the manager's copy
+	// reading "live" indefinitely.
+	server.setTestSourcePCAPReplaying()
+	if got := server.CurrentSource(); got != DataSourcePCAP {
+		t.Errorf("Expected DataSourcePCAP after starting a replay, got %s", got)
+	}
+	if !server.PipelineState().PCAPInProgress() {
+		t.Error("Expected PCAP in progress after starting a replay")
 	}
 }
 func TestServer_InternalMethods(t *testing.T) {
@@ -2616,7 +2627,6 @@ func TestServer_HandlePCAPStop_NotRunning(t *testing.T) {
 	stats := NewPacketStats()
 
 	mockDSM := NewMockDataSourceManager()
-	mockDSM.source = DataSourceLive
 
 	config := Config{
 		Address:           ":0",
@@ -2627,11 +2637,12 @@ func TestServer_HandlePCAPStop_NotRunning(t *testing.T) {
 	}
 
 	server := NewServer(config)
+	// A fresh server is live; stopping a PCAP is a no-op.
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	// Should indicate no PCAP running or succeed
 	t.Logf("handlePCAPStop returned status %d", rec.Code)
@@ -2641,7 +2652,6 @@ func TestServer_HandlePCAPResumeLive(t *testing.T) {
 	stats := NewPacketStats()
 
 	mockDSM := NewMockDataSourceManager()
-	mockDSM.source = DataSourcePCAP
 
 	config := Config{
 		Address:           ":0",
@@ -2652,6 +2662,9 @@ func TestServer_HandlePCAPResumeLive(t *testing.T) {
 	}
 
 	server := NewServer(config)
+	// resume_live only applies from the terminal analysis state. Setting the
+	// manager's copy, as this test used to, configured nothing the handler reads.
+	server.setTestSourcePCAPAnalysis()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live", nil)
 	rec := httptest.NewRecorder()
@@ -3478,7 +3491,7 @@ func TestServer_HandlePCAPStop_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	t.Logf("handlePCAPStop returned status %d: %s", rec.Code, rec.Body.String())
 
@@ -3515,7 +3528,7 @@ func TestServer_HandlePCAPResumeLive_Success(t *testing.T) {
 
 	// Set up data source manager in analysis mode (which allows resume)
 	server.dataSourceMu.Lock()
-	server.currentSource = DataSourcePCAPAnalysis
+	server.setTestSourcePCAPAnalysis()
 	server.dataSourceMu.Unlock()
 
 	// Test resume live
@@ -3932,7 +3945,7 @@ func TestServer_IsPCAPInProgress_Complete(t *testing.T) {
 	server.setBaseContext(ctx)
 
 	// Initially not in progress
-	if server.IsPCAPInProgress() {
+	if server.PipelineState().PCAPInProgress() {
 		t.Error("Expected PCAP not in progress initially")
 	}
 
@@ -3945,7 +3958,7 @@ func TestServer_IsPCAPInProgress_Complete(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Now should be in progress
-	if !server.IsPCAPInProgress() {
+	if !server.PipelineState().PCAPInProgress() {
 		t.Log("Expected PCAP in progress after start (may vary based on timing)")
 	}
 
@@ -3953,7 +3966,7 @@ func TestServer_IsPCAPInProgress_Complete(t *testing.T) {
 
 	// After stop, should not be in progress
 	time.Sleep(50 * time.Millisecond)
-	if server.IsPCAPInProgress() {
+	if server.PipelineState().PCAPInProgress() {
 		t.Log("Expected PCAP not in progress after stop")
 	}
 }
@@ -4450,9 +4463,9 @@ func TestServer_HandlePCAPStop_NoSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
+	if rr.Code != http.StatusOK {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
@@ -4470,7 +4483,7 @@ func TestServer_HandlePCAPStop_WrongSensorIDExtra(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=wrong-sensor", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404 (wrong sensor), got %d", rr.Code)
@@ -4492,11 +4505,11 @@ func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	// Should return 409 (not in PCAP mode) rather than 400 (missing sensor_id)
-	if rr.Code != http.StatusConflict {
-		t.Errorf("expected 409 (not in PCAP mode), got %d: %s", rr.Code, rr.Body.String())
+	// Should return 200 (not in PCAP mode) rather than 400 (missing sensor_id)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200 (stop is idempotent), got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -4641,7 +4654,7 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	srv := NewServer(config)
 	// Skip automatic listener startup so Start() proceeds straight to
 	// the HTTP goroutine and blocks on <-ctx.Done().
-	srv.currentSource = DataSourcePCAP
+	srv.setTestSourcePCAPReplaying()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
@@ -4699,7 +4712,7 @@ func TestStart_ShutdownForceClose(t *testing.T) {
 		Stats:   NewPacketStats(),
 	}
 	srv := NewServer(config)
-	srv.currentSource = DataSourcePCAP
+	srv.setTestSourcePCAPReplaying()
 
 	// Replace the handler with one that blocks until told to stop.
 	unblock := make(chan struct{})

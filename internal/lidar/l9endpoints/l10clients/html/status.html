@@ -70,6 +70,32 @@
           </td>
           <td>{{.PCAPInProgress}}</td>
         </tr>
+        {{if .ReplayPass}}
+        <tr>
+          <td>
+            <strong>Replay Pass:</strong>
+          </td>
+          <td>{{.ReplayPass}}{{if .ReplayTotalPasses}} (of {{.ReplayTotalPasses}}){{end}}</td>
+        </tr>
+        {{end}}
+        <tr>
+          <td>
+            <strong>Recording VRLOG:</strong>
+          </td>
+          <td>{{.Recording}}{{if .RecordingPath}} &rarr; {{.RecordingPath}}{{end}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Grid Preserved:</strong>
+          </td>
+          <td>{{.GridPreserved}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Live Listener Running:</strong>
+          </td>
+          <td>{{.LiveListener}}</td>
+        </tr>
         <tr>
           <td>
             <strong>UDP Port:</strong>
@@ -179,7 +205,7 @@
         </li>
         <li>
           <a href="/api/lidar/data_source?sensor_id={{.SensorID}}" target="_blank">
-            Data Source Status (live/pcap/pcap_analysis)
+            Data Source Status (live/pcap/pcap_analysis/vrlog)
           </a>
         </li>
         <li>
@@ -318,9 +344,16 @@
 
             <div class="form-row">
               <div class="form-group form-inline">
-                <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis" />
-                <label for="chk_analysis" style="font-weight: normal; margin: 0;">Analyse
+                <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis_{{.SensorID}}"
+                  checked />
+                <label for="chk_analysis_{{.SensorID}}" style="font-weight: normal; margin: 0;">Analyse
                   &amp; record VRLOG</label>
+              </div>
+              <div class="form-group form-inline">
+                <input type="checkbox" name="settle_before_recording" value="true"
+                  id="chk_settle_before_recording_{{.SensorID}}" checked />
+                <label for="chk_settle_before_recording_{{.SensorID}}" style="font-weight: normal; margin: 0;">Settle grid,
+                  reload &amp; record from start</label>
               </div>
               <div class="form-group form-inline">
                 <input type="checkbox" name="enable_plots" value="true" id="chk_plots" />
@@ -396,6 +429,20 @@
                 update();
               } catch (e) {
                 // no-op: keep template resilient to missing elements
+              }
+            })();
+          </script>
+          <script>
+            (function () {
+              try {
+                var settle = document.getElementById('chk_settle_before_recording_{{.SensorID}}');
+                var analysis = document.getElementById('chk_analysis_{{.SensorID}}');
+                if (!settle || !analysis) return;
+                settle.addEventListener('change', function () {
+                  if (settle.checked) analysis.checked = true;
+                });
+              } catch (e) {
+                // no-op: the server also validates this dependency
               }
             })();
           </script>

@@ -1,0 +1,557 @@
+---
+layout: page.njk
+---
+{#
+  One scene page, for every scene. A page supplies sceneId, sceneName and
+  sceneIntro; the viewport, transport, timeline key and player wiring are the
+  same for every scene and live here, so a fix to one is a fix to all.
+#}
+
+<style>
+  .scene-page {
+    --scene-canvas: #07090c;
+    --scene-vehicle: #f2504b;
+    --scene-cycle: #6aa9ff;
+    --scene-walking: #10b981;
+    --scene-primary: #10b981;
+    --scene-primary-ink: #07090c;
+  }
+  .scene-dev[hidden], #scene-capture[hidden] { display: none; }
+  .scene-dev { margin-top: 1rem; padding: 0.8rem; border: 1px solid #2c4049; }
+  .scene-dev label { display: block; margin: 0.5rem 0; }
+  .scene-dev input { width: 7rem; color: #cfe3e8; background: #0b1013; border: 1px solid #2c4049; padding: 0.3rem; }
+  .scene-dev p { font-size: 0.85rem; }
+  .scene-page__head { margin-bottom: 1rem; }
+  .scene-page__up { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .scene-page__up a { text-decoration: none; opacity: 0.75; }
+  .scene-page__up a:hover { text-decoration: underline; opacity: 1; }
+  .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+  .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
+  .scene-page__status {
+    display: flex; align-items: flex-start; gap: 0.6rem; max-width: 68ch;
+    margin: 0.65rem 0 0; padding: 0.7rem 0.85rem; border: 1px solid #f59e0b;
+    border-radius: 0.5rem; background: rgba(255, 237, 213, 0.8); color: #4a2d0a;
+    font-size: 0.92rem; line-height: 1.5; box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+  }
+  .scene-page__status strong { font-weight: 650; opacity: 1; }
+  .scene-page__status-icon {
+    flex: 0 0 auto; width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; color: #b45309;
+  }
+  .scene-page__status-icon svg {
+    display: block; width: 100%; height: 100%; stroke: currentColor; fill: none;
+    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .scene-page__more {
+    background: none; border: 0; padding: 0; font: inherit; color: var(--scene-primary);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .scene-page__status {
+      background: rgba(129, 80, 16, 0.16); color: #f8d7a6; border-color: #f59e0b;
+      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
+    }
+    .scene-page__status-icon { color: #fbbf24; }
+  }
+  .scene-page__more:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; border-radius: 2px; }
+  .scene-page__privacy {
+    font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.75;
+    border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0.75rem 0 0;
+  }
+  .scene-page__privacy[hidden] { display: none; }
+
+  .scene-stage { position: relative; aspect-ratio: 4 / 5; width: 100%; border-radius: 4px; overflow: hidden; background: var(--scene-canvas); }
+  @media (min-width: 768px) { .scene-stage { aspect-ratio: 16 / 9; } }
+  .scene-stage__canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  .scene-stage__canvas:active { cursor: grabbing; }
+  .scene-stage__canvas:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: -2px; }
+  .scene-stage__controls {
+    position: absolute; z-index: 2; top: 0.65rem; left: 0.65rem;
+    color: #cfe3e8;
+  }
+  .scene-stage__controls summary {
+    display: flex; align-items: center; gap: 0.38rem; width: max-content;
+    padding: 0.45rem 0.62rem; cursor: pointer; user-select: none;
+    border: 1px solid rgba(207, 227, 232, 0.24); border-radius: 4px;
+    background: rgba(7, 9, 12, 0.84); font-size: 0.82rem; font-weight: 600;
+    backdrop-filter: blur(5px);
+  }
+  .scene-stage__controls summary::-webkit-details-marker { display: none; }
+  .scene-stage__controls summary::marker { content: ""; }
+  .scene-stage__controls summary:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
+  .scene-stage__controls-chevron { display: inline-block; transition: transform 140ms ease; }
+  .scene-stage__controls[open] .scene-stage__controls-chevron { transform: rotate(90deg); }
+  .scene-stage__controls[open] summary { border-radius: 4px 4px 0 0; }
+  .scene-stage__switches {
+    display: grid; gap: 0.42rem; margin: 0; padding: 0.55rem 0.65rem;
+    border: 1px solid rgba(207, 227, 232, 0.24); border-top: 0;
+    border-radius: 0 4px 4px 4px; background: rgba(7, 9, 12, 0.84);
+    backdrop-filter: blur(5px);
+  }
+  .scene-switch {
+    display: flex; align-items: center; gap: 0.48rem; min-height: 1.35rem;
+    font-size: 0.875rem; line-height: 1.2; cursor: pointer; user-select: none;
+  }
+  .scene-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .scene-switch__track {
+    position: relative; flex: 0 0 auto; width: 2.15rem; height: 1.2rem;
+    border: 1px solid #607780; border-radius: 999px; background: #1c2b32;
+    transition: background 140ms ease, border-color 140ms ease;
+  }
+  .scene-switch__track::after {
+    content: ""; position: absolute; top: 0.13rem; left: 0.14rem;
+    width: 0.78rem; height: 0.78rem; border-radius: 50%; background: #cfe3e8;
+    transition: transform 140ms ease;
+  }
+  .scene-switch input:checked + .scene-switch__track {
+    border-color: var(--scene-primary); background: var(--scene-primary);
+  }
+  .scene-switch input:checked + .scene-switch__track::after {
+    background: var(--scene-primary-ink); transform: translateX(0.94rem);
+  }
+  .scene-switch input:focus-visible + .scene-switch__track {
+    outline: 2px solid var(--scene-primary); outline-offset: 3px;
+  }
+  /* A visually-subordinate toggle for an option that belongs to the one above it. */
+  .scene-switch--sub { margin-left: 1.3rem; font-size: 0.8rem; }
+  .scene-switch--sub .scene-switch__track { width: 1.85rem; height: 1.05rem; }
+  .scene-switch--sub .scene-switch__track::after {
+    top: 0.12rem; left: 0.13rem; width: 0.68rem; height: 0.68rem;
+  }
+  .scene-switch--sub input:checked + .scene-switch__track::after {
+    transform: translateX(0.91rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene-switch__track, .scene-switch__track::after,
+    .scene-stage__controls-chevron { transition: none; }
+  }
+  .scene-stage__tools {
+    position: absolute; z-index: 2; top: 0.65rem; right: 0.65rem;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.28rem;
+  }
+  .scene-stage__tip {
+    margin: 0; padding: 0.24rem 0.4rem; border-radius: 3px;
+    background: rgba(7, 9, 12, 0.76); color: rgba(207, 227, 232, 0.82);
+    font-size: 0.75rem; line-height: 1.35; text-align: right;
+    pointer-events: none; white-space: nowrap;
+  }
+  .scene-stage__tip-mobile { display: inline; }
+  .scene-stage__tip-desktop { display: none; }
+  .scene-compass {
+    position: absolute; right: 0.65rem; bottom: 0.65rem; width: 76px; height: 76px;
+    border: 1px solid #2c4049; border-radius: 50%; padding: 0;
+    background: rgba(7, 9, 12, 0.85); color: var(--scene-primary); cursor: pointer;
+  }
+  .scene-compass:hover { border-color: var(--scene-primary); }
+  .scene-compass:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 3px; }
+  .scene-compass svg { display: block; width: 100%; height: 100%; }
+  .scene-stage__build {
+    position: absolute; z-index: 2; bottom: 0.65rem; left: 0.65rem; margin: 0;
+    padding: 0.18rem 0.34rem; border: 1px solid rgba(207, 227, 232, 0.16); border-radius: 3px;
+    background: rgba(7, 9, 12, 0.72); color: rgba(207, 227, 232, 0.72);
+    font-size: 0.64rem; font-variant-numeric: tabular-nums; line-height: 1.25;
+    pointer-events: none;
+  }
+  .scene-stage__build[hidden] { display: none; }
+  @media (max-width: 767px) {
+    .scene-stage__tip-mobile { display: inline; }
+    .scene-stage__tip-desktop { display: none; }
+    .scene-compass { width: 32px; height: 32px; }
+  }
+  @media (min-width: 768px) {
+    .scene-stage__tip-mobile { display: none; }
+    .scene-stage__tip-desktop { display: inline; }
+  }
+  .scene-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .scene-label {
+    position: absolute; transform: translate(-50%, -100%);
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
+    padding: 0.1rem 0.32rem; border-radius: 2px; white-space: nowrap;
+    background: rgba(11, 16, 19, 0.78); color: #ffd7d4;
+    border: 1px solid rgba(242, 80, 75, 0.55);
+  }
+  .scene-stage__overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    margin: 0; padding: 1.5rem; text-align: center; color: #cfe3e8;
+    background: rgba(11, 16, 19, 0.9); font-size: 0.95rem; line-height: 1.5;
+  }
+  .scene-stage__overlay--error { color: #f0b48a; }
+  .scene-stage__overlay[hidden] { display: none; }
+
+  .scene-chip {
+    font: inherit; font-size: 0.78rem; padding: 0.32rem 0.62rem; border-radius: 999px;
+    border: 1px solid rgba(207, 227, 232, 0.28); background: rgba(11, 16, 19, 0.72);
+    color: #cfe3e8; cursor: pointer; white-space: nowrap; line-height: 1.2;
+  }
+  .scene-chip[aria-pressed="true"] { background: var(--scene-primary); border-color: var(--scene-primary); color: var(--scene-primary-ink); font-weight: 600; }
+  .scene-chip:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
+  .scene-chip--ghost { flex: 0 0 auto; opacity: 0.75; border-style: dashed; }
+  /* Fly is a mode, so it reads as a switch rather than a destination. */
+  .scene-chip--fly { flex: 0 0 auto; font-weight: 600; letter-spacing: 0.04em; }
+  .scene-chip--fly[aria-checked="true"] {
+    background: var(--scene-primary); border-color: var(--scene-primary); color: var(--scene-primary-ink);
+  }
+  .scene-chip--fly[aria-checked="true"]::before { content: "\25B8\00a0"; }
+  .scene-chip--fly[aria-checked="false"]::before { content: "\25AA\00a0"; opacity: 0.7; }
+  .scene-vantage__output {
+    display: block; margin-top: 0.4rem; font-family: ui-monospace, monospace;
+    font-size: 0.68rem; opacity: 0.8; word-break: break-all;
+  }
+  .scene-vantage__output[hidden] { display: none; }
+
+  /* One timeline. It carries the traffic, the speed line and the playhead, so
+     a second bare scrubber underneath would say less and take up more. */
+  .scene-timeline__canvas {
+    display: block; height: 76px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.03); cursor: pointer;
+    flex: 1 1 14rem; min-width: 8rem;
+  }
+  .scene-timeline__canvas:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
+  .scene-timeline__key {
+    display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.4rem;
+    font-size: 0.72rem; opacity: 0.75;
+  }
+  .scene-timeline__key span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .scene-timeline__key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .scene-timeline__key i.scene-timeline__line { height: 2px; width: 14px; border-radius: 0; }
+  .scene-timeline__axis {
+    opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.62rem; font-weight: 600;
+  }
+
+  .scene-transport { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  .scene-transport__button {
+    min-width: 5rem; padding: 0.45rem 1rem; border-radius: 3px; border: 1px solid currentColor;
+    background: transparent; font: inherit; font-weight: 600; cursor: pointer; color: inherit;
+  }
+  .scene-transport__button:hover { background: rgba(75, 192, 217, 0.12); }
+  .scene-transport__button:focus-visible,
+  .scene-transport__rate select:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
+  .scene-transport__clock { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.8; min-width: 3.2rem; }
+  .scene-transport__rate select { font: inherit; padding: 0.3rem 0.4rem; border-radius: 3px; background: transparent; color: inherit; border: 1px solid currentColor; }
+  @media (max-width: 560px) {
+    .scene-timeline__canvas { flex-basis: 100%; order: -1; }
+  }
+  .scene-transport__stats { margin: 0.5rem 0 0; font-size: 0.86rem; opacity: 0.8; font-variant-numeric: tabular-nums; min-height: 1.3em; }
+  .scene-speed { margin-top: 2rem; }
+  .scene-speed > h2 { margin: 0 0 0.3rem; font-size: 1.35rem; }
+  .scene-speed__intro { margin: 0 0 1rem; max-width: 66ch; opacity: 0.78; }
+  .scene-speed__grid-layout { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.2fr); gap: 1.5rem; align-items: start; }
+  .scene-speed__panel { min-width: 0; border-top: 1px solid #2c4049; padding-top: 0.75rem; }
+  .scene-speed__panel h3 { margin: 0 0 0.65rem; font-size: 1rem; }
+  .scene-speed__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .scene-speed__table th, .scene-speed__table td { padding: 0.46rem 0; border-bottom: 1px solid rgba(207, 227, 232, 0.13); }
+  .scene-speed__table th { text-align: left; font-weight: 500; }
+  .scene-speed__table td { text-align: right; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .scene-speed__table i { display: inline-block; width: 0.65rem; height: 0.65rem; margin-right: 0.45rem; border: 1px solid rgba(207, 227, 232, 0.42); }
+  .scene-speed__histogram { min-height: 13rem; font-size: 0.85rem; opacity: 0.82; }
+  .scene-speed__histogram svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .scene-speed__grid { stroke: rgba(15, 23, 42, 0.18); stroke-width: 1; }
+  .scene-speed__bar { fill: #4682b4; fill-opacity: 0.82; stroke: rgba(15, 23, 42, 0.32); stroke-opacity: 0.45; }
+  .scene-speed__tick { fill: #111827; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .scene-speed__axis-label { fill: #111827; font-size: 12px; }
+  .scene-speed__status { margin: 0; opacity: 0.7; }
+  @media (prefers-color-scheme: dark) {
+    .scene-speed__grid { stroke: rgba(207, 227, 232, 0.16); }
+    .scene-speed__bar { stroke: #cfe3e8; stroke-opacity: 0.28; }
+    .scene-speed__tick { fill: #cfe3e8; }
+    .scene-speed__axis-label { fill: #cfe3e8; }
+  }
+  @media (max-width: 700px) {
+    .scene-speed__grid-layout { grid-template-columns: 1fr; }
+  }
+
+  .scene-page__provenance { margin-top: 1.75rem; font-size: 0.88rem; line-height: 1.6; max-width: 68ch; }
+  .scene-page__provenance summary { cursor: pointer; font-weight: 600; }
+  .scene-page__provenance p { margin: 0.7rem 0 0; opacity: 0.8; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+</style>
+
+<section class="max-w-6xl mx-auto scene-page">
+  <header class="scene-page__head">
+    <nav class="scene-page__up" aria-label="Breadcrumb">
+      <a href="{{ '/surveys/' | url }}">
+        <span aria-hidden="true">&larr;</span> All LiDAR surveys
+      </a>
+    </nav>
+    <h1 class="scene-page__title" id="scene-title">{{ sceneName }}</h1>
+    <p class="scene-page__sub">
+      {{ sceneIntro }}
+      <button type="button" class="scene-page__more" id="scene-about-toggle" aria-expanded="false" aria-controls="scene-about">
+        About this view
+      </button>
+    </p>
+    <p class="scene-page__status">
+      <span class="scene-page__status-icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20" role="presentation">
+          <path d="M6.5 2.5h7M7.5 2.5v4.5l-2.5 4.2a2.6 2.6 0 0 0 2.2 4.3h5.6a2.6 2.6 0 0 0 2.2-4.3l-2.5-4.2V2.5M7 8.5h6M8 11.3h4"/>
+          <path d="M8.5 14.5h3M7 16.5h6"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Research preview.</strong> The perception pipeline still produces too
+        many split tracks and unstable trails for production use. We are continuing to
+        improve its clustering and tracking; for now, this is a view of the work rather
+        than a finished result.
+      </span>
+    </p>
+    <p class="scene-page__privacy" id="scene-about" hidden>
+      Grey points map the street. Coloured boxes and trails are the perception
+      pipeline's current estimate of each road user's position, size, direction and
+      speed; they can split or wander while the tracking work continues. LiDAR records
+      no images, faces or number plates. The point is to understand traffic, not to
+      start collecting people's personal lives by accident.
+    </p>
+  </header>
+
+  <div class="scene-stage">
+    <canvas
+      id="scene-canvas"
+      class="scene-stage__canvas"
+      width="960"
+      height="540"
+      tabindex="0"
+      aria-label="3D street survey. Drag to rotate, Shift-drag or use two fingers to pan, pinch or scroll to zoom, or use the arrow keys."
+    ></canvas>
+
+    <div class="scene-stage__labels" id="scene-labels" aria-hidden="true"></div>
+
+    <details class="scene-stage__controls">
+      <summary><span class="scene-stage__controls-chevron" aria-hidden="true">›</span> Controls</summary>
+      <fieldset class="scene-stage__switches" aria-label="Survey layers">
+        <legend class="sr-only">Survey layers</legend>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-background" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Background</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-grid" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Grid</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-boxes" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Boxes</span>
+      </label>
+      <label class="scene-switch scene-switch--sub">
+        <input type="checkbox" id="scene-trails" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Trails</span>
+      </label>
+      {% if sceneHasClip %}
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-lidar" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>LiDAR</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-loop-opening" role="switch" aria-describedby="scene-loop-opening-help">
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Loop opening</span>
+      </label>
+      <span class="sr-only" id="scene-loop-opening-help">Turn on to loop the opening LiDAR segment; turn off for the full recording.</span>
+      {% endif %}
+      </fieldset>
+    </details>
+
+    <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
+    <button
+        type="button"
+        class="scene-chip scene-chip--fly"
+        id="scene-fly"
+        role="switch"
+        aria-checked="true"
+      >Fly</button>
+      <p class="scene-stage__tip" id="scene-fly-tip">
+        Drag to rotate<br>
+        <span class="scene-stage__tip-mobile">Two fingers to pan<br>Pinch to zoom</span>
+        <span class="scene-stage__tip-desktop">Shift + drag to pan<br>Scroll to zoom</span>
+      </p>
+      <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
+    </div>
+
+    <button type="button" id="scene-compass" class="scene-compass" aria-label="Overhead view (north unmeasured; using sensor zero)">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <g data-compass-tilt transform="translate(40 40)">
+          <circle r="27" fill="none" stroke="#607780" stroke-width="1.5" />
+          <g data-compass-bearing>
+            <text data-compass-label x="0" y="-29" text-anchor="middle" fill="currentColor" font-size="10" font-weight="700">N?</text>
+            <path d="M0 -23 L9 10 L0 5 L-9 10 Z" fill="currentColor" />
+            <path d="M0 23 L6 9 L0 12 L-6 9 Z" fill="#607780" />
+          </g>
+        </g>
+      </svg>
+    </button>
+
+    <p class="scene-stage__build" data-scene-generator hidden>
+      build <span data-scene-generator-version></span>
+    </p>
+
+    <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>
+    <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
+  </div>
+
+  <output class="scene-vantage__output" id="scene-capture-out" hidden></output>
+
+  <fieldset id="scene-dev" class="scene-dev" hidden>
+    <legend>Developer alignment</legend>
+    <p>Align the grid with the kerbs, then set north. Blank means unmeasured.</p>
+    <label>Grid offset (degrees) <input type="number" step="any" name="grid_azimuth_deg"></label>
+    <label>Sensor zero clockwise from north (degrees) <input type="number" step="any" name="north_azimuth_deg"></label>
+    <button type="button" class="scene-chip" data-action="top">Align from above</button>
+    <button type="button" class="scene-chip" data-action="reset">Reset preview</button>
+    <button type="button" class="scene-chip" data-action="save">Save to map marks…</button>
+    <p>Save to <code>tools/s2-archive/map-marks.json</code>, then rebuild the scene index.</p>
+    <output class="scene-vantage__output" aria-live="polite"></output>
+  </fieldset>
+
+  <div class="scene-transport">
+    <button id="scene-play" type="button" class="scene-transport__button">Play</button>
+    <span id="scene-clock" class="scene-transport__clock">00:00</span>
+
+    <canvas
+      id="scene-timeline"
+      class="scene-timeline__canvas"
+      height="76"
+      tabindex="0"
+      role="slider"
+      aria-label="Traffic over time. Click or drag to seek; arrow keys step, Home and End jump."
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    ></canvas>
+
+    <span id="scene-duration" class="scene-transport__clock">00:00</span>
+    <label class="scene-transport__rate">
+      <span class="sr-only">Playback speed</span>
+      <select id="scene-rate" aria-label="Playback speed">
+        <option value="1">1&times;</option>
+        <option value="4">4&times;</option>
+        <option value="8" selected>8&times;</option>
+        <option value="16">16&times;</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="scene-timeline__key">
+    <span class="scene-timeline__axis">Above</span>
+    <span><i style="background:var(--scene-vehicle)"></i>Motor vehicles</span>
+    <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Fastest</span>
+    <span class="scene-timeline__axis">Below</span>
+    <span><i style="background:var(--scene-walking)"></i>Walking</span>
+    <span><i style="background:var(--scene-cycle)"></i>Cycling</span>
+  </div>
+
+  <p id="scene-stats" class="scene-transport__stats"></p>
+
+  <section class="scene-speed" id="scene-speed" aria-labelledby="scene-speed-title">
+    <h2 id="scene-speed-title">Car speeds</h2>
+    <p class="scene-speed__intro">
+      Each car track above 5 mph contributes its highest observed speed once,
+      matching the radar report.
+    </p>
+    <p class="scene-speed__status" data-speed-status>Loading speed summary…</p>
+    <div class="scene-speed__grid-layout">
+      <div class="scene-speed__panel">
+        <h3>Headline metrics</h3>
+        <table class="scene-speed__table">
+          <caption class="sr-only">Car track speed percentiles and maximum</caption>
+          <tbody data-speed-table></tbody>
+        </table>
+      </div>
+      <div class="scene-speed__panel">
+        <h3>Speed distribution</h3>
+        <div class="scene-speed__histogram" data-speed-histogram></div>
+      </div>
+    </div>
+  </section>
+
+  <details class="scene-page__provenance">
+    <summary>About the data</summary>
+    <p>
+      A Hesai Pandar40P recorded the street. The perception pipeline produced the
+      source VRLOG; this page loads smaller static exports. The opening 30 seconds
+      add the measured foreground points. Boxes, trails and the timeline always come
+      from the full tracked recording, so they do not change source when the points
+      fade away. Playback follows recorded timestamps because the sensor does not
+      turn at a perfectly fixed rate.
+    </p>
+    <p data-scene-generator hidden>
+      <strong>VRLOG generator:</strong>
+      velocity.report <span data-scene-generator-version></span>
+    </p>
+  </details>
+</section>
+
+<script type="module">
+  import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
+  import { parseCaptureParams } from "{{ '/js/scene-capture.js' | url }}";
+
+  const base = "{{ ('/surveys/' + sceneId + '/assets') | url }}";
+  const status = document.getElementById("scene-status");
+  const captureView = parseCaptureParams(new URLSearchParams(location.search));
+
+  const about = document.getElementById("scene-about");
+  const aboutToggle = document.getElementById("scene-about-toggle");
+  aboutToggle.addEventListener("click", () => {
+    const open = about.hidden;
+    about.hidden = !open;
+    aboutToggle.setAttribute("aria-expanded", String(open));
+  });
+
+  mountScenePlayer({
+    canvas: document.getElementById("scene-canvas"),
+    manifestURL: `${base}/manifest.json`,
+    pointCloudManifestURL: {{ "`${base}/clip/manifest.json`" if sceneHasClip else "null" }},
+    ui: {
+      siteId: "{{ sceneId }}",
+      compass: document.getElementById("scene-compass"),
+      devPanel: document.getElementById("scene-dev"),
+      backgroundURL: `${base}/background/background.json.gz`,
+      // The one place this scene's viewpoints live. Edit the file, reload.
+      vantagesURL: `${base}/vantages.json`,
+      // Two angles the operator measured, either of which may be absent.
+      // gridAzimuthDeg turns the ground grid onto this junction's street
+      // grid; northAzimuthDeg says where true north lies. They are separate
+      // measurements: one is a property of the street, the other of how the
+      // tripod was set down, and neither follows from the other.
+      gridAzimuthDeg: {{ gridAzimuthDeg if gridAzimuthDeg is number else "null" }},
+      northAzimuthDeg: {{ northAzimuthDeg if northAzimuthDeg is number else "null" }},
+      labelLayer: document.getElementById("scene-labels"),
+      timelineURL: `${base}/part-000/timeline.json`,
+      timelineCanvas: document.getElementById("scene-timeline"),
+      lidarToggle: document.getElementById("scene-lidar"),
+      boxesToggle: document.getElementById("scene-boxes"),
+      trailsToggle: document.getElementById("scene-trails"),
+      backgroundToggle: document.getElementById("scene-background"),
+      gridToggle: document.getElementById("scene-grid"),
+      openingLoopToggle: document.getElementById("scene-loop-opening"),
+      flyToggle: document.getElementById("scene-fly"),
+      flyTip: document.getElementById("scene-fly-tip"),
+      captureView: document.getElementById("scene-capture"),
+      captureOutput: document.getElementById("scene-capture-out"),
+      playToggle: document.getElementById("scene-play"),
+      clock: document.getElementById("scene-clock"),
+      duration: document.getElementById("scene-duration"),
+      rate: document.getElementById("scene-rate"),
+      stats: document.getElementById("scene-stats"),
+      speedStats: document.getElementById("scene-speed"),
+      generatorVersions: document.querySelectorAll("[data-scene-generator-version]"),
+      status,
+      loading: document.getElementById("scene-loading"),
+      title: document.getElementById("scene-title"),
+    },
+    capture: captureView != null,
+  }).then(async (session) => {
+    if (captureView) await session.capture.applyView(captureView);
+  }).catch((err) => {
+    document.getElementById("scene-loading").hidden = true;
+    status.textContent = err?.message ?? "The survey could not be loaded.";
+    status.hidden = false;
+  });
+</script>

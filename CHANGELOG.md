@@ -21,7 +21,11 @@
 ⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⠛⠛⠛⠛⠛⠛⠛⠛⠳⠒⠶⠒⠷⠚⠶⠚⠖⠳⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠉⠁⠀⠀⠀⠀⠀⠀
 ```
 
-All notable changes to this project will be documented in this file.
+# Changelog
+
+This is the shipping record: what changed, when it changed, and why a person using the project
+might care. It records releases rather than promising the moon, which is usually safer for both
+the calendar and the moon.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -446,7 +450,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 - Time-based speed limit schedules feature specification
 - PCAP split design specification
 - LiDAR background grid standards and export options
-- ML pipeline roadmap with analysis runs and labeling UI architecture
+- ML pipeline roadmap with analysis runs and labelling UI architecture
 
 #### Changed
 
@@ -549,7 +553,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### Fixed
 
-- Database initialization on first run
+- Database initialisation on first run
 - Serial port handling and error recovery
 
 ### PDF Generator
@@ -594,7 +598,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 #### Added
 
 - SvelteKit-based web interface
-- Real-time radar data visualization
+- Real-time radar data visualisation
 - Statistics dashboard
 - API integration with Go backend
 - Responsive design

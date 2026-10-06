@@ -258,6 +258,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites)
 	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
+	s.mux.HandleFunc("/api/scenes", s.handleScenes)
+	s.mux.HandleFunc("/api/scenes/", s.handleScenes) // trailing slash matches /api/scenes/<id>
 	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
 	s.mux.HandleFunc("/api/reports/", s.handleReports)
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker)

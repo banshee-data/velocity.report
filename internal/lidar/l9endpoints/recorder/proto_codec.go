@@ -45,6 +45,7 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 			RotationDeg:    frame.CoordinateFrame.RotationDeg,
 		},
 		BackgroundSeq: frame.BackgroundSeq,
+		Debug:         l9endpoints.DebugToProto(frame.Debug),
 	}
 
 	if frame.PointCloud != nil {
@@ -69,16 +70,17 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:    c.ClusterID,
+				SensorId:     c.SensorID,
+				TimestampNs:  c.TimestampNanos,
+				CentroidX:    c.CentroidX,
+				CentroidY:    c.CentroidY,
+				CentroidZ:    c.CentroidZ,
+				AabbLength:   c.AABBLength,
+				AabbWidth:    c.AABBWidth,
+				AabbHeight:   c.AABBHeight,
+				PointsCount:  int32(c.PointsCount),
+				SamplePoints: c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -168,7 +170,6 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 
 	if frame.PlaybackInfo != nil {
 		pbFrame.PlaybackInfo = &pb.PlaybackInfo{
-			IsLive:            frame.PlaybackInfo.IsLive,
 			LogStartNs:        frame.PlaybackInfo.LogStartNs,
 			LogEndNs:          frame.PlaybackInfo.LogEndNs,
 			PlaybackRate:      frame.PlaybackInfo.PlaybackRate,
@@ -209,6 +210,7 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 		SensorID:       pbFrame.SensorId,
 		FrameType:      l9endpoints.FrameType(pbFrame.FrameType),
 		BackgroundSeq:  pbFrame.BackgroundSeq,
+		Debug:          l9endpoints.DebugFromProto(pbFrame.Debug),
 	}
 
 	if pbFrame.CoordinateFrame != nil {
@@ -254,6 +256,7 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 				AABBWidth:      c.AabbWidth,
 				AABBHeight:     c.AabbHeight,
 				PointsCount:    int(c.PointsCount),
+				SamplePoints:   c.SamplePoints,
 			}
 			if c.Obb != nil {
 				clusters[i].OBB = &l9endpoints.OrientedBoundingBox{
@@ -342,7 +345,6 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 
 	if pbFrame.PlaybackInfo != nil {
 		frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-			IsLive:            pbFrame.PlaybackInfo.IsLive,
 			LogStartNs:        pbFrame.PlaybackInfo.LogStartNs,
 			LogEndNs:          pbFrame.PlaybackInfo.LogEndNs,
 			PlaybackRate:      pbFrame.PlaybackInfo.PlaybackRate,

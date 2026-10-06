@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "lombard-laguna",
+  "title": "Lombard at Laguna",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 11440,
+  "start_ns": "1788371949825003330",
+  "duration_sec": 2287.798299,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "a03832a9dbc1f9b3a85fc1f0d8f9e61ed36f82ab727736a936e8dd2c3d67abfa",
+  "tuning_hash": "sha256:2319c8f8aaf95e70887ced03d7e9f42f631eabf82c0ac593d32feb1880ba2e3f",
+  "build_version": "0.5.1-pre43",
+  "generated_at": "2026-10-01T06:23:24Z"
+}

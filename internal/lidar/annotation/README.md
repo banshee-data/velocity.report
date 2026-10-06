@@ -1,0 +1,167 @@
+# Immutable point packs and reference annotations
+
+This package separates human reference objects from predicted track identities. Packs retain
+exact point indices; sidecars hold reviewed, proposed, and rejected membership independently of
+tracker splits and reruns. The selection client is the macOS visualiser's annotation pane
+(`tools/visualiser-macos/VelocityVisualiser/Annotation`), which reads these packs and writes
+these sidecars through the same revision protocol; it is not supplied by this package.
+
+## What a pack carries
+
+| File                                 | What it is                                                                | In the pack digest |
+| ------------------------------------ | ------------------------------------------------------------------------- | ------------------ |
+| `points.bin`, `samples.json`         | The point domain: every frame's returns, by the index a mask cites        | Yes                |
+| `manifest.json`                      | Identity, coverage, coordinate contract, and the run's L4 height band     | It holds it        |
+| `background.bin`, `backgrounds.json` | The settled-background snapshots in force over the excerpt, when recorded | No                 |
+
+The background is context for whoever is labelling: it shows what the run had already decided
+was static, and when that decision changed. No mask can cite a background point, so it has
+digests of its own in the manifest and stays out of the pack digest. The snapshot in force at a
+frame is the last recorded at or before it, by position in the recording. Neither its timestamp
+nor its sequence number orders it: a replay settled ahead of time opens with a snapshot stamped
+after every frame that follows, and the sequence number only moves on a grid reset.
+
+The exporter refuses `full` coverage when every classed point is foreground. Today's recordings
+keep foreground returns and periodic background snapshots, so their packs are `foreground_only`
+with a background behind them.
+
+### Intensity presence
+
+Every point block is a fixed size, so a frame that carried no intensity column is written with
+zero bytes where measurements would be. A zero byte cannot say which it is, and nothing may infer
+presence from the bytes. Presence is recorded instead, at two levels:
+
+| Field                                       | Meaning                                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `manifest.json` `has_intensity`             | Some sample's intensity bytes are measurements. It cannot say which                                 |
+| `samples.json` `has_intensity` (per sample) | This sample's bytes are measurements. Written `true` or `false` on every sample the exporter writes |
+
+Read presence through `Pack.SampleHasIntensity`: the sample's own flag when recorded, else the
+manifest's, which is the most a pack written before the field existed can say. Check
+`Pack.IntensityPresenceIsPerSample` first when every byte read must be a measurement rather than
+some sample's; it is false for a legacy pack and for one that records the flag on some samples only.
+When every sample records its flag, the manifest must equal their disjunction. `WritePack` refuses
+to write the contradiction and `OpenPack` refuses to read it, since the manifest sits outside the
+pack digest and an edit to it passes every digest check.
+
+The exporter reads the legacy `FrameBundle` point cloud, which has no column-presence bit: a
+frame is present when its column holds one byte per point and absent when it holds none. A column
+of any other length is refused, because zero-filling its tail under a `true` flag would be a lie
+and dropping it under `false` would discard readings. Samples in packs written before this field
+carry no key, so their bytes and digests are unchanged.
+
+## Revision-safe storage
+
+| Entry point              | Contract                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `LoadSidecar`            | Read the current bounded, validated snapshot and its private concurrency token; an untouched pack starts empty          |
+| `SaveSidecar`            | Save an edit of that loaded snapshot; do not increment its revision manually                                            |
+| `LoadSidecarRevision`    | Read a retained revision without making it current                                                                      |
+| `RestoreSidecarRevision` | Restore a snapshot as a new revision, retaining its original membership and review status                               |
+| `ReviewedMasks`          | Return only masks whose object and mask are both reviewed; a complete object mask does not certify background negatives |
+
+Set `Change.Author`, `Change.Session`, and `Change.Operation` for an operator action. The store
+supplies parent/current revision numbers and a UTC timestamp. It never invents a human author.
+Anonymous legacy data remain readable; the future client must collect operator provenance.
+
+Load a document, edit its membership, then save that same document. The revision and a digest of
+the exact loaded bytes both have to match the current file. A fresh document cannot overwrite an
+existing one, and editing its public revision cannot bypass the private token. Keep separate
+documents for separate sessions; concurrent mutation of one Go object is not supported.
+
+`ErrSidecarBusy` means another writer owns the transaction. Retry after it completes.
+`ErrSidecarConflict` means the base changed: reload and explicitly reconcile the unsaved edit.
+Neither error discards or canonicalises the caller's dirty data. Do not resolve a conflict by
+blindly copying the old mask over the newer revision.
+
+## Files and failure behaviour
+
+The immutable manifest and point arrays are unchanged. Annotation storage uses:
+
+- `annotations.json`: current snapshot, replaced atomically.
+- `annotation-revisions/0000000001.json`: exact prior snapshots, retained before advancing the
+  current file. The latest snapshot is read through the same revision API.
+- `.annotations.lock`: persistent lock inode. The kernel releases its lock when the descriptor
+  closes or the process exits. Do not delete this file while a writer might be running.
+
+The local macOS/Linux writer uses a non-blocking kernel lock, unique temporary files, file sync,
+atomic rename, and directory sync. Failed archive writes leave the current revision unchanged.
+An error after replacement may represent an uncertain commit: reload before retrying. This is
+not a distributed or network-filesystem locking protocol; do not mix older, unguarded writers
+with this writer.
+
+Each JSON snapshot is limited to 64 MiB. Reads and writes stay inside the pack directory through
+`os.Root`; non-regular sidecars and linked archive destinations are refused. Historical files
+are not a tamper-proof audit service or an off-device backup. Back up the whole pack with its
+annotation history before moving or distributing it.
+
+Legacy schema-v1 snapshots acquire history on their next save without rewriting their original
+bytes. A corrupt current file opens with an error, never as an empty dataset. If history exists
+but the current file is missing, new saves are refused. Retained snapshots can still be read
+by revision for explicit recovery; damaged-head replacement is not automated.
+
+Undo and redo use the same restore operation. Restoring revision 1 over revision 2 produces
+revision 3; restoring revision 2 then produces revision 4. Neither action changes earlier files
+or converts an algorithm's proposal into a reviewed label. Ordinary saves clear the restore
+marker. This is revision-level recovery, not the future client's unsaved-stroke undo stack.
+
+## Physical references
+
+Body geometry, keyframe poses and following gaps live in `physical-references.json`, with a
+separate review from the masks. The record is documented in the
+[point annotation tool guide](../../../docs/lidar/operations/point-annotation-tool.md#physical-references).
+
+| Entry point                                                         | Contract                                                                                  |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The sidecar's protocol and lock; a save refuses any record whose links do not hold        |
+| `PhysicalReferenceSet.Stale`, `StaleAgainst`                        | The records a later membership edit invalidated, found by the load, and the revision      |
+| `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                   |
+| `PhysicalReferenceSet.Validate`                                     | Pack, source, bounds, evidence, provenance, gap bumpers and conflicting following records |
+| `ValidateLinks`, `LinkProblems`                                     | Objects declared, cited frames holding them, observed claims borne out by the returns     |
+| `PhysicalReferenceSet.ContentDigest`                                | SHA-256 over the references alone, unchanged by revision metadata                         |
+| `PhysicalObject.Geometry`, `PhysicalReferenceSet.Geometries`        | A keyframe's centre, bumpers and box with conservative bounds, or why each is unavailable |
+| `ParsePhysicalImport`, `PreparePhysicalImport`                      | An independent import merged with the stored references and checked as a save; no write   |
+| `ImportPhysicalReferences`                                          | The prepared import, saved as a new revision                                              |
+
+A record's origin is fixed when it is created. The store carries every record ID's origin forward
+in `record_origins`, so a tracker-assisted record cannot become independent by review, by editing,
+or by being deleted and added back under its old ID.
+
+Membership saves do not read the references, and the macOS client makes them without this
+package, so a later edit can invalidate a saved reference. Loads find those records and list them
+in `Stale`; saves refuse them. No file is rewritten to mark them.
+
+## Scoring against the annotations
+
+| Entry point                     | Contract                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `BuildReference`                | One reference point per mask under a recorded policy: position rule, review status, road-user classes, partials |
+| `LoadSplitManifest`             | Read a hand-written version 1 split; refuse shared objects and episodes that score another partition's objects  |
+| `SplitManifest.ValidateAgainst` | Bind it to one pack digest, dataset, pinned revision and the objects that revision still carries                |
+| `SplitManifest.SelectEpisodes`  | Return a split's episodes; with held-out scoring requested, refuse a tuning split with `ErrNotHeldOut`          |
+| `FreezeSplit`                   | Freeze a draft over packs; refuse unfinished review, one capture in two roles, and holding out anything tuned   |
+| `LoadAnySplit`                  | Read either version; a version 2 file whose content no longer matches its `split_digest` is refused             |
+| `FrozenSplit.Bind`              | Re-check a frozen split's pins against a pack, derive again what it copies, and return its version 1 form       |
+| `FrozenSplit.CaseRoles`         | A corpus case's role; a held-out case replays only as a held-out score, which takes no other                    |
+| `FrozenSplit.CheckCaseCaptures` | Refuse a replay of a case unless each capture is the case's: by SHA-256 where declared, else by basename        |
+
+Masks a person did not certify become ignore points rather than truth: unreviewed, not a road user,
+not visible, only uncertain returns, or completeness never stated. Rejected and empty masks are
+dropped. The per-frame evaluator that consumes these, and the manifest's field table, are
+documented in [per-frame evaluation](../../../docs/lidar/operations/per-frame-evaluation.md).
+
+## Remaining reference-loop work
+
+Canonical-index lasso/slab selection, sphere and column brushes, second-view inspection,
+dirty-session navigation protection and operator provenance are delivered in the macOS client.
+So is what an operator needs in order to find the object: views that pan, zoom and hold their
+framing from sample to sample, a 3D view, class filters for background, foreground and ground,
+and frame sync with the main view's replay of the same recording. So is what keeps the work to an object at a time rather than an object in each frame: the
+client proposes objects from a pack (fixed clutter by persistence, the rest as clusters followed
+through the frames), carries an accepted mask forwards and back until the fit is one a person
+would not have accepted, and lets a review reach the masks. Masks made that way record the
+algorithm that made them and stay proposed until a person reviews them. What remains is operator
+work rather than engineering: reviewed masks across a site's keyframes, and the frozen
+object-disjoint dataset splits derived from them (`velocity lidar annotation-split freeze`). The
+[annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md) owns
+that; the three-day demo's descriptor model and seeded tracker remain separate follow-ons.

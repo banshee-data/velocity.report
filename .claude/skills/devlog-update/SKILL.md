@@ -16,26 +16,28 @@ Bring `docs/DEVLOG.md` up to date by reading git history across all branches and
 
 ## Format reference
 
-The devlog uses H2 headers for entries:
+The devlog uses one H2 header per UTC date:
 
 ```markdown
 ## April 7, 2026 - Short Theme Title
 
-- Concise bullet describing what changed and why.
-- Another bullet. References files in `backticks`, links to [design docs](plans/foo.md). <!-- link-ignore -->
+- Concise bullet describing what changed and why (#512).
+- Another bullet. References files in `backticks`, links to [design docs](plans/foo.md) (#513, #514). <!-- link-ignore -->
 - {branch-name} Unlanded work on a feature branch.
 ```
+
+The register rules (one line per bullet, one heading per day, PR numbers) are canonical in `.github/STYLE.md` under "Logs and registers"; this skill applies them.
 
 ### Conventions
 
 - **Date format:** `Month DD, YYYY` (e.g. `April 7, 2026`).
 - **Separator:** `-` (hyphen) between date and theme. Never use em-dashes in headers.
 - **Branch metadata:** unlanded bullets begin with `{branch-name}` (the branch slug in curly braces, immediately after `- `). No italic `_Branch:_` headers. This is the only format for denoting branch work.
-- **Bullet style:** each bullet is a single `- ` line; concise, action-focused, past tense.
+- **Bullet style:** each bullet is exactly one physical line starting `- `. Never hard-wrap a bullet, however long: no indented continuation lines. Concise, action-focused, past tense.
 - **Content per bullet:** what changed, which files/packages/layers, why, and references to design docs or PRs where relevant.
-- **Ordering:** newest entry first (prepend to the file, after the `# Development Log` title).
-- **Granularity:** one entry per calendar day that has commits. Merge related commits into themed bullets rather than listing every commit individually.
-- **PR references:** `(#NNN)` inline. No "Merged as" or "merged to main" phrasing. Add file count only when notable.
+- **Ordering:** newest entry first (prepend to the file, after its introduction and formatting note).
+- **One heading per date:** exactly one `##` heading per UTC calendar day that has work. No date ranges (`February 9-10`) and no second heading for a day that already has one: append to that entry and broaden its theme title instead. Merge related commits into themed bullets rather than listing every commit individually.
+- **PR references:** every main-landed bullet ends with the number(s) of the PR(s) that delivered it, before the final full stop: `(#622)` or `(#605, #606)`. No "Merged as" or "merged to main" phrasing. Add file count only when notable. Work pushed straight to main without a PR has no number.
 - **Links:** link to plan docs only when the entry is primarily about creating or updating that plan. Do not link every file mentioned.
 - **Version bumps:** include only for actual releases. Omit pre-release bump bullets.
 - **Tone:** factual, developer-journal style. No marketing language. Record decisions and rationale when non-obvious.
@@ -78,7 +80,9 @@ As part of each devlog update run, scan existing entries for `{branch-name}` tag
 gh pr list --state merged --head "$branch" --json number --jq '.[0].number'
 ```
 
-If the branch has merged, remove the `{branch-name}` tag from the bullet (the work is now on main). If the bullet has no other distinguishing content, leave it as-is with the tag removed. When removing a tag, delete the `{branch-name} ` prefix (including the trailing space).
+If the branch has merged, remove the `{branch-name}` tag from the bullet (the work is now on main) and append the merged PR number before the final full stop. When removing a tag, delete the `{branch-name} ` prefix (including the trailing space). The bullet stays under the date the work was done.
+
+A merged PR can deliver work recorded under a different head branch (for example a rebased or renamed branch). When `gh pr list --head` finds nothing, find the PR that added the line with `git log origin/main --format='%h %s' -S '<distinctive phrase>' -- docs/DEVLOG.md`.
 
 ### STYLE.md compliance
 
@@ -141,7 +145,7 @@ git log origin/$branch --not origin/main --oneline --format="%h %ad %s" --date=s
 
 When scanning open PR branches, compare each branch's commits against the devlog to find uncaptured work.
 
-When scanning merged PRs, verify each `(#NNN)` reference appears in the correct day's entry (by UTC date). A PR recorded under the wrong UTC date should be moved.
+When scanning merged PRs, verify each `(#NNN)` reference appears in the devlog under the UTC date the PR merged, and move a bullet recorded under the wrong date. The exception is work first recorded as `{branch-name}` bullets: those stay under the day the work was done when the tag is replaced by the PR number.
 
 ### 5. Group commits by calendar day
 
@@ -161,7 +165,7 @@ Common causes of gaps:
 - Commits on open PR branches were not scanned when the entry was first written.
 - A late-night session produced commits attributed to the same UTC date.
 
-For each uncovered commit (or group of related commits), synthesise new bullets following the format reference. **Append** these bullets to the end of the existing day's entry, before the next `## ` header. Preserve all existing bullets unchanged.
+For each uncovered commit (or group of related commits), synthesise new bullets following the format reference. **Append** these bullets to the end of the day's single entry, before the next `## ` header (and before any `{branch-name}` bullets, which stay last). Never add a second heading for the same date. Preserve existing bullets apart from the permitted changes listed in Notes.
 
 If the gap-fill adds enough new content to make the theme title inaccurate, update the theme title to reflect the broader scope (e.g. `## April 7 - RPi Image` becomes `## April 7 - RPi Image, Shell Hardening & Map Editor`).
 
@@ -183,8 +187,8 @@ Before inserting or appending, verify the new bullets don't duplicate informatio
 
 ### 9. Insert and amend
 
-- **New-day entries:** prepend to `docs/DEVLOG.md` immediately after the `# Development Log` title line, in reverse chronological order (newest first).
-- **Gap-fill bullets:** append to the relevant existing entry, immediately before the blank line that precedes the next `## ` header. Do not reorder or rewrite existing bullets.
+- **New-day entries:** insert into `docs/DEVLOG.md` immediately before the first `## ` entry, after the `# Development log` title, its introduction and the **Formatting:** note, in reverse chronological order (newest first).
+- **Gap-fill bullets:** append to the day's existing entry, after its main-landed bullets and before its `{branch-name}` bullets. Do not reorder or rewrite existing bullets.
 
 ### 10. Verify
 
@@ -192,15 +196,21 @@ Before inserting or appending, verify the new bullets don't duplicate informatio
 # Check the file looks right
 head -80 docs/DEVLOG.md
 
-# Verify no duplicate date headers
-grep -c "^## " docs/DEVLOG.md
-grep "^## " docs/DEVLOG.md | sort | uniq -d
+# One heading per date: both commands must print nothing
+grep "^## " docs/DEVLOG.md | sed -E 's/^## ([^-]+, [0-9]{4}).*/\1/' | sort | uniq -d
+grep -nE "^## [A-Z][a-z]+ [0-9]+-[0-9]+," docs/DEVLOG.md
+
+# One line per bullet: must print nothing
+grep -n "^  " docs/DEVLOG.md
+
+# Untagged bullets without a PR number: each should be a direct push to main
+grep -n "^- " docs/DEVLOG.md | grep -v ":- {" | grep -vE "\(([^()]*, )?#[0-9]+" | head -20
 ```
 
 ## Notes
 
 - This skill **writes** to `docs/DEVLOG.md`. It does not modify any other files.
-- Existing bullets within an entry are never modified or deleted. New bullets may be **appended** to an existing entry to fill gaps, and the theme title may be broadened to reflect added content.
+- Existing bullets are never reworded or deleted. The permitted changes are: appending bullets to fill gaps, broadening a theme title, removing a landed `{branch-name}` tag, adding a missing PR number, joining a hard-wrapped bullet onto one line, merging a second heading for the same date into the first, and moving a `(#NNN)` bullet to the UTC date its PR merged.
 - Commits on `backup/*` branches should be ignored (these are rescue snapshots, not development work).
 - Coverage-update commits (`Update coverage data`) should be ignored: they are automated.
 - When multiple branches have work on the same day, group by theme rather than by branch. Mention the branch in the metadata line.

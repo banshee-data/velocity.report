@@ -13,10 +13,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/api"
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -65,38 +67,57 @@ type Server struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
-	vrlogSafeDir      string // Safe directory for VRLOG file access
-	packetForwarder   *network.PacketForwarder
-	tuningConfigMu    sync.RWMutex
-	tuningConfig      *cfgpkg.TuningConfig
+	// captureRoots are the capture volumes the operator configured. They come
+	// from process configuration and never from a request: the safe-directory
+	// boundary is only a boundary while the set of readable roots is fixed
+	// outside the API. The UI selects among these; it cannot add one.
+	captureRoots []string
+	// captureRunner drains the capture job queue. Nil until StartCaptureJobs
+	// runs, and left nil when the server has no database to queue work in.
+	captureRunner   *capjobs.Runner
+	vrlogSafeDir    string // Safe directory for VRLOG file access
+	packetForwarder *network.PacketForwarder
+	tuningConfigMu  sync.RWMutex
+	tuningConfig    *cfgpkg.TuningConfig
 
 	// UDP listener lifecycle (live data source)
 	udpListenerConfig network.UDPListenerConfig
 	dataSourceMu      sync.RWMutex
-	currentSource     DataSource
-	currentPCAPFile   string
 	udpListener       *network.UDPListener
 	udpListenerCancel context.CancelFunc
 	udpListenerDone   chan struct{}
 	baseCtxMu         sync.RWMutex
 	baseCtx           context.Context
 
-	// PCAP replay state
-	pcapMu                      sync.Mutex
-	pcapInProgress              bool
-	pcapCancel                  context.CancelFunc
+	// state is the authoritative pipeline state: which source is driving the
+	// pipeline, whether a replay is running, and whether a VRLOG is being
+	// recorded. See pipeline_state.go for the locking contract — stateMu
+	// guards only the value and is never held across a call into another
+	// subsystem.
+	stateMu sync.RWMutex
+	state   PipelineState
+	// replayActiveFlag mirrors state.ReplayActive for the tracking pipeline's
+	// per-frame hot path, which cannot take stateMu. Written only by
+	// mutateState; see ReplayActiveFlag.
+	replayActiveFlag atomic.Bool
+	// analysisModeFlag mirrors state.AnalysisMode() for the same per-frame hot
+	// path; see AnalysisModeFlag.
+	analysisModeFlag atomic.Bool
+
+	// PCAP replay lifecycle. pcapMu guards only the cancellation handles;
+	// everything an observer can see lives in state above.
+	pcapMu     sync.Mutex
+	pcapCancel context.CancelFunc
+	// parkedLiveWatchCancel stops the watcher that hands a parked replay over to
+	// live input. Guarded by pcapMu with the other replay-lifecycle fields.
+	parkedLiveWatchCancel context.CancelFunc
+	// sourceBeforeReplayClaim holds the source a replay claim displaced, so a
+	// start that fails after taking the slot can put it back. Guarded by
+	// stateMu with the state it describes.
+	sourceBeforeReplayClaim     SourceMode
 	pcapDone                    chan struct{}
-	pcapAnalysisMode            bool        // When true, preserve grid after PCAP completion
-	pcapDisableRecording        bool        // When true, skip VRLOG recording during PCAP replay
 	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
 	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
-	pcapSpeedMode               string
-	pcapSpeedRatio              float64
-	pcapLastRunID               string // Last analysis run ID from PCAP replay (protected by pcapMu)
-
-	// PCAP progress tracking (protected by pcapMu)
-	pcapCurrentPacket uint64 // 0-based index of current packet
-	pcapTotalPackets  uint64 // Total packets in current PCAP file
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
@@ -112,7 +133,17 @@ type Server struct {
 	// Grid plotter for visualization during PCAP replay
 	gridPlotter  *l9endpoints.GridPlotter
 	plotsBaseDir string // Base directory for plot output (e.g., "plots")
-	plotsEnabled bool   // Whether plots are enabled for current run
+
+	// annotationPacksDir is where a run's annotation pack is written when
+	// requested through the API. Separate from vrlogSafeDir: one is a read
+	// boundary for existing recordings, the other is where new pack
+	// directories are created, and conflating them would let a pack write
+	// land anywhere a VRLOG could be read from.
+	annotationPacksDir string
+
+	// segmentSelectors is the catalogue the segments API ranks with. Nil
+	// reads the default one: the repository's file, or the binary's copy.
+	segmentSelectors *segments.Catalogue
 
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
@@ -127,19 +158,22 @@ type Server struct {
 	onPCAPStopped    func()
 	onPCAPProgress   func(currentPacket, totalPackets uint64)
 	onPCAPTimestamps func(startNs, endNs int64)
+	// onTuningChange runs once a runtime tuning patch has validated and
+	// before any of it is applied; see Config.OnTuningChange.
+	onTuningChange func()
 
 	// Recording lifecycle callbacks
-	onRecordingStart func(runID string)
+	onRecordingStart func(runID string) string
 	onRecordingStop  func(runID string) string
 
 	// Playback control callbacks
-	onPlaybackPause   func()
-	onPlaybackPlay    func()
-	onPlaybackSeek    func(timestampNs int64) error
-	onPlaybackRate    func(rate float32)
-	onVRLogLoad       func(vrlogPath string) (string, error)
-	onVRLogStop       func()
-	getPlaybackStatus func() *PlaybackStatusInfo
+	onPlaybackPause func()
+	onPlaybackPlay  func()
+	onPlaybackSeek  func(timestampNs int64) error
+	onPlaybackRate  func(rate float32)
+	onVRLogLoad     func(vrlogPath string) (string, error)
+	onVRLogStop     func()
+	playbackProbe   PlaybackProbe
 
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
@@ -154,9 +188,37 @@ type Server struct {
 	sweepStore *sqlite.SweepStore
 }
 
+// PlaybackPosition is the fast-moving replay position owned by the streaming
+// layer. Pause/Play/Seek/SetRate arrive as gRPC calls and never pass through
+// HTTP, so mirroring this into the monitor server would recreate the very
+// divergence PipelineState exists to remove: it is pulled on demand instead.
+//
+// It deliberately carries no mode field. Mode has exactly one owner — the
+// monitor server — and leaving it out is what keeps that enforceable.
+type PlaybackPosition struct {
+	Paused       bool
+	Rate         float32
+	Seekable     bool
+	CurrentFrame uint64
+	TotalFrames  uint64
+	TimestampNs  int64
+	LogStartNs   int64
+	LogEndNs     int64
+	ReplayEpoch  uint64
+}
+
+// PlaybackProbe is implemented by the visualiser gRPC server.
+type PlaybackProbe interface {
+	PlaybackPosition() PlaybackPosition
+}
+
 // PlaybackStatusInfo represents the current playback state for API responses.
+//
+// Mode uses the canonical source-mode vocabulary (live, pcap, pcap_analysis,
+// vrlog) shared with /api/lidar/data_source, rather than a second near-synonym
+// field beside it.
 type PlaybackStatusInfo struct {
-	Mode         string  `json:"mode"` // "live", "pcap", "vrlog"
+	Mode         string  `json:"mode"`
 	Paused       bool    `json:"paused"`
 	Rate         float32 `json:"rate"`
 	Seekable     bool    `json:"seekable"`
@@ -166,6 +228,17 @@ type PlaybackStatusInfo struct {
 	LogStartNs   int64   `json:"log_start_ns"`
 	LogEndNs     int64   `json:"log_end_ns"`
 	VRLogPath    string  `json:"vrlog_path,omitempty"`
+
+	ReplayActive      bool       `json:"replay_active"`
+	ReplayPass        ReplayPass `json:"replay_pass"`
+	ReplayTotalPasses int        `json:"replay_total_passes"`
+	GridPreserved     bool       `json:"grid_preserved"`
+	ReplayEpoch       uint64     `json:"replay_epoch"`
+
+	Recording       bool   `json:"recording"`
+	RecordingPath   string `json:"recording_path,omitempty"`
+	RecordingRunID  string `json:"recording_run_id,omitempty"`
+	RecordingFrames uint64 `json:"recording_frames"`
 }
 
 // Config contains configuration options for the web server
@@ -183,11 +256,24 @@ type Config struct {
 	FrameBuilder      network.FrameBuilder
 	Classifier        *l6objects.TrackClassifier
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
+	// CaptureRoots are additional capture volumes to index. PCAPSafeDir is
+	// always treated as a root, so leaving this empty keeps existing
+	// deployments unchanged.
+	CaptureRoots      []string
 	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
-	TuningConfig      *cfgpkg.TuningConfig
+	// AnnotationPacksDir is where POST .../annotation-export writes new pack
+	// directories. Empty disables the endpoint rather than falling back to
+	// vrlogSafeDir or plotsBaseDir: those directories have their own
+	// contents, and a pack write landing among them would be a surprise
+	// either way it went.
+	AnnotationPacksDir string
+	TuningConfig       *cfgpkg.TuningConfig
+	// SegmentSelectors is the catalogue the segments API ranks with, read
+	// once at startup. Nil reads the default one.
+	SegmentSelectors *segments.Catalogue
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -202,6 +288,12 @@ type Config struct {
 	// returns to live mode. Used to notify the visualiser gRPC server.
 	OnPCAPStopped func()
 
+	// OnTuningChange is called when a runtime tuning patch has validated,
+	// before its first value is applied, so anything that has bound evidence
+	// to the current tuning (a live observation capture names its extractor
+	// by it) can end first. Optional.
+	OnTuningChange func()
+
 	// OnPCAPProgress is called periodically during PCAP replay with the
 	// current and total packet counts, enabling progress/seek in the UI.
 	OnPCAPProgress func(currentPacket, totalPackets uint64)
@@ -211,21 +303,26 @@ type Config struct {
 	OnPCAPTimestamps func(startNs, endNs int64)
 
 	// OnRecordingStart is called when VRLOG recording starts for an analysis run.
-	// The callback receives the run ID and should start the recorder.
-	OnRecordingStart func(runID string)
+	// The callback receives the run ID, starts the recorder, and returns the
+	// path it is writing to (empty if recording could not start) so the server
+	// can report recording state instead of leaving it in a closure local.
+	OnRecordingStart func(runID string) string
 
 	// OnRecordingStop is called when VRLOG recording stops.
 	// The callback receives the run ID and should return the path to the recorded VRLOG.
 	OnRecordingStop func(runID string) string
 
 	// Playback control callbacks
-	OnPlaybackPause   func()
-	OnPlaybackPlay    func()
-	OnPlaybackSeek    func(timestampNs int64) error
-	OnPlaybackRate    func(rate float32)
-	OnVRLogLoad       func(vrlogPath string) (string, error)
-	OnVRLogStop       func()
-	GetPlaybackStatus func() *PlaybackStatusInfo
+	OnPlaybackPause func()
+	OnPlaybackPlay  func()
+	OnPlaybackSeek  func(timestampNs int64) error
+	OnPlaybackRate  func(rate float32)
+	OnVRLogLoad     func(vrlogPath string) (string, error)
+	OnVRLogStop     func()
+	// PlaybackProbe supplies replay position for GET /api/lidar/playback/status.
+	// A nil probe yields a zero position; mode and recording still report
+	// truthfully from the server's own state.
+	PlaybackProbe PlaybackProbe
 }
 
 // NewServer creates a new web server with the provided configuration
@@ -237,6 +334,16 @@ func NewServer(config Config) *Server {
 	}
 	if absDir, err := filepath.Abs(vrlogSafeDir); err == nil {
 		vrlogSafeDir = absDir
+	}
+	// Unlike vrlogSafeDir, an empty AnnotationPacksDir stays empty rather than
+	// defaulting: it disables the export endpoint, which is the right
+	// behaviour for a deployment that never opted in, rather than silently
+	// writing packs under a directory meant for something else.
+	annotationPacksDir := config.AnnotationPacksDir
+	if annotationPacksDir != "" {
+		if absDir, err := filepath.Abs(annotationPacksDir); err == nil {
+			annotationPacksDir = absDir
+		}
 	}
 	if listenerConfig.Stats == nil {
 		listenerConfig.Stats = config.Stats
@@ -258,39 +365,43 @@ func NewServer(config Config) *Server {
 	}
 
 	ws := &Server{
-		address:           config.Address,
-		stats:             config.Stats,
-		forwardingEnabled: config.ForwardingEnabled,
-		forwardAddr:       config.ForwardAddr,
-		forwardPort:       config.ForwardPort,
-		parsingEnabled:    config.ParsingEnabled,
-		udpPort:           config.UDPPort,
-		db:                config.DB,
-		sensorID:          config.SensorID,
-		parser:            config.Parser,
-		frameBuilder:      config.FrameBuilder,
-		classifier:        config.Classifier,
-		pcapSafeDir:       config.PCAPSafeDir,
-		vrlogSafeDir:      vrlogSafeDir,
-		packetForwarder:   config.PacketForwarder,
-		tuningConfig:      cloneTuningConfig(config.TuningConfig),
-		udpListenerConfig: listenerConfig,
-		currentSource:     DataSourceLive,
-		latestFgCounts:    make(map[string]int),
-		plotsBaseDir:      config.PlotsBaseDir,
-		onPCAPStarted:     config.OnPCAPStarted,
-		onPCAPStopped:     config.OnPCAPStopped,
-		onPCAPProgress:    config.OnPCAPProgress,
-		onPCAPTimestamps:  config.OnPCAPTimestamps,
-		onRecordingStart:  config.OnRecordingStart,
-		onRecordingStop:   config.OnRecordingStop,
-		onPlaybackPause:   config.OnPlaybackPause,
-		onPlaybackPlay:    config.OnPlaybackPlay,
-		onPlaybackSeek:    config.OnPlaybackSeek,
-		onPlaybackRate:    config.OnPlaybackRate,
-		onVRLogLoad:       config.OnVRLogLoad,
-		onVRLogStop:       config.OnVRLogStop,
-		getPlaybackStatus: config.GetPlaybackStatus,
+		address:            config.Address,
+		stats:              config.Stats,
+		forwardingEnabled:  config.ForwardingEnabled,
+		forwardAddr:        config.ForwardAddr,
+		forwardPort:        config.ForwardPort,
+		parsingEnabled:     config.ParsingEnabled,
+		udpPort:            config.UDPPort,
+		db:                 config.DB,
+		sensorID:           config.SensorID,
+		parser:             config.Parser,
+		frameBuilder:       config.FrameBuilder,
+		classifier:         config.Classifier,
+		pcapSafeDir:        config.PCAPSafeDir,
+		captureRoots:       normaliseCaptureRoots(config.PCAPSafeDir, config.CaptureRoots),
+		vrlogSafeDir:       vrlogSafeDir,
+		packetForwarder:    config.PacketForwarder,
+		tuningConfig:       cloneTuningConfig(config.TuningConfig),
+		udpListenerConfig:  listenerConfig,
+		state:              newPipelineState(),
+		latestFgCounts:     make(map[string]int),
+		plotsBaseDir:       config.PlotsBaseDir,
+		annotationPacksDir: annotationPacksDir,
+		segmentSelectors:   config.SegmentSelectors,
+		onPCAPStarted:      config.OnPCAPStarted,
+		onPCAPStopped:      config.OnPCAPStopped,
+		onTuningChange:     config.OnTuningChange,
+		onPCAPProgress:     config.OnPCAPProgress,
+		onPCAPTimestamps:   config.OnPCAPTimestamps,
+		onRecordingStart:   config.OnRecordingStart,
+		onRecordingStop:    config.OnRecordingStop,
+		onPlaybackPause:    config.OnPlaybackPause,
+		onPlaybackPlay:     config.OnPlaybackPlay,
+		onPlaybackSeek:     config.OnPlaybackSeek,
+		onPlaybackRate:     config.OnPlaybackRate,
+		onVRLogLoad:        config.OnVRLogLoad,
+		onVRLogStop:        config.OnVRLogStop,
+		playbackProbe:      config.PlaybackProbe,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -343,13 +454,20 @@ func (ws *Server) Start(ctx context.Context) error {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	if ws.currentSource == DataSourceLive && ws.udpListener == nil {
+	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
 		if err := ws.startLiveListenerLocked(); err != nil {
 			ws.dataSourceMu.Unlock()
 			return err
 		}
 	}
 	ws.dataSourceMu.Unlock()
+
+	// Drain the capture job queue for as long as the server runs. A motion
+	// pass reads gigabytes and takes minutes, so it cannot run inside a
+	// request; this is where that work actually happens.
+	if err := ws.StartCaptureJobs(ctx); err != nil {
+		opsf("Warning: capture job runner did not start: %v", err)
+	}
 
 	// Start server in a goroutine so it doesn't block
 	go func() {
@@ -373,7 +491,6 @@ func (ws *Server) Start(ctx context.Context) error {
 	pcapCancel := ws.pcapCancel
 	pcapDone := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
 	if pcapCancel != nil {
@@ -408,7 +525,6 @@ func (ws *Server) Close() error {
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 	if cancel != nil {
 		cancel()

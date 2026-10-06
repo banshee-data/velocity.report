@@ -20,6 +20,8 @@ export default {
 	coverageProvider: 'v8',
 	moduleNameMapper: {
 		'^\\$lib(.*)$': '<rootDir>/web/src/lib$1',
+		// The shared scene modules, same files the public scenes import.
+		'^\\$scene(.*)$': '<rootDir>/public_html/src/js$1',
 		'^\\$app(.*)$': '<rootDir>/web/src/mocks/$app$1',
 		'^svelte/store$': '<rootDir>/web/src/__mocks__/svelte/store.ts',
 		'^@testing-library/svelte$': '<rootDir>/web/src/__mocks__/@testing-library/svelte.ts',
@@ -28,6 +30,14 @@ export default {
 	},
 	transform: {
 		'^.+\\.ts$': [
+			esbuildTransformerEntry,
+			{
+				target: 'es2022'
+			}
+		],
+		// The shared scene modules in public_html are ESM, so they need the
+		// same transform as the TypeScript to be requirable from a test.
+		'^.+\\.js$': [
 			esbuildTransformerEntry,
 			{
 				target: 'es2022'

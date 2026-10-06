@@ -6,7 +6,11 @@
           |___|
 ```
 
-Canonical register for project-wide numeric constants in velocity.report.
+# Magic numbers
+
+This register explains the project-wide numbers that can change behaviour, from ports to tuning
+defaults. It exists so a value is either named, sourced, and deliberate, or plainly waiting to be
+given that dignity.
 
 Use this document when you need to answer any of these questions quickly:
 

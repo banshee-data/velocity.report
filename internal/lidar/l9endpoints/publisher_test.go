@@ -96,6 +96,17 @@ func TestPublisher_StartStop(t *testing.T) {
 	pub.Stop()
 }
 
+func TestPublisher_StartWithServiceRegistersBeforeServe(t *testing.T) {
+	pub := NewPublisher(Config{ListenAddr: "localhost:0"})
+	if err := pub.StartWithService(NewServer(pub)); err != nil {
+		t.Fatal(err)
+	}
+	defer pub.Stop()
+	if _, ok := pub.GRPCServer().GetServiceInfo()[pb.VisualiserService_ServiceDesc.ServiceName]; !ok {
+		t.Fatal("visualiser gRPC service was not registered before serving")
+	}
+}
+
 func TestPublisher_Publish_NotRunning(t *testing.T) {
 	cfg := DefaultConfig()
 	pub := NewPublisher(cfg)
@@ -630,6 +641,8 @@ func (m *mockBackgroundManagerWrongType) GetBackgroundSequenceNumber() uint64 {
 	return 1
 }
 
+func (m *mockBackgroundManagerWrongType) IsSettlingComplete() bool { return false }
+
 func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
@@ -863,7 +876,6 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 			FrameID:        uint64(i),
 			TimestampNanos: startNs + int64(i)*100_000_000,
 			PlaybackInfo: &PlaybackInfo{
-				IsLive:            false,
 				LogStartNs:        startNs,
 				LogEndNs:          endNs,
 				PlaybackRate:      1.0,
@@ -911,7 +923,7 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 		if pi.TotalFrames != 3 {
 			t.Errorf("frame %d TotalFrames = %d, want 3", i, pi.TotalFrames)
 		}
-		if pi.IsLive {
+		if pi.SourceMode == "live" {
 			t.Errorf("frame %d IsLive = true, want false", i)
 		}
 		if !pi.Seekable {

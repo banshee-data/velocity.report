@@ -9,7 +9,7 @@ import (
 
 // setupTrackingPipelineTestDB creates a test database with proper schema from schema.sql.
 // This avoids hardcoded CREATE TABLE statements that can get out of sync with migrations.
-func setupTrackingPipelineTestDB(t *testing.T) (*sql.DB, func()) {
+func setupTrackingPipelineTestDB(t testing.TB) (*sql.DB, func()) {
 	t.Helper()
 
 	db, cleanup := dbpkg.NewTestDB(t)

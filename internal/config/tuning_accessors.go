@@ -44,7 +44,16 @@ func (c *L4Config) ActiveConfig() interface{} {
 }
 
 // ActiveCommon returns the selected L4 common block.
+//
+// A disabled layer (engine "none") carries no block, and returns a zero one
+// rather than nil. Roughly thirty accessors dereference this result directly,
+// and a layer that does not run has no meaningful parameter values — the stage
+// that would read them never executes. Returning zeros keeps those accessors
+// total instead of scattering nil checks through every call site.
 func (c *L4Config) ActiveCommon() *L4Common {
+	if c.Engine == EngineNone {
+		return &L4Common{}
+	}
 	switch c.Engine {
 	case "dbscan_xy_v1":
 		if c.DbscanXyV1 != nil {
@@ -76,8 +85,12 @@ func (c *L5Config) ActiveConfig() interface{} {
 	}
 }
 
-// ActiveCommon returns the selected L5 common block.
+// ActiveCommon returns the selected L5 common block. As with L4, a disabled
+// layer returns a zero block rather than nil.
 func (c *L5Config) ActiveCommon() *L5Common {
+	if c.Engine == EngineNone {
+		return &L5Common{}
+	}
 	switch c.Engine {
 	case "cv_kf_v1":
 		if c.CvKfV1 != nil {

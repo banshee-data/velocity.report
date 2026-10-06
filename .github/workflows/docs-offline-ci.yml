@@ -14,6 +14,10 @@ on:
       - "Makefile"
       - "scripts/docs-offline-symlinks.sh"
       - "scripts/check-docs-offline-links.js"
+      - "scripts/spider-docs-404s.py"
+      - "scripts/test_spider_docs_404s.py"
+      - "scripts/verify-embedded-docs-server.py"
+      - "scripts/test_verify_embedded_docs_server.py"
       - "scripts/verify-docs-offline-build.sh"
       - ".github/workflows/docs-offline-ci.yml"
       - ".github/actions/setup-node-pnpm/**"
@@ -35,6 +39,12 @@ jobs:
         with:
           node-version: "22"
           working-directory: docs_html
+
+      - name: Test offline docs with coverage
+        run: make test-docs-offline-cov
+
+      - name: Run Python script and tool tests
+        run: make test-python
 
       - name: Build offline docs site
         run: make build-docs-offline

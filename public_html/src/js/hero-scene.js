@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 
 // =============================================================================
 // Stationary roadside LiDAR background — v1 aesthetic restored.
@@ -301,7 +302,7 @@ if (canvas) {
       sy: 1.5,
       sz: 4.3,
       density: 280,
-      color: "#4cd1a8",
+      color: SCENE_CSS_COLOURS.vehicle,
       class: "vehicle",
     },
     truck: {
@@ -309,7 +310,7 @@ if (canvas) {
       sy: 2.5,
       sz: 6.5,
       density: 380,
-      color: "#4cd1a8",
+      color: SCENE_CSS_COLOURS.vehicle,
       class: "vehicle",
     },
     bike: {
@@ -317,7 +318,7 @@ if (canvas) {
       sy: 1.55,
       sz: 1.7,
       density: 90,
-      color: "#6aa9ff",
+      color: SCENE_CSS_COLOURS.cycle,
       class: "cyclist",
     },
     ped: {
@@ -325,7 +326,7 @@ if (canvas) {
       sy: 1.75,
       sz: 0.45,
       density: 70,
-      color: "#ffb050",
+      color: SCENE_CSS_COLOURS.walking,
       class: "pedestrian",
     },
   };

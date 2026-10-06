@@ -96,6 +96,7 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 // handleChartHistogram renders a histogram SVG chart.
 //
 //	GET /api/charts/histogram?site_id=N&start=YYYY-MM-DD&end=YYYY-MM-DD&units=mph&bucket_size=5&max=70
+//	GET /api/charts/histogram?kind=headway&scene=<scene-id> (see server_charts_headway.go)
 func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -103,6 +104,10 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
+	if q.Get("kind") == histogramKindHeadway {
+		s.handleChartHeadwayHistogram(w, r, q)
+		return
+	}
 
 	siteID, startUnix, endUnix, displayUnits, _, ok := s.parseChartParams(w, q)
 	if !ok {

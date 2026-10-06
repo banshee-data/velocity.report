@@ -98,6 +98,9 @@ def test_graph_script_generate_dot_and_compile():
         )
         assert generated_dot.exists()
         assert "digraph structs" in generated_dot.read_text()
+        assert "lidar_segment_selections" in generated_dot.read_text()
+        assert "lidar_segment_clip_jobs" in generated_dot.read_text()
+        assert "lidar_capture_jobs" in generated_dot.read_text()
 
         subprocess.run(
             [

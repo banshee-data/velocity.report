@@ -1451,8 +1451,7 @@ section {
   overflow: hidden;
   padding: var(--d-hero-pad) 0 56px;
   min-height: calc(100vh - 56px);
-  /* Single dark base for the whole homepage. Matches --bg in :root and the
-   * THREE.WebGLRenderer clear colour in /js/hero-scene.js. */
+  /* Single dark base for the whole homepage and synthetic street scene. */
   background: var(--bg);
 }
 .hero-cloud .hero-bg {

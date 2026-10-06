@@ -3,6 +3,7 @@
 - **Status:** design (variant of qemu-headscale-dev-vm-plan.md)
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
+- **Canonical:** [qemu-headscale-dev-vm.md](../platform/operations/qemu-headscale-dev-vm.md)
 
 ## What this variant does differently
 
@@ -53,7 +54,7 @@ host (Linux x86_64)
     │   ├── All published artifacts verbatim
     │   └── Matches production byte-for-byte
     ├── hostfwd: tcp 2222→22, tcp 8080→8080
-    ├── login-server override: /etc/default/tailscaled FLAGS="--login-server=..."
+    ├── login-server override: tailscaled.service systemd drop-in
     └── /usr/local/bin/velocity + velocity-report alias (replaced via qemu-push)
 ```
 
@@ -120,7 +121,7 @@ run, though obviously not simultaneously.
 **amd64 (cloud-init):**
 
 - Generic Debian cloud image (small download)
-- cloud-init paints on users, sudoers, tailscale apt repo
+- cloud-init paints on users, sudoers, and the pinned static Tailscale payload
 - Can provision any Debian 12/13 image
 
 **arm64 (pi-gen .img):**
@@ -159,8 +160,8 @@ Option A is implemented here.
 - The tradeoff: some Pi-specific hardware (HAT SPI, UART on pins) is
   unavailable, but we're not exercising those anyway (sensors are disabled).
 
-The machine still sees `systemd`, a real kernel, the real tailscale apt
-packages, and all production paths. It's just not a byte-identical Pi
+The machine still sees `systemd`, a real kernel, the pinned static Tailscale
+payload, and all production paths. It's just not a byte-identical Pi
 hardware replica.
 
 ### Performance implications

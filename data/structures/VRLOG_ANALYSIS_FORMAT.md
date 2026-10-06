@@ -619,7 +619,25 @@ recording metadata by the analyser.
 Note: `inferred_replay_speed` (in §2) provides a best-effort estimate from
 frame timing. `playback_rate` from the header is authoritative when present.
 
-### 12.3 Future: requires upstream tracker changes
+### 12.3 Future: S2 capture provenance
+
+When the planned VRLOG header extension is present, copy these optional fields
+as a pair into §2 recording metadata:
+
+```jsonc
+{
+  "pcap_path": "capture-static-0-s2-l10-808581.pcap",
+  "s2_l13_token": "80858004",
+  "s2_l10_token": "808581",
+}
+```
+
+The analyser validates the canonical CellIDs and
+`L13.Parent(10) == L10`. It must not infer either field from `pcap_path`.
+Legacy, moving, and sensor-local captures may omit both. See the [VRLOG
+wire-format provenance contract](VRLOG_FORMAT.md#planned-s2-provenance-extension).
+
+### 12.4 Future: requires upstream tracker changes
 
 These require new fields on `visualiser.Track` propagated from
 `l5tracks.TrackedObject` or additional per-frame computation.
@@ -635,7 +653,7 @@ These require new fields on `visualiser.Track` propagated from
 | split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
 | quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
 
-### 12.4 Future: PCAP segment identity
+### 12.5 Future: PCAP segment identity
 
 To verify that two `.vrlog` recordings were generated from exactly the same
 PCAP packet range (enabling high-integrity A/B comparison), store a
@@ -665,7 +683,7 @@ packets at recording time, which adds I/O overhead.
   `pcap.Reader`: capture first/last packet metadata and the file hash.
 - Comparison tool (§8) can auto-verify identity match before comparing.
 
-### 12.5 Future: track centroid trajectory
+### 12.6 Future: track centroid trajectory
 
 To programmatically match tracks across recordings even when the tracker
 fragments observations into different track IDs, store the approximate
