@@ -81,15 +81,20 @@ func TestHeapAllocIsStableAcrossRuns(t *testing.T) {
 		t.Fatal("heap_alloc_bytes was zero; the measurement is not being taken")
 	}
 
-	// Live heap after a collection is not bit-identical run to run — a few
-	// runtime-internal allocations differ — but it must be the same number to
-	// within a few per cent, not a multiple.
+	// Live heap after a collection is not bit-identical run to run, but it
+	// must be the same number to within a few per cent, not a multiple:
+	// without the collection it spread 113% (18.8-40.0 MB). Locally the drift
+	// is under 0.2%, under -race, coverage, two procs and CPU contention
+	// alike, but shared CI runners have measured 5.8% and 6.1%, which failed
+	// a 5% bound. 20% leaves that noise room and still catches the failure
+	// this guards against five times over.
 	lo, hi := first.HeapAllocBytes, second.HeapAllocBytes
 	if lo > hi {
 		lo, hi = hi, lo
 	}
 	drift := float64(hi-lo) / float64(lo)
-	if drift > 0.05 {
+	t.Logf("heap_alloc_bytes %d then %d: drift %.2f%%", first.HeapAllocBytes, second.HeapAllocBytes, drift*100)
+	if drift > 0.20 {
 		t.Errorf("heap_alloc_bytes drifted %.1f%% between identical runs (%d vs %d); "+
 			"the forced collection before ReadMemStats is missing or ineffective",
 			drift*100, first.HeapAllocBytes, second.HeapAllocBytes)

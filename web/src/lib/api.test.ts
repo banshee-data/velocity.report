@@ -2320,6 +2320,36 @@ describe('api', () => {
 			});
 		});
 
+		describe('getRunStatistics', () => {
+			it("should fetch a run's statistics", async () => {
+				const mockStats = { avg_track_length_meters: 12.5, class_counts: { car: 3 } };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					status: 200,
+					json: async () => mockStats
+				});
+				const { getRunStatistics } = await import('./api');
+				expect(await getRunStatistics('run-001')).toEqual(mockStats);
+				expect((global.fetch as jest.Mock).mock.calls.at(-1)[0]).toContain(
+					'/lidar/runs/run-001/statistics'
+				);
+			});
+
+			it('should return null for a run without statistics', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getRunStatistics } = await import('./api');
+				expect(await getRunStatistics('old-run')).toBeNull();
+			});
+
+			it('should throw on other errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getRunStatistics } = await import('./api');
+				await expect(getRunStatistics('run-001')).rejects.toThrow(
+					'Could not load run statistics: 500'
+				);
+			});
+		});
+
 		describe('getLabellingProgress', () => {
 			it('should fetch labelling progress', async () => {
 				const mockProgress = { total: 100, labelled: 50, progress_pct: 50.0, by_class: {} };

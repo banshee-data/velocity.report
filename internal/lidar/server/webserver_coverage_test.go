@@ -3479,7 +3479,13 @@ func setupTrackDB(t *testing.T) *sql.DB {
 		intensity_mean_avg REAL,
 		object_class TEXT,
 		object_confidence REAL,
-		classification_model TEXT
+		classification_model TEXT,
+		track_length_meters REAL,
+		track_duration_secs REAL,
+		occlusion_count INTEGER DEFAULT 0,
+		max_occlusion_frames INTEGER DEFAULT 0,
+		spatial_coverage REAL,
+		noise_point_ratio REAL
 	)`)
 	if err != nil {
 		t.Fatalf("create lidar_tracks table: %v", err)
@@ -4118,7 +4124,13 @@ func setupCov4Server(t *testing.T) *Server {
 			intensity_mean_avg REAL DEFAULT 0,
 			object_class TEXT DEFAULT '',
 			object_confidence REAL DEFAULT 0,
-			classification_model TEXT DEFAULT ''
+			classification_model TEXT DEFAULT '',
+			track_length_meters REAL,
+			track_duration_secs REAL,
+			occlusion_count INTEGER DEFAULT 0,
+			max_occlusion_frames INTEGER DEFAULT 0,
+			spatial_coverage REAL,
+			noise_point_ratio REAL
 		)`,
 		`CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,

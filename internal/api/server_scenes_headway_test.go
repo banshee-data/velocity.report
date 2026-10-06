@@ -128,7 +128,8 @@ type headwayFixture struct {
 //     encounters under another method version, written first;
 //   - sources B and C an hour later: the steady approach from a field
 //     estimator, extracted twice;
-//   - scenes over source A, over B and C, over nothing, and with no window.
+//   - scenes over source A, over B and C, over the first two seconds of B
+//     and C's encounter, over nothing, and with no window.
 func seedHeadway(t *testing.T, dbInst *db.DB) headwayFixture {
 	t.Helper()
 	base := l8behaviour.FixtureBaseUnixNanos
@@ -161,7 +162,7 @@ func seedHeadway(t *testing.T, dbInst *db.DB) headwayFixture {
 		{"headway-a", base, base + 10*nanosPerSecondNS},
 		{"headway-twin", base + hourNS, base + hourNS + 10*nanosPerSecondNS},
 		{"headway-empty", base + 24*hourNS, base + 24*hourNS + 10*nanosPerSecondNS},
-		{"headway-partial", f.other[0].Event.EndUnixNanos, f.other[0].Event.EndUnixNanos + 1},
+		{"headway-partial", f.other[0].Event.StartUnixNanos - 2*nanosPerSecondNS, f.other[0].Event.StartUnixNanos + 2*nanosPerSecondNS},
 		{"headway-none", 0, 0},
 	} {
 		scene := &db.Scene{SceneID: sc.id, Title: sc.id}
@@ -335,9 +336,8 @@ func TestSceneHeadwayDerivesTheSourceFromTheCaptureWindow(t *testing.T) {
 	}
 
 	for scene, want := range map[string]string{
-		"headway-empty":   headwayNoEncounters,
-		"headway-partial": headwayNoEncounters,
-		"headway-none":    headwayNoCaptureWindow,
+		"headway-empty": headwayNoEncounters,
+		"headway-none":  headwayNoCaptureWindow,
 	} {
 		code, resp, _ := getHeadway(t, server, scene, nil)
 		if code != http.StatusOK || resp.Availability != want || resp.Distribution != nil ||
@@ -368,5 +368,72 @@ func TestSceneHeadwayRouting(t *testing.T) {
 	var scene db.Scene
 	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &scene) != nil || scene.SceneID != "headway-a" {
 		t.Fatalf("scene: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// A window crossing an encounter finds its source, and serves the encounter
+// clipped to the window: rebuilt from its instants inside, with the
+// distribution counting only that time (review R4).
+func TestSceneHeadwayClipsAnEncounterCrossingTheWindow(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+	f := seedHeadway(t, dbInst)
+	whole := f.other[0]
+
+	code, resp, _ := getHeadway(t, server, "headway-partial", nil)
+	if code != http.StatusOK || resp.Availability != headwaySourceAmbiguous || len(resp.Sources) != 2 {
+		t.Fatalf("partial window without a source: %d %q %+v", code, resp.Availability, resp.Sources)
+	}
+
+	code, resp, _ = getHeadway(t, server, "headway-partial", url.Values{"source_id": {headwaySourceB}})
+	if code != http.StatusOK || resp.Availability != headwayAvailable || resp.Distribution == nil {
+		t.Fatalf("partial window: %d %q", code, resp.Availability)
+	}
+	if len(resp.ClippedEventIDs) != 1 || resp.ClippedEventIDs[0] != whole.Event.EventID || len(resp.UnclippedEventIDs) != 0 {
+		t.Fatalf("clipped %v, unclipped %v; want the crossing encounter clipped", resp.ClippedEventIDs, resp.UnclippedEventIDs)
+	}
+	if len(resp.Encounters) != 1 {
+		t.Fatalf("%d encounter rows, want 1", len(resp.Encounters))
+	}
+	row := resp.Encounters[0]
+	if row.EventID != whole.Event.EventID || row.StartUnixNanos != whole.Event.StartUnixNanos ||
+		row.EndUnixNanos > *resp.EndUnixNanos || row.EndUnixNanos >= whole.Event.EndUnixNanos {
+		t.Fatalf("row %d..%d, window %d..%d, whole encounter %d..%d", row.StartUnixNanos, row.EndUnixNanos,
+			*resp.StartUnixNanos, *resp.EndUnixNanos, whole.Event.StartUnixNanos, whole.Event.EndUnixNanos)
+	}
+	valid := resp.Distribution.Accounting.ValidNanos
+	if valid != row.Accounting.ValidNanos || valid <= 0 || valid >= whole.Event.Accounting.ValidNanos {
+		t.Fatalf("distribution valid time %d, row %d, whole encounter %d", valid, row.Accounting.ValidNanos,
+			whole.Event.Accounting.ValidNanos)
+	}
+}
+
+// An encounter crossing the window that cannot be recomputed for it is left
+// out and named, never served with values from outside the window.
+func TestSceneHeadwayLeavesOutWhatItCannotClip(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+	f := seedHeadway(t, dbInst)
+
+	saved := sceneClipParams
+	sceneClipParams = func() l8behaviour.FollowingAnalysisParams {
+		p := saved()
+		p.Exposure.MonteCarloSamples++ // not the parameters the encounters were analysed with
+		return p
+	}
+	t.Cleanup(func() { sceneClipParams = saved })
+
+	code, resp, _ := getHeadway(t, server, "headway-partial", url.Values{"source_id": {headwaySourceB}})
+	if code != http.StatusOK || resp.Availability != headwayNoEncounters || resp.Distribution != nil || len(resp.Encounters) != 0 {
+		t.Fatalf("unclippable: %d %q", code, resp.Availability)
+	}
+	if len(resp.UnclippedEventIDs) != 1 || resp.UnclippedEventIDs[0] != f.other[0].Event.EventID || len(resp.ClippedEventIDs) != 0 {
+		t.Fatalf("unclipped %v, clipped %v", resp.UnclippedEventIDs, resp.ClippedEventIDs)
+	}
+
+	// An encounter wholly inside the window needs no recomputation.
+	code, resp, _ = getHeadway(t, server, "headway-twin", url.Values{"source_id": {headwaySourceB}})
+	if code != http.StatusOK || resp.Availability != headwayAvailable || len(resp.UnclippedEventIDs) != 0 {
+		t.Fatalf("contained encounter under other parameters: %d %q %v", code, resp.Availability, resp.UnclippedEventIDs)
 	}
 }

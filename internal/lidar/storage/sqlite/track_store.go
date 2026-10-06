@@ -96,14 +96,15 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_observations)
 	query := `
 		INSERT INTO lidar_tracks (
-			track_id, frame_id, ` + trackMeasurementColumns + `
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			track_id, frame_id, ` + trackMeasurementColumns + `, ` + trackQualityColumns + `
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
-			frame_id = excluded.frame_id,` + trackMeasurementUpsertSet + `
+			frame_id = excluded.frame_id,` + trackMeasurementUpsertSet + trackQualityUpsertSet + `
 	`
 
 	args := []any{track.TrackID, frameID}
 	args = append(args, trackMeasurementInsertArgs(&track.TrackMeasurement)...)
+	args = append(args, trackQualityArgs(track)...)
 
 	_, err := exec.Exec(query, args...)
 	if err != nil {
@@ -116,11 +117,12 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 // UpdateTrack updates an existing track in the database.
 func UpdateTrack(db DBClient, track *TrackedObject) error {
 	query := `
-		UPDATE lidar_tracks SET` + trackMeasurementUpdateSet + `
+		UPDATE lidar_tracks SET` + trackMeasurementUpdateSet + trackQualityUpdateSet + `
 		WHERE track_id = ?
 	`
 
 	args := trackMeasurementUpdateArgs(&track.TrackMeasurement)
+	args = append(args, trackQualityArgs(track)...)
 	args = append(args, track.TrackID)
 
 	_, err := db.Exec(query, args...)
@@ -373,7 +375,7 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 	var args []interface{}
 
 	selectClause := `
-			SELECT track_id, ` + trackMeasurementColumns + `
+			SELECT track_id, ` + trackMeasurementColumns + `, ` + trackQualityColumns + `
 			FROM lidar_tracks`
 
 	if state != "" {
@@ -400,13 +402,16 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 	for rows.Next() {
 		track := &TrackedObject{}
 		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
+		qualityDests, applyQuality := scanTrackQualityDests(track)
 
 		dests := append([]any{&track.TrackID}, measDests...)
+		dests = append(dests, qualityDests...)
 		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
 		applyMeas()
+		applyQuality()
 
 		tracks = append(tracks, track)
 	}
@@ -457,7 +462,7 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 	var args []interface{}
 
 	query.WriteString(`
-		SELECT track_id, ` + trackMeasurementColumns + `
+		SELECT track_id, ` + trackMeasurementColumns + `, ` + trackQualityColumns + `
 		FROM lidar_tracks
 		WHERE sensor_id = ?
 	`)
@@ -488,13 +493,16 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 	for rows.Next() {
 		track := &TrackedObject{}
 		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
+		qualityDests, applyQuality := scanTrackQualityDests(track)
 
 		dests := append([]any{&track.TrackID}, measDests...)
+		dests = append(dests, qualityDests...)
 		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
 		applyMeas()
+		applyQuality()
 
 		tracks = append(tracks, track)
 	}

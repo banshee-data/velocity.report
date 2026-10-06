@@ -7,7 +7,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active; Phases 1–3 proposed; Phases 4–10 proposed
+- **Status:** Active; Phases 1, 2, and 4 implemented; Phases 3 and 5–8 proposed
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
@@ -56,23 +56,28 @@ observability plan §4.
 
 ### Checklist
 
-- [ ] In `CompleteRun()` (`analysis_run.go:463`), call
-      `l6objects.ComputeRunStatistics()` on the run's collected tracks and
-      serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
-- [ ] Update the `CompleteRun` SQL to include `statistics_json = ?`.
-- [ ] Update `GetRun()` (`analysis_run.go:496`) to read and parse
-      `statistics_json`, attaching it to the `AnalysisRun` struct.
-- [ ] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
-      struct.
-- [ ] Update `ListRuns()` to also read `statistics_json`.
-- [ ] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
-      `RecordTrack()` and compute `RunStatistics` at completion.
-- [ ] Update `handleGetRun()` API handler so the JSON response includes
-      `statistics_json` when present.
-- [ ] Add a TypeScript `RunStatistics` interface to [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
-- [ ] Add the field to the `AnalysisRun` TypeScript interface.
-- [ ] Verify backward compatibility: existing rows with `NULL`
-      `statistics_json` do not break `GetRun()`.
+- [x] Compute `RunStatistics` at completion and write it to
+      `statistics_json` via `RunStatistics.ToJSON()`. The computation moved
+      to `l8analytics.ComputeRunStatisticsFromSummaries()`.
+- [x] Update the `CompleteRun` SQL to include `statistics_json = ?`, only
+      when the column exists and the run recorded a track.
+- [x] `GetRun()` and `ListRuns()` read `statistics_json` into
+      `AnalysisRun.StatisticsJSON`. Both already did; nothing wrote it.
+- [x] Wire `AnalysisRunManager` to keep one `TrackSummary` per track during
+      `RecordTrack()`, replaced on every call, so the statistics describe
+      each track as last seen rather than its first sighting.
+- [x] `handleGetRun()` includes `statistics_json` when present (the field
+      is `omitempty`).
+- [x] Add a TypeScript `RunStatistics` interface to [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
+      and type `AnalysisRun.statistics_json` with it.
+- [x] Verify backward compatibility: a run that recorded no track leaves
+      `statistics_json` NULL, and `GetRun()` reads NULL rows unchanged.
+
+`avg_noise_ratio` is always 0: nothing sets a track's `NoisePointRatio`
+until clustering counts noise points (Phase 3). `tentative_ratio` and
+`confirmed_ratio` are always 0 and 1, because a run records only confirmed
+tracks. `avg_occlusion_count` uses the closed occlusion counter, as
+`lidar_tracks` does (Phase 2).
 
 ### Downstream opportunity
 
@@ -91,20 +96,41 @@ distribution). This is a separate UI task.
 
 ### Checklist
 
-- [ ] Update `InsertTrack()` (`track_store.go:92`) to include
-      `track_length_meters`, `track_duration_secs`, `occlusion_count`,
-      `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`.
-- [ ] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
-      columns on each update.
-- [x] Verify that `TrackedObject` already carries these fields (it does —
-      they are set by the L5 tracker).
-- [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
-      6 new columns.
-- [ ] Add the 6 fields to the `Track` TypeScript interface in
+- [x] Update `InsertTrack()` to include `track_length_meters`,
+      `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`,
+      `spatial_coverage`, `noise_point_ratio`, in its `ON CONFLICT DO UPDATE`
+      clause too, so each frame's upsert keeps them current.
+- [x] Update `UpdateTrack()` to write the same 6 columns, and
+      `GetActiveTracks()`/`GetTracksInRange()` to read them, so an update to a
+      track loaded from the database keeps them rather than zeroing them.
+- [x] Verify that `TrackedObject` already carries these fields. The tracker
+      keeps length, duration and the occlusion counters live over the track's
+      lifetime, and those are what is stored. `ComputeQualityMetrics()`
+      recounts them from the trail, which is capped at
+      `max_track_history_length` points and holds a coasted point for every
+      missed frame, so it is not used. Spatial coverage comes from the span
+      through `l5tracks.SpatialCoverage()`.
+- [x] The occlusion columns hold the tracker's closed counters
+      (`ClosedOcclusionCount`, `MaxClosedOcclusionFrames`): gaps the track was
+      observed again after. A confirmed track is written every frame while it
+      coasts out for up to `max_misses_confirmed` frames before deletion, so
+      the live counters would give nearly every finished track an occlusion
+      of about 14 frames.
+- [x] `track_length_meters` is the tracker's trail length summed at associated
+      updates. Distance covered during a gap counts only from its last coasted
+      point to the next measurement, so a track occluded mid-passage reads
+      short; the classifier reads the same value, so changing it is a tracker
+      decision, not a storage one.
+- [x] Duration and spatial coverage are NULL while undefined (no elapsed time,
+      or no observation). `noise_point_ratio` is always NULL: nothing computes
+      it until clustering counts noise points (Phase 3). Rows written before
+      this change hold NULL in every quality column and read back as 0.
+- [x] Add `track_length_meters`, `occlusion_count` and `max_occlusion_frames`
+      to the track API response and the `Track` TypeScript interface in
       [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
-- [ ] Update the live-tracks API handler (`handleListTracks`) to include the
-      fields in the JSON response (verify the Go struct already has them).
-- [ ] All existing Go tests pass with new column writes.
+      Duration is already `age_seconds`; coverage follows from it and
+      `observation_count`.
+- [x] All existing Go tests pass with new column writes.
 
 ### Downstream opportunity
 
@@ -123,8 +149,18 @@ and `aspect_ratio` from data already available at insert time.
 **Schedule:** Backlog; schedule after Phase 2 when cluster diagnostics
 become a priority.
 
+**Precondition found during Phase 2:** nothing writes `lidar_clusters` in
+production. `InsertCluster()` is called only from tests, so the table is
+empty in every deployment, and `/api/lidar/clusters` and the debug clusters
+chart read an empty table.
+Populating its quality columns first needs a decision to persist clusters at
+all (at 10 Hz that is every cluster of every frame), and a definition of a
+cluster's noise points: DBSCAN's noise points belong to no cluster.
+
 ### Checklist
 
+- [ ] Decide whether and how clusters are persisted, and wire a production
+      writer.
 - [ ] Compute `noise_points_count` during clustering (it currently remains at its schema default of 0; this requires adding
       a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
       and populating it during the L4 clustering step).
@@ -146,11 +182,13 @@ become a priority.
 
 ### Checklist
 
-- [ ] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
+- [x] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
       `run_track_api.go` returning `RunStatistics` JSON.
-- [ ] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs).
-- [ ] Add `getRunStatistics(runId)` function to [web/src/lib/api.ts](../../web/src/lib/api.ts).
-- [ ] Write handler tests with populated and NULL statistics.
+- [x] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs) or the
+      run is unknown.
+- [x] Add `getRunStatistics(runId)` function to [web/src/lib/api.ts](../../web/src/lib/api.ts),
+      returning `null` on 404.
+- [x] Write handler tests with populated and NULL statistics.
 
 ---
 
@@ -268,15 +306,15 @@ surfaced.
 
 ### Immediate (current sprint)
 
-Phases 1–3 should be implemented first: they wire existing data to
-persistence with minimal risk (no schema changes, all columns already exist).
+Phases 1, 2, and 4 are implemented. Phase 3 comes next: it wires existing
+data to persistence with minimal risk (no schema changes, all columns
+already exist).
 Phase 7 (per-track percentile removal / migration 000030) should follow
 immediately to clean up design debt per D-18/D-19.
 
 ### Near-term (next 1–2 sprints)
 
-Phase 4 (statistics API endpoint) unlocks UI consumption of statistics once
-Phase 1 is complete. Phase 3 completion (noise_points_count) requires an L4
+Phase 3 completion (noise_points_count) requires an L4
 pipeline change: schedule when cluster diagnostics become a priority.
 
 ### Backlog (schedule when needed)

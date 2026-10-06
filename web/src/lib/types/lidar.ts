@@ -37,6 +37,12 @@ export interface Track {
 	avg_speed_mps: number;
 	/** Max speed observed (meters/second) */
 	max_speed_mps: number;
+	/** Trail length summed at associated updates (meters); distance covered during a gap counts only from its last coasted point */
+	track_length_meters?: number;
+	/** Missed frames in gaps the track was observed again after (an open coast is not counted) */
+	occlusion_count?: number;
+	/** Longest such gap, in frames */
+	max_occlusion_frames?: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
 	/**
@@ -295,6 +301,29 @@ export interface LidarReplayCase {
 	location?: CaseLocation;
 }
 
+/**
+ * Aggregate track statistics stored when an analysis run completes
+ * (l8analytics.RunStatistics). Absent for runs that have not completed or
+ * completed before runs stored them.
+ */
+export interface RunStatistics {
+	avg_track_length_meters: number;
+	median_track_length_meters: number;
+	avg_track_duration_secs: number;
+	avg_occlusion_count: number;
+	class_counts: Record<string, number>;
+	class_confidence_avg: Record<string, number>;
+	unknown_ratio: number;
+	/** Always 0 for now: nothing computes a track's noise ratio until clustering counts noise points. */
+	avg_noise_ratio: number;
+	avg_spatial_coverage: number;
+	/** Always 0 for now: only confirmed tracks are recorded in a run. */
+	tentative_ratio: number;
+	/** Always 1 for now: only confirmed tracks are recorded in a run. */
+	confirmed_ratio: number;
+	avg_observations_per_track: number;
+}
+
 /** Analysis run with track snapshots */
 export interface AnalysisRun {
 	run_id: string;
@@ -314,7 +343,7 @@ export interface AnalysisRun {
 	build_git_sha?: string;
 	replay_case_id?: string;
 	params_json?: Record<string, unknown>;
-	statistics_json?: Record<string, unknown>;
+	statistics_json?: RunStatistics;
 	execution_config?: Record<string, unknown>;
 	frame_start_ns?: number;
 	frame_end_ns?: number;

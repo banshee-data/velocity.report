@@ -1265,11 +1265,19 @@ encounters; the report's provisional slice and field promotion are not.
   not give its interval.
 - **Scene to source.** A scene stores its capture window, not the analysis source. The source id
   digests the replay case, capture paths, capture digests and extractor, none of which a scene
-  keeps. Since #611, the API reads sources with encounters **wholly contained** in the scene's
-  window. It lists several rather than merging them. Boundary-crossing encounters are excluded,
-  not clipped, so this is a distribution of contained encounters, not complete window exposure.
-  Explicit source/run binding and clipped, recomputed window statistics remain in the
-  [sprint plan](lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population).
+  keeps. The API reads sources with encounters **overlapping** the scene's window, and lists
+  several rather than merging them. An encounter crossing either edge is **clipped** to the
+  window: rebuilt from its instants captured in the half-open window `[start, end)`, so adjacent
+  windows partition an encounter's time exactly, with its accounting, exposure windows and every
+  measurement recomputed by the encounter method under its own Monte Carlo seed. Whole instants
+  are kept rather than their intervals intersected: each edge errs by under one frame interval,
+  and the two edges cancel on average. A clipped piece with less valid time than the minimum
+  opportunity has its band durations suppressed as `insufficient_observation`, so its time is
+  counted under that reason rather than in the bins. Clipping runs only when the field run's parameters hash to the
+  encounter's method id and recomputing the whole encounter reproduces its stored record exactly;
+  an encounter that fails either check is left out and named in `unclipped_event_ids`, never
+  served with a minimum or interval from outside the window. Explicit source/run binding remains
+  in the [sprint plan](lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population).
 - **API and chart.** `GET /api/scenes/<id>/headway` serves the distribution and a summary row per
   encounter; its default is the newest final-stage version, and it never falls back to a less
   final stage. `/api/charts/histogram?kind=headway&scene=<id>` draws the same distribution as SVG
@@ -1279,9 +1287,16 @@ encounters; the report's provisional slice and field promotion are not.
 
 ## 11. Evaluation datasets
 
-The implemented `ScoreHeldOut` harness pins bounds and a reference-set name, but does not itself
-freeze reference contents, enforce disjoint splits or gate unmatched references and missing strata.
-The [following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
+The implemented `ScoreHeldOut` harness (`following_heldout_scoring_v2`) pins its bounds and its
+reference set by name and content digest, fails a report whose unmatched or unscorable share
+exceeds its bound, and counts a stratum's evidence in distinct encounters as well as frames. It
+does not enforce disjoint splits, expected strata or reference uncertainty, and it cannot check
+leader choice. Its bounds are tested on point estimates, and its unmatched share is pooled and is
+not a miss rate; the
+[R6 status](../lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate)
+gives the review's numbers and the fixes, which need an interval-based verdict and leader truth.
+The
+[following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
 those checks and independent leader/no-leader truth. Mask centres can support detection/identity
 evaluation; they do not certify the physical ends of partially visible bodies.
 

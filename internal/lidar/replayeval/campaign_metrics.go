@@ -10,8 +10,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
-// campaignTracker observes update cost and capture-time confirmation intervals.
-// It forwards the estimator interface unchanged; diagnostics never feed back.
+// campaignTracker observes update cost, whole-frame cost and capture-time
+// confirmation intervals. It forwards the estimator interface unchanged;
+// diagnostics never feed back.
 type campaignTracker struct {
 	l5tracks.TrackerInterface
 	start     int64
@@ -19,7 +20,20 @@ type campaignTracker struct {
 	left      map[int64]bool
 	intervals map[int64]*confirmationInterval
 	costs     []float64
+	// frameCosts is the wall time of each scored frame's pipeline callback,
+	// which contains its Tracker.Update: the cost a live sensor pays per
+	// frame, against which an update cost is judged.
+	frameCosts []float64
 }
+
+// recordFrame records one frame's pipeline callback time, when the frame
+// starts inside the scored window.
+func (c *campaignTracker) recordFrame(frameStartUnixNanos int64, elapsedSeconds float64) {
+	if frameStartUnixNanos >= c.start {
+		c.frameCosts = append(c.frameCosts, elapsedSeconds)
+	}
+}
+
 type confirmationInterval struct {
 	Sequence        int64 `json:"creation_sequence"`
 	ConfirmedAt     int64 `json:"confirmed_at_ns"`
@@ -112,7 +126,8 @@ func (c *campaignTracker) write(runtime replayRuntime, out string) error {
 	}
 	duration := map[string]any{"definition": "first confirmed scored frame to last supported observation; complete intervals exclude warmup-born and active-at-end tracks", "complete_count": count, "left_censored_count": left, "right_censored_count": right, "mean_confirmed_duration_seconds": mean, "intervals": intervals}
 	timing := map[string]any{"definition": "wall time inside Tracker.Update only; excludes parsing, clustering, persistence and diagnostic collection", "samples": len(c.costs), "p50_seconds": campaignQuantile(c.costs, .5), "p99_seconds": campaignQuantile(c.costs, .99)}
-	for name, value := range map[string]any{"confirmed_duration.json": duration, "tracker_timing.json": timing} {
+	frames := map[string]any{"definition": "wall time of each scored frame's pipeline callback: L3 background, L4 clustering, L5 tracking (Tracker.Update included) and L6 classification, with the replay's recording; excludes PCAP reading and frame assembly", "samples": len(c.frameCosts), "p50_seconds": campaignQuantile(c.frameCosts, .5), "p95_seconds": campaignQuantile(c.frameCosts, .95), "p99_seconds": campaignQuantile(c.frameCosts, .99)}
+	for name, value := range map[string]any{"confirmed_duration.json": duration, "tracker_timing.json": timing, "frame_timing.json": frames} {
 		b, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
 			return err

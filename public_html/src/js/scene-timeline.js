@@ -129,8 +129,11 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.stroke();
 
     const px = (playhead / span) * w;
+    // Read through globalThis, as with the pixel ratio above: a bare `window`
+    // throws where there is none, and draw() runs on construction, so the
+    // strip could not be built outside a browser. No scheme to ask means dark.
     const isDarkMode =
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+      globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
     ctx.strokeStyle = isDarkMode ? "#ffffff" : "#111827";
     ctx.lineWidth = 2;
     ctx.beginPath();

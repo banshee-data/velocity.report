@@ -35,6 +35,15 @@ pnpm run build
 
 Outputs optimised files to the `_site/` directory.
 
+## Test
+
+```bash
+# Run the scene-viewer unit tests in src/js/__tests__/
+pnpm test
+```
+
+From the repository root, `make test-public-html` runs the same suite and `make test` includes it. Pull requests that touch `public_html/` run it in CI.
+
 ## Deployment
 
 The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
