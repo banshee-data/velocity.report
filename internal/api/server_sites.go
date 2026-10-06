@@ -207,7 +207,8 @@ func (s *Server) upsertSiteConfigPeriod(w http.ResponseWriter, r *http.Request) 
 	if period.ID > 0 {
 		if err := s.db.UpdateSiteConfigPeriod(&period); err != nil {
 			status := http.StatusInternalServerError
-			if err.Error() == "site config period not found" || err.Error() == "site config period overlaps an existing period" {
+			if err.Error() == "site config period not found" || err.Error() == "site config period overlaps an existing period" ||
+				db.IsSiteConfigPeriodValidationError(err) {
 				status = http.StatusBadRequest
 			}
 			s.writeJSONError(w, status, fmt.Sprintf("Failed to update site config period: %v", err))
