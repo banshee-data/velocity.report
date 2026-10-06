@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
@@ -570,5 +571,90 @@ func TestHeldOutInsufficientStrataStillNameBrokenBounds(t *testing.T) {
 		if s.Verdict != VerdictInsufficientCases || !reflect.DeepEqual(s.Failed, []string{"coverage_high"}) {
 			t.Errorf("stratum %+v: verdict %s, failed %v; want insufficient naming coverage_high", s.Stratum, s.Verdict, s.Failed)
 		}
+	}
+}
+
+// An instant whose leader choice was suppressed is scored as a suppression
+// in its stratum, once per follower instant however many leaders competed,
+// and its references count as matched. Dropped instead, they would count as
+// unmatched in the pooled share.
+func TestHeldOutScoresUnevaluatedInstantsAsSuppressions(t *testing.T) {
+	sc := ScenarioAmbiguousThenResolved()
+	set := HeldOutSet{ReferenceSetID: "fixture/ambiguous_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	followerInstants := map[[2]string]bool{}
+	var evaluated []EstimatedPair
+	for _, p := range pairs {
+		if p.NotEvaluated == ReasonAmbiguousLeader {
+			followerInstants[[2]string{p.Point.FollowerTrackID, fmt.Sprint(p.Point.CaptureUnixNanos)}] = true
+		} else {
+			evaluated = append(evaluated, p)
+		}
+	}
+	if len(followerInstants) == 0 {
+		t.Fatal("the scenario has no ambiguous instant")
+	}
+	r := score(t, plan, set, pairs)
+	gapSuppressed := 0
+	for _, s := range r.Strata {
+		if s.Kind != CaseKindGap {
+			continue
+		}
+		for _, rc := range s.Suppressed {
+			if rc.Reason == ReasonAmbiguousLeader {
+				gapSuppressed += rc.Count
+			}
+		}
+	}
+	if gapSuppressed != len(followerInstants) {
+		t.Errorf("%d ambiguous gap suppressions, want one per follower instant (%d)", gapSuppressed, len(followerInstants))
+	}
+	dropped := score(t, plan, set, evaluated)
+	if dropped.UnmatchedReferences <= r.UnmatchedReferences {
+		t.Errorf("dropping the unevaluated instants left %d unmatched, scoring them %d; want more when dropped",
+			dropped.UnmatchedReferences, r.UnmatchedReferences)
+	}
+}
+
+// Declaring hard instants unevaluated is no cheaper than suppressing them:
+// the stratum's suppression rate carries them, and the pooled unmatched
+// share does not move.
+func TestHeldOutUnevaluatedInstantsCannotEscapeTheirStratum(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1
+
+	declared := append([]EstimatedPair(nil), pairs...)
+	for i := 0; i < len(declared)/2; i++ {
+		pt := declared[i].Point
+		declared[i].Point = FollowingPoint{LeaderTrackID: pt.LeaderTrackID, FollowerTrackID: pt.FollowerTrackID, CaptureUnixNanos: pt.CaptureUnixNanos}
+		declared[i].NotEvaluated = ReasonAmbiguousLeader
+	}
+	r := score(t, plan, set, declared)
+	if r.UnmatchedReferences != 0 {
+		t.Errorf("%d references unmatched; unevaluated instants still match theirs", r.UnmatchedReferences)
+	}
+	if r.Verdict != VerdictFail {
+		t.Fatalf("half the instants declared unevaluated: verdict %s, want fail on suppression", r.Verdict)
+	}
+	failed := false
+	for _, s := range r.Strata {
+		for _, f := range s.Failed {
+			failed = failed || f == "suppression_rate"
+		}
+	}
+	if !failed {
+		t.Errorf("no stratum failed its suppression bound: %+v", r.Strata)
+	}
+
+	// An unevaluated instant carrying an evaluation is refused.
+	mixed := append([]EstimatedPair(nil), pairs...)
+	mixed[0].NotEvaluated = ReasonAmbiguousLeader
+	if _, err := ScoreHeldOut(plan.Hash(), plan, set, mixed); err == nil {
+		t.Error("an unevaluated instant with an evaluation: want an error")
 	}
 }

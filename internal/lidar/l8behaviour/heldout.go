@@ -30,8 +30,11 @@ package l8behaviour
 //     nominal coverage. An endpoint with no projected body, or a gap that is
 //     not supported (apart from publication stage and, for the gap, the speed
 //     floor that concerns only the time gap), is counted as suppressed under
-//     the pair's first such reason. References no estimate matched are counted
-//     as unmatched: a miss is reported, never scored as an error.
+//     the pair's first such reason. An instant the estimator never evaluated
+//     (its leader choice suppressed, or the leader without a row) suppresses
+//     every case it would have yielded under that reason, once per case
+//     however many leaders competed. References no estimate matched are
+//     counted as unmatched: a miss is reported, never scored as an error.
 //   - Strata. An endpoint case is stratified by its reference's class, range
 //     and face aspect, and its own party's support at the instant; a gap case
 //     by the follower's reference and leading face, and the worse of the two
@@ -82,11 +85,10 @@ package l8behaviour
 //
 // Known limits of version 2, from its statistical review (R6 status in the
 // sprint review): every bound is tested against a point estimate, with no
-// interval; an instant the estimator never evaluates (an ambiguous leader,
-// say) leaves its references unmatched in the pooled share instead of
-// suppressed in their stratum, which is cheaper than a suppression; and an
-// encounter is a pair of estimated track ids, so track fragmentation
-// inflates the count and one body's error counts once per pair it is in.
+// interval; the unmatched and unscorable shares are pooled, and no plan
+// lists the strata it expects; and an encounter is a pair of estimated
+// track ids, so track fragmentation inflates the count and one body's error
+// counts once per pair it is in.
 
 import (
 	"crypto/sha256"
@@ -269,18 +271,28 @@ func (p ScoringPlan) Hash() string {
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// EstimatedPair is one evaluated pair instant to score: the path it was
-// measured along, the evaluation, and each party's support at the instant.
+// EstimatedPair is one pair instant to score: the path it was measured
+// along, the evaluation, and each party's support at the instant.
 type EstimatedPair struct {
 	Path            PathFrame      `json:"-"`
 	Point           FollowingPoint `json:"point"`
 	LeaderSupport   SupportState   `json:"leader_support"`
 	FollowerSupport SupportState   `json:"follower_support"`
+	// NotEvaluated, when set, is why the instant was never evaluated: its
+	// leader choice was suppressed (an ambiguous leader, say), or the leader
+	// had no row then. Point then carries only the two parties and the
+	// instant, and every case the instant would have yielded is suppressed
+	// under this reason in its stratum. Dropping the instant instead would
+	// leave its references unmatched in the pooled share, which is cheaper
+	// than a suppression and would let a stratum escape its bound.
+	NotEvaluated SuppressionReason `json:"not_evaluated,omitempty"`
 }
 
-// EstimatedPairsFromAnalysis collects every evaluated instant of an analysis,
-// in encounter and instant order, with each party's support read from the
-// trajectories the analysis was run on.
+// EstimatedPairsFromAnalysis collects every instant of an analysis's
+// encounters, in encounter and instant order. An evaluated instant carries
+// each party's support read from the trajectories the analysis was run on;
+// one never evaluated carries the support its encounter recorded and why it
+// was not evaluated.
 func EstimatedPairsFromAnalysis(a FollowingAnalysis, trajectories []Trajectory) ([]EstimatedPair, error) {
 	byID := make(map[string]Trajectory, len(trajectories))
 	for _, t := range trajectories {
@@ -294,6 +306,19 @@ func EstimatedPairsFromAnalysis(a FollowingAnalysis, trajectories []Trajectory) 
 		}
 		for _, inst := range e.Instants {
 			if inst.Point == nil {
+				reason := inst.Reason
+				if reason == ReasonUnspecified {
+					reason = ReasonNotObserved
+				}
+				out = append(out, EstimatedPair{
+					Path: res.Path,
+					Point: FollowingPoint{
+						LeaderTrackID: e.LeaderTrackID, FollowerTrackID: e.FollowerTrackID,
+						CaptureUnixNanos: inst.CaptureUnixNanos,
+					},
+					LeaderSupport: inst.LeaderSupport, FollowerSupport: inst.FollowerSupport,
+					NotEvaluated: reason,
+				})
 				continue
 			}
 			ls, lok := byID[e.LeaderTrackID].SampleAt(inst.CaptureUnixNanos)
@@ -458,6 +483,7 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 	}
 
 	seen := map[[3]string]bool{}
+	suppressedOnce := map[[3]string]bool{}
 	for _, ep := range estimates {
 		pt := ep.Point
 		if err := validateEstimate(pt); err != nil {
@@ -471,7 +497,12 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		if ep.Path == nil {
 			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d has no path", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
 		}
-		if g := pt.SpatialGap.Provenance.Version.GeometryID; g != ep.Path.GeometryID() {
+		notEvaluated := ep.NotEvaluated != ReasonUnspecified
+		if notEvaluated && (pt.Leader != nil || pt.Follower != nil || pt.Gap != nil) {
+			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d is marked not evaluated but carries an evaluation",
+				pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+		if g := pt.SpatialGap.Provenance.Version.GeometryID; !notEvaluated && g != ep.Path.GeometryID() {
 			return HeldOutReport{}, fmt.Errorf("estimate was measured along %s, not the supplied %s", g, ep.Path.GeometryID())
 		}
 		if !ep.LeaderSupport.Valid() || !ep.FollowerSupport.Valid() {
@@ -481,8 +512,26 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		fk := referenceKey{pt.FollowerTrackID, pt.CaptureUnixNanos}
 		lr, lok := refs[lk]
 		fr, fok := refs[fk]
-		firstReason := firstPhysicalReason(pt.Reasons)
+		firstReason, gapReason := firstPhysicalReason(pt.Reasons), firstGapReason(pt.Reasons)
+		if notEvaluated {
+			firstReason, gapReason = ep.NotEvaluated, ep.NotEvaluated
+		}
 		pair := [2]string{pt.LeaderTrackID, pt.FollowerTrackID}
+		// once admits a suppressed case of an unevaluated instant the first
+		// time it is met: with competing leaders, each competitor's instant
+		// would otherwise suppress the follower's leading endpoint and its
+		// gap again.
+		once := func(kind string, track string) bool {
+			if !notEvaluated {
+				return true
+			}
+			k := [3]string{kind, track, fmt.Sprint(pt.CaptureUnixNanos)}
+			if suppressedOnce[k] {
+				return false
+			}
+			suppressedOnce[k] = true
+			return true
+		}
 
 		var lTrue, fTrue, lTangent, fTangent float64
 		var lScorable, fScorable bool
@@ -498,7 +547,10 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 				unscorable[fk] = true
 			}
 		}
-		endpoint := func(r ReferenceBody, normal float64, support SupportState, body *BodyOnPath, est func(*BodyOnPath) Endpoint, truth float64) {
+		endpoint := func(ext PathExtremity, r ReferenceBody, normal float64, support SupportState, body *BodyOnPath, est func(*BodyOnPath) Endpoint, truth float64) {
+			if body == nil && !once(fmt.Sprintf("%s/%d", CaseKindEndpoint, ext), r.TrackID) {
+				return
+			}
 			a := add(strat(CaseKindEndpoint, r, normal, support))
 			if body == nil {
 				a.suppressed[firstReason]++
@@ -513,15 +565,18 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 			}
 		}
 		if lScorable {
-			endpoint(lr, lTangent+math.Pi, ep.LeaderSupport, pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }, lTrue)
+			endpoint(ExtremityTrailing, lr, lTangent+math.Pi, ep.LeaderSupport, pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }, lTrue)
 		}
 		if fScorable {
-			endpoint(fr, fTangent, ep.FollowerSupport, pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }, fTrue)
+			endpoint(ExtremityLeading, fr, fTangent, ep.FollowerSupport, pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }, fTrue)
 		}
 		if lScorable && fScorable {
 			support := ep.FollowerSupport
 			if support == SupportObserved {
 				support = ep.LeaderSupport
+			}
+			if !once(CaseKindGap, pt.FollowerTrackID) {
+				continue
 			}
 			a := add(strat(CaseKindGap, fr, fTangent, support))
 			if spatialGapSupported(&pt) {
@@ -532,7 +587,7 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 					a.covered++
 				}
 			} else {
-				a.suppressed[firstGapReason(pt.Reasons)]++
+				a.suppressed[gapReason]++
 			}
 		}
 	}
