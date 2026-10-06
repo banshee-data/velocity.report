@@ -424,3 +424,31 @@ func TestIdentitySkipsPlatformCheckWhenUnrecorded(t *testing.T) {
 		t.Errorf("missing system info should not by itself refuse: %v", err)
 	}
 }
+
+// A baseline captured before distinct confirmed tracks were recorded has none
+// and is not compared on them; one that has them refuses a run whose count
+// moved beyond the tolerance, which the peak count is too small to do.
+func TestIdentityComparesDistinctConfirmedTracksWhenRecorded(t *testing.T) {
+	old := comparableResult()
+	current := comparableResult()
+	current.Metrics.Work.DistinctConfirmedTracks = 61
+	if err := checkWorkloadIdentity(old, current, DefaultWorkTolerance); err != nil {
+		t.Errorf("a baseline without distinct confirmed tracks refused the comparison: %v", err)
+	}
+
+	recorded := comparableResult()
+	recorded.Metrics.Work.DistinctConfirmedTracks = 61
+	current.Metrics.Work.DistinctConfirmedTracks = 64 // +5%
+	if err := checkWorkloadIdentity(recorded, current, DefaultWorkTolerance); err != nil {
+		t.Errorf("a 5%% drift in distinct confirmed tracks was refused: %v", err)
+	}
+	current.Metrics.Work.DistinctConfirmedTracks = 48 // -21%: a changed confirmation rule
+	err := checkWorkloadIdentity(recorded, current, DefaultWorkTolerance)
+	if err == nil || !strings.Contains(err.Error(), "distinct_confirmed_tracks") {
+		t.Errorf("a 21%% drop in distinct confirmed tracks: %v; want it refused by name", err)
+	}
+	current.Metrics.Work.DistinctConfirmedTracks = 0
+	if err := checkWorkloadIdentity(recorded, current, DefaultWorkTolerance); err == nil {
+		t.Error("a run that confirmed no track was accepted against a baseline that confirmed 61")
+	}
+}

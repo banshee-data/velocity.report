@@ -137,6 +137,11 @@ func TestRunProducesBenchmarkResult(t *testing.T) {
 	if got.SystemInfo.GOOS == "" || got.SystemInfo.NumCPU == 0 {
 		t.Errorf("SystemInfo = %+v, want it populated", got.SystemInfo)
 	}
+	// Every track confirmed at any frame, at least as many as were ever
+	// confirmed at once.
+	if w := got.Metrics.Work; w.DistinctConfirmedTracks < w.ConfirmedTracks || (w.ConfirmedTracks > 0 && w.DistinctConfirmedTracks == 0) {
+		t.Errorf("distinct confirmed tracks %d against a peak of %d", w.DistinctConfirmedTracks, w.ConfirmedTracks)
+	}
 }
 
 // runOnceForBaseline replays the fixture and returns the document it produced,

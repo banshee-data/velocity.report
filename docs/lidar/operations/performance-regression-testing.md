@@ -123,6 +123,16 @@ background model never finished settling, so nothing downstream of L3 ever ran. 
 three months it read as a healthy full-pipeline run, and when detection started
 working the gate reported the cost of it as a 7028% heap regression.
 
+Tracks are counted twice, and only one count is compared:
+
+- `confirmed_tracks` is the peak number confirmed at once (25 on kirk0 `full`). It is too small
+  for a proportional tolerance, so it is reported but not compared.
+- `distinct_confirmed_tracks` is every track confirmed at any frame (77 on kirk0 `full`). It is
+  compared, so a changed confirmation rule refuses the comparison.
+
+A baseline captured before `distinct_confirmed_tracks` was recorded has none, and is not compared
+on it until it is recaptured.
+
 ## The measurement matrix
 
 A perf number means nothing without saying which machine produced it. The matrix has one
