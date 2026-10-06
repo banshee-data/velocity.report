@@ -383,6 +383,12 @@ func Main(args []string) int {
 	default:
 		log.Fatalf("Unrecognised --log-level=%q: valid values are ops, diag, trace (e.g. --log-level=diag)", *logLevel)
 	}
+	// Checked here rather than where the gate is wired, which runs in the
+	// server goroutine after listeners are up.
+	capMode, capModeErr := api.ParseEnforcement(*tsCapEnforcement)
+	if capModeErr != nil {
+		log.Fatalf("Unrecognised --ts-cap-enforcement=%q: valid values are off, on", *tsCapEnforcement)
+	}
 	lidar.SetLogWriters(writers)
 	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	parse.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
@@ -1140,11 +1146,7 @@ func Main(args []string) int {
 		// Default mode is "off"; flip to "on" after grants are wired
 		// in the tailnet ACL.  Recovery from a botched ACL is via
 		// the LAN bypass.
-		if mode, err := api.ParseEnforcement(*tsCapEnforcement); err != nil {
-			log.Fatalf("invalid -ts-cap-enforcement: %v", err)
-		} else {
-			apiServer.SetAuthGate(tsManager, mode)
-		}
+		apiServer.SetAuthGate(tsManager, capMode)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// When LiDAR is enabled we report "starting" here; the subsystem should

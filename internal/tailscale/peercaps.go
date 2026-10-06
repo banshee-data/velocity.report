@@ -12,10 +12,10 @@ package tailscale
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
+	"tailscale.com/client/local"
 	"tailscale.com/tailcfg"
 )
 
@@ -58,10 +58,17 @@ var ErrPeerNotFound = errors.New("tailscale: peer not found")
 //     false).
 //   - (PeerIdentity{}, ErrPeerNotFound) when the daemon is reachable
 //     and reports the address is not a tailnet peer.  Authoritative
-//     "no" — the api layer can fail closed.
+//     "no" — the api layer fails closed.
 //   - (PeerIdentity{}, other error) on transport/timeout/socket
-//     failures.  The api layer should fail open on these to avoid
-//     a tailscaled blip locking everyone out simultaneously.
+//     failures, when no recent identity is known for the address.
+//     The api layer fails closed on these too: an unresolved peer is
+//     never granted anything.
+//
+// A transient failure does not lock out a peer that was resolved
+// recently: within lastGoodGrace of its last successful lookup, the
+// identity it had then is returned instead of the error.  A tailscaled
+// blip therefore costs nobody access they had a moment ago, and a
+// peer the daemon has never resolved gains none.
 //
 // Results are cached for a short TTL keyed on remoteAddr to keep
 // daemon traffic proportional to peer count rather than request
@@ -72,11 +79,21 @@ func (m *Manager) LookupPeer(ctx context.Context, remoteAddr string) (PeerIdenti
 		return v.id, v.err
 	}
 	id, err := m.lookupPeerUncached(ctx, remoteAddr)
-	// Only cache definitive answers (success or NotFound).  Transient
-	// errors must be retried promptly, otherwise a 1-second outage
-	// gets amplified to peerCacheTTL of 403s.
-	if err == nil || errors.Is(err, ErrPeerNotFound) {
-		m.peerCache.set(remoteAddr, peerCacheEntry{id: id, err: err})
+	switch {
+	case err == nil:
+		m.peerCache.set(remoteAddr, peerCacheEntry{id: id})
+		m.peerCache.setLastGood(remoteAddr, id)
+	case errors.Is(err, ErrPeerNotFound):
+		// Authoritative: cache it, and forget any identity the address
+		// had, so a removed node is not served from lastGood.
+		m.peerCache.set(remoteAddr, peerCacheEntry{err: err})
+		m.peerCache.forgetLastGood(remoteAddr)
+	default:
+		// Transient errors are not cached, so a 1-second outage is not
+		// amplified to peerCacheTTL of refusals.
+		if last, ok := m.peerCache.lastGood(remoteAddr); ok {
+			return last, nil
+		}
 	}
 	return id, err
 }
@@ -84,10 +101,9 @@ func (m *Manager) LookupPeer(ctx context.Context, remoteAddr string) (PeerIdenti
 func (m *Manager) lookupPeerUncached(ctx context.Context, remoteAddr string) (PeerIdentity, error) {
 	resp, err := m.lc.WhoIs(ctx, remoteAddr)
 	if err != nil {
-		// The local API does not give us a typed "not found" today;
-		// the conventional shape of the error string is matched
-		// here.  Anything else is treated as a transient error.
-		if isPeerNotFound(err) {
+		// The local client maps the local API's 404 to
+		// local.ErrPeerNotFound; anything else is transient.
+		if errors.Is(err, local.ErrPeerNotFound) {
 			return PeerIdentity{}, ErrPeerNotFound
 		}
 		return PeerIdentity{}, err
@@ -113,26 +129,23 @@ func (m *Manager) lookupPeerUncached(ctx context.Context, remoteAddr string) (Pe
 	return id, nil
 }
 
-// isPeerNotFound reports whether err looks like the local API's
-// authoritative "no such peer" response.  The local client today
-// returns a wrapped error whose message contains "no match for IP";
-// match only that exact phrase.  Broader substrings like "not found"
-// or "404" would catch unrelated transport errors and incorrectly
-// fail closed (403) when the safe degradation is fail open.  If
-// upstream renames the phrase, we'll classify NotFound as transient
-// and fail open — the right way round if we must be wrong.
-func isPeerNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "no match for IP")
-}
-
 // peerCacheTTL bounds how long a successful or NotFound result is
 // reused.  Short enough that a grant change in the tailnet ACL
 // propagates within a session; long enough to absorb the per-peer
 // burst of polling from the Settings page.
 const peerCacheTTL = 5 * time.Second
+
+// lastGoodGrace bounds how long a peer's last successful identity
+// stands in for a transient lookup failure.  It is long enough to ride
+// out a tailscaled restart and short enough that a revoked grant is not
+// honoured for long while the daemon is unreachable.
+const lastGoodGrace = 10 * time.Minute
+
+// maxPeerCacheEntries bounds each of the cache's maps.  The tailnet
+// has a handful of peers; only a local process forging
+// X-Forwarded-For across the tailnet range could add more, and it
+// would not get past the gate by doing so.
+const maxPeerCacheEntries = 1024
 
 type peerCacheEntry struct {
 	id  PeerIdentity
@@ -141,20 +154,14 @@ type peerCacheEntry struct {
 }
 
 type peerCache struct {
-	mu sync.Mutex
-	// Entries are bounded by callers' peer set size in the typical
-	// case (a handful).  We do not cap the map: a runaway here
-	// implies a request flood from many distinct IPs, which is a
-	// separate problem worth detecting elsewhere.
-	m map[string]peerCacheEntry
+	mu   sync.Mutex
+	m    map[string]peerCacheEntry
+	good map[string]peerCacheEntry
 }
 
 func (c *peerCache) get(k string) (peerCacheEntry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.m == nil {
-		return peerCacheEntry{}, false
-	}
 	e, ok := c.m[k]
 	if !ok {
 		return peerCacheEntry{}, false
@@ -174,4 +181,54 @@ func (c *peerCache) set(k string, e peerCacheEntry) {
 	}
 	e.at = time.Now()
 	c.m[k] = e
+	boundEntries(c.m, peerCacheTTL)
+}
+
+func (c *peerCache) setLastGood(k string, id PeerIdentity) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.good == nil {
+		c.good = make(map[string]peerCacheEntry)
+	}
+	c.good[k] = peerCacheEntry{id: id, at: time.Now()}
+	boundEntries(c.good, lastGoodGrace)
+}
+
+func (c *peerCache) lastGood(k string) (PeerIdentity, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, ok := c.good[k]
+	if !ok || time.Since(e.at) > lastGoodGrace {
+		return PeerIdentity{}, false
+	}
+	return e.id, true
+}
+
+func (c *peerCache) forgetLastGood(k string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.good, k)
+}
+
+// boundEntries keeps m within maxPeerCacheEntries: it drops expired
+// entries first and, if that is not enough, the oldest.  The caller
+// holds the lock.
+func boundEntries(m map[string]peerCacheEntry, ttl time.Duration) {
+	if len(m) <= maxPeerCacheEntries {
+		return
+	}
+	for k, e := range m {
+		if time.Since(e.at) > ttl {
+			delete(m, k)
+		}
+	}
+	for len(m) > maxPeerCacheEntries {
+		oldestKey, oldest := "", time.Time{}
+		for k, e := range m {
+			if oldestKey == "" || e.at.Before(oldest) {
+				oldestKey, oldest = k, e.at
+			}
+		}
+		delete(m, oldestKey)
+	}
 }

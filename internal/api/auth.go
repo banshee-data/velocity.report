@@ -13,15 +13,20 @@
 // 1. Source classification.  A request is "from the tailnet" only
 //    when it actually arrived through tailscale serve, which means
 //    the upstream connection lands on loopback and the original
-//    peer IP is in X-Forwarded-For.  Anywhere else (LAN, direct hit
-//    on :8080, host-network requests from velocity-ctl) is treated
-//    as admin: those paths require already being on a network the
-//    operator controls, which is the same trust boundary the device
-//    has had since it shipped.
+//    peer IP is in X-Forwarded-For.  A direct connection from a LAN
+//    address, or a loopback connection with no X-Forwarded-For (the
+//    Go server itself, `velocity device`, a local curl), is treated
+//    as admin: those paths require already being on a network or
+//    host the operator controls, which is the same trust boundary
+//    the device has had since it shipped.
 //
 //    XFF is *only* trusted when r.RemoteAddr is loopback, otherwise
-//    a LAN attacker who can reach :8080 directly could forge a
-//    tailnet identity.
+//    a LAN attacker who can reach the server directly could forge a
+//    tailnet identity.  A loopback request whose XFF is not a tailnet
+//    address was forwarded on behalf of someone outside the tailnet,
+//    as tailscale serve does for a Funnel request from the internet;
+//    with enforcement on it is refused, as is any request carrying
+//    Tailscale-Funnel-Request.
 //
 // 2. Authorization on the tailnet.  Once classified as tailnet, the
 //    daemon is asked for the peer's grants via the local API.  Any
@@ -29,11 +34,13 @@
 //    corresponding access level; admin implies view.
 //
 // 3. Failure modes.  A definitive "no such peer" from the daemon
-//    is fail-closed (the tailnet identity is unknown — no caps).
-//    A transient lookup error (socket down, timeout) is fail-open
-//    so that a tailscaled hiccup does not lock every authorised
-//    user out simultaneously.  A daemon outage is logged at every
-//    failure for diagnostic purposes.
+//    is 403 (the tailnet identity is unknown — no caps).  A transient
+//    lookup error (socket down, timeout) is 503: an unresolved peer
+//    is never granted anything, because a peer able to slow or break
+//    the lookup could otherwise reach every route.  A peer resolved
+//    within the last ten minutes keeps the identity it had then
+//    (tailscale.Manager.LookupPeer), so a tailscaled hiccup does not
+//    lock out users who were working a moment ago.
 //
 // 4. Modes.  Off disables the entire mechanism — tailnet peers
 //    behave like LAN peers (admin).  On enforces caps for tailnet
@@ -142,11 +149,22 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 		ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
 		defer cancel()
 
-		clientIP, fromTailnet := classifySource(r)
-		if !fromTailnet {
+		if r.Header.Get(funnelRequestHeader) != "" {
+			// tailscale serve marks requests it accepted from the
+			// public internet; nobody there holds a grant.
+			writeForbidden(w, "funnel_request", required)
+			return
+		}
+		clientIP, source := classifySource(r)
+		switch source {
+		case sourceLocal:
 			// LAN/loopback peers retain full access — the LAN
 			// itself is the trust boundary in those deployments.
 			next.ServeHTTP(w, r)
+			return
+		case sourceForwarded:
+			log.Printf("auth: refusing a request forwarded for non-tailnet address %s", clientIP)
+			writeForbidden(w, "untrusted_forward", required)
 			return
 		}
 
@@ -162,10 +180,10 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 			writeForbidden(w, "unknown_peer", required)
 			return
 		default:
-			// Transient lookup failure.  Fail open so a tailscaled
-			// blip does not deny every authorised user at once.
-			log.Printf("auth: lookup %s transient error, allowing: %v", clientIP, err)
-			next.ServeHTTP(w, r)
+			// Transient lookup failure with no recent identity to
+			// stand in: the peer is unresolved, so it gets nothing.
+			log.Printf("auth: lookup %s failed, refusing: %v", clientIP, err)
+			writeUnavailable(w)
 			return
 		}
 
@@ -184,40 +202,62 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 	})
 }
 
-// classifySource returns the originating client IP and whether it
-// arrived over the tailnet.  The XFF header is consulted only when
+// funnelRequestHeader is set by tailscale serve on requests it
+// accepted through Funnel, from the public internet.  serve strips any
+// copy a client sends.
+const funnelRequestHeader = "Tailscale-Funnel-Request"
+
+// requestSource is where classifySource places a request.
+type requestSource int
+
+const (
+	// sourceLocal is the host or the LAN: admin.
+	sourceLocal requestSource = iota
+	// sourceTailnet is a tailnet peer, directly or through serve:
+	// subject to capability grants.
+	sourceTailnet
+	// sourceForwarded is a loopback proxy forwarding for an address
+	// outside the tailnet, such as a Funnel client: refused.
+	sourceForwarded
+)
+
+// classifySource returns the originating client IP and where the
+// request came from.  The XFF header is consulted only when
 // r.RemoteAddr is loopback, i.e. the request came from tailscale
 // serve's local proxy.  Anywhere else, only r.RemoteAddr is
-// trusted, which prevents a LAN attacker who can reach :8080
+// trusted, which prevents a LAN attacker who can reach the server
 // directly from forging a tailnet identity by setting XFF.
-func classifySource(r *http.Request) (netip.Addr, bool) {
+func classifySource(r *http.Request) (netip.Addr, requestSource) {
 	remoteIP := remoteAddrIP(r)
 	if !remoteIP.IsValid() {
-		return netip.Addr{}, false
+		return netip.Addr{}, sourceLocal
 	}
 	// Trust XFF only when the upstream is loopback (the only path
 	// by which tailscale serve forwards requests to us).
 	if remoteIP.IsLoopback() {
 		if xff := firstXFF(r.Header.Get("X-Forwarded-For")); xff.IsValid() {
 			if isTailnetIP(xff) {
-				return xff, true
+				return xff, sourceTailnet
 			}
-			// XFF is set but not a tailnet IP: a misconfigured
-			// reverse proxy or a client setting their own header
-			// before us.  Treat as non-tailnet.
-			return xff, false
+			// XFF is set but not a tailnet IP: tailscale serve
+			// forwarding a Funnel request from the internet, or a
+			// local reverse proxy forwarding for someone else.
+			// Neither is the host or the LAN.
+			return xff, sourceForwarded
 		}
 		// Loopback with no XFF: a process on the host (the Go
-		// server itself, velocity-ctl, a local curl).  Non-tailnet,
-		// hence admin.
-		return remoteIP, false
+		// server itself, `velocity device`, a local curl).
+		return remoteIP, sourceLocal
 	}
-	// Direct connection (LAN, or :8080 exposed somewhere).  XFF is
-	// untrusted here.  We still classify by the on-wire source: a
-	// direct connection from a tailnet IP (rare but possible if the
-	// operator explicitly bound the tailnet IP) is treated as
+	// Direct connection (LAN, or the listener exposed somewhere).  XFF
+	// is untrusted here.  We still classify by the on-wire source: a
+	// direct connection from a tailnet IP (the listener bound to all
+	// interfaces, reached at the node's tailnet address) is treated as
 	// tailnet, but the much more common case is a LAN address.
-	return remoteIP, isTailnetIP(remoteIP)
+	if isTailnetIP(remoteIP) {
+		return remoteIP, sourceTailnet
+	}
+	return remoteIP, sourceLocal
 }
 
 // firstXFF parses the first entry of an X-Forwarded-For header.
@@ -277,6 +317,17 @@ func isTailscaleCGNAT(ip netip.Addr) bool {
 type forbiddenBody struct {
 	Error    string `json:"error"`
 	Required string `json:"required,omitempty"`
+}
+
+// writeUnavailable answers a request whose tailnet identity could not
+// be resolved.  It is retryable: the next lookup may succeed.
+func writeUnavailable(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", "5")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	if err := json.NewEncoder(w).Encode(forbiddenBody{Error: "peer_lookup_unavailable"}); err != nil {
+		log.Printf("auth: encode unavailable body: %v", err)
+	}
 }
 
 func writeForbidden(w http.ResponseWriter, code string, required CapKind) {
