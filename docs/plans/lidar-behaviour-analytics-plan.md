@@ -1283,7 +1283,11 @@ The implemented `ScoreHeldOut` harness (`following_heldout_scoring_v2`) pins its
 reference set by name and content digest, fails a report whose unmatched or unscorable share
 exceeds its bound, and counts a stratum's evidence in distinct encounters as well as frames. It
 does not enforce disjoint splits, expected strata or reference uncertainty, and it cannot check
-leader choice. The
+leader choice. Its bounds are tested on point estimates, its unmatched share is pooled and is not
+a miss rate, and an unevaluated instant escapes its stratum's suppression bound; the
+[R6 status](../lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate)
+gives the review's numbers and the fixes, which need an interval-based verdict and leader truth.
+The
 [following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
 those checks and independent leader/no-leader truth. Mask centres can support detection/identity
 evaluation; they do not certify the physical ends of partially visible bodies.
