@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -4756,6 +4757,40 @@ func TestStart_PortInUseIsAStartupError(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Start did not return on a port in use")
 	}
+}
+
+// failingUDPSockets refuses every UDP bind, as a port already in use would.
+type failingUDPSockets struct{}
+
+func (failingUDPSockets) ListenUDP(string, *net.UDPAddr) (network.UDPSocket, error) {
+	return nil, errors.New("bind: address already in use")
+}
+
+// A live UDP listener that cannot bind fails Start after its HTTP listener
+// was bound, and Start releases that listener again: the port is free once
+// Start has returned, and the ready hook never ran.
+func TestStart_UDPBindFailureReleasesTheHTTPListener(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := probe.Addr().String()
+	probe.Close()
+
+	srv := NewServer(Config{Address: addr, Stats: NewPacketStats(), UDPListenerConfig: network.UDPListenerConfig{
+		Address: "127.0.0.1:0", SocketFactory: failingUDPSockets{},
+	}})
+	srv.SetOnReady(func() { t.Error("ready hook ran although the UDP listener failed") })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := srv.Start(ctx); err == nil {
+		t.Fatal("Start returned nil although the UDP listener could not bind")
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatalf("HTTP port %s still held after Start failed: %v", addr, err)
+	}
+	ln.Close()
 }
 
 func TestStart_ShutdownForceClose(t *testing.T) {

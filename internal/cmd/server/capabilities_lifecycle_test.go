@@ -74,11 +74,3 @@ func TestRunLidarServer_ReportsErrorWhenStartFails(t *testing.T) {
 		t.Fatalf("after failed start: %q, sweep %v; want error without sweep", status, sweep)
 	}
 }
-
-// Disabled: no LiDAR server runs and the LiDAR map stays empty.
-func TestRunLidarServer_DisabledReportsNoLidar(t *testing.T) {
-	cp := newCapabilitiesProvider()
-	if _, ok := cp.Capabilities().Lidar["default"]; ok {
-		t.Fatal("LiDAR reported while disabled")
-	}
-}

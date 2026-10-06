@@ -1133,8 +1133,9 @@ func Main(args []string) int {
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
 
-		// /api/capabilities reports the provider's state, which the LiDAR
-		// server's startup moves from "starting" to "ready" or "error".
+		// Wire capabilities provider so /api/capabilities reports sensor state.
+		// It was created before the LiDAR server started, whose startup moves
+		// it from "starting" to "ready" or "error".
 		apiServer.SetCapabilitiesProvider(capsProvider)
 
 		// Attach admin routes that belong to other components

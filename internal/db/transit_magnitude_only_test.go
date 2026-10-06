@@ -77,8 +77,7 @@ func TestTransitWorker_MagnitudeOnlyRowsAreNotTransitInputs(t *testing.T) {
 }
 
 // An hour holding only magnitude-only rows cannot produce a transit, so it
-// is not a transit gap: listing it would have the gap filler reprocess it
-// on every pass.
+// is not a transit gap: listed, it would stay a gap that no run can fill.
 func TestFindTransitGaps_MagnitudeOnlyHourIsNotAGap(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
