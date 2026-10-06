@@ -86,8 +86,9 @@ func (cp *capabilitiesProvider) Capabilities() api.Capabilities {
 	return caps
 }
 
-// lidarStarter is the part of the LiDAR server whose startup outcome the
-// capabilities report.
+// lidarStarter is the part of the LiDAR server that runLidarServer needs:
+// a hook for when it is serving, and Start, whose result says whether it
+// started. The capabilities report that outcome.
 type lidarStarter interface {
 	SetOnReady(fn func())
 	Start(ctx context.Context) error
