@@ -1056,6 +1056,10 @@ pattern: an effective start and end, an `is_active` flag, and triggers enforcing
 period per site. Adding `speed_limit_kph` and its unit and jurisdiction there costs one migration
 and makes every `legal` speed benchmark reproducible.
 
+**Status:** migration 000059 adds `speed_limit_kph`, `speed_limit_unit` and `jurisdiction` to
+`site_config_periods`, with the API and the site page editing them. Reports and benchmarks do not
+read them yet; `ReportConfig.SpeedLimit` is still the PDF's per-request value.
+
 The remaining roadway context, lane centrelines, stop lines, crossings and conflict regions,
 belongs to [lidar-l7-scene-plan](lidar-l7-scene-plan.md) and is the reason Phase 7 exists.
 

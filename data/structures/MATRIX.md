@@ -543,6 +543,9 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `site_config_periods`            | `cosine_error_angle`                | DOUBLE        | ✅  | ✅  | -   |
 | `site_config_periods`            | `created_at`                        | DOUBLE        | ✅  | ✅  | -   |
 | `site_config_periods`            | `updated_at`                        | DOUBLE        | ✅  | ✅  | -   |
+| `site_config_periods`            | `speed_limit_kph`                   | DOUBLE        | ✅  | ✅  | -   |
+| `site_config_periods`            | `speed_limit_unit`                  | TEXT          | ✅  | ✅  | -   |
+| `site_config_periods`            | `jurisdiction`                      | TEXT          | ✅  | ✅  | -   |
 | `site_reports`                   | `id`                                | INTEGER PK    | ✅  | ✅  | -   |
 | `site_reports`                   | `site_id`                           | INTEGER FK    | ✅  | ✅  | -   |
 | `site_reports`                   | `start_date`                        | TEXT          | ✅  | ✅  | -   |
