@@ -328,12 +328,12 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_tracks`                   | `object_class`                      | TEXT          | ✅  | ✅  | ✅  |
 | `lidar_tracks`                   | `object_confidence`                 | REAL          | ✅  | ✅  | ✅  |
 | `lidar_tracks`                   | `classification_model`              | TEXT          | ✅  | ✅  | -   |
-| `lidar_tracks`                   | `track_length_meters`               | REAL          | 🔶  | 📋  | ✅  |
-| `lidar_tracks`                   | `track_duration_secs`               | REAL          | 🔶  | 📋  | ✅  |
-| `lidar_tracks`                   | `occlusion_count`                   | INTEGER       | 🔶  | 📋  | ✅  |
-| `lidar_tracks`                   | `max_occlusion_frames`              | INTEGER       | 🔶  | 📋  | -   |
-| `lidar_tracks`                   | `spatial_coverage`                  | REAL          | 🔶  | 📋  | -   |
-| `lidar_tracks`                   | `noise_point_ratio`                 | REAL          | 🔶  | 📋  | -   |
+| `lidar_tracks`                   | `track_length_meters`               | REAL          | ✅  | ✅  | ✅  |
+| `lidar_tracks`                   | `track_duration_secs`               | REAL          | ✅  | ✅  | ✅  |
+| `lidar_tracks`                   | `occlusion_count`                   | INTEGER       | ✅  | ✅  | ✅  |
+| `lidar_tracks`                   | `max_occlusion_frames`              | INTEGER       | ✅  | ✅  | -   |
+| `lidar_tracks`                   | `spatial_coverage`                  | REAL          | ✅  | -   | -   |
+| `lidar_tracks`                   | `noise_point_ratio`                 | REAL          | 📋  | -   | -   |
 | `lidar_track_observations`       | `track_id`                          | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `ts_unix_nanos`                     | INTEGER PK    | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `frame_id`                          | TEXT          | ✅  | -   | -   |
@@ -946,12 +946,12 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 | [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `object_confidence`    | ✅  | ✅  | ✅  |
 | [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `classification_model` | ✅  | ✅  | -   |
 | [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `heading_source`       | -   | ✅  | ✅  |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_length_meters`  | 🔶  | 📋  | ✅  |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_duration_secs`  | 🔶  | 📋  | ✅  |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `occlusion_count`      | 🔶  | 📋  | ✅  |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `max_occlusion_frames` | 🔶  | 📋  | -   |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `spatial_coverage`     | 🔶  | 📋  | -   |
-| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `noise_point_ratio`    | 🔶  | 📋  | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_length_meters`  | ✅  | ✅  | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_duration_secs`  | ✅  | ✅  | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `occlusion_count`      | ✅  | ✅  | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `max_occlusion_frames` | ✅  | ✅  | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `spatial_coverage`     | ✅  | -   | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `noise_point_ratio`    | 📋  | -   | -   |
 
 ---
 
@@ -1163,13 +1163,13 @@ documented in §15. The radar server debug routes are attached via
 
 The pre-existing gap counts below come from the March consumer audit and have not been rechecked as part of the schema inventory refresh. The new segment and capture relationship findings are in the [SQLite model review](SCHEMA-REVIEW.md).
 
-| Category                             | Count | Details                                                                                 |
-| ------------------------------------ | ----- | --------------------------------------------------------------------------------------- |
-| Schema columns never written         | 9     | `lidar_tracks` quality (6), `lidar_clusters` quality (3)                                |
-| Fields live-only (Mac but not in DB) | 3     | `track_length_meters`, `track_duration_secs`, `occlusion_count` (gRPC ✅, DB column 🔶) |
-| Structs computed, not persisted      | 3     | NoiseCoverageMetrics, TrainingDatasetSummary, ClusterFeatures                           |
-| Structs in-memory, classifier only   | 1     | TrackFeatures (20 features; computed on-demand, never stored)                           |
-| Transient pipeline metrics           | 2     | FrameMetrics (HINT plan C1), per-track jitter                                           |
-| Metrics with Web endpoint only       | 2     | TrackingMetrics + TrackAlignmentMetrics via `GET /api/lidar/tracks/metrics`             |
-| Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                               |
-| Deprecated columns (removal landed)  | 0     | Per-track speed percentile columns are no longer present in the active schema           |
+| Category                             | Count | Details                                                                             |
+| ------------------------------------ | ----- | ----------------------------------------------------------------------------------- |
+| Schema columns never written         | 4     | `lidar_clusters` quality (3), `lidar_tracks.noise_point_ratio` (1, written as NULL) |
+| Fields live-only (Mac but not in DB) | 0     | Track quality counters are stored in `lidar_tracks` since remediation Phase 2       |
+| Structs computed, not persisted      | 3     | NoiseCoverageMetrics, TrainingDatasetSummary, ClusterFeatures                       |
+| Structs in-memory, classifier only   | 1     | TrackFeatures (20 features; computed on-demand, never stored)                       |
+| Transient pipeline metrics           | 2     | FrameMetrics (HINT plan C1), per-track jitter                                       |
+| Metrics with Web endpoint only       | 2     | TrackingMetrics + TrackAlignmentMetrics via `GET /api/lidar/tracks/metrics`         |
+| Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                           |
+| Deprecated columns (removal landed)  | 0     | Per-track speed percentile columns are no longer present in the active schema       |

@@ -5,7 +5,7 @@ Phased plan to wire up data structures that are computed on the Go backend but n
 ## Source
 
 - Plan: [docs/plans/unpopulated-data-structures-remediation-plan.md](../../plans/unpopulated-data-structures-remediation-plan.md)
-- Status: Active; Phases 1–3 proposed; Phases 4–10 proposed
+- Status: Active; Phases 1, 2, and 4 implemented; Phases 3 and 5–8 proposed
 - Related: Backend → Surface Matrix ([data/structures/MATRIX.md](../../../data/structures/MATRIX.md))
 
 ## Problem
@@ -30,7 +30,7 @@ Downstream: enables web run-detail quality summary card.
 
 **Priority:** High. Effort: Small–medium (2–3 days). Risk: Low; columns exist.
 
-6 columns in `lidar_tracks` exist but hold NULL/0 defaults: `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`. Update `InsertTrack()` and `UpdateTrack()` to populate them from `TrackedObject` fields.
+**Status:** Implemented. `InsertTrack()` and `UpdateTrack()` write `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames` and `spatial_coverage` from the lifetime counters the tracker keeps, and the track readers read them back. Duration and coverage are NULL while undefined. `noise_point_ratio` is written as NULL until clustering counts noise points (Phase 3). The track API returns length and the occlusion counters.
 
 Downstream: `idx_lidar_tracks_quality` index becomes useful for filtering high-quality tracks for labelling.
 
@@ -80,8 +80,8 @@ Phase 7 (percentile removal / migration 030)
 
 ## Scheduling guidance
 
-- **Done:** Phases 1 and 4 (run statistics and their endpoint)
-- **Immediate:** Phases 2–3 (wire existing data, minimal risk)
+- **Done:** Phases 1, 2, and 4 (run statistics, their endpoint, and track quality columns)
+- **Immediate:** Phase 3 (cluster quality columns)
 - **Near-term:** Phase 7 (migration 030 cleanup)
 - **Backlog:** Phases 5–8 (depend on product direction; ML pipeline, comparison UI)
 

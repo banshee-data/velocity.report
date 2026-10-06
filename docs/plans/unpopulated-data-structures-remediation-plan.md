@@ -7,7 +7,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active; Phases 1 and 4 implemented; Phases 2, 3, and 5–8 proposed
+- **Status:** Active; Phases 1, 2, and 4 implemented; Phases 3 and 5–8 proposed
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
@@ -93,20 +93,29 @@ distribution). This is a separate UI task.
 
 ### Checklist
 
-- [ ] Update `InsertTrack()` (`track_store.go:92`) to include
-      `track_length_meters`, `track_duration_secs`, `occlusion_count`,
-      `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`.
-- [ ] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
-      columns on each update.
-- [x] Verify that `TrackedObject` already carries these fields (it does —
-      they are set by the L5 tracker).
-- [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
-      6 new columns.
-- [ ] Add the 6 fields to the `Track` TypeScript interface in
+- [x] Update `InsertTrack()` to include `track_length_meters`,
+      `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`,
+      `spatial_coverage`, `noise_point_ratio`, in its `ON CONFLICT DO UPDATE`
+      clause too, so each frame's upsert keeps them current.
+- [x] Update `UpdateTrack()` to write the same 6 columns, and
+      `GetActiveTracks()`/`GetTracksInRange()` to read them, so an update to a
+      track loaded from the database keeps them rather than zeroing them.
+- [x] Verify that `TrackedObject` already carries these fields. The tracker
+      keeps length, duration and the occlusion counters live over the track's
+      lifetime, and those are what is stored. `ComputeQualityMetrics()`
+      recounts them from the trail, which is capped at
+      `max_track_history_length` points and holds a coasted point for every
+      missed frame, so it is not used. Spatial coverage comes from the span
+      through `l5tracks.SpatialCoverage()`.
+- [x] Duration and spatial coverage are NULL while undefined (no elapsed time,
+      or no observation). `noise_point_ratio` is always NULL: nothing computes
+      it until clustering counts noise points (Phase 3).
+- [x] Add `track_length_meters`, `occlusion_count` and `max_occlusion_frames`
+      to the track API response and the `Track` TypeScript interface in
       [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
-- [ ] Update the live-tracks API handler (`handleListTracks`) to include the
-      fields in the JSON response (verify the Go struct already has them).
-- [ ] All existing Go tests pass with new column writes.
+      Duration is already `age_seconds`; coverage follows from it and
+      `observation_count`.
+- [x] All existing Go tests pass with new column writes.
 
 ### Downstream opportunity
 
@@ -272,7 +281,7 @@ surfaced.
 
 ### Immediate (current sprint)
 
-Phases 1 and 4 are implemented. Phases 2–3 come next: they wire existing
+Phases 1, 2, and 4 are implemented. Phase 3 comes next: it wires existing
 data to persistence with minimal risk (no schema changes, all columns
 already exist).
 Phase 7 (per-track percentile removal / migration 000030) should follow
