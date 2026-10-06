@@ -166,23 +166,18 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 	// Skip points too close to origin (noise/self-reflection)
 	distFromOrigin := track.X*track.X + track.Y*track.Y
 	if distFromOrigin > 0.01 { // > 0.1m squared
-		var (
-			previousPoint TrackPoint
-			hasPrevious   bool
-		)
-		if len(track.History) > 0 {
-			previousPoint = track.History[len(track.History)-1]
-			hasPrevious = true
-		}
+		// Length is measured from the last observed point, not the last
+		// trail point, which may be coasted (see lengthAnchor).
+		anchor, hasAnchor := lengthAnchor(track.History)
 		track.History = append(track.History, TrackPoint{
 			X:         track.X,
 			Y:         track.Y,
 			Timestamp: measurement.UnixNanos,
 			Support:   SupportObserved,
 		})
-		if hasPrevious {
-			dx := track.X - previousPoint.X
-			dy := track.Y - previousPoint.Y
+		if hasAnchor {
+			dx := track.X - anchor.X
+			dy := track.Y - anchor.Y
 			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
 		}
 		if len(track.History) > t.Config.MaxTrackHistoryLength {
