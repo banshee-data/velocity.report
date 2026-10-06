@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -4692,6 +4693,115 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Start did not return within 5 s after context cancellation")
 	}
+}
+
+// Start reports ready only once its HTTP listener is bound: a request made
+// as soon as the ready hook has run is served.
+func TestStart_OnReadyRunsOnceServing(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := probe.Addr().String()
+	probe.Close()
+
+	srv := NewServer(Config{Address: addr, Stats: NewPacketStats()})
+	srv.setTestSourcePCAPReplaying()
+	ready := make(chan struct{})
+	srv.SetOnReady(func() {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			t.Errorf("ready hook ran before %s accepted connections: %v", addr, err)
+		} else {
+			conn.Close()
+		}
+		close(ready)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(ctx) }()
+	select {
+	case <-ready:
+	case err := <-errCh:
+		t.Fatalf("Start returned %v before ready", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("ready hook never ran")
+	}
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Errorf("Start returned %v after shutdown", err)
+	}
+}
+
+// A port already in use is returned as a startup error, before the ready
+// hook runs, rather than a fatal exit from the serving goroutine.
+func TestStart_PortInUseIsAStartupError(t *testing.T) {
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+
+	srv := NewServer(Config{Address: held.Addr().String(), Stats: NewPacketStats()})
+	srv.setTestSourcePCAPReplaying()
+	srv.SetOnReady(func() { t.Error("ready hook ran although the port is in use") })
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(context.Background()) }()
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("Start returned nil on a port in use")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return on a port in use")
+	}
+}
+
+// Start binds the configured address, or ListenAndServe's default when
+// none was given.
+func TestListenAddress(t *testing.T) {
+	if got := listenAddress(""); got != ":http" {
+		t.Errorf("no address: %q, want :http", got)
+	}
+	if got := listenAddress("127.0.0.1:18081"); got != "127.0.0.1:18081" {
+		t.Errorf("configured address: %q", got)
+	}
+}
+
+// failingUDPSockets refuses every UDP bind, as a port already in use would.
+type failingUDPSockets struct{}
+
+func (failingUDPSockets) ListenUDP(string, *net.UDPAddr) (network.UDPSocket, error) {
+	return nil, errors.New("bind: address already in use")
+}
+
+// A live UDP listener that cannot bind fails Start after its HTTP listener
+// was bound, and Start releases that listener again: the port is free once
+// Start has returned, and the ready hook never ran.
+func TestStart_UDPBindFailureReleasesTheHTTPListener(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := probe.Addr().String()
+	probe.Close()
+
+	srv := NewServer(Config{Address: addr, Stats: NewPacketStats(), UDPListenerConfig: network.UDPListenerConfig{
+		Address: "127.0.0.1:0", SocketFactory: failingUDPSockets{},
+	}})
+	srv.SetOnReady(func() { t.Error("ready hook ran although the UDP listener failed") })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := srv.Start(ctx); err == nil {
+		t.Fatal("Start returned nil although the UDP listener could not bind")
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatalf("HTTP port %s still held after Start failed: %v", addr, err)
+	}
+	ln.Close()
 }
 
 func TestStart_ShutdownForceClose(t *testing.T) {

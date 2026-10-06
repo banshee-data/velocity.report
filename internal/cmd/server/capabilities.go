@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"sync"
 
 	"github.com/banshee-data/velocity.report/internal/api"
@@ -83,4 +84,26 @@ func (cp *capabilitiesProvider) Capabilities() api.Capabilities {
 	}
 
 	return caps
+}
+
+// lidarStarter is the part of the LiDAR server that runLidarServer needs:
+// a hook for when it is serving, and Start, whose result says whether it
+// started. The capabilities report that outcome.
+type lidarStarter interface {
+	SetOnReady(fn func())
+	Start(ctx context.Context) error
+}
+
+// runLidarServer runs the LiDAR server until ctx ends and reports its
+// startup outcome: ready once it is serving, error if it cannot start (a
+// port already in use, say), so /api/capabilities never stays at
+// "starting". Sweeps are advertised with ready because the sweep runner is
+// wired whenever LiDAR is enabled.
+func runLidarServer(ctx context.Context, srv lidarStarter, caps *capabilitiesProvider) error {
+	srv.SetOnReady(func() { caps.SetLidarReady(true) })
+	if err := srv.Start(ctx); err != nil {
+		caps.SetLidarError()
+		return err
+	}
+	return nil
 }

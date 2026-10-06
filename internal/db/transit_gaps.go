@@ -18,13 +18,14 @@ func (db *DB) FindTransitGaps() ([]TransitGap, error) {
 	// We check for each hour bucket if there are radar_data records but no transit records
 	query := `
 	WITH hourly_data AS (
-		-- Get all hourly buckets that have radar_data
+		-- Get all hourly buckets that have radar_data the transit worker
+		-- reads: rows with a speed (magnitude-only rows make no transit)
 		SELECT
 			CAST(write_timestamp / 3600 AS INTEGER) * 3600 as hour_start,
 			COUNT(*) as data_count
 		FROM radar_data
 		WHERE write_timestamp IS NOT NULL
-		  AND (speed IS NOT NULL OR magnitude IS NOT NULL)
+		  AND speed IS NOT NULL
 		GROUP BY hour_start
 	),
 	hourly_transits AS (
