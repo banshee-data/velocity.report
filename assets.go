@@ -2,10 +2,8 @@ package radar
 
 import "embed"
 
-//go:embed static/*
-var StaticFiles embed.FS
-
-// WebBuildFiles is the SvelteKit build served under /app. The all: prefix
+// WebBuildFiles is the SvelteKit build served under /app, and the source of
+// /favicon.ico. It is the only web content embedded. The all: prefix
 // matters: without it Go skips every file below web/build whose name starts
 // with "_" or ".", and SvelteKit can name a chunk after a content hash that
 // begins with "_". Such a file would be missing from the binary and 404 in
