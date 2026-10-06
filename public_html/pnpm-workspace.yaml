@@ -4,6 +4,10 @@ allowBuilds:
   '@parcel/watcher': true
 
 overrides:
+  js-yaml@<3.15.2: ^3.15.2
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
   liquidjs@<=10.25.4: 10.25.5
+  markdown-it@<14.3.1: ^14.3.1
   minimatch@<3.1.5: 3.1.5
   picomatch@<2.3.2: 2.3.2
+  shell-quote@<1.9.0: ^1.9.0
