@@ -126,8 +126,13 @@ access. To split read from write, use
 
 velocity-report recognises two cap names:
 
-- `velocity.report/cap/view` — read-only access to `/api/*` and
-  `/events`.
+- `velocity.report/cap/view` — the read-only endpoints listed in
+  `viewRoutes` (`internal/api/server.go`): `/api/events`,
+  `/api/radar_stats`, the three `/api/charts/` SVGs, `/api/timeline`,
+  `/api/config`, `/api/capabilities`, `/api/version` and a few more;
+  plus `GET` on sites, site configuration periods and reports
+  (`viewRoutesGetOnly`). Every other route, the LiDAR API included,
+  needs admin: an unlisted route defaults to admin.
 - `velocity.report/cap/admin` — full access (implies view).
 
 Add a grant to your tailnet policy:
