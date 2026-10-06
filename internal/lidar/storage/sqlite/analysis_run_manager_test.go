@@ -660,9 +660,11 @@ func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
 	// The tracker keeps updating the track after its first sighting. Its
 	// trail is capped and holds coasted points, so the statistics read the
 	// lifetime counters, not a recount of the trail: here it holds two
-	// points 1 m apart and no gap, against 300 m and 4 missed frames.
+	// points 1 m apart and no gap, against 300 m and 4 missed frames in gaps
+	// it was seen again after. The 14 more it is coasting out on are not
+	// occlusions.
 	mover.History = []TrackPoint{{X: 0, Y: 0, Timestamp: base}, {X: 1, Y: 0, Timestamp: base + second/10}}
-	mover.TrackLengthMeters, mover.OcclusionCount = 300, 4
+	mover.TrackLengthMeters, mover.ClosedOcclusionCount, mover.OcclusionCount = 300, 4, 18
 	mover.EndUnixNanos, mover.ObservationCount = base+2*second, 20
 	manager.RecordTrack(mover)
 

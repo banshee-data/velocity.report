@@ -7,9 +7,16 @@ import (
 )
 
 // trackQualityColumns lists lidar_tracks' 6 quality columns. They are written
-// from the lifetime counters the tracker keeps on a TrackedObject, which the
-// visualiser, the recorder and the classifier read too, not from
-// ComputeQualityMetrics, which recounts them from the capped trail.
+// from the lifetime counters the tracker keeps on a TrackedObject, not from
+// ComputeQualityMetrics, which recounts them from the capped trail. The
+// occlusion columns hold the closed counters: gaps the track was observed
+// again after. A finished track's last row is written while it coasts out
+// before deletion, and that exit coast is not an occlusion.
+//
+// track_length_meters is the tracker's TrackLengthMeters: the distance between
+// successive trail points, summed at each associated update. A coasted trail
+// point adds nothing itself, so distance covered during a gap is counted only
+// from the last coasted point to the next measurement.
 const trackQualityColumns = `track_length_meters, track_duration_secs,
 	occlusion_count, max_occlusion_frames, spatial_coverage, noise_point_ratio`
 
@@ -62,12 +69,14 @@ func trackQualityArgs(track *TrackedObject) []any {
 	if span.hasCoverage {
 		coverage = span.coverage
 	}
-	return []any{track.TrackLengthMeters, duration, track.OcclusionCount, track.MaxOcclusionFrames, coverage, nil}
+	return []any{track.TrackLengthMeters, duration, track.ClosedOcclusionCount, track.MaxClosedOcclusionFrames, coverage, nil}
 }
 
 // scanTrackQualityDests returns scan destinations for the 6 quality columns
 // and a function to call after a successful Scan. NULL reads as 0, which is
-// what a row written before these columns were populated holds.
+// what a row written before these columns were populated holds. The stored
+// occlusions are closed ones, so they fill both the closed and the live
+// counters of a track read back.
 func scanTrackQualityDests(track *TrackedObject) (dests []any, apply func()) {
 	var length, duration, coverage, noise sql.NullFloat64
 	var occlusions, maxOcclusion sql.NullInt64
@@ -77,6 +86,8 @@ func scanTrackQualityDests(track *TrackedObject) (dests []any, apply func()) {
 		track.TrackDurationSecs = float32(duration.Float64)
 		track.OcclusionCount = int(occlusions.Int64)
 		track.MaxOcclusionFrames = int(maxOcclusion.Int64)
+		track.ClosedOcclusionCount = track.OcclusionCount
+		track.MaxClosedOcclusionFrames = track.MaxOcclusionFrames
 		track.SpatialCoverage = float32(coverage.Float64)
 		track.NoisePointRatio = float32(noise.Float64)
 	}

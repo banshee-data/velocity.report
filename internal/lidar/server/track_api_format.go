@@ -26,9 +26,10 @@ type TrackResponse struct {
 	AgeSeconds          float64  `json:"age_seconds"`
 	AvgSpeedMps         float32  `json:"avg_speed_mps"`
 	MaxSpeedMps         float32  `json:"max_speed_mps"`
-	// Lifetime quality counters, as the tracker keeps them and lidar_tracks
-	// stores them: distance travelled over associated updates, missed
-	// frames, and the longest run of them.
+	// Lifetime quality counters, as lidar_tracks stores them: trail length
+	// summed at associated updates, and missed frames and the longest run of
+	// them over gaps the track was observed again after (not a coast still
+	// open).
 	TrackLengthMeters  float32              `json:"track_length_meters"`
 	OcclusionCount     int                  `json:"occlusion_count"`
 	MaxOcclusionFrames int                  `json:"max_occlusion_frames"`
@@ -210,8 +211,8 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		AvgSpeedMps:         track.AvgSpeedMps,
 		MaxSpeedMps:         track.MaxSpeedMps,
 		TrackLengthMeters:   track.TrackLengthMeters,
-		OcclusionCount:      track.OcclusionCount,
-		MaxOcclusionFrames:  track.MaxOcclusionFrames,
+		OcclusionCount:      track.ClosedOcclusionCount,
+		MaxOcclusionFrames:  track.MaxClosedOcclusionFrames,
 		BoundingBox:         bboxFromTrack(track),
 		OBBHeadingRad:       track.OBBHeadingRad,
 		HeadingSource:       int(track.HeadingSource),

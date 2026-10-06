@@ -426,10 +426,12 @@ func (m *AnalysisRunManager) CurrentRunID() string {
 }
 
 // trackSummary is a track's statistics summary as it stands: the lifetime
-// counters the tracker keeps, as lidar_tracks stores them, with duration and
+// counters the tracker keeps, as lidar_tracks stores them (occlusions closed
+// by a re-observation, not the coast out before deletion), with duration and
 // spatial coverage from the track's span (0 while undefined).
 func trackSummary(track *TrackedObject) l8analytics.TrackSummary {
 	s := l8analytics.TrackSummaryOf(track)
+	s.OcclusionCount = track.ClosedOcclusionCount
 	span := spanOf(track)
 	s.DurationSecs, s.SpatialCoverage = span.durationSecs, span.coverage
 	return s

@@ -12,12 +12,17 @@ func qualityTrack(id string) *TrackedObject {
 		SensorID: "sensor-q", TrackState: TrackConfirmed, StartUnixNanos: start, EndUnixNanos: start + 2*second,
 		ObservationCount: 10,
 	}}
-	track.TrackLengthMeters, track.OcclusionCount, track.MaxOcclusionFrames = 42.5, 6, 4
+	track.TrackLengthMeters = 42.5
+	// 6 missed frames in gaps it was seen again after, the longest 4; the
+	// live counters also hold the 14-frame coast it is leaving on.
+	track.ClosedOcclusionCount, track.MaxClosedOcclusionFrames = 6, 4
+	track.OcclusionCount, track.MaxOcclusionFrames = 20, 14
 	return track
 }
 
-// The tracker's lifetime counters are stored and read back, with duration
-// and coverage from the span: 10 observations in 2 s at 10 Hz cover 0.5.
+// The tracker's lifetime counters are stored and read back, occlusions as
+// the closed ones, with duration and coverage from the span: 10 observations
+// in 2 s at 10 Hz cover 0.5.
 func TestTrackQualityColumnsRoundTrip(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -37,7 +42,7 @@ func TestTrackQualityColumnsRoundTrip(t *testing.T) {
 
 	// The next frame's upsert replaces them.
 	next := qualityTrack("q-1")
-	next.TrackLengthMeters, next.OcclusionCount = 60, 7
+	next.TrackLengthMeters, next.ClosedOcclusionCount = 60, 7
 	if err := InsertTrack(db, next, "site/main"); err != nil {
 		t.Fatal(err)
 	}

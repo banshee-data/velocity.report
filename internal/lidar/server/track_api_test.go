@@ -1536,13 +1536,16 @@ func TestTrackToResponse_EndZero(t *testing.T) {
 	}
 }
 
-// The response carries the tracker's lifetime quality counters.
+// The response carries the tracker's lifetime quality counters, occlusions
+// as those closed by a re-observation.
 func TestTrackToResponse_QualityCounters(t *testing.T) {
 	api := NewTrackAPI(nil, "test-sensor")
 	track := &l5tracks.TrackedObject{TrackID: "test-quality", TrackMeasurement: l5tracks.TrackMeasurement{
 		SensorID: "test-sensor", TrackState: l5tracks.TrackConfirmed, StartUnixNanos: 1, EndUnixNanos: 2,
 	}}
-	track.TrackLengthMeters, track.OcclusionCount, track.MaxOcclusionFrames = 37.5, 5, 3
+	track.TrackLengthMeters, track.ClosedOcclusionCount, track.MaxClosedOcclusionFrames = 37.5, 5, 3
+	// Coasting out now: the open gap is not reported.
+	track.OcclusionCount, track.MaxOcclusionFrames = 12, 7
 
 	resp := api.trackToResponse(track)
 	if resp.TrackLengthMeters != 37.5 || resp.OcclusionCount != 5 || resp.MaxOcclusionFrames != 3 {
