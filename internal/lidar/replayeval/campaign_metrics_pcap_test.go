@@ -47,6 +47,23 @@ func TestCampaignMetricsPreserveTrackingBaseline(t *testing.T) {
 	if timing.Samples == 0 || timing.P99 <= 0 {
 		t.Fatalf("missing timings: %+v", timing)
 	}
+	// Every scored frame is timed, including those whose update the tracker
+	// skipped, and a frame's time contains its update's.
+	data, err = os.ReadFile(filepath.Join(cfg.OutDir, "frame_timing.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var frames struct {
+		Samples int     `json:"samples"`
+		P50     float64 `json:"p50_seconds"`
+		P99     float64 `json:"p99_seconds"`
+	}
+	if err = json.Unmarshal(data, &frames); err != nil {
+		t.Fatal(err)
+	}
+	if frames.Samples < timing.Samples || frames.P50 <= 0 || frames.P99 < frames.P50 {
+		t.Fatalf("frame timing %+v against %d timed updates", frames, timing.Samples)
+	}
 	if _, err = os.Stat(filepath.Join(cfg.OutDir, "confirmed_duration.json")); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +71,7 @@ func TestCampaignMetricsPreserveTrackingBaseline(t *testing.T) {
 
 func TestCampaignMetricsExportFailureFailsRun(t *testing.T) {
 	pcap := requireKirk0(t)
-	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json"} {
+	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json", "frame_timing.json"} {
 		t.Run(name, func(t *testing.T) {
 			failure := errors.New("disk full")
 			runtime := defaultRuntime()
