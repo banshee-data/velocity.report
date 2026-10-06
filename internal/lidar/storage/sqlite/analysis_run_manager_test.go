@@ -654,19 +654,22 @@ func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
 		SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: base, EndUnixNanos: base + second,
 		ObservationCount: 10, ObjectClass: "car", ObjectConfidence: 0.8,
 	}}
-	mover.History = []TrackPoint{{X: 0, Y: 0, Timestamp: base}, {X: 4, Y: 0, Timestamp: base + second}}
+	mover.TrackLengthMeters = 4
 	manager.RecordTrack(mover)
 
-	// The tracker keeps updating the track after its first sighting.
-	mover.History = append(mover.History, TrackPoint{X: 20, Y: 0, Timestamp: base + 2*second})
+	// The tracker keeps updating the track after its first sighting. Its
+	// trail is capped and holds coasted points, so the statistics read the
+	// lifetime counters, not a recount of the trail: here it holds two
+	// points 1 m apart and no gap, against 300 m and 4 missed frames.
+	mover.History = []TrackPoint{{X: 0, Y: 0, Timestamp: base}, {X: 1, Y: 0, Timestamp: base + second/10}}
+	mover.TrackLengthMeters, mover.OcclusionCount = 300, 4
 	mover.EndUnixNanos, mover.ObservationCount = base+2*second, 20
 	manager.RecordTrack(mover)
 
 	parked := &TrackedObject{TrackID: "track-parked", TrackMeasurement: TrackMeasurement{
 		SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: base, EndUnixNanos: base + 2*second,
-		ObservationCount: 20,
+		ObservationCount: 10,
 	}}
-	parked.History = []TrackPoint{{X: 5, Y: 5, Timestamp: base}, {X: 5, Y: 5, Timestamp: base + 2*second}}
 	manager.RecordTrack(parked)
 
 	if err := manager.CompleteRun(); err != nil {
@@ -683,10 +686,15 @@ func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The mover ends 20 m along (not the 4 m it had at its first sighting),
-	// the parked car 0 m: mean 10 m, median the larger of two, 20 m.
-	if stats.AvgTrackLength != 10 || stats.MedianTrackLength != 20 || stats.AvgTrackDuration != 2 {
+	// The mover ends 300 m along (not the 4 m it had at its first sighting),
+	// the parked car 0 m: mean 150 m, median the larger of two, 300 m.
+	if stats.AvgTrackLength != 150 || stats.MedianTrackLength != 300 || stats.AvgTrackDuration != 2 {
 		t.Fatalf("lengths %v / %v, duration %v; want the tracks as they ended", stats.AvgTrackLength, stats.MedianTrackLength, stats.AvgTrackDuration)
+	}
+	// 4 missed frames over two tracks; 20 and 10 observations in 2 s at
+	// 10 Hz cover 1 and 0.5.
+	if stats.AvgOcclusionCount != 2 || stats.AvgSpatialCoverage != 0.75 {
+		t.Fatalf("occlusions %v, coverage %v; want the tracker's counters", stats.AvgOcclusionCount, stats.AvgSpatialCoverage)
 	}
 	if stats.ClassCounts["car"] != 1 || stats.ClassCounts["dynamic"] != 1 || stats.ConfirmedRatio != 1 {
 		t.Fatalf("classes %v, confirmed ratio %v", stats.ClassCounts, stats.ConfirmedRatio)
