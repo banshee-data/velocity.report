@@ -958,24 +958,6 @@
         , cosine_error_angle DOUBLE NOT NULL DEFAULT 0
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
-        , speed_limit_kph DOUBLE CHECK (
-          speed_limit_kph IS NULL
-       OR (
-          speed_limit_kph >= 1
-      AND speed_limit_kph <= 200
-          )
-          )
-        , speed_limit_unit TEXT CHECK (
-          (speed_limit_unit IS NULL) = (speed_limit_kph IS NULL)
-      AND (
-          speed_limit_unit IS NULL
-       OR speed_limit_unit IN ('kph', 'mph')
-          )
-          )
-        , jurisdiction TEXT CHECK (
-          jurisdiction IS NULL
-       OR LENGTH(TRIM(jurisdiction)) BETWEEN 1 AND 100
-          )
         , CHECK (is_active IN (0, 1))
         , CHECK (
           effective_end_unix IS NULL
@@ -1421,9 +1403,6 @@ END;
         , "is_active"
         , "notes"
         , "cosine_error_angle"
-        , "speed_limit_kph"
-        , "speed_limit_unit"
-        , "jurisdiction"
           )
    VALUES (
           1
@@ -1433,7 +1412,4 @@ END;
         , 1
         , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
         , 0.5
-        , NULL
-        , NULL
-        , NULL
           );

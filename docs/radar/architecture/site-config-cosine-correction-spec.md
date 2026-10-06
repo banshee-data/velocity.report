@@ -73,20 +73,17 @@ Users need the ability to:
 
 The `site_config_periods` table uses a Type 6 SCD pattern:
 
-| Column                 | Type    | Constraint / Default                                               |
-| ---------------------- | ------- | ------------------------------------------------------------------ |
-| `id`                   | INTEGER | PRIMARY KEY                                                        |
-| `site_id`              | INTEGER | NOT NULL, FOREIGN KEY → `site(id)` ON DELETE CASCADE               |
-| `effective_start_unix` | DOUBLE  | NOT NULL                                                           |
-| `effective_end_unix`   | DOUBLE  | NULL = currently active / open-ended                               |
-| `is_active`            | INTEGER | NOT NULL DEFAULT 0 (1 = active for new data)                       |
-| `notes`                | TEXT    |                                                                    |
-| `created_at`           | DOUBLE  |                                                                    |
-| `updated_at`           | DOUBLE  |                                                                    |
-| `cosine_error_angle`   | DOUBLE  | NOT NULL DEFAULT 0                                                 |
-| `speed_limit_kph`      | DOUBLE  | NULL = no recorded limit; 1 to 200 km/h                            |
-| `speed_limit_unit`     | TEXT    | `kph` or `mph`, the sign's unit; set exactly with the limit        |
-| `jurisdiction`         | TEXT    | Free text, 1 to 100 characters (an ISO 3166-2 code where one fits) |
+| Column                 | Type    | Constraint / Default                                 |
+| ---------------------- | ------- | ---------------------------------------------------- |
+| `id`                   | INTEGER | PRIMARY KEY                                          |
+| `site_id`              | INTEGER | NOT NULL, FOREIGN KEY → `site(id)` ON DELETE CASCADE |
+| `effective_start_unix` | DOUBLE  | NOT NULL                                             |
+| `effective_end_unix`   | DOUBLE  | NULL = currently active / open-ended                 |
+| `is_active`            | INTEGER | NOT NULL DEFAULT 0 (1 = active for new data)         |
+| `notes`                | TEXT    |                                                      |
+| `created_at`           | DOUBLE  |                                                      |
+| `updated_at`           | DOUBLE  |                                                      |
+| `cosine_error_angle`   | DOUBLE  | NOT NULL DEFAULT 0                                   |
 
 **Key Design Choices:**
 
@@ -169,7 +166,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 
 - [ ] **Delete endpoint**: API supports create and update but not period deletion.
 - [ ] **Report angle annotation**: PDF comparison reports should note when different cosine angles apply to each period.
-- [x] **Speed limit fields**: `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014. Migration 000059 adds the posted limit, its sign unit and its jurisdiction to `site_config_periods`, so a limit carries the period's effective dates. The time-of-day [speed limit schedules](speed-limit-schedules.md) remain a separate design; which of the two applies when both exist is still to be decided.
+- [ ] **Speed limit fields**: `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014 and are not yet in `site_config_periods` (see [speed-limit-schedules spec](speed-limit-schedules.md) for the future design).
 
 ## Testing strategy
 
