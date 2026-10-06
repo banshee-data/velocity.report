@@ -167,12 +167,14 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 		args = append(args, nullableInt64Value(stats.FrameEndNs))
 	}
 	if caps.StatisticsJSON && stats.Statistics != nil {
-		statisticsJSON, err := stats.Statistics.ToJSON()
-		if err != nil {
-			return fmt.Errorf("encode run statistics: %w", err)
+		// Statistics summarise the run; one that cannot encode them (a NaN,
+		// say) still completes without them rather than staying "running".
+		if statisticsJSON, err := stats.Statistics.ToJSON(); err != nil {
+			opsf("[AnalysisRunStore] run %s completes without statistics: %v", runID, err)
+		} else {
+			setClauses = append(setClauses, "statistics_json = ?")
+			args = append(args, statisticsJSON)
 		}
-		setClauses = append(setClauses, "statistics_json = ?")
-		args = append(args, statisticsJSON)
 	}
 	args = append(args, runID)
 

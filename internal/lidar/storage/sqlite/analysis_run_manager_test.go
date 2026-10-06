@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -721,5 +722,100 @@ func TestCompleteRunWithoutTracksStoresNoStatistics(t *testing.T) {
 	}
 	if len(run.StatisticsJSON) != 0 {
 		t.Fatalf("statistics_json %s on a run with no tracks", run.StatisticsJSON)
+	}
+}
+
+// RecordTrack reads the caller's track and leaves it as it was: the pipeline
+// writes the same copy to lidar_tracks next.
+func TestRecordTrackLeavesTheCallersTrackUnchanged(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	if _, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams()); err != nil {
+		t.Fatal(err)
+	}
+	const second = int64(1_000_000_000)
+	track := &TrackedObject{TrackID: "track-kept", TrackMeasurement: TrackMeasurement{
+		SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: second, EndUnixNanos: 3 * second,
+		ObservationCount: 15,
+	}}
+	// A trail that recounts to other values than the tracker's counters.
+	track.History = []TrackPoint{{X: 0, Y: 0, Timestamp: second}, {X: 1, Y: 0, Timestamp: 2 * second}}
+	track.TrackLengthMeters, track.OcclusionCount, track.MaxOcclusionFrames = 40, 9, 5
+	track.ClosedOcclusionCount, track.MaxClosedOcclusionFrames = 3, 2
+	before := *track
+	manager.RecordTrack(track)
+	if track.TrackLengthMeters != before.TrackLengthMeters || track.OcclusionCount != before.OcclusionCount ||
+		track.MaxOcclusionFrames != before.MaxOcclusionFrames || track.SpatialCoverage != before.SpatialCoverage ||
+		track.TrackDurationSecs != before.TrackDurationSecs {
+		t.Fatalf("RecordTrack changed the track: length %v, occlusions %d/%d, coverage %v, duration %v",
+			track.TrackLengthMeters, track.OcclusionCount, track.MaxOcclusionFrames, track.SpatialCoverage, track.TrackDurationSecs)
+	}
+}
+
+// A second run starts without the first run's tracks.
+func TestRunStatisticsDoNotCarryIntoTheNextRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	const second = int64(1_000_000_000)
+	record := func(id string, length float32) {
+		tr := &TrackedObject{TrackID: id, TrackMeasurement: TrackMeasurement{
+			SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: second, EndUnixNanos: 2 * second,
+			ObservationCount: 10,
+		}}
+		tr.TrackLengthMeters = length
+		manager.RecordTrack(tr)
+	}
+	if _, err := manager.StartRun("/path/to/first.pcap", DefaultRunParams()); err != nil {
+		t.Fatal(err)
+	}
+	record("first-a", 100)
+	record("first-b", 100)
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatal(err)
+	}
+	secondID, err := manager.StartRun("/path/to/second.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record("second-a", 10)
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatal(err)
+	}
+	run, err := NewAnalysisRunStore(db).GetRun(secondID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stats, err := l8analytics.ParseRunStatistics(string(run.StatisticsJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.AvgTrackLength != 10 || stats.ClassCounts["dynamic"] != 1 {
+		t.Fatalf("second run: mean length %v over %v; want 10 over its one track", stats.AvgTrackLength, stats.ClassCounts)
+	}
+}
+
+// Statistics that cannot be encoded (a NaN) do not strand the run as
+// running: it completes without them.
+func TestCompleteRunWithUnencodableStatisticsStillCompletes(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+	store := NewAnalysisRunStore(db)
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	runID, err := manager.StartRun("/path/to/nan.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nan := float32(math.NaN())
+	if err := store.CompleteRun(runID, &AnalysisStats{Statistics: &l8analytics.RunStatistics{AvgTrackLength: nan}}); err != nil {
+		t.Fatalf("CompleteRun failed on unencodable statistics: %v", err)
+	}
+	run, err := store.GetRun(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "completed" || len(run.StatisticsJSON) != 0 {
+		t.Fatalf("status %q, statistics %q; want completed without statistics", run.Status, run.StatisticsJSON)
 	}
 }
