@@ -9,6 +9,7 @@ import (
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
 func setupAnalysisRunDB(t *testing.T) (*sql.DB, func()) {
@@ -633,5 +634,82 @@ func TestCompleteRun_PersistsFrameBoundsWithImmutableConfig(t *testing.T) {
 	}
 	if run.FrameEndNs == nil || *run.FrameEndNs != 250 {
 		t.Fatalf("FrameEndNs = %v, want 250", run.FrameEndNs)
+	}
+}
+
+// A completed run stores its statistics, computed from every track as it was
+// last offered rather than as it was first seen: a track that travels further
+// after its first sighting counts at its final length.
+func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	runID, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+	const second = int64(1_000_000_000)
+	base := int64(1_700_000_000) * second
+	mover := &TrackedObject{TrackID: "track-mover", TrackMeasurement: TrackMeasurement{
+		SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: base, EndUnixNanos: base + second,
+		ObservationCount: 10, ObjectClass: "car", ObjectConfidence: 0.8,
+	}}
+	mover.History = []TrackPoint{{X: 0, Y: 0, Timestamp: base}, {X: 4, Y: 0, Timestamp: base + second}}
+	manager.RecordTrack(mover)
+
+	// The tracker keeps updating the track after its first sighting.
+	mover.History = append(mover.History, TrackPoint{X: 20, Y: 0, Timestamp: base + 2*second})
+	mover.EndUnixNanos, mover.ObservationCount = base+2*second, 20
+	manager.RecordTrack(mover)
+
+	parked := &TrackedObject{TrackID: "track-parked", TrackMeasurement: TrackMeasurement{
+		SensorID: "test-sensor", TrackState: TrackConfirmed, StartUnixNanos: base, EndUnixNanos: base + 2*second,
+		ObservationCount: 20,
+	}}
+	parked.History = []TrackPoint{{X: 5, Y: 5, Timestamp: base}, {X: 5, Y: 5, Timestamp: base + 2*second}}
+	manager.RecordTrack(parked)
+
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+	run, err := NewAnalysisRunStore(db).GetRun(runID)
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+	if len(run.StatisticsJSON) == 0 {
+		t.Fatal("completed run has no statistics_json")
+	}
+	stats, err := l8analytics.ParseRunStatistics(string(run.StatisticsJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The mover ends 20 m along (not the 4 m it had at its first sighting),
+	// the parked car 0 m: mean 10 m, median the larger of two, 20 m.
+	if stats.AvgTrackLength != 10 || stats.MedianTrackLength != 20 || stats.AvgTrackDuration != 2 {
+		t.Fatalf("lengths %v / %v, duration %v; want the tracks as they ended", stats.AvgTrackLength, stats.MedianTrackLength, stats.AvgTrackDuration)
+	}
+	if stats.ClassCounts["car"] != 1 || stats.ClassCounts["dynamic"] != 1 || stats.ConfirmedRatio != 1 {
+		t.Fatalf("classes %v, confirmed ratio %v", stats.ClassCounts, stats.ConfirmedRatio)
+	}
+}
+
+// A run that recorded no track completes with no statistics, as before.
+func TestCompleteRunWithoutTracksStoresNoStatistics(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	runID, err := manager.StartRun("/path/to/empty.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatal(err)
+	}
+	run, err := NewAnalysisRunStore(db).GetRun(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(run.StatisticsJSON) != 0 {
+		t.Fatalf("statistics_json %s on a run with no tracks", run.StatisticsJSON)
 	}
 }

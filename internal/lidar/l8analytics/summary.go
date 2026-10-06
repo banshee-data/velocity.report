@@ -30,8 +30,42 @@ type RunStatistics struct {
 	AvgObservationsPerTrack int     `json:"avg_observations_per_track"`
 }
 
+// TrackSummary is what run statistics read from one track: a value, so a
+// caller can keep one per track while the tracks themselves are still live.
+type TrackSummary struct {
+	LengthMeters     float32
+	DurationSecs     float32
+	OcclusionCount   int
+	NoisePointRatio  float32
+	SpatialCoverage  float32
+	ObservationCount int
+	ObjectClass      string
+	ObjectConfidence float32
+	TrackState       l5tracks.TrackState
+}
+
+// TrackSummaryOf summarises a track from the quality metrics it holds.
+func TrackSummaryOf(track *l5tracks.TrackedObject) TrackSummary {
+	return TrackSummary{
+		LengthMeters: track.TrackLengthMeters, DurationSecs: track.TrackDurationSecs,
+		OcclusionCount: track.OcclusionCount, NoisePointRatio: track.NoisePointRatio,
+		SpatialCoverage: track.SpatialCoverage, ObservationCount: track.ObservationCount,
+		ObjectClass: track.ObjectClass, ObjectConfidence: track.ObjectConfidence, TrackState: track.TrackState,
+	}
+}
+
 // ComputeRunStatistics calculates aggregate statistics from a set of tracks.
 func ComputeRunStatistics(tracks []*l5tracks.TrackedObject) *RunStatistics {
+	summaries := make([]TrackSummary, len(tracks))
+	for i, track := range tracks {
+		summaries[i] = TrackSummaryOf(track)
+	}
+	return ComputeRunStatisticsFromSummaries(summaries)
+}
+
+// ComputeRunStatisticsFromSummaries calculates aggregate statistics from one
+// summary per track, in the order given.
+func ComputeRunStatisticsFromSummaries(tracks []TrackSummary) *RunStatistics {
 	if len(tracks) == 0 {
 		return &RunStatistics{}
 	}
@@ -52,8 +86,8 @@ func ComputeRunStatistics(tracks []*l5tracks.TrackedObject) *RunStatistics {
 
 	for _, track := range tracks {
 		// Track quality metrics
-		trackLengths = append(trackLengths, track.TrackLengthMeters)
-		trackDurations = append(trackDurations, track.TrackDurationSecs)
+		trackLengths = append(trackLengths, track.LengthMeters)
+		trackDurations = append(trackDurations, track.DurationSecs)
 		totalOcclusions += track.OcclusionCount
 		totalNoiseRatio += track.NoisePointRatio
 		totalSpatialCoverage += track.SpatialCoverage

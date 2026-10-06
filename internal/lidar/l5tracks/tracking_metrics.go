@@ -351,61 +351,93 @@ func (track *TrackedObject) SpeedHistory() []float32 {
 	return result
 }
 
-// ComputeQualityMetrics calculates track quality metrics.
-// This should be called when a track is finalized (state changes to deleted or when exporting).
-func (track *TrackedObject) ComputeQualityMetrics() {
+// TrackQuality is a track's quality metrics, computed from its history.
+type TrackQuality struct {
+	LengthMeters       float32 // total distance travelled over the kept history
+	DurationSecs       float32 // lifetime, first to last observation
+	OcclusionCount     int     // gaps over 200 ms between history points
+	MaxOcclusionFrames int     // the longest gap, in 10 Hz frames
+	SpatialCoverage    float32 // observations over the 10 Hz maximum, clamped to [0, 1]
+}
+
+// QualityMetrics computes the track's quality metrics without changing the
+// track, so a caller can read them while the track is still live.
+func (track *TrackedObject) QualityMetrics() TrackQuality {
+	var q TrackQuality
+
 	// Track length: Sum of Euclidean distances between consecutive positions
-	track.TrackLengthMeters = 0
 	if len(track.History) > 1 {
 		for i := 1; i < len(track.History); i++ {
 			dx := track.History[i].X - track.History[i-1].X
 			dy := track.History[i].Y - track.History[i-1].Y
-			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+			q.LengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
 		}
 	}
 
 	// Track duration: Total lifetime in seconds
 	if track.EndUnixNanos > track.StartUnixNanos {
-		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
+		q.DurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
 
 	// Occlusion count: Count gaps in observations (>200ms = missed frame at ~10Hz)
 	const occlusionThresholdNanos = 200_000_000 // 200ms
-	track.OcclusionCount = 0
-	track.MaxOcclusionFrames = 0
-
 	if len(track.History) > 1 {
 		for i := 1; i < len(track.History); i++ {
 			gap := track.History[i].Timestamp - track.History[i-1].Timestamp
 			if gap > occlusionThresholdNanos {
-				track.OcclusionCount++
+				q.OcclusionCount++
 				// Estimate frames at 10Hz
 				gapFrames := int(gap / 100_000_000) // 100ms per frame
-				if gapFrames > track.MaxOcclusionFrames {
-					track.MaxOcclusionFrames = gapFrames
+				if gapFrames > q.MaxOcclusionFrames {
+					q.MaxOcclusionFrames = gapFrames
 				}
 			}
 		}
 	}
 
-	// Spatial coverage: Ratio of observed area to theoretical max
-	// This is a simplified metric - more sophisticated versions could track
-	// actual point cloud coverage within the bounding box
-	if track.ObservationCount > 0 {
-		// Estimate coverage as (observations / theoretical_max_observations)
-		// At 10Hz, theoretical max = duration * 10
-		theoreticalMax := track.TrackDurationSecs * 10
-		if theoreticalMax > 0 {
-			track.SpatialCoverage = float32(track.ObservationCount) / theoreticalMax
-			// Clamp to [0, 1]
-			if track.SpatialCoverage > 1.0 {
-				track.SpatialCoverage = 1.0
-			}
-		}
+	if c, ok := spatialCoverage(track.ObservationCount, q.DurationSecs); ok {
+		q.SpatialCoverage = c
 	}
+	return q
+}
 
-	// Note: NoisePointRatio is computed during clustering and passed via clusters
-	// It will be aggregated when clusters are associated with tracks
+// spatialCoverage is the ratio of observed area to theoretical max, and
+// whether it is defined. This is a simplified metric - more sophisticated
+// versions could track actual point cloud coverage within the bounding box.
+func spatialCoverage(observations int, durationSecs float32) (float32, bool) {
+	if observations <= 0 {
+		return 0, false
+	}
+	// Estimate coverage as (observations / theoretical_max_observations)
+	// At 10Hz, theoretical max = duration * 10
+	theoreticalMax := durationSecs * 10
+	if !(theoreticalMax > 0) {
+		return 0, false
+	}
+	// Clamp to [0, 1]
+	return min(float32(observations)/theoreticalMax, 1.0), true
+}
+
+// ComputeQualityMetrics calculates track quality metrics and stores them on
+// the track. This should be called when a track is finalized (state changes
+// to deleted or when exporting).
+//
+// NoisePointRatio is not set here or anywhere else yet: it stays 0 until
+// clustering counts noise points per cluster.
+func (track *TrackedObject) ComputeQualityMetrics() {
+	q := track.QualityMetrics()
+	track.TrackLengthMeters = q.LengthMeters
+	track.OcclusionCount = q.OcclusionCount
+	track.MaxOcclusionFrames = q.MaxOcclusionFrames
+	// Duration and coverage are written only when defined, as before: a
+	// track with no elapsed time or no observations keeps the values it had,
+	// and coverage is taken over the duration the track then holds.
+	if track.EndUnixNanos > track.StartUnixNanos {
+		track.TrackDurationSecs = q.DurationSecs
+	}
+	if c, ok := spatialCoverage(track.ObservationCount, track.TrackDurationSecs); ok {
+		track.SpatialCoverage = c
+	}
 }
 
 // GetTrackingMetrics computes aggregate velocity-trail alignment metrics

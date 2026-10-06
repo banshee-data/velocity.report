@@ -166,6 +166,14 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 		setClauses = append(setClauses, "frame_end_ns = ?")
 		args = append(args, nullableInt64Value(stats.FrameEndNs))
 	}
+	if caps.StatisticsJSON && stats.Statistics != nil {
+		statisticsJSON, err := stats.Statistics.ToJSON()
+		if err != nil {
+			return fmt.Errorf("encode run statistics: %w", err)
+		}
+		setClauses = append(setClauses, "statistics_json = ?")
+		args = append(args, statisticsJSON)
+	}
 	args = append(args, runID)
 
 	query := fmt.Sprintf(`

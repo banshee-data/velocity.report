@@ -3,11 +3,13 @@ package sqlite
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/google/uuid"
 )
@@ -35,7 +37,12 @@ type AnalysisRunManager struct {
 	// underneath by the tracker. Emptied by each flush, which bounds it by the
 	// tracks alive in one flush interval rather than by the length of the run.
 	pendingTracks map[string]TrackMeasurement
-	lastFlush     time.Time
+	// summaries holds each recorded track's latest statistics summary, taken
+	// on the pipeline's goroutine as the track is offered, so the run's
+	// statistics at completion describe every track as it ended without
+	// reading tracks the tracker still owns. One small value per track.
+	summaries map[string]l8analytics.TrackSummary
+	lastFlush time.Time
 	// now is the clock the flush interval is measured on. A field so tests
 	// can move time rather than wait for it.
 	now func() time.Time
@@ -216,6 +223,7 @@ func (m *AnalysisRunManager) startPreparedRun(run *AnalysisRun) (string, error) 
 	m.totalClusters = 0
 	m.tracksSeen = make(map[string]bool)
 	m.pendingTracks = make(map[string]TrackMeasurement)
+	m.summaries = make(map[string]l8analytics.TrackSummary)
 	m.lastFlush = m.now()
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
@@ -261,6 +269,8 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 	if m.currentRun == nil {
 		return false
 	}
+
+	m.summaries[track.TrackID] = trackSummary(track)
 
 	// Already recorded: remember how it looks now. Its row was written from
 	// the first sighting and is brought up to date by the next flush.
@@ -323,6 +333,7 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		CompletedAt:      time.Now(),
 		FrameStartNs:     m.firstFrameNs,
 		FrameEndNs:       m.lastFrameNs,
+		Statistics:       m.runStatisticsLocked(),
 	}
 
 	// Before the run is marked complete, so that a completed run never has
@@ -415,4 +426,35 @@ func (m *AnalysisRunManager) CurrentRunID() string {
 		return ""
 	}
 	return m.currentRun.RunID
+}
+
+// trackSummary is a track's statistics summary as it stands, with its quality
+// metrics computed from its history now rather than read from the fields the
+// tracker last finalised.
+func trackSummary(track *TrackedObject) l8analytics.TrackSummary {
+	q := track.QualityMetrics()
+	s := l8analytics.TrackSummaryOf(track)
+	s.LengthMeters, s.DurationSecs = q.LengthMeters, q.DurationSecs
+	s.OcclusionCount, s.SpatialCoverage = q.OcclusionCount, q.SpatialCoverage
+	return s
+}
+
+// runStatisticsLocked computes the run's statistics from every recorded
+// track's latest summary, in track id order so the sums are reproducible.
+// It is nil for a run that recorded no track, which leaves statistics_json
+// empty. The caller holds m.mu.
+func (m *AnalysisRunManager) runStatisticsLocked() *l8analytics.RunStatistics {
+	if len(m.summaries) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(m.summaries))
+	for id := range m.summaries {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	summaries := make([]l8analytics.TrackSummary, len(ids))
+	for i, id := range ids {
+		summaries[i] = m.summaries[id]
+	}
+	return l8analytics.ComputeRunStatisticsFromSummaries(summaries)
 }
