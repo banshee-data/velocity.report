@@ -76,7 +76,8 @@ When the operator toggles Tailscale on in Settings:
    per Enable**:
    - `RunSSH=true` via `EditPrefs` → Tailscale SSH on.
    - `SetServeConfig` with a web handler at `https://<fqdn>:443/`
-     proxying to `http://127.0.0.1:8080` → web UI on the tailnet.
+     proxying to the server's own port on `127.0.0.1` (`:80` on the
+     Pi image) → web UI on the tailnet.
 
    These two steps record their results independently
    (`sshOK`/`sshErr`, `serveOK`/`serveErr`) so the Settings page can
@@ -165,22 +166,36 @@ the default-deny policy automatically.
 
 Source classification rules:
 
-- **Loopback `RemoteAddr` + `X-Forwarded-For` set** → trust XFF; this
-  is how `tailscale serve` forwards tailnet requests to the local
-  HTTP server.
+- **Loopback `RemoteAddr` + `X-Forwarded-For` a tailnet address** →
+  trust XFF; this is how `tailscale serve` forwards tailnet requests
+  to the local HTTP server. Subject to grants.
+- **Loopback `RemoteAddr` + `X-Forwarded-For` any other address** →
+  forwarded for someone outside the tailnet, as serve does for a
+  Funnel client. Refused: 403 `{"error":"untrusted_forward"}`.
+- **`Tailscale-Funnel-Request` header** → serve accepted the request
+  from the public internet. Refused: 403 `{"error":"funnel_request"}`.
+  serve strips any copy a client sends.
 - **Loopback with no XFF** → host-local (the Go server itself,
   `velocity device`, a local `curl`). Treated as admin.
-- **Non-loopback `RemoteAddr`** → LAN or direct hit on `:8080`.
-  `X-Forwarded-For` is **ignored** entirely so a LAN attacker who
-  can reach the server directly cannot forge a tailnet identity by
-  setting the header. Treated as admin.
+- **Non-loopback `RemoteAddr` in the tailnet range** → a peer
+  connecting to the node's tailnet address directly (the Pi image
+  listens on `:80` on every interface). Subject to grants.
+- **Any other non-loopback `RemoteAddr`** → LAN. `X-Forwarded-For` is
+  **ignored** entirely so a LAN attacker who can reach the server
+  directly cannot forge a tailnet identity by setting the header.
+  Treated as admin.
 
 Failure modes:
 
 - The daemon authoritatively reporting "no such peer" → 403
   `{"error":"unknown_peer"}`.
-- A transient lookup error (socket down, timeout) → fail-open. A
-  tailscaled blip should not deny every authorised user at once.
+- A transient lookup error (socket down, timeout) → the identity the
+  peer had at its last successful lookup, if that was within ten
+  minutes, so a tailscaled blip does not lock out users who were
+  working a moment ago. Otherwise 503
+  `{"error":"peer_lookup_unavailable"}` with `Retry-After`: an
+  unresolved peer is never granted anything, since a peer able to slow
+  or break the lookup could otherwise reach every route.
 - A peer with no caps → 403 `{"error":"missing_cap","required":"…"}`.
 
 ### Caveats
@@ -195,6 +210,12 @@ Failure modes:
 - **Grants only protect the velocity-report HTTP API.** They do not
   cover Tailscale SSH, the gRPC visualiser stream, or any other
   port. Use ACL rules for those.
+- **Some tailnet paths arrive looking local.** A subnet router that
+  source-NATs delivers peer traffic from its own LAN address, and
+  `tailscale serve --tcp` forwards without `X-Forwarded-For`; both are
+  treated as LAN or host traffic, hence admin. The gate covers
+  `tailscale serve` HTTP and direct connections to the node's tailnet
+  address only.
 - **Recovery from a misconfigured ACL relies on the LAN bypass.**
   Once you've validated grants on a test peer, flip
   `-ts-cap-enforcement=on` and restart.
@@ -211,22 +232,24 @@ when connected.
 
 ## Listener layout
 
-The served web UI proxies to `http://127.0.0.1:8080` — the same Go
-server that the LAN reaches. The LiDAR monitor on `:8081` is **not**
-proxied through tailscale serve and is reachable over the tailnet
-only via its IP (`http://<tailnet-ip>:8081`). See
+The served web UI proxies to the server's own port on `127.0.0.1`
+(`:80` on the Pi image, `:8080` by default elsewhere) — the same Go
+server that the LAN reaches. The LiDAR monitor (`:8081`) and the gRPC
+visualiser stream (`:50051`) bind to loopback by default, so they are
+not reachable over the tailnet unless an operator rebinds them. See
 [networking.md](../../radar/architecture/networking.md) for the
 full listener segmentation.
 
 ## Troubleshooting
 
-| Symptom                                       | Likely cause                                                                                 | Where to look                                                                                                                  |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Toggle errors with "operation not permitted"  | sudoers entry missing or the `velocity` user is not in the `velocity` group.                 | Re-image, or apply [03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) by hand.         |
-| Login URL never appears                       | Daemon cannot reach `login.tailscale.com`. Almost always a DNS or outbound-firewall problem. | `journalctl -u tailscaled` and `tailscale netcheck` over SSH.                                                                  |
-| Connected but Settings shows "Web UI: failed" | MagicDNS name not yet propagated, or HTTPS certs disabled in the admin console.              | The manager retries serve setup 6 times; if it still fails, enable HTTPS at `login.tailscale.com/admin/dns` and toggle off/on. |
-| Cap-gated peer gets 403 when it shouldn't     | Grant is on the wrong tailnet policy line, or `-ts-cap-enforcement=on` was set prematurely.  | Check the grant in the admin console, and look for `auth: capability enforcement armed` in the journald log.                   |
-| LAN client unexpectedly hits 403              | The LAN bypass relies on the request not coming through tailscale serve. Funnel breaks this. | Funnel is unsupported (see Non-goals). If you've enabled it, disable it.                                                       |
+| Symptom                                                  | Likely cause                                                                                                                         | Where to look                                                                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Toggle errors with "operation not permitted"             | sudoers entry missing or the `velocity` user is not in the `velocity` group.                                                         | Re-image, or apply [03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) by hand.         |
+| Login URL never appears                                  | Daemon cannot reach `login.tailscale.com`. Almost always a DNS or outbound-firewall problem.                                         | `journalctl -u tailscaled` and `tailscale netcheck` over SSH.                                                                  |
+| Connected but Settings shows "Web UI: failed"            | MagicDNS name not yet propagated, or HTTPS certs disabled in the admin console.                                                      | The manager retries serve setup 6 times; if it still fails, enable HTTPS at `login.tailscale.com/admin/dns` and toggle off/on. |
+| Cap-gated peer gets 403 when it shouldn't                | Grant is on the wrong tailnet policy line, or `-ts-cap-enforcement=on` was set prematurely.                                          | Check the grant in the admin console, and look for `auth: capability enforcement armed` in the journald log.                   |
+| Peer gets 503 `peer_lookup_unavailable`                  | tailscaled did not answer the identity lookup, and the peer had no successful lookup in the last ten minutes.                        | `journalctl -u tailscaled`; the request can be retried once the daemon answers.                                                |
+| Visitor gets 403 `funnel_request` or `untrusted_forward` | Funnel is enabled, or a reverse proxy on the host forwards for addresses outside the tailnet. With enforcement on, both are refused. | Funnel is unsupported (see Non-goals). Disable it, or the proxy.                                                               |
 
 For the velocity-report side, `journalctl -u velocity-report` shows
 all auth-gate decisions (the arming event, WhoIs failures, and any
@@ -235,8 +258,9 @@ all auth-gate decisions (the arming event, WhoIs failures, and any
 ## Non-goals
 
 - **Tailscale Funnel** (public-internet exposure). Conflicts with
-  the privacy tenet and breaks the LAN-vs-tailnet source
-  classification that capability grants depend on.
+  the privacy tenet. With enforcement on, requests serve accepted
+  through Funnel are refused; with it off they would reach the API as
+  host traffic, so do not enable Funnel on this node.
 - **Multi-site mesh.** Coordinating multiple Pis on one tailnet
   works fine, but aggregating their data is a separate project.
 - **Headless auth-key via the web UI.** Available via the CLI on
