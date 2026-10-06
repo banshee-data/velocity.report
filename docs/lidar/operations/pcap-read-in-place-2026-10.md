@@ -117,8 +117,8 @@ replays. Wall time does not move beyond noise: one in-place `full` run took 11.8
 confirmed tracks) are identical across the builds.
 
 The committed mac baselines could not judge this: #613 moved the tuning fingerprint without
-recapturing them, so the gate refused both cells. Recaptured on main (branch
-`dd/lidar/perf-baseline-recapture`), the in-place build passes the gate on both profiles.
+recapturing them, so the gate refused both cells. Recaptured on main (#680), the in-place
+build passes the gate on both profiles.
 
 ## Interpretation
 
