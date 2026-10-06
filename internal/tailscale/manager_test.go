@@ -193,6 +193,7 @@ type fakeClient struct {
 	statusCalls       int32
 	editedPrefs       []*ipn.MaskedPrefs
 	startOpts         []ipn.Options
+	watchMasks        []ipn.NotifyWatchOpt
 	setServeConfigArg *ipn.ServeConfig
 }
 
@@ -268,6 +269,9 @@ func (f *fakeClient) Start(ctx context.Context, opts ipn.Options) error {
 
 func (f *fakeClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error) {
 	atomic.AddInt32(&f.watchBusCalls, 1)
+	f.mu.Lock()
+	f.watchMasks = append(f.watchMasks, mask)
+	f.mu.Unlock()
 	if f.watchBus != nil {
 		return f.watchBus(ctx)
 	}
@@ -332,6 +336,34 @@ func TestStartStopIdempotent(t *testing.T) {
 	m.Stop() // must not panic or deadlock
 	if got := atomic.LoadInt32(&fc.watchBusCalls); got != 1 {
 		t.Fatalf("expected exactly one WatchIPNBus call, got %d", got)
+	}
+}
+
+// TestWatchMaskAcceptedByTailscaled checks the bus subscription against
+// tailscaled's own validator. A rejected mask fails every WatchIPNBus, which
+// watchLoop cannot tell apart from a daemon that is not running yet, so the
+// manager would retry forever and the UI would never see a state change.
+func TestWatchMaskAcceptedByTailscaled(t *testing.T) {
+	fc := &fakeClient{
+		watchBus: func(ctx context.Context) (BusWatcher, error) {
+			return newFakeBusWatcher().bind(ctx), nil
+		},
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}))
+	m.Start(context.Background())
+	waitFor(t, time.Second, func() bool {
+		return atomic.LoadInt32(&fc.watchBusCalls) >= 1
+	})
+	m.Stop()
+
+	fc.mu.Lock()
+	mask := fc.watchMasks[0]
+	fc.mu.Unlock()
+	if err := ipn.ValidateNotifyWatchOpt(mask); err != nil {
+		t.Fatalf("tailscaled would reject the watch mask %v: %v", mask, err)
+	}
+	if mask&ipn.NotifyInitialState == 0 {
+		t.Fatalf("watch mask %v must request the initial state", mask)
 	}
 }
 
