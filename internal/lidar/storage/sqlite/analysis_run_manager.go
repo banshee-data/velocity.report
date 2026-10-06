@@ -9,7 +9,6 @@ import (
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
-	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/google/uuid"
@@ -426,18 +425,13 @@ func (m *AnalysisRunManager) CurrentRunID() string {
 	return m.currentRun.RunID
 }
 
-// trackSummary is a track's statistics summary as it stands. Length and
-// occlusions are the lifetime counters the tracker keeps, which the visualiser,
-// the recorder and the classifier read too; ComputeQualityMetrics would
-// recount them from the trail, which is capped and includes coasted points.
-// Duration and spatial coverage come from the track's span.
+// trackSummary is a track's statistics summary as it stands: the lifetime
+// counters the tracker keeps, as lidar_tracks stores them, with duration and
+// spatial coverage from the track's span (0 while undefined).
 func trackSummary(track *TrackedObject) l8analytics.TrackSummary {
 	s := l8analytics.TrackSummaryOf(track)
-	s.DurationSecs = 0
-	if track.EndUnixNanos > track.StartUnixNanos {
-		s.DurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
-	}
-	s.SpatialCoverage, _ = l5tracks.SpatialCoverage(track.ObservationCount, s.DurationSecs)
+	span := spanOf(track)
+	s.DurationSecs, s.SpatialCoverage = span.durationSecs, span.coverage
 	return s
 }
 

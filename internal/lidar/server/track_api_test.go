@@ -1536,6 +1536,20 @@ func TestTrackToResponse_EndZero(t *testing.T) {
 	}
 }
 
+// The response carries the tracker's lifetime quality counters.
+func TestTrackToResponse_QualityCounters(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+	track := &l5tracks.TrackedObject{TrackID: "test-quality", TrackMeasurement: l5tracks.TrackMeasurement{
+		SensorID: "test-sensor", TrackState: l5tracks.TrackConfirmed, StartUnixNanos: 1, EndUnixNanos: 2,
+	}}
+	track.TrackLengthMeters, track.OcclusionCount, track.MaxOcclusionFrames = 37.5, 5, 3
+
+	resp := api.trackToResponse(track)
+	if resp.TrackLengthMeters != 37.5 || resp.OcclusionCount != 5 || resp.MaxOcclusionFrames != 3 {
+		t.Errorf("length %v, occlusions %d/%d; want 37.5, 5/3", resp.TrackLengthMeters, resp.OcclusionCount, resp.MaxOcclusionFrames)
+	}
+}
+
 // TestTrackAPI_HandleListTracks_History_ResponseShape asserts that
 // GET /api/lidar/tracks/history returns a well-formed JSON payload when
 // real track data exists in the database.

@@ -12,26 +12,32 @@ import (
 
 // TrackResponse represents a track in JSON API responses.
 type TrackResponse struct {
-	TrackID             string               `json:"track_id"`
-	SensorID            string               `json:"sensor_id"`
-	State               string               `json:"state"`
-	Position            Position             `json:"position"`
-	Velocity            Velocity             `json:"velocity"`
-	SpeedMps            float32              `json:"speed_mps"`
-	HeadingRad          float32              `json:"heading_rad"`
-	ObjectClass         string               `json:"object_class,omitempty"`
-	ObjectConfidence    float32              `json:"object_confidence,omitempty"`
-	ClassificationModel string               `json:"classification_model,omitempty"`
-	ObservationCount    int                  `json:"observation_count"`
-	AgeSeconds          float64              `json:"age_seconds"`
-	AvgSpeedMps         float32              `json:"avg_speed_mps"`
-	MaxSpeedMps         float32              `json:"max_speed_mps"`
-	BoundingBox         BBox                 `json:"bounding_box"`
-	OBBHeadingRad       float32              `json:"obb_heading_rad"`
-	HeadingSource       int                  `json:"heading_source,omitempty"` // 0=PCA, 1=velocity, 2=displacement, 3=locked
-	FirstSeen           string               `json:"first_seen"`
-	LastSeen            string               `json:"last_seen"`
-	History             []TrackPointResponse `json:"history,omitempty"`
+	TrackID             string   `json:"track_id"`
+	SensorID            string   `json:"sensor_id"`
+	State               string   `json:"state"`
+	Position            Position `json:"position"`
+	Velocity            Velocity `json:"velocity"`
+	SpeedMps            float32  `json:"speed_mps"`
+	HeadingRad          float32  `json:"heading_rad"`
+	ObjectClass         string   `json:"object_class,omitempty"`
+	ObjectConfidence    float32  `json:"object_confidence,omitempty"`
+	ClassificationModel string   `json:"classification_model,omitempty"`
+	ObservationCount    int      `json:"observation_count"`
+	AgeSeconds          float64  `json:"age_seconds"`
+	AvgSpeedMps         float32  `json:"avg_speed_mps"`
+	MaxSpeedMps         float32  `json:"max_speed_mps"`
+	// Lifetime quality counters, as the tracker keeps them and lidar_tracks
+	// stores them: distance travelled over associated updates, missed
+	// frames, and the longest run of them.
+	TrackLengthMeters  float32              `json:"track_length_meters"`
+	OcclusionCount     int                  `json:"occlusion_count"`
+	MaxOcclusionFrames int                  `json:"max_occlusion_frames"`
+	BoundingBox        BBox                 `json:"bounding_box"`
+	OBBHeadingRad      float32              `json:"obb_heading_rad"`
+	HeadingSource      int                  `json:"heading_source,omitempty"` // 0=PCA, 1=velocity, 2=displacement, 3=locked
+	FirstSeen          string               `json:"first_seen"`
+	LastSeen           string               `json:"last_seen"`
+	History            []TrackPointResponse `json:"history,omitempty"`
 }
 
 // TrackPointResponse represents a point in a track's history.
@@ -203,6 +209,9 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
 		MaxSpeedMps:         track.MaxSpeedMps,
+		TrackLengthMeters:   track.TrackLengthMeters,
+		OcclusionCount:      track.OcclusionCount,
+		MaxOcclusionFrames:  track.MaxOcclusionFrames,
 		BoundingBox:         bboxFromTrack(track),
 		OBBHeadingRad:       track.OBBHeadingRad,
 		HeadingSource:       int(track.HeadingSource),
