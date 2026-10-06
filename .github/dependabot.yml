@@ -31,14 +31,6 @@ updates:
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
-      # SvelteKit 3 is a framework migration, not a bump: it refuses
-      # svelte.config.js, removes $lib in favour of #lib subpath imports,
-      # requires tsconfig to extend $app/tsconfig, and tightens route types.
-      # adapter-static 4 requires kit 3. Migrate both in a dedicated PR.
-      - dependency-name: "@sveltejs/kit"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@sveltejs/adapter-static"
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/docs_html"
