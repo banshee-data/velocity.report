@@ -191,6 +191,9 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 			ok = id.Admin
 		}
 		if !ok {
+			// The audit trail for a refused grant: the peer's tailnet
+			// address and what it lacked, nothing about the request body.
+			log.Printf("auth: refusing %s %s to tailnet peer %s: no %s grant", r.Method, r.URL.Path, clientIP, capName(required))
 			writeForbidden(w, "missing_cap", required)
 			return
 		}
@@ -349,16 +352,21 @@ func writeUnavailable(w http.ResponseWriter) {
 	}
 }
 
+// capName is the grant a CapKind needs, as the refusal body names it.
+func capName(k CapKind) string {
+	switch k {
+	case CapView:
+		return "view"
+	case CapAdmin:
+		return "admin"
+	}
+	return ""
+}
+
 func writeForbidden(w http.ResponseWriter, code string, required CapKind) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusForbidden)
-	body := forbiddenBody{Error: code}
-	switch required {
-	case CapView:
-		body.Required = "view"
-	case CapAdmin:
-		body.Required = "admin"
-	}
+	body := forbiddenBody{Error: code, Required: capName(required)}
 	if err := json.NewEncoder(w).Encode(body); err != nil {
 		log.Printf("auth: encode forbidden body: %v", err)
 	}
