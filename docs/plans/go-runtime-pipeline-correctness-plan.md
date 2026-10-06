@@ -147,8 +147,8 @@ A transit is a speed session: `radar_data_transits.transit_max_speed` is NOT
 NULL and rows join a transit by speed similarity, so a row without a speed
 has nothing to contribute. Before the fix, the worker's query admitted such
 rows and scanned `ABS(speed)` into a non-null `float64`, so one of them
-failed and rolled back its whole window, and gap detection counted its hour
-as a gap on every pass. No such row exists in the deployment database (4.99
+failed and rolled back its whole window, and gap detection listed its hour as a
+gap no run could fill. No such row exists in the deployment database (4.99
 million `radar_data` rows, May to December 2025, all carry both values), so
 the fix changes no stored transit. Choosing step 3 later needs no data
 migration.
@@ -174,11 +174,11 @@ listener synchronously, before the live UDP listener, so a port in use is a
 startup error rather than a fatal exit from the serving goroutine. A failed
 UDP bind closes the HTTP listener again. The hardware check is in the hub doc.
 
-**Current shipped baseline:** `/api/capabilities` returns non-null named maps:
-`radar.default` is reported as enabled/`receiving`, LiDAR is omitted as `{}` when
-disabled, and LiDAR is reported as `lidar.default.status = "starting"` when
-`--enable-lidar` constructs the LiDAR server. The endpoint does not detect radar
-disconnect/reconnect.
+**Baseline before this phase:** `/api/capabilities` returned non-null named maps:
+`radar.default` reported as enabled/`receiving`, LiDAR omitted as `{}` when
+disabled, and LiDAR reported as `lidar.default.status = "starting"` for the life
+of the process when `--enable-lidar` constructed the LiDAR server. The endpoint
+does not detect radar disconnect/reconnect.
 
 **Steps:**
 
@@ -266,7 +266,7 @@ disconnect/reconnect.
 - [x] Phase 2: VRLOG symlink-safe validation (`S`). `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and loads/stores the canonical resolved path rather than the original string to avoid reopening the same gap after validation. Covered for both the direct `vrlog_path` path and the `run_id` database-lookup path.
 
 - [x] Phase 3: magnitude-only radar transit contract (`S`). Magnitude-only rows are stored diagnostics: the transit worker and `FindTransitGaps` read only rows with a speed. Regression tests put magnitude-only rows before, inside and after a vehicle (one louder than any speed row) and an hour of nothing else.
-- [x] Phase 4: LiDAR capability lifecycle wiring (`S`). Startup success reports `ready`, a failed start (HTTP or UDP bind) reports `error`, and disabled LiDAR stays absent; tests cover all three, and the server tests cover the ready hook and a port in use. Release-candidate hardware guidance is in [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md).
+- [x] Phase 4: LiDAR capability lifecycle wiring (`S`). Startup success reports `ready`, a failed start (HTTP or UDP bind) reports `error`, and disabled LiDAR stays absent. Tests cover ready and error; the server tests cover the ready hook, an HTTP port in use, and a UDP bind failure releasing the HTTP port. An `error` holds until restart (see the hub doc's hardware check). Release-candidate hardware guidance is in [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md).
 
 ### Outstanding
 
