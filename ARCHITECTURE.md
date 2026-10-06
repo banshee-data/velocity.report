@@ -618,8 +618,8 @@ and SQLite automatically populates the generated columns. This provides:
 - `lidar_bg_snapshot` - LiDAR background grid for motion detection (40×1800 range-image)
 - `lidar_objects` - Track-extracted transits from LiDAR processing [PLANNED]
 - `radar_commands` / `radar_command_log` - Command history and execution logs
-- `site` - Site metadata (location, speed limits)
-- `site_config_periods` - Time-based sensor configuration (cosine error angle history)
+- `site` - Site metadata (location, description)
+- `site_config_periods` - Time-based site configuration: cosine error angle and posted speed limit history
 
 **Transit Sources** (3 independent object detection pipelines):
 

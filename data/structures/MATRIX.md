@@ -247,7 +247,7 @@ via `RunBrowserState`.
 | Radar  | `radar_commands`                 | ✅  | -   | Debug history                                          |
 | Radar  | `radar_command_log`              | ✅  | -   | Debug output                                           |
 | Site   | `site`                           | ✅  | -   | Location, metadata                                     |
-| Site   | `site_config_periods`            | ✅  | -   | Mounting angle changes                                 |
+| Site   | `site_config_periods`            | ✅  | -   | Mounting angle, speed limit                            |
 | Site   | `site_reports`                   | ✅  | -   | Report metadata + download                             |
 | System | `schema_migrations`              | -   | -   | Internal                                               |
 
@@ -255,7 +255,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 604 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 607 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
