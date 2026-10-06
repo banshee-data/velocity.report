@@ -15,8 +15,8 @@ package api
 //
 // Window. An encounter crossing either edge of the window, or longer than
 // it, is clipped to it (l8behaviour.ClipFollowingInteraction): rebuilt from
-// its instants inside the window, measurements included, so nothing outside
-// the window is counted and nothing crossing an edge is silently lost
+// its instants captured in [start, end), measurements included, so nothing
+// outside the window is counted and nothing crossing an edge is silently lost
 // (review R4 of docs/lidar/operations/0.5.2-sprint-review.md). Clipping
 // recomputes an encounter's measurements under the field run's parameters;
 // one analysed under other parameters, or whose stored values that does not
@@ -61,8 +61,9 @@ type sceneHeadwayResponse struct {
 	SceneID      string                    `json:"scene_id"`
 	Status       l8behaviour.SurfaceStatus `json:"status"`
 	Availability string                    `json:"availability"`
-	// StartUnixNanos and EndUnixNanos are the scene's capture window; served
-	// encounter rows stay wholly inside it, clipped where they crossed it.
+	// StartUnixNanos and EndUnixNanos are the scene's capture window. Served
+	// encounter rows hold only instants captured inside it, clipped where
+	// they crossed it; the last instant's interval may run past its end.
 	StartUnixNanos *int64 `json:"start_unix_nanos,omitempty"`
 	EndUnixNanos   *int64 `json:"end_unix_nanos,omitempty"`
 	// SourceID is the source the distribution is read from; Sources lists

@@ -1267,9 +1267,13 @@ encounters; the report's provisional slice and field promotion are not.
   digests the replay case, capture paths, capture digests and extractor, none of which a scene
   keeps. The API reads sources with encounters **overlapping** the scene's window, and lists
   several rather than merging them. An encounter crossing either edge is **clipped** to the
-  window: rebuilt from its instants inside it (an instant belongs where its capture time does),
-  with its accounting, exposure windows and every measurement recomputed by the encounter method
-  under its own Monte Carlo seed. Clipping runs only when the field run's parameters hash to the
+  window: rebuilt from its instants captured in the half-open window `[start, end)`, so adjacent
+  windows partition an encounter's time exactly, with its accounting, exposure windows and every
+  measurement recomputed by the encounter method under its own Monte Carlo seed. Whole instants
+  are kept rather than their intervals intersected: each edge errs by under one frame interval,
+  and the two edges cancel on average. A clipped piece with less valid time than the minimum
+  opportunity has its band durations suppressed as `insufficient_observation`, so its time is
+  counted under that reason rather than in the bins. Clipping runs only when the field run's parameters hash to the
   encounter's method id and recomputing the whole encounter reproduces its stored record exactly;
   an encounter that fails either check is left out and named in `unclipped_event_ids`, never
   served with a minimum or interval from outside the window. Explicit source/run binding remains

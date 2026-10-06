@@ -58,7 +58,7 @@ func longestInteraction(t *testing.T) (FollowingInteraction, FollowingAnalysisPa
 
 func TestClipWholeEncounterIsContained(t *testing.T) {
 	fi, params := longestInteraction(t)
-	got, outcome, _, err := ClipFollowingInteraction(fi, fi.Event.StartUnixNanos, fi.Event.EndUnixNanos, params)
+	got, outcome, _, err := ClipFollowingInteraction(fi, fi.Event.StartUnixNanos, fi.Event.EndUnixNanos+1, params)
 	if err != nil || outcome != ClipContained {
 		t.Fatalf("outcome %v, %v; want contained", outcome, err)
 	}
@@ -89,14 +89,15 @@ func TestClipRebuildsTheEncounterFromTheInstantsInside(t *testing.T) {
 	}
 	var kept []InteractionInstant
 	for _, in := range fi.Instants {
-		if in.CaptureUnixNanos <= end {
+		if in.CaptureUnixNanos < end { // the window is half-open
 			kept = append(kept, in)
 		}
 	}
+	last := kept[len(kept)-1].CaptureUnixNanos
 	if len(got.Instants) != len(kept) || got.Event.StartUnixNanos != fi.Event.StartUnixNanos ||
-		got.Event.EndUnixNanos != mid {
-		t.Fatalf("clipped to %d instants %d..%d, want %d to %d", len(got.Instants),
-			got.Event.StartUnixNanos, got.Event.EndUnixNanos, len(kept), mid)
+		got.Event.EndUnixNanos != last || last >= mid {
+		t.Fatalf("clipped to %d instants %d..%d, want %d to %d, before %d", len(got.Instants),
+			got.Event.StartUnixNanos, got.Event.EndUnixNanos, len(kept), last, mid)
 	}
 	if got.Event.Accounting.ValidNanos >= fi.Event.Accounting.ValidNanos {
 		t.Errorf("clipped valid time %d is not less than the whole %d", got.Event.Accounting.ValidNanos, fi.Event.Accounting.ValidNanos)
@@ -194,9 +195,109 @@ func TestClipRefusesWhatItCannotRecompute(t *testing.T) {
 
 func TestClipRefusesAnUnorderedWindow(t *testing.T) {
 	fi, params := longestInteraction(t)
-	for _, w := range [][2]int64{{0, 10}, {20, 10}} {
+	for _, w := range [][2]int64{{0, 10}, {20, 10}, {10, 10}} {
 		if _, _, _, err := ClipFollowingInteraction(fi, w[0], w[1], params); err == nil {
 			t.Errorf("window %v accepted", w)
 		}
+	}
+}
+
+// unobservedLeaderScenario is the steady approach with every fifth leader
+// and follower sample unobserved (missed_unknown): rows whose points carry
+// not_observed, which buildEncounter still counts as evaluated frames.
+func unobservedLeaderScenario() EncounterScenario {
+	sc := ScenarioSteadyApproach()
+	for i := range sc.Trajectories {
+		for j := range sc.Trajectories[i].Samples {
+			if j%5 == 2 {
+				s := &sc.Trajectories[i].Samples[j]
+				s.Support = SupportMissedUnknown
+				s.Faces.FrontObserved, s.Faces.RearObserved = false, false // no face is seen unobserved
+			}
+		}
+	}
+	sc.Name = "steady_approach_unobserved_rows"
+	return sc
+}
+
+// A leader sample whose support is missed_unknown is still a sample: the pair
+// was evaluated there, and its frames count. The recomputation must count
+// them as buildEncounter does, or every such encounter fails the check.
+func TestRecomputeCountsUnobservedSamplesAsEvaluated(t *testing.T) {
+	sc := unobservedLeaderScenario()
+	_, fis := interactionsOf(t, sc)
+	notObserved := 0
+	for _, fi := range fis {
+		stored := roundTrip(t, fi)
+		for _, in := range stored.Instants {
+			if in.Role == DispositionLeader && in.LeaderSupport == SupportMissedUnknown && len(in.Reasons) > 0 {
+				notObserved++
+			}
+		}
+		got, err := recomputeEncounter(stored.Event, stored.Instants, sc.Params, sc.Params.Hash())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := sameRecord(got, stored.Event); diff != "" {
+			t.Errorf("%s: recomputed %s differs", fi.Event.EventID, diff)
+		}
+	}
+	if notObserved == 0 {
+		t.Fatal("the scenario has no evaluated instant with a missed_unknown leader sample")
+	}
+}
+
+// Adjacent half-open windows partition an encounter's instants, so their
+// clipped valid times add up to the whole encounter's exactly.
+func TestClipAdjacentWindowsPartitionValidTime(t *testing.T) {
+	fi, params := longestInteraction(t)
+	start, end := fi.Event.StartUnixNanos, fi.Event.EndUnixNanos+1
+	cut := fi.Instants[len(fi.Instants)/3].CaptureUnixNanos
+	var valid int64
+	var instants int
+	for _, w := range [][2]int64{{start, cut}, {cut, end}} {
+		got, outcome, detail, err := ClipFollowingInteraction(fi, w[0], w[1], params)
+		if err != nil || outcome != ClipClipped {
+			t.Fatalf("window %v: %v %q, %v", w, outcome, detail, err)
+		}
+		valid += got.Event.Accounting.ValidNanos
+		instants += len(got.Instants)
+	}
+	if valid != fi.Event.Accounting.ValidNanos || instants != len(fi.Instants) {
+		t.Fatalf("windows hold %d ns over %d instants, the encounter %d ns over %d",
+			valid, instants, fi.Event.Accounting.ValidNanos, len(fi.Instants))
+	}
+}
+
+// Interval bounds may differ in their last bits between machines, which fuse
+// multiply-adds differently; nothing else may differ at all.
+func TestSameRecordToleratesOnlyIntervalBoundRounding(t *testing.T) {
+	fi, _ := longestInteraction(t)
+	perturb := func(field string, by float64) InteractionEvent {
+		ev := roundTrip(t, fi).Event
+		m := ev.Measurements[MetricFollowingSpatialGapMin]
+		switch field {
+		case "lower":
+			v := *m.Uncertainty.Lower * (1 + by)
+			m.Uncertainty.Lower = &v
+		case "value":
+			v := *m.Value * (1 + by)
+			m.Value = &v
+		}
+		ev.Measurements[MetricFollowingSpatialGapMin] = m
+		return ev
+	}
+	stored := roundTrip(t, fi).Event
+	if m := stored.Measurements[MetricFollowingSpatialGapMin]; m.Uncertainty == nil || m.Uncertainty.Lower == nil || m.Value == nil {
+		t.Fatal("fixture minimum has no interval")
+	}
+	if diff := sameRecord(perturb("lower", 1e-15), stored); diff != "" {
+		t.Errorf("a last-bit difference in a bound was refused: %s", diff)
+	}
+	if diff := sameRecord(perturb("lower", 1e-6), stored); diff == "" {
+		t.Error("a real difference in a bound was accepted")
+	}
+	if diff := sameRecord(perturb("value", 1e-15), stored); diff == "" {
+		t.Error("a difference in a point value was accepted")
 	}
 }

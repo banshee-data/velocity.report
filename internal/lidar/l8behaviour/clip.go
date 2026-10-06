@@ -7,9 +7,17 @@ package l8behaviour
 // window, and source discovery then reports no encounters although stored
 // data covers the window.
 //
-// An instant belongs to a window when its capture time does, the rule the
-// whole-encounter containment already used: an event spans its first to its
-// last instant's capture time, and a window holds it when both lie inside.
+// An instant belongs to a window [start, end) when its capture time does:
+// the left endpoint of the interval it stands for, as the whole-encounter
+// containment already placed instants. The window is half-open so that
+// windows partitioning a capture partition its instants, and so its valid
+// time, exactly. This keeps whole instants rather than intersecting their
+// intervals with the window (review R4's wording): the time an instant
+// stands for may run up to one interval past the window's end, and an
+// instant before its start whose interval reaches into it is left out.
+// Each edge's error is under one frame interval, and the two edges' errors
+// cancel on average. Trimming intervals would need an instant before the
+// window, or an invented one, for the start.
 // The clipped record is rebuilt from the instants that remain, with nothing
 // carried over from the untrimmed encounter:
 //
@@ -18,6 +26,14 @@ package l8behaviour
 //   - every measurement, by running the encounter statistics and
 //     measurements again over those instants, with the encounter's own
 //     Monte Carlo seed, parameters and class decision.
+//
+// A clipped piece is an encounter in its own right for its measurements: one
+// with less valid time than the minimum opportunity has its band durations
+// and rates suppressed as insufficient_observation, and a distribution then
+// counts its time under that reason rather than in its bins. That time stays
+// in the denominator, so nothing is lost silently, but a short piece at an
+// edge is labelled by its length in the window, not by how well it was
+// observed.
 //
 // The recomputation needs the parameters the encounter was analysed with,
 // and the stored record names them only by hash. So it is attempted only
@@ -30,6 +46,7 @@ package l8behaviour
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -51,13 +68,12 @@ const (
 )
 
 // ClipFollowingInteraction returns the part of fi whose instants lie in
-// [startUnixNanos, endUnixNanos], both inclusive, rebuilt as the module
-// comment describes. params must be the parameters fi was analysed with.
+// [startUnixNanos, endUnixNanos), rebuilt as the module comment describes. params must be the parameters fi was analysed with.
 // The returned detail explains ClipUnrecomputable. An error is returned for
 // an invalid encounter or window, not for one that cannot be clipped.
 func ClipFollowingInteraction(fi FollowingInteraction, startUnixNanos, endUnixNanos int64,
 	params FollowingAnalysisParams) (FollowingInteraction, ClipOutcome, string, error) {
-	if startUnixNanos <= 0 || endUnixNanos < startUnixNanos {
+	if startUnixNanos <= 0 || endUnixNanos <= startUnixNanos {
 		return FollowingInteraction{}, 0, "", fmt.Errorf("window %d to %d is not ordered", startUnixNanos, endUnixNanos)
 	}
 	if err := fi.Validate(); err != nil {
@@ -65,7 +81,7 @@ func ClipFollowingInteraction(fi FollowingInteraction, startUnixNanos, endUnixNa
 	}
 	var kept []InteractionInstant
 	for _, in := range fi.Instants {
-		if in.CaptureUnixNanos >= startUnixNanos && in.CaptureUnixNanos <= endUnixNanos {
+		if in.CaptureUnixNanos >= startUnixNanos && in.CaptureUnixNanos < endUnixNanos {
 			kept = append(kept, in)
 		}
 	}
@@ -178,13 +194,13 @@ func recomputeEncounter(ev InteractionEvent, instants []InteractionInstant, para
 
 // evaluated reports whether the pair was evaluated at an instant, which is
 // when buildEncounter counts its parties' frames: this leader was the one
-// chosen, and it had a sample there. A chosen leader without a sample is
-// recorded as not observed, with its support missed_unknown.
+// chosen, and it had a sample there. The stored instant keeps the point's
+// reasons exactly when a point exists, and a point that is not valid always
+// has one, so a valid instant or one with reasons was evaluated. Support
+// alone cannot tell: a chosen leader without a sample is missed_unknown, but
+// so can a leader sample be, and that one was evaluated.
 func evaluated(in InteractionInstant) bool {
-	if in.Role != DispositionLeader {
-		return false
-	}
-	return !(in.Reason == ReasonNotObserved && in.LeaderSupport == SupportMissedUnknown)
+	return in.Role == DispositionLeader && (in.Valid || len(in.Reasons) > 0)
 }
 
 // storedClassReason recovers the class decision the encounter's measurements
@@ -206,7 +222,12 @@ func storedClassReason(ev InteractionEvent) SuppressionReason {
 }
 
 // sameRecord compares a recomputed event with the stored one, field by field,
-// as encoded; it returns which part differs, or "" when none does.
+// as encoded; it returns which part differs, or "" when none does. Every
+// value must match exactly except an interval's lower and upper bound, which
+// may differ in their last bits: the Monte Carlo draws compute value plus
+// sigma times a deviate, and Go may fuse that into one multiply-add on arm64
+// but not on amd64, so an encounter analysed on one machine and served from
+// another would otherwise never reproduce.
 func sameRecord(got, want InteractionEvent) string {
 	var diffs []string
 	for _, part := range []struct {
@@ -220,11 +241,75 @@ func sameRecord(got, want InteractionEvent) string {
 		{"measurements", got.Measurements, want.Measurements},
 		{"provisional measurements", got.Provisional, want.Provisional},
 	} {
-		a, errA := json.Marshal(part.a)
-		b, errB := json.Marshal(part.b)
-		if errA != nil || errB != nil || string(a) != string(b) {
+		if !sameEncoded(part.a, part.b) {
 			diffs = append(diffs, part.name)
 		}
 	}
 	return strings.Join(diffs, ", ")
+}
+
+// intervalBoundTolerance is the relative difference allowed between an
+// interval bound recomputed here and the one stored: a few units in the last
+// place of a float64, with room for the sum of a few such differences.
+const intervalBoundTolerance = 1e-12
+
+// sameEncoded compares two values by their JSON encoding: exactly, except
+// that numbers under a "lower" or "upper" key may differ by
+// intervalBoundTolerance.
+func sameEncoded(a, b any) bool {
+	ra, errA := json.Marshal(a)
+	rb, errB := json.Marshal(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	if string(ra) == string(rb) {
+		return true
+	}
+	var va, vb any
+	if json.Unmarshal(ra, &va) != nil || json.Unmarshal(rb, &vb) != nil {
+		return false
+	}
+	return sameJSON(va, vb, "")
+}
+
+func sameJSON(a, b any, key string) bool {
+	switch x := a.(type) {
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for k, v := range x {
+			w, ok := y[k]
+			if !ok || !sameJSON(v, w, k) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i := range x {
+			if !sameJSON(x[i], y[i], key) {
+				return false
+			}
+		}
+		return true
+	case float64:
+		y, ok := b.(float64)
+		if !ok {
+			return false
+		}
+		if x == y {
+			return true
+		}
+		if key != "lower" && key != "upper" {
+			return false
+		}
+		return math.Abs(x-y) <= intervalBoundTolerance*math.Max(math.Abs(x), math.Abs(y))
+	default:
+		return a == b
+	}
 }
