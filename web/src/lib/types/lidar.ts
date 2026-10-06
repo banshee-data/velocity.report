@@ -37,6 +37,12 @@ export interface Track {
 	avg_speed_mps: number;
 	/** Max speed observed (meters/second) */
 	max_speed_mps: number;
+	/** Distance travelled over the track's associated updates (meters) */
+	track_length_meters?: number;
+	/** Frames the track was missed (coasted) over its lifetime */
+	occlusion_count?: number;
+	/** Longest run of consecutive missed frames */
+	max_occlusion_frames?: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
 	/**
