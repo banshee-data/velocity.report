@@ -656,6 +656,7 @@ import type {
 	LidarReplayCase,
 	MissedRegion,
 	ObservationListResponse,
+	RunStatistics,
 	RunTrack,
 	ScoreComponents,
 	SweepRecord,
@@ -931,6 +932,17 @@ export async function updateTrackFlags(
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
 	if (!res.ok) throw new Error(`Could not load labelling progress: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * A completed run's aggregate track statistics, or null when the run has
+ * none: it has not completed, or completed before runs stored them (404).
+ */
+export async function getRunStatistics(runId: string): Promise<RunStatistics | null> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/statistics`);
+	if (res.status === 404) return null;
+	if (!res.ok) throw new Error(`Could not load run statistics: ${res.status}`);
 	return res.json();
 }
 

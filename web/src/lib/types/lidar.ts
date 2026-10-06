@@ -295,6 +295,27 @@ export interface LidarReplayCase {
 	location?: CaseLocation;
 }
 
+/**
+ * Aggregate track statistics stored when an analysis run completes
+ * (l8analytics.RunStatistics). Absent for runs that have not completed or
+ * completed before runs stored them.
+ */
+export interface RunStatistics {
+	avg_track_length_meters: number;
+	median_track_length_meters: number;
+	avg_track_duration_secs: number;
+	avg_occlusion_count: number;
+	class_counts: Record<string, number>;
+	class_confidence_avg: Record<string, number>;
+	unknown_ratio: number;
+	/** Always 0 for now: nothing computes a track's noise ratio until clustering counts noise points. */
+	avg_noise_ratio: number;
+	avg_spatial_coverage: number;
+	tentative_ratio: number;
+	confirmed_ratio: number;
+	avg_observations_per_track: number;
+}
+
 /** Analysis run with track snapshots */
 export interface AnalysisRun {
 	run_id: string;
@@ -314,7 +335,7 @@ export interface AnalysisRun {
 	build_git_sha?: string;
 	replay_case_id?: string;
 	params_json?: Record<string, unknown>;
-	statistics_json?: Record<string, unknown>;
+	statistics_json?: RunStatistics;
 	execution_config?: Record<string, unknown>;
 	frame_start_ns?: number;
 	frame_end_ns?: number;
