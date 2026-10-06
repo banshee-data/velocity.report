@@ -37,11 +37,11 @@ export interface Track {
 	avg_speed_mps: number;
 	/** Max speed observed (meters/second) */
 	max_speed_mps: number;
-	/** Distance travelled over the track's associated updates (meters) */
+	/** Trail length summed at associated updates (meters); distance covered during a gap counts only from its last coasted point */
 	track_length_meters?: number;
-	/** Frames the track was missed (coasted) over its lifetime */
+	/** Missed frames in gaps the track was observed again after (an open coast is not counted) */
 	occlusion_count?: number;
-	/** Longest run of consecutive missed frames */
+	/** Longest such gap, in frames */
 	max_occlusion_frames?: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
@@ -317,7 +317,9 @@ export interface RunStatistics {
 	/** Always 0 for now: nothing computes a track's noise ratio until clustering counts noise points. */
 	avg_noise_ratio: number;
 	avg_spatial_coverage: number;
+	/** Always 0 for now: only confirmed tracks are recorded in a run. */
 	tentative_ratio: number;
+	/** Always 1 for now: only confirmed tracks are recorded in a run. */
 	confirmed_ratio: number;
 	avg_observations_per_track: number;
 }
