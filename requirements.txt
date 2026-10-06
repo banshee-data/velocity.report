@@ -24,8 +24,10 @@ fonttools==4.66.0
     # via
     #   -r requirements.in
     #   matplotlib
-idna==3.10
-    # via requests
+idna==3.20
+    # via
+    #   -r requirements.in
+    #   requests
 iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
