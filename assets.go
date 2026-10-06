@@ -5,7 +5,14 @@ import "embed"
 //go:embed static/*
 var StaticFiles embed.FS
 
-//go:embed web/build/*
+// WebBuildFiles is the SvelteKit build served under /app. The all: prefix
+// matters: without it Go skips every file below web/build whose name starts
+// with "_" or ".", and SvelteKit can name a chunk after a content hash that
+// begins with "_". Such a file would be missing from the binary and 404 in
+// production while the --debug server, which reads web/build from disk,
+// served it fine.
+//
+//go:embed all:web/build
 var WebBuildFiles embed.FS
 
 //go:embed all:docs_html/_site
