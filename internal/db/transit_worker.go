@@ -132,6 +132,8 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 
 	// Query individual radar_data rows in the window using the explicit primary key.
+	// A transit is a speed session, so only rows with a speed are inputs.
+	// Serial ingest also stores magnitude-only rows; they stay diagnostics.
 	q := `
 		SELECT
 			data_id,
@@ -142,7 +144,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			radar_data
 		WHERE
 			write_timestamp BETWEEN ? AND ?
-			AND (speed IS NOT NULL OR magnitude IS NOT NULL)
+			AND speed IS NOT NULL
 		ORDER BY
 			ts
 	`
