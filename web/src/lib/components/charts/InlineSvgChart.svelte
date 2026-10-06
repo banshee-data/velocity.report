@@ -8,7 +8,7 @@
 		isInlineSvgContentType,
 		resolveInlineSvgChartDarkColours,
 		transformInlineSvgChartSvg
-	} from '$lib/components/charts/inlineSvgChart';
+	} from '#lib/components/charts/inlineSvgChart.js';
 	import { onMount } from 'svelte';
 	import { getSettings } from 'svelte-ux';
 

@@ -14,8 +14,8 @@
 	 */
 	import { mountScenePlayer } from '$scene/scene-player.js';
 	import type { SceneInteraction } from '$scene/scene-reader.js';
-	import { createLiveSceneSession } from '$lib/scene/liveSceneSource';
-	import type { MissedRegion, RunTrack, TrackObservation } from '$lib/types/lidar';
+	import { createLiveSceneSession } from '#lib/scene/liveSceneSource.js';
+	import type { MissedRegion, RunTrack, TrackObservation } from '#lib/types/lidar.js';
 	import { onDestroy } from 'svelte';
 
 	export let observations: TrackObservation[] = [];

@@ -9,9 +9,9 @@
 		updateSite,
 		upsertSiteConfigPeriod,
 		type SiteConfigPeriod
-	} from '$lib/api';
-	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
-	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
+	} from '#lib/api.js';
+	import MapEditorInteractive from '#lib/components/MapEditorInteractive.svelte';
+	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '#lib/datetimeLocal.js';
 	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount, tick } from 'svelte';
 	import { Button, Notification, TextField } from 'svelte-ux';

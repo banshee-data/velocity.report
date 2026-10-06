@@ -24,13 +24,13 @@
 		type TailscaleStatus,
 		type TransitRunInfo,
 		type TransitWorkerState
-	} from '$lib/api';
-	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
-	import { initializePaperSize, paperSize, updatePaperSize } from '$lib/stores/paper';
-	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
-	import { displayUnits, initializeUnits, updateUnits } from '$lib/stores/units';
-	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
-	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
+	} from '#lib/api.js';
+	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '#lib/paper.js';
+	import { initializePaperSize, paperSize, updatePaperSize } from '#lib/stores/paper.js';
+	import { displayTimezone, initializeTimezone, updateTimezone } from '#lib/stores/timezone.js';
+	import { displayUnits, initializeUnits, updateUnits } from '#lib/stores/units.js';
+	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '#lib/timezone.js';
+	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '#lib/units.js';
 	import { mdiCheck, mdiClose } from '@mdi/js';
 	import QRCode from 'qrcode';
 	import { onMount } from 'svelte';

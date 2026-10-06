@@ -21,11 +21,11 @@
 		getRunTracks,
 		getTrackHistory,
 		getTrackObservationsRange
-	} from '$lib/api';
-	import ScenePane from '$lib/components/lidar/ScenePane.svelte';
-	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
-	import TrackList from '$lib/components/lidar/TrackList.svelte';
-	import { unixNanosToMillis } from '$lib/dateUtils';
+	} from '#lib/api.js';
+	import ScenePane from '#lib/components/lidar/ScenePane.svelte';
+	import TimelinePane from '#lib/components/lidar/TimelinePane.svelte';
+	import TrackList from '#lib/components/lidar/TrackList.svelte';
+	import { unixNanosToMillis } from '#lib/dateUtils.js';
 	import type {
 		AnalysisRun,
 		LabellingProgress,
@@ -34,7 +34,7 @@
 		RunTrack,
 		Track,
 		TrackObservation
-	} from '$lib/types/lidar';
+	} from '#lib/types/lidar.js';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SelectField } from 'svelte-ux';
 

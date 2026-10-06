@@ -2,8 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
-	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '$lib/api';
-	import SceneHeadway from '$lib/components/SceneHeadway.svelte';
+	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '#lib/api.js';
+	import SceneHeadway from '#lib/components/SceneHeadway.svelte';
 	import { mdiContentSave, mdiArrowLeft } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';

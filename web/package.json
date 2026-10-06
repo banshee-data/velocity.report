@@ -7,6 +7,10 @@
 	"engines": {
 		"node": ">=22"
 	},
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	},
 	"scripts": {
 		"dev": "node scripts/set-build-env.js dev pnpm exec vite dev",
 		"build": "node scripts/set-build-env.js build pnpm exec vite build",

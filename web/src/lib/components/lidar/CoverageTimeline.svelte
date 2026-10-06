@@ -7,8 +7,8 @@
 	 * where one has been computed, so the answer to "what do we have?" and the
 	 * answer to "how much of it is usable?" are the same picture.
 	 */
-	import type { CaptureSession, MotionPeriod } from '$lib/types/captures';
-	import { coverageRows, formatClock } from '$lib/captures/timeline';
+	import type { CaptureSession, MotionPeriod } from '#lib/types/captures.js';
+	import { coverageRows, formatClock } from '#lib/captures/timeline.js';
 	import MotionStrip from './MotionStrip.svelte';
 
 	export let sessions: CaptureSession[] = [];

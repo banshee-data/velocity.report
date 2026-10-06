@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { deleteScene, getScenes, type Scene } from '$lib/api';
+	import { deleteScene, getScenes, type Scene } from '#lib/api.js';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Dialog } from 'svelte-ux';

@@ -6,7 +6,7 @@
  * arithmetic — which is where a timeline goes wrong — be tested directly.
  */
 
-import type { CaptureFile, CaptureSession, MotionPeriod } from '$lib/types/captures';
+import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
 
 /** Nanoseconds in a millisecond and a second, named so the maths reads. */
 const NS_PER_MS = 1_000_000;

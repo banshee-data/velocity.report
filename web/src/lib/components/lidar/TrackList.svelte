@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { updateTrackFlags, updateTrackLabel } from '$lib/api';
+	import { updateTrackFlags, updateTrackLabel } from '#lib/api.js';
 	import type {
 		DetectionLabel,
 		LabellingProgress,
 		QualityLabel,
 		RunTrack,
 		Track
-	} from '$lib/types/lidar';
-	import { TRACK_COLORS } from '$lib/types/lidar';
+	} from '#lib/types/lidar.js';
+	import { TRACK_COLORS } from '#lib/types/lidar.js';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';

@@ -1,7 +1,7 @@
 // src/lib/types/lidar.ts
 // TypeScript type definitions for LiDAR tracking system
 
-import type { CaseLocation } from '$lib/types/captures';
+import type { CaseLocation } from '#lib/types/captures.js';
 
 /**
  * Track represents a tracked object in the LiDAR system.

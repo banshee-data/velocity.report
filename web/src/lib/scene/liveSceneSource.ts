@@ -11,7 +11,7 @@
 
 import type { SceneChunk, SceneFrame, SceneHeader, SceneTrack } from '$scene/scene-reader.js';
 import { PartReader, SceneSession } from '$scene/scene-reader.js';
-import type { RunTrack, TrackObservation } from '$lib/types/lidar';
+import type { RunTrack, TrackObservation } from '#lib/types/lidar.js';
 
 /** Microseconds in one millisecond, named so the conversions read plainly. */
 const US_PER_MS = 1000;

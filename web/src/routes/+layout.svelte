@@ -24,13 +24,13 @@
 	} from 'svelte-ux';
 
 	import { page } from '$app/state';
-	import { gitRepoDocsUrl } from '$lib/docsUrl';
-	import { discord } from '$lib/icons';
+	import { gitRepoDocsUrl } from '#lib/docsUrl.js';
+	import { discord } from '#lib/icons.js';
 	import {
 		capabilities,
 		startCapabilitiesPolling,
 		stopCapabilitiesPolling
-	} from '$lib/stores/capabilities';
+	} from '#lib/stores/capabilities.js';
 	import { onDestroy, onMount } from 'svelte';
 
 	import './app.css';

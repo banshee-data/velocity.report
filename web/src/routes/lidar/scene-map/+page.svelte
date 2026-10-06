@@ -13,8 +13,8 @@
 	 * display, which carries one hyphen at the family boundary and is
 	 * presentation only — it is never sent back as a key.
 	 */
-	import { getSceneMap, setSiteCanonicalPose } from '$lib/api';
-	import type { LidarSite, SceneArea, SceneMapResponse, SiteSource } from '$lib/types/captures';
+	import { getSceneMap, setSiteCanonicalPose } from '#lib/api.js';
+	import type { LidarSite, SceneArea, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';

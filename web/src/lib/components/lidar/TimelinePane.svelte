@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { Track } from '$lib/types/lidar';
-	import { TRACK_COLORS } from '$lib/types/lidar';
+	import type { Track } from '#lib/types/lidar.js';
+	import { TRACK_COLORS } from '#lib/types/lidar.js';
 	import { scaleTime } from 'd3-scale';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
