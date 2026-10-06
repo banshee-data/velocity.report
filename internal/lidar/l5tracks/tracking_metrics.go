@@ -388,24 +388,25 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 		}
 	}
 
-	// Spatial coverage: Ratio of observed area to theoretical max
-	// This is a simplified metric - more sophisticated versions could track
-	// actual point cloud coverage within the bounding box
-	if track.ObservationCount > 0 {
-		// Estimate coverage as (observations / theoretical_max_observations)
-		// At 10Hz, theoretical max = duration * 10
-		theoreticalMax := track.TrackDurationSecs * 10
-		if theoreticalMax > 0 {
-			track.SpatialCoverage = float32(track.ObservationCount) / theoreticalMax
-			// Clamp to [0, 1]
-			if track.SpatialCoverage > 1.0 {
-				track.SpatialCoverage = 1.0
-			}
-		}
+	if c, ok := SpatialCoverage(track.ObservationCount, track.TrackDurationSecs); ok {
+		track.SpatialCoverage = c
 	}
 
-	// Note: NoisePointRatio is computed during clustering and passed via clusters
-	// It will be aggregated when clusters are associated with tracks
+	// NoisePointRatio is not set here or anywhere else yet: it stays 0 until
+	// clustering counts noise points per cluster.
+}
+
+// SpatialCoverage is a track's observations over the most a 10 Hz sensor
+// could have made in its duration, clamped to [0, 1], and whether that is
+// defined: it is not without observations or elapsed time. This is a
+// simplified metric - more sophisticated versions could track actual point
+// cloud coverage within the bounding box.
+func SpatialCoverage(observations int, durationSecs float32) (float32, bool) {
+	theoreticalMax := durationSecs * 10
+	if observations <= 0 || !(theoreticalMax > 0) {
+		return 0, false
+	}
+	return min(float32(observations)/theoreticalMax, 1.0), true
 }
 
 // GetTrackingMetrics computes aggregate velocity-trail alignment metrics

@@ -21,7 +21,6 @@ package l4perception
 
 import (
 	"math"
-	"sort"
 	"time"
 )
 
@@ -351,11 +350,13 @@ func LateralPercentile(points []WorldPoint, dirX, dirY, percentile float64) (flo
 	for i, p := range points {
 		projections[i] = p.X*dirX + p.Y*dirY
 	}
-	sort.Float64s(projections)
 
 	// Nearest-rank on a sorted sample: for the 5th percentile of 200 points
 	// this is the 10th smallest, which is robust to a handful of strays
-	// without reaching into the body of the face.
+	// without reaching into the body of the face. Only that one value is
+	// needed, so it is selected rather than sorted for: the near-edge
+	// measurement calls this for every face of every candidate pair the
+	// tracker gates, and sorting was most of its cost.
 	idx := int(percentile / 100 * float64(len(projections)-1))
 	if idx < 0 {
 		idx = 0
@@ -363,7 +364,7 @@ func LateralPercentile(points []WorldPoint, dirX, dirY, percentile float64) (flo
 	if idx >= len(projections) {
 		idx = len(projections) - 1
 	}
-	return projections[idx], true
+	return NthFloat64(projections, idx), true
 }
 
 // angleDeltaDeg is the shortest signed angle from b to a, in degrees.

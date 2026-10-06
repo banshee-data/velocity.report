@@ -317,6 +317,9 @@ type AnalysisStats struct {
 	CompletedAt      time.Time
 	FrameStartNs     int64
 	FrameEndNs       int64
+	// Statistics are the run's aggregate track statistics, stored as
+	// statistics_json; nil leaves the column as it is.
+	Statistics *l8analytics.RunStatistics
 }
 
 // RunComparison shows differences between two analysis runs.

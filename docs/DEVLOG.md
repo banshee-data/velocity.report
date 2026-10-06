@@ -8,7 +8,7 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 5, 2026 - Near-edge findings stay in Git, raw outputs stay local, and a scene-change recovery plan
+## October 5, 2026 - Near-edge findings and follow-ups, raw outputs stay local, and a scene-change recovery plan
 
 - Planned recovery from the Lombard-Laguna survey's scene change: 45 track IDs appear within 0.2 s around 33:21, existing IDs survive, and near-static tracks persist afterwards. The [sprint plan](plans/lidar-scene-change-recovery-sprint-plan.md) does not assume the sensor was nudged (#675).
 - Scoped a ten-engineer-day sprint: full-prefix reproduction, bounded L3 diagnostics, cause selection, a default-off recovery candidate, a lifecycle and quality export, and reserved-case evaluation. Seven backlog items spread the work from v0.5.4 to v0.6.7 (#675).
@@ -17,6 +17,16 @@ older entries stay put, however tempting hindsight may be.
 - Added default-off `-campaign-metrics` exports to the offline baseline tool for confirmed intervals and Tracker.Update wall time, with interval, censoring, miss-only expiry and baseline-equivalence tests. The [completed campaign report](lidar/operations/near-edge-campaign-2026-10.md) preserves methods, all 29 case gates, durations, diagnostic comparisons, balanced timing, robustness, and tail interpretation. Raw evidence remains local (#672).
 - Retain B0: A2 breaches observed update cost at all 29 cases and geometry at nine. Complete mean duration decreases at 22 of 23 core sites and by 43% at Claren. No diagnostic correction is selected; physical references, raw-geometry intervals, and Pi validation remain unresolved (#672).
 - Added repository-wide agent instructions and a Git ignore for result directories. A pre-commit check and CI reject tracked `results` paths, including force-added output. The publication branch was rebuilt without raw campaign output commits; reusable instrumentation and the detailed written report remain reviewable. Agent rules explicitly require reports in `docs/` and preserve them when cleaning up output (#672).
+- Finished S2.4 of the near-edge plan: the fixed-lag smoother ended a chain where a track's reference point changed, `fixed_lag_rts` combined with `near_edge_track`, and each refined estimate got a refined solid body in the same transaction (#676).
+- Covered `lidar_track_solid_bodies` in the evidence oracle, listed only when a run wrote solid bodies, so a run without them kept a byte-identical oracle (#676).
+- Profiled B0, the shadow and A2 at the October campaign's timing sites with a new `-cpuprofile-dir`: the update-cost breach was the solid body's extent admission, a full sort on 21 axes per face, which the shadow paid too (#676).
+- Re-ran D2 on kirk0 under the current solver: OBB-centre identity switches fell from 146 to 128 against the medoid's 92, so the medoid stayed production on a smaller margin, and two errors in the per-frame guide were corrected (#676).
+- Surveyed sensor geometry for the 23 tuning and screen cases, all full circle; the held-out case waits on a governed split, and transient evidence moved to the internal disk after SQLite on the USB volume proved seek-bound (#676).
+- {dd/lidar/span-selection} Replaced the sort in the solid body's span measurement with a selection of its two percentiles; every span stayed bit-identical, and kirk0 shadow and A2 replays wrote identical baselines and solid-body rows.
+- {dd/lidar/span-selection} Timed B0, the shadow and A2 on main and the selection build with the campaign's balanced protocol: the solid body's p99 fell to 30 % to 40 % of main's, but A2 stayed 12 to 20 times B0's, so the cost screen still failed.
+- {dd/lidar/span-selection} Re-ran the label-free D2 comparison on the 23 tuning and screen sites: six of seven measures held, and the OBB centre's contested terminations fell so that it went from worse at 15 sites to better at 16, matching kirk0's identity result.
+- {dd/lidar/span-selection} Profiled A2 after span selection: the span search was under half of its update, and the near-edge measurement in association sorted every projection to read one percentile.
+- {dd/lidar/span-selection} Selected that near-edge percentile instead of sorting: outputs stayed byte-identical, the shadow's p99 fell 10 % and A2's 8 % to 28 %, and A2 stayed 8 to 19 times B0's.
 
 ## October 4, 2026 - Physical references and facet authoring, publishing preflight, and two more screen sites
 

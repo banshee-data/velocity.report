@@ -1,6 +1,10 @@
 package l8behaviour
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
@@ -25,13 +29,17 @@ func referencesFrom(trs []Trajectory) []ReferenceBody {
 	return refs
 }
 
-func heldOutPlan(setID string) ScoringPlan {
+// heldOutPlan is pinned to a set's id and content. Its unmatched, unscorable
+// and encounter bounds admit everything; the tests of those bounds tighten
+// them.
+func heldOutPlan(set HeldOutSet) ScoringPlan {
 	return ScoringPlan{
-		ReferenceSetID: setID, NominalCoverage: 0.9,
+		ReferenceSetID: set.ReferenceSetID, ReferenceSetDigest: set.Digest(), NominalCoverage: 0.9,
 		RangeEdgesM: []float64{30, 60}, AspectEdgesRad: []float64{math.Pi / 4, 3 * math.Pi / 4},
 		Bounds: AcceptanceBounds{
 			MaxEndpointP95AbsErrorM: 0.35, MaxGapP95AbsErrorM: 0.45,
 			MinCoverage: 0.8, MaxCoverage: 0.97, MaxSuppressionRate: 0.2, MinCasesPerStratum: 5,
+			MinEncountersPerStratum: 1, MaxUnmatchedRate: 1, MaxUnscorableRate: 1,
 		},
 	}
 }
@@ -91,7 +99,7 @@ func TestHeldOutKnownPerturbations(t *testing.T) {
 		estimate.Trajectories[0].Samples[i].Length.Metres = 4.5
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(truth.Trajectories)}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	r := score(t, plan, set, pairsOf(t, estimate.Trajectories, estimate.Params))
 	if r.MethodID != HeldOutScoringMethodID || r.PlanHash != plan.Hash() || r.UnmatchedReferences != 0 ||
 		r.UnscorableReferences != 0 || math.Abs(r.Z-1.6448536269514722) > 1e-12 {
@@ -163,7 +171,7 @@ func TestHeldOutCoverageMatchesNominalUnderStatedNoise(t *testing.T) {
 		pairs = append(pairs, EstimatedPair{Path: path, Point: pt, LeaderSupport: SupportObserved, FollowerSupport: SupportObserved})
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/noise_v1", References: refs}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	// An honest estimate's 95th percentile error is 1.96 sigma: 0.35 m for
 	// an endpoint and 0.49 m for the gap, so the bounds sit above them.
 	plan.Bounds.MaxEndpointP95AbsErrorM, plan.Bounds.MaxGapP95AbsErrorM = 0.45, 0.6
@@ -200,7 +208,7 @@ func TestHeldOutSuppressionUnmatchedAndUnscorable(t *testing.T) {
 		}
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/occlusion_v1", References: refs}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	r := score(t, plan, set, pairsOf(t, sc.Trajectories, sc.Params))
 	if r.UnmatchedReferences != 1 || r.UnscorableReferences != 1 {
 		t.Fatalf("unmatched %d unscorable %d", r.UnmatchedReferences, r.UnscorableReferences)
@@ -233,7 +241,7 @@ func TestHeldOutScoresTheLocalTangentOnACurve(t *testing.T) {
 	leader := frames(30, func(k, t int64) bodySpec { return arcCar(t, r, 40+float64(k), 10) })
 	trs := []Trajectory{fixtureTrajectory("trk_curve_follower", follower...), fixtureTrajectory("trk_curve_leader", leader...)}
 	set := HeldOutSet{ReferenceSetID: "fixture/curve_v1", References: referencesFrom(trs)}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	plan.Bounds.MaxCoverage = 1
 	rep := score(t, plan, set, pairsOf(t, trs, EncounterScenarioParams()))
 	cases := 0
@@ -260,7 +268,7 @@ func TestHeldOutStratifiesByClass(t *testing.T) {
 		}
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/lane_v1", References: refs}
-	r := score(t, heldOutPlan(set.ReferenceSetID), set, pairsOf(t, sc.Trajectories, sc.Params))
+	r := score(t, heldOutPlan(set), set, pairsOf(t, sc.Trajectories, sc.Params))
 	classes := map[MotionClass]int{}
 	for _, s := range r.Strata {
 		classes[s.Class] += s.Cases
@@ -274,7 +282,7 @@ func TestHeldOutVerdicts(t *testing.T) {
 	sc := ScenarioSteadyApproach()
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	plan.Bounds.MaxCoverage = 1
 	if r := score(t, plan, set, pairs); r.Verdict != VerdictPass {
 		t.Fatalf("exact estimates under a coverage ceiling of 1: %s %+v", r.Verdict, r.Strata)
@@ -294,7 +302,7 @@ func TestHeldOutPinsThePlan(t *testing.T) {
 	sc := ScenarioSteadyApproach()
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	pinned := plan.Hash()
 	loosened := plan
 	loosened.Bounds.MaxGapP95AbsErrorM = 1
@@ -330,7 +338,7 @@ func TestHeldOutRejectsMalformedInputs(t *testing.T) {
 	refs := referencesFrom(sc.Trajectories)
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: refs}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 
 	for name, fn := range map[string]func(*ScoringPlan){
 		"no set":            func(p *ScoringPlan) { p.ReferenceSetID = "" },
@@ -380,5 +388,273 @@ func TestHeldOutRejectsMalformedInputs(t *testing.T) {
 	a, _ := AnalyseFollowing(sc.Trajectories, sc.Params)
 	if _, err := EstimatedPairsFromAnalysis(a, sc.Trajectories[:1]); err == nil {
 		t.Error("trajectories that do not match the analysis: want an error")
+	}
+}
+
+// The plan pins the reference set's content as well as its name: a set with
+// the same id and one annotation moved is refused, while listing the same
+// references in another order is the same set.
+func TestHeldOutPinsTheReferenceContent(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	plan := heldOutPlan(set)
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+
+	reordered := set
+	reordered.References = append([]ReferenceBody(nil), set.References...)
+	for i, j := 0, len(reordered.References)-1; i < j; i, j = i+1, j-1 {
+		reordered.References[i], reordered.References[j] = reordered.References[j], reordered.References[i]
+	}
+	if reordered.Digest() != set.Digest() {
+		t.Fatal("the digest depends on the order references are listed in")
+	}
+	if r := score(t, plan, reordered, pairs); r.ReferenceSetDigest != set.Digest() || r.MethodID != "following_heldout_scoring_v2" {
+		t.Fatalf("report header %+v", r)
+	}
+
+	edited := set
+	edited.References = append([]ReferenceBody(nil), set.References...)
+	edited.References[3].CentreX += 0.1
+	if _, err := ScoreHeldOut(plan.Hash(), plan, edited, pairs); err == nil || !strings.Contains(err.Error(), "content digest") {
+		t.Fatalf("an edited set under the same id: %v", err)
+	}
+	if _, err := ScoreHeldOut(plan.Hash(), plan, HeldOutSet{ReferenceSetID: set.ReferenceSetID}, pairs); err == nil {
+		t.Fatal("an empty set was scored")
+	}
+}
+
+// References no estimate reached count against the report: good scores on
+// the references that were reached say nothing about the rest.
+func TestHeldOutUnmatchedReferencesFailTheReport(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	refs := referencesFrom(sc.Trajectories)
+	// A body the estimator never tracked: 50 references for a track with no
+	// estimate, a third of the set.
+	for _, r := range refs {
+		if r.TrackID == refs[0].TrackID {
+			r.TrackID = "trk_s_missed_entirely"
+			refs = append(refs, r)
+		}
+	}
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_missed_v1", References: refs}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1 // the exact estimates' strata pass
+
+	if r := score(t, plan, set, pairs); r.Verdict != VerdictPass || r.UnmatchedReferences != 50 ||
+		math.Abs(r.UnmatchedRate-50.0/150) > 1e-12 {
+		t.Fatalf("unbounded: %s, %d unmatched at %v", r.Verdict, r.UnmatchedReferences, r.UnmatchedRate)
+	}
+	plan.Bounds.MaxUnmatchedRate = 0.1
+	r := score(t, plan, set, pairs)
+	if r.Verdict != VerdictFail || !reflect.DeepEqual(r.Failed, []string{"unmatched_rate"}) {
+		t.Fatalf("a third unmatched against a 10%% bound: %s %v", r.Verdict, r.Failed)
+	}
+	for _, s := range r.Strata {
+		if s.Verdict != VerdictPass {
+			t.Fatalf("stratum %+v: the failure is the report's, not a stratum's", s.Stratum)
+		}
+	}
+}
+
+// A stratum's evidence is counted in encounters as well as frames: thousands
+// of correlated frames from one pair are one encounter.
+func TestHeldOutCountsEncountersPerStratum(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1
+	r := score(t, plan, set, pairs)
+	for _, s := range r.Strata {
+		if s.Cases > 0 && s.Encounters != 1 {
+			t.Fatalf("stratum %+v: %d encounters from the scenario's one pair", s.Stratum, s.Encounters)
+		}
+	}
+	plan.Bounds.MinEncountersPerStratum = 2
+	if r := score(t, plan, set, pairs); r.Verdict != VerdictInsufficientCases {
+		t.Fatalf("one pair against a two-encounter minimum: %s", r.Verdict)
+	}
+}
+
+func TestHeldOutPlanRequiresTheV2Bounds(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	for name, mutate := range map[string]func(*ScoringPlan){
+		"no digest":           func(p *ScoringPlan) { p.ReferenceSetDigest = "" },
+		"no encounters":       func(p *ScoringPlan) { p.Bounds.MinEncountersPerStratum = 0 },
+		"unmatched above one": func(p *ScoringPlan) { p.Bounds.MaxUnmatchedRate = 1.5 },
+		"unscorable below 0":  func(p *ScoringPlan) { p.Bounds.MaxUnscorableRate = -0.1 },
+	} {
+		p := heldOutPlan(set)
+		mutate(&p)
+		if err := p.Validate(); err == nil {
+			t.Errorf("%s: plan accepted", name)
+		}
+	}
+}
+
+// Estimates are validated: a non-finite endpoint or gap would sort first and
+// shift the 95th percentile, and the same pair at the same instant twice
+// would be counted twice.
+func TestHeldOutRejectsNonFiniteAndDuplicateEstimates(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	nanArc := append([]EstimatedPair(nil), pairs...)
+	leader := *nanArc[0].Point.Leader
+	leader.Trailing.ArcM = math.NaN()
+	nanArc[0].Point.Leader = &leader
+	nanGap := append([]EstimatedPair(nil), pairs...)
+	gap := *nanGap[0].Point.Gap
+	gap.SigmaM = math.Inf(1)
+	nanGap[0].Point.Gap = &gap
+	twice := append(append([]EstimatedPair(nil), pairs...), pairs[0])
+	for name, est := range map[string][]EstimatedPair{"NaN endpoint": nanArc, "infinite gap sigma": nanGap, "duplicate": twice} {
+		if _, err := ScoreHeldOut(plan.Hash(), plan, set, est); err == nil {
+			t.Errorf("estimates %s: want an error", name)
+		}
+	}
+}
+
+// A malformed reference is refused for what is wrong with it, before its
+// digest is compared: a NaN cannot be encoded, so its digest is empty.
+func TestHeldOutValidatesReferencesBeforeTheDigest(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	bad := set
+	bad.References = append([]ReferenceBody(nil), set.References...)
+	bad.References[3].CentreX = math.NaN()
+	if bad.Digest() != "" {
+		t.Error("a set holding a NaN has a digest")
+	}
+	_, err := ScoreHeldOut(plan.Hash(), plan, bad, pairs)
+	if err == nil || !strings.Contains(err.Error(), "pose must be finite") {
+		t.Fatalf("NaN reference: %v; want it refused as a non-finite pose", err)
+	}
+}
+
+// The plan hash covers the method id, so a plan pinned for one version of
+// the method is not accepted by another.
+func TestHeldOutPlanHashCoversTheMethod(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	plan := heldOutPlan(HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)})
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(raw)
+	if planOnly := hex.EncodeToString(sum[:])[:16]; plan.Hash() == planOnly {
+		t.Fatal("plan hash is the plan alone, without the method id")
+	}
+}
+
+// A stratum with too few cases is insufficient, not failed, but still names
+// the bounds its point estimates break.
+func TestHeldOutInsufficientStrataStillNameBrokenBounds(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MinCasesPerStratum = 31                       // every stratum has fewer
+	plan.Bounds.MinCoverage, plan.Bounds.MaxCoverage = 0, 0.5 // exact estimates are always covered
+	r := score(t, plan, set, pairs)
+	if r.Verdict != VerdictInsufficientCases {
+		t.Fatalf("verdict %s, want insufficient", r.Verdict)
+	}
+	for _, s := range r.Strata {
+		if s.Verdict != VerdictInsufficientCases || !reflect.DeepEqual(s.Failed, []string{"coverage_high"}) {
+			t.Errorf("stratum %+v: verdict %s, failed %v; want insufficient naming coverage_high", s.Stratum, s.Verdict, s.Failed)
+		}
+	}
+}
+
+// An instant whose leader choice was suppressed is scored as a suppression
+// in its stratum, once per follower instant however many leaders competed,
+// and its references count as matched. Dropped instead, they would count as
+// unmatched in the pooled share.
+func TestHeldOutScoresUnevaluatedInstantsAsSuppressions(t *testing.T) {
+	sc := ScenarioAmbiguousThenResolved()
+	set := HeldOutSet{ReferenceSetID: "fixture/ambiguous_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	followerInstants := map[[2]string]bool{}
+	var evaluated []EstimatedPair
+	for _, p := range pairs {
+		if p.NotEvaluated == ReasonAmbiguousLeader {
+			followerInstants[[2]string{p.Point.FollowerTrackID, fmt.Sprint(p.Point.CaptureUnixNanos)}] = true
+		} else {
+			evaluated = append(evaluated, p)
+		}
+	}
+	if len(followerInstants) == 0 {
+		t.Fatal("the scenario has no ambiguous instant")
+	}
+	r := score(t, plan, set, pairs)
+	gapSuppressed := 0
+	for _, s := range r.Strata {
+		if s.Kind != CaseKindGap {
+			continue
+		}
+		for _, rc := range s.Suppressed {
+			if rc.Reason == ReasonAmbiguousLeader {
+				gapSuppressed += rc.Count
+			}
+		}
+	}
+	if gapSuppressed != len(followerInstants) {
+		t.Errorf("%d ambiguous gap suppressions, want one per follower instant (%d)", gapSuppressed, len(followerInstants))
+	}
+	dropped := score(t, plan, set, evaluated)
+	if dropped.UnmatchedReferences <= r.UnmatchedReferences {
+		t.Errorf("dropping the unevaluated instants left %d unmatched, scoring them %d; want more when dropped",
+			dropped.UnmatchedReferences, r.UnmatchedReferences)
+	}
+}
+
+// Declaring hard instants unevaluated is no cheaper than suppressing them:
+// the stratum's suppression rate carries them, and the pooled unmatched
+// share does not move.
+func TestHeldOutUnevaluatedInstantsCannotEscapeTheirStratum(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1
+
+	declared := append([]EstimatedPair(nil), pairs...)
+	for i := 0; i < len(declared)/2; i++ {
+		pt := declared[i].Point
+		declared[i].Point = FollowingPoint{LeaderTrackID: pt.LeaderTrackID, FollowerTrackID: pt.FollowerTrackID, CaptureUnixNanos: pt.CaptureUnixNanos}
+		declared[i].NotEvaluated = ReasonAmbiguousLeader
+	}
+	r := score(t, plan, set, declared)
+	if r.UnmatchedReferences != 0 {
+		t.Errorf("%d references unmatched; unevaluated instants still match theirs", r.UnmatchedReferences)
+	}
+	if r.Verdict != VerdictFail {
+		t.Fatalf("half the instants declared unevaluated: verdict %s, want fail on suppression", r.Verdict)
+	}
+	failed := false
+	for _, s := range r.Strata {
+		for _, f := range s.Failed {
+			failed = failed || f == "suppression_rate"
+		}
+	}
+	if !failed {
+		t.Errorf("no stratum failed its suppression bound: %+v", r.Strata)
+	}
+
+	// An unevaluated instant carrying an evaluation is refused.
+	mixed := append([]EstimatedPair(nil), pairs...)
+	mixed[0].NotEvaluated = ReasonAmbiguousLeader
+	if _, err := ScoreHeldOut(plan.Hash(), plan, set, mixed); err == nil {
+		t.Error("an unevaluated instant with an evaluation: want an error")
 	}
 }

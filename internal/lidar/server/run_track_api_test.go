@@ -10,6 +10,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -1063,4 +1064,49 @@ func TestRunTrackAPI_EvaluateRun(t *testing.T) {
 			t.Fatalf("expected score in response")
 		}
 	})
+}
+
+// GET /api/lidar/runs/{run_id}/statistics serves a completed run's stored
+// statistics, and 404 for a run without them or an unknown run.
+func TestRunStatistics(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(sqlDB)
+	setupTestRun(t, store, "run-with-stats")
+	setupTestRun(t, store, "run-without-stats")
+	stats := &l8analytics.RunStatistics{
+		AvgTrackLength: 12.5, MedianTrackLength: 10, ClassCounts: map[string]int{"car": 3},
+		ClassConfidenceAvg: map[string]float32{"car": 0.9}, ConfirmedRatio: 1,
+	}
+	if err := store.CompleteRun("run-with-stats", &sqlite.AnalysisStats{TotalTracks: 3, Statistics: stats}); err != nil {
+		t.Fatal(err)
+	}
+	ws := &Server{db: &db.DB{DB: sqlDB}}
+
+	get := func(runID string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		ws.handleRunTrackAPI(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/statistics", nil))
+		return w
+	}
+	w := get("run-with-stats")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var got l8analytics.RunStatistics
+	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.AvgTrackLength != 12.5 || got.MedianTrackLength != 10 || got.ClassCounts["car"] != 3 || got.ConfirmedRatio != 1 {
+		t.Fatalf("statistics %+v", got)
+	}
+	for _, runID := range []string{"run-without-stats", "no-such-run"} {
+		if w := get(runID); w.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404: %s", runID, w.Code, w.Body.String())
+		}
+	}
+	w = httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, httptest.NewRequest(http.MethodPost, "/api/lidar/runs/run-with-stats/statistics", nil))
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST: status %d, want 405", w.Code)
+	}
 }
