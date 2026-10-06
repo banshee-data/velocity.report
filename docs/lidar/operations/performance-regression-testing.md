@@ -99,7 +99,17 @@ field diverged. It does not emit a delta between incomparable things. A baseline
 with no `profile` or no `tuning_fingerprint` is refused outright.
 
 Work counters carry a 10% tolerance rather than requiring equality, to absorb small
-genuine detection changes without demanding an emergency re-baseline. They are
+genuine detection changes without demanding an emergency re-baseline.
+
+Tracks are counted twice, and only one count is compared:
+
+- `confirmed_tracks` is the peak number confirmed at once (25 on kirk0 `full`). It is too small
+  for a proportional tolerance, so it is reported but not compared.
+- `distinct_confirmed_tracks` is every track confirmed at any frame (77 on kirk0 `full`). It is
+  compared, so a changed confirmation rule refuses the comparison.
+
+A baseline captured before `distinct_confirmed_tracks` was recorded has none, and is not compared
+on it until it is recaptured. They are
 otherwise reproducible: the benchmark replays in **capture time**, so the same
 capture does the same work however fast the machine runs it. Two local runs produce
 identical foreground counts and cluster counts within 0.1%, and `l3-only` and `full`
