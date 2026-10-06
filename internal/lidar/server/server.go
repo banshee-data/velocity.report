@@ -451,6 +451,15 @@ func (ws *Server) writeJSONError(w http.ResponseWriter, status int, msg string) 
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// listenAddress is the address Start binds: the configured one, or
+// ListenAndServe's default (port 80) when none was given.
+func listenAddress(configured string) string {
+	if configured == "" {
+		return ":http"
+	}
+	return configured
+}
+
 // SetOnReady registers fn to run once Start is serving: its HTTP listener
 // is bound and, in live mode, its UDP listener too. Call it before Start.
 func (ws *Server) SetOnReady(fn func()) {
@@ -465,10 +474,7 @@ func (ws *Server) Start(ctx context.Context) error {
 
 	// Bind before starting anything else, so a port already in use is a
 	// startup error rather than a fatal exit from the serving goroutine.
-	addr := ws.server.Addr
-	if addr == "" {
-		addr = ":http" // ListenAndServe's default
-	}
+	addr := listenAddress(ws.server.Addr)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)

@@ -4759,6 +4759,17 @@ func TestStart_PortInUseIsAStartupError(t *testing.T) {
 	}
 }
 
+// Start binds the configured address, or ListenAndServe's default when
+// none was given.
+func TestListenAddress(t *testing.T) {
+	if got := listenAddress(""); got != ":http" {
+		t.Errorf("no address: %q, want :http", got)
+	}
+	if got := listenAddress("127.0.0.1:18081"); got != "127.0.0.1:18081" {
+		t.Errorf("configured address: %q", got)
+	}
+}
+
 // failingUDPSockets refuses every UDP bind, as a port already in use would.
 type failingUDPSockets struct{}
 
