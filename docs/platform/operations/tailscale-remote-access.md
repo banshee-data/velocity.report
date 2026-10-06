@@ -196,6 +196,8 @@ Failure modes:
   `{"error":"peer_lookup_unavailable"}` with `Retry-After`: an
   unresolved peer is never granted anything, since a peer able to slow
   or break the lookup could otherwise reach every route.
+  The cost: a grant revoked while tailscaled is unreachable can still be
+  honoured for up to those ten minutes, until a lookup succeeds.
 - A peer with no caps → 403 `{"error":"missing_cap","required":"…"}`.
 
 ### Caveats
@@ -252,8 +254,9 @@ full listener segmentation.
 | Visitor gets 403 `funnel_request` or `untrusted_forward` | Funnel is enabled, or a reverse proxy on the host forwards for addresses outside the tailnet. With enforcement on, both are refused. | Funnel is unsupported (see Non-goals). Disable it, or the proxy.                                                               |
 
 For the velocity-report side, `journalctl -u velocity-report` shows
-all auth-gate decisions (the arming event, WhoIs failures, and any
-403 responses).
+the arming event, failed identity lookups and refused forwarded
+requests. A refusal for a missing cap is not logged with the peer's
+identity.
 
 ## Non-goals
 

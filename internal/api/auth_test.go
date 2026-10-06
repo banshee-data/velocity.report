@@ -436,3 +436,46 @@ func TestServer_AuthWrapper_DefaultDenyForUnknownRoute(t *testing.T) {
 		t.Fatalf("allowlisted route was blocked: %d %q", rec.Code, rec.Body.String())
 	}
 }
+
+// Ungated routes stay open to the host, the LAN and the tailnet, and are
+// refused to Funnel visitors and to outsiders a local proxy forwards for,
+// like every other route.
+func TestServer_AuthWrapper_RefusesOutsidersOnUngatedRoutes(t *testing.T) {
+	pa := &fakePeerAuth{lookup: func(string) (tailscale.PeerIdentity, error) {
+		return id(false, false), nil
+	}}
+	s := &Server{}
+	s.SetAuthGate(pa, EnforcementOn)
+	wrapped := s.authWrapper(s.ServeMux())
+
+	for _, path := range []string{"/api/tailscale/status", "/", "/app/", "/favicon.ico"} {
+		funnel := mkReq("127.0.0.1:1234", "203.0.113.7")
+		funnel.URL.Path = path
+		funnel.Header.Set("Tailscale-Funnel-Request", "?1")
+		rec := httptest.NewRecorder()
+		wrapped.ServeHTTP(rec, funnel)
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "funnel_request") {
+			t.Errorf("%s via Funnel: got %d %q, want 403 funnel_request", path, rec.Code, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), "required") {
+			t.Errorf("%s via Funnel: the refusal names a cap for an ungated route: %q", path, rec.Body.String())
+		}
+
+		forwarded := mkReq("127.0.0.1:1234", "203.0.113.7")
+		forwarded.URL.Path = path
+		rec = httptest.NewRecorder()
+		wrapped.ServeHTTP(rec, forwarded)
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "untrusted_forward") {
+			t.Errorf("%s forwarded for a public address: got %d %q, want 403 untrusted_forward", path, rec.Code, rec.Body.String())
+		}
+	}
+
+	// A tailnet peer with no caps still reaches the ungated status route.
+	r := mkReq("127.0.0.1:1234", "100.64.0.5")
+	r.URL.Path = "/api/tailscale/status"
+	rec := httptest.NewRecorder()
+	wrapped.ServeHTTP(rec, r)
+	if rec.Code == http.StatusForbidden {
+		t.Fatalf("tailnet peer on the status route: got 403 %q", rec.Body.String())
+	}
+}

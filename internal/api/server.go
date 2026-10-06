@@ -295,7 +295,11 @@ func (s *Server) authWrapper(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gated, required := classifyRoute(r.URL.Path, r.Method)
 		if !gated {
-			next.ServeHTTP(w, r)
+			// Ungated routes are open to the host, the LAN and the
+			// tailnet, not to Funnel or other forwarded outsiders.
+			if !gate.refusesOutsider(w, r, capUngated) {
+				next.ServeHTTP(w, r)
+			}
 			return
 		}
 		gate.requireCap(required, next).ServeHTTP(w, r)

@@ -104,6 +104,10 @@ const (
 	CapAdmin
 )
 
+// capUngated marks a refusal on a route that requires no cap; the refusal
+// body then names none.  Outside the iota block, so CapView stays zero.
+const capUngated CapKind = -1
+
 // PeerAuthClient is the slice of the Tailscale manager that the
 // auth middleware depends on.  Defined here so tests can substitute
 // a stub without standing up a real tailscale.Manager.
@@ -149,22 +153,14 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 		ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
 		defer cancel()
 
-		if r.Header.Get(funnelRequestHeader) != "" {
-			// tailscale serve marks requests it accepted from the
-			// public internet; nobody there holds a grant.
-			writeForbidden(w, "funnel_request", required)
+		if g.refusesOutsider(w, r, required) {
 			return
 		}
 		clientIP, source := classifySource(r)
-		switch source {
-		case sourceLocal:
+		if source == sourceLocal {
 			// LAN/loopback peers retain full access — the LAN
 			// itself is the trust boundary in those deployments.
 			next.ServeHTTP(w, r)
-			return
-		case sourceForwarded:
-			log.Printf("auth: refusing a request forwarded for non-tailnet address %s", clientIP)
-			writeForbidden(w, "untrusted_forward", required)
 			return
 		}
 
@@ -220,6 +216,29 @@ const (
 	// outside the tailnet, such as a Funnel client: refused.
 	sourceForwarded
 )
+
+// refusesOutsider answers 403 for a request from outside both the tailnet
+// and the host's networks, and reports whether it did: a request tailscale
+// serve accepted through Funnel, or one a loopback proxy forwarded for a
+// non-tailnet address.  The server's wrapper applies it to every route,
+// the ungated ones included, before route classification.
+func (g *authGate) refusesOutsider(w http.ResponseWriter, r *http.Request, required CapKind) bool {
+	if g.mode == EnforcementOff || g.tc == nil {
+		return false
+	}
+	if r.Header.Get(funnelRequestHeader) != "" {
+		// tailscale serve marks requests it accepted from the
+		// public internet; nobody there holds a grant.
+		writeForbidden(w, "funnel_request", required)
+		return true
+	}
+	if clientIP, source := classifySource(r); source == sourceForwarded {
+		log.Printf("auth: refusing a request forwarded for non-tailnet address %s", clientIP)
+		writeForbidden(w, "untrusted_forward", required)
+		return true
+	}
+	return false
+}
 
 // classifySource returns the originating client IP and where the
 // request came from.  The XFF header is consulted only when
