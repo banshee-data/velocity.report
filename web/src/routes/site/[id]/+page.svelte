@@ -12,8 +12,19 @@
 	} from '$lib/api';
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
+	import {
+		defaultSpeedLimitUnit,
+		formatSpeedLimit,
+		kphToPosted,
+		MAX_JURISDICTION_LENGTH,
+		postedToKph,
+		speedLimitError,
+		type SpeedLimitUnit
+	} from '$lib/speedLimit';
+	import { displayUnits } from '$lib/stores/units';
 	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount, tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import { Button, Notification, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
@@ -58,7 +69,11 @@
 		end: '',
 		angle: 5,
 		notes: '',
-		is_active: false
+		is_active: false,
+		// The posted limit as signed, in speed_limit_unit; empty for none.
+		speed_limit: '',
+		speed_limit_unit: defaultSpeedLimitUnit(get(displayUnits)) as SpeedLimitUnit,
+		jurisdiction: ''
 	};
 
 	onMount(async () => {
@@ -143,7 +158,13 @@
 			end: period.effective_end_unix ? toDatetimeLocalValue(period.effective_end_unix) : '',
 			angle: period.cosine_error_angle ?? DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: period.notes ?? '',
-			is_active: period.is_active
+			is_active: period.is_active,
+			speed_limit:
+				period.speed_limit_kph != null && period.speed_limit_unit
+					? String(kphToPosted(period.speed_limit_kph, period.speed_limit_unit))
+					: '',
+			speed_limit_unit: period.speed_limit_unit ?? defaultSpeedLimitUnit(get(displayUnits)),
+			jurisdiction: period.jurisdiction ?? ''
 		};
 	}
 
@@ -154,7 +175,10 @@
 			end: '',
 			angle: DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: '',
-			is_active: false
+			is_active: false,
+			speed_limit: '',
+			speed_limit_unit: defaultSpeedLimitUnit(get(displayUnits)),
+			jurisdiction: ''
 		};
 		periodFormErrors = {};
 	}
@@ -182,6 +206,16 @@
 		} else if (angleValue < 0.0 || angleValue > 80.0) {
 			periodFormErrors.angle = 'Cosine error angle must be between 0 and 80 degrees';
 		}
+		const limitError = speedLimitError(
+			String(periodForm.speed_limit ?? ''),
+			periodForm.speed_limit_unit
+		);
+		if (limitError) {
+			periodFormErrors.speed_limit = limitError;
+		}
+		if (periodForm.jurisdiction.trim().length > MAX_JURISDICTION_LENGTH) {
+			periodFormErrors.jurisdiction = `Jurisdiction must be at most ${MAX_JURISDICTION_LENGTH} characters`;
+		}
 
 		return Object.keys(periodFormErrors).length === 0;
 	}
@@ -196,6 +230,8 @@
 			const startUnix = toUnixSeconds(periodForm.start);
 			const endUnix = toUnixSeconds(periodForm.end);
 			const angleValue = Number(periodForm.angle);
+			const postedLimit = String(periodForm.speed_limit ?? '').trim();
+			const hasLimit = postedLimit !== '';
 			await upsertSiteConfigPeriod({
 				id: periodForm.id ?? undefined,
 				site_id: parseInt(siteId),
@@ -203,7 +239,13 @@
 				effective_end_unix: endUnix ?? null,
 				is_active: periodForm.is_active,
 				notes: periodForm.notes || null,
-				cosine_error_angle: angleValue
+				cosine_error_angle: angleValue,
+				// The update replaces the whole period, so these are always sent.
+				speed_limit_kph: hasLimit
+					? postedToKph(Number(postedLimit), periodForm.speed_limit_unit)
+					: null,
+				speed_limit_unit: hasLimit ? periodForm.speed_limit_unit : null,
+				jurisdiction: periodForm.jurisdiction.trim() || null
 			});
 			resetPeriodForm();
 			await loadConfigPeriods();
@@ -495,6 +537,46 @@
 									required
 									error={periodFormErrors.angle}
 								/>
+								<div>
+									<label class="mb-1 block text-sm font-medium" for="period-speed-limit"
+										>Posted speed limit (optional)</label
+									>
+									<div class="flex gap-2">
+										<input
+											id="period-speed-limit"
+											type="number"
+											min="0"
+											step="any"
+											inputmode="decimal"
+											bind:value={periodForm.speed_limit}
+											aria-invalid={periodFormErrors.speed_limit ? 'true' : undefined}
+											aria-describedby={periodFormErrors.speed_limit
+												? 'period-speed-limit-error'
+												: undefined}
+											class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.speed_limit
+												? 'border-red-500'
+												: 'border-surface-300'}"
+										/>
+										<select
+											aria-label="Speed limit unit"
+											bind:value={periodForm.speed_limit_unit}
+											class="border-surface-300 rounded border px-3 py-2 text-sm"
+										>
+											<option value="mph">mph</option>
+											<option value="kph">km/h</option>
+										</select>
+									</div>
+									{#if periodFormErrors.speed_limit}
+										<p id="period-speed-limit-error" class="mt-1 text-xs text-red-600">
+											{periodFormErrors.speed_limit}
+										</p>
+									{/if}
+								</div>
+								<TextField
+									bind:value={periodForm.jurisdiction}
+									label="Jurisdiction (optional, e.g. US-CA)"
+									error={periodFormErrors.jurisdiction}
+								/>
 								<TextField bind:value={periodForm.notes} label="Notes" />
 							</div>
 
@@ -514,7 +596,7 @@
 								<p class="text-surface-600-300-token text-sm">No configuration periods yet.</p>
 							{:else}
 								<!-- Card-wrapped table matching the lidar routes (sweeps, runs).
-								     overflow-x-auto (not -hidden) keeps the six columns scrollable
+								     overflow-x-auto (not -hidden) keeps the seven columns scrollable
 								     on narrow viewports. -->
 								<div
 									class="bg-surface-100 border-surface-content/10 overflow-x-auto rounded-lg border"
@@ -532,6 +614,10 @@
 												>
 												<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
 													>Angle</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium whitespace-nowrap"
+													>Speed limit</th
 												>
 												<th
 													class="text-surface-content/70 w-24 px-4 py-3 text-left text-sm font-medium"
@@ -560,6 +646,13 @@
 															: 'Open-ended'}
 													</td>
 													<td class="px-4 py-3 text-right">{period.cosine_error_angle}°</td>
+													<td
+														class="px-4 py-3 text-right whitespace-nowrap"
+														title={period.jurisdiction ?? undefined}
+														>{formatSpeedLimit(period)}{period.jurisdiction
+															? ` (${period.jurisdiction})`
+															: ''}</td
+													>
 													<td class="px-4 py-3">{period.notes || '—'}</td>
 													<td class="px-4 py-3">{period.is_active ? 'Yes' : 'No'}</td>
 													<td class="px-4 py-3 text-center">

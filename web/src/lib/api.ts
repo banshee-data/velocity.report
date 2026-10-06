@@ -353,6 +353,12 @@ export interface SiteConfigPeriod {
 	is_active: boolean;
 	notes?: string | null;
 	cosine_error_angle: number;
+	/** Posted speed limit in km/h, or null when the period records none. */
+	speed_limit_kph?: number | null;
+	/** The unit the limit is signed in; set exactly when speed_limit_kph is. */
+	speed_limit_unit?: 'kph' | 'mph' | null;
+	/** Whose rule the limit is, such as US-CA. */
+	jurisdiction?: string | null;
 	created_at?: string;
 	updated_at?: string;
 }
