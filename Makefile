@@ -136,7 +136,7 @@ help:
 	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run all tests (Go + Python + Web + offline docs + macOS)"
+	@echo "  test                 Run all tests (Go + Python + Web + public site + offline docs + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
@@ -147,6 +147,7 @@ help:
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-public-html     Run public site (public_html) scene-viewer tests"
 	@echo "  test-docs-offline    Run embedded offline docs tests"
 	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
@@ -1331,7 +1332,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-public-html test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
@@ -1340,7 +1341,7 @@ COVERAGE_TAGS ?= pcap
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: every maintained unit-test suite in the repository.
-test: test-go test-python test-web test-docs-offline test-mac test-s2-hilbert test-scene-capture
+test: test-go test-python test-web test-public-html test-docs-offline test-mac test-s2-hilbert test-scene-capture
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1437,6 +1438,20 @@ test-web-cov:
 	@echo "Running web (Jest) tests with coverage..."
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+# The public site's scene-viewer modules (public_html/src/js), run with Node's
+# built-in test runner. The tests import three.js, so dependencies are
+# installed first when missing.
+test-public-html:
+	@if [ ! -d public_html/node_modules ]; then $(MAKE) install-docs; fi
+	@echo "Running public site (public_html) tests..."
+	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
 
 test-docs-offline:
 	@./scripts/docs-offline-symlinks.sh create
