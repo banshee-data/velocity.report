@@ -443,3 +443,60 @@ func TestParseUint64(t *testing.T) {
 		})
 	}
 }
+
+// The status route is open to every tailnet peer, but with enforcement on a
+// peer without a view grant sees the state fields alone, and only an admin
+// sees a pending login URL. Host and LAN callers, and every caller with
+// enforcement off, see the whole status.
+func TestHandleTailscaleStatusRedactsForPeersWithoutGrants(t *testing.T) {
+	full := tailscale.Status{
+		DaemonRunning: true, BackendState: "Running", LoginURL: "https://login.tailscale.com/a/123",
+		LoginInProgress: true, Hostname: "velocity", MagicDNS: "velocity.tail1234.ts.net",
+		TailnetName: "example.org", PeerCount: 7, SSHEnabled: true, SSHError: "ssh: denied",
+		ServePublished: true, ServeError: "serve: no certs", Version: 42,
+	}
+	stateOnly := tailscale.Status{
+		DaemonRunning: true, BackendState: "Running", LoginInProgress: true, SSHEnabled: true,
+		ServePublished: true, Version: 42, Redacted: true,
+	}
+	noLoginURL := full
+	noLoginURL.LoginURL, noLoginURL.Redacted = "", true
+
+	cases := []struct {
+		name       string
+		mode       CapEnforcement
+		remoteAddr string
+		xff        string
+		identity   tailscale.PeerIdentity
+		lookupErr  error
+		want       tailscale.Status
+	}{
+		{"tailnet peer without grants", EnforcementOn, "127.0.0.1:1234", "100.64.0.5", id(false, false), nil, stateOnly},
+		{"tailnet peer whose lookup fails", EnforcementOn, "127.0.0.1:1234", "100.64.0.5", tailscale.PeerIdentity{}, errors.New("timeout"), stateOnly},
+		{"tailnet viewer", EnforcementOn, "127.0.0.1:1234", "100.64.0.5", id(true, false), nil, noLoginURL},
+		{"tailnet admin", EnforcementOn, "127.0.0.1:1234", "100.64.0.5", id(false, true), nil, full},
+		{"direct tailnet peer without grants", EnforcementOn, "100.64.0.9:40000", "", id(false, false), nil, stateOnly},
+		{"LAN", EnforcementOn, "192.168.1.20:5555", "", tailscale.PeerIdentity{}, nil, full},
+		{"host", EnforcementOn, "127.0.0.1:1234", "", tailscale.PeerIdentity{}, nil, full},
+		{"enforcement off", EnforcementOff, "127.0.0.1:1234", "100.64.0.5", id(false, false), nil, full},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s := tailscaleTestServer(&stubTailscale{status: full})
+			s.SetAuthGate(&fakePeerAuth{lookup: func(string) (tailscale.PeerIdentity, error) {
+				return c.identity, c.lookupErr
+			}}, c.mode)
+			r := mkReq(c.remoteAddr, c.xff)
+			r.URL.Path = "/api/tailscale/status"
+			rec := httptest.NewRecorder()
+			s.handleTailscaleStatus(rec, r)
+			var got tailscale.Status
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode %q: %v", rec.Body.String(), err)
+			}
+			if got != c.want {
+				t.Fatalf("got %+v\nwant %+v", got, c.want)
+			}
+		})
+	}
+}

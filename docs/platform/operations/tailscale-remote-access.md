@@ -206,9 +206,12 @@ Failure modes:
   `velocity device`) and LAN sources bypass the cap check entirely.
   Gate LAN access at the network layer (firewall, VLAN) if that
   isn't acceptable.
-- **`/api/tailscale/status` is unconditionally reachable** so an
-  operator with a botched grant policy can still see the daemon
-  state and recover.
+- **`/api/tailscale/status` is reachable by every tailnet peer** so an
+  operator with a botched grant policy can still see the daemon state
+  and recover. With enforcement on, a peer without a view grant gets
+  the state fields alone (`redacted: true`), not the tailnet's names,
+  peer count or error text, and only an admin gets a pending login URL,
+  which enrols the device for whoever opens it.
 - **Grants only protect the velocity-report HTTP API.** They do not
   cover Tailscale SSH, the gRPC visualiser stream, or any other
   port. Use ACL rules for those.
@@ -254,9 +257,9 @@ full listener segmentation.
 | Visitor gets 403 `funnel_request` or `untrusted_forward` | Funnel is enabled, or a reverse proxy on the host forwards for addresses outside the tailnet. With enforcement on, both are refused. | Funnel is unsupported (see Non-goals). Disable it, or the proxy.                                                               |
 
 For the velocity-report side, `journalctl -u velocity-report` shows
-the arming event, failed identity lookups and refused forwarded
-requests. A refusal for a missing cap is not logged with the peer's
-identity.
+the arming event, failed identity lookups, refused forwarded requests,
+and each refusal for a missing grant with the peer's tailnet address,
+the route and the grant it lacked.
 
 ## Non-goals
 

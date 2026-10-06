@@ -140,7 +140,6 @@ func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 // not listed here defaults to CapAdmin.  Match is by exact path
 // or, when the entry ends in "/", by prefix.
 var viewRoutes = map[string]struct{}{
-	"/events":                {},
 	"/api/commands":          {},
 	"/api/events":            {},
 	"/api/radar_stats":       {},

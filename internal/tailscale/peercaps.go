@@ -78,16 +78,21 @@ func (m *Manager) LookupPeer(ctx context.Context, remoteAddr string) (PeerIdenti
 	if v, ok := m.peerCache.get(remoteAddr); ok {
 		return v.id, v.err
 	}
+	// Every write is stamped with when its lookup started, and none
+	// replaces an entry from a lookup that started later: two lookups for
+	// one peer can finish out of order, and a slow answer from before a
+	// grant was revoked must not overwrite the newer one.
+	started := time.Now()
 	id, err := m.lookupPeerUncached(ctx, remoteAddr)
 	switch {
 	case err == nil:
-		m.peerCache.set(remoteAddr, peerCacheEntry{id: id})
-		m.peerCache.setLastGood(remoteAddr, id)
+		m.peerCache.set(remoteAddr, peerCacheEntry{id: id, at: started})
+		m.peerCache.setLastGood(remoteAddr, id, started)
 	case errors.Is(err, ErrPeerNotFound):
 		// Authoritative: cache it, and forget any identity the address
 		// had, so a removed node is not served from lastGood.
-		m.peerCache.set(remoteAddr, peerCacheEntry{err: err})
-		m.peerCache.forgetLastGood(remoteAddr)
+		m.peerCache.set(remoteAddr, peerCacheEntry{err: err, at: started})
+		m.peerCache.forgetLastGood(remoteAddr, started)
 	default:
 		// Transient errors are not cached, so a 1-second outage is not
 		// amplified to peerCacheTTL of refusals.
@@ -150,7 +155,9 @@ const maxPeerCacheEntries = 1024
 type peerCacheEntry struct {
 	id  PeerIdentity
 	err error
-	at  time.Time
+	// at is when the lookup that produced the entry started: the moment
+	// its answer describes.
+	at time.Time
 }
 
 type peerCache struct {
@@ -173,24 +180,33 @@ func (c *peerCache) get(k string) (peerCacheEntry, bool) {
 	return e, true
 }
 
+// set stores e unless the entry for k came from a lookup that started
+// after e's.
 func (c *peerCache) set(k string, e peerCacheEntry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.m == nil {
 		c.m = make(map[string]peerCacheEntry)
 	}
-	e.at = time.Now()
+	if old, ok := c.m[k]; ok && old.at.After(e.at) {
+		return
+	}
 	c.m[k] = e
 	boundEntries(c.m, peerCacheTTL)
 }
 
-func (c *peerCache) setLastGood(k string, id PeerIdentity) {
+// setLastGood records id as k's identity as of started, unless a later
+// lookup already recorded one.
+func (c *peerCache) setLastGood(k string, id PeerIdentity, started time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.good == nil {
 		c.good = make(map[string]peerCacheEntry)
 	}
-	c.good[k] = peerCacheEntry{id: id, at: time.Now()}
+	if old, ok := c.good[k]; ok && old.at.After(started) {
+		return
+	}
+	c.good[k] = peerCacheEntry{id: id, at: started}
 	boundEntries(c.good, lastGoodGrace)
 }
 
@@ -204,9 +220,14 @@ func (c *peerCache) lastGood(k string) (PeerIdentity, bool) {
 	return e.id, true
 }
 
-func (c *peerCache) forgetLastGood(k string) {
+// forgetLastGood drops k's identity unless a lookup that started after
+// started recorded it.
+func (c *peerCache) forgetLastGood(k string, started time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if old, ok := c.good[k]; ok && old.at.After(started) {
+		return
+	}
 	delete(c.good, k)
 }
 

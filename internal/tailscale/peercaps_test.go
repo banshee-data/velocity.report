@@ -317,13 +317,57 @@ func TestPeerCacheIsBounded(t *testing.T) {
 	var c peerCache
 	for i := 0; i < maxPeerCacheEntries+50; i++ {
 		k := fmt.Sprintf("100.64.%d.%d", i/256, i%256)
-		c.set(k, peerCacheEntry{})
-		c.setLastGood(k, PeerIdentity{View: true})
+		c.set(k, peerCacheEntry{at: time.Now()})
+		c.setLastGood(k, PeerIdentity{View: true}, time.Now())
 	}
 	if len(c.m) > maxPeerCacheEntries || len(c.good) > maxPeerCacheEntries {
 		t.Fatalf("cache sizes %d and %d, want at most %d", len(c.m), len(c.good), maxPeerCacheEntries)
 	}
 	if _, ok := c.lastGood(fmt.Sprintf("100.64.%d.%d", (maxPeerCacheEntries+49)/256, (maxPeerCacheEntries+49)%256)); !ok {
 		t.Fatal("the newest entry was evicted")
+	}
+}
+
+// Two lookups for one peer that finish out of order: the answer from the
+// lookup that started later stands. A slow lookup that began before a
+// grant was revoked must not restore the grant after a newer lookup saw it
+// gone.
+func TestLookupPeer_OlderLookupNeverOverwritesNewer(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
+		if calls.Add(1) == 1 {
+			close(entered)
+			<-release // the first lookup answers last, with the revoked grant
+			return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(CapAdmin): nil}}, nil
+		}
+		return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{}}, nil
+	}}
+	m := newMgr(c)
+	const peer = "100.64.0.11"
+
+	done := make(chan PeerIdentity)
+	go func() {
+		id, _ := m.LookupPeer(context.Background(), peer)
+		done <- id
+	}()
+	<-entered
+	time.Sleep(time.Millisecond) // the second lookup starts strictly later
+	if id, err := m.LookupPeer(context.Background(), peer); err != nil || id.Admin || id.View {
+		t.Fatalf("newer lookup: %+v, %v; want no grants", id, err)
+	}
+	close(release)
+	if id := <-done; !id.Admin {
+		t.Fatalf("the slow lookup itself answers with what it saw: %+v", id)
+	}
+
+	if id, err := m.LookupPeer(context.Background(), peer); err != nil || id.Admin {
+		t.Fatalf("cached after both: %+v, %v; the older answer overwrote the newer", id, err)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("%d daemon calls, want 2 (the third read is cached)", got)
+	}
+	if last, ok := m.peerCache.lastGood(peer); !ok || last.Admin {
+		t.Fatalf("last good identity %+v, %v; the older answer overwrote the newer", last, ok)
 	}
 }

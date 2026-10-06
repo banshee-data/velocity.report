@@ -607,6 +607,10 @@ type Status struct {
 	// `tailscale serve`, or "" on success / no run yet.  The most
 	// common cause is HTTPS certs not being enabled on the tailnet.
 	ServeError string `json:"serve_error,omitempty"`
+	// Redacted is true when the API left out what this caller may not
+	// see: a tailnet peer without a view grant gets the state fields
+	// alone, and one without admin no login URL.
+	Redacted bool `json:"redacted,omitempty"`
 	// Version increments whenever the observable status changes.  Clients
 	// echo it back as `?v=<version>&wait=<secs>` to long-poll for the next
 	// change instead of polling on a timer.

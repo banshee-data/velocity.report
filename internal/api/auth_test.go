@@ -342,7 +342,7 @@ func TestClassifyRoute(t *testing.T) {
 		{"/api/tailscale/enable", "POST", true, CapAdmin},
 		{"/api/tailscale/disable", "POST", true, CapAdmin},
 		{"/admin/radar/command", "POST", true, CapAdmin},
-		{"/events", "GET", true, CapView},
+		{"/events", "GET", true, CapAdmin},                // no handler: an unlisted route defaults to admin
 		{"/debug/pprof/", "GET", true, CapAdmin},          // tsweb debug routes
 		{"/debug/db/backup", "POST", true, CapAdmin},      // db admin routes
 		{"/api/lidar/runs/", "GET", true, CapAdmin},       // lidar routes default to admin
