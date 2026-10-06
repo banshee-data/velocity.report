@@ -942,7 +942,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 				pub.mu.Unlock()
 			}
 		}
+		started := time.Now()
 		pipelineCallback(frame)
+		if campaign != nil {
+			campaign.recordFrame(frame.StartTimestamp.UnixNano(), time.Since(started).Seconds())
+		}
 		refinement.flush()
 		if cfg.ProgressEvery > 0 && frameCount%cfg.ProgressEvery == 0 {
 			log.Printf("frame=%d recorded=%d", frameCount, pub.recorded)
