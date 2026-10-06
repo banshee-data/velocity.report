@@ -167,7 +167,7 @@ A TDL expression is an English sentence composed of optional clauses. Order is f
 | `slower than <N> mph`     | `speed.max_mph < N`                                                                                                           |
 | `above p85`               | `speed.max_mph > dataset_p85` (dataset-level p85, computed on demand)                                                         |
 | `outliers`                | `speed.max_mph > dataset_p98` (dataset-level p98, computed on demand)                                                         |
-| `speeding`                | `speed.max_mph > posted_limit` (site speed limit)                                                                             |
+| `speeding`                | `speed.max_mph > posted_limit` (the limit where the speed was measured, per the posted speed limits plan)                     |
 | `braking`                 | `behaviour.style = 'braking'`                                                                                                 |
 | `erratic`                 | `behaviour.style = 'erratic'`                                                                                                 |
 | `stopped`                 | `behaviour.stopped = true`                                                                                                    |
@@ -291,7 +291,7 @@ Each behaviour label maps to a concrete rule over L1 metrics and the speed profi
 | **yielded**      | Speed drops below yield threshold near a detected conflict point (e.g. junction, crossing).                                                                                                                                              | `min(profile[window]) < v_yield` within proximity of conflict geometry                                      |
 | **close_pass**   | Transit passes within a threshold distance of a concurrent cyclist or pedestrian.                                                                                                                                                        | `context.nearest_object_distance_m < d_close AND context.nearest_object_class IN ('cyclist', 'pedestrian')` |
 
-Thresholds (`σ_steady`, `Δ_accel`, `v_stop`, `t_stop`, `d_close`, etc.) are site-configurable parameters stored alongside the site speed limit.
+Thresholds (`σ_steady`, `Δ_accel`, `v_stop`, `t_stop`, `d_close`, etc.) are site-configurable parameters. Posted speed limits are not site parameters: they attach to the vector scene's road geometry, per the [posted speed limits plan](posted-speed-limits-plan.md).
 
 ### 5.3 Syntax abstraction requirements
 

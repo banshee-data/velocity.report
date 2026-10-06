@@ -166,7 +166,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 
 - [ ] **Delete endpoint**: API supports create and update but not period deletion.
 - [ ] **Report angle annotation**: PDF comparison reports should note when different cosine angles apply to each period.
-- [ ] **Speed limit fields**: `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014 and are not yet in `site_config_periods` (see [speed-limit-schedules spec](speed-limit-schedules.md) for the future design).
+- [ ] **Speed limit fields**: `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014. They will not return to `site` or move to `site_config_periods`: a street can change limit at a sign inside the sensor's view, so limits will attach to the vector scene's road geometry, per the [posted speed limits plan](../../plans/posted-speed-limits-plan.md). Time-of-day variation is the [speed-limit-schedules spec](speed-limit-schedules.md).
 
 ## Testing strategy
 
