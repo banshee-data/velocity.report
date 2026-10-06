@@ -139,6 +139,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | ✅  | -   |
 | Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
 | Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
 | Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |
 | Labels         | `lidar_labels.go`      | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
@@ -286,7 +287,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_run_records`              | `error_message`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_records`              | `parent_run_id`                     | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_run_records`              | `notes`                             | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `statistics_json`                   | TEXT          | 🔶  | 📋  | -   |
+| `lidar_run_records`              | `statistics_json`                   | TEXT          | ✅  | 🔶  | -   |
 | `lidar_run_records`              | `vrlog_path`                        | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_records`              | `run_config_id`                     | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_run_records`              | `requested_param_set_id`            | TEXT FK       | ✅  | ✅  | -   |
@@ -885,7 +886,7 @@ The segment tables' Mac column is `-`, not `?`: the macOS tool opens a pack dire
 | [internal/lidar/l5tracks](../../internal/lidar/l5tracks)         | `tracking.go`         | L5 Tracking (Kalman → tracked objects)     | ✅  | ✅  | ✅  |
 | [internal/lidar/l5tracks](../../internal/lidar/l5tracks)         | `tracking.go`         | L5 TrackingMetrics (fragmentation, jitter) | -   | ✅  | -   |
 | [internal/lidar/adapters](../../internal/lidar/adapters)         | `ground_truth.go`     | L6 Evaluation (quality metrics)            | ✅  | ✅  | -   |
-| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`          | L6 RunStatistics (12 fields)               | 📋  | 📋  | -   |
+| [internal/lidar/l8analytics](../../internal/lidar/l8analytics)   | `summary.go`          | L8 RunStatistics (12 fields)               | ✅  | 🔶  | -   |
 | [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`          | L6 TrackQualityMetrics (8 fields)          | ✅  | 📋  | -   |
 | [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`          | L6 NoiseCoverageMetrics (7 fields)         | 📋  | 📋  | -   |
 | [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`          | L6 TrainingDatasetSummary (7 fields)       | -   | -   | -   |
@@ -1150,7 +1151,7 @@ documented in §15. The radar server debug routes are attached via
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 100   | 60  | 86  | 11  |
+| HTTP endpoints (LiDAR)  | 101   | 61  | 86  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 44    | -   | 34  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
@@ -1164,7 +1165,7 @@ The pre-existing gap counts below come from the March consumer audit and have no
 
 | Category                             | Count | Details                                                                                 |
 | ------------------------------------ | ----- | --------------------------------------------------------------------------------------- |
-| Schema columns never written         | 10    | `lidar_tracks` quality (6), `lidar_clusters` quality (3), `statistics_json` (1)         |
+| Schema columns never written         | 9     | `lidar_tracks` quality (6), `lidar_clusters` quality (3)                                |
 | Fields live-only (Mac but not in DB) | 3     | `track_length_meters`, `track_duration_secs`, `occlusion_count` (gRPC ✅, DB column 🔶) |
 | Structs computed, not persisted      | 3     | NoiseCoverageMetrics, TrainingDatasetSummary, ClusterFeatures                           |
 | Structs in-memory, classifier only   | 1     | TrackFeatures (20 features; computed on-demand, never stored)                           |

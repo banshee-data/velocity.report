@@ -7,7 +7,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active; Phases 1–3 proposed; Phases 4–10 proposed
+- **Status:** Active; Phases 1 and 4 implemented; Phases 2, 3, and 5–8 proposed
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
@@ -56,23 +56,25 @@ observability plan §4.
 
 ### Checklist
 
-- [ ] In `CompleteRun()` (`analysis_run.go:463`), call
-      `l6objects.ComputeRunStatistics()` on the run's collected tracks and
-      serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
-- [ ] Update the `CompleteRun` SQL to include `statistics_json = ?`.
-- [ ] Update `GetRun()` (`analysis_run.go:496`) to read and parse
-      `statistics_json`, attaching it to the `AnalysisRun` struct.
-- [ ] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
-      struct.
-- [ ] Update `ListRuns()` to also read `statistics_json`.
-- [ ] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
-      `RecordTrack()` and compute `RunStatistics` at completion.
-- [ ] Update `handleGetRun()` API handler so the JSON response includes
-      `statistics_json` when present.
-- [ ] Add a TypeScript `RunStatistics` interface to [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
-- [ ] Add the field to the `AnalysisRun` TypeScript interface.
-- [ ] Verify backward compatibility: existing rows with `NULL`
-      `statistics_json` do not break `GetRun()`.
+- [x] Compute `RunStatistics` at completion and write it to
+      `statistics_json` via `RunStatistics.ToJSON()`. The computation moved
+      to `l8analytics.ComputeRunStatisticsFromSummaries()`.
+- [x] Update the `CompleteRun` SQL to include `statistics_json = ?`, only
+      when the column exists and the run recorded a track.
+- [x] `GetRun()` and `ListRuns()` read `statistics_json` into
+      `AnalysisRun.StatisticsJSON`. Both already did; nothing wrote it.
+- [x] Wire `AnalysisRunManager` to keep one `TrackSummary` per track during
+      `RecordTrack()`, replaced on every call, so the statistics describe
+      each track as last seen rather than its first sighting.
+- [x] `handleGetRun()` includes `statistics_json` when present (the field
+      is `omitempty`).
+- [x] Add a TypeScript `RunStatistics` interface to [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
+      and type `AnalysisRun.statistics_json` with it.
+- [x] Verify backward compatibility: a run that recorded no track leaves
+      `statistics_json` NULL, and `GetRun()` reads NULL rows unchanged.
+
+`avg_noise_ratio` is always 0: nothing sets a track's `NoisePointRatio`
+until clustering counts noise points (Phase 3).
 
 ### Downstream opportunity
 
@@ -146,11 +148,13 @@ become a priority.
 
 ### Checklist
 
-- [ ] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
+- [x] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
       `run_track_api.go` returning `RunStatistics` JSON.
-- [ ] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs).
-- [ ] Add `getRunStatistics(runId)` function to [web/src/lib/api.ts](../../web/src/lib/api.ts).
-- [ ] Write handler tests with populated and NULL statistics.
+- [x] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs) or the
+      run is unknown.
+- [x] Add `getRunStatistics(runId)` function to [web/src/lib/api.ts](../../web/src/lib/api.ts),
+      returning `null` on 404.
+- [x] Write handler tests with populated and NULL statistics.
 
 ---
 
@@ -268,15 +272,15 @@ surfaced.
 
 ### Immediate (current sprint)
 
-Phases 1–3 should be implemented first: they wire existing data to
-persistence with minimal risk (no schema changes, all columns already exist).
+Phases 1 and 4 are implemented. Phases 2–3 come next: they wire existing
+data to persistence with minimal risk (no schema changes, all columns
+already exist).
 Phase 7 (per-track percentile removal / migration 000030) should follow
 immediately to clean up design debt per D-18/D-19.
 
 ### Near-term (next 1–2 sprints)
 
-Phase 4 (statistics API endpoint) unlocks UI consumption of statistics once
-Phase 1 is complete. Phase 3 completion (noise_points_count) requires an L4
+Phase 3 completion (noise_points_count) requires an L4
 pipeline change: schedule when cluster diagnostics become a priority.
 
 ### Backlog (schedule when needed)
