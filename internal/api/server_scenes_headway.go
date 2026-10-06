@@ -9,9 +9,18 @@ package api
 // Scene to source. A scene records its capture window, not the analysis
 // source its encounters were stored under (the source id is a digest the
 // scene cannot reproduce), so the source is derived: the sources with
-// following encounters fully inside the scene's capture window. One source is
+// following encounters overlapping the scene's capture window. One source is
 // used as found; several (one capture extracted under two tunings, say) are
 // listed and never merged, and the caller names one with source_id.
+//
+// Window. An encounter crossing either edge of the window, or longer than
+// it, is clipped to it (l8behaviour.ClipFollowingInteraction): rebuilt from
+// its instants inside the window, measurements included, so nothing outside
+// the window is counted and nothing crossing an edge is silently lost
+// (review R4 of docs/lidar/operations/0.5.2-sprint-review.md). Clipping
+// recomputes an encounter's measurements under the field run's parameters;
+// one analysed under other parameters, or whose stored values that does not
+// reproduce, is left out and listed in unclipped_event_ids.
 //
 // Version. The default is the most recently written version at stage final.
 // stage selects another stage, and estimator_id, obs_model_id, method_id and
@@ -34,6 +43,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/report/headway/fieldrun"
 )
 
 // Headway availability: why a response does or does not carry a
@@ -52,11 +62,11 @@ type sceneHeadwayResponse struct {
 	Status       l8behaviour.SurfaceStatus `json:"status"`
 	Availability string                    `json:"availability"`
 	// StartUnixNanos and EndUnixNanos are the scene's capture window; served
-	// encounter rows stay wholly inside it.
+	// encounter rows stay wholly inside it, clipped where they crossed it.
 	StartUnixNanos *int64 `json:"start_unix_nanos,omitempty"`
 	EndUnixNanos   *int64 `json:"end_unix_nanos,omitempty"`
 	// SourceID is the source the distribution is read from; Sources lists
-	// every source overlapping the window.
+	// every source with encounters overlapping the window.
 	SourceID string          `json:"source_id,omitempty"`
 	Sources  []headwaySource `json:"sources"`
 	// Version is the version served; Versions lists every version of the
@@ -65,6 +75,11 @@ type sceneHeadwayResponse struct {
 	Versions     []headwayVersion                   `json:"versions"`
 	Distribution *l8behaviour.FollowingDistribution `json:"distribution,omitempty"`
 	Encounters   []l8behaviour.EncounterSummary     `json:"encounters"`
+	// ClippedEventIDs are the served encounters that crossed the window and
+	// were clipped to it. UnclippedEventIDs crossed it but could not be
+	// recomputed for it, and are left out of the distribution and the rows.
+	ClippedEventIDs   []string `json:"clipped_event_ids"`
+	UnclippedEventIDs []string `json:"unclipped_event_ids"`
 }
 
 type headwaySource struct {
@@ -130,6 +145,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	resp := sceneHeadwayResponse{
 		SceneID: scene.SceneID, Status: l8behaviour.StatusProvisional,
 		Sources: []headwaySource{}, Versions: []headwayVersion{}, Encounters: []l8behaviour.EncounterSummary{},
+		ClippedEventIDs: []string{}, UnclippedEventIDs: []string{},
 	}
 	if scene.CapturedStartNs == nil || scene.CapturedEndNs == nil || *scene.CapturedStartNs <= 0 {
 		resp.Availability = headwayNoCaptureWindow
@@ -139,7 +155,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	resp.StartUnixNanos, resp.EndUnixNanos = &start, &end
 
 	store := sqlite.NewInteractionStore(s.db)
-	sources, err := store.SourcesContainedInWindow(start, end)
+	sources, err := store.SourcesOverlappingWindow(start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -155,7 +171,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 			found = found || src.SourceID == sel.SourceID
 		}
 		if !found {
-			return resp, fmt.Errorf("%w: source %q has no following encounters in this scene's capture window",
+			return resp, fmt.Errorf("%w: source %q has no following encounters overlapping this scene's capture window",
 				errHeadwaySelection, sel.SourceID)
 		}
 		resp.SourceID = sel.SourceID
@@ -169,7 +185,7 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 		return resp, nil
 	}
 
-	versions, err := store.VersionsContainedInWindow(resp.SourceID, start, end)
+	versions, err := store.VersionsOverlappingWindow(resp.SourceID, start, end)
 	if err != nil {
 		return resp, err
 	}
@@ -192,9 +208,32 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	}
 	resp.Version, resp.Status = chosen, l8behaviour.StatusOf(*chosen)
 
-	interactions, err := store.ListInteractionsContainedInWindow(resp.SourceID, *chosen, start, end)
+	overlapping, err := store.ListInteractionsOverlappingWindow(resp.SourceID, *chosen, start, end)
 	if err != nil {
 		return resp, err
+	}
+	var interactions []l8behaviour.FollowingInteraction
+	params := sceneClipParams()
+	for _, fi := range overlapping {
+		clipped, outcome, detail, err := l8behaviour.ClipFollowingInteraction(fi, start, end, params)
+		if err != nil {
+			return resp, err
+		}
+		switch outcome {
+		case l8behaviour.ClipContained:
+			interactions = append(interactions, clipped)
+		case l8behaviour.ClipClipped:
+			interactions = append(interactions, clipped)
+			resp.ClippedEventIDs = append(resp.ClippedEventIDs, fi.Event.EventID)
+		case l8behaviour.ClipUnrecomputable:
+			log.Printf("Scene %s headway: encounter %s crosses the window and is left out: %s", scene.SceneID, fi.Event.EventID, detail)
+			resp.UnclippedEventIDs = append(resp.UnclippedEventIDs, fi.Event.EventID)
+		}
+		// ClipEmpty: the window falls between two of its instants.
+	}
+	if len(interactions) == 0 {
+		resp.Availability = headwayNoEncounters
+		return resp, nil
 	}
 	d, err := l8behaviour.AggregateFollowing(interactions)
 	if errors.Is(err, l8behaviour.ErrNothingToAggregate) {
@@ -211,6 +250,10 @@ func (s *Server) resolveSceneHeadway(scene *db.Scene, sel headwaySelection) (sce
 	}
 	return resp, nil
 }
+
+// sceneClipParams are the parameters a scene's encounters are clipped
+// under: the field run's, which wrote them. A test may substitute others.
+var sceneClipParams = fieldrun.Params
 
 // loadSceneHeadway reads the scene and resolves its headway, writing any
 // error response itself; ok is false when it did.

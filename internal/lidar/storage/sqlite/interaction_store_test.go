@@ -319,7 +319,8 @@ func interactionsUnder(t *testing.T, sourceID string, sc l8behaviour.EncounterSc
 }
 
 // A capture window finds the sources that analysed it, their versions and
-// their complete records, and nothing captured outside it.
+// the complete records of every event overlapping it, and nothing captured
+// wholly outside it.
 func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -347,7 +348,7 @@ func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 	}
 	start, end := base, base+10*1_000_000_000
 
-	sources, err := store.SourcesContainedInWindow(start, end)
+	sources, err := store.SourcesOverlappingWindow(start, end)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +357,7 @@ func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 		t.Fatalf("sources %+v", sources)
 	}
 
-	versions, err := store.VersionsContainedInWindow(sourceA, start, end)
+	versions, err := store.VersionsOverlappingWindow(sourceA, start, end)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +370,7 @@ func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 		t.Fatalf("versions %+v, want %v newest first", versions, want)
 	}
 
-	got, err := store.ListInteractionsContainedInWindow(sourceA, vFinal, start, end)
+	got, err := store.ListInteractionsOverlappingWindow(sourceA, vFinal, start, end)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,27 +394,42 @@ func TestInteractionStoreReadsACaptureWindow(t *testing.T) {
 		}
 	}
 
-	// The later capture is found by its own window, but partial overlaps are
-	// excluded so the reader never counts time outside the capture window.
-	laterOnly, err := store.ListInteractionsContainedInWindow(sourceA, vFinal, base+hour, base+hour+10*1_000_000_000)
+	// The later capture is found by its own window.
+	laterOnly, err := store.ListInteractionsOverlappingWindow(sourceA, vFinal, base+hour, base+hour+10*1_000_000_000)
 	if err != nil || len(laterOnly) != 1 || !reflect.DeepEqual(laterOnly[0], later[0]) {
 		t.Fatalf("later window: %d, %v", len(laterOnly), err)
 	}
-	edge := later[0].Event.EndUnixNanos
-	if touching, err := store.ListInteractionsContainedInWindow(sourceA, vFinal, edge, edge+1); err != nil || len(touching) != 0 {
-		t.Fatalf("touching window: %d, %v", len(touching), err)
+	// An event crossing either edge of a window, or longer than it, is
+	// returned whole for the caller to clip; one wholly outside is not.
+	const second = int64(1_000_000_000)
+	ev := later[0].Event
+	mid := ev.StartUnixNanos + (ev.EndUnixNanos-ev.StartUnixNanos)/2
+	for _, w := range [][2]int64{
+		{ev.EndUnixNanos, ev.EndUnixNanos + 1},          // touching its end
+		{ev.StartUnixNanos - second, ev.StartUnixNanos}, // touching its start
+		{mid, ev.EndUnixNanos + hour},                   // crossing its start
+		{ev.StartUnixNanos - second, mid},               // crossing its end
+		{mid, mid + 1},                                  // inside it
+	} {
+		got, err := store.ListInteractionsOverlappingWindow(sourceA, vFinal, w[0], w[1])
+		if err != nil || len(got) != 1 || !reflect.DeepEqual(got[0], later[0]) {
+			t.Fatalf("window %v over the later event %d..%d: %d, %v", w, ev.StartUnixNanos, ev.EndUnixNanos, len(got), err)
+		}
 	}
-	if before, err := store.SourcesContainedInWindow(base-hour, base-1); err != nil || len(before) != 0 {
+	if after, err := store.ListInteractionsOverlappingWindow(sourceA, vFinal, ev.EndUnixNanos+1, ev.EndUnixNanos+hour); err != nil || len(after) != 0 {
+		t.Fatalf("window after the later event: %d, %v", len(after), err)
+	}
+	if before, err := store.SourcesOverlappingWindow(base-hour, base-1); err != nil || len(before) != 0 {
 		t.Fatalf("window before every capture: %+v, %v", before, err)
 	}
-	if none, err := store.ListInteractionsContainedInWindow(sourceB, vFixed, start, end); err != nil || len(none) != 0 {
+	if none, err := store.ListInteractionsOverlappingWindow(sourceB, vFixed, start, end); err != nil || len(none) != 0 {
 		t.Fatalf("a version the source lacks: %d, %v", len(none), err)
 	}
 	for _, w := range [][2]int64{{end, start}, {0, end}} {
-		if _, err := store.SourcesContainedInWindow(w[0], w[1]); err == nil {
+		if _, err := store.SourcesOverlappingWindow(w[0], w[1]); err == nil {
 			t.Fatalf("window %v was queried", w)
 		}
-		if _, err := store.ListInteractionsContainedInWindow(sourceA, vFinal, w[0], w[1]); err == nil {
+		if _, err := store.ListInteractionsOverlappingWindow(sourceA, vFinal, w[0], w[1]); err == nil {
 			t.Fatalf("window %v was listed", w)
 		}
 	}
