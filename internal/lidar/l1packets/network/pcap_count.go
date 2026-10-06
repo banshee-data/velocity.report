@@ -34,10 +34,7 @@ func CountPCAPPackets(pcapFile string, udpPort int) (PCAPCountResult, error) {
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	var result PCAPCountResult
-	for packet := range packetSource.Packets() {
-		if packet == nil {
-			break
-		}
+	for packet := nextPacket(packetSource); packet != nil; packet = nextPacket(packetSource) {
 		ts := packet.Metadata().Timestamp.UnixNano()
 		if result.Count == 0 {
 			result.FirstTimestampNs = ts

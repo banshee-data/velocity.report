@@ -48,151 +48,153 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	skippingToStart := startSeconds > 0
 
 	for {
-		select {
-		case <-ctx.Done():
+		// Packets are read on this goroutine (nextPacket), not through
+		// gopacket's channel, whose reader goroutine had to be woken for
+		// every packet. Cancellation is checked before each read instead.
+		if err := ctx.Err(); err != nil {
 			diagf("PCAP reader stopping due to context cancellation (processed %d packets)", packetCount)
-			return ctx.Err()
-		case packet := <-packetSource.Packets():
-			if packet == nil {
-				// End of PCAP file
-				elapsed := time.Since(startTime)
-				diagf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
-				if onProgress != nil {
-					onProgress(packetIndex, totalPackets)
-				}
-				return nil
-			}
-
-			packetIndex++
-
-			// Offset-based seek: skip packets until we reach the requested offset
-			if skippingToOffset && packetIndex < packetOffset {
-				continue
-			}
-			if skippingToOffset {
-				skippingToOffset = false
-				diagf("PCAP replay: seeked to packet offset %d", packetOffset)
-			}
-
-			// Report progress periodically (every 100 packets)
-			if onProgress != nil && packetIndex%100 == 0 {
+			return err
+		}
+		packet := nextPacket(packetSource)
+		if packet == nil {
+			// End of PCAP file
+			elapsed := time.Since(startTime)
+			diagf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
+			if onProgress != nil {
 				onProgress(packetIndex, totalPackets)
 			}
+			return nil
+		}
 
-			// Calculate start/end thresholds on first packet
-			captureTime := packet.Metadata().Timestamp
-			if firstPacketTime.IsZero() {
-				firstPacketTime = captureTime
-				if startSeconds > 0 {
-					startThreshold = firstPacketTime.Add(time.Duration(startSeconds * float64(time.Second)))
-				} else {
-					// When no start offset, use first packet time as the baseline
-					// so duration thresholds are relative to the actual capture.
-					startThreshold = firstPacketTime
+		packetIndex++
+
+		// Offset-based seek: skip packets until we reach the requested offset
+		if skippingToOffset && packetIndex < packetOffset {
+			continue
+		}
+		if skippingToOffset {
+			skippingToOffset = false
+			diagf("PCAP replay: seeked to packet offset %d", packetOffset)
+		}
+
+		// Report progress periodically (every 100 packets)
+		if onProgress != nil && packetIndex%100 == 0 {
+			onProgress(packetIndex, totalPackets)
+		}
+
+		// Calculate start/end thresholds on first packet
+		captureTime := packet.Metadata().Timestamp
+		if firstPacketTime.IsZero() {
+			firstPacketTime = captureTime
+			if startSeconds > 0 {
+				startThreshold = firstPacketTime.Add(time.Duration(startSeconds * float64(time.Second)))
+			} else {
+				// When no start offset, use first packet time as the baseline
+				// so duration thresholds are relative to the actual capture.
+				startThreshold = firstPacketTime
+			}
+			if durationSeconds > 0 {
+				endThreshold = startThreshold.Add(time.Duration(durationSeconds * float64(time.Second)))
+			}
+		}
+
+		// Skip packets before start threshold
+		if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
+			continue
+		}
+		if skippingToStart {
+			skippingToStart = false
+			diagf("PCAP replay: started at %.2fs offset", startSeconds)
+		}
+
+		// Stop if we've reached the end threshold
+		if !endThreshold.IsZero() && captureTime.After(endThreshold) {
+			elapsed := time.Since(startTime)
+			diagf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", durationSeconds, packetCount, elapsed)
+			return nil
+		}
+
+		packetCount++
+
+		// Extract UDP layer
+		udpLayer := packet.Layer(layers.LayerTypeUDP)
+		if udpLayer == nil {
+			continue // Skip non-UDP packets (shouldn't happen with BPF filter)
+		}
+
+		udp, ok := udpLayer.(*layers.UDP)
+		if !ok {
+			continue
+		}
+
+		// Extract payload (LiDAR data)
+		payload := udp.Payload
+		if len(payload) == 0 {
+			continue
+		}
+
+		// Record packet statistics
+		if stats != nil {
+			stats.AddPacket(len(payload))
+		}
+
+		// Forward packet if forwarder is configured
+		if forwarder != nil {
+			forwarder.ForwardAsync(payload)
+		}
+
+		// Parse and process the packet if parser is provided
+		if parser != nil {
+			// When replaying from PCAP, prefer capture timestamps over device clock
+			if tsParser, ok := parser.(interface{ SetPacketTime(time.Time) }); ok {
+				tsParser.SetPacketTime(packet.Metadata().Timestamp)
+			}
+			points, err := parser.ParsePacket(payload)
+			if err != nil {
+				opsf("Error parsing PCAP packet %d: %v", packetCount, err)
+				continue
+			}
+
+			// Diagnostic: report parsed point counts to help debug empty backgrounds
+			if len(points) == 0 {
+				lidar.Tracef("PCAP packet %d parsed -> 0 points", packetCount)
+			} else {
+				totalPoints += len(points)
+				// Debug-level: every 1000 packets
+				if packetCount%1000 == 0 {
+					lidar.Tracef("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
+						packetCount, len(points), totalPoints)
 				}
-				if durationSeconds > 0 {
-					endThreshold = startThreshold.Add(time.Duration(durationSeconds * float64(time.Second)))
-				}
 			}
 
-			// Skip packets before start threshold
-			if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
-				continue
-			}
-			if skippingToStart {
-				skippingToStart = false
-				diagf("PCAP replay: started at %.2fs offset", startSeconds)
-			}
-
-			// Stop if we've reached the end threshold
-			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
-				elapsed := time.Since(startTime)
-				diagf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", durationSeconds, packetCount, elapsed)
-				return nil
-			}
-
-			packetCount++
-
-			// Extract UDP layer
-			udpLayer := packet.Layer(layers.LayerTypeUDP)
-			if udpLayer == nil {
-				continue // Skip non-UDP packets (shouldn't happen with BPF filter)
-			}
-
-			udp, ok := udpLayer.(*layers.UDP)
-			if !ok {
-				continue
-			}
-
-			// Extract payload (LiDAR data)
-			payload := udp.Payload
-			if len(payload) == 0 {
-				continue
-			}
-
-			// Record packet statistics
 			if stats != nil {
-				stats.AddPacket(len(payload))
+				stats.AddPoints(len(points))
 			}
 
-			// Forward packet if forwarder is configured
-			if forwarder != nil {
-				forwarder.ForwardAsync(payload)
+			if frameBuilder != nil {
+				frameBuilder.AddPointsPolar(points)
+				motorSpeed := parser.GetLastMotorSpeed()
+				if motorSpeed > 0 {
+					frameBuilder.SetMotorSpeed(motorSpeed)
+				}
 			}
+		}
 
-			// Parse and process the packet if parser is provided
+		// Feed the optional progress reporter this packet's capture time and
+		// motor speed so it can report RPM and points-per-frame.
+		if obs, ok := stats.(ProgressObserver); ok {
+			var rpm uint16
 			if parser != nil {
-				// When replaying from PCAP, prefer capture timestamps over device clock
-				if tsParser, ok := parser.(interface{ SetPacketTime(time.Time) }); ok {
-					tsParser.SetPacketTime(packet.Metadata().Timestamp)
-				}
-				points, err := parser.ParsePacket(payload)
-				if err != nil {
-					opsf("Error parsing PCAP packet %d: %v", packetCount, err)
-					continue
-				}
-
-				// Diagnostic: report parsed point counts to help debug empty backgrounds
-				if len(points) == 0 {
-					lidar.Tracef("PCAP packet %d parsed -> 0 points", packetCount)
-				} else {
-					totalPoints += len(points)
-					// Debug-level: every 1000 packets
-					if packetCount%1000 == 0 {
-						lidar.Tracef("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
-							packetCount, len(points), totalPoints)
-					}
-				}
-
-				if stats != nil {
-					stats.AddPoints(len(points))
-				}
-
-				if frameBuilder != nil {
-					frameBuilder.AddPointsPolar(points)
-					motorSpeed := parser.GetLastMotorSpeed()
-					if motorSpeed > 0 {
-						frameBuilder.SetMotorSpeed(motorSpeed)
-					}
-				}
+				rpm = parser.GetLastMotorSpeed()
 			}
+			obs.ObserveProgress(captureTime, rpm)
+		}
 
-			// Feed the optional progress reporter this packet's capture time and
-			// motor speed so it can report RPM and points-per-frame.
-			if obs, ok := stats.(ProgressObserver); ok {
-				var rpm uint16
-				if parser != nil {
-					rpm = parser.GetLastMotorSpeed()
-				}
-				obs.ObserveProgress(captureTime, rpm)
-			}
-
-			// Log progress periodically
-			if packetCount%10000 == 0 {
-				elapsed := time.Since(startTime)
-				tracef("PCAP progress: %d packets processed in %v (%.0f pkt/s)",
-					packetCount, elapsed, float64(packetCount)/elapsed.Seconds())
-			}
+		// Log progress periodically
+		if packetCount%10000 == 0 {
+			elapsed := time.Since(startTime)
+			tracef("PCAP progress: %d packets processed in %v (%.0f pkt/s)",
+				packetCount, elapsed, float64(packetCount)/elapsed.Seconds())
 		}
 	}
 }
