@@ -11,7 +11,7 @@ package l8behaviour
 // annotated references this repository does not hold; until they exist the
 // harness is exercised on the analytic fixtures with known perturbations.
 //
-// Method following_heldout_scoring_v1:
+// Method following_heldout_scoring_v2:
 //
 //   - References. A reference is one body at one instant from a source
 //     independent of the estimator: its true centre, heading, length and width,
@@ -30,8 +30,11 @@ package l8behaviour
 //     nominal coverage. An endpoint with no projected body, or a gap that is
 //     not supported (apart from publication stage and, for the gap, the speed
 //     floor that concerns only the time gap), is counted as suppressed under
-//     the pair's first such reason. References no estimate matched are counted
-//     as unmatched: a miss is reported, never scored as an error.
+//     the pair's first such reason. An instant the estimator never evaluated
+//     (its leader choice suppressed, or the leader without a row) suppresses
+//     every case it would have yielded under that reason, once per case
+//     however many leaders competed. References no estimate matched are
+//     counted as unmatched: a miss is reported, never scored as an error.
 //   - Strata. An endpoint case is stratified by its reference's class, range
 //     and face aspect, and its own party's support at the instant; a gap case
 //     by the follower's reference and leading face, and the worse of the two
@@ -45,17 +48,47 @@ package l8behaviour
 //   - Scores. Per stratum: case count, bias (mean error), RMS error, the 95th
 //     percentile of |error| (nearest rank), empirical coverage, suppressions by
 //     reason and the suppression rate over cases and suppressions.
-//   - Verdict. A stratum with fewer than MinCasesPerStratum scored cases is
-//     insufficient_cases. Otherwise it fails when its 95th percentile error
-//     exceeds the bound for its kind, its coverage falls outside the accepted
-//     range (too low is overconfidence; too high is an interval too wide to
-//     inform), or its suppression rate exceeds the bound. The report fails if
-//     any stratum fails, is insufficient if any is, and passes otherwise.
-//   - Pinning. The plan (bins, nominal coverage, bounds and the reference set
-//     it was written for) is hashed, and scoring refuses a plan whose hash is
-//     not the one pinned beforehand, or a reference set it was not written
-//     for. Commit the plan and its hash before the references are scored; the
-//     report repeats the hash so a later bound change is visible.
+//   - Verdict. A stratum with fewer than MinCasesPerStratum scored cases, or
+//     whose cases come from fewer than MinEncountersPerStratum distinct
+//     leader-follower pairs, is insufficient_cases: a thousand frames of one
+//     pair are one encounter's evidence, not a thousand. The floor only
+//     refuses too few pairs; it does not reweight the cases, so one long
+//     encounter still dominates a stratum's statistics. Otherwise it fails
+//     when its 95th percentile error exceeds the bound for its kind, its
+//     coverage falls outside the accepted range (too low is overconfidence;
+//     too high is an interval too wide to inform), or its suppression rate
+//     exceeds the bound. An insufficient stratum still lists the bounds its
+//     point estimates break, so a clear failure is visible. The report fails
+//     if any stratum fails, or if the share of references no estimate
+//     matched, or the share matched but unscorable, exceeds its bound: good
+//     scores on the references that were reached say nothing about the ones
+//     that were not. Those two shares are pooled over the whole set, not
+//     per stratum, and the unmatched share is not a miss rate: its
+//     denominator includes bodies that were never in a pair. Otherwise the
+//     report is insufficient if any stratum is, and passes.
+//   - Estimates. A non-finite endpoint or gap, or the same pair at the same
+//     instant twice, is refused.
+//   - Pinning. The plan (bins, nominal coverage, bounds, and the reference
+//     set it was written for, by id and by content digest) is hashed with
+//     this method id, and
+//     scoring refuses a plan whose hash is not the one pinned beforehand, or
+//     a reference set whose id or content is not the one it was written for.
+//     Commit the plan and its hash before the references are scored; the
+//     report repeats the hash and the digest so a later bound or reference
+//     change is visible.
+//
+// Version 2 added the content digest, the unmatched and unscorable bounds
+// and the per-stratum encounter count (review R6 of
+// docs/lidar/operations/0.5.2-sprint-review.md). Wrong-leader checks need
+// references that name the true leader at every instant, which the
+// reference format does not yet carry.
+//
+// Known limits of version 2, from its statistical review (R6 status in the
+// sprint review): every bound is tested against a point estimate, with no
+// interval; the unmatched and unscorable shares are pooled, and no plan
+// lists the strata it expects; and an encounter is a pair of estimated
+// track ids, so track fragmentation inflates the count and one body's error
+// counts once per pair it is in.
 
 import (
 	"crypto/sha256"
@@ -68,7 +101,7 @@ import (
 
 // HeldOutScoringMethodID versions the harness: case construction, strata,
 // statistics and verdict rules.
-const HeldOutScoringMethodID = "following_heldout_scoring_v1"
+const HeldOutScoringMethodID = "following_heldout_scoring_v2"
 
 // Stratum kinds and verdicts. They label a validation report, not a
 // behaviour result, and are fixed by this method id.
@@ -118,6 +151,31 @@ type HeldOutSet struct {
 	References     []ReferenceBody `json:"references"`
 }
 
+// Digest is the reference set's content identity: the SHA-256, in hex, of
+// its JSON encoding with the references in track and capture order, so the
+// order they were listed in does not change it. It is empty for a set that
+// cannot be encoded (a non-finite number), which no plan can be pinned to.
+// Digest the set as it is stored and loaded: references recomputed in
+// process can differ in the last bit between arm64, which fuses
+// multiply-adds, and amd64.
+func (set HeldOutSet) Digest() string {
+	sorted := set
+	sorted.References = append([]ReferenceBody(nil), set.References...)
+	sort.Slice(sorted.References, func(i, j int) bool {
+		a, b := sorted.References[i], sorted.References[j]
+		if a.TrackID != b.TrackID {
+			return a.TrackID < b.TrackID
+		}
+		return a.CaptureUnixNanos < b.CaptureUnixNanos
+	})
+	raw, err := json.Marshal(sorted)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
 // AcceptanceBounds are the pinned acceptance criteria.
 type AcceptanceBounds struct {
 	MaxEndpointP95AbsErrorM float64 `json:"max_endpoint_p95_abs_error_m"`
@@ -128,13 +186,24 @@ type AcceptanceBounds struct {
 	MaxCoverage        float64 `json:"max_coverage"`
 	MaxSuppressionRate float64 `json:"max_suppression_rate"`
 	MinCasesPerStratum int     `json:"min_cases_per_stratum"`
+	// MinEncountersPerStratum is the fewest distinct leader-follower pairs a
+	// stratum's scored cases may come from.
+	MinEncountersPerStratum int `json:"min_encounters_per_stratum"`
+	// MaxUnmatchedRate and MaxUnscorableRate bound the shares of the
+	// reference set that no estimate matched, and that were matched but
+	// could not be scored.
+	MaxUnmatchedRate  float64 `json:"max_unmatched_rate"`
+	MaxUnscorableRate float64 `json:"max_unscorable_rate"`
 }
 
 // ScoringPlan is everything fixed before scoring: the reference set it is for,
 // the nominal coverage, the strata and the bounds.
 type ScoringPlan struct {
-	ReferenceSetID  string  `json:"reference_set_id"`
-	NominalCoverage float64 `json:"nominal_coverage"`
+	ReferenceSetID string `json:"reference_set_id"`
+	// ReferenceSetDigest is HeldOutSet.Digest of the set the plan was
+	// written for: its content, not only its name.
+	ReferenceSetDigest string  `json:"reference_set_digest"`
+	NominalCoverage    float64 `json:"nominal_coverage"`
 	// RangeEdgesM split range into [0, e0), [e0, e1), ..., [en, inf).
 	RangeEdgesM []float64 `json:"range_edges_m"`
 	// AspectEdgesRad split aspect into [0, e0), ..., [en, pi].
@@ -145,8 +214,8 @@ type ScoringPlan struct {
 // Validate requires an identity, a coverage and bounds in range, and edges
 // that strictly ascend inside their domain.
 func (p ScoringPlan) Validate() error {
-	if p.ReferenceSetID == "" {
-		return fmt.Errorf("scoring plan requires the reference set it was written for")
+	if p.ReferenceSetID == "" || p.ReferenceSetDigest == "" {
+		return fmt.Errorf("scoring plan requires the reference set it was written for, by id and content digest")
 	}
 	if !(p.NominalCoverage > 0 && p.NominalCoverage < 1) {
 		return fmt.Errorf("scoring plan nominal coverage must be in (0, 1)")
@@ -176,29 +245,54 @@ func (p ScoringPlan) Validate() error {
 	if !(b.MaxSuppressionRate >= 0 && b.MaxSuppressionRate <= 1) || b.MinCasesPerStratum < 1 {
 		return fmt.Errorf("scoring plan needs a suppression rate in [0, 1] and at least one case per stratum")
 	}
+	if b.MinEncountersPerStratum < 1 {
+		return fmt.Errorf("scoring plan needs at least one encounter per stratum")
+	}
+	if !(b.MaxUnmatchedRate >= 0 && b.MaxUnmatchedRate <= 1) || !(b.MaxUnscorableRate >= 0 && b.MaxUnscorableRate <= 1) {
+		return fmt.Errorf("scoring plan unmatched and unscorable rates must be in [0, 1]")
+	}
 	return nil
 }
 
-// Hash is the plan's identity: the first 16 hex digits of the SHA-256 of its
-// JSON encoding. Pin it before scoring.
+// Hash is the plan's identity under this method: the first 16 hex digits of
+// the SHA-256 of the JSON encoding of the method id and the plan, so a plan
+// pinned for one method version is not accepted by another. It is empty for
+// a plan that cannot be encoded (a non-finite number). Pin it before
+// scoring.
 func (p ScoringPlan) Hash() string {
-	raw, _ := json.Marshal(p) // numbers and strings always encode
+	raw, err := json.Marshal(struct {
+		MethodID string      `json:"method_id"`
+		Plan     ScoringPlan `json:"plan"`
+	}{HeldOutScoringMethodID, p})
+	if err != nil {
+		return ""
+	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// EstimatedPair is one evaluated pair instant to score: the path it was
-// measured along, the evaluation, and each party's support at the instant.
+// EstimatedPair is one pair instant to score: the path it was measured
+// along, the evaluation, and each party's support at the instant.
 type EstimatedPair struct {
 	Path            PathFrame      `json:"-"`
 	Point           FollowingPoint `json:"point"`
 	LeaderSupport   SupportState   `json:"leader_support"`
 	FollowerSupport SupportState   `json:"follower_support"`
+	// NotEvaluated, when set, is why the instant was never evaluated: its
+	// leader choice was suppressed (an ambiguous leader, say), or the leader
+	// had no row then. Point then carries only the two parties and the
+	// instant, and every case the instant would have yielded is suppressed
+	// under this reason in its stratum. Dropping the instant instead would
+	// leave its references unmatched in the pooled share, which is cheaper
+	// than a suppression and would let a stratum escape its bound.
+	NotEvaluated SuppressionReason `json:"not_evaluated,omitempty"`
 }
 
-// EstimatedPairsFromAnalysis collects every evaluated instant of an analysis,
-// in encounter and instant order, with each party's support read from the
-// trajectories the analysis was run on.
+// EstimatedPairsFromAnalysis collects every instant of an analysis's
+// encounters, in encounter and instant order. An evaluated instant carries
+// each party's support read from the trajectories the analysis was run on;
+// one never evaluated carries the support its encounter recorded and why it
+// was not evaluated.
 func EstimatedPairsFromAnalysis(a FollowingAnalysis, trajectories []Trajectory) ([]EstimatedPair, error) {
 	byID := make(map[string]Trajectory, len(trajectories))
 	for _, t := range trajectories {
@@ -212,6 +306,19 @@ func EstimatedPairsFromAnalysis(a FollowingAnalysis, trajectories []Trajectory) 
 		}
 		for _, inst := range e.Instants {
 			if inst.Point == nil {
+				reason := inst.Reason
+				if reason == ReasonUnspecified {
+					reason = ReasonNotObserved
+				}
+				out = append(out, EstimatedPair{
+					Path: res.Path,
+					Point: FollowingPoint{
+						LeaderTrackID: e.LeaderTrackID, FollowerTrackID: e.FollowerTrackID,
+						CaptureUnixNanos: inst.CaptureUnixNanos,
+					},
+					LeaderSupport: inst.LeaderSupport, FollowerSupport: inst.FollowerSupport,
+					NotEvaluated: reason,
+				})
 				continue
 			}
 			ls, lok := byID[e.LeaderTrackID].SampleAt(inst.CaptureUnixNanos)
@@ -260,7 +367,10 @@ type ReasonCount struct {
 // StratumScore is one stratum's scores and verdict.
 type StratumScore struct {
 	Stratum
-	Cases           int           `json:"cases"`
+	Cases int `json:"cases"`
+	// Encounters is the number of distinct leader-follower pairs the scored
+	// cases come from.
+	Encounters      int           `json:"encounters"`
 	BiasM           float64       `json:"bias_m"`
 	RMSErrorM       float64       `json:"rms_error_m"`
 	P95AbsErrorM    float64       `json:"p95_abs_error_m"`
@@ -274,17 +384,24 @@ type StratumScore struct {
 
 // HeldOutReport is the scored result.
 type HeldOutReport struct {
-	MethodID       string `json:"method_id"`
-	ReferenceSetID string `json:"reference_set_id"`
-	PlanHash       string `json:"plan_hash"`
+	MethodID           string `json:"method_id"`
+	ReferenceSetID     string `json:"reference_set_id"`
+	ReferenceSetDigest string `json:"reference_set_digest"`
+	PlanHash           string `json:"plan_hash"`
 	// Z is the interval half-width in sigmas for the nominal coverage.
 	Z      float64        `json:"z"`
 	Strata []StratumScore `json:"strata"`
 	// UnmatchedReferences had no evaluated instant; UnscorableReferences
 	// matched one but their footprint left the path.
-	UnmatchedReferences  int    `json:"unmatched_references"`
-	UnscorableReferences int    `json:"unscorable_references"`
-	Verdict              string `json:"verdict"`
+	UnmatchedReferences  int `json:"unmatched_references"`
+	UnscorableReferences int `json:"unscorable_references"`
+	// UnmatchedRate and UnscorableRate are those counts over the reference
+	// set's size.
+	UnmatchedRate  float64 `json:"unmatched_rate"`
+	UnscorableRate float64 `json:"unscorable_rate"`
+	Verdict        string  `json:"verdict"`
+	// Failed names the report-level bounds a failing report broke.
+	Failed []string `json:"failed,omitempty"`
 }
 
 type referenceKey struct {
@@ -296,6 +413,8 @@ type stratumAccumulator struct {
 	errs       []float64
 	covered    int
 	suppressed map[SuppressionReason]int
+	// pairs are the leader-follower pairs the scored cases came from.
+	pairs map[[2]string]bool
 }
 
 // ScoreHeldOut scores estimated pair instants against a held-out reference
@@ -304,11 +423,16 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 	if err := plan.Validate(); err != nil {
 		return HeldOutReport{}, err
 	}
-	if h := plan.Hash(); h != pinnedPlanHash {
+	if h := plan.Hash(); h == "" || h != pinnedPlanHash {
 		return HeldOutReport{}, fmt.Errorf("scoring plan hash %s is not the pinned %s: bounds are fixed before scoring", h, pinnedPlanHash)
 	}
 	if set.ReferenceSetID != plan.ReferenceSetID {
 		return HeldOutReport{}, fmt.Errorf("plan was pinned for reference set %q, not %q", plan.ReferenceSetID, set.ReferenceSetID)
+	}
+	// The set is validated before its digest is compared, so a malformed set
+	// is refused for what is wrong with it rather than as a digest mismatch.
+	if len(set.References) == 0 {
+		return HeldOutReport{}, fmt.Errorf("reference set %q is empty", set.ReferenceSetID)
 	}
 	if !finite(set.SensorX) || !finite(set.SensorY) {
 		return HeldOutReport{}, fmt.Errorf("reference set sensor position must be finite")
@@ -324,16 +448,22 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		}
 		refs[k] = r
 	}
+	digest := set.Digest()
+	if digest == "" || digest != plan.ReferenceSetDigest {
+		return HeldOutReport{}, fmt.Errorf("reference set %q has content digest %s, not the %s the plan was pinned for",
+			set.ReferenceSetID, digest, plan.ReferenceSetDigest)
+	}
 
 	report := HeldOutReport{
-		MethodID: HeldOutScoringMethodID, ReferenceSetID: set.ReferenceSetID, PlanHash: pinnedPlanHash,
-		Z: math.Sqrt2 * math.Erfinv(plan.NominalCoverage),
+		MethodID: HeldOutScoringMethodID, ReferenceSetID: set.ReferenceSetID, ReferenceSetDigest: digest,
+		PlanHash: pinnedPlanHash,
+		Z:        math.Sqrt2 * math.Erfinv(plan.NominalCoverage),
 	}
 	acc := map[Stratum]*stratumAccumulator{}
 	add := func(s Stratum) *stratumAccumulator {
 		a := acc[s]
 		if a == nil {
-			a = &stratumAccumulator{suppressed: map[SuppressionReason]int{}}
+			a = &stratumAccumulator{suppressed: map[SuppressionReason]int{}, pairs: map[[2]string]bool{}}
 			acc[s] = a
 		}
 		return a
@@ -352,12 +482,27 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		}
 	}
 
+	seen := map[[3]string]bool{}
+	suppressedOnce := map[[3]string]bool{}
 	for _, ep := range estimates {
 		pt := ep.Point
+		if err := validateEstimate(pt); err != nil {
+			return HeldOutReport{}, err
+		}
+		key := [3]string{pt.LeaderTrackID, pt.FollowerTrackID, fmt.Sprint(pt.CaptureUnixNanos)}
+		if seen[key] {
+			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d appears twice", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+		seen[key] = true
 		if ep.Path == nil {
 			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d has no path", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
 		}
-		if g := pt.SpatialGap.Provenance.Version.GeometryID; g != ep.Path.GeometryID() {
+		notEvaluated := ep.NotEvaluated != ReasonUnspecified
+		if notEvaluated && (pt.Leader != nil || pt.Follower != nil || pt.Gap != nil) {
+			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d is marked not evaluated but carries an evaluation",
+				pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+		if g := pt.SpatialGap.Provenance.Version.GeometryID; !notEvaluated && g != ep.Path.GeometryID() {
 			return HeldOutReport{}, fmt.Errorf("estimate was measured along %s, not the supplied %s", g, ep.Path.GeometryID())
 		}
 		if !ep.LeaderSupport.Valid() || !ep.FollowerSupport.Valid() {
@@ -367,7 +512,26 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		fk := referenceKey{pt.FollowerTrackID, pt.CaptureUnixNanos}
 		lr, lok := refs[lk]
 		fr, fok := refs[fk]
-		firstReason := firstPhysicalReason(pt.Reasons)
+		firstReason, gapReason := firstPhysicalReason(pt.Reasons), firstGapReason(pt.Reasons)
+		if notEvaluated {
+			firstReason, gapReason = ep.NotEvaluated, ep.NotEvaluated
+		}
+		pair := [2]string{pt.LeaderTrackID, pt.FollowerTrackID}
+		// once admits a suppressed case of an unevaluated instant the first
+		// time it is met: with competing leaders, each competitor's instant
+		// would otherwise suppress the follower's leading endpoint and its
+		// gap again.
+		once := func(kind string, track string) bool {
+			if !notEvaluated {
+				return true
+			}
+			k := [3]string{kind, track, fmt.Sprint(pt.CaptureUnixNanos)}
+			if suppressedOnce[k] {
+				return false
+			}
+			suppressedOnce[k] = true
+			return true
+		}
 
 		var lTrue, fTrue, lTangent, fTangent float64
 		var lScorable, fScorable bool
@@ -383,7 +547,10 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 				unscorable[fk] = true
 			}
 		}
-		endpoint := func(r ReferenceBody, normal float64, support SupportState, body *BodyOnPath, est func(*BodyOnPath) Endpoint, truth float64) {
+		endpoint := func(ext PathExtremity, r ReferenceBody, normal float64, support SupportState, body *BodyOnPath, est func(*BodyOnPath) Endpoint, truth float64) {
+			if body == nil && !once(fmt.Sprintf("%s/%d", CaseKindEndpoint, ext), r.TrackID) {
+				return
+			}
 			a := add(strat(CaseKindEndpoint, r, normal, support))
 			if body == nil {
 				a.suppressed[firstReason]++
@@ -392,30 +559,35 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 			e := est(body)
 			err := e.ArcM - truth
 			a.errs = append(a.errs, err)
+			a.pairs[pair] = true
 			if math.Abs(err) <= report.Z*e.SigmaM {
 				a.covered++
 			}
 		}
 		if lScorable {
-			endpoint(lr, lTangent+math.Pi, ep.LeaderSupport, pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }, lTrue)
+			endpoint(ExtremityTrailing, lr, lTangent+math.Pi, ep.LeaderSupport, pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }, lTrue)
 		}
 		if fScorable {
-			endpoint(fr, fTangent, ep.FollowerSupport, pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }, fTrue)
+			endpoint(ExtremityLeading, fr, fTangent, ep.FollowerSupport, pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }, fTrue)
 		}
 		if lScorable && fScorable {
 			support := ep.FollowerSupport
 			if support == SupportObserved {
 				support = ep.LeaderSupport
 			}
+			if !once(CaseKindGap, pt.FollowerTrackID) {
+				continue
+			}
 			a := add(strat(CaseKindGap, fr, fTangent, support))
 			if spatialGapSupported(&pt) {
 				err := pt.Gap.ValueM - (lTrue - fTrue)
 				a.errs = append(a.errs, err)
+				a.pairs[pair] = true
 				if math.Abs(err) <= report.Z*pt.Gap.SigmaM {
 					a.covered++
 				}
 			} else {
-				a.suppressed[firstGapReason(pt.Reasons)]++
+				a.suppressed[gapReason]++
 			}
 		}
 	}
@@ -425,6 +597,14 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		}
 	}
 	report.UnscorableReferences = len(unscorable)
+	report.UnmatchedRate = float64(report.UnmatchedReferences) / float64(len(refs))
+	report.UnscorableRate = float64(report.UnscorableReferences) / float64(len(refs))
+	if report.UnmatchedRate > plan.Bounds.MaxUnmatchedRate {
+		report.Failed = append(report.Failed, "unmatched_rate")
+	}
+	if report.UnscorableRate > plan.Bounds.MaxUnscorableRate {
+		report.Failed = append(report.Failed, "unscorable_rate")
+	}
 
 	strata := make([]Stratum, 0, len(acc))
 	for s := range acc {
@@ -439,7 +619,7 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		report.Strata = append(report.Strata, score)
 	}
 	switch {
-	case anyFail:
+	case anyFail || len(report.Failed) > 0:
 		report.Verdict = VerdictFail
 	case anyInsufficient:
 		report.Verdict = VerdictInsufficientCases
@@ -447,6 +627,30 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		report.Verdict = VerdictPass
 	}
 	return report, nil
+}
+
+// validateEstimate refuses a non-finite endpoint, or a non-finite value or
+// sigma on a gap that would be scored: sorting would put a NaN first and
+// shift the 95th percentile, and coverage would count it uncovered.
+func validateEstimate(pt FollowingPoint) error {
+	for _, e := range []struct {
+		body *BodyOnPath
+		end  func(*BodyOnPath) Endpoint
+	}{
+		{pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }},
+		{pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }},
+	} {
+		if e.body == nil {
+			continue
+		}
+		if ep := e.end(e.body); !finite(ep.ArcM) || !finite(ep.SigmaM) || ep.SigmaM < 0 {
+			return fmt.Errorf("estimate %s -> %s at %d has a non-finite endpoint", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+	}
+	if spatialGapSupported(&pt) && (!finite(pt.Gap.ValueM) || !finite(pt.Gap.SigmaM) || pt.Gap.SigmaM < 0) {
+		return fmt.Errorf("estimate %s -> %s at %d has a non-finite gap", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+	}
+	return nil
 }
 
 // firstGapReason is why a gap was not scored: its first reason that is
@@ -515,7 +719,7 @@ func binLabel(v float64, edges []float64, top string) string {
 }
 
 func scoreStratum(s Stratum, a *stratumAccumulator, b AcceptanceBounds) StratumScore {
-	score := StratumScore{Stratum: s, Cases: len(a.errs)}
+	score := StratumScore{Stratum: s, Cases: len(a.errs), Encounters: len(a.pairs)}
 	suppressed := 0
 	for _, r := range SuppressionReasons() {
 		if n := a.suppressed[r]; n > 0 {
@@ -538,29 +742,33 @@ func scoreStratum(s Stratum, a *stratumAccumulator, b AcceptanceBounds) StratumS
 		score.P95AbsErrorM = abs[min(max(int(math.Ceil(0.95*n))-1, 0), score.Cases-1)]
 		score.Coverage = float64(a.covered) / n
 	}
-	if score.Cases < b.MinCasesPerStratum {
-		score.Verdict = VerdictInsufficientCases
-		return score
-	}
 	maxErr := b.MaxEndpointP95AbsErrorM
 	if s.Kind == CaseKindGap {
 		maxErr = b.MaxGapP95AbsErrorM
 	}
-	if score.P95AbsErrorM > maxErr {
-		score.Failed = append(score.Failed, "p95_abs_error")
-	}
-	if score.Coverage < b.MinCoverage {
-		score.Failed = append(score.Failed, "coverage_low")
-	}
-	if score.Coverage > b.MaxCoverage {
-		score.Failed = append(score.Failed, "coverage_high")
+	if score.Cases > 0 { // a stratum of suppressions alone has no error or coverage
+		if score.P95AbsErrorM > maxErr {
+			score.Failed = append(score.Failed, "p95_abs_error")
+		}
+		if score.Coverage < b.MinCoverage {
+			score.Failed = append(score.Failed, "coverage_low")
+		}
+		if score.Coverage > b.MaxCoverage {
+			score.Failed = append(score.Failed, "coverage_high")
+		}
 	}
 	if score.SuppressionRate > b.MaxSuppressionRate {
 		score.Failed = append(score.Failed, "suppression_rate")
 	}
-	score.Verdict = VerdictPass
-	if len(score.Failed) > 0 {
+	switch {
+	case score.Cases < b.MinCasesPerStratum || score.Encounters < b.MinEncountersPerStratum:
+		// Too little evidence to pass or fail; Failed still shows what the
+		// point estimates break.
+		score.Verdict = VerdictInsufficientCases
+	case len(score.Failed) > 0:
 		score.Verdict = VerdictFail
+	default:
+		score.Verdict = VerdictPass
 	}
 	return score
 }

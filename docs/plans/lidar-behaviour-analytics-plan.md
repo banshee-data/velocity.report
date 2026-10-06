@@ -1287,9 +1287,16 @@ encounters; the report's provisional slice and field promotion are not.
 
 ## 11. Evaluation datasets
 
-The implemented `ScoreHeldOut` harness pins bounds and a reference-set name, but does not itself
-freeze reference contents, enforce disjoint splits or gate unmatched references and missing strata.
-The [following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
+The implemented `ScoreHeldOut` harness (`following_heldout_scoring_v2`) pins its bounds and its
+reference set by name and content digest, fails a report whose unmatched or unscorable share
+exceeds its bound, and counts a stratum's evidence in distinct encounters as well as frames. It
+does not enforce disjoint splits, expected strata or reference uncertainty, and it cannot check
+leader choice. Its bounds are tested on point estimates, and its unmatched share is pooled and is
+not a miss rate; the
+[R6 status](../lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate)
+gives the review's numbers and the fixes, which need an interval-based verdict and leader truth.
+The
+[following promotion work](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger) must add
 those checks and independent leader/no-leader truth. Mask centres can support detection/identity
 evaluation; they do not certify the physical ends of partially visible bodies.
 
