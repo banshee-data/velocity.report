@@ -1,4 +1,7 @@
 # pnpm 11 no longer reads the "pnpm" field from package.json.
 overrides:
   dompurify: ^3.4.11
+  js-yaml@<3.15.2: ^3.15.2
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
+  markdown-it@<14.3.1: ^14.3.1
   uuid: ^11.1.1

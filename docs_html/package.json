@@ -22,6 +22,6 @@
     "markdown-it": "^15.0.1",
     "markdown-it-anchor": "^10.0.0",
     "markdown-it-texmath": "^1.0.0",
-    "mermaid": "12.0.0"
+    "mermaid": "12.1.0"
   }
 }
