@@ -1072,8 +1072,8 @@ install-web:
 		fi
 
 clean-web:
-	@echo "Cleaning web build artifacts..."
-	@rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
+	@echo "Removing static/, the copy of the web build that older builds left behind..."
+	@rm -rf static
 
 clean-docs-offline:
 	@echo "Cleaning embedded offline docs build artifacts..."
