@@ -1,6 +1,9 @@
 package l8behaviour
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"math"
 	"math/rand"
 	"reflect"
@@ -486,6 +489,86 @@ func TestHeldOutPlanRequiresTheV2Bounds(t *testing.T) {
 		mutate(&p)
 		if err := p.Validate(); err == nil {
 			t.Errorf("%s: plan accepted", name)
+		}
+	}
+}
+
+// Estimates are validated: a non-finite endpoint or gap would sort first and
+// shift the 95th percentile, and the same pair at the same instant twice
+// would be counted twice.
+func TestHeldOutRejectsNonFiniteAndDuplicateEstimates(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	nanArc := append([]EstimatedPair(nil), pairs...)
+	leader := *nanArc[0].Point.Leader
+	leader.Trailing.ArcM = math.NaN()
+	nanArc[0].Point.Leader = &leader
+	nanGap := append([]EstimatedPair(nil), pairs...)
+	gap := *nanGap[0].Point.Gap
+	gap.SigmaM = math.Inf(1)
+	nanGap[0].Point.Gap = &gap
+	twice := append(append([]EstimatedPair(nil), pairs...), pairs[0])
+	for name, est := range map[string][]EstimatedPair{"NaN endpoint": nanArc, "infinite gap sigma": nanGap, "duplicate": twice} {
+		if _, err := ScoreHeldOut(plan.Hash(), plan, set, est); err == nil {
+			t.Errorf("estimates %s: want an error", name)
+		}
+	}
+}
+
+// A malformed reference is refused for what is wrong with it, before its
+// digest is compared: a NaN cannot be encoded, so its digest is empty.
+func TestHeldOutValidatesReferencesBeforeTheDigest(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+
+	bad := set
+	bad.References = append([]ReferenceBody(nil), set.References...)
+	bad.References[3].CentreX = math.NaN()
+	if bad.Digest() != "" {
+		t.Error("a set holding a NaN has a digest")
+	}
+	_, err := ScoreHeldOut(plan.Hash(), plan, bad, pairs)
+	if err == nil || !strings.Contains(err.Error(), "pose must be finite") {
+		t.Fatalf("NaN reference: %v; want it refused as a non-finite pose", err)
+	}
+}
+
+// The plan hash covers the method id, so a plan pinned for one version of
+// the method is not accepted by another.
+func TestHeldOutPlanHashCoversTheMethod(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	plan := heldOutPlan(HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)})
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(raw)
+	if planOnly := hex.EncodeToString(sum[:])[:16]; plan.Hash() == planOnly {
+		t.Fatal("plan hash is the plan alone, without the method id")
+	}
+}
+
+// A stratum with too few cases is insufficient, not failed, but still names
+// the bounds its point estimates break.
+func TestHeldOutInsufficientStrataStillNameBrokenBounds(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MinCasesPerStratum = 31                       // every stratum has fewer
+	plan.Bounds.MinCoverage, plan.Bounds.MaxCoverage = 0, 0.5 // exact estimates are always covered
+	r := score(t, plan, set, pairs)
+	if r.Verdict != VerdictInsufficientCases {
+		t.Fatalf("verdict %s, want insufficient", r.Verdict)
+	}
+	for _, s := range r.Strata {
+		if s.Verdict != VerdictInsufficientCases || !reflect.DeepEqual(s.Failed, []string{"coverage_high"}) {
+			t.Errorf("stratum %+v: verdict %s, failed %v; want insufficient naming coverage_high", s.Stratum, s.Verdict, s.Failed)
 		}
 	}
 }

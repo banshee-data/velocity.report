@@ -48,17 +48,26 @@ package l8behaviour
 //   - Verdict. A stratum with fewer than MinCasesPerStratum scored cases, or
 //     whose cases come from fewer than MinEncountersPerStratum distinct
 //     leader-follower pairs, is insufficient_cases: a thousand frames of one
-//     pair are one encounter's evidence, not a thousand. Otherwise it fails
+//     pair are one encounter's evidence, not a thousand. The floor only
+//     refuses too few pairs; it does not reweight the cases, so one long
+//     encounter still dominates a stratum's statistics. Otherwise it fails
 //     when its 95th percentile error exceeds the bound for its kind, its
 //     coverage falls outside the accepted range (too low is overconfidence;
 //     too high is an interval too wide to inform), or its suppression rate
-//     exceeds the bound. The report fails if any stratum fails, or if the
-//     share of references no estimate matched, or the share matched but
-//     unscorable, exceeds its bound: good scores on the references that were
-//     reached say nothing about the ones that were not. Otherwise it is
-//     insufficient if any stratum is, and passes.
+//     exceeds the bound. An insufficient stratum still lists the bounds its
+//     point estimates break, so a clear failure is visible. The report fails
+//     if any stratum fails, or if the share of references no estimate
+//     matched, or the share matched but unscorable, exceeds its bound: good
+//     scores on the references that were reached say nothing about the ones
+//     that were not. Those two shares are pooled over the whole set, not
+//     per stratum, and the unmatched share is not a miss rate: its
+//     denominator includes bodies that were never in a pair. Otherwise the
+//     report is insufficient if any stratum is, and passes.
+//   - Estimates. A non-finite endpoint or gap, or the same pair at the same
+//     instant twice, is refused.
 //   - Pinning. The plan (bins, nominal coverage, bounds, and the reference
-//     set it was written for, by id and by content digest) is hashed, and
+//     set it was written for, by id and by content digest) is hashed with
+//     this method id, and
 //     scoring refuses a plan whose hash is not the one pinned beforehand, or
 //     a reference set whose id or content is not the one it was written for.
 //     Commit the plan and its hash before the references are scored; the
@@ -70,6 +79,14 @@ package l8behaviour
 // docs/lidar/operations/0.5.2-sprint-review.md). Wrong-leader checks need
 // references that name the true leader at every instant, which the
 // reference format does not yet carry.
+//
+// Known limits of version 2, from its statistical review (R6 status in the
+// sprint review): every bound is tested against a point estimate, with no
+// interval; an instant the estimator never evaluates (an ambiguous leader,
+// say) leaves its references unmatched in the pooled share instead of
+// suppressed in their stratum, which is cheaper than a suppression; and an
+// encounter is a pair of estimated track ids, so track fragmentation
+// inflates the count and one body's error counts once per pair it is in.
 
 import (
 	"crypto/sha256"
@@ -134,7 +151,11 @@ type HeldOutSet struct {
 
 // Digest is the reference set's content identity: the SHA-256, in hex, of
 // its JSON encoding with the references in track and capture order, so the
-// order they were listed in does not change it.
+// order they were listed in does not change it. It is empty for a set that
+// cannot be encoded (a non-finite number), which no plan can be pinned to.
+// Digest the set as it is stored and loaded: references recomputed in
+// process can differ in the last bit between arm64, which fuses
+// multiply-adds, and amd64.
 func (set HeldOutSet) Digest() string {
 	sorted := set
 	sorted.References = append([]ReferenceBody(nil), set.References...)
@@ -145,7 +166,10 @@ func (set HeldOutSet) Digest() string {
 		}
 		return a.CaptureUnixNanos < b.CaptureUnixNanos
 	})
-	raw, _ := json.Marshal(sorted) // numbers and strings always encode
+	raw, err := json.Marshal(sorted)
+	if err != nil {
+		return ""
+	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
@@ -228,10 +252,19 @@ func (p ScoringPlan) Validate() error {
 	return nil
 }
 
-// Hash is the plan's identity: the first 16 hex digits of the SHA-256 of its
-// JSON encoding. Pin it before scoring.
+// Hash is the plan's identity under this method: the first 16 hex digits of
+// the SHA-256 of the JSON encoding of the method id and the plan, so a plan
+// pinned for one method version is not accepted by another. It is empty for
+// a plan that cannot be encoded (a non-finite number). Pin it before
+// scoring.
 func (p ScoringPlan) Hash() string {
-	raw, _ := json.Marshal(p) // numbers and strings always encode
+	raw, err := json.Marshal(struct {
+		MethodID string      `json:"method_id"`
+		Plan     ScoringPlan `json:"plan"`
+	}{HeldOutScoringMethodID, p})
+	if err != nil {
+		return ""
+	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])[:16]
 }
@@ -365,17 +398,14 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 	if err := plan.Validate(); err != nil {
 		return HeldOutReport{}, err
 	}
-	if h := plan.Hash(); h != pinnedPlanHash {
+	if h := plan.Hash(); h == "" || h != pinnedPlanHash {
 		return HeldOutReport{}, fmt.Errorf("scoring plan hash %s is not the pinned %s: bounds are fixed before scoring", h, pinnedPlanHash)
 	}
 	if set.ReferenceSetID != plan.ReferenceSetID {
 		return HeldOutReport{}, fmt.Errorf("plan was pinned for reference set %q, not %q", plan.ReferenceSetID, set.ReferenceSetID)
 	}
-	digest := set.Digest()
-	if digest != plan.ReferenceSetDigest {
-		return HeldOutReport{}, fmt.Errorf("reference set %q has content digest %s, not the %s the plan was pinned for",
-			set.ReferenceSetID, digest, plan.ReferenceSetDigest)
-	}
+	// The set is validated before its digest is compared, so a malformed set
+	// is refused for what is wrong with it rather than as a digest mismatch.
 	if len(set.References) == 0 {
 		return HeldOutReport{}, fmt.Errorf("reference set %q is empty", set.ReferenceSetID)
 	}
@@ -392,6 +422,11 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 			return HeldOutReport{}, fmt.Errorf("reference %s at %d appears twice", r.TrackID, r.CaptureUnixNanos)
 		}
 		refs[k] = r
+	}
+	digest := set.Digest()
+	if digest == "" || digest != plan.ReferenceSetDigest {
+		return HeldOutReport{}, fmt.Errorf("reference set %q has content digest %s, not the %s the plan was pinned for",
+			set.ReferenceSetID, digest, plan.ReferenceSetDigest)
 	}
 
 	report := HeldOutReport{
@@ -422,8 +457,17 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 		}
 	}
 
+	seen := map[[3]string]bool{}
 	for _, ep := range estimates {
 		pt := ep.Point
+		if err := validateEstimate(pt); err != nil {
+			return HeldOutReport{}, err
+		}
+		key := [3]string{pt.LeaderTrackID, pt.FollowerTrackID, fmt.Sprint(pt.CaptureUnixNanos)}
+		if seen[key] {
+			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d appears twice", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+		seen[key] = true
 		if ep.Path == nil {
 			return HeldOutReport{}, fmt.Errorf("estimate %s -> %s at %d has no path", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
 		}
@@ -530,6 +574,30 @@ func ScoreHeldOut(pinnedPlanHash string, plan ScoringPlan, set HeldOutSet, estim
 	return report, nil
 }
 
+// validateEstimate refuses a non-finite endpoint, or a non-finite value or
+// sigma on a gap that would be scored: sorting would put a NaN first and
+// shift the 95th percentile, and coverage would count it uncovered.
+func validateEstimate(pt FollowingPoint) error {
+	for _, e := range []struct {
+		body *BodyOnPath
+		end  func(*BodyOnPath) Endpoint
+	}{
+		{pt.Leader, func(b *BodyOnPath) Endpoint { return b.Trailing }},
+		{pt.Follower, func(b *BodyOnPath) Endpoint { return b.Leading }},
+	} {
+		if e.body == nil {
+			continue
+		}
+		if ep := e.end(e.body); !finite(ep.ArcM) || !finite(ep.SigmaM) || ep.SigmaM < 0 {
+			return fmt.Errorf("estimate %s -> %s at %d has a non-finite endpoint", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+		}
+	}
+	if spatialGapSupported(&pt) && (!finite(pt.Gap.ValueM) || !finite(pt.Gap.SigmaM) || pt.Gap.SigmaM < 0) {
+		return fmt.Errorf("estimate %s -> %s at %d has a non-finite gap", pt.LeaderTrackID, pt.FollowerTrackID, pt.CaptureUnixNanos)
+	}
+	return nil
+}
+
 // firstGapReason is why a gap was not scored: its first reason that is
 // neither publication stage nor the speed floor, which concerns only the time
 // gap.
@@ -619,29 +687,33 @@ func scoreStratum(s Stratum, a *stratumAccumulator, b AcceptanceBounds) StratumS
 		score.P95AbsErrorM = abs[min(max(int(math.Ceil(0.95*n))-1, 0), score.Cases-1)]
 		score.Coverage = float64(a.covered) / n
 	}
-	if score.Cases < b.MinCasesPerStratum || score.Encounters < b.MinEncountersPerStratum {
-		score.Verdict = VerdictInsufficientCases
-		return score
-	}
 	maxErr := b.MaxEndpointP95AbsErrorM
 	if s.Kind == CaseKindGap {
 		maxErr = b.MaxGapP95AbsErrorM
 	}
-	if score.P95AbsErrorM > maxErr {
-		score.Failed = append(score.Failed, "p95_abs_error")
-	}
-	if score.Coverage < b.MinCoverage {
-		score.Failed = append(score.Failed, "coverage_low")
-	}
-	if score.Coverage > b.MaxCoverage {
-		score.Failed = append(score.Failed, "coverage_high")
+	if score.Cases > 0 { // a stratum of suppressions alone has no error or coverage
+		if score.P95AbsErrorM > maxErr {
+			score.Failed = append(score.Failed, "p95_abs_error")
+		}
+		if score.Coverage < b.MinCoverage {
+			score.Failed = append(score.Failed, "coverage_low")
+		}
+		if score.Coverage > b.MaxCoverage {
+			score.Failed = append(score.Failed, "coverage_high")
+		}
 	}
 	if score.SuppressionRate > b.MaxSuppressionRate {
 		score.Failed = append(score.Failed, "suppression_rate")
 	}
-	score.Verdict = VerdictPass
-	if len(score.Failed) > 0 {
+	switch {
+	case score.Cases < b.MinCasesPerStratum || score.Encounters < b.MinEncountersPerStratum:
+		// Too little evidence to pass or fail; Failed still shows what the
+		// point estimates break.
+		score.Verdict = VerdictInsufficientCases
+	case len(score.Failed) > 0:
 		score.Verdict = VerdictFail
+	default:
+		score.Verdict = VerdictPass
 	}
 	return score
 }
