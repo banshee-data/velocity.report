@@ -10,7 +10,8 @@ export type SpeedLimitUnit = 'kph' | 'mph';
 /** Kilometres per mile. */
 export const KPH_PER_MPH = 1.609344;
 
-/** The largest limit the server accepts, in km/h. */
+/** The smallest and largest limits the server accepts, in km/h. */
+export const MIN_SPEED_LIMIT_KPH = 1;
 export const MAX_SPEED_LIMIT_KPH = 200;
 
 /** The longest jurisdiction the server accepts, in characters. */
@@ -59,9 +60,16 @@ export function speedLimitError(value: string, unit: SpeedLimitUnit): string | n
 	if (!Number.isFinite(posted) || posted <= 0) {
 		return 'Speed limit must be a positive number';
 	}
-	if (postedToKph(posted, unit) > MAX_SPEED_LIMIT_KPH) {
+	const kph = postedToKph(posted, unit);
+	if (kph < MIN_SPEED_LIMIT_KPH) {
 		return unit === 'mph'
-			? `Speed limit must be at most ${kphToPosted(MAX_SPEED_LIMIT_KPH, 'mph')} mph`
+			? `Speed limit must be at least ${Math.ceil((MIN_SPEED_LIMIT_KPH / KPH_PER_MPH) * 10) / 10} mph`
+			: `Speed limit must be at least ${MIN_SPEED_LIMIT_KPH} km/h`;
+	}
+	if (kph > MAX_SPEED_LIMIT_KPH) {
+		// Rounded down, so the limit the message states is one the server takes.
+		return unit === 'mph'
+			? `Speed limit must be at most ${Math.floor((MAX_SPEED_LIMIT_KPH / KPH_PER_MPH) * 10) / 10} mph`
 			: `Speed limit must be at most ${MAX_SPEED_LIMIT_KPH} km/h`;
 	}
 	return null;

@@ -3,6 +3,7 @@ import {
 	formatSpeedLimit,
 	kphToPosted,
 	MAX_SPEED_LIMIT_KPH,
+	MIN_SPEED_LIMIT_KPH,
 	postedToKph,
 	speedLimitError
 } from './speedLimit';
@@ -44,6 +45,16 @@ describe('speedLimit', () => {
 		expect(speedLimitError('-5', 'mph')).toMatch(/positive/);
 		expect(speedLimitError('fast', 'mph')).toMatch(/positive/);
 		expect(speedLimitError('201', 'kph')).toBe('Speed limit must be at most 200 km/h');
-		expect(speedLimitError('130', 'mph')).toBe('Speed limit must be at most 124.3 mph');
+		expect(speedLimitError('130', 'mph')).toBe('Speed limit must be at most 124.2 mph');
+	});
+
+	it('states limits the server accepts', () => {
+		// 124.3 mph is 200.04 km/h, over the limit; the message must not offer it.
+		expect(speedLimitError('124.2', 'mph')).toBeNull();
+		expect(speedLimitError('124.3', 'mph')).toBe('Speed limit must be at most 124.2 mph');
+		expect(speedLimitError('0.5', 'kph')).toBe('Speed limit must be at least 1 km/h');
+		expect(speedLimitError('0.5', 'mph')).toBe('Speed limit must be at least 0.7 mph');
+		expect(speedLimitError('0.7', 'mph')).toBeNull();
+		expect(speedLimitError(String(MIN_SPEED_LIMIT_KPH), 'kph')).toBeNull();
 	});
 });

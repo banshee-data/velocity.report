@@ -544,9 +544,7 @@
 									<div class="flex gap-2">
 										<input
 											id="period-speed-limit"
-											type="number"
-											min="0"
-											step="any"
+											type="text"
 											inputmode="decimal"
 											bind:value={periodForm.speed_limit}
 											aria-invalid={periodFormErrors.speed_limit ? 'true' : undefined}
