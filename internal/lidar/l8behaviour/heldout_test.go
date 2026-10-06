@@ -658,3 +658,100 @@ func TestHeldOutUnevaluatedInstantsCannotEscapeTheirStratum(t *testing.T) {
 		t.Error("an unevaluated instant with an evaluation: want an error")
 	}
 }
+
+// A plan that cannot be encoded (a non-finite number) has no hash, so no
+// pinned hash can match it.
+func TestHeldOutPlanHashIsEmptyWhenUnencodable(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	plan := heldOutPlan(set)
+	plan.NominalCoverage = math.NaN()
+	if h := plan.Hash(); h != "" {
+		t.Fatalf("hash %q of a plan holding a NaN, want empty", h)
+	}
+	if _, err := ScoreHeldOut("", plan, set, pairsOf(t, sc.Trajectories, sc.Params)); err == nil {
+		t.Error("an unencodable plan pinned by an empty hash: want an error")
+	}
+}
+
+// The share of matched references whose footprint left the path fails the
+// report past its bound, for a leader's trailing extreme as for a
+// follower's leading one.
+func TestHeldOutUnscorableBoundFailsTheReport(t *testing.T) {
+	sc := ScenarioOcclusion()
+	refs := referencesFrom(sc.Trajectories)
+	for i := range refs {
+		if refs[i].CaptureUnixNanos == fixtureAt(0) &&
+			(refs[i].TrackID == "trk_s_occlusion_follower" || refs[i].TrackID == "trk_s_occlusion_leader") {
+			refs[i].CentreX = 10 // before the path starts
+		}
+	}
+	set := HeldOutSet{ReferenceSetID: "fixture/occlusion_v1", References: refs}
+	plan := heldOutPlan(set)
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	if r := score(t, plan, set, pairs); r.UnscorableReferences != 2 || containsString(r.Failed, "unscorable_rate") {
+		t.Fatalf("unscorable %d, failed %v; want 2 within an admitting bound", r.UnscorableReferences, r.Failed)
+	}
+	plan.Bounds.MaxUnscorableRate = 0
+	r := score(t, plan, set, pairs)
+	if r.Verdict != VerdictFail || !containsString(r.Failed, "unscorable_rate") {
+		t.Fatalf("verdict %s, failed %v; want the unscorable bound to fail the report", r.Verdict, r.Failed)
+	}
+}
+
+// A 95th percentile past the bound for its kind fails the stratum.
+func TestHeldOutP95BoundFailsAStratum(t *testing.T) {
+	truth := ScenarioSteadyApproach()
+	estimate := ScenarioSteadyApproach()
+	for i := range estimate.Trajectories[1].Samples {
+		estimate.Trajectories[1].Samples[i].X += 0.3 // every leader rear 0.3 m long
+	}
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(truth.Trajectories)}
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxEndpointP95AbsErrorM = 0.2
+	r := score(t, plan, set, pairsOf(t, estimate.Trajectories, estimate.Params))
+	rear := stratumOf(t, r, Stratum{Kind: CaseKindEndpoint, Class: MotionRigidVehicle, Range: "[30,60)", Aspect: rearAspect, Support: SupportObserved})
+	if rear.Verdict != VerdictFail || !containsString(rear.Failed, "p95_abs_error") {
+		t.Fatalf("rear stratum %+v; want it failed on p95_abs_error", rear)
+	}
+}
+
+// Collecting estimates refuses an encounter whose path is missing, and an
+// unevaluated instant that recorded no reason is taken as not observed.
+func TestEstimatedPairsFromAnalysisEdges(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	a, err := AnalyseFollowing(sc.Trajectories, sc.Params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Encounters) == 0 || len(a.Encounters[0].Instants) == 0 {
+		t.Fatal("the scenario has no encounter")
+	}
+	noPaths := a
+	noPaths.Paths = nil
+	if _, err := EstimatedPairsFromAnalysis(noPaths, sc.Trajectories); err == nil {
+		t.Error("an encounter with no path: want an error")
+	}
+
+	unreasoned := a
+	unreasoned.Encounters = append([]Encounter(nil), a.Encounters...)
+	unreasoned.Encounters[0].Instants = append([]EncounterInstant(nil), a.Encounters[0].Instants...)
+	unreasoned.Encounters[0].Instants[0].Point = nil
+	unreasoned.Encounters[0].Instants[0].Reason = ReasonUnspecified
+	pairs, err := EstimatedPairsFromAnalysis(unreasoned, sc.Trajectories)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pairs[0].NotEvaluated != ReasonNotObserved {
+		t.Errorf("unevaluated instant with no reason marked %v, want %v", pairs[0].NotEvaluated, ReasonNotObserved)
+	}
+}
+
+func containsString(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
