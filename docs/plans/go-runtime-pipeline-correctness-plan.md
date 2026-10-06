@@ -62,7 +62,7 @@ Merge clock abstraction, performance harness, foundations fix-it, metrics regist
 | PCAP analysis default        | **Fixed (Phase 1).** `analysis_mode` parsing now preserves the true default when the field is omitted (JSON pointer, form presence check); `Client.StartPCAPReplayWithConfig` and the legacy `StartPCAPReplay` send it explicitly rather than relying on omission. | Critical | v0.5.2 hotfix before relying on replay/HINT output        |
 | Analysis replay throttling   | **Fixed (Phase 1).** A new `AnalysisModeActive` flag bypasses the wall-clock `MaxFrameRate` throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking rather than being recorded as empty frames.                    | Critical | v0.5.2, coordinated with clock abstraction                |
 | VRLOG load path validation   | **Fixed (Phase 2).** `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and acts on the canonical resolved path.                                                               | High     | v0.5.2 local replay safety                                |
-| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                                                                                  | High     | v0.5.8 data-contract cleanup                              |
+| Magnitude-only radar samples | **Fixed (Phase 3).** Magnitude-only rows are stored diagnostics, not transit inputs: transit derivation and gap detection read only rows with a speed, so such a row can no longer fail a window's scan.                                                           | High     | v0.5.8 data-contract cleanup                              |
 | LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal.                                                    | High     | v0.5.9 lifecycle follow-through after #547 response shape |
 
 ## Design Approach
@@ -142,7 +142,16 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 **Summary:** Align accepted raw radar payload shapes with transit worker expectations.
 
-**State:** Scheduled.
+**State:** Delivered. Magnitude-only rows are stored diagnostics only (step 2).
+A transit is a speed session: `radar_data_transits.transit_max_speed` is NOT
+NULL and rows join a transit by speed similarity, so a row without a speed
+has nothing to contribute. Before the fix, the worker's query admitted such
+rows and scanned `ABS(speed)` into a non-null `float64`, so one of them
+failed and rolled back its whole window, and gap detection counted its hour
+as a gap on every pass. No such row exists in the deployment database (4.99
+million `radar_data` rows, May to December 2025, all carry both values), so
+the fix changes no stored transit. Choosing step 3 later needs no data
+migration.
 
 **Steps:**
 
@@ -251,9 +260,10 @@ disconnect/reconnect.
 - [x] Phase 1: PCAP analysis default and semantic replay gate (`M`). `analysis_mode` is now parsed as an omission-preserving pointer (JSON) / presence check (form), so an omitted field keeps the true default instead of decoding to false; `Client.StartPCAPReplayWithConfig` and the legacy `StartPCAPReplay` (used by the standalone sweep tool) now send it explicitly rather than relying on omission. `AnalysisModeActive`, a new lock-free flag mirroring `PipelineState.AnalysisMode()`, bypasses the wall-clock frame-rate throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking instead of being recorded as empty frames.
 - [x] Phase 2: VRLOG symlink-safe validation (`S`). `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and loads/stores the canonical resolved path rather than the original string to avoid reopening the same gap after validation. Covered for both the direct `vrlog_path` path and the `run_id` database-lookup path.
 
+- [x] Phase 3: magnitude-only radar transit contract (`S`). Magnitude-only rows are stored diagnostics: the transit worker and `FindTransitGaps` read only rows with a speed. Regression tests put magnitude-only rows before, inside and after a vehicle (one louder than any speed row) and an hour of nothing else.
+
 ### Outstanding
 
-- [ ] Phase 3: magnitude-only radar transit contract (`S`)
 - [ ] Phase 4: LiDAR capability lifecycle wiring (`S`)
 
 ### Deferred

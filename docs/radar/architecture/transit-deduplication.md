@@ -22,6 +22,7 @@ This can lead to double-counting of transits in statistics and reports.
 - Each transit has a unique `transit_key` (SHA1 hash of start_time, threshold, model_version)
 - `model_version` field identifies which run created the transit (e.g., "hourly-cron", "rebuild-full")
 - Transits are linked to raw radar_data via `radar_transit_links` table
+- Only `radar_data` rows with a speed are transit inputs. Serial ingest also stores magnitude-only rows; they stay diagnostics, are never linked to a transit, and do not make an hour count as a transit gap
 
 **Current Upsert Logic:**
 
