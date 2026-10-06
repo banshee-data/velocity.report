@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const maxUnixTime = 32503680000.0 // 3000-01-01T00:00:00Z
@@ -18,10 +20,15 @@ const (
 	SpeedLimitUnitMph = "mph"
 )
 
-// maxSpeedLimitKph bounds a posted limit; the schema's CHECK uses the same
-// value. The highest posted road limits are about 160 km/h, so a larger value
-// is a unit mistake.
-const maxSpeedLimitKph = 200.0
+// minSpeedLimitKph and maxSpeedLimitKph bound a posted limit; the schema's
+// CHECK uses the same values. The highest posted road limits are about
+// 160 km/h, so a larger value is a unit mistake. The floor admits every real
+// posted limit and refuses a denormal or rounding artefact that would read
+// back as 0 km/h.
+const (
+	minSpeedLimitKph = 1.0
+	maxSpeedLimitKph = 200.0
+)
 
 // maxJurisdictionLength bounds the free-text jurisdiction; the schema's CHECK
 // uses the same value.
@@ -316,7 +323,11 @@ func validateSiteConfigPeriod(period *SiteConfigPeriod) error {
 		switch {
 		case jurisdiction == "":
 			period.Jurisdiction = nil
-		case len(jurisdiction) > maxJurisdictionLength:
+		case strings.IndexFunc(jurisdiction, unicode.IsControl) >= 0:
+			// A NUL would also end SQLite's LENGTH early and fail the CHECK.
+			return invalidPeriod("jurisdiction must not contain control characters")
+		case utf8.RuneCountInString(jurisdiction) > maxJurisdictionLength:
+			// Characters, as SQLite's LENGTH and the web form count them.
 			return invalidPeriod("jurisdiction must be at most %d characters", maxJurisdictionLength)
 		default:
 			period.Jurisdiction = &jurisdiction
@@ -325,8 +336,8 @@ func validateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	return nil
 }
 
-// validateSpeedLimit requires a limit and its unit together, and a limit that
-// is a positive number of km/h no larger than maxSpeedLimitKph.
+// validateSpeedLimit requires a limit and its unit together, and a limit
+// between minSpeedLimitKph and maxSpeedLimitKph km/h.
 func validateSpeedLimit(period *SiteConfigPeriod) error {
 	if period.SpeedLimitUnit != nil {
 		unit := strings.ToLower(strings.TrimSpace(*period.SpeedLimitUnit))
@@ -344,8 +355,8 @@ func validateSpeedLimit(period *SiteConfigPeriod) error {
 		return invalidPeriod("speed_limit_kph needs speed_limit_unit, the unit the limit is signed in")
 	}
 	limit := *period.SpeedLimitKph
-	if math.IsNaN(limit) || math.IsInf(limit, 0) || limit <= 0 || limit > maxSpeedLimitKph {
-		return invalidPeriod("speed_limit_kph must be greater than 0 and at most %g", maxSpeedLimitKph)
+	if math.IsNaN(limit) || math.IsInf(limit, 0) || limit < minSpeedLimitKph || limit > maxSpeedLimitKph {
+		return invalidPeriod("speed_limit_kph must be at least %g and at most %g", minSpeedLimitKph, maxSpeedLimitKph)
 	}
 	return nil
 }

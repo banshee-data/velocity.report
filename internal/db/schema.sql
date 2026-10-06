@@ -961,7 +961,7 @@
         , speed_limit_kph DOUBLE CHECK (
           speed_limit_kph IS NULL
        OR (
-          speed_limit_kph > 0
+          speed_limit_kph >= 1
       AND speed_limit_kph <= 200
           )
           )

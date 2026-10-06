@@ -76,6 +76,7 @@ func TestMigration059RefusesALimitWithoutItsUnit(t *testing.T) {
 		{"a unit with no limit", `speed_limit_unit = 'kph'`},
 		{"a unit the schema does not know", `speed_limit_kph = 30, speed_limit_unit = 'km/h'`},
 		{"a zero limit", `speed_limit_kph = 0, speed_limit_unit = 'kph'`},
+		{"a limit under 1 km/h", `speed_limit_kph = 0.5, speed_limit_unit = 'kph'`},
 		{"a negative limit", `speed_limit_kph = -30, speed_limit_unit = 'kph'`},
 		{"a limit above 200 km/h", `speed_limit_kph = 250, speed_limit_unit = 'kph'`},
 		{"a blank jurisdiction", `jurisdiction = '   '`},

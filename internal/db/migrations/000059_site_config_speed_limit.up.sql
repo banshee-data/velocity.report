@@ -6,7 +6,9 @@
 -- has an effective date range, and site_config_periods already carries exactly
 -- that pattern (behaviour analytics plan, Section 10.1).
 --
--- speed_limit_kph is the posted limit in km/h, the canonical unit.
+-- speed_limit_kph is the posted limit in km/h, the canonical unit, between
+-- 1 and 200: the floor admits every real posted limit and refuses a value
+-- that would read back as 0.
 -- speed_limit_unit is the unit the sign shows, kph or mph, so a 25 mph limit
 -- reads back as 25 mph rather than 40.2 km/h. It is set exactly when a limit
 -- is. jurisdiction names whose rule the limit is, as free text (an ISO 3166-2
@@ -21,7 +23,7 @@
       ADD COLUMN speed_limit_kph DOUBLE CHECK (
 speed_limit_kph IS NULL
        OR (
-          speed_limit_kph > 0
+          speed_limit_kph >= 1
       AND speed_limit_kph <= 200
           )
           );

@@ -118,12 +118,17 @@ func TestSiteConfigPeriodSpeedLimitValidation(t *testing.T) {
 		{"limit without unit", floatPtr(30), nil, nil, "needs speed_limit_unit"},
 		{"unit without limit", nil, strPtr("kph"), nil, "set without speed_limit_kph"},
 		{"unknown unit", floatPtr(30), strPtr("km/h"), nil, `must be "kph" or "mph"`},
-		{"zero limit", floatPtr(0), strPtr("kph"), nil, "greater than 0"},
-		{"negative limit", floatPtr(-30), strPtr("kph"), nil, "greater than 0"},
+		{"zero limit", floatPtr(0), strPtr("kph"), nil, "at least 1"},
+		{"negative limit", floatPtr(-30), strPtr("kph"), nil, "at least 1"},
+		{"denormal limit", floatPtr(5e-324), strPtr("kph"), nil, "at least 1"},
+		{"limit under 1 km/h", floatPtr(0.5), strPtr("kph"), nil, "at least 1"},
 		{"limit above 200", floatPtr(250), strPtr("kph"), nil, "at most 200"},
-		{"NaN limit", floatPtr(math.NaN()), strPtr("kph"), nil, "greater than 0"},
-		{"infinite limit", floatPtr(math.Inf(1)), strPtr("kph"), nil, "greater than 0"},
+		{"NaN limit", floatPtr(math.NaN()), strPtr("kph"), nil, "at least 1"},
+		{"infinite limit", floatPtr(math.Inf(1)), strPtr("kph"), nil, "at least 1"},
 		{"jurisdiction too long", nil, nil, strPtr(strings.Repeat("x", 101)), "at most 100 characters"},
+		{"jurisdiction too long in characters", nil, nil, strPtr(strings.Repeat("県", 101)), "at most 100 characters"},
+		{"NUL in jurisdiction", nil, nil, strPtr("\x00US"), "control characters"},
+		{"newline in jurisdiction", nil, nil, strPtr("US\nCA"), "control characters"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			err := db.CreateSiteConfigPeriod(&SiteConfigPeriod{
@@ -153,5 +158,19 @@ func TestSiteConfigPeriodValidationErrorsAreTyped(t *testing.T) {
 	}
 	if IsSiteConfigPeriodValidationError(fmt.Errorf("failed to update site config period: %w", errors.New("database is locked"))) {
 		t.Error("a storage error was taken for a validation error")
+	}
+}
+
+// A jurisdiction is counted in characters, as SQLite and the web form count
+// it: 100 multi-byte characters are accepted although they are 300 bytes.
+func TestSiteConfigPeriodJurisdictionCountsCharacters(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+	site := speedLimitSite(t, db)
+	j := strings.Repeat("県", 100)
+	if err := db.CreateSiteConfigPeriod(&SiteConfigPeriod{
+		SiteID: site.ID, EffectiveStartUnix: 1000, CosineErrorAngle: 5, Jurisdiction: &j,
+	}); err != nil {
+		t.Fatalf("100-character jurisdiction refused: %v", err)
 	}
 }
