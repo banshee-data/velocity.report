@@ -445,10 +445,6 @@ func (fi FollowingInteraction) Validate() error {
 	if len(fi.Instants) == 0 || len(fi.Instants) != ev.Accounting.Instants {
 		return fmt.Errorf("event %s: %d instants stored, %d accounted", ev.EventID, len(fi.Instants), ev.Accounting.Instants)
 	}
-	sum := InteractionAccounting{Instants: len(fi.Instants), BandNanos: map[MetricID]int64{}}
-	for _, band := range FollowingBands() {
-		sum.BandNanos[band.Duration] = 0
-	}
 	for i, in := range fi.Instants {
 		if err := in.validate(ev); err != nil {
 			return fmt.Errorf("event %s instant %d: %w", ev.EventID, in.CaptureUnixNanos, err)
@@ -456,7 +452,39 @@ func (fi FollowingInteraction) Validate() error {
 		if i > 0 && in.CaptureUnixNanos <= fi.Instants[i-1].CaptureUnixNanos {
 			return fmt.Errorf("event %s: instants are not in strictly increasing capture order", ev.EventID)
 		}
-		// The same accounting rules as buildEncounter, from the stored rows.
+	}
+	sum := instantAccounting(fi.Instants)
+	if first, last := fi.Instants[0].CaptureUnixNanos, fi.Instants[len(fi.Instants)-1].CaptureUnixNanos; first != ev.StartUnixNanos || last != ev.EndUnixNanos {
+		return fmt.Errorf("event %s: instants span %d to %d, event %d to %d", ev.EventID, first, last, ev.StartUnixNanos, ev.EndUnixNanos)
+	}
+	if !reflect.DeepEqual(sum, ev.Accounting) {
+		return fmt.Errorf("event %s: accounting %+v disagrees with its instants' %+v", ev.EventID, ev.Accounting, sum)
+	}
+	want := deriveWindows(ev, fi.Instants)
+	if len(want) != len(fi.Windows) {
+		return fmt.Errorf("event %s: %d windows stored, %d implied by its instants", ev.EventID, len(fi.Windows), len(want))
+	}
+	for i := range want {
+		if !reflect.DeepEqual(want[i], fi.Windows[i]) {
+			return fmt.Errorf("event %s: window %s is not the one its instants imply", ev.EventID, fi.Windows[i].WindowID)
+		}
+	}
+	for _, w := range fi.Windows {
+		if err := w.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// instantAccounting is the accounting a run of stored instants adds up to,
+// by the same rules as buildEncounter.
+func instantAccounting(instants []InteractionInstant) InteractionAccounting {
+	sum := InteractionAccounting{Instants: len(instants), BandNanos: map[MetricID]int64{}}
+	for _, band := range FollowingBands() {
+		sum.BandNanos[band.Duration] = 0
+	}
+	for _, in := range instants {
 		counted := in.IntervalNanos
 		if in.RecordGap {
 			sum.RecordGapNanos += in.IntervalNanos
@@ -482,27 +510,7 @@ func (fi FollowingInteraction) Validate() error {
 		c.Nanos += counted
 		sum.Suppressions[in.Reason] = c
 	}
-	if first, last := fi.Instants[0].CaptureUnixNanos, fi.Instants[len(fi.Instants)-1].CaptureUnixNanos; first != ev.StartUnixNanos || last != ev.EndUnixNanos {
-		return fmt.Errorf("event %s: instants span %d to %d, event %d to %d", ev.EventID, first, last, ev.StartUnixNanos, ev.EndUnixNanos)
-	}
-	if !reflect.DeepEqual(sum, ev.Accounting) {
-		return fmt.Errorf("event %s: accounting %+v disagrees with its instants' %+v", ev.EventID, ev.Accounting, sum)
-	}
-	want := deriveWindows(ev, fi.Instants)
-	if len(want) != len(fi.Windows) {
-		return fmt.Errorf("event %s: %d windows stored, %d implied by its instants", ev.EventID, len(fi.Windows), len(want))
-	}
-	for i := range want {
-		if !reflect.DeepEqual(want[i], fi.Windows[i]) {
-			return fmt.Errorf("event %s: window %s is not the one its instants imply", ev.EventID, fi.Windows[i].WindowID)
-		}
-	}
-	for _, w := range fi.Windows {
-		if err := w.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return sum
 }
 
 // Validate checks one event on its own: identity, version, provenance, the

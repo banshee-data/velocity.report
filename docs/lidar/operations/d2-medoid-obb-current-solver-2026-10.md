@@ -1,7 +1,7 @@
 # D2 medoid against OBB centre under the current solver, October 2026
 
 - **Status:** Complete. `medoid_v0` stays the production position; `obb_centre_v1` stays opt-in. Quote these figures, not the pre-#600 OBB ones.
-- **Scope:** kirk0 only (one 83.5 s capture, tuning data), build `db5832133` against the 24 September run that used the padded solver. Three replays, three scorers, two annotation packs.
+- **Scope:** kirk0 (one 83.5 s capture, tuning data), build `db5832133`, three replays, three scorers and two annotation packs; and, label-free, the first segment of the 23 tuning and screen sites, build `acbe1834a`. Both against the 24 September runs that used the padded solver.
 - **Related:** [State-estimation plan, D2 outcome](../../plans/lidar-state-estimation-plan.md#d2-outcome-2026-09-24), [per-frame evaluation](per-frame-evaluation.md), [gap analysis H1](../../../data/maths/paper-implementation-gap-analysis.md#measured-outcome-h1), [annotation-scored tuning](annotation-scored-tuning.md).
 
 On 24 September the D2 A/B scored the OBB centre against the medoid on kirk0. Recall was level,
@@ -274,6 +274,43 @@ materially, by as much as they did.
   differs.
 - **Across warm-ups.** Medoid runs at 5, 5.5, 6 and 20 s wrote byte-identical estimates.
 
+## The 23-site corpus, label-free
+
+The 24 September D2 also compared the two positions label-free on the first five-minute segment of
+every S2 site. This re-runs it on the current build with the same flags, so the two compare like
+for like: 200 s scored after a 70 s warm-up, evidence kept, `lidar-track-scorecard
+-scoring-start-seconds 70`, and the medoid scored against the OBB centre as a reference. The
+held-out case, `embarcadero-folsom`, is left out (24 September included it, before the split
+rules), so both runs are summarised over the same 23 sites. Captures were read from the NAS; each
+case's evidence was written and scored on the internal disk and then moved to the LiDAR volume.
+
+Each ratio is the median over sites of OBB centre over medoid. The last two columns are the median
+over sites of each arm's current value over its 24 September value.
+
+| Measure                        | Better | 24 Sep ratio | 24 Sep OBB better / worse / tied | Now ratio | Now OBB better / worse / tied | OBB now / 24 Sep | Medoid now / 24 Sep |
+| ------------------------------ | ------ | -----------: | -------------------------------- | --------: | ----------------------------- | ---------------: | ------------------: |
+| Tracks in the window           | lower  |        1.000 | 11 / 9 / 3                       |     1.000 | 10 / 10 / 3                   |            1.000 |               1.003 |
+| Median lifetime                | higher |        1.000 | 10 / 11 / 2                      |     1.000 | 8 / 12 / 3                    |            0.999 |               1.000 |
+| Share of tracks under 1 s      | lower  |        1.013 | 9 / 13 / 1                       |     1.002 | 11 / 12 / 0                   |            1.023 |               1.014 |
+| Association density            | higher |        1.007 | 14 / 9 / 0                       |     1.004 | 12 / 11 / 0                   |            0.997 |               1.003 |
+| Coast error RMS, 0.5 s         | lower  |        0.926 | 16 / 7 / 0                       |     0.939 | 16 / 7 / 0                    |            1.000 |               1.000 |
+| Cross-track part of that error | lower  |        0.818 | 19 / 4 / 0                       |     0.855 | 20 / 3 / 0                    |            1.007 |               1.000 |
+| Contested terminations         | lower  |        1.030 | 8 / 15 / 0                       |     0.926 | 16 / 7 / 0                    |            0.861 |               1.004 |
+
+- Six of the seven measures are where they were: track counts, lifetimes, short tracks, association
+  density and coast error barely move, in either arm, and keep their direction.
+- Contested terminations changed. A contested termination is a track that ends because another
+  track took its cluster. The OBB centre's share fell by a median factor of 0.86 per site and the
+  medoid's did not move, so the OBB centre went from worse at 15 of 23 sites to better at 16. That
+  is the corpus-wide counterpart of the kirk0 result: the exact solver removed assignments that
+  cost the OBB centre identity, and left the medoid almost as it was.
+- The two arms still diverge as much as before: medoid against OBB centre gives a median MOTA of
+  0.892 (24 September 0.887), HOTA 0.805 (0.808) and 206 identity switches per site (210).
+
+None of this measures correctness. It says the current solver narrowed the identity gap on the
+corpus as it did on kirk0, without reversing D5's reasons: the OBB centre's steadier coasting was
+already known, and it still does not track identity better where labels exist.
+
 ## Refusals and surprises
 
 1. **The per-frame evaluator cannot score pack 8e422582.** With the manifest pinned to revision
@@ -345,7 +382,8 @@ Nothing here argues for switching. The case against the OBB centre is weaker tha
 - **Not #600 alone.** The rerun measures the current build. Other tracker changes landed after
   24 September; the observations are identical, so the change is on the tracker side, but it is
   not attributed to one pull request.
-- **The 24-site corpus was not re-run.** Its label-free findings are still pre-#600.
+- **The corpus comparison is label-free and leaves out the held-out case.** It shows the two
+  positions' self-consistency and divergence on 23 sites, not which is right.
 - **Two scorers meet on one pack only.** The per-frame evaluator could not score pack 8e422582.
 
 ## Recommendation
@@ -358,35 +396,37 @@ Nothing here argues for switching. The case against the OBB centre is weaker tha
    92 switches, 63 against 57 fragmentations, IDF1 0.370 against 0.378, recall 0.533 against
    0.526, all against revision 204 with the 1 m footprint gate. The medoid's own pre-#600 figures
    match these within two counts, but quote the current ones. Results should be compared only
-   within one build. The 24-site label-free figures stay pre-#600 until the corpus-baseline
-   refresh re-runs them.
+   within one build. For the corpus, quote the 23-site comparison above, not the 24 September
+   aggregate.
 3. **Follow-ups for the operator.** The kirk0 recipe in the per-frame evaluation guide needs a
    pack the validator accepts, or a decision about overlapping claims in 8e422582. The guide's
-   statement about warm-up and evidence needs correcting. Updating the plan's D2 outcome with
-   these figures is a separate change.
+   warm-up statement has been corrected, and the plan's D2 outcome now points here.
 
 ## Provenance
 
-| Identity                    | Value                                                                                                                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build                       | `db5832133582a95463c89afccfc2c1782fc3f038` (main `3ee42366c` plus a profiling flag), stamped                                                       |
-| Corpus tool binary SHA-256  | `3ef83764cc7a0f6c22e7b2b6bece875dc4f817a54852f55243ffef6fb286f564`                                                                                 |
-| Evaluator binary SHA-256    | `d149462f9eee51a892bca43d4b3a4c66b9aedf5b1f4cb8917975cac96ec882f1`                                                                                 |
-| Scorecard binary SHA-256    | `327073054941829ab663556cff45b9b093b2b336328e43d31345511d23d34f62`                                                                                 |
-| Split-draft binary SHA-256  | `d0f3a77737fd87461cf73054150343d6f35586b86b7c91ab6a4be7a29389d3ef`                                                                                 |
-| Source manifest             | `sha256:5e8b3b0704d3d2512345c91ba616681623e8304947b0a97b1e42dc88a9971dd2`                                                                          |
-| Capture                     | `kirk0.pcapng`, 200,657,872 bytes, `sha256:2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                       |
-| Observation source ID       | `source/v1/04880163fb989819ea8bc1a03c5da87e9ac4bfced497c4a55a9a14caf2462c39`                                                                       |
-| Parameter hash              | `sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a`                                                                          |
-| 24 September run            | Source manifest `sha256:700b82cccb6f6652c14b337bf24b812d1e7ba332226f67c3e6937983bbb86da7`, parameter hash `sha256:01aecfff…`, build unstamped      |
-| Pack 8e422582               | `pack_digest` `sha256:a2027d434c323ce9bf346b999b3cad4930625756d47b926b26a7483392b0736d`, dataset `ds_a2027d434c323ce9`                             |
-| 8e422582 revisions          | Head 402, `annotations.json` `sha256:c9e410b1…`; 24 September truth from revision 204, archive `sha256:dd500767…`                                  |
-| Pack ad8b9438               | `pack_digest` `sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6`, dataset `ds_95be6fb22498b44a`                             |
-| ad8b9438 revision           | 1969, `annotations.json` `sha256:b0a1137731a22c7f8ec51a038573970b8cb29f16803d469bf629463fc588d417`                                                 |
-| ad8b9438 split manifest     | `sha256:0b604ea54ab3fa0f65f86be9afe90394875612d2c30b1611d1e70cb5c13bbfe5`, drafted with `lidar-annotation-split-draft -from-sample 60`, not frozen |
-| Per-frame reference digests | D2 recipe `sha256:29eb69659a8b…`; default policy `sha256:b0172f03eba5…`                                                                            |
-| `score_truth.py`            | `sha256:1cc322d220f0c13649b3aa295b5f2213330bc581a1bb44ba2f4274c4a63c15c9`                                                                          |
-| 24 September truth file     | `kirk0-tuning/ground-truth.json`, `sha256:7a7be9eef36fadf1047659f00f8ace709f95b5cc101e238e127cd88bb1a46406`                                        |
+| Identity                    | Value                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build                       | `db5832133582a95463c89afccfc2c1782fc3f038` (main `3ee42366c` plus a profiling flag), stamped                                                                  |
+| Corpus tool binary SHA-256  | `3ef83764cc7a0f6c22e7b2b6bece875dc4f817a54852f55243ffef6fb286f564`                                                                                            |
+| Evaluator binary SHA-256    | `d149462f9eee51a892bca43d4b3a4c66b9aedf5b1f4cb8917975cac96ec882f1`                                                                                            |
+| Scorecard binary SHA-256    | `327073054941829ab663556cff45b9b093b2b336328e43d31345511d23d34f62`                                                                                            |
+| Split-draft binary SHA-256  | `d0f3a77737fd87461cf73054150343d6f35586b86b7c91ab6a4be7a29389d3ef`                                                                                            |
+| Source manifest             | `sha256:5e8b3b0704d3d2512345c91ba616681623e8304947b0a97b1e42dc88a9971dd2`                                                                                     |
+| Capture                     | `kirk0.pcapng`, 200,657,872 bytes, `sha256:2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                                  |
+| Observation source ID       | `source/v1/04880163fb989819ea8bc1a03c5da87e9ac4bfced497c4a55a9a14caf2462c39`                                                                                  |
+| Parameter hash              | `sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a`                                                                                     |
+| 24 September run            | Source manifest `sha256:700b82cccb6f6652c14b337bf24b812d1e7ba332226f67c3e6937983bbb86da7`, parameter hash `sha256:01aecfff…`, build unstamped                 |
+| Pack 8e422582               | `pack_digest` `sha256:a2027d434c323ce9bf346b999b3cad4930625756d47b926b26a7483392b0736d`, dataset `ds_a2027d434c323ce9`                                        |
+| 8e422582 revisions          | Head 402, `annotations.json` `sha256:c9e410b1…`; 24 September truth from revision 204, archive `sha256:dd500767…`                                             |
+| Pack ad8b9438               | `pack_digest` `sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6`, dataset `ds_95be6fb22498b44a`                                        |
+| ad8b9438 revision           | 1969, `annotations.json` `sha256:b0a1137731a22c7f8ec51a038573970b8cb29f16803d469bf629463fc588d417`                                                            |
+| ad8b9438 split manifest     | `sha256:0b604ea54ab3fa0f65f86be9afe90394875612d2c30b1611d1e70cb5c13bbfe5`, drafted with `lidar-annotation-split-draft -from-sample 60`, not frozen            |
+| Per-frame reference digests | D2 recipe `sha256:29eb69659a8b…`; default policy `sha256:b0172f03eba5…`                                                                                       |
+| `score_truth.py`            | `sha256:1cc322d220f0c13649b3aa295b5f2213330bc581a1bb44ba2f4274c4a63c15c9`                                                                                     |
+| 24 September truth file     | `kirk0-tuning/ground-truth.json`, `sha256:7a7be9eef36fadf1047659f00f8ace709f95b5cc101e238e127cd88bb1a46406`                                                   |
+| Corpus build                | `acbe1834ace66be9f5a953aaaf9a405627527fa1`, stamped; corpus tool binary SHA-256 `8b93b32d571d06ef…`; parameter hash `sha256:fd35b0b28fc1…` for both positions |
+| Corpus scorecard binary     | `lidar-track-scorecard` from `acbe1834a`, SHA-256 `0612a8c733dc16d1…`                                                                                         |
+| Corpus captures             | First segment of each of the 23 tuning and screen sites, the 24 September first-segment corpus and index, read from the NAS share                             |
 
 Raw outputs, none of them in Git:
 
@@ -395,6 +435,9 @@ Raw outputs, none of them in Git:
   the logs and a `README.txt` that says which directories are authoritative. Refused and check
   runs are kept beside them, never reused.
 - Recordings are under `~/near-edge-followups/d2/<arm>/out` on the internal disk.
+- The corpus run is under `/Volumes/lidar/lidar/velocity-campaign/d2-corpus-20261005/`: per-site
+  evidence databases, recordings, scorecards, the medoid-against-OBB references, logs, the run
+  script and `compare-23site.json`.
 - The 24 September evidence is unchanged under
   `/Volumes/lidar/lidar/velocity-campaign/obb-centre-ab-20260924/`. Its databases were scored from
   byte-identical copies.

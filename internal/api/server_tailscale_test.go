@@ -239,6 +239,28 @@ func TestHandleTailscaleStatusLongPollsWhenWaitRequested(t *testing.T) {
 	}
 }
 
+// An out-of-range ?v waits from version 0, as a client with no version does,
+// not from MaxUint64, which no status version ever passes.
+func TestHandleTailscaleStatusOverflowingVersionWaitsFromZero(t *testing.T) {
+	waiter := &waitingTailscale{}
+	s := tailscaleTestServer(waiter)
+
+	rec := httptest.NewRecorder()
+	s.handleTailscaleStatus(rec,
+		httptest.NewRequest(http.MethodGet, "/api/tailscale/status?wait=5&v=99999999999999999999999", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	calls, since, _ := waiter.observed()
+	if calls != 1 {
+		t.Fatalf("WaitForChange calls = %d, want 1", calls)
+	}
+	if since != 0 {
+		t.Errorf("since = %d, want 0 for an overflowing ?v", since)
+	}
+}
+
 func TestHandleTailscaleStatusClampsWaitToMaximum(t *testing.T) {
 	waiter := &waitingTailscale{}
 	s := tailscaleTestServer(waiter)
@@ -428,12 +450,12 @@ func TestParseUint64(t *testing.T) {
 		{"zero", "0", 0},
 		{"negative is zero", "-1", 0},
 		{"non-numeric is zero", "abc", 0},
-		// parseUint64 discards ParseUint's error, and ParseUint returns
-		// MaxUint64 alongside ErrRange on overflow. The effect is that an
-		// out-of-range ?v pins the long-poll's `since` at the maximum, so the
-		// client waits the full window instead of getting an immediate read.
-		{"overflow saturates rather than resetting to zero",
-			"99999999999999999999999", math.MaxUint64},
+		// ParseUint returns MaxUint64 alongside ErrRange on overflow. Kept,
+		// that would pin the long-poll's `since` past every version, so the
+		// client would wait the full window instead of getting a read.
+		{"overflow is zero", "99999999999999999999999", 0},
+		{"max uint64 parses", "18446744073709551615", math.MaxUint64},
+		{"one past max uint64 is zero", "18446744073709551616", 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

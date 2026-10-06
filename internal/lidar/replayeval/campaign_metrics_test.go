@@ -85,7 +85,7 @@ func TestCampaignMissOnlyExpiryClosesInterval(t *testing.T) {
 }
 
 func TestCampaignWritePropagatesExportFailures(t *testing.T) {
-	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json"} {
+	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json", "frame_timing.json"} {
 		t.Run(name, func(t *testing.T) {
 			failure := errors.New("disk full")
 			out := t.TempDir()
@@ -111,5 +111,16 @@ func TestCampaignWriteRejectsNonFiniteTiming(t *testing.T) {
 	var unsupported *json.UnsupportedValueError
 	if err := c.write(defaultRuntime(), t.TempDir()); !errors.As(err, &unsupported) {
 		t.Fatalf("invalid timing was not rejected: %v", err)
+	}
+}
+
+// Only frames starting inside the scored window are timed.
+func TestCampaignRecordsScoredFramesOnly(t *testing.T) {
+	c := &campaignTracker{start: 10e9}
+	c.recordFrame(9e9, 0.5)
+	c.recordFrame(10e9, 0.01)
+	c.recordFrame(11e9, 0.02)
+	if len(c.frameCosts) != 2 || c.frameCosts[0] != 0.01 || c.frameCosts[1] != 0.02 {
+		t.Fatalf("frame costs %v, want the two scored frames", c.frameCosts)
 	}
 }
