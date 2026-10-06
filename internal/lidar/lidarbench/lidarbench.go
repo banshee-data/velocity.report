@@ -132,7 +132,9 @@ type result struct {
 	BackgroundPoints int
 	TotalClusters    int
 	ConfirmedTracks  int
-	ProcessingTimeMs int64
+	// DistinctConfirmedTracks counts every track confirmed at any frame.
+	DistinctConfirmedTracks int
+	ProcessingTimeMs        int64
 }
 
 // FrameTimeStats holds the distribution of per-frame processing times.
@@ -160,6 +162,12 @@ type WorkCounters struct {
 	// reported but not used as workload identity: it is a single-digit number
 	// on a typical capture, where a proportional tolerance is meaningless.
 	ConfirmedTracks int `json:"confirmed_tracks"`
+	// DistinctConfirmedTracks is every track confirmed at any frame of the
+	// run. Cumulative, it is large enough for the proportional tolerance, so
+	// a changed confirmation rule refuses the comparison where the peak
+	// cannot. Zero (absent) in a baseline captured before it was recorded,
+	// which is then not compared on it.
+	DistinctConfirmedTracks int `json:"distinct_confirmed_tracks,omitempty"`
 }
 
 // FrameBudget records the per-frame wall-clock ceiling and how often the run
@@ -474,6 +482,8 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 			BackgroundPoints: res.BackgroundPoints,
 			Clusters:         res.TotalClusters,
 			ConfirmedTracks:  res.ConfirmedTracks,
+
+			DistinctConfirmedTracks: res.DistinctConfirmedTracks,
 		},
 		FrameBudget: computeFrameBudget(frameTimes, budgetMs),
 	}
@@ -591,6 +601,9 @@ type analysisFrameBuilder struct {
 	clusterFile *os.File
 	clusterOut  *bufio.Writer
 
+	// confirmedSeen holds every track id confirmed so far.
+	confirmedSeen map[string]bool
+
 	frameTimes     []float64
 	clusterTimeNs  int64
 	trackTimeNs    int64
@@ -607,6 +620,7 @@ func newAnalysisFrameBuilder(cfg Config, res *result) *analysisFrameBuilder {
 		cfg:            cfg,
 		res:            res,
 		profile:        benchProfile(cfg),
+		confirmedSeen:  map[string]bool{},
 		frameTimes:     make([]float64, 0, defaultFrameCapacity),
 	}
 }
@@ -771,6 +785,12 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	// nothing about the run.
 	if n := len(confirmed); n > fb.res.ConfirmedTracks {
 		fb.res.ConfirmedTracks = n
+	}
+	for _, tr := range confirmed {
+		if !fb.confirmedSeen[tr.TrackID] {
+			fb.confirmedSeen[tr.TrackID] = true
+			fb.res.DistinctConfirmedTracks++
+		}
 	}
 
 	if !fb.profile.RunsLayer(6) {
@@ -1154,9 +1174,9 @@ func printBenchmarkSummary(result *BenchmarkResult) {
 	metrics := &result.Metrics
 	fmt.Printf("\n========== Benchmark Summary ==========\n")
 	fmt.Printf("Profile: %s  tuning: %s\n", result.Profile, result.TuningFingerprint)
-	fmt.Printf("Work: frames=%d foreground=%d clusters=%d tracks=%d\n",
+	fmt.Printf("Work: frames=%d foreground=%d clusters=%d tracks=%d (distinct %d)\n",
 		metrics.Work.Frames, metrics.Work.ForegroundPoints,
-		metrics.Work.Clusters, metrics.Work.ConfirmedTracks)
+		metrics.Work.Clusters, metrics.Work.ConfirmedTracks, metrics.Work.DistinctConfirmedTracks)
 	fmt.Printf("Wall clock time: %d ms\n", metrics.WallClockMs)
 	fmt.Printf("Throughput: %.1f frames/sec, %.1f packets/sec\n",
 		metrics.FramesPerSecond, metrics.PacketsPerSecond)
@@ -1281,11 +1301,11 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, 
 
 // workDifferences reports the work counters that moved beyond tolerance.
 func workDifferences(baseline, current WorkCounters, tolerance float64) []string {
-	counters := []struct {
-		name     string
-		baseline int
-		current  int
-	}{
+	type counter struct {
+		name              string
+		baseline, current int
+	}
+	counters := []counter{
 		{"frames", baseline.Frames, current.Frames},
 		{"foreground_points", baseline.ForegroundPoints, current.ForegroundPoints},
 		{"background_points", baseline.BackgroundPoints, current.BackgroundPoints},
@@ -1295,8 +1315,11 @@ func workDifferences(baseline, current WorkCounters, tolerance float64) []string
 	// confirmed_tracks is recorded but deliberately not compared. It is the
 	// peak concurrent track count — a single-digit number on this capture —
 	// where a 10% tolerance is meaningless and any ±1 would refuse the
-	// comparison. Making track counts a usable identity signal needs a
-	// cumulative measure rather than a peak; see the backlog.
+	// comparison. distinct_confirmed_tracks is the cumulative count that is
+	// compared, once the baseline carries it.
+	if baseline.DistinctConfirmedTracks > 0 {
+		counters = append(counters, counter{"distinct_confirmed_tracks", baseline.DistinctConfirmedTracks, current.DistinctConfirmedTracks})
+	}
 
 	var out []string
 	for _, c := range counters {
