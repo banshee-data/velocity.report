@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/tailscale"
@@ -60,9 +61,9 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 
 	// Loopback upstream + XFF tailnet IP -> classified as tailnet.
 	r := mkReq("127.0.0.1:54321", tailnetXFF)
-	ip, fromTailnet := classifySource(r)
-	if !fromTailnet {
-		t.Errorf("loopback+XFF tailnet: expected tailnet, got non-tailnet")
+	ip, source := classifySource(r)
+	if source != sourceTailnet {
+		t.Errorf("loopback+XFF tailnet: source %v, want tailnet", source)
 	}
 	if ip.String() != tailnetXFF {
 		t.Errorf("loopback+XFF: ip=%s, want %s", ip, tailnetXFF)
@@ -71,9 +72,9 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 	// LAN upstream + spoofed XFF tailnet IP -> NOT tailnet.
 	// The XFF must be ignored entirely.
 	r = mkReq("192.168.1.50:33445", tailnetXFF)
-	ip, fromTailnet = classifySource(r)
-	if fromTailnet {
-		t.Errorf("LAN+spoofed XFF: expected non-tailnet, got tailnet (forgery accepted)")
+	ip, source = classifySource(r)
+	if source != sourceLocal {
+		t.Errorf("LAN+spoofed XFF: source %v, want local (forgery accepted?)", source)
 	}
 	if ip.String() != "192.168.1.50" {
 		t.Errorf("LAN+spoofed XFF: ip=%s, want 192.168.1.50", ip)
@@ -81,9 +82,23 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 
 	// Loopback + no XFF -> loopback IP, non-tailnet (host-local).
 	r = mkReq("127.0.0.1:54321", "")
-	ip, fromTailnet = classifySource(r)
-	if fromTailnet || !ip.IsLoopback() {
-		t.Errorf("loopback no XFF: ip=%s tailnet=%v, want loopback non-tailnet", ip, fromTailnet)
+	ip, source = classifySource(r)
+	if source != sourceLocal || !ip.IsLoopback() {
+		t.Errorf("loopback no XFF: ip=%s source=%v, want loopback local", ip, source)
+	}
+
+	// Loopback + XFF outside the tailnet: forwarded for someone else,
+	// as serve does for a Funnel client.  Not local.
+	r = mkReq("127.0.0.1:54321", "203.0.113.7")
+	ip, source = classifySource(r)
+	if source != sourceForwarded || ip.String() != "203.0.113.7" {
+		t.Errorf("loopback+public XFF: ip=%s source=%v, want 203.0.113.7 forwarded", ip, source)
+	}
+
+	// A direct connection from a tailnet address is tailnet.
+	r = mkReq("100.64.0.9:40000", "")
+	if _, source = classifySource(r); source != sourceTailnet {
+		t.Errorf("direct tailnet: source %v, want tailnet", source)
 	}
 }
 
@@ -181,16 +196,59 @@ func TestRequireCap_GrantMatrix(t *testing.T) {
 
 // --- Failure modes ---------------------------------------------------------
 
-func TestRequireCap_TransientLookupError_FailsOpen(t *testing.T) {
-	// Per the trust model: transient errors fail open so a
-	// tailscaled blip does not deny every authorised user at once.
+func TestRequireCap_TransientLookupError_FailsClosed(t *testing.T) {
+	// An unresolved peer is granted nothing, for view or admin: a peer
+	// able to slow or break the lookup could otherwise reach every
+	// route.  (tailscale.Manager.LookupPeer covers blips for peers it
+	// resolved recently, so they never reach this branch.)
+	for _, lookupErr := range []error{
+		errors.New("socket: connection refused"),
+		context.DeadlineExceeded,
+		context.Canceled,
+	} {
+		pa := &fakePeerAuth{lookup: func(string) (tailscale.PeerIdentity, error) {
+			return tailscale.PeerIdentity{}, lookupErr
+		}}
+		g := newAuthGate(pa, EnforcementOn)
+		for _, kind := range []CapKind{CapView, CapAdmin} {
+			r := mkReq("127.0.0.1:1234", "100.64.0.5")
+			got, body := runGate(t, g, kind, r)
+			if got != http.StatusServiceUnavailable {
+				t.Fatalf("%v, cap %v: got %d, want 503", lookupErr, kind, got)
+			}
+			var fb forbiddenBody
+			if err := json.Unmarshal([]byte(body), &fb); err != nil || fb.Error != "peer_lookup_unavailable" {
+				t.Errorf("%v: body %q, want peer_lookup_unavailable", lookupErr, body)
+			}
+		}
+	}
+}
+
+func TestRequireCap_FunnelAndForwardedRequestsRefused(t *testing.T) {
 	pa := &fakePeerAuth{lookup: func(string) (tailscale.PeerIdentity, error) {
-		return tailscale.PeerIdentity{}, errors.New("socket: connection refused")
+		return id(false, true), nil // even an admin peer's address
 	}}
 	g := newAuthGate(pa, EnforcementOn)
-	r := mkReq("127.0.0.1:1234", "100.64.0.5")
-	if got, _ := runGate(t, g, CapAdmin, r); got != http.StatusOK {
-		t.Fatalf("transient error: got %d, want 200 (fail-open)", got)
+
+	funnel := mkReq("127.0.0.1:1234", "203.0.113.7")
+	funnel.Header.Set("Tailscale-Funnel-Request", "?1")
+	if got, body := runGate(t, g, CapView, funnel); got != http.StatusForbidden || !strings.Contains(body, "funnel_request") {
+		t.Errorf("funnel request: got %d %q, want 403 funnel_request", got, body)
+	}
+	funnelTailnetXFF := mkReq("127.0.0.1:1234", "100.64.0.5")
+	funnelTailnetXFF.Header.Set("Tailscale-Funnel-Request", "?1")
+	if got, _ := runGate(t, g, CapView, funnelTailnetXFF); got != http.StatusForbidden {
+		t.Errorf("funnel request with a tailnet XFF: got %d, want 403", got)
+	}
+	forwarded := mkReq("127.0.0.1:1234", "203.0.113.7")
+	if got, body := runGate(t, g, CapView, forwarded); got != http.StatusForbidden || !strings.Contains(body, "untrusted_forward") {
+		t.Errorf("forwarded for a public address: got %d %q, want 403 untrusted_forward", got, body)
+	}
+
+	// With enforcement off nothing changes from before the gate.
+	off := newAuthGate(pa, EnforcementOff)
+	if got, _ := runGate(t, off, CapAdmin, funnel); got != http.StatusOK {
+		t.Errorf("enforcement off: got %d, want 200", got)
 	}
 }
 
