@@ -479,3 +479,73 @@ func TestServer_AuthWrapper_RefusesOutsidersOnUngatedRoutes(t *testing.T) {
 		t.Fatalf("tailnet peer on the status route: got 403 %q", rec.Body.String())
 	}
 }
+
+// Source classification at its edges. A RemoteAddr without a port is still
+// parsed; one that is not an address at all, which only a non-TCP listener
+// on the host produces, is the host; a loopback request whose
+// X-Forwarded-For is not an address is treated as carrying none; and only
+// the first forwarded address counts.
+func TestClassifySource_Edges(t *testing.T) {
+	for _, c := range []struct {
+		name, remote, xff string
+		wantIP            string
+		want              requestSource
+	}{
+		{"tailnet address without a port", "100.64.0.9", "", "100.64.0.9", sourceTailnet},
+		{"LAN address without a port", "192.168.1.50", "", "192.168.1.50", sourceLocal},
+		{"not an address", "@", "", "invalid IP", sourceLocal},
+		{"loopback with a malformed XFF", "127.0.0.1:54321", "not-an-ip", "127.0.0.1", sourceLocal},
+		{"loopback with a tailnet XFF first", "127.0.0.1:54321", "100.64.0.5, 203.0.113.7", "100.64.0.5", sourceTailnet},
+		{"loopback with a public XFF first", "127.0.0.1:54321", "203.0.113.7, 100.64.0.5", "203.0.113.7", sourceForwarded},
+	} {
+		ip, source := classifySource(mkReq(c.remote, c.xff))
+		if ip.String() != c.wantIP || source != c.want {
+			t.Errorf("%s: ip=%s source=%v, want %s %v", c.name, ip, source, c.wantIP, c.want)
+		}
+	}
+	if isTailnetIP(netip.Addr{}) {
+		t.Error("an invalid address classified as tailnet")
+	}
+}
+
+// With enforcement off, or no tailnet client, nothing is refused as an
+// outsider: not a Funnel request, not a forwarded one.
+func TestRefusesOutsider_GateOffRefusesNothing(t *testing.T) {
+	for name, g := range map[string]*authGate{
+		"enforcement off": newAuthGate(&fakePeerAuth{}, EnforcementOff),
+		"no client":       newAuthGate(nil, EnforcementOn),
+	} {
+		r := mkReq("127.0.0.1:54321", "203.0.113.7")
+		r.Header.Set(funnelRequestHeader, "1")
+		rec := httptest.NewRecorder()
+		if g.refusesOutsider(rec, r, CapView) || rec.Body.Len() != 0 {
+			t.Errorf("%s: refused an outsider (%d %q)", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+// failingWriter accepts headers and a status but fails every body write, as
+// a client that has gone away does.
+type failingWriter struct {
+	header http.Header
+	code   int
+}
+
+func (f *failingWriter) Header() http.Header       { return f.header }
+func (f *failingWriter) WriteHeader(code int)      { f.code = code }
+func (f *failingWriter) Write([]byte) (int, error) { return 0, errors.New("client gone") }
+
+// A refusal whose body cannot be written still carries its status and
+// headers; the write failure is only logged.
+func TestRefusalsSurviveABodyWriteFailure(t *testing.T) {
+	w := &failingWriter{header: http.Header{}}
+	writeForbidden(w, "missing_cap", CapAdmin)
+	if w.code != http.StatusForbidden || w.header.Get("Content-Type") != "application/json" {
+		t.Errorf("forbidden: code %d, content type %q", w.code, w.header.Get("Content-Type"))
+	}
+	w = &failingWriter{header: http.Header{}}
+	writeUnavailable(w)
+	if w.code != http.StatusServiceUnavailable || w.header.Get("Retry-After") != "5" {
+		t.Errorf("unavailable: code %d, retry-after %q", w.code, w.header.Get("Retry-After"))
+	}
+}
