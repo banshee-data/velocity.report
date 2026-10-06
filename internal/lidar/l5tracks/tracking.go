@@ -142,7 +142,7 @@ type TrackedObject struct {
 	LatestZ float32
 
 	// Track quality metrics
-	TrackLengthMeters  float32 // Total distance traveled (meters)
+	TrackLengthMeters  float32 // Distance travelled between observed positions, across gaps (metres)
 	TrackDurationSecs  float32 // Total lifetime (seconds)
 	OcclusionCount     int     // Number of missed frames (gaps)
 	MaxOcclusionFrames int     // Longest gap in observations
