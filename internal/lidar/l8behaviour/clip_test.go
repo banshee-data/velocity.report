@@ -301,3 +301,111 @@ func TestSameRecordToleratesOnlyIntervalBoundRounding(t *testing.T) {
 		t.Error("a difference in a point value was accepted")
 	}
 }
+
+// A class the following rule does not support suppresses every stored
+// measurement, and a clipped encounter keeps that decision: the class is
+// not stored, so it is read back from the stored measurements.
+func TestClipKeepsAnUnsupportedClassSuppressed(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	for i := range sc.Trajectories {
+		sc.Trajectories[i].Passage.MotionClass = MotionPedestrian
+	}
+	_, fis := interactionsOf(t, sc)
+	if len(fis) == 0 {
+		t.Fatal("no encounter between pedestrians")
+	}
+	fi := roundTrip(t, fis[0])
+	if storedClassReason(fi.Event) != ReasonClassNotSupported {
+		t.Fatalf("stored measurements %+v are not suppressed for class", fi.Event.Measurements)
+	}
+	start := fi.Instants[len(fi.Instants)/2].CaptureUnixNanos
+	clipped, outcome, detail, err := ClipFollowingInteraction(fi, start, fi.Event.EndUnixNanos, sc.Params)
+	if err != nil || outcome != ClipClipped {
+		t.Fatalf("outcome %v %q, %v; want clipped", outcome, detail, err)
+	}
+	for id, m := range clipped.Event.Measurements {
+		if !m.Suppressed || m.Reason != ReasonClassNotSupported {
+			t.Errorf("clipped %s is %+v; want it suppressed for class", id, m)
+		}
+	}
+}
+
+// An invalid encounter is an error, not an outcome.
+func TestClipRefusesAnInvalidEncounter(t *testing.T) {
+	fi, params := longestInteraction(t)
+	broken := roundTrip(t, fi)
+	broken.Event.EventID = ""
+	if _, _, _, err := ClipFollowingInteraction(broken, fi.Event.StartUnixNanos+1, fi.Event.EndUnixNanos, params); err == nil {
+		t.Error("an encounter with no event id: want an error")
+	}
+}
+
+// A record gap marked on a stored instant that the analysis did not mark,
+// with the stored accounting and windows made to agree with it so the record
+// still validates, changes what the whole encounter recomputes to: its
+// worst support and measurements no longer match, so it is not clipped.
+func TestClipRefusesARecordWithAnAlteredGap(t *testing.T) {
+	fi, params := longestInteraction(t)
+	altered := roundTrip(t, fi)
+	mid := len(altered.Instants) / 2
+	altered.Instants[mid].RecordGap = true
+	altered.Event.Accounting = instantAccounting(altered.Instants)
+	altered.Windows = deriveWindows(altered.Event, altered.Instants)
+	if err := altered.Validate(); err != nil {
+		t.Fatalf("altered record does not validate: %v", err)
+	}
+	start := altered.Instants[mid].CaptureUnixNanos
+	_, outcome, detail, err := ClipFollowingInteraction(altered, start, altered.Event.EndUnixNanos, params)
+	if err != nil || outcome != ClipUnrecomputable || !strings.Contains(detail, "does not reproduce") {
+		t.Errorf("outcome %v %q, %v; want unrecomputable", outcome, detail, err)
+	}
+}
+
+// sameEncoded compares structure exactly: keys, lengths, element order and
+// types must match, and only numbers under "lower" or "upper" may differ by
+// the tolerance. A value that cannot be encoded matches nothing.
+func TestSameEncodedComparesStructure(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		a, b any
+		want bool
+	}{
+		{"identical", map[string]any{"x": 1.0}, map[string]any{"x": 1.0}, true},
+		{"other key", map[string]any{"x": 1.0}, map[string]any{"y": 1.0}, false},
+		{"extra key", map[string]any{"x": 1.0}, map[string]any{"x": 1.0, "y": 2.0}, false},
+		{"map against list", map[string]any{"x": 1.0}, []any{1.0}, false},
+		{"list length", []any{1.0}, []any{1.0, 2.0}, false},
+		{"list against map", []any{1.0}, map[string]any{"x": 1.0}, false},
+		{"list element", []any{1.0, 2.0}, []any{1.0, 3.0}, false},
+		{"number against text", map[string]any{"lower": 1.0}, map[string]any{"lower": "1"}, false},
+		{"bound within tolerance", map[string]any{"lower": 1.0}, map[string]any{"lower": 1.0 + 1e-15}, true},
+		{"bound past tolerance", map[string]any{"upper": 1.0}, map[string]any{"upper": 1.0 + 1e-9}, false},
+		{"other number in last bit", map[string]any{"value": 1.0}, map[string]any{"value": 1.0 + 1e-15}, false},
+		{"bounds in a list", map[string]any{"lower": []any{1.0}}, map[string]any{"lower": []any{1.0 + 1e-15}}, true},
+		{"unencodable", math.NaN(), math.NaN(), false},
+	} {
+		if got := sameEncoded(c.a, c.b); got != c.want {
+			t.Errorf("%s: sameEncoded = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// A stored encounter whose interval does not span its instants exactly is
+// invalid, and so is one whose windows are not the ones its instants imply.
+func TestValidateRefusesAnIntervalOrWindowsThatDisagreeWithTheInstants(t *testing.T) {
+	fi, _ := longestInteraction(t)
+	trimmed := roundTrip(t, fi)
+	trimmed.Instants = trimmed.Instants[1:] // the event still starts at the dropped instant
+	trimmed.Event.Accounting = instantAccounting(trimmed.Instants)
+	if err := trimmed.Validate(); err == nil || !strings.Contains(err.Error(), "instants span") {
+		t.Errorf("interval wider than its instants: %v; want it refused", err)
+	}
+	if len(fi.Windows) == 0 {
+		t.Fatal("fixture encounter has no windows")
+	}
+	fewer := roundTrip(t, fi)
+	fewer.Windows = fewer.Windows[:len(fewer.Windows)-1]
+	if err := fewer.Validate(); err == nil || !strings.Contains(err.Error(), "windows stored") {
+		t.Errorf("a window missing: %v; want it refused", err)
+	}
+}
