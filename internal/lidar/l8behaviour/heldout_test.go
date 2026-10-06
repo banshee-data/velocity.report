@@ -25,13 +25,17 @@ func referencesFrom(trs []Trajectory) []ReferenceBody {
 	return refs
 }
 
-func heldOutPlan(setID string) ScoringPlan {
+// heldOutPlan is pinned to a set's id and content. Its unmatched, unscorable
+// and encounter bounds admit everything; the tests of those bounds tighten
+// them.
+func heldOutPlan(set HeldOutSet) ScoringPlan {
 	return ScoringPlan{
-		ReferenceSetID: setID, NominalCoverage: 0.9,
+		ReferenceSetID: set.ReferenceSetID, ReferenceSetDigest: set.Digest(), NominalCoverage: 0.9,
 		RangeEdgesM: []float64{30, 60}, AspectEdgesRad: []float64{math.Pi / 4, 3 * math.Pi / 4},
 		Bounds: AcceptanceBounds{
 			MaxEndpointP95AbsErrorM: 0.35, MaxGapP95AbsErrorM: 0.45,
 			MinCoverage: 0.8, MaxCoverage: 0.97, MaxSuppressionRate: 0.2, MinCasesPerStratum: 5,
+			MinEncountersPerStratum: 1, MaxUnmatchedRate: 1, MaxUnscorableRate: 1,
 		},
 	}
 }
@@ -91,7 +95,7 @@ func TestHeldOutKnownPerturbations(t *testing.T) {
 		estimate.Trajectories[0].Samples[i].Length.Metres = 4.5
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(truth.Trajectories)}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	r := score(t, plan, set, pairsOf(t, estimate.Trajectories, estimate.Params))
 	if r.MethodID != HeldOutScoringMethodID || r.PlanHash != plan.Hash() || r.UnmatchedReferences != 0 ||
 		r.UnscorableReferences != 0 || math.Abs(r.Z-1.6448536269514722) > 1e-12 {
@@ -163,7 +167,7 @@ func TestHeldOutCoverageMatchesNominalUnderStatedNoise(t *testing.T) {
 		pairs = append(pairs, EstimatedPair{Path: path, Point: pt, LeaderSupport: SupportObserved, FollowerSupport: SupportObserved})
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/noise_v1", References: refs}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	// An honest estimate's 95th percentile error is 1.96 sigma: 0.35 m for
 	// an endpoint and 0.49 m for the gap, so the bounds sit above them.
 	plan.Bounds.MaxEndpointP95AbsErrorM, plan.Bounds.MaxGapP95AbsErrorM = 0.45, 0.6
@@ -200,7 +204,7 @@ func TestHeldOutSuppressionUnmatchedAndUnscorable(t *testing.T) {
 		}
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/occlusion_v1", References: refs}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	r := score(t, plan, set, pairsOf(t, sc.Trajectories, sc.Params))
 	if r.UnmatchedReferences != 1 || r.UnscorableReferences != 1 {
 		t.Fatalf("unmatched %d unscorable %d", r.UnmatchedReferences, r.UnscorableReferences)
@@ -233,7 +237,7 @@ func TestHeldOutScoresTheLocalTangentOnACurve(t *testing.T) {
 	leader := frames(30, func(k, t int64) bodySpec { return arcCar(t, r, 40+float64(k), 10) })
 	trs := []Trajectory{fixtureTrajectory("trk_curve_follower", follower...), fixtureTrajectory("trk_curve_leader", leader...)}
 	set := HeldOutSet{ReferenceSetID: "fixture/curve_v1", References: referencesFrom(trs)}
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	plan.Bounds.MaxCoverage = 1
 	rep := score(t, plan, set, pairsOf(t, trs, EncounterScenarioParams()))
 	cases := 0
@@ -260,7 +264,7 @@ func TestHeldOutStratifiesByClass(t *testing.T) {
 		}
 	}
 	set := HeldOutSet{ReferenceSetID: "fixture/lane_v1", References: refs}
-	r := score(t, heldOutPlan(set.ReferenceSetID), set, pairsOf(t, sc.Trajectories, sc.Params))
+	r := score(t, heldOutPlan(set), set, pairsOf(t, sc.Trajectories, sc.Params))
 	classes := map[MotionClass]int{}
 	for _, s := range r.Strata {
 		classes[s.Class] += s.Cases
@@ -274,7 +278,7 @@ func TestHeldOutVerdicts(t *testing.T) {
 	sc := ScenarioSteadyApproach()
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	plan.Bounds.MaxCoverage = 1
 	if r := score(t, plan, set, pairs); r.Verdict != VerdictPass {
 		t.Fatalf("exact estimates under a coverage ceiling of 1: %s %+v", r.Verdict, r.Strata)
@@ -294,7 +298,7 @@ func TestHeldOutPinsThePlan(t *testing.T) {
 	sc := ScenarioSteadyApproach()
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 	pinned := plan.Hash()
 	loosened := plan
 	loosened.Bounds.MaxGapP95AbsErrorM = 1
@@ -330,7 +334,7 @@ func TestHeldOutRejectsMalformedInputs(t *testing.T) {
 	refs := referencesFrom(sc.Trajectories)
 	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: refs}
 	pairs := pairsOf(t, sc.Trajectories, sc.Params)
-	plan := heldOutPlan(set.ReferenceSetID)
+	plan := heldOutPlan(set)
 
 	for name, fn := range map[string]func(*ScoringPlan){
 		"no set":            func(p *ScoringPlan) { p.ReferenceSetID = "" },
@@ -380,5 +384,108 @@ func TestHeldOutRejectsMalformedInputs(t *testing.T) {
 	a, _ := AnalyseFollowing(sc.Trajectories, sc.Params)
 	if _, err := EstimatedPairsFromAnalysis(a, sc.Trajectories[:1]); err == nil {
 		t.Error("trajectories that do not match the analysis: want an error")
+	}
+}
+
+// The plan pins the reference set's content as well as its name: a set with
+// the same id and one annotation moved is refused, while listing the same
+// references in another order is the same set.
+func TestHeldOutPinsTheReferenceContent(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	plan := heldOutPlan(set)
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+
+	reordered := set
+	reordered.References = append([]ReferenceBody(nil), set.References...)
+	for i, j := 0, len(reordered.References)-1; i < j; i, j = i+1, j-1 {
+		reordered.References[i], reordered.References[j] = reordered.References[j], reordered.References[i]
+	}
+	if reordered.Digest() != set.Digest() {
+		t.Fatal("the digest depends on the order references are listed in")
+	}
+	if r := score(t, plan, reordered, pairs); r.ReferenceSetDigest != set.Digest() || r.MethodID != "following_heldout_scoring_v2" {
+		t.Fatalf("report header %+v", r)
+	}
+
+	edited := set
+	edited.References = append([]ReferenceBody(nil), set.References...)
+	edited.References[3].CentreX += 0.1
+	if _, err := ScoreHeldOut(plan.Hash(), plan, edited, pairs); err == nil || !strings.Contains(err.Error(), "content digest") {
+		t.Fatalf("an edited set under the same id: %v", err)
+	}
+	if _, err := ScoreHeldOut(plan.Hash(), plan, HeldOutSet{ReferenceSetID: set.ReferenceSetID}, pairs); err == nil {
+		t.Fatal("an empty set was scored")
+	}
+}
+
+// References no estimate reached count against the report: good scores on
+// the references that were reached say nothing about the rest.
+func TestHeldOutUnmatchedReferencesFailTheReport(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	refs := referencesFrom(sc.Trajectories)
+	// A body the estimator never tracked: 50 references for a track with no
+	// estimate, a third of the set.
+	for _, r := range refs {
+		if r.TrackID == refs[0].TrackID {
+			r.TrackID = "trk_s_missed_entirely"
+			refs = append(refs, r)
+		}
+	}
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_missed_v1", References: refs}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1 // the exact estimates' strata pass
+
+	if r := score(t, plan, set, pairs); r.Verdict != VerdictPass || r.UnmatchedReferences != 50 ||
+		math.Abs(r.UnmatchedRate-50.0/150) > 1e-12 {
+		t.Fatalf("unbounded: %s, %d unmatched at %v", r.Verdict, r.UnmatchedReferences, r.UnmatchedRate)
+	}
+	plan.Bounds.MaxUnmatchedRate = 0.1
+	r := score(t, plan, set, pairs)
+	if r.Verdict != VerdictFail || !reflect.DeepEqual(r.Failed, []string{"unmatched_rate"}) {
+		t.Fatalf("a third unmatched against a 10%% bound: %s %v", r.Verdict, r.Failed)
+	}
+	for _, s := range r.Strata {
+		if s.Verdict != VerdictPass {
+			t.Fatalf("stratum %+v: the failure is the report's, not a stratum's", s.Stratum)
+		}
+	}
+}
+
+// A stratum's evidence is counted in encounters as well as frames: thousands
+// of correlated frames from one pair are one encounter.
+func TestHeldOutCountsEncountersPerStratum(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	pairs := pairsOf(t, sc.Trajectories, sc.Params)
+	plan := heldOutPlan(set)
+	plan.Bounds.MaxCoverage = 1
+	r := score(t, plan, set, pairs)
+	for _, s := range r.Strata {
+		if s.Cases > 0 && s.Encounters != 1 {
+			t.Fatalf("stratum %+v: %d encounters from the scenario's one pair", s.Stratum, s.Encounters)
+		}
+	}
+	plan.Bounds.MinEncountersPerStratum = 2
+	if r := score(t, plan, set, pairs); r.Verdict != VerdictInsufficientCases {
+		t.Fatalf("one pair against a two-encounter minimum: %s", r.Verdict)
+	}
+}
+
+func TestHeldOutPlanRequiresTheV2Bounds(t *testing.T) {
+	sc := ScenarioSteadyApproach()
+	set := HeldOutSet{ReferenceSetID: "fixture/steady_v1", References: referencesFrom(sc.Trajectories)}
+	for name, mutate := range map[string]func(*ScoringPlan){
+		"no digest":           func(p *ScoringPlan) { p.ReferenceSetDigest = "" },
+		"no encounters":       func(p *ScoringPlan) { p.Bounds.MinEncountersPerStratum = 0 },
+		"unmatched above one": func(p *ScoringPlan) { p.Bounds.MaxUnmatchedRate = 1.5 },
+		"unscorable below 0":  func(p *ScoringPlan) { p.Bounds.MaxUnscorableRate = -0.1 },
+	} {
+		p := heldOutPlan(set)
+		mutate(&p)
+		if err := p.Validate(); err == nil {
+			t.Errorf("%s: plan accepted", name)
+		}
 	}
 }
