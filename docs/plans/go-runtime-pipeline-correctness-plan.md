@@ -1,6 +1,6 @@
 # Go runtime pipeline correctness and cleanup remediation plan
 
-- **Status:** Active
+- **Status:** Active; Phases 1–4 delivered, the rest deferred to other plans, so it is ready for graduation
 - **Layers:** Go server, LiDAR replay/tracking pipeline, radar DB derivation, API capability reporting
 - **Canonical:** [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md)
 - **Target:** v0.5.1-v0.5.9; runtime correctness gates land early, contract/API fixes follow at v0.5.8-v0.5.9, and structural follow-through remains scheduled in the existing cleanup milestones.
@@ -63,7 +63,7 @@ Merge clock abstraction, performance harness, foundations fix-it, metrics regist
 | Analysis replay throttling   | **Fixed (Phase 1).** A new `AnalysisModeActive` flag bypasses the wall-clock `MaxFrameRate` throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking rather than being recorded as empty frames.                    | Critical | v0.5.2, coordinated with clock abstraction                |
 | VRLOG load path validation   | **Fixed (Phase 2).** `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and acts on the canonical resolved path.                                                               | High     | v0.5.2 local replay safety                                |
 | Magnitude-only radar samples | **Fixed (Phase 3).** Magnitude-only rows are stored diagnostics, not transit inputs: transit derivation and gap detection read only rows with a speed, so such a row can no longer fail a window's scan.                                                           | High     | v0.5.8 data-contract cleanup                              |
-| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal.                                                    | High     | v0.5.9 lifecycle follow-through after #547 response shape |
+| LiDAR capability lifecycle   | **Fixed (Phase 4).** LiDAR reports `starting`, then `ready` once its server is serving, or `error` if it cannot start. Radar remains a static built-in capability, not a hot-plug signal.                                                                          | High     | v0.5.9 lifecycle follow-through after #547 response shape |
 
 ## Design Approach
 
@@ -167,7 +167,12 @@ migration.
 
 **Summary:** Make the current `/api/capabilities` state truthful now that #547 has shipped the named-map response shape.
 
-**State:** Scheduled.
+**State:** Delivered. The capabilities provider exists before the LiDAR server
+starts. `runLidarServer` registers a ready hook that reports `ready` with
+sweeps, and reports `error` if `Start` fails. `Server.Start` now binds its HTTP
+listener synchronously, before the live UDP listener, so a port in use is a
+startup error rather than a fatal exit from the serving goroutine. A failed
+UDP bind closes the HTTP listener again. The hardware check is in the hub doc.
 
 **Current shipped baseline:** `/api/capabilities` returns non-null named maps:
 `radar.default` is reported as enabled/`receiving`, LiDAR is omitted as `{}` when
@@ -261,10 +266,11 @@ disconnect/reconnect.
 - [x] Phase 2: VRLOG symlink-safe validation (`S`). `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and loads/stores the canonical resolved path rather than the original string to avoid reopening the same gap after validation. Covered for both the direct `vrlog_path` path and the `run_id` database-lookup path.
 
 - [x] Phase 3: magnitude-only radar transit contract (`S`). Magnitude-only rows are stored diagnostics: the transit worker and `FindTransitGaps` read only rows with a speed. Regression tests put magnitude-only rows before, inside and after a vehicle (one louder than any speed row) and an hour of nothing else.
+- [x] Phase 4: LiDAR capability lifecycle wiring (`S`). Startup success reports `ready`, a failed start (HTTP or UDP bind) reports `error`, and disabled LiDAR stays absent; tests cover all three, and the server tests cover the ready hook and a port in use. Release-candidate hardware guidance is in [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md).
 
 ### Outstanding
 
-- [ ] Phase 4: LiDAR capability lifecycle wiring (`S`)
+- None: the remaining phases are deferred below.
 
 ### Deferred
 
