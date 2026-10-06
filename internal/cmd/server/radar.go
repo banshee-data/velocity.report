@@ -537,6 +537,12 @@ func Main(args []string) int {
 
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
+
+	// capsProvider reports sensor state at /api/capabilities. It exists
+	// before the LiDAR server starts so that server's startup outcome can be
+	// reported: "starting" until it is serving, then "ready", or "error" if
+	// it cannot start.
+	capsProvider := newCapabilitiesProvider()
 	var foregroundForwarder *network.ForegroundForwarder
 	var bgFlusher *l3grid.BackgroundFlusher
 
@@ -1046,10 +1052,11 @@ func Main(args []string) int {
 		hintTuner.SetRunCreator(&hintRunCreator{runner: sweepRunner})
 		lidarServer.SetHINTRunner(hintTuner)
 
+		capsProvider.SetLidarStarting()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := lidarServer.Start(ctx); err != nil {
+			if err := runLidarServer(ctx, lidarServer, capsProvider); err != nil {
 				log.Printf("Lidar webserver error: %v", err)
 			}
 		}()
@@ -1126,15 +1133,8 @@ func Main(args []string) int {
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
 
-		// Wire capabilities provider so /api/capabilities reports sensor state.
-		// When LiDAR is enabled we report "starting" here; the subsystem should
-		// call SetLidarReady() once it has completed initialisation successfully,
-		// or SetLidarError() if startup fails. This avoids advertising "ready"
-		// before the hardware is actually operational.
-		capsProvider := newCapabilitiesProvider()
-		if lidarServer != nil {
-			capsProvider.SetLidarStarting()
-		}
+		// /api/capabilities reports the provider's state, which the LiDAR
+		// server's startup moves from "starting" to "ready" or "error".
 		apiServer.SetCapabilitiesProvider(capsProvider)
 
 		// Attach admin routes that belong to other components

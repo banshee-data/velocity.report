@@ -4694,6 +4694,70 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	}
 }
 
+// Start reports ready only once its HTTP listener is bound: a request made
+// as soon as the ready hook has run is served.
+func TestStart_OnReadyRunsOnceServing(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := probe.Addr().String()
+	probe.Close()
+
+	srv := NewServer(Config{Address: addr, Stats: NewPacketStats()})
+	srv.setTestSourcePCAPReplaying()
+	ready := make(chan struct{})
+	srv.SetOnReady(func() {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			t.Errorf("ready hook ran before %s accepted connections: %v", addr, err)
+		} else {
+			conn.Close()
+		}
+		close(ready)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(ctx) }()
+	select {
+	case <-ready:
+	case err := <-errCh:
+		t.Fatalf("Start returned %v before ready", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("ready hook never ran")
+	}
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Errorf("Start returned %v after shutdown", err)
+	}
+}
+
+// A port already in use is returned as a startup error, before the ready
+// hook runs, rather than a fatal exit from the serving goroutine.
+func TestStart_PortInUseIsAStartupError(t *testing.T) {
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+
+	srv := NewServer(Config{Address: held.Addr().String(), Stats: NewPacketStats()})
+	srv.setTestSourcePCAPReplaying()
+	srv.SetOnReady(func() { t.Error("ready hook ran although the port is in use") })
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(context.Background()) }()
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("Start returned nil on a port in use")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return on a port in use")
+	}
+}
+
 func TestStart_ShutdownForceClose(t *testing.T) {
 	// Exercises the force-close branch in Start() where Shutdown() fails.
 	// We keep an active connection alive past the 1 s shutdown timeout,

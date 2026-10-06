@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"path/filepath"
 	"sync"
@@ -57,6 +58,7 @@ type Server struct {
 	address           string
 	stats             *PacketStats
 	server            *http.Server
+	onReady           func() // run by Start once it is serving; see SetOnReady
 	forwardingEnabled bool
 	forwardAddr       string
 	forwardPort       int
@@ -449,14 +451,34 @@ func (ws *Server) writeJSONError(w http.ResponseWriter, status int, msg string) 
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// Start begins the HTTP server in a goroutine and handles graceful shutdown
+// SetOnReady registers fn to run once Start is serving: its HTTP listener
+// is bound and, in live mode, its UDP listener too. Call it before Start.
+func (ws *Server) SetOnReady(fn func()) {
+	ws.onReady = fn
+}
+
+// Start begins the HTTP server in a goroutine and handles graceful shutdown.
+// A listener it cannot bind is returned as an error before anything is
+// served, so the caller can report the LiDAR subsystem as failed.
 func (ws *Server) Start(ctx context.Context) error {
 	ws.setBaseContext(ctx)
+
+	// Bind before starting anything else, so a port already in use is a
+	// startup error rather than a fatal exit from the serving goroutine.
+	addr := ws.server.Addr
+	if addr == "" {
+		addr = ":http" // ListenAndServe's default
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", addr, err)
+	}
 
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
 		if err := ws.startLiveListenerLocked(); err != nil {
 			ws.dataSourceMu.Unlock()
+			_ = ln.Close()
 			return err
 		}
 	}
@@ -469,13 +491,16 @@ func (ws *Server) Start(ctx context.Context) error {
 		opsf("Warning: capture job runner did not start: %v", err)
 	}
 
-	// Start server in a goroutine so it doesn't block
+	// Serve in a goroutine so it doesn't block
 	go func() {
-		diagf("Starting HTTP server on %s", ws.address)
-		if err := ws.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		diagf("Starting HTTP server on %s", ln.Addr())
+		if err := ws.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			opsFatalf("failed to start server: %v", err)
 		}
 	}()
+	if ws.onReady != nil {
+		ws.onReady()
+	}
 
 	// Wait for context cancellation to shut down server
 	<-ctx.Done()
