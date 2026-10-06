@@ -74,7 +74,10 @@ observability plan §4.
       `statistics_json` NULL, and `GetRun()` reads NULL rows unchanged.
 
 `avg_noise_ratio` is always 0: nothing sets a track's `NoisePointRatio`
-until clustering counts noise points (Phase 3).
+until clustering counts noise points (Phase 3). `tentative_ratio` and
+`confirmed_ratio` are always 0 and 1, because a run records only confirmed
+tracks. `avg_occlusion_count` uses the closed occlusion counter, as
+`lidar_tracks` does (Phase 2).
 
 ### Downstream opportunity
 
@@ -107,9 +110,21 @@ distribution). This is a separate UI task.
       `max_track_history_length` points and holds a coasted point for every
       missed frame, so it is not used. Spatial coverage comes from the span
       through `l5tracks.SpatialCoverage()`.
+- [x] The occlusion columns hold the tracker's closed counters
+      (`ClosedOcclusionCount`, `MaxClosedOcclusionFrames`): gaps the track was
+      observed again after. A confirmed track is written every frame while it
+      coasts out for up to `max_misses_confirmed` frames before deletion, so
+      the live counters would give nearly every finished track an occlusion
+      of about 14 frames.
+- [x] `track_length_meters` is the tracker's trail length summed at associated
+      updates. Distance covered during a gap counts only from its last coasted
+      point to the next measurement, so a track occluded mid-passage reads
+      short; the classifier reads the same value, so changing it is a tracker
+      decision, not a storage one.
 - [x] Duration and spatial coverage are NULL while undefined (no elapsed time,
       or no observation). `noise_point_ratio` is always NULL: nothing computes
-      it until clustering counts noise points (Phase 3).
+      it until clustering counts noise points (Phase 3). Rows written before
+      this change hold NULL in every quality column and read back as 0.
 - [x] Add `track_length_meters`, `occlusion_count` and `max_occlusion_frames`
       to the track API response and the `Track` TypeScript interface in
       [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
@@ -134,8 +149,18 @@ and `aspect_ratio` from data already available at insert time.
 **Schedule:** Backlog; schedule after Phase 2 when cluster diagnostics
 become a priority.
 
+**Precondition found during Phase 2:** nothing writes `lidar_clusters` in
+production. `InsertCluster()` is called only from tests, so the table is
+empty in every deployment, and `/api/lidar/clusters` and the debug clusters
+chart read an empty table.
+Populating its quality columns first needs a decision to persist clusters at
+all (at 10 Hz that is every cluster of every frame), and a definition of a
+cluster's noise points: DBSCAN's noise points belong to no cluster.
+
 ### Checklist
 
+- [ ] Decide whether and how clusters are persisted, and wire a production
+      writer.
 - [ ] Compute `noise_points_count` during clustering (it currently remains at its schema default of 0; this requires adding
       a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
       and populating it during the L4 clustering step).

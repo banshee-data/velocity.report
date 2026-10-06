@@ -30,7 +30,7 @@ Downstream: enables web run-detail quality summary card.
 
 **Priority:** High. Effort: Small–medium (2–3 days). Risk: Low; columns exist.
 
-**Status:** Implemented. `InsertTrack()` and `UpdateTrack()` write `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames` and `spatial_coverage` from the lifetime counters the tracker keeps, and the track readers read them back. Duration and coverage are NULL while undefined. `noise_point_ratio` is written as NULL until clustering counts noise points (Phase 3). The track API returns length and the occlusion counters.
+**Status:** Implemented. `InsertTrack()` and `UpdateTrack()` write `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames` and `spatial_coverage` from the lifetime counters the tracker keeps, and the track readers read them back. The occlusion columns count only gaps the track was observed again after, not the coast out before deletion. Duration and coverage are NULL while undefined. `noise_point_ratio` is written as NULL until clustering counts noise points (Phase 3). The track API returns length and the occlusion counters.
 
 Downstream: `idx_lidar_tracks_quality` index becomes useful for filtering high-quality tracks for labelling.
 
