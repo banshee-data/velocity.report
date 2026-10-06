@@ -1051,10 +1051,13 @@ but no limit. The only speed limit in the codebase is a per-request report param
 
 That is adequate for printing a number on a PDF and inadequate for compliance analytics, because a
 limit has an effective date range and a report must be reproducible against the limit that applied
-at the time. The right home is `site_config_periods`, which already implements exactly that
-pattern: an effective start and end, an `is_active` flag, and triggers enforcing a single active
-period per site. Adding `speed_limit_kph` and its unit and jurisdiction there costs one migration
-and makes every `legal` speed benchmark reproducible.
+at the time. Nor is one limit per site, or per site configuration period, enough: a street can
+change limit at a sign inside the sensor's view, by direction and by time of day, and a limit is
+signed in mph or km/h depending on the jurisdiction. A first attempt that added the limit to
+`site_config_periods` was withdrawn for those reasons. Limits will attach to the vector scene's
+road geometry, split at their signs, per the
+[posted speed limits plan](posted-speed-limits-plan.md), and every `legal` speed benchmark waits
+for that.
 
 The remaining roadway context, lane centrelines, stop lines, crossings and conflict regions,
 belongs to [lidar-l7-scene-plan](lidar-l7-scene-plan.md) and is the reason Phase 7 exists.
@@ -1126,12 +1129,12 @@ ambiguous classification suppresses rather than picks the argmax.
 
 ### 10.3 Persistence
 
-| Table                      | Content                                                       | Notes                                                                                                             |
-| -------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `lidar_passage_summaries`  | One row per track per estimator version                       | Keyed `(track_id, estimator_id)`; metrics as a JSON column, following the schema's existing JSON-first convention |
-| `lidar_interaction_events` | One row per pairwise encounter                                | Indexed on both track ids and on `type`                                                                           |
-| `lidar_exposure_windows`   | Opportunity denominators                                      | Separate so a rate can be recomputed without re-running the pipeline                                              |
-| `site_config_periods`      | **Add** `speed_limit_kph`, `speed_limit_unit`, `jurisdiction` | Existing effective-date pattern; see 9.1                                                                          |
+| Table                      | Content                                            | Notes                                                                                                             |
+| -------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `lidar_passage_summaries`  | One row per track per estimator version            | Keyed `(track_id, estimator_id)`; metrics as a JSON column, following the schema's existing JSON-first convention |
+| `lidar_interaction_events` | One row per pairwise encounter                     | Indexed on both track ids and on `type`                                                                           |
+| `lidar_exposure_windows`   | Opportunity denominators                           | Separate so a rate can be recomputed without re-running the pipeline                                              |
+| Posted speed limits        | Limit segments on the vector scene's road geometry | Not `site_config_periods`; see 10.1 and the [posted speed limits plan](posted-speed-limits-plan.md)               |
 
 Behaviour output is derived data and must be reproducible from the persisted final estimates. It
 therefore carries `estimator_id` and `param_hash`, and a change to either invalidates the derived
@@ -1505,8 +1508,8 @@ target-lane gaps, intersection movement.
 
 **Inputs.** Site frame, per
 [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md). Roadway
-geometry, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md). Speed limit in
-`site_config_periods`, per Section 10.1.
+geometry, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md). Posted limits on that geometry,
+per the [posted speed limits plan](posted-speed-limits-plan.md).
 
 **Acceptance.** Every `legal` benchmark carries its jurisdiction and effective date. Lane-relative
 metrics propagate map uncertainty and suppress when the map term dominates the trajectory term.

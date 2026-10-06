@@ -64,7 +64,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.3 - Post-encroachment time + behaviour metrics (053)
 
-- Posted speed limit in site config: no speed limit exists anywhere in the schema; the only one in the codebase is a per-request report parameter, so every legal speed benchmark is currently unreproducible. Add `speed_limit_kph`, unit, and jurisdiction to `site_config_periods`, which already carries the effective-date pattern: [design doc](plans/lidar-behaviour-analytics-plan.md) `S`
 - Road-user kinematics (Phase 6A remainder): passage speed, acceleration and braking with per-metric applicability and suppression. Develop against fixtures; emit production results only after G-SMO-1 and the relevant derivative-validity gates: [design doc](plans/lidar-behaviour-analytics-plan.md) `L`
 - Post-encroachment time and conflict geometry (behaviour analytics, after following exposure): PET needs no map: the conflict point falls out of observed path intersections, which makes it the strongest surrogate a fixed roadside sensor can measure: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
 - Vehicle-cyclist passing clearance (behaviour analytics, after following exposure): minimum synchronised surface-to-surface separation with lateral clearance as a path-normal projection for confident overtakes; clearance sigma is dominated by extent rather than position, so cyclist width must come from a class prior rather than a per-track estimate: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
@@ -167,7 +166,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.5.10 - Operator workflows + product polish (0510)
 
 - [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
-- Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
+- Cosine error correction remaining items: delete endpoint and report angle annotation; the speed limit field moved to the posted speed limits item under v1.0: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Embedded offline docs M2: finish shared public guide/tool surfaces, add offline search, and implement targeted same-repo GitHub blob URL rewrites for the embedded site; see [design doc](plans/embedded-offline-docs-site.md) `M` {frontend}
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; opening-paragraph audit complete (58 docs updated); 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
@@ -297,7 +296,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.8.0 - Radar polish + automation (080)
 
-- (#323) Speed limit schedules (D-16): time-based speed limits for school zones and weekday/weekend variation: [design doc](radar/architecture/speed-limit-schedules.md) `L`
 - Unpopulated data structure remediation Phases 5–6, 8: training data export endpoint, run comparison API, and scaffolding struct cleanup; schedule when ML classifier training and comparison UI are active: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `L`
 - (#4) Radar configuration via UI: read and send radar config commands through the web interface: [design doc](radar/architecture/serial-configuration-ui.md) `M`
 - (#11) Serial device/baud auto-detect: ship `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus the UI actions that use them; moved out of the v0.5.1 rollout item since it wasn't blocking the release: [implementation plan](plans/serial-configuration-implementation-plan.md) `M`
@@ -322,6 +320,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## v1.0 (Vector scene + VC)
 
+- Posted speed limits on the vector scene: no limit exists in the schema, so every legal speed benchmark is unreproducible. Record each limit as signed (value, `mph` or `km/h`, jurisdiction, effective dates) on road segments split at their signs, per direction; attribute LiDAR speeds by position and suppress radar compliance where the beam footprint spans a sign: [design doc](plans/posted-speed-limits-plan.md) `M`
+- (#323) Speed limit schedules (D-16): time-based speed limits for school zones and weekday/weekend variation, as time-of-day windows on a posted limit segment; follows the posted speed limits item: [design doc](radar/architecture/speed-limit-schedules.md) `L`
 - Phase 4 motion extension and G-EST-1: preserve sufficient moving-track residual histories, demonstrate an acceleration-specific constant-velocity failure, then assess offline constant acceleration before any CA or IMM production change: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
 - Phase 8 abnormal-motion evidence: preserve innovations, rejected observations, model/mode changes, and discontinuities with query and display support. This is evidence for review, not crash classification: [design doc](plans/lidar-state-estimation-plan.md) `M`
 - L7 Scene layer: persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture: [design doc](plans/lidar-l7-scene-plan.md) `XL`

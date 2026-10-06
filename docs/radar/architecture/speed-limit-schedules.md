@@ -8,6 +8,12 @@ Design specification for associating multiple speed limits with a site that vary
 
 ## Overview
 
+Schedules will attach to a limit segment on the vector scene's road geometry, not to a site: a
+street can carry more than one limit in a sensor's view, and a limit is signed in mph or km/h. The
+[posted speed limits plan](../../plans/posted-speed-limits-plan.md) defines limit segments; a
+schedule is one segment's set of time-of-day windows. Where this document says "site", read "limit
+segment".
+
 Enable sites to define multiple speed limits that vary by time of day and day of week, allowing accurate monitoring and reporting for locations with variable speed limits such as school zones, residential areas with different daytime/nighttime limits, or work zones with active hours.
 
 ## Problem
