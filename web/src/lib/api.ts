@@ -881,7 +881,9 @@ export async function getLidarRuns(params?: {
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
 	if (params?.limit) searchParams.set('limit', String(params.limit));
-	const url = `${API_BASE}/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
+	// The trailing slash is the list's route; without it the server answers
+	// with a redirect to it, a round trip before every list.
+	const url = `${API_BASE}/lidar/runs/${searchParams.toString() ? '?' + searchParams : ''}`;
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Could not load runs: ${res.status}`);
 	const data = await res.json();

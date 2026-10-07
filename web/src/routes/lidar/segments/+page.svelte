@@ -12,12 +12,13 @@
 	import { clipQuery, runQuery, tracksQuery } from '#lib/lidarLinks.js';
 	import {
 		keepSelector,
+		rankingQuery,
 		requirementText,
 		scoreText,
 		segmentDetail,
-		segmentQuery,
 		selectorGroups,
 		statusText,
+		stripImage,
 		type SegmentSelector
 	} from '#lib/segments.js';
 	import type { AnalysisRun } from '#lib/types/lidar.js';
@@ -71,16 +72,13 @@
 	let message = '';
 	// The clip the last "Make clip" produced, linked beside its message.
 	let madeClipID = '';
-	let stripURL = '';
+	// The ranking's score strip, an SVG drawn by the server with the ranking.
+	let strip = '';
 
 	$: groups = selectorGroups(selectors, role);
 	$: chosen = selectors.find((entry) => entry.id === selectorID);
 	$: visible = segments.filter((entry) => !dismissed.has(entry.id));
 	$: selectedPack = packs.find((pack) => pack.segment_id === selected?.id);
-
-	function query() {
-		return segmentQuery(runID, selectorID, role);
-	}
 
 	async function api(path: string, init?: RequestInit) {
 		const response = await fetch(path, init);
@@ -91,19 +89,24 @@
 		return response.json();
 	}
 
+	// The server's first inventory after it starts reads every pack's review
+	// file, tens of megabytes each. Only the status column uses the
+	// inventory, so the table does not wait for it.
+	async function loadPacks() {
+		const inventory = await api('/api/annotations/packs').catch(() => ({ packs: [] }));
+		packs = inventory.packs || [];
+	}
+
 	async function load() {
 		if (!runID) return;
 		busy = true;
 		error = '';
+		void loadPacks();
 		try {
-			const [ranking, inventory] = await Promise.all([
-				api(`/api/lidar/segments?${query()}`),
-				api('/api/annotations/packs').catch(() => ({ packs: [] }))
-			]);
+			const ranking = await api(`/api/lidar/segments?${rankingQuery(runID, selectorID, role)}`);
 			segments = ranking.windows || [];
 			rankedDigest = ranking.selector?.digest ?? '';
-			packs = inventory.packs || [];
-			stripURL = `/api/lidar/segments/strip?${query()}`;
+			strip = ranking.strip_svg ?? '';
 			selected = segments.find((item) => item.id === selected?.id) ?? null;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not load segments.';
@@ -186,15 +189,22 @@
 	}
 
 	onMount(async () => {
+		// The full list carries every run's label progress, which takes a
+		// while on a large database. The ranking needs only the newest run,
+		// so it starts from that, and the list fills the picker on arrival.
+		const everyRun = getLidarRuns();
+		// Its failure is reported below; this keeps one that comes before it
+		// is awaited from being an unhandled rejection.
+		everyRun.catch(() => undefined);
 		try {
-			const [listed, catalogue] = await Promise.all([
-				getLidarRuns(),
+			const [newest, catalogue] = await Promise.all([
+				getLidarRuns({ limit: 1 }),
 				api('/api/lidar/segments/selectors')
 			]);
-			runs = listed;
+			runs = newest;
 			selectors = catalogue.selectors || [];
 			runID = runs[0]?.run_id ?? '';
-			await load();
+			await Promise.all([load(), everyRun.then((listed) => (runs = listed))]);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not load segment selectors.';
 		}
@@ -297,12 +307,12 @@
 				{/if}
 			</p>{/if}
 
-		{#if stripURL && segments.length}
+		{#if strip && segments.length}
 			<section
 				aria-label="Per-capture score strip"
 				class="border-surface-content/10 bg-surface-100 overflow-x-auto rounded-lg border p-3"
 			>
-				<img src={stripURL} alt="Segment scores grouped by capture" />
+				<img src={stripImage(strip)} alt="Segment scores grouped by capture" />
 			</section>
 		{/if}
 

@@ -1,11 +1,13 @@
 import {
 	keepSelector,
+	rankingQuery,
 	requirementText,
 	scoreText,
 	segmentDetail,
 	segmentQuery,
 	selectorGroups,
 	statusText,
+	stripImage,
 	type SegmentSelector
 } from './segments';
 
@@ -85,6 +87,24 @@ describe('segmentQuery', () => {
 		expect(segmentQuery('run 1', 'close_following', 'tuning')).toBe(
 			'run_id=run+1&selector=close_following&role=tuning'
 		);
+	});
+
+	it('asks for the score strip with the ranking the page shows', () => {
+		expect(rankingQuery('run 1', 'following', 'held_out')).toBe(
+			'run_id=run+1&selector=following&role=held_out&strip=1'
+		);
+	});
+});
+
+describe('stripImage', () => {
+	it('makes the strip an image source that decodes to the same SVG', () => {
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>a & b #1 100%</text></svg>';
+		const source = stripImage(svg);
+		const prefix = 'data:image/svg+xml;charset=utf-8,';
+		expect(source.startsWith(prefix)).toBe(true);
+		// A raw '#' would end the image at a fragment; '%' is encoded as %25.
+		expect(source).not.toMatch(/[<>"# ]|%(?![0-9A-F]{2})/);
+		expect(decodeURIComponent(source.slice(prefix.length))).toBe(svg);
 	});
 });
 

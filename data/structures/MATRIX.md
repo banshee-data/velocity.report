@@ -169,7 +169,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Scene map      | `scene_geo_api.go`     | `GET /api/lidar/scene-map`                      | ✅  | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
-| Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | ✅  | -   |
+| Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
 | Segments       | `segments_api.go`      | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
 | Segments       | `segment_clip_api.go`  | `POST /api/lidar/scenes/{id}/clip`              | ✅  | ✅  | -   |
 | Annotations    | `segment_packs_api.go` | `GET /api/annotations/packs`                    | -   | ✅  | -   |

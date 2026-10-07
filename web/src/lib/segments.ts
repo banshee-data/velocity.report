@@ -56,6 +56,23 @@ export function segmentQuery(runID: string, selector: string, role: string): str
 	return new URLSearchParams({ run_id: runID, selector, role }).toString();
 }
 
+/**
+ * The query the page ranks with: segmentQuery's, asking for the ranking's
+ * score strip in the same response. The strip endpoint would rank the run a
+ * second time, after the table had already waited for the first.
+ */
+export function rankingQuery(runID: string, selector: string, role: string): string {
+	return `${segmentQuery(runID, selector, role)}&strip=1`;
+}
+
+/**
+ * An image source for the server's strip SVG. It is shown as an image, as
+ * the strip endpoint's response was, so nothing in it runs or styles the page.
+ */
+export function stripImage(svg: string): string {
+	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 /** What a selector requires, in words: "pair_seconds ≥ 2". Empty when nothing. */
 export function requirementText(selector: SegmentSelector): string {
 	return selector.require

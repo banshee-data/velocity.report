@@ -2229,6 +2229,10 @@ describe('api', () => {
 				const { getLidarRuns } = await import('./api');
 				const result = await getLidarRuns({ sensor_id: 'hesai', status: 'complete', limit: 10 });
 				expect(result).toEqual([{ run_id: 'r1' }]);
+				// The list's own route, not the one the server redirects from.
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/?sensor_id=hesai&status=complete&limit=10'
+				);
 			});
 
 			it('should handle errors', async () => {
