@@ -4,6 +4,13 @@ allowBuilds:
   '@parcel/watcher': true
 
 overrides:
+  js-yaml@<3.15.2: ^3.15.2
+  js-yaml@>=4.0.0 <4.3.2: ^4.3.2
   liquidjs@<=10.25.4: 10.25.5
+  markdown-it@<14.3.1: ^14.3.1
   minimatch@<3.1.5: 3.1.5
   picomatch@<2.3.2: 2.3.2
+  # @tailwindcss/typography, latest 0.5.20, pins 6.0.10; 7.1.6 fixes
+  # GHSA-rj75-hqrm-r3gf and the site's CSS builds byte-identical with it.
+  postcss-selector-parser@<7.1.6: ^7.1.6
+  shell-quote@<1.9.0: ^1.9.0

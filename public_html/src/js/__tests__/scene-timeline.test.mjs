@@ -1,7 +1,7 @@
 // Tests for the timeline strip. The 2D context records enough paint operations
 // to check which side of the centre line each series uses.
 
-import { test, describe } from "node:test";
+import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { createTimelineStrip } from "../scene-timeline.js";
@@ -181,5 +181,54 @@ describe("timeline strip", () => {
     const { canvas, seeks } = setup({ width: 0 });
     canvas.fire("pointerdown", { pointerId: 1, clientX: 40 });
     assert.equal(seeks.at(-1), 0);
+  });
+
+  // The playhead follows the page's colour scheme. Outside a browser there is
+  // no scheme to ask, and the strip must still draw rather than throw.
+  describe("playhead colour", () => {
+    const originalMatchMedia = globalThis.matchMedia;
+    afterEach(() => {
+      if (originalMatchMedia === undefined) delete globalThis.matchMedia;
+      else globalThis.matchMedia = originalMatchMedia;
+    });
+
+    /** The playhead is the full-height vertical stroke at its position. */
+    function playheadAt(canvas, x) {
+      return canvas.paint.strokes.findLast(
+        ({ path }) =>
+          path.length === 2 &&
+          path.every(([px]) => px === x) &&
+          path[0][1] === 0 &&
+          path[1][1] === canvas.clientHeight,
+      );
+    }
+
+    const cases = [
+      [
+        "with no colour scheme to ask, it is drawn for a dark page",
+        undefined,
+        "#ffffff",
+      ],
+      ["a dark page gets a white playhead", true, "#ffffff"],
+      ["a light page gets a near-black playhead", false, "#111827"],
+    ];
+    for (const [name, dark, colour] of cases) {
+      test(name, () => {
+        const queries = [];
+        if (dark === undefined) delete globalThis.matchMedia;
+        else
+          globalThis.matchMedia = (query) => {
+            queries.push(query);
+            return { matches: dark };
+          };
+        const { canvas, strip } = setup({ duration: 600, width: 600 });
+        strip.setPlayhead(300);
+        assert.equal(playheadAt(canvas, 300)?.colour, colour);
+        if (dark !== undefined) {
+          assert.ok(queries.length > 0);
+          assert.ok(queries.every((q) => q === "(prefers-color-scheme: dark)"));
+        }
+      });
+    }
   });
 });

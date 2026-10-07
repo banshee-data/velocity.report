@@ -5,7 +5,7 @@ Phased plan to wire up data structures that are computed on the Go backend but n
 ## Source
 
 - Plan: [docs/plans/unpopulated-data-structures-remediation-plan.md](../../plans/unpopulated-data-structures-remediation-plan.md)
-- Status: Active; Phases 1–3 proposed; Phases 4–10 proposed
+- Status: Active; Phases 1, 2, and 4 implemented; Phases 3 and 5–8 proposed
 - Related: Backend → Surface Matrix ([data/structures/MATRIX.md](../../../data/structures/MATRIX.md))
 
 ## Problem
@@ -22,9 +22,7 @@ This creates dead schema weight, lost analytical value, incomplete UI surfaces, 
 
 ### Phase 1: wire `statistics_json` (run statistics)
 
-**Priority:** High. Effort: Small (1–2 days). Risk: Low; no schema change; column already exists.
-
-In `CompleteRun()` (`analysis_run.go:463`), call `l6objects.ComputeRunStatistics()` on the run's collected tracks and serialise to `statistics_json`. Update `GetRun()` and `ListRuns()` to read and parse it. Add `StatisticsJSON json.RawMessage` to the `AnalysisRun` struct.
+**Status:** Implemented. `AnalysisRunManager` keeps one summary per track, replaced each time the track is recorded, and `CompleteRun()` writes `l8analytics.RunStatistics` to `statistics_json` from those summaries. A run that recorded no track leaves the column NULL. `avg_noise_ratio` is always 0 until clustering counts noise points (Phase 3).
 
 Downstream: enables web run-detail quality summary card.
 
@@ -32,7 +30,7 @@ Downstream: enables web run-detail quality summary card.
 
 **Priority:** High. Effort: Small–medium (2–3 days). Risk: Low; columns exist.
 
-6 columns in `lidar_tracks` exist but hold NULL/0 defaults: `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`. Update `InsertTrack()` and `UpdateTrack()` to populate them from `TrackedObject` fields.
+**Status:** Implemented. `InsertTrack()` and `UpdateTrack()` write `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames` and `spatial_coverage` from the lifetime counters the tracker keeps, and the track readers read them back. The occlusion columns count only gaps the track was observed again after, not the coast out before deletion. Duration and coverage are NULL while undefined. `noise_point_ratio` is written as NULL until clustering counts noise points (Phase 3). The track API returns length and the occlusion counters.
 
 Downstream: `idx_lidar_tracks_quality` index becomes useful for filtering high-quality tracks for labelling.
 
@@ -44,7 +42,7 @@ Downstream: `idx_lidar_tracks_quality` index becomes useful for filtering high-q
 
 ### Phase 4: run statistics API endpoint
 
-`GET /api/lidar/runs/{run_id}/statistics` endpoint. Returns `RunStatistics` JSON; 404 if NULL (pre-Phase-1 runs).
+**Status:** Implemented. `GET /api/lidar/runs/{run_id}/statistics` returns `RunStatistics` JSON, or 404 for an unknown run or one without statistics (pre-Phase-1 runs). The web client's `getRunStatistics()` returns `null` for the 404; no page displays it yet.
 
 ### Phase 5: training data export endpoint
 
@@ -82,8 +80,9 @@ Phase 7 (percentile removal / migration 030)
 
 ## Scheduling guidance
 
-- **Immediate:** Phases 1–3 (wire existing data, minimal risk)
-- **Near-term:** Phase 4 (API) + Phase 7 (migration 030 cleanup)
+- **Done:** Phases 1, 2, and 4 (run statistics, their endpoint, and track quality columns)
+- **Immediate:** Phase 3 (cluster quality columns)
+- **Near-term:** Phase 7 (migration 030 cleanup)
 - **Backlog:** Phases 5–8 (depend on product direction; ML pipeline, comparison UI)
 
 ## Risk register

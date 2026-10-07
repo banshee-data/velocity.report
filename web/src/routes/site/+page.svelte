@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { deleteSite, getSites, type Site } from '$lib/api';
+	import { deleteSite, getSites, type Site } from '#lib/api.js';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Dialog } from 'svelte-ux';
@@ -30,11 +30,11 @@
 	}
 
 	function handleCreate() {
-		goto(resolve('/site/new'));
+		goto(resolve('/site/[id]', { id: 'new' }));
 	}
 
 	function handleEdit(siteId: number) {
-		goto(resolve(`/site/${siteId}`));
+		goto(resolve('/site/[id]', { id: String(siteId) }));
 	}
 
 	function openDeleteDialog(site: Site) {

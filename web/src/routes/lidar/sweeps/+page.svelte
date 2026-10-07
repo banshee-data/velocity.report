@@ -5,8 +5,8 @@
 	 * Lists sweep/auto-tune runs with a detail panel showing recommendation,
 	 * request config, and links to the sweep dashboard.
 	 */
-	import { applyLidarParams, continueHINT, getSweep, listSweeps } from '$lib/api';
-	import type { SweepRecord, SweepSummary } from '$lib/types/lidar';
+	import { applyLidarParams, continueHINT, getSweep, listSweeps } from '#lib/api.js';
+	import type { SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 

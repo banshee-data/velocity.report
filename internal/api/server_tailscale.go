@@ -121,8 +121,16 @@ func parseWaitSeconds(s string, max time.Duration) time.Duration {
 	return d
 }
 
+// parseUint64 parses a long-poll status version. Anything that is not a
+// valid uint64 reads as 0, the version a client starts from, so the request
+// returns at once. That includes overflow: ParseUint returns MaxUint64
+// alongside ErrRange, and a `since` of MaxUint64 is a version the status never
+// passes, which would hold every poll for its full wait.
 func parseUint64(s string) uint64 {
-	n, _ := strconv.ParseUint(s, 10, 64)
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0
+	}
 	return n
 }
 

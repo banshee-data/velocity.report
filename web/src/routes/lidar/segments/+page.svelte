@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getLidarRuns } from '$lib/api';
+	import { getLidarRuns } from '#lib/api.js';
 	import {
 		keepSelector,
 		requirementText,
@@ -9,8 +9,8 @@
 		segmentQuery,
 		selectorGroups,
 		type SegmentSelector
-	} from '$lib/segments';
-	import type { AnalysisRun } from '$lib/types/lidar';
+	} from '#lib/segments.js';
+	import type { AnalysisRun } from '#lib/types/lidar.js';
 	import { onMount } from 'svelte';
 
 	type Segment = {

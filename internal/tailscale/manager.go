@@ -305,7 +305,10 @@ func (m *Manager) watchLoop() {
 			return
 		}
 
-		watcher, err := m.lc.WatchIPNBus(m.runCtx, ipn.NotifyInitialState|ipn.NotifyInitialPrefs|ipn.NotifyInitialNetMap)
+		// No NotifyInitialNetMap: consumeBus never reads the netmap, and
+		// tailscaled 1.104+ rejects the bit, so asking for it would turn
+		// every subscription into the daemon-down retry path below.
+		watcher, err := m.lc.WatchIPNBus(m.runCtx, ipn.NotifyInitialState|ipn.NotifyInitialPrefs)
 		if err != nil {
 			// Daemon almost certainly not running yet.  Back off (with
 			// jitter so a fleet of devices doesn't synchronise) and retry.

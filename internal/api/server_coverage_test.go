@@ -881,12 +881,38 @@ func TestStart_ProductionModeListenAndShutdown(t *testing.T) {
 		t.Errorf("Expected redirect for trailing slash, got %d", resp.StatusCode)
 	}
 
-	// Request /favicon.ico to exercise static handler
+	// /favicon.ico is the embedded web build's favicon.ico. A real build has
+	// one (from web/static); the stub build that ensure-web-stub.sh writes
+	// has only index.html, and then there is nothing to serve.
 	resp, err = http.Get("http://" + addr + "/favicon.ico")
 	if err != nil {
 		t.Fatalf("failed to request favicon: %v", err)
 	}
+	favicon, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("failed to read favicon: %v", err)
+	}
+	root, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("find repo root: %v", err)
+	}
+	want, err := os.ReadFile(filepath.Join(root, "web", "build", "favicon.ico"))
+	switch {
+	case err == nil:
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 for /favicon.ico, got %d", resp.StatusCode)
+		}
+		if !bytes.Equal(favicon, want) {
+			t.Fatalf("/favicon.ico served %d bytes, want the %d of web/build/favicon.ico", len(favicon), len(want))
+		}
+	case os.IsNotExist(err):
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected 404 for /favicon.ico with no favicon in web/build, got %d", resp.StatusCode)
+		}
+	default:
+		t.Fatalf("read web/build/favicon.ico: %v", err)
+	}
 
 	// Request a non-root non-app path to get 404
 	resp, err = http.Get("http://" + addr + "/something")
@@ -926,6 +952,10 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>test</html>"), 0644); err != nil {
 		t.Fatalf("failed to write index.html: %v", err)
 	}
+	devFavicon := []byte("dev build favicon")
+	if err := os.WriteFile(filepath.Join(buildDir, "favicon.ico"), devFavicon, 0644); err != nil {
+		t.Fatalf("failed to write favicon.ico: %v", err)
+	}
 
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -944,6 +974,20 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 		t.Fatalf("failed to request /app/: %v", err)
 	}
 	resp.Body.Close()
+
+	// Dev mode reads /favicon.ico from ./web/build, the same tree as /app.
+	resp, err = http.Get("http://" + addr + "/favicon.ico")
+	if err != nil {
+		t.Fatalf("failed to request favicon: %v", err)
+	}
+	favicon, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("failed to read favicon: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK || !bytes.Equal(favicon, devFavicon) {
+		t.Fatalf("expected the dev build's favicon.ico (200), got %d with %q", resp.StatusCode, favicon)
+	}
 
 	// Request /app/nonexistent - should fall back to index.html (SPA)
 	resp, err = http.Get("http://" + addr + "/app/nonexistent")

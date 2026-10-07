@@ -8,8 +8,8 @@
 	 * which is which; the ticks say where one capture file ended and the next
 	 * began, which is the thing a per-file view cannot show.
 	 */
-	import type { CaptureFile, MotionPeriod } from '$lib/types/captures';
-	import { clockTicks, fileBoundaries, formatDuration, toBands } from '$lib/captures/timeline';
+	import type { CaptureFile, MotionPeriod } from '#lib/types/captures.js';
+	import { clockTicks, fileBoundaries, formatDuration, toBands } from '#lib/captures/timeline.js';
 
 	export let periods: MotionPeriod[] = [];
 	export let files: CaptureFile[] = [];

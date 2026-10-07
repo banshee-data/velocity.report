@@ -8,7 +8,30 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 5, 2026 - Near-edge findings stay in Git, raw outputs stay local, and a scene-change recovery plan
+## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
+
+- Read PCAP packets in place on the caller's goroutine instead of through gopacket's channel: replay CPU fell about 10 % and the scheduler's share from 57-59 % to 34 %, with byte-identical outputs (#679).
+- Measured that replaying from the NAS doubled wall time against the internal SSD at the same CPU, so the PCAP analysis guide recommended copying a case's captures to local disk first (#679).
+- Recaptured the mac perf baselines, which the comparator had refused since #613 moved the tuning fingerprint, and recorded that a capture from a worktree stamps the wrong commit (#680).
+- Clipped scene headway encounters that cross the scene window to it and recomputed their accounting, windows and measurements, so an encounter crossing an edge was no longer silently dropped (R4) (#686).
+- Moved held-out scoring to v2: the plan pinned the reference set's content digest, unmatched and unscorable shares failed a report past their bounds, and each stratum needed distinct encounters (#688).
+- Folded a statistical review into v2: an unevaluated instant counted as a suppression in its stratum, non-finite and duplicate estimates were refused, and R6 recorded the point-estimate gaps that remained (#688).
+- Timed whole replay frames under `-campaign-metrics`: A2 moved the frame 2 to 7 % at p99 where its tracker update alone was 9 to 21 times B0's, leaving the cost screen's scope to decide (#689).
+- Stored run statistics when an analysis run completes, served them at `GET /api/lidar/runs/{id}/statistics`, and wrote the `lidar_tracks` quality columns from the tracker's lifetime counters (#690).
+- Counted stored occlusions only over gaps a track was seen again after, because a confirmed track's coast before deletion had given nearly every finished track about 14 (#690).
+- Measured track length across a gap from the last observed point, so an occluded car no longer read 19.3 m over a true 23.2 m passage (#701).
+- Added distinct confirmed tracks to the perf gate's workload identity, compared once a baseline carried them: 77 on kirk0 against a peak of 25 at once (#692).
+- Closed the runtime correctness plan's Phases 3 and 4: magnitude-only radar rows became diagnostics rather than transit inputs, and `/api/capabilities` reported LiDAR ready or error from its startup (#691).
+- Fixed a transit rebuild stripping other model versions' links in its window by scoping the link refresh to its own model version's transits (#691).
+- Withdrew the per-period speed limit columns and [planned posted limits on the vector scene](plans/posted-speed-limits-plan.md): signed value and unit, road segments split at signs, and radar suppressed across a sign (#685).
+- Read an overflowing Tailscale long-poll version as 0 rather than MaxUint64, which had held the request for its whole wait (#682).
+- Cleared every Dependabot alert with overrides in the docs sites, web, Python tooling and `public_html`, and merged the bumps for `source-map-js`, `postcss-selector-parser`, KaTeX and Mermaid (#683, #697, #698, #699, #702, #703).
+- Moved to Go 1.27.1 for `tailscale.com` 1.105.0-pre, dropped the removed netmap bit from the IPN bus watch, and held SvelteKit 3 back (#693).
+- Fixed the public_html timeline strip tests, which failed outside a browser, and ran that suite in `make test` and CI (#695).
+- Widened the lidarbench heap-stability bound to 20 % for shared CI runners, and added the tests Codecov found missing in #686 and #688 (#687, #700).
+- {dd/api/tailscale-acls-503} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
+
+## October 5, 2026 - Near-edge findings and follow-ups, span selection, raw outputs stay local, a scene-change recovery plan, and the devlog register
 
 - Planned recovery from the Lombard-Laguna survey's scene change: 45 track IDs appear within 0.2 s around 33:21, existing IDs survive, and near-static tracks persist afterwards. The [sprint plan](plans/lidar-scene-change-recovery-sprint-plan.md) does not assume the sensor was nudged (#675).
 - Scoped a ten-engineer-day sprint: full-prefix reproduction, bounded L3 diagnostics, cause selection, a default-off recovery candidate, a lifecycle and quality export, and reserved-case evaluation. Seven backlog items spread the work from v0.5.4 to v0.6.7 (#675).
@@ -17,6 +40,18 @@ older entries stay put, however tempting hindsight may be.
 - Added default-off `-campaign-metrics` exports to the offline baseline tool for confirmed intervals and Tracker.Update wall time, with interval, censoring, miss-only expiry and baseline-equivalence tests. The [completed campaign report](lidar/operations/near-edge-campaign-2026-10.md) preserves methods, all 29 case gates, durations, diagnostic comparisons, balanced timing, robustness, and tail interpretation. Raw evidence remains local (#672).
 - Retain B0: A2 breaches observed update cost at all 29 cases and geometry at nine. Complete mean duration decreases at 22 of 23 core sites and by 43% at Claren. No diagnostic correction is selected; physical references, raw-geometry intervals, and Pi validation remain unresolved (#672).
 - Added repository-wide agent instructions and a Git ignore for result directories. A pre-commit check and CI reject tracked `results` paths, including force-added output. The publication branch was rebuilt without raw campaign output commits; reusable instrumentation and the detailed written report remain reviewable. Agent rules explicitly require reports in `docs/` and preserve them when cleaning up output (#672).
+- Finished S2.4 of the near-edge plan: the fixed-lag smoother ended a chain where a track's reference point changed, `fixed_lag_rts` combined with `near_edge_track`, and each refined estimate got a refined solid body in the same transaction (#676).
+- Covered `lidar_track_solid_bodies` in the evidence oracle, listed only when a run wrote solid bodies, so a run without them kept a byte-identical oracle (#676).
+- Profiled B0, the shadow and A2 at the October campaign's timing sites with a new `-cpuprofile-dir`: the update-cost breach was the solid body's extent admission, a full sort on 21 axes per face, which the shadow paid too (#676).
+- Re-ran D2 on kirk0 under the current solver: OBB-centre identity switches fell from 146 to 128 against the medoid's 92, so the medoid stayed production on a smaller margin, and two errors in the per-frame guide were corrected (#676).
+- Surveyed sensor geometry for the 23 tuning and screen cases, all full circle; the held-out case waits on a governed split, and transient evidence moved to the internal disk after SQLite on the USB volume proved seek-bound (#676).
+- Replaced the sort in the solid body's span measurement with a selection of its two percentiles; every span stayed bit-identical, and kirk0 shadow and A2 replays wrote identical baselines and solid-body rows (#678).
+- Timed B0, the shadow and A2 on main and the selection build with the campaign's balanced protocol: the solid body's p99 fell to 30 % to 40 % of main's, but A2 stayed 12 to 20 times B0's, so the cost screen still failed (#678).
+- Re-ran the label-free D2 comparison on the 23 tuning and screen sites: six of seven measures held, and the OBB centre's contested terminations fell so that it went from worse at 15 sites to better at 16, matching kirk0's identity result (#678).
+- Profiled A2 after span selection: the span search was under half of its update, and the near-edge measurement in association sorted every projection to read one percentile (#678).
+- Selected that near-edge percentile instead of sorting: outputs stayed byte-identical, the shadow's p99 fell 10 % and A2's 8 % to 28 %, and A2 stayed 8 to 19 times B0's (#678).
+- Rewrote the devlog to one line per bullet, one heading per UTC date and a PR number on every landed bullet, and gap-filled September 25 to October 5 (#677).
+- Recorded what sprints 0.5.2.0 and 0.5.2.1 delivered in the backlog and plans, and made the devlog-update skill insert new days after the devlog's introduction (#677).
 
 ## October 4, 2026 - Physical references and facet authoring, publishing preflight, and two more screen sites
 

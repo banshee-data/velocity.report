@@ -1,4 +1,4 @@
-import type { StoredReportSettings } from '$lib/reportSettings';
+import type { StoredReportSettings } from '#lib/reportSettings.js';
 
 import {
 	buildReportRequest,

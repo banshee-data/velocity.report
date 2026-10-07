@@ -351,16 +351,51 @@ func (track *TrackedObject) SpeedHistory() []float32 {
 	return result
 }
 
+// countsTowardLength reports whether a trail point is a vertex of the
+// track's length: an observed point, or one with no support record (a trail
+// restored from storage predates the token, and is measured as it always
+// was). A coasted point is a prediction and never counts.
+func (p TrackPoint) countsTowardLength() bool {
+	return p.Support == SupportObserved || p.Support == SupportUnrecorded
+}
+
+// lengthAnchor is the trail point the next observed point's length is
+// measured from: the newest point that counts toward length. Distance
+// covered while coasting is then counted once, as the chord from the last
+// observation across the gap. Measuring from the newest trail point instead
+// counted only the last coasted point's distance to the reacquisition and
+// lost the rest of the gap; summing through the coasted points would count
+// the prediction's own error, and a coast that never ends in reacquisition,
+// as distance nobody saw the object cover. When the trail cap has trimmed
+// every observed point away, the earliest point retained stands in.
+func lengthAnchor(history []TrackPoint) (TrackPoint, bool) {
+	for i := len(history) - 1; i >= 0; i-- {
+		if history[i].countsTowardLength() {
+			return history[i], true
+		}
+	}
+	if len(history) == 0 {
+		return TrackPoint{}, false
+	}
+	return history[0], true
+}
+
 // ComputeQualityMetrics calculates track quality metrics.
 // This should be called when a track is finalized (state changes to deleted or when exporting).
 func (track *TrackedObject) ComputeQualityMetrics() {
-	// Track length: Sum of Euclidean distances between consecutive positions
+	// Track length: the running total's rule (lengthAnchor) over the trail
+	// held, the sum of distances between consecutive observed points.
 	track.TrackLengthMeters = 0
 	if len(track.History) > 1 {
-		for i := 1; i < len(track.History); i++ {
-			dx := track.History[i].X - track.History[i-1].X
-			dy := track.History[i].Y - track.History[i-1].Y
+		anchor := track.History[0]
+		for _, p := range track.History[1:] {
+			if !p.countsTowardLength() {
+				continue
+			}
+			dx := p.X - anchor.X
+			dy := p.Y - anchor.Y
 			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+			anchor = p
 		}
 	}
 
@@ -388,24 +423,25 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 		}
 	}
 
-	// Spatial coverage: Ratio of observed area to theoretical max
-	// This is a simplified metric - more sophisticated versions could track
-	// actual point cloud coverage within the bounding box
-	if track.ObservationCount > 0 {
-		// Estimate coverage as (observations / theoretical_max_observations)
-		// At 10Hz, theoretical max = duration * 10
-		theoreticalMax := track.TrackDurationSecs * 10
-		if theoreticalMax > 0 {
-			track.SpatialCoverage = float32(track.ObservationCount) / theoreticalMax
-			// Clamp to [0, 1]
-			if track.SpatialCoverage > 1.0 {
-				track.SpatialCoverage = 1.0
-			}
-		}
+	if c, ok := SpatialCoverage(track.ObservationCount, track.TrackDurationSecs); ok {
+		track.SpatialCoverage = c
 	}
 
-	// Note: NoisePointRatio is computed during clustering and passed via clusters
-	// It will be aggregated when clusters are associated with tracks
+	// NoisePointRatio is not set here or anywhere else yet: it stays 0 until
+	// clustering counts noise points per cluster.
+}
+
+// SpatialCoverage is a track's observations over the most a 10 Hz sensor
+// could have made in its duration, clamped to [0, 1], and whether that is
+// defined: it is not without observations or elapsed time. This is a
+// simplified metric - more sophisticated versions could track actual point
+// cloud coverage within the bounding box.
+func SpatialCoverage(observations int, durationSecs float32) (float32, bool) {
+	theoreticalMax := durationSecs * 10
+	if observations <= 0 || !(theoreticalMax > 0) {
+		return 0, false
+	}
+	return min(float32(observations)/theoreticalMax, 1.0), true
 }
 
 // GetTrackingMetrics computes aggregate velocity-trail alignment metrics

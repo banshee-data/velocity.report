@@ -142,12 +142,17 @@ type TrackedObject struct {
 	LatestZ float32
 
 	// Track quality metrics
-	TrackLengthMeters  float32 // Total distance traveled (meters)
+	TrackLengthMeters  float32 // Distance travelled between observed positions, across gaps (metres)
 	TrackDurationSecs  float32 // Total lifetime (seconds)
 	OcclusionCount     int     // Number of missed frames (gaps)
 	MaxOcclusionFrames int     // Longest gap in observations
-	SpatialCoverage    float32 // % of bounding box covered by observations
-	NoisePointRatio    float32 // Ratio of noise points to cluster points
+	// The same over gaps the track was observed again after. A confirmed
+	// track coasts out for up to MaxMissesConfirmed frames before deletion;
+	// that open gap is in the two counters above and not in these.
+	ClosedOcclusionCount     int
+	MaxClosedOcclusionFrames int
+	SpatialCoverage          float32 // % of bounding box covered by observations
+	NoisePointRatio          float32 // Ratio of noise points to cluster points
 
 	// Velocity-Trail Alignment Metrics
 	// Measures how well the Kalman velocity vector aligns with the actual
@@ -815,6 +820,11 @@ func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowN
 	t.markObserved(track)
 	t.recordSupport(track, SupportObserved)
 	track.Hits++
+	// Observed again: the gap the track was in, if any, closes here.
+	track.ClosedOcclusionCount = track.OcclusionCount
+	if track.Misses > track.MaxClosedOcclusionFrames {
+		track.MaxClosedOcclusionFrames = track.Misses
+	}
 	track.Misses = 0
 	return true
 }

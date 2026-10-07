@@ -21,6 +21,8 @@ _site/
 .gomodcache/
 .tmp/
 public_html/dist/
+# Copies of the web build that older builds wrote here; nothing reads or writes
+# static/ now, and `make clean-web` removes it.
 static/
 
 # =============================================================================

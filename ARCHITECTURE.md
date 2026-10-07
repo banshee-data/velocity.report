@@ -618,7 +618,7 @@ and SQLite automatically populates the generated columns. This provides:
 - `lidar_bg_snapshot` - LiDAR background grid for motion detection (40×1800 range-image)
 - `lidar_objects` - Track-extracted transits from LiDAR processing [PLANNED]
 - `radar_commands` / `radar_command_log` - Command history and execution logs
-- `site` - Site metadata (location, speed limits)
+- `site` - Site metadata (location, description); posted speed limits will attach to the vector scene, per [docs/plans/posted-speed-limits-plan.md](docs/plans/posted-speed-limits-plan.md)
 - `site_config_periods` - Time-based sensor configuration (cosine error angle history)
 
 **Transit Sources** (3 independent object detection pipelines):
@@ -909,7 +909,7 @@ Response: [
 
 - Static file serving for Svelte build (`/app/*`)
 - SPA routing with fallback to `index.html`
-- Favicon serving
+- Favicon serving (`/favicon.ico`, from the same web build)
 - Root redirect to `/app/`
 
 ### Go server ↔ macOS visualiser

@@ -132,6 +132,8 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 
 	// Query individual radar_data rows in the window using the explicit primary key.
+	// A transit is a speed session, so only rows with a speed are inputs.
+	// Serial ingest also stores magnitude-only rows; they stay diagnostics.
 	q := `
 		SELECT
 			data_id,
@@ -142,7 +144,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			radar_data
 		WHERE
 			write_timestamp BETWEEN ? AND ?
-			AND (speed IS NOT NULL OR magnitude IS NOT NULL)
+			AND speed IS NOT NULL
 		ORDER BY
 			ts
 	`
@@ -286,16 +288,20 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	// generate stable transit keys using SHA1(start|threshold|model_version)
 	// Note: we intentionally omit end time so the key doesn't change as new points extend the transit
 
-	// Refresh links for transits in the window: delete previous links, we'll insert as we go
+	// Refresh links for this model version's transits in the window: delete
+	// previous links, we'll insert as we go. Scoped to the model version: the
+	// window holds other versions' transits too (hourly-cron beside a
+	// rebuild-full, say), and their links are not this run's to remove.
 	deleteLinks := `
 		DELETE FROM radar_transit_links
 		WHERE transit_id IN (
 			SELECT transit_id
 			FROM radar_data_transits
-			WHERE transit_start_unix BETWEEN ? AND ?
+			WHERE model_version = ?
+			  AND transit_start_unix BETWEEN ? AND ?
 		);
 	`
-	if _, err := tx.ExecContext(ctx, deleteLinks, start, end); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteLinks, w.ModelVersion, start, end); err != nil {
 		return err
 	}
 

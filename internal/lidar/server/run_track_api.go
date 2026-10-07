@@ -55,6 +55,12 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/statistics
+	if subPath == "statistics" {
+		ws.handleRunStatistics(w, r, runID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/labelling-progress
 	if subPath == "labelling-progress" {
 		ws.handleLabellingProgress(w, r, runID)
@@ -468,6 +474,44 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(run)
+}
+
+// handleRunStatistics returns a run's aggregate track statistics, computed
+// when the run completed. A run that has not completed, or completed before
+// runs stored statistics, has none: 404.
+// GET /api/lidar/runs/{run_id}/statistics
+func (ws *Server) handleRunStatistics(w http.ResponseWriter, r *http.Request, runID string) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
+		return
+	}
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured: check server startup includes --db-path")
+		return
+	}
+
+	store := sqlite.NewAnalysisRunStore(ws.db)
+	run, err := store.GetRun(runID)
+	if errors.Is(err, sqlite.ErrNotFound) {
+		ws.writeJSONError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run: %v", err))
+		return
+	}
+	if len(run.StatisticsJSON) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "run has no statistics: it has not completed, or completed before runs stored them")
+		return
+	}
+	stats, err := l8analytics.ParseRunStatistics(string(run.StatisticsJSON))
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not decode run statistics: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 // handleReprocessRun re-runs analysis on a PCAP file with optional parameter overrides.

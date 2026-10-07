@@ -16,7 +16,7 @@ import {
 	setCaptureSessionLabel,
 	setSiteCanonicalPose,
 	startCaptureMotionPass
-} from '$lib/api';
+} from '#lib/api.js';
 
 const fetchMock = jest.fn();
 global.fetch = fetchMock as unknown as typeof fetch;

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -430,18 +431,6 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 
 	mux := s.ServeMux()
 
-	// read static files from the embedded filesystem in production or from
-	// the local ./static in dev for easier iteration without restarting the
-	// server
-	var staticHandler http.Handler
-	if devMode {
-		staticHandler = http.FileServer(http.Dir("./static"))
-	} else {
-		staticHandler = http.FileServer(http.FS(radar.StaticFiles))
-	}
-
-	mux.Handle("/favicon.ico", staticHandler)
-
 	// serve frontend app from /app route
 	// In dev mode, check build directory exists
 	if devMode {
@@ -450,6 +439,21 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 			return fmt.Errorf("build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
 		}
 	}
+
+	// /favicon.ico is the web build's own copy (web/static/favicon.ico), read
+	// from ./web/build in dev and from the embedded build in production, so
+	// pages outside /app, such as /docs/, get the same icon as the app.
+	var faviconHandler http.Handler
+	if devMode {
+		faviconHandler = http.FileServer(http.Dir("./web/build"))
+	} else {
+		webBuild, err := fs.Sub(radar.WebBuildFiles, "web/build")
+		if err != nil {
+			return fmt.Errorf("embedded web build: %w", err)
+		}
+		faviconHandler = http.FileServer(http.FS(webBuild))
+	}
+	mux.Handle("/favicon.ico", faviconHandler)
 
 	// Unified frontend handler that works for both dev and production
 	mux.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {

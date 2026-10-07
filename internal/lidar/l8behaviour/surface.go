@@ -58,6 +58,7 @@ var surfaceFieldNames = []string{
 	"sigma_overlap_nanos", "excluded", "bands", "rate",
 	// Scene headway API envelope (internal/api/server_scenes_headway.go).
 	"scene_id", "status", "availability", "sources", "versions", "distribution", "encounters",
+	"clipped_event_ids", "unclipped_event_ids",
 
 	// The headway report's data file (internal/report/headway, the
 	// headway_report_v2 contract), audited by that package's tests. Report

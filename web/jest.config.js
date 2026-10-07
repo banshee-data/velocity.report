@@ -19,7 +19,12 @@ export default {
 	roots: ['<rootDir>/web/src', '<rootDir>/internal/lidar/l9endpoints/l10clients/assets'],
 	coverageProvider: 'v8',
 	moduleNameMapper: {
-		'^\\$lib(.*)$': '<rootDir>/web/src/lib$1',
+		// #lib is the package.json subpath import for src/lib. A TypeScript
+		// module is imported as `#lib/foo.js`, so the extension is dropped and
+		// left to moduleFileExtensions to find foo.ts; .svelte keeps its own.
+		'^#lib$': '<rootDir>/web/src/lib/index.ts',
+		'^#lib/(.*)\\.js$': '<rootDir>/web/src/lib/$1',
+		'^#lib/(.*)$': '<rootDir>/web/src/lib/$1',
 		// The shared scene modules, same files the public scenes import.
 		'^\\$scene(.*)$': '<rootDir>/public_html/src/js$1',
 		'^\\$app(.*)$': '<rootDir>/web/src/mocks/$app$1',

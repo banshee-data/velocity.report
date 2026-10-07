@@ -49,15 +49,15 @@ Decide these before starting:
 
 ## Prerequisites (on the device)
 
-The project pins Go 1.26.5 in `go.mod`. Raspberry Pi OS's `apt` repository typically ships an
+The project pins Go 1.27.1 in `go.mod`. Raspberry Pi OS's `apt` repository typically ships an
 older toolchain, so install from the official tarball rather than `apt install golang`.
 
 ```bash
-curl -LO https://go.dev/dl/go1.26.5.linux-arm64.tar.gz
+curl -LO https://go.dev/dl/go1.27.1.linux-arm64.tar.gz
 ```
 
 ```bash
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.5.linux-arm64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.27.1.linux-arm64.tar.gz
 ```
 
 Add `/usr/local/go/bin` to `PATH` if it is not already (check `go version`).

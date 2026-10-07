@@ -8,8 +8,8 @@
  */
 
 import { SceneSession } from '$scene/scene-reader.js';
-import { LivePart, buildLiveFrames, createLiveSceneSession } from '$lib/scene/liveSceneSource';
-import type { RunTrack, TrackObservation } from '$lib/types/lidar';
+import { LivePart, buildLiveFrames, createLiveSceneSession } from '#lib/scene/liveSceneSource.js';
+import type { RunTrack, TrackObservation } from '#lib/types/lidar.js';
 
 function observation(
 	trackId: string,
