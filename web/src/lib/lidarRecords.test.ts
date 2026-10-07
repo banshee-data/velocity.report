@@ -114,4 +114,8 @@ describe('objectiveText', () => {
 		expect(objectiveText('weighted')).toBe('weighted');
 		expect(objectiveText(undefined)).toBe('');
 	});
+
+	it('says a plain sweep scored nothing', () => {
+		expect(objectiveText('manual')).toBe('none, compared by hand');
+	});
 });

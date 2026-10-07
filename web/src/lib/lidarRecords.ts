@@ -79,7 +79,13 @@ export function labelShare(rollup: LabelRollup | null | undefined): LabelShare |
 	return { labelled, total: rollup.total, fraction: Math.min(1, labelled / rollup.total) };
 }
 
-/** objectiveText names a sweep's objective as prose: ground_truth → "ground truth". */
+/**
+ * objectiveText names a sweep's objective as prose: ground_truth → "ground
+ * truth". A plain sweep records "manual", meaning it scored nothing and left
+ * its results for a person to compare, so it reads as that.
+ */
 export function objectiveText(name: string | null | undefined): string {
-	return name ? name.replace(/_/g, ' ') : '';
+	if (!name) return '';
+	if (name === 'manual') return 'none, compared by hand';
+	return name.replace(/_/g, ' ');
 }

@@ -392,7 +392,7 @@
 									{/if}
 									{#if sweep.objective_name}
 										<span class="whitespace-nowrap"
-											>scored by <span class="text-surface-content/80"
+											>objective <span class="text-surface-content/80"
 												>{objectiveText(sweep.objective_name)}</span
 											></span
 										>
@@ -485,7 +485,7 @@
 						{/if}
 						{#if selectedSummary?.objective_name}
 							<div class="flex justify-between">
-								<span class="text-surface-content/60">Scored by</span>
+								<span class="text-surface-content/60">Objective</span>
 								<span>{objectiveText(selectedSummary.objective_name)}</span>
 							</div>
 						{/if}
