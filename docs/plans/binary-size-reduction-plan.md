@@ -12,6 +12,21 @@
 
 > **v0.5.1 follow-on (2026-05):** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) lands new embedded payloads inside the single binary in v0.5.1: the Typst CLI (~30 MB ARM64), the tuning defaults, network/udev/wpa_supplicant fallback files, and the build stamp. The < 40 MB ceiling from this plan remains the preferred budget from the v0.5.0 reduction work, but for the v0.5.1 Typst embed it is a tracking target rather than a hard CI blocker. Use this plan to measure and report size changes during consolidation, and follow the consolidation plan's documented exception path (including vendoring Typst under `/opt/velocity-report/typst/` instead of embedding) if the embedded payloads cannot stay within that budget.
 
+> **Phase 1.1 and 1.3 landed:** the binary no longer embeds `static/`, and
+> nothing writes to it. By then `web/scripts/copy-build.js` cleared
+> `static/_app` before each copy, so the stale builds had stopped
+> accumulating. `static/` still held a second, byte-identical copy of the
+> current web build: 35 files and 1,820,699 bytes in a local build, the same
+> as the `web/build/` embed. The compiler stores embedded file contents
+> content-addressed, so identical files were kept once, and removing the
+> embed shrank a local darwin/arm64 build by only 16,752 bytes. What `static/`
+> still cost was whatever no longer matched the build: three stale pages,
+> 31 KB, in one long-lived checkout. The `/favicon.ico` it was kept for had been a 404
+> in production, because the server read `favicon.ico` from the root of an
+> embedded tree whose files sit under `static/`. The favicon now comes from
+> the web build, in production and in dev, and `copy-build.js`, its
+> `postbuild` hook and the tracked `static/favicon.ico` are gone.
+
 ## Motivation
 
 The Linux ARM64 binary is **211 MB**. The intended ceiling is < 40 MB. The cause is
@@ -42,7 +57,7 @@ assets.go:
 ```
 
 `static/` is in `.gitignore` but is not cleaned before `go build`. Each `pnpm run build`
-(in dev mode, serving from [./static](../../static)) writes content-hashed files
+(in dev mode, serving from `./static`) writes content-hashed files
 (`start.<hash>.js`, `start.<hash>.css`, `app.<hash>.js`, `nodes/<N>.<hash>.js`) into
 `static/_app/immutable/`. Old files are never removed. At the time of measurement:
 
@@ -106,7 +121,7 @@ A `clean-static` target removes stale immutable assets: `rm -rf static/_app/immu
 
 ### 1.3 Dev mode: serve from `web/build/` not `static/`
 
-Change the dev-mode file server to read from `./web/build` instead of [./static](../../static).
+Change the dev-mode file server to read from `./web/build` instead of `./static`.
 This eliminates the need for `static/` entirely and means dev and production share
 the same file tree.
 
@@ -249,9 +264,9 @@ excessive was the build hygiene.
 
 ### Outstanding
 
-- [ ] Remove `//go:embed static/*` from [assets.go](../../assets.go) and delete `StaticFiles` var (`S` effort)
-- [ ] Update [internal/api/server.go](../../internal/api/server.go) to serve favicon from `WebBuildFiles` (`S` effort)
-- [ ] Change dev-mode handler to read from `./web/build` instead of [./static](../../static) (`S` effort)
+- [x] Remove `//go:embed static/*` from [assets.go](../../assets.go) and delete `StaticFiles` var (`S` effort)
+- [x] Update [internal/api/server.go](../../internal/api/server.go) to serve favicon from `WebBuildFiles` (`S` effort)
+- [x] Change dev-mode handler to read from `./web/build` instead of `./static` (`S` effort)
 - [ ] Add `rm -rf web/build` to `build-web` target for clean builds (`S` effort)
 - [ ] Add `-s -w` to `LDFLAGS` for production build targets (`S` effort)
 - [ ] Create `scripts/check-binary-size.sh` and wire into `make lint` (`S` effort)

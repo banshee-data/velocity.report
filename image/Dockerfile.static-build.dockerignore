@@ -13,7 +13,6 @@
 !cmd/
 !internal/
 !assets.go
-!static/
 !config/tuning.defaults.json
 !config/segment-selectors.defaults.json
 

@@ -909,7 +909,7 @@ Response: [
 
 - Static file serving for Svelte build (`/app/*`)
 - SPA routing with fallback to `index.html`
-- Favicon serving
+- Favicon serving (`/favicon.ico`, from the same web build)
 - Root redirect to `/app/`
 
 ### Go server ↔ macOS visualiser
