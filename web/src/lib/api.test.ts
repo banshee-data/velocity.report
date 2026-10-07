@@ -16,6 +16,7 @@ import {
 	getBackgroundGrid,
 	getCapabilities,
 	getConfig,
+	getCallerAccess,
 	getEvents,
 	getRadarStats,
 	getRecentReports,
@@ -3439,5 +3440,38 @@ describe('api', () => {
 				await expect(getTailscaleStatus()).rejects.toThrow('HTTP 503');
 			});
 		});
+	});
+});
+
+describe('caller access', () => {
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+	it('passes cancellation and refuses to cache caller permissions', async () => {
+		const signal = new AbortController().signal;
+		const value = {
+			profile: 'hardened',
+			mechanism: 'anonymous-lan',
+			authenticated: false,
+			permissions: ['aggregate:view']
+		};
+		(global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => value });
+		expect(await getCallerAccess(signal)).toEqual(value);
+		expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/access'), {
+			signal,
+			cache: 'no-store'
+		});
+	});
+	it.each([
+		null,
+		{},
+		{ profile: 'hardened', mechanism: 'test', authenticated: true, permissions: [1] }
+	])('rejects malformed authority %p', async (value) => {
+		(global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => value });
+		await expect(getCallerAccess()).rejects.toThrow('invalid access response');
+	});
+	it('rejects server failure', async () => {
+		(global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 503 });
+		await expect(getCallerAccess()).rejects.toThrow();
 	});
 });

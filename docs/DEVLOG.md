@@ -8,6 +8,12 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 7, 2026 - Access hardening keeps viewing separate from control
+
+- {dd/api/tailscale-acls-503} Added an opt-in hardened HTTP profile with anonymous LAN aggregate viewing and existing ordinary PDF downloads, transport-independent operation/resource checks, and explicit Tailscale configuration/report/export permissions. Kept off/on compatibility and reserved maintenance/access management for OS-authorised tools; native users/groups remain later work (#684).
+- {dd/api/tailscale-acls-503} Replaced the ten-minute stale-grant fallback with bounded, coalesced lookups and a five-second cache; removed the race in which an older admin answer could resurrect a revoked grant. Added a dedicated loopback Serve capability backend, origin checks, redacted disclosure and caller-permission UI (#684).
+- {dd/api/tailscale-acls-503} Constrained alternate LiDAR HTTP to loopback in hardened mode and full gRPC in every mode. The gRPC audit found shared playback state changes and return-to-live effects, but no implemented settings/file/recording RPC; corrected the advertised recording capability. Recorded the historical trust policy, reproduced cache failure and release split in the [access-control plan](plans/platform-access-control-hardening-plan.md); Pi/live-tailnet acceptance remains open (#684).
+
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 
 - Read PCAP packets in place on the caller's goroutine instead of through gopacket's channel: replay CPU fell about 10 % and the scheduler's share from 57-59 % to 34 %, with byte-identical outputs (#679).

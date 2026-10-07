@@ -67,9 +67,13 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 			if len(parts) == 3 {
 				// Extract file type from filename extension
 				filename := parts[2]
-				fileFormat := "pdf"
-				if strings.HasSuffix(filename, ".zip") {
-					fileFormat = "zip"
+				fileFormat := strings.TrimPrefix(filepath.Ext(filename), ".")
+				if fileFormat != "pdf" && fileFormat != "zip" {
+					if s.hardened() {
+						s.writeJSONError(w, http.StatusBadRequest, "download filename must end in .pdf or .zip")
+						return
+					}
+					fileFormat = "pdf" // Preserve the legacy filename selector in compatibility profiles.
 				}
 				s.downloadReport(w, r, reportID, fileFormat)
 				return
@@ -100,7 +104,7 @@ func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(reports); err != nil {
+	if err := json.NewEncoder(w).Encode(s.reportListResponse(r, reports)); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
 		return
 	}
@@ -113,7 +117,7 @@ func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID 
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(reports); err != nil {
+	if err := json.NewEncoder(w).Encode(s.reportListResponse(r, reports)); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
 		return
 	}
@@ -130,7 +134,7 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(report); err != nil {
+	if err := json.NewEncoder(w).Encode(s.reportResponse(r, report)); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode report")
 		return
 	}

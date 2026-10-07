@@ -64,6 +64,11 @@ or recorded. The data belongs to the community that collected it.
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
+Opt-in [access hardening](docs/platform/operations/tailscale-remote-access.md#hardened-profile)
+lets LAN neighbours view aggregate charts and existing PDFs while Tailscale grants
+protect settings, report creation and source exports. Native user/group accounts are
+planned; the default installation retains its existing access policy.
+
 ## Warning ⚠️ alpha software 🚧
 
 ```
