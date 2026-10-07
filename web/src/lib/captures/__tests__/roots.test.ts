@@ -1,4 +1,4 @@
-import type { CaptureRoot } from '$lib/types/captures';
+import type { CaptureRoot } from '#lib/types/captures.js';
 import { pickActiveRoot, rootLabel } from '../roots';
 
 function root(id: string, path: string, enabled: boolean): CaptureRoot {

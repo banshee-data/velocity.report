@@ -8,7 +8,7 @@
  * on the volume that is configured.
  */
 
-import type { CaptureRoot } from '$lib/types/captures';
+import type { CaptureRoot } from '#lib/types/captures.js';
 
 /**
  * pickActiveRoot returns the root the operator chose, else the first configured

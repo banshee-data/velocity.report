@@ -1,5 +1,5 @@
-import type { ReportRequest } from '$lib/api';
-import { areStoredReportSettingsFresh, type StoredReportSettings } from '$lib/reportSettings';
+import type { ReportRequest } from '#lib/api.js';
+import { areStoredReportSettingsFresh, type StoredReportSettings } from '#lib/reportSettings.js';
 
 export const DEFAULT_REPORT_MIN_SPEED = 5;
 export const DEFAULT_REPORT_BOUNDARY_THRESHOLD = 5;

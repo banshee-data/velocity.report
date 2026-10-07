@@ -5,7 +5,7 @@
 	 * CRUD interface for managing LiDAR replay cases — associating PCAP files,
 	 * region maps, and background grids with a replay case for ground truth labelling.
 	 */
-	import type { PcapFileInfo } from '$lib/api';
+	import type { PcapFileInfo } from '#lib/api.js';
 	import {
 		createLidarReplayCase,
 		createReplayCaseFromCaptures,
@@ -15,8 +15,8 @@
 		getLidarRuns,
 		scanPcapFiles,
 		updateLidarReplayCase
-	} from '$lib/api';
-	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
+	} from '#lib/api.js';
+	import type { AnalysisRun, LidarReplayCase } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';

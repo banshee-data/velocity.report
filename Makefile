@@ -625,7 +625,7 @@ ensure-dev-web-build:
 	@if [ ! -f web/build/index.html ]; then \
 		echo "Web build missing; running 'make build-web'..."; \
 		$(MAKE) build-web; \
-	elif [ Makefile -nt web/build/index.html ] || [ web/package.json -nt web/build/index.html ] || [ web/src/app.html -nt web/build/index.html ] || [ web/scripts/set-build-env.js -nt web/build/index.html ] || find web/src web/static -type f -newer web/build/index.html -print -quit | grep -q .; then \
+	elif [ Makefile -nt web/build/index.html ] || [ web/package.json -nt web/build/index.html ] || [ web/src/app.html -nt web/build/index.html ] || [ web/scripts/set-build-env.js -nt web/build/index.html ] || [ web/vite.config.ts -nt web/build/index.html ] || find web/src web/static -type f -newer web/build/index.html -print -quit | grep -q .; then \
 		echo "Web build stale; running 'make build-web'..."; \
 		$(MAKE) build-web; \
 	elif grep -q 'name="app-web-version"' web/build/index.html || ! grep -q 'meta name="app-build-version" content="$(VERSION)"' web/build/index.html; then \

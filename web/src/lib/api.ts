@@ -1644,7 +1644,7 @@ import type {
 	CaptureSession,
 	PeriodsResponse,
 	ScanResponse
-} from '$lib/types/captures';
+} from '#lib/types/captures.js';
 
 export async function getCaptureRoots(): Promise<CaptureRoot[]> {
 	const res = await fetch(`${API_BASE}/lidar/capture/roots`);
@@ -1789,7 +1789,7 @@ export async function createReplayCaseFromCaptures(request: {
 
 // Geographic identity of located replay cases
 
-import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '$lib/types/captures';
+import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
 
 /**
  * setReplayCaseLocation records where a case was captured.

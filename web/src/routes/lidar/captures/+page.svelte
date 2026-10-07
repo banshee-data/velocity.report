@@ -20,7 +20,7 @@
 		scanCaptureRoots,
 		setCaptureSessionLabel,
 		startCaptureMotionPass
-	} from '$lib/api';
+	} from '#lib/api.js';
 	import {
 		formatClock,
 		formatDay,
@@ -33,11 +33,11 @@
 		probedFiles,
 		sessionShare,
 		trimWindow
-	} from '$lib/captures/timeline';
-	import { pickActiveRoot, rootLabel } from '$lib/captures/roots';
-	import CoverageTimeline from '$lib/components/lidar/CoverageTimeline.svelte';
-	import MotionLegend from '$lib/components/lidar/MotionLegend.svelte';
-	import MotionStrip from '$lib/components/lidar/MotionStrip.svelte';
+	} from '#lib/captures/timeline.js';
+	import { pickActiveRoot, rootLabel } from '#lib/captures/roots.js';
+	import CoverageTimeline from '#lib/components/lidar/CoverageTimeline.svelte';
+	import MotionLegend from '#lib/components/lidar/MotionLegend.svelte';
+	import MotionStrip from '#lib/components/lidar/MotionStrip.svelte';
 	import {
 		JOB_QUEUED,
 		JOB_RUNNING,
@@ -52,7 +52,7 @@
 		type CaptureSession,
 		type MotionPeriod,
 		type ScanRootResult
-	} from '$lib/types/captures';
+	} from '#lib/types/captures.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';

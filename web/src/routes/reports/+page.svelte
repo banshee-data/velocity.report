@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import {
 		buildComparisonChartPath,
 		buildHistogramChartPath,
@@ -11,21 +11,21 @@
 		type Config,
 		type Site,
 		type SiteReport
-	} from '$lib/api';
-	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
-	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
-	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '$lib/dateUtils';
-	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '$lib/reportRequests';
+	} from '#lib/api.js';
+	import InlineSvgChart from '#lib/components/charts/InlineSvgChart.svelte';
+	import DataSourceSelector from '#lib/components/DataSourceSelector.svelte';
+	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '#lib/dateUtils.js';
+	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '#lib/reportRequests.js';
 	import {
 		areStoredReportSettingsFresh,
 		isDateRangeStale,
 		normaliseStoredPeriodType,
 		parseStoredReportSettings,
 		REPORT_SETTINGS_KEY
-	} from '$lib/reportSettings';
-	import { initializePaperSize, paperSize } from '$lib/stores/paper';
-	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
-	import { displayUnits, initializeUnits } from '$lib/stores/units';
+	} from '#lib/reportSettings.js';
+	import { initializePaperSize, paperSize } from '#lib/stores/paper.js';
+	import { displayTimezone, initializeTimezone } from '#lib/stores/timezone.js';
+	import { displayUnits, initializeUnits } from '#lib/stores/units.js';
 	import { PeriodType } from '@layerstack/utils';
 	import { onMount } from 'svelte';
 	import { Button, DateRangeField, SelectField } from 'svelte-ux';

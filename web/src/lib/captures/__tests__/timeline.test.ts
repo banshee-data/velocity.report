@@ -1,4 +1,4 @@
-import type { CaptureFile, CaptureSession, MotionPeriod } from '$lib/types/captures';
+import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
 import {
 	clockTicks,
 	coverageRows,
