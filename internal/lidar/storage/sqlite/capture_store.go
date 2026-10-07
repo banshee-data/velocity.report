@@ -148,12 +148,15 @@ func (s *CaptureStore) GetRoot(rootID string) (CaptureRoot, error) {
 	return r, nil
 }
 
-// ListRoots returns the configured roots, oldest first.
+// ListRoots returns the roots, configured ones first and then oldest first.
+// A root dropped from the configuration is kept disabled with the state it
+// last had; listing it after the live ones keeps a client that takes the
+// first root from landing on a volume it can no longer scan.
 func (s *CaptureStore) ListRoots() ([]CaptureRoot, error) {
 	rows, err := s.db.Query(`
 		SELECT root_id, path, label, enabled, last_scan_at_ns, last_scan_state,
 		       last_scan_error, created_at_ns, updated_at_ns
-		  FROM lidar_capture_roots ORDER BY created_at_ns, path`)
+		  FROM lidar_capture_roots ORDER BY enabled DESC, created_at_ns, path`)
 	if err != nil {
 		return nil, fmt.Errorf("list capture roots: %w", err)
 	}

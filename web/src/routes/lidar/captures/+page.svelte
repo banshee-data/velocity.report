@@ -34,6 +34,7 @@
 		sessionShare,
 		trimWindow
 	} from '$lib/captures/timeline';
+	import { pickActiveRoot, rootLabel } from '$lib/captures/roots';
 	import CoverageTimeline from '$lib/components/lidar/CoverageTimeline.svelte';
 	import MotionLegend from '$lib/components/lidar/MotionLegend.svelte';
 	import MotionStrip from '$lib/components/lidar/MotionStrip.svelte';
@@ -96,7 +97,7 @@
 	let geoSource = 'operator';
 	let locationNote: string | null = null;
 
-	$: activeRoot = roots.find((r) => r.root_id === selectedRootId) ?? roots[0] ?? null;
+	$: activeRoot = pickActiveRoot(roots, selectedRootId);
 	$: visibleSessions = activeRoot
 		? sessions.filter((s) => s.root_id === activeRoot.root_id)
 		: sessions;
@@ -125,7 +126,7 @@
 			roots = rootsResult;
 			sessions = sessionsResult;
 			jobs = jobsResult;
-			if (!selectedRootId && roots.length > 0) selectedRootId = roots[0].root_id;
+			if (!selectedRootId) selectedRootId = pickActiveRoot(roots, null)?.root_id ?? null;
 			await loadPeriodsFor(sessionsResult);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load the capture index.';
@@ -436,7 +437,7 @@
 							bind:value={selectedRootId}
 						>
 							{#each roots as root (root.root_id)}
-								<option value={root.root_id}>{root.path}</option>
+								<option value={root.root_id}>{rootLabel(root)}</option>
 							{/each}
 						</select>
 					{:else if activeRoot}
@@ -460,14 +461,19 @@
 
 					<span class="flex-1"></span>
 
-					<Button size="sm" variant="outline" disabled={scanning} on:click={() => runScan(false)}>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={scanning || !activeRoot?.enabled}
+						on:click={() => runScan(false)}
+					>
 						{scanning ? 'Scanning…' : 'Quick scan'}
 					</Button>
 					<Button
 						size="sm"
 						variant="fill"
 						color="primary"
-						disabled={scanning}
+						disabled={scanning || !activeRoot?.enabled}
 						on:click={() => runScan(true)}
 					>
 						Scan and probe
@@ -480,7 +486,13 @@
 					on a first pass, and nothing at all when nothing has changed.
 				</p>
 
-				{#if activeRoot?.last_scan_error}
+				{#if activeRoot && !activeRoot.enabled}
+					<p class="bg-surface-200 text-surface-content/70 mt-2 rounded px-3 py-2 text-xs">
+						This volume is no longer configured, so it cannot be scanned. What was indexed under it
+						is kept as it was. Pass it to <span class="font-mono">--lidar-capture-root</span> to scan
+						it again.
+					</p>
+				{:else if activeRoot?.last_scan_error}
 					<p class="mt-2 rounded bg-red-50 px-3 py-2 text-xs text-red-600">
 						{activeRoot.last_scan_error}
 					</p>

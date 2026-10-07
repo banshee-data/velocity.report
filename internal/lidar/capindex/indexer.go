@@ -115,6 +115,19 @@ func (ix *Indexer) Refresh(ctx context.Context) (Result, error) {
 	if ix.Probe != nil {
 		probed, failed, probeErr := ix.probeChanged(ctx, result.Drift, stillPending(known, found))
 		result.Probed, result.ProbeFailed = probed, failed
+		if errors.Is(probeErr, context.Canceled) || errors.Is(probeErr, context.DeadlineExceeded) {
+			// An interrupted pass is not a fault in the volume. The walk
+			// succeeded and every file it reached is recorded; the rest stay
+			// pending and the next pass probes them. Recording the caller's
+			// disconnect as the root's error left "context canceled" on the
+			// Captures page long after anyone could act on it.
+			result.State = StateOK
+			result.Err = probeErr
+			if markErr := ix.Store.MarkScanned(ix.RootID, StateOK, ""); markErr != nil {
+				return result, fmt.Errorf("%w (and recording the scan failed: %v)", probeErr, markErr)
+			}
+			return result, probeErr
+		}
 		if probeErr != nil {
 			result.State = StateError
 			result.Err = probeErr
