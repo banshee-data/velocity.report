@@ -28,6 +28,7 @@
 	import TrackList from '#lib/components/lidar/TrackList.svelte';
 	import { unixNanosToMillis } from '#lib/dateUtils.js';
 	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
+	import { clipForRun } from '#lib/lidarRecords.js';
 	import type { PageClock } from '#lib/scene/sceneClock.js';
 	import type {
 		AnalysisRun,
@@ -300,20 +301,6 @@
 		missedRegions = [];
 	}
 
-	function findSceneForRun(run: AnalysisRun | null): LidarReplayCase | null {
-		if (!run) return null;
-		const byReference = scenes.find((scene) => scene.reference_run_id === run.run_id);
-		if (byReference) return byReference;
-		if (run.source_path) {
-			return (
-				scenes.find(
-					(scene) => scene.pcap_file === run.source_path && scene.sensor_id === run.sensor_id
-				) ?? null
-			);
-		}
-		return null;
-	}
-
 	// Load tracks for selected run
 	async function loadRunTracks() {
 		if (!selectedRunId) {
@@ -437,15 +424,23 @@
 				? (scenes.find((scene) => scene.replay_case_id === qsSceneId) ?? null)
 				: null;
 			let resolvedRuns: AnalysisRun[] = [];
+			// The run list is paged; a linked run older than it is fetched
+			// directly, so a link from Runs or Clips still opens it.
+			let fetchedRun: AnalysisRun | null = null;
+			const fetchLinkedRun = async (runId: string) =>
+				(fetchedRun ??= await getLidarRun(runId).catch(() => null));
 
 			if (resolvedScene) {
 				selectedSceneId = resolvedScene.replay_case_id;
 				resolvedRuns = await loadRuns(resolvedScene);
 			} else if (qsRunId) {
+				// A link that names only the run still opens on the run's clip,
+				// so the clip picker never reads "None" over a replayed clip.
 				resolvedRuns = await getLidarRuns({ sensor_id: sensorId });
 				runs = resolvedRuns;
-				const resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
-				resolvedScene = findSceneForRun(resolvedRun);
+				const linkedRun =
+					resolvedRuns.find((run) => run.run_id === qsRunId) ?? (await fetchLinkedRun(qsRunId));
+				resolvedScene = clipForRun(linkedRun, scenes);
 				selectedSceneId = resolvedScene?.replay_case_id ?? null;
 				if (resolvedScene) {
 					resolvedRuns = await loadRuns(resolvedScene);
@@ -462,15 +457,12 @@
 
 			let resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
 			if (!resolvedRun) {
-				// The run list is paged; a linked run older than it is fetched
-				// directly, so a link from Runs or Clips still opens it.
-				try {
-					resolvedRun = await getLidarRun(qsRunId);
-					runs = [resolvedRun, ...runs];
-				} catch {
+				resolvedRun = await fetchLinkedRun(qsRunId);
+				if (!resolvedRun) {
 					clearRunSelectionState();
 					return;
 				}
+				runs = [resolvedRun, ...runs];
 			}
 
 			selectedRunId = resolvedRun.run_id;

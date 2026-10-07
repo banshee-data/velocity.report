@@ -21,6 +21,7 @@
 		RunTrack
 	} from '#lib/types/lidar.js';
 	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
+	import { clipForRun, labelShare, shortDigest } from '#lib/lidarRecords.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -99,24 +100,6 @@
 			e.preventDefault();
 			action();
 		}
-	}
-
-	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
-		// A run that records its clip names it; older runs do not, so fall back
-		// to the clip that still names the run in its legacy reference_run_id
-		// (no longer shown), then to the capture.
-		if (run.replay_case_id) {
-			const recorded = scenes.find((s) => s.replay_case_id === run.replay_case_id);
-			if (recorded) return recorded;
-		}
-		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
-		if (byRef) return byRef;
-		if (run.source_path) {
-			return (
-				scenes.find((s) => s.pcap_file === run.source_path && s.sensor_id === run.sensor_id) ?? null
-			);
-		}
-		return null;
 	}
 
 	async function selectRun(run: AnalysisRun) {
@@ -274,10 +257,16 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Source</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>Parameters</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Tracks</th
 								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>Labels</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -289,7 +278,8 @@
 						</thead>
 						<tbody>
 							{#each runs as run (run.run_id)}
-								{@const scene = findSceneForRun(run)}
+								{@const scene = clipForRun(run, scenes)}
+								{@const share = labelShare(run.label_rollup)}
 								{@const isSelected = selectedRun?.run_id === run.run_id}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0 {isSelected
@@ -325,15 +315,6 @@
 										role="button"
 										tabindex="0"
 									>
-										{run.total_tracks} / {run.confirmed_tracks}
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
 										{#if scene}
 											<!-- eslint-disable svelte/no-navigation-without-resolve -->
 											<a
@@ -344,6 +325,60 @@
 												{scene.description || scene.replay_case_id.substring(0, 8)}
 											</a>
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										{:else}
+											-
+										{/if}
+									</td>
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm whitespace-nowrap"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
+										{#if run.params_hash}
+											<code class="text-xs" title={run.params_hash}
+												>{shortDigest(run.params_hash)}</code
+											>
+											{#if scene?.recommended_params_hash === run.params_hash}
+												<span
+													class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+													title="The clip's recommended parameters">recommended</span
+												>
+											{/if}
+										{:else}
+											-
+										{/if}
+									</td>
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
+										{run.total_tracks} / {run.confirmed_tracks}
+									</td>
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
+										{#if share}
+											<div
+												class="flex items-center gap-2 whitespace-nowrap"
+												title="{share.labelled} of {share.total} tracks labelled in the macOS visualiser"
+											>
+												<div class="bg-surface-200 h-1.5 w-12 overflow-hidden rounded">
+													<div
+														class="h-full bg-green-500"
+														style="width: {share.fraction * 100}%"
+													></div>
+												</div>
+												<span class="text-xs">{share.labelled}/{share.total}</span>
+											</div>
 										{:else}
 											-
 										{/if}
@@ -377,7 +412,7 @@
 
 		<!-- Right: Detail Panel -->
 		{#if selectedRun}
-			{@const scene = findSceneForRun(selectedRun)}
+			{@const scene = clipForRun(selectedRun, scenes)}
 			<div
 				class="border-surface-content/10 bg-surface-100 w-[400px] flex-none overflow-y-auto border-l p-6"
 			>
@@ -556,16 +591,22 @@
 								{#if selectedRun.config_hash}
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Config Hash</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{shortID(selectedRun.config_hash)}
+										<dd
+											class="text-surface-content font-mono text-xs"
+											title={selectedRun.config_hash}
+										>
+											{shortDigest(selectedRun.config_hash)}
 										</dd>
 									</div>
 								{/if}
 								{#if selectedRun.params_hash}
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Params Hash</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{shortID(selectedRun.params_hash)}
+										<dd
+											class="text-surface-content font-mono text-xs"
+											title={selectedRun.params_hash}
+										>
+											{shortDigest(selectedRun.params_hash)}
 										</dd>
 									</div>
 								{/if}
