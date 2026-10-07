@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -230,8 +231,7 @@ func TestLookupPeer_RealClientNotFound(t *testing.T) {
 	}
 }
 
-// ageEntry makes the short-lived cache entry for k look older than its
-// TTL, so the next lookup asks the daemon again.
+// ageEntry expires a cached result without sleeping through the TTL.
 func ageEntry(m *Manager, k string, by time.Duration) {
 	m.peerCache.mu.Lock()
 	defer m.peerCache.mu.Unlock()
@@ -239,135 +239,445 @@ func ageEntry(m *Manager, k string, by time.Duration) {
 		e.at = e.at.Add(-by)
 		m.peerCache.m[k] = e
 	}
-	if e, ok := m.peerCache.good[k]; ok {
-		e.at = e.at.Add(-by)
-		m.peerCache.good[k] = e
+}
+
+func adminPeerResponse() *apitype.WhoIsResponse {
+	return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(CapAdmin): nil}}
+}
+
+// An outage after the short cache expires never borrows a previous grant.
+func TestLookupPeer_ExpiredGrantFailsClosedOnTransientFailure(t *testing.T) {
+	for _, cap := range []string{CapView, CapAdmin} {
+		t.Run(cap, func(t *testing.T) {
+			var failing atomic.Bool
+			outage := errors.New("dial unix /var/run/tailscale/tailscaled.sock: connection refused")
+			c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
+				if failing.Load() {
+					return nil, outage
+				}
+				return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(cap): nil}}, nil
+			}}
+			m := newMgr(c)
+			const peer = "100.64.0.5"
+			if id, err := m.LookupPeer(context.Background(), peer); err != nil || !id.View {
+				t.Fatalf("first lookup: %+v, %v", id, err)
+			}
+			failing.Store(true)
+			ageEntry(m, peer, peerCacheTTL+time.Second)
+			for i := 0; i < 2; i++ {
+				if id, err := m.LookupPeer(context.Background(), peer); id != (PeerIdentity{}) || !errors.Is(err, outage) {
+					t.Fatalf("outage lookup: %+v, %v; want no identity and the transport error", id, err)
+				}
+			}
+			if got := c.whoIsCalls.Load(); got != 3 {
+				t.Fatalf("got %d daemon calls, want 3; transient errors must not be cached", got)
+			}
+		})
 	}
 }
 
-// A transient failure after a successful lookup returns the identity the
-// peer had, for lastGoodGrace; after that it is an error again.
-func TestLookupPeer_TransientFailureUsesLastGoodIdentity(t *testing.T) {
-	failing := false
-	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
-		if failing {
-			return nil, errors.New("dial unix /var/run/tailscale/tailscaled.sock: connection refused")
-		}
-		return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(CapAdmin): nil}}, nil
-	}}
-	m := newMgr(c)
-	const peer = "100.64.0.5"
-	if id, err := m.LookupPeer(context.Background(), peer); err != nil || !id.Admin {
-		t.Fatalf("first lookup: %+v, %v", id, err)
-	}
-
-	failing = true
-	ageEntry(m, peer, peerCacheTTL+time.Second)
-	id, err := m.LookupPeer(context.Background(), peer)
-	if err != nil || !id.Admin {
-		t.Fatalf("lookup during a blip: %+v, %v; want the last good admin identity", id, err)
-	}
-
-	ageEntry(m, peer, lastGoodGrace)
-	if id, err := m.LookupPeer(context.Background(), peer); err == nil {
-		t.Fatalf("lookup after lastGoodGrace: %+v, want the transient error", id)
-	}
-}
-
-// A peer never resolved gets no stand-in identity from a transient failure.
 func TestLookupPeer_TransientFailureWithoutHistoryIsAnError(t *testing.T) {
 	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
 		return nil, context.DeadlineExceeded
 	}}
-	if id, err := newMgr(c).LookupPeer(context.Background(), "100.64.0.7"); err == nil {
-		t.Fatalf("got %+v, want an error", id)
+	if id, err := newMgr(c).LookupPeer(context.Background(), "100.64.0.7"); id != (PeerIdentity{}) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("got %+v, %v; want no identity and the deadline error", id, err)
 	}
 }
 
-// An authoritative not-found forgets the last good identity, so a node
-// removed from the tailnet is not served from it during a later blip.
-func TestLookupPeer_NotFoundForgetsLastGoodIdentity(t *testing.T) {
-	answer := "admin"
-	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
-		switch answer {
-		case "admin":
-			return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(CapAdmin): nil}}, nil
-		case "gone":
-			return nil, local.ErrPeerNotFound
+func TestLookupPeer_RevocationAndLaterOutageNeverRestoreGrant(t *testing.T) {
+	for _, notFound := range []bool{false, true} {
+		t.Run(fmt.Sprintf("notFound=%v", notFound), func(t *testing.T) {
+			var answer atomic.Int32
+			outage := errors.New("socket unavailable")
+			c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
+				switch answer.Load() {
+				case 0:
+					return adminPeerResponse(), nil
+				case 1:
+					if notFound {
+						return nil, local.ErrPeerNotFound
+					}
+					return &apitype.WhoIsResponse{}, nil
+				default:
+					return nil, outage
+				}
+			}}
+			m := newMgr(c)
+			const peer = "100.64.0.8"
+			if id, err := m.LookupPeer(context.Background(), peer); err != nil || !id.Admin {
+				t.Fatalf("first lookup: %+v, %v", id, err)
+			}
+			answer.Store(1)
+			ageEntry(m, peer, peerCacheTTL+time.Second)
+			for i := 0; i < 2; i++ {
+				id, err := m.LookupPeer(context.Background(), peer)
+				if id != (PeerIdentity{}) || (notFound && !errors.Is(err, ErrPeerNotFound)) || (!notFound && err != nil) {
+					t.Fatalf("revoked lookup: %+v, %v", id, err)
+				}
+			}
+			if got := c.whoIsCalls.Load(); got != 2 {
+				t.Fatalf("got %d daemon calls, want 2; authoritative denials must be cached", got)
+			}
+			answer.Store(2)
+			ageEntry(m, peer, peerCacheTTL+time.Second)
+			if id, err := m.LookupPeer(context.Background(), peer); id != (PeerIdentity{}) || !errors.Is(err, outage) {
+				t.Fatalf("after revocation and outage: %+v, %v", id, err)
+			}
+		})
+	}
+}
+
+// Done announces that a caller has reached the coalesced lookup's wait.
+// This makes the concurrency tests independent of scheduling or sleeps.
+type peerWaitContext struct {
+	context.Context
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (c *peerWaitContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
+type peerLookupResult struct {
+	id  PeerIdentity
+	err error
+}
+
+func asyncPeerLookup(m *Manager, ctx context.Context, peer string) <-chan peerLookupResult {
+	result := make(chan peerLookupResult, 1)
+	go func() {
+		id, err := m.LookupPeer(ctx, peer)
+		result <- peerLookupResult{id, err}
+	}()
+	return result
+}
+
+func testPeerContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+func TestLookupPeer_ConcurrentCallsShareOneLookup(t *testing.T) {
+	for _, notFound := range []bool{false, true} {
+		t.Run(fmt.Sprintf("notFound=%v", notFound), func(t *testing.T) {
+			ctx := testPeerContext(t)
+			entered, release := make(chan struct{}), make(chan struct{})
+			var revoked atomic.Bool
+			c := &peercapsClient{whoIsFn: func(ctx context.Context, _ string) (*apitype.WhoIsResponse, error) {
+				if revoked.Load() {
+					if notFound {
+						return nil, local.ErrPeerNotFound
+					}
+					return &apitype.WhoIsResponse{}, nil
+				}
+				close(entered)
+				select {
+				case <-release:
+					return adminPeerResponse(), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}}
+			m := newMgr(c)
+			const peer = "100.64.0.11"
+			first := asyncPeerLookup(m, ctx, peer)
+			<-entered
+			waitCtx := &peerWaitContext{Context: ctx, waiting: make(chan struct{})}
+			second := asyncPeerLookup(m, waitCtx, peer)
+			<-waitCtx.waiting
+			if got := c.whoIsCalls.Load(); got != 1 {
+				t.Fatalf("got %d overlapping daemon calls, want 1", got)
+			}
+			revoked.Store(true)
+			close(release)
+			for _, done := range []<-chan peerLookupResult{first, second} {
+				result := <-done
+				if result.err != nil || !result.id.Admin {
+					t.Fatalf("shared lookup: %+v", result)
+				}
+			}
+			ageEntry(m, peer, peerCacheTTL+time.Second)
+			id, err := m.LookupPeer(ctx, peer)
+			if id != (PeerIdentity{}) || (notFound && !errors.Is(err, ErrPeerNotFound)) || (!notFound && err != nil) {
+				t.Fatalf("lookup after revocation: %+v, %v", id, err)
+			}
+			if got := c.whoIsCalls.Load(); got != 2 {
+				t.Fatalf("got %d daemon calls, want 2", got)
+			}
+		})
+	}
+}
+
+// A caller can be descheduled after the shared lookup completes. Block its
+// final context check to reproduce that delay, then complete a newer denial.
+type delayedPeerResultContext struct {
+	context.Context
+	checks  atomic.Int32
+	paused  chan struct{}
+	release chan struct{}
+}
+
+func (c *delayedPeerResultContext) Err() error {
+	if c.checks.Add(1) == 2 {
+		close(c.paused)
+		<-c.release
+	}
+	return c.Context.Err()
+}
+
+func TestLookupPeer_DelayedCallerCannotReturnRevokedIdentity(t *testing.T) {
+	for _, notFound := range []bool{false, true} {
+		t.Run(fmt.Sprintf("notFound=%v", notFound), func(t *testing.T) {
+			ctx := testPeerContext(t)
+			entered, release := make(chan struct{}), make(chan struct{})
+			var revoked atomic.Bool
+			c := &peercapsClient{whoIsFn: func(ctx context.Context, _ string) (*apitype.WhoIsResponse, error) {
+				if revoked.Load() {
+					if notFound {
+						return nil, local.ErrPeerNotFound
+					}
+					return &apitype.WhoIsResponse{}, nil
+				}
+				close(entered)
+				select {
+				case <-release:
+					return adminPeerResponse(), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}}
+			m := newMgr(c)
+			const peer = "100.64.0.12"
+			first := asyncPeerLookup(m, ctx, peer)
+			<-entered
+			delayCtx := &delayedPeerResultContext{Context: ctx, paused: make(chan struct{}), release: make(chan struct{})}
+			waitCtx := &peerWaitContext{Context: delayCtx, waiting: make(chan struct{})}
+			second := asyncPeerLookup(m, waitCtx, peer)
+			<-waitCtx.waiting
+			close(release)
+			if result := <-first; result.err != nil || !result.id.Admin {
+				t.Fatalf("first lookup: %+v", result)
+			}
+			<-delayCtx.paused
+			revoked.Store(true)
+			ageEntry(m, peer, peerCacheTTL+time.Second)
+			if id, _ := m.LookupPeer(ctx, peer); id != (PeerIdentity{}) {
+				t.Fatalf("newer lookup still has grants: %+v", id)
+			}
+			close(delayCtx.release)
+			result := <-second
+			if result.id != (PeerIdentity{}) || (notFound && !errors.Is(result.err, ErrPeerNotFound)) || (!notFound && result.err != nil) {
+				t.Fatalf("delayed older caller restored grant: %+v", result)
+			}
+		})
+	}
+}
+
+func TestLookupPeer_WaiterCancellationDoesNotCancelOwner(t *testing.T) {
+	ctx := testPeerContext(t)
+	entered, release := make(chan struct{}), make(chan struct{})
+	c := &peercapsClient{whoIsFn: func(ctx context.Context, _ string) (*apitype.WhoIsResponse, error) {
+		close(entered)
+		select {
+		case <-release:
+			return adminPeerResponse(), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
-		return nil, errors.New("timeout")
 	}}
 	m := newMgr(c)
-	const peer = "100.64.0.8"
-	_, _ = m.LookupPeer(context.Background(), peer)
-	answer = "gone"
-	ageEntry(m, peer, peerCacheTTL+time.Second)
-	if _, err := m.LookupPeer(context.Background(), peer); !errors.Is(err, ErrPeerNotFound) {
-		t.Fatalf("got %v, want ErrPeerNotFound", err)
+	first := asyncPeerLookup(m, ctx, "100.64.0.13")
+	<-entered
+	cancelCtx, cancel := context.WithCancel(ctx)
+	waitCtx := &peerWaitContext{Context: cancelCtx, waiting: make(chan struct{})}
+	second := asyncPeerLookup(m, waitCtx, "100.64.0.13")
+	<-waitCtx.waiting
+	cancel()
+	if result := <-second; result.id != (PeerIdentity{}) || !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("cancelled waiter: %+v", result)
 	}
-	answer = "blip"
-	ageEntry(m, peer, peerCacheTTL+time.Second)
-	if id, err := m.LookupPeer(context.Background(), peer); err == nil {
-		t.Fatalf("got %+v after removal and a blip, want an error", id)
+	close(release)
+	if result := <-first; result.err != nil || !result.id.Admin {
+		t.Fatalf("owner: %+v", result)
 	}
-}
-
-// The cache stays bounded however many addresses are looked up.
-func TestPeerCacheIsBounded(t *testing.T) {
-	var c peerCache
-	for i := 0; i < maxPeerCacheEntries+50; i++ {
-		k := fmt.Sprintf("100.64.%d.%d", i/256, i%256)
-		c.set(k, peerCacheEntry{at: time.Now()})
-		c.setLastGood(k, PeerIdentity{View: true}, time.Now())
-	}
-	if len(c.m) > maxPeerCacheEntries || len(c.good) > maxPeerCacheEntries {
-		t.Fatalf("cache sizes %d and %d, want at most %d", len(c.m), len(c.good), maxPeerCacheEntries)
-	}
-	if _, ok := c.lastGood(fmt.Sprintf("100.64.%d.%d", (maxPeerCacheEntries+49)/256, (maxPeerCacheEntries+49)%256)); !ok {
-		t.Fatal("the newest entry was evicted")
+	if got := c.whoIsCalls.Load(); got != 1 {
+		t.Fatalf("got %d daemon calls, want 1", got)
 	}
 }
 
-// Two lookups for one peer that finish out of order: the answer from the
-// lookup that started later stands. A slow lookup that began before a
-// grant was revoked must not restore the grant after a newer lookup saw it
-// gone.
-func TestLookupPeer_OlderLookupNeverOverwritesNewer(t *testing.T) {
+func TestLookupPeer_CancelledOwnerCannotCacheGrant(t *testing.T) {
+	ctx, cancel := context.WithCancel(testPeerContext(t))
 	entered, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
 	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
 		if calls.Add(1) == 1 {
 			close(entered)
-			<-release // the first lookup answers last, with the revoked grant
-			return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{tailcfg.PeerCapability(CapAdmin): nil}}, nil
+			<-release // deliberately ignore cancellation like a slow transport
 		}
-		return &apitype.WhoIsResponse{CapMap: tailcfg.PeerCapMap{}}, nil
+		return adminPeerResponse(), nil
 	}}
 	m := newMgr(c)
-	const peer = "100.64.0.11"
-
-	done := make(chan PeerIdentity)
-	go func() {
-		id, _ := m.LookupPeer(context.Background(), peer)
-		done <- id
-	}()
+	first := asyncPeerLookup(m, ctx, "100.64.0.14")
 	<-entered
-	time.Sleep(time.Millisecond) // the second lookup starts strictly later
-	if id, err := m.LookupPeer(context.Background(), peer); err != nil || id.Admin || id.View {
-		t.Fatalf("newer lookup: %+v, %v; want no grants", id, err)
+	cancel()
+	close(release)
+	if result := <-first; result.id != (PeerIdentity{}) || !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("cancelled owner: %+v", result)
+	}
+	if id, err := m.LookupPeer(context.Background(), "100.64.0.14"); err != nil || !id.Admin {
+		t.Fatalf("retry: %+v, %v", id, err)
+	}
+	if got := c.whoIsCalls.Load(); got != 2 {
+		t.Fatalf("got %d daemon calls, want 2; cancelled grant was cached", got)
+	}
+}
+
+func TestLookupPeer_ActiveLookupsAreBounded(t *testing.T) {
+	ctx := testPeerContext(t)
+	entered := make(chan struct{}, maxPeerCacheEntries)
+	release := make(chan struct{})
+	c := &peercapsClient{whoIsFn: func(ctx context.Context, _ string) (*apitype.WhoIsResponse, error) {
+		entered <- struct{}{}
+		select {
+		case <-release:
+			return &apitype.WhoIsResponse{}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}}
+	m := newMgr(c)
+	results := make([]<-chan peerLookupResult, maxPeerCacheEntries)
+	for i := range results {
+		results[i] = asyncPeerLookup(m, ctx, fmt.Sprintf("100.64.%d.%d", i/256, i%256))
+	}
+	for range results {
+		<-entered
+	}
+	if id, err := m.LookupPeer(ctx, "100.65.0.1"); id != (PeerIdentity{}) || !errors.Is(err, errPeerLookupBusy) {
+		t.Fatalf("lookup above capacity: %+v, %v", id, err)
+	}
+	if got := c.whoIsCalls.Load(); got != maxPeerCacheEntries {
+		t.Fatalf("got %d daemon calls, want %d", got, maxPeerCacheEntries)
+	}
+	// Existing peers can still join at capacity, without evicting the owner.
+	cancelCtx, cancel := context.WithCancel(ctx)
+	waitCtx := &peerWaitContext{Context: cancelCtx, waiting: make(chan struct{})}
+	joined := asyncPeerLookup(m, waitCtx, "100.64.0.0")
+	<-waitCtx.waiting
+	cancel()
+	if result := <-joined; !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("existing peer at capacity: %+v", result)
 	}
 	close(release)
-	if id := <-done; !id.Admin {
-		t.Fatalf("the slow lookup itself answers with what it saw: %+v", id)
+	for _, done := range results {
+		if result := <-done; result.err != nil {
+			t.Fatalf("active lookup: %+v", result)
+		}
 	}
+	if _, err := m.LookupPeer(ctx, "100.65.0.1"); err != nil {
+		t.Fatalf("capacity not released after completion: %v", err)
+	}
+	m.peerCache.mu.Lock()
+	defer m.peerCache.mu.Unlock()
+	if len(m.peerCache.inflight) != 0 || len(m.peerCache.m) > maxPeerCacheEntries {
+		t.Fatalf("active=%d cached=%d, want no active and bounded cache", len(m.peerCache.inflight), len(m.peerCache.m))
+	}
+}
 
-	if id, err := m.LookupPeer(context.Background(), peer); err != nil || id.Admin {
-		t.Fatalf("cached after both: %+v, %v; the older answer overwrote the newer", id, err)
+func TestLookupPeer_CachePressureDoesNotEvictActiveLookup(t *testing.T) {
+	ctx := testPeerContext(t)
+	entered, release := make(chan struct{}), make(chan struct{})
+	const peer = "100.65.0.2"
+	var peerCalls atomic.Int32
+	c := &peercapsClient{whoIsFn: func(ctx context.Context, address string) (*apitype.WhoIsResponse, error) {
+		if address == peer {
+			peerCalls.Add(1)
+			close(entered)
+			select {
+			case <-release:
+				return nil, local.ErrPeerNotFound
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		return adminPeerResponse(), nil
+	}}
+	m := newMgr(c)
+	first := asyncPeerLookup(m, ctx, peer)
+	<-entered
+	for i := 0; i < maxPeerCacheEntries+50; i++ {
+		if _, err := m.LookupPeer(ctx, fmt.Sprintf("100.64.%d.%d", i/256, i%256)); err != nil {
+			t.Fatalf("cache-filling lookup: %v", err)
+		}
 	}
-	if got := calls.Load(); got != 2 {
-		t.Fatalf("%d daemon calls, want 2 (the third read is cached)", got)
+	waitCtx := &peerWaitContext{Context: ctx, waiting: make(chan struct{})}
+	second := asyncPeerLookup(m, waitCtx, peer)
+	<-waitCtx.waiting
+	close(release)
+	for _, done := range []<-chan peerLookupResult{first, second} {
+		if result := <-done; result.id != (PeerIdentity{}) || !errors.Is(result.err, ErrPeerNotFound) {
+			t.Fatalf("shared denial under cache pressure: %+v", result)
+		}
 	}
-	if last, ok := m.peerCache.lastGood(peer); !ok || last.Admin {
-		t.Fatalf("last good identity %+v, %v; the older answer overwrote the newer", last, ok)
+	if got := peerCalls.Load(); got != 1 {
+		t.Fatalf("got %d competing peer lookups, want 1", got)
+	}
+}
+
+func TestPeerCacheIsBounded(t *testing.T) {
+	var c peerCache
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i := 0; i < maxPeerCacheEntries+50; i++ {
+		c.setLocked(fmt.Sprintf("peer-%d", i), peerCacheEntry{at: time.Now()})
+	}
+	if len(c.m) > maxPeerCacheEntries {
+		t.Fatalf("cache size %d, want at most %d", len(c.m), maxPeerCacheEntries)
+	}
+	if _, ok := c.m[fmt.Sprintf("peer-%d", maxPeerCacheEntries+49)]; !ok {
+		t.Fatal("the newest entry was evicted")
+	}
+}
+
+func TestLookupPeer_NoResponseAndPreCancelledRequest(t *testing.T) {
+	c := &peercapsClient{whoIsFn: func(context.Context, string) (*apitype.WhoIsResponse, error) { return nil, nil }}
+	m := newMgr(c)
+	if id, err := m.LookupPeer(context.Background(), "100.64.0.99"); id != (PeerIdentity{}) || !errors.Is(err, ErrPeerNotFound) {
+		t.Fatalf("empty daemon response: %+v %v", id, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := m.LookupPeer(ctx, "100.64.0.98"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("pre-cancelled request: %v", err)
+	}
+	if c.whoIsCalls.Load() != 1 {
+		t.Fatal("cancelled request reached daemon")
+	}
+}
+
+func TestDelayedGrantCannotSurviveExpiryOrEviction(t *testing.T) {
+	// A resumed waiter must not use its completed grant if the cache expired
+	// or capacity pressure evicted the only authoritative answer.
+	for _, expired := range []bool{false, true} {
+		c := &peerCache{m: map[string]peerCacheEntry{}}
+		if expired {
+			c.m["peer"] = peerCacheEntry{id: PeerIdentity{Admin: true}, at: time.Now().Add(-peerCacheTTL - time.Second)}
+		}
+		if id, err := c.completed(context.Background(), "peer", &peerLookup{id: PeerIdentity{Admin: true}}); id != (PeerIdentity{}) || !errors.Is(err, errPeerLookupExpired) {
+			t.Fatalf("expired=%v: %+v %v", expired, id, err)
+		}
+	}
+	entries := make(map[string]peerCacheEntry, maxPeerCacheEntries+1)
+	for i := 0; i <= maxPeerCacheEntries; i++ {
+		entries[fmt.Sprint(i)] = peerCacheEntry{at: time.Now().Add(-peerCacheTTL - time.Second)}
+	}
+	boundEntries(entries, peerCacheTTL)
+	if len(entries) != 0 {
+		t.Fatal("expired entries survived capacity cleanup")
 	}
 }
