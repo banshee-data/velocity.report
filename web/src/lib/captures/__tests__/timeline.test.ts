@@ -6,9 +6,12 @@ import {
 	coverageRows,
 	fileBoundaries,
 	formatClock,
+	formatDay,
 	formatDuration,
 	formatGap,
 	formatSize,
+	formatStamp,
+	formatWindow,
 	gradeGap,
 	gradeSelection,
 	isReplayable,
@@ -320,6 +323,42 @@ describe('formatClock', () => {
 	});
 });
 
+describe('formatDay', () => {
+	it('renders a local date as yyyy-mm-dd', () => {
+		expect(formatDay(BASE)).toBe('2026-09-02');
+	});
+
+	it('pads single-digit months and days', () => {
+		expect(formatDay(new Date(2027, 0, 5, 9, 0).getTime() * MS)).toBe('2027-01-05');
+	});
+
+	it('reports nothing for an absent stamp', () => {
+		expect(formatDay(0)).toBe('—');
+		expect(formatDay(Number.NaN)).toBe('—');
+	});
+});
+
+describe('formatStamp', () => {
+	it('renders a local date and wall clock', () => {
+		expect(formatStamp(BASE)).toBe('2026-09-02 13:20');
+		expect(formatStamp(BASE, true)).toBe('2026-09-02 13:20:37');
+	});
+
+	it('reports nothing for an absent stamp', () => {
+		expect(formatStamp(0)).toBe('—');
+	});
+});
+
+describe('formatWindow', () => {
+	it('names the date once for a span within a day', () => {
+		expect(formatWindow(BASE, BASE + 36 * 60 * SEC)).toBe('2026-09-02 13:20–13:56');
+	});
+
+	it('names both dates for a span crossing midnight', () => {
+		expect(formatWindow(BASE, BASE + 11 * 3600 * SEC)).toBe('2026-09-02 13:20 – 2026-09-03 00:20');
+	});
+});
+
 describe('clockTicks', () => {
 	it('lays seconds-scale ticks across a short clip', () => {
 		expect(clockTicks(BASE, BASE + 40 * SEC)).toEqual([
@@ -371,6 +410,9 @@ describe('coverageRows', () => {
 		expect(rows).toHaveLength(2);
 		expect(bars(rows[0])).toHaveLength(1);
 		expect(bars(rows[1])).toHaveLength(2);
+		// Rows are labelled in the page's one date format, the same as their key.
+		expect(rows.map((r) => r.dayLabel)).toEqual(['2026-09-03', '2026-09-02']);
+		expect(rows.map((r) => r.day)).toEqual(['2026-09-03', '2026-09-02']);
 	});
 
 	it('spans the day the sessions occupy, not midnight to midnight', () => {

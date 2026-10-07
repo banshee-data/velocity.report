@@ -162,6 +162,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/files`                  | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `POST /api/lidar/capture/session/label`         | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `POST /api/lidar/capture/motion-pass`           | ✅  | ✅  | -   |
+| Capture        | `capture_jobs.go`      | `POST /api/lidar/capture/motion-pass/missing`   | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |

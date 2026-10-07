@@ -37,7 +37,7 @@
 			<div class="flex flex-col gap-1">
 				{#each row.lanes as lane, i (lane.key)}
 					<div class="flex items-center gap-3">
-						<span class="text-surface-content/60 w-20 shrink-0 text-right text-xs"
+						<span class="text-surface-content/60 w-20 shrink-0 text-right font-mono text-xs"
 							>{i === 0 ? row.dayLabel : ''}</span
 						>
 						{#if showFolders}

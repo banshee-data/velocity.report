@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
@@ -212,18 +213,188 @@ func TestScheduledCaptureScanMarksTheRootRunning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	results, started := scheduledCaptureScans(roots, roots[0].RootID)
-	if !started {
+	results, claimed := scheduledCaptureScans(roots, roots[0].RootID)
+	if len(claimed) != 1 {
 		t.Fatal("scan was not scheduled")
 	}
+	t.Cleanup(func() { clearScheduledRoots(claimed) })
 	if len(results) != 1 || results[0].State != captureScanStateRunning {
 		t.Fatalf("scheduled result = %+v, want one running root", results)
 	}
-	markScheduledRoots(roots)
-	if !roots[0].ScanInProgress {
+	views := captureRootViews(roots, time.Now())
+	if !views[0].ScanInProgress {
 		t.Error("root does not report its scheduled scan")
 	}
-	clearScheduledRoots(roots, roots[0].RootID)
+	if p := views[0].ScanProgress; p == nil || p.Phase != captureScanQueued {
+		t.Errorf("scan progress = %+v, want a queued scan", p)
+	}
+
+	// Asking again while it is scheduled claims nothing, so no second
+	// goroutine probes the same volume, but still answers with the root.
+	again, reclaimed := scheduledCaptureScans(roots, "")
+	if len(reclaimed) != 0 {
+		t.Errorf("a second request claimed %d roots already scheduled, want 0", len(reclaimed))
+	}
+	if len(again) != 1 || !strings.Contains(again[0].Drift, "already running") {
+		t.Errorf("second request answered %+v, want the root reported as already running", again)
+	}
+
+	clearScheduledRoots(claimed)
+	views = captureRootViews(roots, time.Now())
+	if views[0].ScanInProgress || views[0].ScanProgress != nil {
+		t.Errorf("cleared root still reports a scan: %+v", views[0])
+	}
+}
+
+// gatedCaptureProber holds each probe until the test releases it, so a test
+// can look at a background scan while it is part-way through.
+func gatedCaptureProber(t *testing.T) (entered <-chan string, release chan<- struct{}) {
+	t.Helper()
+	original := captureProber
+	t.Cleanup(func() { captureProber = original })
+
+	in := make(chan string, 16)
+	out := make(chan struct{})
+	const fiveMinNs = int64(300) * 1_000_000_000
+	base := int64(1_788_000_000) * 1_000_000_000
+	var n int64
+	captureProber = func(absPath string, _ int) (capindex.Extent, error) {
+		in <- filepath.Base(absPath)
+		<-out
+		first := base + n*fiveMinNs
+		n++
+		return capindex.Extent{FirstPacketNs: first, LastPacketNs: first + fiveMinNs,
+			PacketCount: 540000, UDPPort: 2368}, nil
+	}
+	return in, out
+}
+
+// rootView fetches the roots listing and returns the one root it holds.
+func rootView(t *testing.T, ws *Server) map[string]any {
+	t.Helper()
+	payload := doRequest(t, ws, "GET", "/api/lidar/capture/roots", ws.handleCaptureRoots)
+	roots := payload["roots"].([]any)
+	if len(roots) != 1 {
+		t.Fatalf("listed %d roots, want 1", len(roots))
+	}
+	return roots[0].(map[string]any)
+}
+
+func waitForProbe(t *testing.T, entered <-chan string) string {
+	t.Helper()
+	select {
+	case name := <-entered:
+		return name
+	case <-time.After(5 * time.Second):
+		t.Fatal("the background scan never reached a probe")
+		return ""
+	}
+}
+
+// The Captures page polls the roots listing while a background probe runs.
+// It must be able to say how far the probe has got, which capture it is
+// reading, and how the scan ended once it has.
+func TestBackgroundCaptureScanReportsProgress(t *testing.T) {
+	dir := t.TempDir()
+	writeCaptures(t, dir, "a.pcap", "b.pcap", "c.pcap")
+	ws := captureAPIServer(t, dir)
+	entered, release := gatedCaptureProber(t)
+
+	rec := httptest.NewRecorder()
+	ws.handleCaptureScan(rec, httptest.NewRequest("POST", "/api/lidar/capture/scan?async=true", nil))
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("async scan = %d, want 202: %s", rec.Code, rec.Body.String())
+	}
+
+	if got := waitForProbe(t, entered); got != "a.pcap" {
+		t.Fatalf("first probe read %q, want a.pcap", got)
+	}
+	root := rootView(t, ws)
+	if root["scan_in_progress"] != true {
+		t.Fatalf("scan_in_progress = %v mid-probe, want true", root["scan_in_progress"])
+	}
+	progress, ok := root["scan_progress"].(map[string]any)
+	if !ok {
+		t.Fatalf("no scan_progress mid-probe: %v", root)
+	}
+	if progress["phase"] != captureScanProbing || progress["done"] != float64(0) ||
+		progress["total"] != float64(3) || progress["current"] != "a.pcap" {
+		t.Errorf("progress before the first probe = %v, want probing 0 of 3 at a.pcap", progress)
+	}
+	if started, _ := progress["started_at_ns"].(float64); started <= 0 {
+		t.Errorf("started_at_ns = %v, want the scan's start", progress["started_at_ns"])
+	}
+
+	release <- struct{}{}
+	if got := waitForProbe(t, entered); got != "b.pcap" {
+		t.Fatalf("second probe read %q, want b.pcap", got)
+	}
+	progress = rootView(t, ws)["scan_progress"].(map[string]any)
+	if progress["done"] != float64(1) || progress["probed"] != float64(1) ||
+		progress["current"] != "b.pcap" {
+		t.Errorf("progress after one probe = %v, want 1 done, 1 probed, reading b.pcap", progress)
+	}
+	if elapsed, _ := progress["probe_elapsed_ns"].(float64); elapsed <= 0 {
+		t.Errorf("probe_elapsed_ns = %v, want time since the first read began", progress["probe_elapsed_ns"])
+	}
+
+	release <- struct{}{}
+	waitForProbe(t, entered)
+	release <- struct{}{}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		root = rootView(t, ws)
+		if root["scan_in_progress"] != true {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the background scan never finished")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if _, still := root["scan_progress"]; still {
+		t.Errorf("a finished scan still reports progress: %v", root["scan_progress"])
+	}
+	result, ok := root["last_scan_result"].(map[string]any)
+	if !ok {
+		t.Fatalf("no last_scan_result after the scan: %v", root)
+	}
+	if result["probed"] != float64(3) || result["added"] != float64(3) || result["probe"] != true {
+		t.Errorf("last_scan_result = %v, want a probe that added and probed 3", result)
+	}
+	if finished, _ := result["finished_at_ns"].(float64); finished <= 0 {
+		t.Errorf("finished_at_ns = %v, want when it ended", result["finished_at_ns"])
+	}
+	if _, has := result["sessions"]; has {
+		t.Error("last_scan_result carries the derived sessions; the sessions route serves those")
+	}
+
+	sessions := doRequest(t, ws, "GET", "/api/lidar/capture/sessions", ws.handleCaptureSessions)
+	if sessions["count"] != float64(1) {
+		t.Errorf("sessions after the background probe = %v, want 1", sessions["count"])
+	}
+}
+
+func TestCaptureRootsReportTheLastQuickScan(t *testing.T) {
+	// A quick scan answers its own request, but a page reloaded since still
+	// wants to say what the last look at the volume found.
+	dir := t.TempDir()
+	writeCaptures(t, dir, "a.pcap", "b.pcap")
+	ws := captureAPIServer(t, dir)
+
+	doRequest(t, ws, "POST", "/api/lidar/capture/scan?probe=false", ws.handleCaptureScan)
+	root := rootView(t, ws)
+	result, ok := root["last_scan_result"].(map[string]any)
+	if !ok {
+		t.Fatalf("no last_scan_result after a quick scan: %v", root)
+	}
+	if result["added"] != float64(2) || result["probe"] != false {
+		t.Errorf("last_scan_result = %v, want a quick scan that added 2", result)
+	}
+	if root["scan_in_progress"] == true {
+		t.Error("a finished quick scan reads as in progress")
+	}
 }
 
 func TestCaptureScanReportsAnUnreachableVolume(t *testing.T) {

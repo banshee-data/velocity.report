@@ -416,3 +416,117 @@ func TestTheCaptureWritersKeepTheShippedSchemaRules(t *testing.T) {
 		t.Fatalf("periods after a refused pass = %d (%v), want 3", len(got), err)
 	}
 }
+
+// seedSessions indexes n captures an hour apart under one root, so each is a
+// session of its own, and returns the root and its sessions newest first.
+func seedSessions(t *testing.T, store *CaptureStore, rootPath string, n int) (string, []CaptureSession) {
+	t.Helper()
+	rootID := seedProbedRun(t, store, rootPath, n, time.Hour)
+	sessions, err := store.DeriveSessions(rootID)
+	if err != nil {
+		t.Fatalf("DeriveSessions: %v", err)
+	}
+	if len(sessions) != n {
+		t.Fatalf("derived %d sessions, want %d separate ones", len(sessions), n)
+	}
+	return rootID, sessions
+}
+
+func TestCaptureStoreEnqueueMissingMotionPasses(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewCaptureStore(db)
+	rootID, sessions := seedSessions(t, store, "/Volumes/lidar/lidar/s2", 4)
+	otherRoot, otherSessions := seedSessions(t, store, "/Volumes/lidar/lidar/s3", 1)
+
+	// The newest session has a timeline; the next has a pass on the way.
+	if err := store.ReplaceSessionPeriods(sessions[0].SessionID,
+		samplePeriods(time.Unix(0, sessions[0].StartNs))); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+	active, err := store.EnqueueJob(JobKindMotionPass, sessions[1].SessionID, rootID, "")
+	if err != nil {
+		t.Fatalf("EnqueueJob: %v", err)
+	}
+
+	batch, err := store.EnqueueMissingMotionPasses([]string{rootID})
+	if err != nil {
+		t.Fatalf("EnqueueMissingMotionPasses: %v", err)
+	}
+	if len(batch.Jobs) != 2 || batch.SkippedWithPeriods != 1 || batch.SkippedActive != 1 {
+		t.Fatalf("batch = %d queued, %d with periods, %d active; want 2, 1, 1",
+			len(batch.Jobs), batch.SkippedWithPeriods, batch.SkippedActive)
+	}
+	for i, want := range []string{sessions[2].SessionID, sessions[3].SessionID} {
+		got := batch.Jobs[i]
+		if got.SessionID != want || got.RootID != rootID || got.Kind != JobKindMotionPass ||
+			got.State != JobQueued {
+			t.Errorf("job %d = %+v, want a queued motion pass for %s", i, got, want)
+		}
+		if got.Detail != "queued for 1 capture" {
+			t.Errorf("job %d detail = %q, want it to count the captures", i, got.Detail)
+		}
+	}
+	// Another root's sessions are not this call's business.
+	if jobs, _ := store.ListJobs(otherSessions[0].SessionID, 0); len(jobs) != 0 {
+		t.Errorf("queued %d passes on a root not asked about", len(jobs))
+	}
+
+	// The pass queued before the batch runs first, then the batch's newest
+	// session.
+	claimed, err := store.ClaimNextJob()
+	if err != nil || claimed.JobID != active.JobID {
+		t.Fatalf("first claim = %+v (%v), want the pass queued before the batch", claimed, err)
+	}
+	claimed, err = store.ClaimNextJob()
+	if err != nil || claimed.SessionID != sessions[2].SessionID {
+		t.Fatalf("second claim = %+v (%v), want the newest session of the batch", claimed, err)
+	}
+
+	// Asking again queues nothing: every session has a timeline or a pass.
+	again, err := store.EnqueueMissingMotionPasses([]string{rootID})
+	if err != nil {
+		t.Fatalf("second EnqueueMissingMotionPasses: %v", err)
+	}
+	if len(again.Jobs) != 0 || again.SkippedActive != 3 || again.SkippedWithPeriods != 1 {
+		t.Errorf("second batch = %d queued, %d active, %d with periods; want 0, 3, 1",
+			len(again.Jobs), again.SkippedActive, again.SkippedWithPeriods)
+	}
+	if all, _ := store.ListJobs("", 0); len(all) != 3 {
+		t.Errorf("queue holds %d jobs after asking twice, want 3", len(all))
+	}
+
+	// A pass that failed left no timeline, so asking again queues it again.
+	if err := store.FinishJob(claimed.JobID, JobFailed, "capture truncated"); err != nil {
+		t.Fatalf("FinishJob: %v", err)
+	}
+	retry, err := store.EnqueueMissingMotionPasses([]string{rootID, otherRoot})
+	if err != nil {
+		t.Fatalf("retry EnqueueMissingMotionPasses: %v", err)
+	}
+	if len(retry.Jobs) != 2 {
+		t.Fatalf("retry queued %d passes, want the failed one and the other root's", len(retry.Jobs))
+	}
+	got := map[string]bool{retry.Jobs[0].SessionID: true, retry.Jobs[1].SessionID: true}
+	if !got[otherSessions[0].SessionID] || !got[sessions[2].SessionID] {
+		t.Errorf("retry queued %+v, want the failed session and the other root's", retry.Jobs)
+	}
+}
+
+func TestCaptureStoreEnqueueMissingMotionPassesWithNoRoots(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewCaptureStore(db)
+	seedSessions(t, store, "/Volumes/lidar/lidar/s2", 2)
+
+	batch, err := store.EnqueueMissingMotionPasses(nil)
+	if err != nil {
+		t.Fatalf("EnqueueMissingMotionPasses: %v", err)
+	}
+	if batch.Jobs == nil || len(batch.Jobs) != 0 {
+		t.Errorf("batch over no roots = %+v, want an empty, non-nil list", batch.Jobs)
+	}
+	if all, _ := store.ListJobs("", 0); len(all) != 0 {
+		t.Errorf("queued %d passes when asked about no roots", len(all))
+	}
+}

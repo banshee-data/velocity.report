@@ -365,10 +365,34 @@ export function probeCounts(files: CaptureFile[]): ProbeCounts {
 	return counts;
 }
 
-/** formatDay renders an epoch-nanosecond stamp as a short date. */
+/**
+ * formatDay renders an epoch-nanosecond stamp as a local yyyy-mm-dd date: the
+ * one date format the Captures page uses, so a day reads the same in the
+ * coverage rows, the sessions table and the scan stamp, and sorts as text.
+ */
 export function formatDay(ns: number): string {
 	if (!Number.isFinite(ns) || ns <= 0) return '—';
-	return nsToDate(ns).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	const d = nsToDate(ns);
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** formatStamp renders an epoch-nanosecond stamp as a local date and time. */
+export function formatStamp(ns: number, withSeconds = false): string {
+	if (!Number.isFinite(ns) || ns <= 0) return '—';
+	return `${formatDay(ns)} ${formatClock(ns, withSeconds)}`;
+}
+
+/**
+ * formatWindow renders a span as its date and wall-clock bounds,
+ * "2026-09-02 13:17–13:56", naming the second date only when the span
+ * crosses midnight.
+ */
+export function formatWindow(startNs: number, endNs: number): string {
+	if (formatDay(startNs) === formatDay(endNs)) {
+		return `${formatStamp(startNs)}–${formatClock(endNs)}`;
+	}
+	return `${formatStamp(startNs)} – ${formatStamp(endNs)}`;
 }
 
 /** A session laid out on a coverage timeline. */
@@ -432,8 +456,7 @@ export function coverageRows(
 ): CoverageRow[] {
 	const byDay = new Map<string, CaptureSession[]>();
 	for (const s of sessions) {
-		const d = nsToDate(s.start_ns);
-		const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		const key = formatDay(s.start_ns);
 		const list = byDay.get(key);
 		if (list) list.push(s);
 		else byDay.set(key, [s]);

@@ -11,6 +11,7 @@ import {
 	getCaptureRoots,
 	getCaptureSessions,
 	getSceneMap,
+	queueMissingMotionPasses,
 	scanCaptureRoots,
 	setReplayCaseLocation,
 	setCaptureSessionLabel,
@@ -125,6 +126,37 @@ describe('startCaptureMotionPass', () => {
 		const job = await startCaptureMotionPass('ses-1');
 		expect(job.job_id).toBe('job-1');
 		expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+	});
+});
+
+describe('queueMissingMotionPasses', () => {
+	it('scopes to a root and returns what was queued', async () => {
+		fetchMock.mockReturnValue(
+			ok({
+				queued: 2,
+				skipped: 1,
+				skipped_with_periods: 1,
+				skipped_active: 0,
+				jobs: [{ job_id: 'job-1' }, { job_id: 'job-2' }]
+			})
+		);
+		const result = await queueMissingMotionPasses('root-1');
+		expect(lastUrl()).toContain('/lidar/capture/motion-pass/missing?root_id=root-1');
+		expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+		expect(result.queued).toBe(2);
+		expect(result.jobs).toHaveLength(2);
+	});
+
+	it('asks for every root when none is named, and tolerates a missing job list', async () => {
+		fetchMock.mockReturnValue(ok({ queued: 0, skipped: 3 }));
+		const result = await queueMissingMotionPasses();
+		expect(lastUrl()).toMatch(/\/lidar\/capture\/motion-pass\/missing$/);
+		expect(result.jobs).toEqual([]);
+	});
+
+	it('throws on a failure', async () => {
+		fetchMock.mockReturnValue(fail(404));
+		await expect(queueMissingMotionPasses('root-nope')).rejects.toThrow();
 	});
 });
 

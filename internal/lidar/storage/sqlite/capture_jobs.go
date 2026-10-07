@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -184,6 +185,130 @@ func (s *CaptureStore) EnqueueJob(kind, sessionIDValue, rootID, detail string) (
 		return CaptureJob{}, fmt.Errorf("enqueue job: %w", err)
 	}
 	return job, nil
+}
+
+// MotionPassQueuedDetail is the detail a motion pass is queued with, which
+// the Captures page shows until the pass reports progress of its own.
+func MotionPassQueuedDetail(fileCount int) string {
+	if fileCount == 1 {
+		return "queued for 1 capture"
+	}
+	return fmt.Sprintf("queued for %d captures", fileCount)
+}
+
+// MotionPassBatch is what queuing the missing motion passes of some roots did.
+type MotionPassBatch struct {
+	// Jobs are the passes queued, in the order the runner will take them.
+	Jobs []CaptureJob
+	// SkippedWithPeriods counts sessions that already have a timeline, and
+	// SkippedActive those with a pass already queued or running.
+	SkippedWithPeriods int
+	SkippedActive      int
+}
+
+// EnqueueMissingMotionPasses queues a motion pass for every session of the
+// given roots that has no motion periods and no motion pass queued or
+// running, in one transaction.
+//
+// It is idempotent: a second call finds the passes the first queued and
+// queues nothing. Each insert re-checks for active work itself, so even a
+// writer that slipped in between the selection and the insert cannot leave a
+// session with two passes. A session whose last pass failed has no periods
+// and no active job, so it is queued again; that is the point of asking.
+//
+// Passes are queued newest session first, the order the Captures page lists
+// them in, so the sessions at the top of the page fill in first.
+func (s *CaptureStore) EnqueueMissingMotionPasses(rootIDs []string) (MotionPassBatch, error) {
+	batch := MotionPassBatch{Jobs: []CaptureJob{}}
+	if len(rootIDs) == 0 {
+		return batch, nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return batch, fmt.Errorf("begin motion pass batch: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	args := []any{JobKindMotionPass, JobQueued, JobRunning}
+	for _, id := range rootIDs {
+		args = append(args, id)
+	}
+	rows, err := tx.Query(`
+		SELECT s.session_id, s.root_id, s.file_count,
+		       EXISTS (SELECT 1 FROM lidar_capture_motion_periods p
+		                WHERE p.session_id = s.session_id),
+		       EXISTS (SELECT 1 FROM lidar_capture_jobs j
+		                WHERE j.kind = ? AND j.session_id = s.session_id AND j.state IN (?, ?))
+		  FROM lidar_capture_sessions s
+		 WHERE s.root_id IN (`+strings.TrimSuffix(strings.Repeat("?, ", len(rootIDs)), ", ")+`)
+		 ORDER BY s.start_ns DESC, s.session_id`, args...)
+	if err != nil {
+		return batch, fmt.Errorf("list sessions without a motion pass: %w", err)
+	}
+	type candidate struct {
+		sessionID, rootID string
+		fileCount         int
+	}
+	var todo []candidate
+	for rows.Next() {
+		var c candidate
+		var hasPeriods, active bool
+		if err := rows.Scan(&c.sessionID, &c.rootID, &c.fileCount, &hasPeriods, &active); err != nil {
+			rows.Close()
+			return batch, fmt.Errorf("scan session: %w", err)
+		}
+		switch {
+		case hasPeriods:
+			batch.SkippedWithPeriods++
+		case active:
+			batch.SkippedActive++
+		default:
+			todo = append(todo, c)
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return batch, fmt.Errorf("close session rows: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return batch, fmt.Errorf("list sessions without a motion pass: %w", err)
+	}
+
+	// Distinct queue times keep the runner's oldest-first claim in the order
+	// chosen above instead of leaving ties to the planner.
+	now := time.Now().UnixNano()
+	for i, c := range todo {
+		job := CaptureJob{
+			JobID:      "job-" + uuid.NewString(),
+			Kind:       JobKindMotionPass,
+			SessionID:  c.sessionID,
+			RootID:     c.rootID,
+			State:      JobQueued,
+			Detail:     MotionPassQueuedDetail(c.fileCount),
+			QueuedAtNs: now + int64(i),
+		}
+		res, err := tx.Exec(`
+			INSERT INTO lidar_capture_jobs
+				(job_id, kind, session_id, root_id, state, detail, queued_at_ns)
+			SELECT ?, ?, ?, ?, ?, ?, ?
+			 WHERE NOT EXISTS (SELECT 1 FROM lidar_capture_jobs
+			                    WHERE kind = ? AND session_id = ? AND state IN (?, ?))`,
+			job.JobID, job.Kind, job.SessionID, job.RootID, job.State, job.Detail, job.QueuedAtNs,
+			job.Kind, job.SessionID, JobQueued, JobRunning)
+		if err != nil {
+			return MotionPassBatch{Jobs: []CaptureJob{}}, fmt.Errorf("enqueue motion pass for %s: %w", c.sessionID, err)
+		}
+		if n, err := res.RowsAffected(); err == nil && n == 0 {
+			batch.SkippedActive++
+			continue
+		}
+		batch.Jobs = append(batch.Jobs, job)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return MotionPassBatch{Jobs: []CaptureJob{}}, fmt.Errorf("commit motion pass batch: %w", err)
+	}
+	return batch, nil
 }
 
 // activeJobFor returns a queued or running job of the given kind for a session.

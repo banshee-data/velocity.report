@@ -1617,6 +1617,7 @@ import type {
 	CaptureJob,
 	CaptureRoot,
 	CaptureSession,
+	MissingMotionPassesResponse,
 	PeriodsResponse,
 	ScanResponse
 } from '#lib/types/captures.js';
@@ -1690,6 +1691,23 @@ export async function startCaptureMotionPass(sessionId: string): Promise<Capture
 	if (!res.ok) throw apiError('Could not queue the motion pass', res.status);
 	const data = await res.json();
 	return data.job;
+}
+
+/**
+ * queueMissingMotionPasses queues a motion pass for every session of a root
+ * (every configured root when none is named) that has no timeline and no pass
+ * already queued or running. Asking twice queues nothing the second time.
+ */
+export async function queueMissingMotionPasses(
+	rootId?: string
+): Promise<MissingMotionPassesResponse> {
+	const params = new URLSearchParams();
+	if (rootId) params.set('root_id', rootId);
+	const url = `${API_BASE}/lidar/capture/motion-pass/missing${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url, { method: 'POST' });
+	if (!res.ok) throw apiError('Could not queue the motion passes', res.status);
+	const data = await res.json();
+	return { ...data, jobs: data.jobs || [] };
 }
 
 export async function getCaptureJobs(options?: {

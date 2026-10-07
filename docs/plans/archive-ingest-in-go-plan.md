@@ -133,6 +133,12 @@ velocity lidar sites --root /Volumes/lidar/lidar/s2 [--min-captures 4]
 reads `lidar_capture_periods` and prints or emits the static ones. No new
 classification code.
 
+The whole-volume request now exists over HTTP:
+`POST /api/lidar/capture/motion-pass/missing?root_id=…` queues a pass for every
+session of a root that has no periods and no pass queued or running, in one
+transaction, and queues nothing when asked again. The Captures page's "Run
+motion passes" button calls it, so `classify` can be a thin client of that route.
+
 ### 2. A period names the captures it spans
 
 `MotionPeriod` carries `start_ns`/`end_ns` but no captures, so every consumer

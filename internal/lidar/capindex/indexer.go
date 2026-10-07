@@ -65,9 +65,23 @@ type Indexer struct {
 	Probe Prober
 	// UDPPort is passed to the prober. Zero leaves the choice to it.
 	UDPPort int
-	// OnProgress, when set, is called before each file is probed so a long pass
-	// can report where it is.
-	OnProgress func(done, total int, relPath string)
+	// OnProgress, when set, is called before each file is probed and once more
+	// when the probing ends, so a long pass can report where it is.
+	OnProgress func(Progress)
+}
+
+// Progress is how far a pass has got through the files it set out to probe.
+type Progress struct {
+	// Done is how many files the pass has finished with, and Total how many it
+	// set out to probe.
+	Done  int
+	Total int
+	// Current is the file being probed now; empty once the pass has ended.
+	Current string
+	// Probed and Failed split Done by outcome, so a pass reports how much it
+	// learnt as it goes rather than only at the end.
+	Probed int
+	Failed int
 }
 
 // Refresh scans the root, records what changed, and probes the files that need
@@ -196,7 +210,8 @@ func (ix *Indexer) probeChanged(ctx context.Context, drift Drift, pending []stri
 			return probed, failed, err
 		}
 		if ix.OnProgress != nil {
-			ix.OnProgress(i, len(targets), rel)
+			ix.OnProgress(Progress{Done: i, Total: len(targets), Current: rel,
+				Probed: probed, Failed: failed})
 		}
 		abs := filepath.Join(ix.RootPath, filepath.FromSlash(rel))
 		extent, probeErr := ix.Probe(abs, ix.UDPPort)
@@ -226,7 +241,8 @@ func (ix *Indexer) probeChanged(ctx context.Context, drift Drift, pending []stri
 		probed++
 	}
 	if ix.OnProgress != nil && len(targets) > 0 {
-		ix.OnProgress(len(targets), len(targets), "")
+		ix.OnProgress(Progress{Done: len(targets), Total: len(targets),
+			Probed: probed, Failed: failed})
 	}
 	return probed, failed, nil
 }

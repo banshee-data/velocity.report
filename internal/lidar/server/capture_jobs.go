@@ -233,12 +233,60 @@ func (ws *Server) handleCaptureMotionPass(w http.ResponseWriter, r *http.Request
 	}
 
 	job, err := store.EnqueueJob(sqlite.JobKindMotionPass, sessionID, found.RootID,
-		fmt.Sprintf("queued for %d captures", found.FileCount))
+		sqlite.MotionPassQueuedDetail(found.FileCount))
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeCaptureJSON(w, map[string]any{"job": job})
+}
+
+// handleCaptureMissingMotionPasses queues a motion pass for every session
+// that has no motion periods and no pass queued or running: those of one
+// root, or of every configured root when no root_id is given.
+//
+// POST /api/lidar/capture/motion-pass/missing?root_id=…
+//
+// Calling it twice queues nothing the second time. The response says how many
+// were queued and why the rest were not.
+func (ws *Server) handleCaptureMissingMotionPasses(w http.ResponseWriter, r *http.Request) {
+	store, err := ws.captureStore()
+	if err != nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+	roots, err := store.ListRoots()
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	wanted := r.URL.Query().Get("root_id")
+	var rootIDs []string
+	for _, root := range roots {
+		// A named root is honoured even if it is no longer configured, as a
+		// single session's pass is; the all-roots form keeps to the volumes
+		// this process was started with.
+		if (wanted != "" && root.RootID == wanted) || (wanted == "" && root.Enabled) {
+			rootIDs = append(rootIDs, root.RootID)
+		}
+	}
+	if wanted != "" && len(rootIDs) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no such capture root")
+		return
+	}
+
+	batch, err := store.EnqueueMissingMotionPasses(rootIDs)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeCaptureJSON(w, map[string]any{
+		"queued":               len(batch.Jobs),
+		"skipped":              batch.SkippedWithPeriods + batch.SkippedActive,
+		"skipped_with_periods": batch.SkippedWithPeriods,
+		"skipped_active":       batch.SkippedActive,
+		"jobs":                 batch.Jobs,
+	})
 }
 
 // handleCaptureJobs lists jobs, newest first.
