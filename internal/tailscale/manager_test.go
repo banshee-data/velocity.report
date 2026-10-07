@@ -763,3 +763,54 @@ func TestWatchLoopRecoversFromWatcherDisconnect(t *testing.T) {
 		return m.browseURL == url2
 	})
 }
+
+func TestHardenedServeConfiguration(t *testing.T) {
+	for _, version := range []string{"", "1.90.9", "invalid", "1.92.0", "v1.102.2", "2.0.0"} {
+		t.Run(version, func(t *testing.T) {
+			fc := &fakeClient{
+				statusNoPeers: func(context.Context) (*ipnstate.Status, error) {
+					return &ipnstate.Status{Version: version, Self: &ipnstate.PeerStatus{DNSName: "v.tailfoo.ts.net."}}, nil
+				},
+				getServeCfg: func(context.Context) (*ipn.ServeConfig, error) {
+					return &ipn.ServeConfig{AllowFunnel: map[ipn.HostPort]bool{"v.tailfoo.ts.net:443": true}}, nil
+				},
+			}
+			m := New(WithLocalClient(fc), WithServeTarget("http://127.0.0.1:8082"), WithServeCapabilities())
+			err := m.enableServe(context.Background())
+			wantOK := version == "1.92.0" || version == "v1.102.2" || version == "2.0.0"
+			if (err == nil) != wantOK {
+				t.Fatalf("enableServe = %v", err)
+			}
+			if !wantOK {
+				if fc.setServeCfgCalls != 0 {
+					t.Fatal("unsupported daemon was configured")
+				}
+				return
+			}
+			cfg := fc.setServeConfigArg
+			if serveProxyTarget(cfg) != "http://127.0.0.1:8082" || len(cfg.AllowFunnel) != 0 {
+				t.Fatalf("unsafe configuration: %+v", cfg)
+			}
+			handler := cfg.Web["v.tailfoo.ts.net:443"].Handlers["/"]
+			if len(handler.AcceptAppCaps) != 2 || string(handler.AcceptAppCaps[0]) != CapView || string(handler.AcceptAppCaps[1]) != CapAdmin {
+				t.Fatalf("missing per-request capability forwarding: %+v", handler)
+			}
+		})
+	}
+}
+
+func TestHardenedServeReconcilesOnRestart(t *testing.T) {
+	bus := newFakeBusWatcher()
+	fc := &fakeClient{
+		statusNoPeers: func(context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{Version: "1.102.2", Self: &ipnstate.PeerStatus{DNSName: "v.tailfoo.ts.net."}}, nil
+		},
+		watchBus: func(ctx context.Context) (BusWatcher, error) { return bus.bind(ctx), nil },
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}), WithServeCapabilities())
+	m.Start(context.Background())
+	defer m.Stop()
+	state := ipn.Running
+	bus.emit(ipn.Notify{State: &state})
+	waitFor(t, time.Second, func() bool { return atomic.LoadInt32(&fc.setServeCfgCalls) > 0 })
+}

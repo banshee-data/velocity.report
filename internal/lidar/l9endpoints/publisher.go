@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
 	"google.golang.org/grpc"
@@ -368,6 +369,9 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 	}
 
 	diagf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
+	if err := access.ValidateLoopbackListen(p.config.ListenAddr); err != nil {
+		return fmt.Errorf("gRPC requires local access until authentication is implemented: %w", err)
+	}
 	lis, err := net.Listen("tcp", p.config.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)

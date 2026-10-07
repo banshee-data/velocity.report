@@ -39,6 +39,16 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 - `--disable-radar` (bool): Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
 - `--listen` and `--port` must be set sensibly; the binary validates units/timezone on startup.
 
+- `--ts-cap-enforcement=off|on|hardened`: Default `off` preserves access. `on` checks
+  Tailscale grants with the historical LAN/loopback bypass; `hardened` permits only
+  aggregate/PDF reads anonymously and requires explicit operation permissions for
+  settings, report creation and exports. Maintenance/access management stay OS-local.
+- `--ts-serve-listen` (default `127.0.0.1:8082`): Dedicated capability-header backend
+  used only by hardened Serve. Requires Tailscale 1.92+; no forwarded-IP fallback.
+  Hardened startup also requires loopback LiDAR HTTP/gRPC bindings. Follow the
+  [activation and recovery runbook](../../../docs/platform/operations/tailscale-remote-access.md#hardened-profile)
+  before changing the appliance's persistent service flags.
+
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
@@ -51,7 +61,7 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-forward-mode` (string): Forward mode: `lidarview` (UDP only), `grpc` (gRPC only), or `both` (default: `lidarview`).
 - `--lidar-foreground-forward` (bool): Forward foreground-only LiDAR packets to a separate port.
 - `--lidar-foreground-forward-addr` (string): Address to forward foreground LiDAR packets to (default: `localhost`).
-- `--lidar-grpc-listen` (string): gRPC server listen address for visualiser streaming (default: `localhost:50051`).
+- `--lidar-grpc-listen` (string): gRPC server listen address for visualiser streaming (default: `localhost:50051`). Full gRPC must bind to loopback in every profile until authentication is implemented.
 - `--lidar-pcap-dir` (string): Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 **Sensor/network settings (config file only):** The following settings are

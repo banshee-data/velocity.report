@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { access, hasPermission } from '$lib/stores/access';
 	import { browser } from '$app/environment';
 	import {
 		buildComparisonChartPath,
@@ -13,6 +14,7 @@
 		type SiteReport
 	} from '$lib/api';
 	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
+	import ExistingReports from '$lib/components/ExistingReports.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '$lib/dateUtils';
 	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '$lib/reportRequests';
@@ -345,9 +347,13 @@
 		}
 	}
 
-	onMount(loadData);
+	onMount(() => {
+		if (hasPermission($access, 'reports:create')) void loadData();
+		else loading = false;
+	});
 
 	async function handleGenerateReport() {
+		if (!hasPermission($access, 'reports:create')) return;
 		if (!dateRange.from || !dateRange.to) {
 			lastGeneratedReportId = null;
 			reportMessage = 'Select a date range first.';
@@ -422,9 +428,9 @@
 	<div class="vr-toolbar">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-surface-content text-2xl font-semibold">Report Generator</h1>
+				<h1 class="text-surface-content text-2xl font-semibold">Reports</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Generate PDF reports and compare survey periods
+					Download existing reports and create new reports when authorised
 				</p>
 			</div>
 		</div>
@@ -433,296 +439,315 @@
 	<div class="flex flex-1 overflow-hidden">
 		<div class="flex-1 overflow-y-auto p-6">
 			<div class="vr-content-narrow space-y-6">
-				{#if loading}
-					<div role="status" aria-live="polite" aria-busy="true">
-						<p>Loading report options…</p>
-						<span class="sr-only">Please wait while we fetch configuration data</span>
-					</div>
-				{:else if error}
-					<div
-						role="alert"
-						aria-live="assertive"
-						class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-					>
-						{error}
-					</div>
+				{#key lastGeneratedReportId}
+					<ExistingReports />
+				{/key}
+				{#if !hasPermission($access, 'reports:create')}
+					<p class="text-surface-content/70 text-sm">
+						You can download existing PDFs. Generating reports requires administrator access.
+					</p>
 				{:else}
-					{#if reportMessage && lastGeneratedReportId === null}
-						<div role="alert" aria-live="polite" class={`rounded border p-3 ${reportMessageTone}`}>
-							{reportMessage}
+					{#if loading}
+						<div role="status" aria-live="polite" aria-busy="true">
+							<p>Loading report options…</p>
+							<span class="sr-only">Please wait while we fetch configuration data</span>
 						</div>
-					{/if}
-
-					<section class="space-y-4">
-						<h2
-							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+					{:else if error}
+						<div
+							role="alert"
+							aria-live="assertive"
+							class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
 						>
-							Report Configuration
-						</h2>
-						<div class="space-y-4">
-							<div class="flex flex-wrap items-end gap-4">
-								<div class="w-70 space-y-2">
-									<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
-									<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
-								</div>
-								<div class="w-24">
-									<DataSourceSelector bind:value={selectedSource} />
-								</div>
-								<div class="w-24">
-									<SelectField bind:value={group} label="Group" {options} clearable={false} />
-								</div>
-								<!-- Keep the site selector wide enough for typical site names. -->
-								<div class="w-38">
-									<SelectField
-										bind:value={selectedSiteId}
-										label="Site"
-										options={siteOptions}
-										clearable={false}
-									/>
-								</div>
-							</div>
-							<div class="flex flex-wrap items-end gap-4">
-								<div class="w-42">
-									<label class="text-surface-content/80 block text-sm font-medium">
-										Min Speed ({$displayUnits})
-										<input
-											type="number"
-											bind:value={minSpeed}
-											min="0"
-											step="1"
-											class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-										/>
-									</label>
-								</div>
-								<div class="w-42">
-									<label class="text-surface-content/80 block text-sm font-medium">
-										Max Speed Cutoff ({$displayUnits})
-										<input
-											type="number"
-											bind:value={maxSpeedCutoff}
-											min="0"
-											step="5"
-											placeholder="None"
-											class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-										/>
-									</label>
-								</div>
-								<div class="w-42">
-									<label class="text-surface-content/80 block text-sm font-medium">
-										Min Period Count
-										<input
-											type="number"
-											bind:value={boundaryThreshold}
-											min="0"
-											step="1"
-											class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-										/>
-									</label>
-								</div>
-							</div>
-
-							<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
-								<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
-								<span>
-									Expanded chart
-									<span class="text-surface-content/60 block text-xs font-normal">
-										Show all time periods with linear timestamps. Leave off to collapse sparse gaps
-										for a consolidated chart.
-									</span>
-								</span>
-							</label>
-
-							<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
-								<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
-								Compare against another period
-							</label>
-
-							{#if compareEnabled}
-								<div class="flex flex-wrap items-end gap-4">
-									<div class="w-70 space-y-2">
-										<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
-										<DateRangeField
-											bind:value={compareRange}
-											on:change={() => (compareTouched = true)}
-											periodTypes={[PeriodType.Day]}
-											stepper
-										/>
-									</div>
-									<div class="w-24">
-										<DataSourceSelector bind:value={compareSource} />
-									</div>
-								</div>
-								{#if compareInFuture}
-									<p class="text-xs text-amber-600 dark:text-amber-400" role="status">
-										Comparison period extends past today — there will be no data for
-										{compareRange.to?.toLocaleDateString()} and after. Pick a range that's already happened.
-									</p>
-								{/if}
-							{/if}
-
-							<div class="flex flex-wrap items-center gap-3">
-								<Button
-									on:click={handleGenerateReport}
-									disabled={generatingReport || selectedSiteId == null}
-									variant="fill"
-									color="primary"
-									aria-label={generatingReport
-										? 'Generating report, please wait'
-										: 'Generate report'}
-								>
-									{generatingReport ? 'Generating…' : 'Generate Report'}
-								</Button>
-								<p class="text-surface-content/60 text-xs">
-									Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
-								</p>
-							</div>
-
-							{#if lastGeneratedReportId !== null}
-								<div class="space-y-3" role="region" aria-label="Report download options">
-									{#if reportMessage}
-										<div
-											role="status"
-											aria-live="polite"
-											class={`rounded border p-3 ${reportMessageTone}`}
-										>
-											{reportMessage}
-										</div>
-									{/if}
-									{#if reportMetadata}
-										<div class="flex gap-2">
-											<!-- eslint-disable svelte/no-navigation-without-resolve -->
-											<a
-												href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-												class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-												download
-												aria-label="Download PDF report"
-											>
-												📄 Download PDF
-											</a>
-											{#if reportMetadata.zip_filename}
-												<!-- eslint-disable svelte/no-navigation-without-resolve -->
-												<a
-													href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-													class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-													download
-													aria-label="Download source files as ZIP archive"
-												>
-													📦 Download Sources (ZIP)
-												</a>
-											{/if}
-										</div>
-									{:else}
-										<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
-											Loading download links...
-										</p>
-									{/if}
-									<p class="text-surface-600-300-token text-xs">
-										The ZIP file contains Typst source files and chart SVG assets for custom
-										editing.
-									</p>
-								</div>
-							{/if}
+							{error}
 						</div>
-					</section>
-
-					<section class="space-y-4">
-						<h2
-							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
-						>
-							Site Details
-						</h2>
-						{#if selectedSite}
-							<dl class="text-surface-content/80 grid gap-3 text-sm md:grid-cols-2">
-								<div>
-									<dt class="text-surface-content font-semibold">Location</dt>
-									<dd>{selectedSite.location}</dd>
-								</div>
-								<div>
-									<dt class="text-surface-content font-semibold">Speed Limit</dt>
-									<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
-								</div>
-								<div>
-									<dt class="text-surface-content font-semibold">Surveyor</dt>
-									<dd>{selectedSite.surveyor}</dd>
-								</div>
-								<div>
-									<dt class="text-surface-content font-semibold">Contact</dt>
-									<dd>{selectedSite.contact}</dd>
-								</div>
-								{#if selectedSite.site_description}
-									<div class="md:col-span-2">
-										<dt class="text-surface-content font-semibold">Site Description</dt>
-										<dd>{selectedSite.site_description}</dd>
-									</div>
-								{/if}
-								{#if selectedSite.speed_limit_note}
-									<div class="md:col-span-2">
-										<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
-										<dd>{selectedSite.speed_limit_note}</dd>
-									</div>
-								{/if}
-							</dl>
-						{:else}
-							<p class="text-surface-content/60 text-sm">Select a site to view report details.</p>
+					{:else}
+						{#if reportMessage && lastGeneratedReportId === null}
+							<div
+								role="alert"
+								aria-live="polite"
+								class={`rounded border p-3 ${reportMessageTone}`}
+							>
+								{reportMessage}
+							</div>
 						{/if}
-					</section>
 
-					{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
 						<section class="space-y-4">
 							<h2
 								class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
 							>
-								Chart Previews
+								Report Configuration
 							</h2>
-							<p class="text-surface-content/70 text-sm">
-								These previews come from the Go SVG chart endpoints used by the report pipeline.
-							</p>
-
-							<div class="grid gap-4 lg:grid-cols-2">
-								{#if reportTimeSeriesChartUrl}
-									<div class="space-y-2 rounded border p-3 lg:col-span-2">
-										<h3 class="text-sm font-semibold">Time-series overview</h3>
-										<InlineSvgChart
-											url={reportTimeSeriesChartUrl}
-											label="Preview of the report time-series chart"
-											loadingLabel="Loading time-series preview…"
-											minHeight={340}
+							<div class="space-y-4">
+								<div class="flex flex-wrap items-end gap-4">
+									<div class="w-70 space-y-2">
+										<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
+										<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
+									</div>
+									<div class="w-24">
+										<DataSourceSelector bind:value={selectedSource} />
+									</div>
+									<div class="w-24">
+										<SelectField bind:value={group} label="Group" {options} clearable={false} />
+									</div>
+									<!-- Keep the site selector wide enough for typical site names. -->
+									<div class="w-38">
+										<SelectField
+											bind:value={selectedSiteId}
+											label="Site"
+											options={siteOptions}
+											clearable={false}
 										/>
 									</div>
+								</div>
+								<div class="flex flex-wrap items-end gap-4">
+									<div class="w-42">
+										<label class="text-surface-content/80 block text-sm font-medium">
+											Min Speed ({$displayUnits})
+											<input
+												type="number"
+												bind:value={minSpeed}
+												min="0"
+												step="1"
+												class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+											/>
+										</label>
+									</div>
+									<div class="w-42">
+										<label class="text-surface-content/80 block text-sm font-medium">
+											Max Speed Cutoff ({$displayUnits})
+											<input
+												type="number"
+												bind:value={maxSpeedCutoff}
+												min="0"
+												step="5"
+												placeholder="None"
+												class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+											/>
+										</label>
+									</div>
+									<div class="w-42">
+										<label class="text-surface-content/80 block text-sm font-medium">
+											Min Period Count
+											<input
+												type="number"
+												bind:value={boundaryThreshold}
+												min="0"
+												step="1"
+												class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+											/>
+										</label>
+									</div>
+								</div>
+
+								<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
+									<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
+									<span>
+										Expanded chart
+										<span class="text-surface-content/60 block text-xs font-normal">
+											Show all time periods with linear timestamps. Leave off to collapse sparse
+											gaps for a consolidated chart.
+										</span>
+									</span>
+								</label>
+
+								<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
+									<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
+									Compare against another period
+								</label>
+
+								{#if compareEnabled}
+									<div class="flex flex-wrap items-end gap-4">
+										<div class="w-70 space-y-2">
+											<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
+											<DateRangeField
+												bind:value={compareRange}
+												on:change={() => (compareTouched = true)}
+												periodTypes={[PeriodType.Day]}
+												stepper
+											/>
+										</div>
+										<div class="w-24">
+											<DataSourceSelector bind:value={compareSource} />
+										</div>
+									</div>
+									{#if compareInFuture}
+										<p class="text-xs text-amber-600 dark:text-amber-400" role="status">
+											Comparison period extends past today — there will be no data for
+											{compareRange.to?.toLocaleDateString()} and after. Pick a range that's already happened.
+										</p>
+									{/if}
 								{/if}
 
-								{#if reportHistogramChartUrl}
-									<div class="space-y-2 rounded border p-3">
-										<h3 class="text-sm font-semibold">Velocity distribution</h3>
-										<InlineSvgChart
-											url={reportHistogramChartUrl}
-											label="Preview of the report histogram chart"
-											loadingLabel="Loading histogram preview…"
-											minHeight={250}
-										/>
-									</div>
-								{/if}
+								<div class="flex flex-wrap items-center gap-3">
+									<Button
+										on:click={handleGenerateReport}
+										disabled={generatingReport ||
+											selectedSiteId == null ||
+											!hasPermission($access, 'reports:create')}
+										variant="fill"
+										color="primary"
+										aria-label={generatingReport
+											? 'Generating report, please wait'
+											: 'Generate report'}
+									>
+										{generatingReport ? 'Generating…' : 'Generate Report'}
+									</Button>
+									<p class="text-surface-content/60 text-xs">
+										Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
+									</p>
+								</div>
 
-								{#if compareEnabled && reportComparisonChartUrl}
-									<div class="space-y-2 rounded border p-3">
-										<h3 class="text-sm font-semibold">Comparison distribution</h3>
-										<InlineSvgChart
-											url={reportComparisonChartUrl}
-											label="Preview of the report comparison histogram chart"
-											loadingLabel="Loading comparison preview…"
-											minHeight={250}
-										/>
-									</div>
-								{:else if compareEnabled}
-									<div class="space-y-2 rounded border p-3">
-										<h3 class="text-sm font-semibold">Comparison distribution</h3>
-										<p class="text-surface-content/70 text-sm">
-											Select a complete comparison range to preview the comparison chart.
+								{#if lastGeneratedReportId !== null}
+									<div class="space-y-3" role="region" aria-label="Report download options">
+										{#if reportMessage}
+											<div
+												role="status"
+												aria-live="polite"
+												class={`rounded border p-3 ${reportMessageTone}`}
+											>
+												{reportMessage}
+											</div>
+										{/if}
+										{#if reportMetadata}
+											<div class="flex gap-2">
+												<!-- eslint-disable svelte/no-navigation-without-resolve -->
+												<a
+													href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+													class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+													download
+													aria-label="Download PDF report"
+												>
+													📄 Download PDF
+												</a>
+												{#if hasPermission($access, 'data:export') && reportMetadata.zip_filename}
+													<!-- eslint-disable svelte/no-navigation-without-resolve -->
+													<a
+														href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+														class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+														download
+														aria-label="Download source files as ZIP archive"
+													>
+														📦 Download Sources (ZIP)
+													</a>
+												{/if}
+											</div>
+										{:else}
+											<p
+												class="text-surface-600-300-token text-sm"
+												role="status"
+												aria-live="polite"
+											>
+												Loading download links...
+											</p>
+										{/if}
+										<p class="text-surface-600-300-token text-xs">
+											The ZIP file contains Typst source files and chart SVG assets for custom
+											editing.
 										</p>
 									</div>
 								{/if}
 							</div>
 						</section>
+
+						<section class="space-y-4">
+							<h2
+								class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+							>
+								Site Details
+							</h2>
+							{#if selectedSite}
+								<dl class="text-surface-content/80 grid gap-3 text-sm md:grid-cols-2">
+									<div>
+										<dt class="text-surface-content font-semibold">Location</dt>
+										<dd>{selectedSite.location}</dd>
+									</div>
+									<div>
+										<dt class="text-surface-content font-semibold">Speed Limit</dt>
+										<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
+									</div>
+									<div>
+										<dt class="text-surface-content font-semibold">Surveyor</dt>
+										<dd>{selectedSite.surveyor}</dd>
+									</div>
+									<div>
+										<dt class="text-surface-content font-semibold">Contact</dt>
+										<dd>{selectedSite.contact}</dd>
+									</div>
+									{#if selectedSite.site_description}
+										<div class="md:col-span-2">
+											<dt class="text-surface-content font-semibold">Site Description</dt>
+											<dd>{selectedSite.site_description}</dd>
+										</div>
+									{/if}
+									{#if selectedSite.speed_limit_note}
+										<div class="md:col-span-2">
+											<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
+											<dd>{selectedSite.speed_limit_note}</dd>
+										</div>
+									{/if}
+								</dl>
+							{:else}
+								<p class="text-surface-content/60 text-sm">Select a site to view report details.</p>
+							{/if}
+						</section>
+
+						{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
+							<section class="space-y-4">
+								<h2
+									class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+								>
+									Chart Previews
+								</h2>
+								<p class="text-surface-content/70 text-sm">
+									These previews come from the Go SVG chart endpoints used by the report pipeline.
+								</p>
+
+								<div class="grid gap-4 lg:grid-cols-2">
+									{#if reportTimeSeriesChartUrl}
+										<div class="space-y-2 rounded border p-3 lg:col-span-2">
+											<h3 class="text-sm font-semibold">Time-series overview</h3>
+											<InlineSvgChart
+												url={reportTimeSeriesChartUrl}
+												label="Preview of the report time-series chart"
+												loadingLabel="Loading time-series preview…"
+												minHeight={340}
+											/>
+										</div>
+									{/if}
+
+									{#if reportHistogramChartUrl}
+										<div class="space-y-2 rounded border p-3">
+											<h3 class="text-sm font-semibold">Velocity distribution</h3>
+											<InlineSvgChart
+												url={reportHistogramChartUrl}
+												label="Preview of the report histogram chart"
+												loadingLabel="Loading histogram preview…"
+												minHeight={250}
+											/>
+										</div>
+									{/if}
+
+									{#if compareEnabled && reportComparisonChartUrl}
+										<div class="space-y-2 rounded border p-3">
+											<h3 class="text-sm font-semibold">Comparison distribution</h3>
+											<InlineSvgChart
+												url={reportComparisonChartUrl}
+												label="Preview of the report comparison histogram chart"
+												loadingLabel="Loading comparison preview…"
+												minHeight={250}
+											/>
+										</div>
+									{:else if compareEnabled}
+										<div class="space-y-2 rounded border p-3">
+											<h3 class="text-sm font-semibold">Comparison distribution</h3>
+											<p class="text-surface-content/70 text-sm">
+												Select a complete comparison range to preview the comparison chart.
+											</p>
+										</div>
+									{/if}
+								</div>
+							</section>
+						{/if}
 					{/if}
 				{/if}
 			</div>

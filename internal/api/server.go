@@ -16,6 +16,7 @@ import (
 	"time"
 
 	radar "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/db"
 	radarcmd "github.com/banshee-data/velocity.report/internal/radar"
 	"github.com/banshee-data/velocity.report/internal/security"
@@ -38,6 +39,9 @@ type Server struct {
 	// will have those routes preserved when Start uses the mux to run the
 	// server.
 	mux *http.ServeMux
+	// serveListen is a separate loopback-only backend for verified Serve claims.
+	serveListen      string
+	routePermissions []routePermission
 }
 
 // TransitController is an interface for controlling the transit worker.
@@ -117,14 +121,9 @@ func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
 	return s.m
 }
 
-// SetAuthGate enables capability-grant authorization for the whole
-// HTTP surface.  When mode is EnforcementOff (or tc is nil), every
-// request is admin and no daemon calls are made.  When mode is
-// EnforcementOn, the auth wrapper installed at Start() time gates
-// every route that is not on the allowlist (see authAllowlist) at
-// CapAdmin by default; explicitly registered View routes (see
-// viewRoutes) require only CapView.  This default-deny shape means
-// adding a new mutating endpoint cannot accidentally bypass auth.
+// SetAuthGate selects compatibility or hardened authorisation for the whole
+// HTTP surface. A missing client disables compatibility checks, but hardened
+// mode remains armed and refuses startup rather than downgrading its policy.
 func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 	s.authGate = newAuthGate(tc, mode)
 	// One-line arming record so operators can grep journald for the
@@ -132,6 +131,8 @@ func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 	// docs/platform/operations/tailscale-remote-access.md.
 	if s.authGate.mode == EnforcementOn {
 		log.Print("auth: capability enforcement armed (mode=on)")
+	} else if s.authGate.mode == EnforcementHardened {
+		log.Print("auth: operation enforcement armed (mode=hardened)")
 	}
 }
 
@@ -170,6 +171,7 @@ var viewRoutesGetOnly = []string{
 // either (a) a deliberate UX feature or (b) a recovery channel
 // belong here.
 var authAllowlist = []string{
+	"/api/access",
 	// SPA static assets — the page itself must be reachable so the
 	// app can render an "unauthorized" state.  `/app` is listed in
 	// addition to `/app/` because the auth wrapper runs before the
@@ -267,6 +269,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/charts/histogram", s.handleChartHistogram)
 	s.mux.HandleFunc("/api/charts/comparison", s.handleChartComparison)
 	s.mux.HandleFunc("/api/tailscale/status", s.handleTailscaleStatus)
+	s.mux.HandleFunc("/api/access", s.handleAccess)
 	s.mux.HandleFunc("/api/tailscale/enable", s.handleTailscaleEnable)
 	s.mux.HandleFunc("/api/tailscale/disable", s.handleTailscaleDisable)
 
@@ -287,6 +290,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 // was called (e.g. radarSerial.AttachAdminRoutes, the LiDAR routes,
 // the offline docs site).
 func (s *Server) authWrapper(next http.Handler) http.Handler {
+	if s.authGate != nil && s.authGate.mode == EnforcementHardened {
+		return s.hardenedWrapper(next, false)
+	}
 	if s.authGate == nil || s.authGate.mode == EnforcementOff {
 		return next
 	}
@@ -424,6 +430,14 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 			_ = listener.Close()
 		}
 	}()
+	if s.hardened() {
+		if s.authGate.tc == nil {
+			return errors.New("hardened mode requires an authentication adapter")
+		}
+		if err := access.ValidateLoopbackListen(s.serveListen); err != nil {
+			return err
+		}
+	}
 
 	// Store debug mode for use in handlers
 	s.debugMode = devMode
@@ -558,11 +572,25 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 	// Order: logging on the outside (so 403s from auth are logged),
 	// auth on the inside (so the cap check sees the real handler).
 	server := &http.Server{Handler: LoggingMiddleware(s.authWrapper(mux))}
+	var backend *http.Server
+	var backendListener net.Listener
+	if s.hardened() {
+		var err error
+		backendListener, err = net.Listen("tcp", s.serveListen)
+		if err != nil {
+			return fmt.Errorf("Serve backend: %w", err)
+		}
+		defer backendListener.Close()
+		backend = &http.Server{Handler: LoggingMiddleware(s.hardenedWrapper(mux, true))}
+		defer backend.Close()
+		log.Printf("Tailscale Serve backend listening on %s (hardened)", backendListener.Addr())
+	}
+	defer server.Close()
 
 	log.Printf("HTTP server listening on %s", listener.Addr())
 
 	// Run server in background and wait for either context cancellation or error
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 2)
 	closeListener = false
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -571,6 +599,15 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		}
 		errCh <- nil
 	}()
+	if backend != nil {
+		go func() {
+			err := backend.Serve(backendListener)
+			if err == http.ErrServerClosed {
+				err = nil
+			}
+			errCh <- err
+		}()
+	}
 
 	select {
 	case <-ctx.Done():
@@ -579,6 +616,9 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		// Create a shutdown context with a shorter timeout
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
+		if backend != nil {
+			_ = backend.Shutdown(shutdownCtx)
+		}
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Printf("HTTP server shutdown error: %v", err)

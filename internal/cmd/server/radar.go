@@ -21,6 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -76,7 +77,8 @@ var (
 	//                  LAN/loopback peers are still admin (the LAN is the
 	//                  trust boundary in those deployments).  Recovery from
 	//                  a botched ACL: drop back to LAN access, fix grants.
-	tsCapEnforcement = serveFlags.String("ts-cap-enforcement", "off", "Tailscale capability-grant enforcement: off (default) or on")
+	tsCapEnforcement = serveFlags.String("ts-cap-enforcement", "off", "Access profile: off (legacy default), on (legacy LAN-admin), or hardened (LAN read-only)")
+	tsServeListen    = serveFlags.String("ts-serve-listen", "127.0.0.1:8082", "Dedicated loopback Serve backend for the hardened access profile")
 	selfCheck        = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
 	selfCheckLive    = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
 )
@@ -387,7 +389,17 @@ func Main(args []string) int {
 	// server goroutine after listeners are up.
 	capMode, capModeErr := api.ParseEnforcement(*tsCapEnforcement)
 	if capModeErr != nil {
-		log.Fatalf("Unrecognised --ts-cap-enforcement=%q: valid values are off, on", *tsCapEnforcement)
+		log.Fatalf("Unrecognised --ts-cap-enforcement=%q: valid values are off, on, hardened", *tsCapEnforcement)
+	}
+	// Full gRPC exposes shared playback controls and has no authentication yet.
+	// Refuse remote bindings in every profile, before any sensors start.
+	if err := access.ValidateLoopbackListen(*lidarGRPCListen); err != nil {
+		log.Fatalf("gRPC is local until authentication is implemented: %v", err)
+	}
+	if capMode == api.EnforcementHardened {
+		if err := validateHardenedListeners(*tsServeListen, *lidarListen, *lidarGRPCListen); err != nil {
+			log.Fatalf("Hardened listener configuration: %v", err)
+		}
 	}
 	lidar.SetLogWriters(writers)
 	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
@@ -548,6 +560,7 @@ func Main(args []string) int {
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	httpFailure := make(chan error, 1)
 
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
@@ -1135,17 +1148,18 @@ func Main(args []string) int {
 		// caches the IPN bus login URL, and applies the device policy
 		// (Tailscale SSH on, tailscale serve publishing the local Go
 		// server on :443 of the tailnet) once the node is up.
-		tsManager := tailscale.New(tailscale.WithServeTarget(tailscaleServeTarget(*listen)))
+		tsOptions := []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*listen))}
+		if capMode == api.EnforcementHardened {
+			tsOptions = []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*tsServeListen)), tailscale.WithServeCapabilities()}
+			apiServer.SetServeListen(*tsServeListen)
+		}
+		tsManager := tailscale.New(tsOptions...)
 		tsManager.Start(ctx)
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
 
-		// Capability-grant authorization.  Non-Tailscale sources
-		// (loopback, LAN) are always treated as admin; only requests
-		// arriving via tailscale serve are subject to cap checks.
-		// Default mode is "off"; flip to "on" after grants are wired
-		// in the tailnet ACL.  Recovery from a botched ACL is via
-		// the LAN bypass.
+		// Off/on retain compatibility. Hardened applies named permissions to
+		// anonymous LAN and verified Tailscale callers, with OS-local recovery.
 		apiServer.SetAuthGate(tsManager, capMode)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
@@ -1181,13 +1195,17 @@ func Main(args []string) int {
 
 		// Attach Lidar routes if enabled
 		if lidarServer != nil {
-			lidarServer.RegisterRoutes(mux)
+			lidarServer.RegisterRoutes(mux, apiServer.RegisterOperation)
 		}
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
 			if err != context.Canceled {
 				log.Printf("HTTP server error: %v", err)
+				if capMode == api.EnforcementHardened {
+					httpFailure <- err
+					stop()
+				}
 			}
 		}
 	}()
@@ -1195,6 +1213,11 @@ func Main(args []string) int {
 	// Wait for all goroutines to finish
 	wg.Wait()
 	log.Printf("Graceful shutdown complete")
+	select {
+	case <-httpFailure:
+		return 1
+	default:
+	}
 	return 0
 }
 

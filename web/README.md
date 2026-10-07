@@ -7,6 +7,15 @@ Svelte-based frontend for real-time traffic data visualisation.
 - **Build**: Vite
 - **Package Manager**: pnpm
 
+## Caller permissions
+
+The layout loads `/api/access` before mounting protected pages and refreshes it every 30 seconds.
+Lookup failures discard previous permissions. Viewing and downloading existing PDFs remain available
+to hardened LAN viewers; report creation, settings, source downloads and site changes require
+explicit permissions. This response describes the server's policy and does not establish a native
+user session. The backend checks every request independently, including after grants change. See the
+[access design](../docs/plans/platform-access-control-hardening-plan.md).
+
 ## Tech stack
 
 - **[Svelte 5](https://svelte.dev/)** - Fast, reactive UI framework

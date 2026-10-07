@@ -1295,3 +1295,16 @@ func TestPublisher_EmitFirstBackground_NonePresent(t *testing.T) {
 		t.Fatal("timed out waiting for first frame")
 	}
 }
+
+func TestPublisherRefusesUnauthenticatedRemoteControls(t *testing.T) {
+	for _, address := range []string{":0", "0.0.0.0:0", "[::]:0", "192.168.1.5:50051", "example.com:50051"} {
+		pub := NewPublisher(Config{ListenAddr: address})
+		if err := pub.StartWithService(NewServer(pub)); err == nil {
+			pub.Stop()
+			t.Fatalf("full control service exposed at %s", address)
+		}
+		if pub.Stats().Running {
+			t.Fatalf("refused publisher became running at %s", address)
+		}
+	}
+}

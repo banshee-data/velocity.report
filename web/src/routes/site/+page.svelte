@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { access, hasPermission } from '$lib/stores/access';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { deleteSite, getSites, type Site } from '$lib/api';
@@ -30,19 +31,23 @@
 	}
 
 	function handleCreate() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		goto(resolve('/site/new'));
 	}
 
 	function handleEdit(siteId: number) {
+		if (!hasPermission($access, 'configuration:write')) return;
 		goto(resolve(`/site/${siteId}`));
 	}
 
 	function openDeleteDialog(site: Site) {
+		if (!hasPermission($access, 'configuration:write')) return;
 		deletingSite = site;
 		showDeleteDialog = true;
 	}
 
 	async function handleDelete() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!deletingSite) return;
 		try {
 			await deleteSite(deletingSite.id);
@@ -73,7 +78,13 @@
 				<Button variant="outline" on:click={loadSites} disabled={loading}>
 					{loading ? 'Loading...' : 'Refresh'}
 				</Button>
-				<Button on:click={handleCreate} icon={mdiPlus} variant="fill" color="primary">
+				<Button
+					disabled={!hasPermission($access, 'configuration:write')}
+					on:click={handleCreate}
+					icon={mdiPlus}
+					variant="fill"
+					color="primary"
+				>
 					New Site
 				</Button>
 			</div>
@@ -83,6 +94,11 @@
 	<div class="flex flex-1 overflow-hidden">
 		<div class="flex-1 overflow-y-auto p-6">
 			<div class="vr-content-narrow space-y-4">
+				{#if !hasPermission($access, 'configuration:write')}
+					<p class="text-surface-content/70 text-sm">
+						You can view sites. Creating or changing a site requires administrator access.
+					</p>
+				{/if}
 				{#if error}
 					<div class="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600">
 						{error}
@@ -95,7 +111,13 @@
 				{:else if sites.length === 0}
 					<div class="text-surface-content/50 py-12 text-center">
 						<p class="mb-4 text-lg">No sites configured yet.</p>
-						<Button on:click={handleCreate} icon={mdiPlus} variant="fill" color="primary">
+						<Button
+							disabled={!hasPermission($access, 'configuration:write')}
+							on:click={handleCreate}
+							icon={mdiPlus}
+							variant="fill"
+							color="primary"
+						>
 							Create your first site
 						</Button>
 					</div>
@@ -144,6 +166,7 @@
 													icon={mdiPencil}
 													size="sm"
 													variant="outline"
+													disabled={!hasPermission($access, 'configuration:write')}
 													on:click={() => handleEdit(site.id)}
 													aria-label="Edit {site.name}"
 												>
@@ -154,6 +177,7 @@
 													size="sm"
 													variant="outline"
 													color="danger"
+													disabled={!hasPermission($access, 'configuration:write')}
 													on:click={() => openDeleteDialog(site)}
 													aria-label="Delete {site.name}"
 												>

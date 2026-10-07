@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
 )
@@ -139,10 +140,16 @@ func NewLidarLabelAPI(db sqlite.DBClient) *LidarLabelAPI {
 }
 
 // RegisterRoutes registers label API routes on the provided mux.
-func (api *LidarLabelAPI) RegisterRoutes(mux *http.ServeMux) {
+func (api *LidarLabelAPI) RegisterRoutes(mux *http.ServeMux, recorders ...func(string, access.Operation, access.Operation)) {
 	mux.HandleFunc("/api/lidar/labels", api.handleLabels)
 	mux.HandleFunc("/api/lidar/labels/export", api.handleExport)
 	mux.HandleFunc("/api/lidar/labels/", api.handleLabelByID)
+	for _, record := range recorders {
+		record("/api/lidar/labels", access.ExportData, access.Configure)
+		record("/api/lidar/labels/export", access.ExportData, access.Configure)
+		record("/api/lidar/labels/", access.ExportData, access.Configure)
+	}
+
 }
 
 func trimOptionalStringPtr(value *string) *string {
