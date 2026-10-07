@@ -47,6 +47,19 @@ describe('clipForRun', () => {
 		expect(clipForRun({ ...other, sensor_id: 'other' }, clips)).toBeNull();
 	});
 
+	it('matches a clip that names its capture relative to the volume', () => {
+		const columbus = clip('columbus', { pcap_file: 's2/s2_sf_3_00002.pcap' });
+		const replay = run({
+			run_id: 'run-5',
+			source_path: '/Volumes/lidar/lidar/s2/s2_sf_3_00002.pcap'
+		});
+		expect(clipForRun(replay, [columbus])).toBe(columbus);
+		// Only on a path boundary: a longer directory name is a different capture.
+		expect(
+			clipForRun({ ...replay, source_path: '/Volumes/lidar/ss2/s2_sf_3_00002.pcap' }, [columbus])
+		).toBeNull();
+	});
+
 	it('looks past a recorded clip that is no longer listed', () => {
 		const gone = run({
 			run_id: 'run-3',

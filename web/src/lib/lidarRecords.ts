@@ -22,10 +22,22 @@ export function clipForRun(
 	}
 	const byReference = clips.find((c) => c.reference_run_id === run.run_id);
 	if (byReference) return byReference;
-	if (!run.source_path) return null;
+	const source = run.source_path;
+	if (!source) return null;
 	return (
-		clips.find((c) => c.pcap_file === run.source_path && c.sensor_id === run.sensor_id) ?? null
+		clips.find((c) => c.sensor_id === run.sensor_id && sameCapture(source, c.pcap_file)) ?? null
 	);
+}
+
+/**
+ * sameCapture compares a run's source with a clip's capture. A clip records
+ * its capture relative to the capture volume (s2/s2_sf_3_….pcap) and a run the
+ * absolute path it read, so the clip's path must end the run's, on a path
+ * boundary: s2/x.pcap matches /Volumes/lidar/lidar/s2/x.pcap, not …/ss2/x.pcap.
+ */
+function sameCapture(source: string, capture: string | undefined): boolean {
+	if (!capture) return false;
+	return source === capture || source.endsWith(`/${capture.replace(/^\/+/, '')}`);
 }
 
 /**
