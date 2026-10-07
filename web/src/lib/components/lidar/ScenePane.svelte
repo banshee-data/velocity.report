@@ -200,7 +200,7 @@
 		<select bind:this={rate} class="scene-pane__select" aria-label="Playback rate">
 			<!-- The Tracks page's speeds, so a rate it sets is one this can show. -->
 			<option value="0.5">0.5x</option>
-			<option value="1">1x</option>
+			<option value="1" selected>1x</option>
 			<option value="2">2x</option>
 			<option value="5">5x</option>
 			<option value="10">10x</option>
@@ -264,7 +264,24 @@
 	.scene-pane__labels {
 		position: absolute;
 		inset: 0;
+		overflow: hidden;
 		pointer-events: none;
+	}
+	/* The player creates these labels and places them by left and top; the
+	   public survey layout styles them, and without this they stack static in
+	   the corner. Kept in step with public_html/src/_layouts/scene.njk. */
+	.scene-pane__labels :global(.scene-label) {
+		position: absolute;
+		transform: translate(-50%, -100%);
+		font-size: 0.68rem;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		padding: 0.1rem 0.32rem;
+		border-radius: 2px;
+		white-space: nowrap;
+		background: rgba(11, 16, 19, 0.78);
+		color: #ffd7d4;
+		border: 1px solid rgba(242, 80, 75, 0.55);
 	}
 	.scene-pane__controls {
 		display: flex;
