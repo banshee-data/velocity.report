@@ -244,6 +244,44 @@ as such rather than assumed. Each corpus case's declaration is measured by the c
   writes a solid-body row per refined estimate with the revised state and the online beliefs.
 - The lossless-batch oracle covers `lidar_track_solid_bodies`.
 
+### Configuration surface
+
+Everything above is reached one way: a replay `-experiment` name sets a field on
+`TrackerConfig.SolidBody`, `NearEdgeTracking` or `NearEdgeMedoidGate`, or the pipeline's
+`KeepClusterMembers`, in `replayeval`. The corpus tool, the pcap tests, the per-frame evaluator
+and the headway field run can therefore compare arms; nothing that builds a tracker from the
+tuning config can. `velocity serve`, PCAP replay on :8081, the sweep, HINT, the run record and the
+visualiser have no way to switch the body on, so no VRLOG or analysis run carries it, and the
+tuning fingerprint does not know it exists.
+
+The options move into the tuning config as one block, `l5.cv_kf_v1.solid_body`, with these rules:
+
+| Rule                                   | Why                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An options block, not an engine        | The body does not change the motion model (Option A). Engines select estimators (state plan, Section 4.3); a `cv_kf_near_edge_v1` engine would copy `L5CvKfV1` and fork every sweep, runtime and HINT path that reads it                                                                                |
+| A pointer, `omitempty`, nil by default | `tuning.defaults.json` and the profiles stay byte-identical, so the fingerprint does not move (invariant 1) and the perf baselines stand. The unselected engine blocks already take this shape, and B0 stays the production default, as the October campaign decided                                    |
+| Experiments become aliases             | `solid_body`, its remedies, `near_edge_track` and `near_edge_track_a1` set the same block in replay. F1 to F7b and the October campaign stay reproducible from their manifests, and the summary's `experiments` list keeps its meaning                                                                  |
+| One mapping                            | `TrackerConfigFromTuning` reads the block; the runtime apply path (`/api/lidar/params`) gains its keys under `l5.cv_kf_v1.solid_body.*`; the run record and manifest hash it with everything else                                                                                                       |
+| Live parity or refusal                 | The live pipeline hands the tracker capped `RetainedPoints` and no declared origin. Full members need the L4 hand-off replay uses (`KeepClusterMembers`), and the origin comes from the sensor geometry declaration and is recorded. Until both hold, the block refuses on the live path as replay does |
+
+Fields, from `SolidBodyOptions` and the tracker: `enabled`, `full_members`, `face_hysteresis`,
+`face_entry_consider`, `course_aligned_faces`, `course_alignment_min_speed_mps` (2.0 today, a
+constant), `reference_translation`, `rank_one_medoid_scale` (zero off, one for T5, a quarter for
+its tight setting), `near_edge_track` and `near_edge_medoid_gate` (A1). The numeric ones become
+sweepable; the booleans are arms. The origin is not a tuning value: it is the site's declaration,
+and the block refuses without one. Invariant 1 then reads "a tuning-config option" where it says
+"a Go-level option"; what it protects, a byte-identical default replay and an unmoved
+fingerprint, holds because the block is absent by default.
+
+What this buys: a run of a real capture through the real server with the body on, so the macOS
+tool can review it against a reviewed pack, the visualiser can draw it, and
+`lidar_track_solid_bodies` fills from a run rather than a test. With `near_edge_track` set the
+body is the tracked state, so once the live path has full members and an origin, the sweep,
+auto-tune and HINT, which score `lidar_run_tracks`, score the tracked arm on :8081 without change. The shadow arms still score offline only: the corpus
+tool's per-case summary, the per-frame evaluator's paired arms, and the headway field run with
+`--solid-bodies`. It does not promote anything: no arm leaves its default-off state without the
+held-out evidence the October campaign says is still missing.
+
 ## Scope
 
 ### S2.0: corpus instrumentation for the shadow
@@ -988,3 +1026,5 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       ended chains at each reference change, `fixed_lag_rts` combined with `near_edge_track`, and
       the oracle covered solid bodies without moving the digest of a run that has none
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report
+- [ ] Configuration surface: `l5.cv_kf_v1.solid_body`, experiments as aliases, runtime keys,
+      live parity or refusal ([design](#configuration-surface))
