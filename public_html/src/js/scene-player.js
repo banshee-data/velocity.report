@@ -356,6 +356,34 @@ class PointCloudVisual {
 }
 
 /**
+ * A player's teardown: one AbortSignal that every listener it adds is bound
+ * to, and the cleanups it registers, run in reverse order of registration.
+ * dispose() runs them once; a second call does nothing, so a caller need not
+ * track whether it already tore a player down.
+ */
+export function createTeardown() {
+  const controller = new AbortController();
+  const cleanups = [];
+  return {
+    signal: controller.signal,
+    onDispose(cleanup) {
+      cleanups.push(cleanup);
+    },
+    dispose() {
+      if (controller.signal.aborted) return;
+      controller.abort();
+      for (const cleanup of cleanups.splice(0).reverse()) {
+        try {
+          cleanup();
+        } catch (error) {
+          console.warn("scene player: a cleanup failed during dispose", error);
+        }
+      }
+    },
+  };
+}
+
+/**
  * Mounts a scene player on a canvas.
  *
  * @param {object} opts
@@ -385,6 +413,17 @@ export async function mountScenePlayer({
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.setClearColor(SCENE_COLOURS.canvas, 1);
+
+  // A player can be mounted again over the same canvas and controls: the
+  // operator tools remount whenever the data under it changes. Every listener
+  // is bound to this teardown and the frame loop checks it, so dispose()
+  // removes the last player instead of leaving it drawing and answering
+  // clicks beside the new one.
+  const teardown = createTeardown();
+  const { signal } = teardown;
+  const on = (target, type, handler, options = {}) =>
+    target?.addEventListener(type, handler, { ...options, signal });
+  teardown.onDispose(() => renderer.dispose());
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 60, 190);
@@ -569,7 +608,7 @@ export async function mountScenePlayer({
       markDirty();
     }
   }
-  window.addEventListener("resize", resize);
+  on(window, "resize", resize);
   resize();
 
   let northAzimuthDeg = ui.northAzimuthDeg;
@@ -582,6 +621,7 @@ export async function mountScenePlayer({
     // undone by the next animation frame.
     onUserInput: () => setFlying(false),
   });
+  teardown.onDispose(() => sceneCamera.dispose());
 
   const session =
     injectedSession ?? (await new SceneSession(manifestURL).open());
@@ -1013,6 +1053,7 @@ export async function mountScenePlayer({
   let lastWall = 0;
 
   function loop(now) {
+    if (signal.aborted) return;
     const raw = lastWall ? (now - lastWall) / 1000 : 0;
     const wallDt = Math.min(Math.max(raw, 0), MAX_WALL_STEP_SEC);
     lastWall = now;
@@ -1058,18 +1099,18 @@ export async function mountScenePlayer({
   }
 
   if (ui.playToggle) {
-    ui.playToggle.addEventListener("click", () => {
+    on(ui.playToggle, "click", () => {
       state.playing = !state.playing;
       syncUI();
     });
   }
   if (ui.rate) {
-    ui.rate.addEventListener("change", () => {
+    on(ui.rate, "change", () => {
       state.rate = Number(ui.rate.value) || 1;
     });
   }
   if (ui.lidarToggle) {
-    ui.lidarToggle.addEventListener("change", () => {
+    on(ui.lidarToggle, "change", () => {
       state.lidarVisible = ui.lidarToggle.checked;
       state.pointCloudLoopingIn = false;
       if (!state.lidarVisible) pointCloud.update([], 0);
@@ -1078,7 +1119,7 @@ export async function mountScenePlayer({
     });
   }
   if (ui.boxesToggle) {
-    ui.boxesToggle.addEventListener("change", () => {
+    on(ui.boxesToggle, "change", () => {
       state.boxesVisible = ui.boxesToggle.checked;
       for (const visual of visuals.values()) {
         visual.setVisible(state.boxesVisible);
@@ -1087,7 +1128,7 @@ export async function mountScenePlayer({
     });
   }
   if (ui.trailsToggle) {
-    ui.trailsToggle.addEventListener("change", () => {
+    on(ui.trailsToggle, "change", () => {
       state.trailsVisible = ui.trailsToggle.checked;
       for (const visual of visuals.values()) {
         visual.setTrailVisible(state.trailsVisible);
@@ -1096,21 +1137,21 @@ export async function mountScenePlayer({
     });
   }
   if (ui.backgroundToggle) {
-    ui.backgroundToggle.addEventListener("change", () => {
+    on(ui.backgroundToggle, "change", () => {
       state.backgroundVisible = ui.backgroundToggle.checked;
       if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
       render();
     });
   }
   if (ui.gridToggle) {
-    ui.gridToggle.addEventListener("change", () => {
+    on(ui.gridToggle, "change", () => {
       state.gridVisible = ui.gridToggle.checked;
       grid.visible = state.gridVisible;
       render();
     });
   }
   if (ui.openingLoopToggle) {
-    ui.openingLoopToggle.addEventListener("change", () => {
+    on(ui.openingLoopToggle, "change", () => {
       state.loopOpening = ui.openingLoopToggle.checked;
       if (state.loopOpening && state.seconds >= playbackDuration()) {
         resetVisuals();
@@ -1126,7 +1167,7 @@ export async function mountScenePlayer({
     });
   }
   // Returning to a hidden tab should resume, not skip ahead.
-  document.addEventListener("visibilitychange", () => {
+  on(document, "visibilitychange", () => {
     if (document.visibilityState === "visible") lastWall = 0;
   });
 
@@ -1166,7 +1207,7 @@ export async function mountScenePlayer({
       btn.textContent = vantage.label;
       btn.dataset.preset = vantage.id;
       btn.setAttribute("aria-pressed", "false");
-      btn.addEventListener("click", () => {
+      on(btn, "click", () => {
         // Picking a viewpoint is a request to stay there, so the drone lands.
         setFlying(false);
         markPreset(sceneCamera.applyPreset(vantage.id));
@@ -1182,7 +1223,7 @@ export async function mountScenePlayer({
     // switch that cannot do anything is worse than no switch.
     ui.flyToggle.hidden = !canFly;
     if (ui.flyTip) ui.flyTip.hidden = !canFly;
-    ui.flyToggle.addEventListener("click", () => setFlying(!flying));
+    on(ui.flyToggle, "click", () => setFlying(!flying));
   }
 
   // The drone is on by default: a still three-quarter view of a junction says
@@ -1198,7 +1239,7 @@ export async function mountScenePlayer({
 
   // Framing a useful angle is easy; describing it to whoever edits the scene
   // is not. This hands over the exact numbers a vantage is stored in.
-  ui.compass?.addEventListener("click", () => {
+  on(ui.compass, "click", () => {
     setFlying(false);
     sceneCamera.applyVantage(
       northOverhead(sceneCamera.currentVantage(), northAzimuthDeg),
@@ -1235,7 +1276,7 @@ export async function mountScenePlayer({
   });
 
   if (ui.captureView) {
-    ui.captureView.addEventListener("click", async () => {
+    on(ui.captureView, "click", async () => {
       const v = sceneCamera.currentVantage();
       const text = JSON.stringify(v);
       let copied = false;
@@ -1268,7 +1309,7 @@ export async function mountScenePlayer({
       }
     };
     for (const el of ui.modeToggle.querySelectorAll("[data-mode]")) {
-      el.addEventListener("click", () => setMode(el.dataset.mode));
+      on(el, "click", () => setMode(el.dataset.mode));
     }
     setMode("orbit");
   }
@@ -1488,6 +1529,20 @@ export async function mountScenePlayer({
   syncUI();
   if (ui.status) ui.status.hidden = true;
   if (ui.loading) ui.loading.hidden = true;
+
+  // Disposal clears what the player drew and frees its GPU buffers; the
+  // canvas and its WebGL context stay for whichever player mounts next.
+  teardown.onDispose(() => {
+    resetVisuals();
+    scene.traverse((object) => {
+      object.geometry?.dispose?.();
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+      for (const material of materials) material?.dispose?.();
+    });
+  });
+  session.dispose = () => teardown.dispose();
 
   requestAnimationFrame(loop);
 

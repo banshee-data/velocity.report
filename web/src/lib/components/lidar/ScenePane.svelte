@@ -13,7 +13,7 @@
 	 * shared implementation.
 	 */
 	import { mountScenePlayer } from '$scene/scene-player.js';
-	import type { SceneInteraction } from '$scene/scene-reader.js';
+	import type { SceneInteraction, SceneSession } from '$scene/scene-reader.js';
 	import { createLiveSceneSession } from '#lib/scene/liveSceneSource.js';
 	import type { MissedRegion, RunTrack, TrackObservation } from '#lib/types/lidar.js';
 	import { onDestroy } from 'svelte';
@@ -23,13 +23,9 @@
 	export let sensorId = 'hesai-pandar40p';
 	export let title = 'Live run';
 
-	/** Regions already marked, drawn as rings on the ground. */
+	/** A run's missed regions, drawn as rings on the ground. Shown, not edited. */
 	export let missedRegions: MissedRegion[] = [];
-	/** When on, a click marks a region instead of selecting a track. */
-	export let markMissedMode = false;
 	export let onTrackSelect: (trackId: string) => void = () => {};
-	/** Called with the ENU ground position of a click while marking. */
-	export let onMapClick: ((worldX: number, worldY: number) => void) | null = null;
 	/**
 	 * The sensor's zero azimuth against this site's street grid, in degrees.
 	 * Turning the reference grid by it lines the squares up with the kerbs; it
@@ -58,6 +54,13 @@
 	let skipped = 0;
 	let frameCount = 0;
 	let interaction: SceneInteraction | null = null;
+	// The mounted player. A remount disposes it first: the next player takes
+	// the same canvas and controls, and one left running would keep drawing
+	// into the canvas and answering the Play button alongside it.
+	let player: SceneSession | null = null;
+	// Mounting is asynchronous, so a newer mount can start before an older one
+	// returns; the older one's player is disposed as soon as it arrives.
+	let mountSeq = 0;
 
 	/**
 	 * Remounting on every observation change would reset the camera mid-review,
@@ -75,8 +78,16 @@
 		void mount();
 	}
 
+	function disposePlayer() {
+		player?.dispose?.();
+		player = null;
+		interaction = null;
+	}
+
 	async function mount() {
 		mountError = null;
+		const seq = ++mountSeq;
+		disposePlayer();
 		try {
 			const built = createLiveSceneSession({
 				observations,
@@ -107,6 +118,11 @@
 					northAzimuthDeg
 				}
 			});
+			if (seq !== mountSeq) {
+				session.dispose?.();
+				return;
+			}
+			player = session;
 			interaction = session.interaction ?? null;
 			interaction?.setRegions(missedRegions);
 			mounted = true;
@@ -116,49 +132,29 @@
 	}
 
 	/**
-	 * A click either marks a region or selects a track, never both: marking
-	 * mode is explicit, so a click while it is on is unambiguous.
-	 *
-	 * The player answers where the click landed, because it owns the camera
-	 * and the ENU-to-scene mapping.
+	 * A click selects the track under it. The player answers which, because it
+	 * owns the camera and the ENU-to-scene mapping.
 	 */
 	function handleCanvasClick(event: MouseEvent) {
 		if (!interaction) return;
-
-		if (markMissedMode) {
-			const ground = interaction.groundAt(event.clientX, event.clientY);
-			// A ray that misses the ground plane entirely — a click on the sky —
-			// is not a position, so nothing is marked.
-			if (ground && onMapClick) onMapClick(ground.x, ground.y);
-			return;
-		}
-
 		const trackId = interaction.trackAt(event.clientX, event.clientY);
 		if (trackId) onTrackSelect(trackId);
 	}
 
 	// Regions are pushed to the overlay whenever they change, not only at
-	// mount, so a newly marked one appears without a remount.
+	// mount, so a newly loaded set appears without a remount.
 	$: if (interaction) interaction.setRegions(missedRegions);
 
 	onDestroy(() => {
+		mountSeq++;
+		disposePlayer();
 		mounted = false;
-		interaction = null;
 	});
 </script>
 
 <div class="scene-pane">
-	<canvas
-		bind:this={canvas}
-		class="scene-pane__canvas"
-		class:scene-pane__canvas--marking={markMissedMode}
-		on:click={handleCanvasClick}
-	></canvas>
+	<canvas bind:this={canvas} class="scene-pane__canvas" on:click={handleCanvasClick}></canvas>
 	<div bind:this={labelLayer} class="scene-pane__labels"></div>
-
-	{#if markMissedMode}
-		<p class="scene-pane__hint">Click the ground to mark a missed region</p>
-	{/if}
 
 	<div class="scene-pane__controls">
 		<button bind:this={playToggle} type="button" class="scene-pane__button">Play</button>
@@ -224,25 +220,9 @@
 		min-height: 0;
 		display: block;
 	}
-	.scene-pane__canvas--marking {
-		cursor: crosshair;
-	}
 	.scene-pane__labels {
 		position: absolute;
 		inset: 0;
-		pointer-events: none;
-	}
-	.scene-pane__hint {
-		position: absolute;
-		top: 0.5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		margin: 0;
-		padding: 0.25rem 0.6rem;
-		font-size: 0.78rem;
-		color: #f3e8ff;
-		background: rgba(124, 58, 237, 0.85);
-		border-radius: 3px;
 		pointer-events: none;
 	}
 	.scene-pane__controls {

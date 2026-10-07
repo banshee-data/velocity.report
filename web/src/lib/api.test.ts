@@ -2294,52 +2294,6 @@ describe('api', () => {
 			});
 		});
 
-		describe('updateTrackLabel', () => {
-			it('should update label via PUT', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { updateTrackLabel } = await import('./api');
-				await updateTrackLabel('run-001', 'track-001', {
-					user_label: 'car',
-					quality_label: 'perfect'
-				});
-				const call = (global.fetch as jest.Mock).mock.calls[0];
-				expect(call[1].method).toBe('PUT');
-				expect(JSON.parse(call[1].body)).toEqual({
-					user_label: 'car',
-					quality_label: 'perfect'
-				});
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { updateTrackLabel } = await import('./api');
-				await expect(updateTrackLabel('r', 't', { user_label: 'invalid' })).rejects.toThrow(
-					'Could not update label: 400'
-				);
-			});
-		});
-
-		describe('updateTrackFlags', () => {
-			it('should update flags via PUT', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { updateTrackFlags } = await import('./api');
-				await updateTrackFlags('run-001', 'track-001', {
-					linked_track_ids: ['t2'],
-					user_label: 'split'
-				});
-				const call = (global.fetch as jest.Mock).mock.calls[0];
-				expect(call[1].method).toBe('PUT');
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { updateTrackFlags } = await import('./api');
-				await expect(updateTrackFlags('r', 't', { linked_track_ids: [] })).rejects.toThrow(
-					'Could not update flags: 500'
-				);
-			});
-		});
-
 		describe('getRunStatistics', () => {
 			it("should fetch a run's statistics", async () => {
 				const mockStats = { avg_track_length_meters: 12.5, class_counts: { car: 3 } };
@@ -2592,75 +2546,6 @@ describe('api', () => {
 				const { getMissedRegions } = await import('./api');
 				await expect(getMissedRegions('run-001')).rejects.toThrow(
 					'Could not load missed regions: 404'
-				);
-			});
-		});
-
-		describe('createMissedRegion', () => {
-			it('should create a new missed region', async () => {
-				const newRegion = {
-					center_x: 10.5,
-					center_y: 20.3,
-					radius_m: 5.0,
-					time_start_ns: 1000000000,
-					time_end_ns: 2000000000,
-					expected_label: 'vehicle',
-					notes: 'Test missed region'
-				};
-				const mockResponse = {
-					...newRegion,
-					region_id: 'region-new',
-					run_id: 'run-001'
-				};
-				(global.fetch as jest.Mock).mockResolvedValueOnce({
-					ok: true,
-					json: async () => mockResponse
-				});
-				const { createMissedRegion } = await import('./api');
-				const result = await createMissedRegion('run-001', newRegion);
-				expect(result).toEqual(mockResponse);
-				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/runs/run-001/missed-regions',
-					expect.objectContaining({
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(newRegion)
-					})
-				);
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { createMissedRegion } = await import('./api');
-				await expect(
-					createMissedRegion('run-001', {
-						center_x: 10.5,
-						center_y: 20.3,
-						time_start_ns: 1000000000,
-						time_end_ns: 2000000000
-					})
-				).rejects.toThrow('Could not create missed region: 400');
-			});
-		});
-
-		describe('deleteMissedRegion', () => {
-			it('should delete a missed region', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { deleteMissedRegion } = await import('./api');
-				await deleteMissedRegion('run-001', 'region-001');
-				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/runs/run-001/missed-regions/region-001',
-					expect.objectContaining({
-						method: 'DELETE'
-					})
-				);
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { deleteMissedRegion } = await import('./api');
-				await expect(deleteMissedRegion('run-001', 'region-001')).rejects.toThrow(
-					'Could not delete missed region: 404'
 				);
 			});
 		});

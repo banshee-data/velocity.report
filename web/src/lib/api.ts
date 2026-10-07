@@ -902,40 +902,6 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	return data.tracks || [];
 }
 
-export async function updateTrackLabel(
-	runId: string,
-	trackId: string,
-	label: {
-		user_label?: string;
-		quality_label?: string;
-		label_confidence?: number;
-		labeler_id?: string;
-	}
-): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/label`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(label)
-	});
-	if (!res.ok) throw new Error(`Could not update label: ${res.status}`);
-}
-
-export async function updateTrackFlags(
-	runId: string,
-	trackId: string,
-	flags: {
-		linked_track_ids?: string[];
-		user_label?: string;
-	}
-): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/flags`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(flags)
-	});
-	if (!res.ok) throw new Error(`Could not update flags: ${res.status}`);
-}
-
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
 	if (!res.ok) throw new Error(`Could not load labelling progress: ${res.status}`);
@@ -960,34 +926,6 @@ export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
 	if (!res.ok) throw new Error(`Could not load missed regions: ${res.status}`);
 	const data = await res.json();
 	return data.regions || [];
-}
-
-export async function createMissedRegion(
-	runId: string,
-	region: {
-		center_x: number;
-		center_y: number;
-		radius_m?: number;
-		time_start_ns: number;
-		time_end_ns: number;
-		expected_label?: string;
-		notes?: string;
-	}
-): Promise<MissedRegion> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(region)
-	});
-	if (!res.ok) throw new Error(`Could not create missed region: ${res.status}`);
-	return res.json();
-}
-
-export async function deleteMissedRegion(runId: string, regionId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions/${regionId}`, {
-		method: 'DELETE'
-	});
-	if (!res.ok) throw new Error(`Could not delete missed region: ${res.status}`);
 }
 
 /**

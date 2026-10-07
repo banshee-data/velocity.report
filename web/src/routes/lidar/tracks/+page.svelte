@@ -13,8 +13,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
-		createMissedRegion,
-		deleteMissedRegion,
 		getLabellingProgress,
 		getLidarReplayCases,
 		getLidarRun,
@@ -49,7 +47,6 @@
 
 	// Playback constants
 	const PLAYBACK_UPDATE_INTERVAL_MS = 100; // Update playback position every 100ms
-	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
 	let sensorId: string;
@@ -127,9 +124,8 @@
 	let fgWindowCentre = 0;
 	const FG_RELOAD_DRIFT_MS = 20_000; // reload when playback drifts >20 s from centre
 
-	// Missed regions state
+	// A run's missed regions, shown, never edited here
 	let missedRegions: MissedRegion[] = [];
-	let markMissedMode = false;
 
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
@@ -285,7 +281,6 @@
 		labellingProgress = null;
 		selectedTrackId = null;
 		missedRegions = [];
-		markMissedMode = false;
 	}
 
 	function findSceneForRun(run: AnalysisRun | null): LidarReplayCase | null {
@@ -332,8 +327,11 @@
 		const runStartNs = Math.min(...runTracks.map((rt) => rt.start_unix_nanos));
 		const runEndNs = Math.max(...runTracks.map((rt) => rt.end_unix_nanos));
 		try {
-			const history = await getTrackHistory(sensorId, runStartNs, runEndNs, 1000);
-			tracks = Array.isArray(history.tracks) ? history.tracks : [];
+			// The run's own tracks are its run tracks. The history endpoint has
+			// no run filter: over a run's window it returns up to 1,000 tracks
+			// from every replay of that capture (9 MB for kirk0) and none of
+			// this run's, so it is not fetched in run mode.
+			tracks = [];
 			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 };
 			selectedTime = runStartNs / 1e6;
 			// The timeline works in milliseconds, so the requested time is
@@ -437,7 +435,6 @@
 		} else {
 			runs = [];
 			missedRegions = [];
-			markMissedMode = false;
 		}
 	}
 
@@ -453,7 +450,6 @@
 			runTracks = [];
 			labellingProgress = null;
 			missedRegions = [];
-			markMissedMode = false;
 			// Reload the default window: tracks may have been scoped to the run's window
 			void loadHistoricalData();
 		}
@@ -470,26 +466,36 @@
 	$: detailedTrackIds = new Set(tracks.map((track) => track.track_id));
 	$: runTrackGeometryLinked = runTracks.some((runTrack) => detailedTrackIds.has(runTrack.track_id));
 	$: runDisplayTracks = runTracks.map(runTrackToDisplayTrack);
-	$: visibleRunTracks = runDisplayTracks.filter((track) => {
-		const firstSeen = new Date(track.first_seen).getTime();
-		const lastSeen = new Date(track.last_seen).getTime();
-		return selectedTime >= firstSeen && selectedTime <= lastSeen;
-	});
+	// Each track's window in milliseconds, parsed once per load rather than
+	// on every playback tick.
+	$: runTrackWindows = runDisplayTracks.map((track) => ({
+		track,
+		from: Date.parse(track.first_seen),
+		to: Date.parse(track.last_seen)
+	}));
+	$: trackWindows = tracks.map((track) => ({
+		track,
+		from: Date.parse(track.first_seen),
+		to: Date.parse(track.last_seen)
+	}));
+	$: visibleRunTracks = runTrackWindows
+		.filter((w) => selectedTime >= w.from && selectedTime <= w.to)
+		.map((w) => w.track);
 	$: displayTracks = selectedRunId ? runDisplayTracks : tracks;
 
 	// Get tracks visible at current time, filtered by run if selected
-	$: visibleTracks = tracks.filter((track) => {
-		if (runTrackMap && runTrackGeometryLinked) {
-			const rt = runTrackMap.get(track.track_id);
-			if (!rt) return false;
-			// Use the run-track's own nanosecond time window for scoping
-			const selectedTimeNs = selectedTime * 1e6;
-			return selectedTimeNs >= rt.start_unix_nanos && selectedTimeNs <= rt.end_unix_nanos;
-		}
-		const firstSeen = new Date(track.first_seen).getTime();
-		const lastSeen = new Date(track.last_seen).getTime();
-		return selectedTime >= firstSeen && selectedTime <= lastSeen;
-	});
+	$: visibleTracks = trackWindows
+		.filter(({ track, from, to }) => {
+			if (runTrackMap && runTrackGeometryLinked) {
+				const rt = runTrackMap.get(track.track_id);
+				if (!rt) return false;
+				// Use the run-track's own nanosecond time window for scoping
+				const selectedTimeNs = selectedTime * 1e6;
+				return selectedTimeNs >= rt.start_unix_nanos && selectedTimeNs <= rt.end_unix_nanos;
+			}
+			return selectedTime >= from && selectedTime <= to;
+		})
+		.map((w) => w.track);
 
 	// Run-scoped foreground observations
 	$: visibleForeground =
@@ -500,31 +506,6 @@
 	// Run-selected sidebar/timeline always use run-native summary tracks.
 	$: listTracks = displayTracks;
 
-	// Debug visible tracks changes
-	let lastVisibleCount = -1;
-	$: if (visibleTracks.length !== untrack(() => lastVisibleCount)) {
-		console.log(
-			'[VisibleTracks] At time',
-			new Date(selectedTime).toISOString(),
-			':',
-			visibleTracks.length,
-			'/',
-			tracks.length,
-			'tracks visible'
-		);
-		if (visibleTracks.length > 0) {
-			console.log(
-				'[VisibleTracks] Sample:',
-				visibleTracks[0].track_id,
-				'range:',
-				visibleTracks[0].first_seen,
-				'to',
-				visibleTracks[0].last_seen
-			);
-		}
-		lastVisibleCount = visibleTracks.length;
-	}
-
 	// Playback controls
 	function handlePlay() {
 		if (!browser || !timeRange) {
@@ -532,37 +513,11 @@
 			return;
 		}
 
-		console.log(
-			'[Playback] Starting at',
-			new Date(selectedTime).toISOString(),
-			'speed:',
-			playbackSpeed,
-			'range:',
-			new Date(timeRange!.start).toISOString(),
-			'to',
-			new Date(timeRange!.end).toISOString()
-		);
 		isPlaying = true;
-		let tickCount = 0;
 		playbackInterval = window.setInterval(() => {
 			selectedTime += PLAYBACK_UPDATE_INTERVAL_MS * playbackSpeed;
-
-			// Log every 10 ticks (1 second)
-			if (++tickCount % PLAYBACK_UPDATE_FREQUENCY_HZ === 0) {
-				console.log(
-					'[Playback] Time:',
-					new Date(selectedTime).toISOString(),
-					'visible:',
-					visibleTracks.length
-				);
-			}
-
 			// Loop back to start if we reach the end
-			if (selectedTime > timeRange!.end) {
-				console.log('[Playback] Reached end, looping back');
-				selectedTime = timeRange!.start;
-				tickCount = 0;
-			}
+			if (selectedTime > timeRange!.end) selectedTime = timeRange!.start;
 		}, PLAYBACK_UPDATE_INTERVAL_MS);
 	}
 
@@ -661,35 +616,6 @@
 			missedRegions = await getMissedRegions(selectedRunId);
 		} catch {
 			missedRegions = [];
-		}
-	}
-
-	// Handle map click in mark-missed mode
-	async function handleMapClick(worldX: number, worldY: number) {
-		if (!markMissedMode || !selectedRunId || !timeRange) return;
-
-		try {
-			const region = await createMissedRegion(selectedRunId, {
-				center_x: worldX,
-				center_y: worldY,
-				radius_m: 3.0,
-				time_start_ns: Math.floor(selectedTime * 1e6),
-				time_end_ns: Math.floor(selectedTime * 1e6) + 5_000_000_000 // +5 seconds
-			});
-			missedRegions = [...missedRegions, region];
-		} catch (error) {
-			console.error('[MissedRegions] Could not create missed region:', error);
-		}
-	}
-
-	// Delete a missed region
-	async function handleDeleteMissedRegion(regionId: string) {
-		if (!selectedRunId) return;
-		try {
-			await deleteMissedRegion(selectedRunId, regionId);
-			missedRegions = missedRegions.filter((r) => r.region_id !== regionId);
-		} catch (error) {
-			console.error('[MissedRegions] Could not delete missed region:', error);
 		}
 	}
 
@@ -811,49 +737,20 @@
 					/>
 				{/if}
 
-				<!-- Mark Missed button (visible when run is selected) -->
-				{#if selectedRunId}
-					<button
-						on:click={() => (markMissedMode = !markMissedMode)}
-						class="rounded px-3 py-1.5 text-xs font-medium transition-colors {markMissedMode
-							? 'bg-purple-600 text-white'
-							: 'bg-surface-200 text-surface-content hover:bg-surface-300'}"
-						title="Click the ground in the scene to mark areas where objects were missed"
+				<!-- Missed regions are shown read-only: like labels, they are a
+				     reviewer's verdict, and the web is not where those are made. -->
+				{#if selectedRunId && missedRegions.length > 0}
+					<span
+						class="text-surface-content/70 text-xs"
+						title={missedRegions
+							.map(
+								(region) =>
+									`${region.center_x.toFixed(1)}, ${region.center_y.toFixed(1)} · ${region.radius_m.toFixed(1)} m`
+							)
+							.join('\n')}
 					>
-						{markMissedMode ? 'Stop Marking' : 'Mark Missed'}
-						{#if missedRegions.length > 0}
-							({missedRegions.length})
-						{/if}
-					</button>
-
-					<!-- Regions are deleted from this list rather than from a
-					     hit target in the scene: a ring drawn on the ground is
-					     a poor place to aim a destructive click. -->
-					{#if missedRegions.length > 0}
-						<div class="flex flex-wrap items-center gap-1 text-xs">
-							{#each missedRegions as region (region.region_id)}
-								<span
-									class="bg-surface-200 text-surface-content flex items-center gap-1 rounded px-1.5 py-0.5"
-								>
-									<span class="font-mono">
-										{region.center_x.toFixed(1)}, {region.center_y.toFixed(1)} · {region.radius_m.toFixed(
-											1
-										)} m
-									</span>
-									<button
-										on:click={() => handleDeleteMissedRegion(region.region_id)}
-										class="text-error-500 hover:text-error-400 font-bold"
-										title="Delete this region"
-										aria-label="Delete region at {region.center_x.toFixed(
-											1
-										)}, {region.center_y.toFixed(1)}"
-									>
-										×
-									</button>
-								</span>
-							{/each}
-						</div>
-					{/if}
+						{missedRegions.length} missed region{missedRegions.length === 1 ? '' : 's'}
+					</span>
 				{/if}
 
 				<!-- Observation load state. The layer toggles that used to live
@@ -887,9 +784,7 @@
 				{sensorId}
 				title={selectedSceneId ?? 'Live run'}
 				{missedRegions}
-				{markMissedMode}
 				onTrackSelect={handleTrackSelect}
-				onMapClick={handleMapClick}
 			/>
 		</div>
 

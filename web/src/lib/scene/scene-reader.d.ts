@@ -108,6 +108,11 @@ declare module '$scene/scene-reader.js' {
 		duration: number;
 		readonly title: string;
 		interaction?: SceneInteraction;
+		/**
+		 * Set by mountScenePlayer: removes the player's listeners, stops its
+		 * frame loop and frees what it drew. Safe to call more than once.
+		 */
+		dispose?(): void;
 		static fromParts(parts: PartReader[], options?: { title?: string }): SceneSession;
 		open(): Promise<this>;
 		locate(seconds: number): { partIndex: number; part: PartReader; us: number };
