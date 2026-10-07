@@ -9,8 +9,8 @@
 	 * Supports both historical playback (24-hour window) and live streaming.
 	 * Includes scene/run selection and track labelling workflow.
 	 */
-	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import { browser } from '$app/env';
+	import { page } from '$app/state';
 	import {
 		createMissedRegion,
 		deleteMissedRegion,
@@ -37,6 +37,12 @@
 	} from '#lib/types/lidar.js';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SelectField } from 'svelte-ux';
+	import { toStore } from 'svelte/store';
+
+	// $app/state is runes-only: a legacy `$:` statement that reads page
+	// directly runs once and never sees a later navigation. toStore makes
+	// page.url a store again, so the statements below keep following it.
+	const pageUrl = toStore(() => page.url);
 
 	// Playback constants
 	const PLAYBACK_UPDATE_INTERVAL_MS = 100; // Update playback position every 100ms
@@ -45,7 +51,7 @@
 	// State
 	let sensorId: string;
 	// Reactive to URL changes - updates when user navigates with different sensor_id param
-	$: sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
+	$: sensorId = $pageUrl.searchParams.get('sensor_id') || 'hesai-pandar40p';
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
@@ -63,8 +69,8 @@
 	let selectionSyncInFlight = false;
 	let lastUrlSelectionKey: string | null = null;
 
-	$: querySceneId = $page.url.searchParams.get('replay_case_id');
-	$: queryRunId = $page.url.searchParams.get('run_id');
+	$: querySceneId = $pageUrl.searchParams.get('replay_case_id');
+	$: queryRunId = $pageUrl.searchParams.get('run_id');
 
 	// Derived state
 	$: selectedScene = scenes.find((s) => s.replay_case_id === selectedSceneId) ?? null;
@@ -329,7 +335,7 @@
 			selectedTime = runStartNs / 1e6;
 			// The timeline works in milliseconds, so the requested time is
 			// converted before it is compared, never compared as nanoseconds.
-			const requestedMs = unixNanosToMillis($page.url.searchParams.get('at_ns'));
+			const requestedMs = unixNanosToMillis($pageUrl.searchParams.get('at_ns'));
 			if (requestedMs !== null && requestedMs >= timeRange.start && requestedMs <= timeRange.end) {
 				selectedTime = requestedMs;
 			}

@@ -39,6 +39,9 @@
 	// Compute the documentation URL synchronously from the page URL so it retains
 	// the current origin on a Pi, local development host, or Tailscale Serve.
 	let docsUrl = $derived(gitRepoDocsUrl({ href: page.url.href }));
+	// page.url is read-only in SvelteKit 3; svelte-ux's NavItem is typed for a
+	// plain URL, though it only reads the pathname.
+	let navUrl = $derived(new URL(page.url.href));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
 	onMount(() => startCapabilitiesPolling());
@@ -95,61 +98,46 @@
 
 <AppLayout>
 	<nav slot="nav">
-		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
-		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
-		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
+		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={navUrl} />
+		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={navUrl} />
+		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={navUrl} />
 		{#if Object.values($capabilities.lidar).some((s) => s.enabled)}
 			<NavItem
 				text="Lidar Tracks"
 				icon={mdiMapMarkerPath}
 				path="/app/lidar/tracks"
-				currentUrl={page.url}
+				currentUrl={navUrl}
 			/>
-			<NavItem
-				text="Captures"
-				icon={mdiMovieOpen}
-				path="/app/lidar/captures"
-				currentUrl={page.url}
-			/>
+			<NavItem text="Captures" icon={mdiMovieOpen} path="/app/lidar/captures" currentUrl={navUrl} />
 			<NavItem
 				text="Replay Cases"
 				icon={mdiArchiveOutline}
 				path="/app/lidar/replay-cases"
-				currentUrl={page.url}
+				currentUrl={navUrl}
 			/>
-			<NavItem
-				text="Segments"
-				icon={mdiMovieOpen}
-				path="/app/lidar/segments"
-				currentUrl={page.url}
-			/>
+			<NavItem text="Segments" icon={mdiMovieOpen} path="/app/lidar/segments" currentUrl={navUrl} />
 			<NavItem
 				text="Scene Map"
 				icon={mdiMapMarkerPath}
 				path="/app/lidar/scene-map"
-				currentUrl={page.url}
+				currentUrl={navUrl}
 			/>
 			<NavItem
 				text="Lidar Runs"
 				icon={mdiPlayCircleOutline}
 				path="/app/lidar/runs"
-				currentUrl={page.url}
+				currentUrl={navUrl}
 			/>
 			<NavItem
 				text="Lidar Sweeps"
 				icon={mdiChartBoxOutline}
 				path="/app/lidar/sweeps"
-				currentUrl={page.url}
+				currentUrl={navUrl}
 			/>
 		{/if}
-		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
+		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={navUrl} />
 		<hr class="border-surface-300 my-2" aria-hidden="true" />
-		<NavItem
-			text="Docs"
-			icon={mdiBookOpenPageVariantOutline}
-			path={docsUrl}
-			currentUrl={page.url}
-		/>
+		<NavItem text="Docs" icon={mdiBookOpenPageVariantOutline} path={docsUrl} currentUrl={navUrl} />
 	</nav>
 
 	<AppBar title="velocity.report">

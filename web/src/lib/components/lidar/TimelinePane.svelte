@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import type { Track } from '#lib/types/lidar.js';
 	import { TRACK_COLORS } from '#lib/types/lidar.js';
 	import { scaleTime } from 'd3-scale';

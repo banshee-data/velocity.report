@@ -1,15 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '#lib/api.js';
 	import SceneHeadway from '#lib/components/SceneHeadway.svelte';
 	import { mdiContentSave, mdiArrowLeft } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
+	import { toStore } from 'svelte/store';
+
+	// $app/state is runes-only, and this page reads it from legacy `$:`
+	// statements. Saving a new scene navigates to /scene/<id>, which reuses
+	// this component, so sceneId has to follow the params: read directly, it
+	// would stay 'new' and a second Save would create a second scene.
+	const pageParams = toStore(() => page.params);
 
 	// The route always supplies an id, but the typed params allow undefined.
-	$: sceneId = $page.params.id ?? 'new';
+	$: sceneId = $pageParams.id ?? 'new';
 	$: isNew = sceneId === 'new';
 
 	let loading = true;
@@ -149,7 +156,7 @@
 			const saved = isNew ? await createScene(payload) : await updateScene(sceneId, payload);
 
 			if (isNew) {
-				goto(resolve(`/scene/${saved.scene_id}`));
+				goto(resolve('/scene/[id]', { id: saved.scene_id }));
 			} else {
 				fillForm(saved);
 			}

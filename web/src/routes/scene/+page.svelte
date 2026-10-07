@@ -28,11 +28,11 @@
 	}
 
 	function handleCreate() {
-		goto(resolve('/scene/new'));
+		goto(resolve('/scene/[id]', { id: 'new' }));
 	}
 
 	function handleEdit(sceneId: string) {
-		goto(resolve(`/scene/${sceneId}`));
+		goto(resolve('/scene/[id]', { id: sceneId }));
 	}
 
 	function openDeleteDialog(scene: Scene) {

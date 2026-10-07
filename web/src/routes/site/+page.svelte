@@ -30,11 +30,11 @@
 	}
 
 	function handleCreate() {
-		goto(resolve('/site/new'));
+		goto(resolve('/site/[id]', { id: 'new' }));
 	}
 
 	function handleEdit(siteId: number) {
-		goto(resolve(`/site/${siteId}`));
+		goto(resolve('/site/[id]', { id: String(siteId) }));
 	}
 
 	function openDeleteDialog(site: Site) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '#lib/dateUtils.js';
 	import { buildReportRequest, resolveDashboardReportFilters } from '#lib/reportRequests.js';
 	import {

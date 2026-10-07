@@ -1,4 +1,6 @@
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -43,13 +45,45 @@ export default defineConfig({
 			'/api': 'http://localhost:8080'
 		}
 	},
-	plugins: [svelteVirtualCssFix(), tailwindcss(), sveltekit()],
+	plugins: [
+		svelteVirtualCssFix(),
+		tailwindcss(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			adapter: adapter(),
+			// $scene is deliberately aliased in resolve.alias below rather
+			// than here. A kit alias also lands in the generated tsconfig
+			// paths, which would make svelte-check follow checkJs into
+			// public_html's player — code that has never been type-checked
+			// and is not ours to retrofit. The hand-written declaration in
+			// src/lib/scene is the typed contract instead; Vite resolves the
+			// real modules at build time.
+			paths: {
+				base: '/app',
+				relative: false
+			},
+			prerender: {
+				handleMissingId: 'warn',
+				handleUnseenRoutes: 'warn'
+			},
+			// One JS bundle and one CSS file for the whole app, which is what
+			// the old rollupOptions.output.manualChunks asked for (kit 3 sets
+			// codeSplitting itself and ignores manualChunks). It keeps the
+			// shipped shape of the kit 2 build. Kit's split default would also
+			// serve correctly: the server embeds all of web/build, so a chunk
+			// whose hash begins with "_" is no longer dropped from the binary.
+			output: {
+				bundleStrategy: 'single'
+			}
+		})
+	],
 	resolve: {
 		alias: {
 			// The public scenes' three.js player, imported rather than copied,
 			// so the operator tools and the public site render through the
 			// same modules. Types come from src/lib/scene/scene-reader.d.ts;
-			// see svelte.config.js for why the alias is not a kit alias.
+			// see the sveltekit() options above for why the alias is not a
+			// kit alias.
 			$scene: resolve('../public_html/src/js'),
 			// The shared player imports the bare specifier "three". Because it
 			// lives under public_html, Node resolution would look for it in
@@ -65,13 +99,6 @@ export default defineConfig({
 		exclude: ['svelte-ux', 'layerchart', '@layerstack/tailwind']
 	},
 	build: {
-		emptyOutDir: true,
-		chunkSizeWarningLimit: 2000,
-		rollupOptions: {
-			output: {
-				// Force everything into a single chunk
-				manualChunks: () => 'everything.js'
-			}
-		}
+		chunkSizeWarningLimit: 2000
 	}
 });
