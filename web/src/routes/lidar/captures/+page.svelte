@@ -35,6 +35,7 @@
 		trimWindow
 	} from '#lib/captures/timeline.js';
 	import { pickActiveRoot, rootLabel } from '#lib/captures/roots.js';
+	import { clipQuery } from '#lib/lidarLinks.js';
 	import CoverageTimeline from '#lib/components/lidar/CoverageTimeline.svelte';
 	import MotionLegend from '#lib/components/lidar/MotionLegend.svelte';
 	import MotionStrip from '#lib/components/lidar/MotionStrip.svelte';
@@ -79,6 +80,8 @@
 	let creating = false;
 	let createError: string | null = null;
 	let createdMessage: string | null = null;
+	// The clip the last create made, linked beside its message.
+	let createdClipId: string | null = null;
 	let caseDescription = '';
 	let caseSensorId = 'hesai-pandar40p';
 	// Trim into the selection, in seconds — how much of the first capture's
@@ -216,6 +219,7 @@
 		caseStartSecs = '';
 		caseDurationSecs = '';
 		createdMessage = null;
+		createdClipId = null;
 		createError = null;
 		labelDraft = visibleSessions.find((s) => s.session_id === sessionId)?.label ?? '';
 		filesLoading = true;
@@ -233,6 +237,7 @@
 			? selectedFileIds.filter((id) => id !== fileId)
 			: [...selectedFileIds, fileId];
 		createdMessage = null;
+		createdClipId = null;
 		createError = null;
 	}
 
@@ -264,6 +269,7 @@
 			caseDurationSecs = trim.durationSecs.toFixed(2);
 		}
 		createdMessage = null;
+		createdClipId = null;
 		createError = null;
 	}
 
@@ -311,6 +317,7 @@
 		creating = true;
 		createError = null;
 		createdMessage = null;
+		createdClipId = null;
 		locationNote = null;
 		try {
 			const created = await createReplayCaseFromCaptures({
@@ -321,7 +328,8 @@
 				description: caseDescription || undefined,
 				session_id: expandedSessionId ?? undefined
 			});
-			createdMessage = `Created ${created.replay_case_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
+			createdMessage = `Created clip ${created.replay_case_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
+			createdClipId = created.replay_case_id;
 
 			// The position is recorded against the case once it exists, so a
 			// bad fix cannot stop the case being created — it can be corrected
@@ -345,7 +353,7 @@
 			}
 			selectedFileIds = [];
 		} catch (e) {
-			createError = e instanceof Error ? e.message : 'Could not create the replay case.';
+			createError = e instanceof Error ? e.message : 'Could not create the clip.';
 		} finally {
 			creating = false;
 		}
@@ -411,16 +419,13 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Captures</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					What is on the capture volumes, grouped into the sessions their packet clocks form. A
-					replay case is a window over a session, which may span several capture files.
+					What is on the capture volumes, grouped into the sessions their packet clocks form. A clip
+					is a window over a session, which may span several capture files.
 				</p>
 			</div>
 			<div class="flex shrink-0 gap-4">
-				<a href={resolve('/lidar/scene-map')} class="text-primary text-sm hover:underline">
-					Scene map →
-				</a>
 				<a href={resolve('/lidar/replay-cases')} class="text-primary text-sm hover:underline">
-					Replay cases →
+					Clips →
 				</a>
 			</div>
 		</header>
@@ -482,8 +487,8 @@
 
 				<p class="text-surface-content/40 mt-2 text-xs">
 					A quick scan lists what is there. Probing reads each new capture in full to learn its
-					packet extent, which is what sessions and replay cases are built from — minutes per volume
-					on a first pass, and nothing at all when nothing has changed.
+					packet extent, which is what sessions and clips are built from — minutes per volume on a
+					first pass, and nothing at all when nothing has changed.
 				</p>
 
 				{#if activeRoot && !activeRoot.enabled}
@@ -739,8 +744,7 @@
 									{#if selectedFileIds.length > 0}
 										<div class="border-primary/40 bg-primary/5 mt-3 rounded border p-3">
 											<h3 class="text-surface-content mb-2 text-sm font-medium">
-												New replay case from {verdict.files.length} capture{verdict.files.length ===
-												1
+												New clip from {verdict.files.length} capture{verdict.files.length === 1
 													? ''
 													: 's'}
 											</h3>
@@ -784,7 +788,7 @@
 														disabled={creating}
 														on:click={createCase}
 													>
-														{creating ? 'Creating…' : 'Create replay case'}
+														{creating ? 'Creating…' : 'Create clip'}
 													</Button>
 												</div>
 
@@ -834,7 +838,7 @@
 														<option value="fix">fix from the capture</option>
 													</select>
 													<span class="text-surface-content/40 text-xs">
-														optional — indexes the case as an S2 site on the scene map
+														optional — places the clip on the clip locations page
 													</span>
 												</div>
 											{:else}
@@ -851,6 +855,14 @@
 											{#if createdMessage}
 												<p class="mt-2 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
 													{createdMessage}
+													{#if createdClipId}
+														<!-- eslint-disable svelte/no-navigation-without-resolve -->
+														<a
+															href={`${resolve('/lidar/replay-cases')}?${clipQuery(createdClipId)}`}
+															class="ml-1 underline">Open clip →</a
+														>
+														<!-- eslint-enable svelte/no-navigation-without-resolve -->
+													{/if}
 												</p>
 											{/if}
 											{#if locationNote}

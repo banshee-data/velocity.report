@@ -1,13 +1,17 @@
 <script lang="ts">
 	/**
-	 * Scene map — every place captures have been taken.
+	 * Clip locations — every place a located clip was captured.
+	 *
+	 * The route keeps its old name; the vocabulary reserves "scene" for the
+	 * geometry a sensor observes, and folds this page into Sites as its map
+	 * view once sites are merged. It is reached from Clips, not the nav.
 	 *
 	 * Rows group by the S2 L10 cell, which is district-scale: about 12 km by
 	 * 8 km at San Francisco's latitude. That is the archive-scale roll-up, not
 	 * a junction. The junction is a site — the L16 cell, roughly 180 m across
 	 * — so an area typically holds several, and this is where a site's
 	 * canonical pose (the midpoint of the intersection, say) is set: distinct
-	 * from any one case's own sensor pose, which is where the car was that day.
+	 * from any one clip's own sensor pose, which is where the car was that day.
 	 *
 	 * Canonical tokens are the identifiers. What is shown is the family
 	 * display, which carries one hyphen at the family boundary and is
@@ -15,6 +19,7 @@
 	 */
 	import { getSceneMap, setSiteCanonicalPose } from '#lib/api.js';
 	import type { LidarSite, SceneArea, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
+	import { clipQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -37,7 +42,7 @@
 		try {
 			map = await getSceneMap();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not load the scene map.';
+			error = e instanceof Error ? e.message : 'Could not load clip locations.';
 		} finally {
 			loading = false;
 		}
@@ -115,22 +120,23 @@
 	onMount(load);
 </script>
 
-<svelte:head><title>Scene map — velocity.report</title></svelte:head>
+<svelte:head><title>Clip locations — velocity.report</title></svelte:head>
 
 <main id="main-content" class="vr-page">
 	<div class="vr-toolbar">
 		<header class="flex items-start justify-between gap-4">
 			<div>
-				<h1 class="text-surface-content text-2xl font-semibold">Scene map</h1>
+				<h1 class="text-surface-content text-2xl font-semibold">Clip locations</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Every place captures have been taken, grouped by S2 area. An area is one L10 cell, about
+					Where each located clip was captured, grouped by S2 area. An area is one L10 cell, about
 					12 km across — the archive-scale roll-up. The sites inside it are L16 cells, roughly 180 m
 					across: a junction and its approaches, and where a canonical pose — the midpoint of the
-					intersection, say — can be set, apart from any one case's own sensor pose.
+					intersection, say — can be set, apart from any one clip's own sensor pose.
 				</p>
 			</div>
-			<a href={resolve('/lidar/captures')} class="text-primary text-sm hover:underline"
-				>Captures →</a
+			<a
+				href={resolve('/lidar/replay-cases')}
+				class="text-primary shrink-0 text-sm whitespace-nowrap hover:underline">Clips →</a
 			>
 		</header>
 	</div>
@@ -142,15 +148,14 @@
 			{/if}
 
 			{#if loading}
-				<p class="text-surface-content/50 py-8 text-center text-sm">Loading the scene map…</p>
+				<p class="text-surface-content/50 py-8 text-center text-sm">Loading clip locations…</p>
 			{:else if !map || map.area_count === 0}
 				<div class="border-surface-300 rounded border border-dashed p-8 text-center">
-					<h2 class="text-surface-content mb-1 text-lg">No located captures yet</h2>
+					<h2 class="text-surface-content mb-1 text-lg">No located clips yet</h2>
 					<p class="text-surface-content/60 mx-auto max-w-lg text-sm">
-						A site appears here once a replay case is labelled with where it was captured. Label one
-						from the <a href={resolve('/lidar/captures')} class="text-primary hover:underline"
-							>Captures</a
-						> page, or from a case's own detail.
+						A site appears here once a clip is labelled with where it was captured. Give it a place
+						when you make it on the
+						<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a> page.
 					</p>
 				</div>
 			{:else}
@@ -158,7 +163,7 @@
 					{map.area_count} area{map.area_count === 1 ? '' : 's'} · {map.site_count} site{map.site_count ===
 					1
 						? ''
-						: 's'} · {map.case_count} located case{map.case_count === 1 ? '' : 's'}
+						: 's'} · {map.case_count} located clip{map.case_count === 1 ? '' : 's'}
 					<span class="text-surface-content/40">
 						· areas are L{map.coarse_level}, neighbourhoods L{map.fine_level}, sites L{map.precise_level}
 					</span>
@@ -171,7 +176,7 @@
 						<span class="w-32">Area</span>
 						<span class="flex-1">Centre</span>
 						<span class="w-20 text-right">Span</span>
-						<span class="w-16 text-right">Cases</span>
+						<span class="w-16 text-right">Clips</span>
 						<span class="w-28 text-right">Neighbourhoods</span>
 						<span class="w-16 text-right">Sites</span>
 					</div>
@@ -227,7 +232,7 @@
 														{site.label || `site ${site.s2_l16_token}`}
 													</span>
 													<span class="text-surface-content/40 text-xs"
-														>{site.cases.length} capture{site.cases.length === 1 ? '' : 's'}</span
+														>{site.cases.length} clip{site.cases.length === 1 ? '' : 's'}</span
 													>
 													<span class="flex-1"></span>
 													{#if site.canonical_lat != null && site.canonical_lon != null}
@@ -306,9 +311,10 @@
 												{/if}
 
 												<div class="border-surface-300 mt-2 overflow-hidden rounded border">
+													<!-- eslint-disable svelte/no-navigation-without-resolve -->
 													{#each site.cases as c (c.replay_case_id)}
 														<a
-															href={resolve('/lidar/replay-cases')}
+															href={`${resolve('/lidar/replay-cases')}?${clipQuery(c.replay_case_id)}`}
 															class="border-surface-300 hover:bg-surface-200 flex items-center gap-3 border-b px-2 py-1.5 text-xs last:border-b-0"
 														>
 															<span class="text-surface-content flex-1 truncate">
@@ -319,6 +325,7 @@
 															</span>
 														</a>
 													{/each}
+													<!-- eslint-enable svelte/no-navigation-without-resolve -->
 												</div>
 											</div>
 										{/each}

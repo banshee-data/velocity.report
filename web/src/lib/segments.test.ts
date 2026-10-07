@@ -5,6 +5,7 @@ import {
 	segmentDetail,
 	segmentQuery,
 	selectorGroups,
+	statusText,
 	type SegmentSelector
 } from './segments';
 
@@ -130,5 +131,18 @@ describe('segmentDetail', () => {
 	it('shows observations for any other finder', () => {
 		expect(segmentDetail({ events: 5 }, 'exposure')).toBe('5 observations');
 		expect(segmentDetail({}, 'random')).toBe('0 observations');
+	});
+});
+
+describe('statusText', () => {
+	it('names the states that predate the clip and pack nouns in their words', () => {
+		expect(statusText('case')).toBe('clip made');
+		expect(statusText('clipping')).toBe('packing');
+	});
+
+	it('passes every other state through', () => {
+		for (const state of ['candidate', 'packed', 'proposed', 'reviewed']) {
+			expect(statusText(state)).toBe(state);
+		}
 	});
 });

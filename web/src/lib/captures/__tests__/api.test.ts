@@ -195,7 +195,7 @@ describe('createReplayCaseFromCaptures', () => {
 		fetchMock.mockReturnValue(fail(500));
 		await expect(
 			createReplayCaseFromCaptures({ sensor_id: 's', pcap_files: ['a.pcap'] })
-		).rejects.toThrow(/replay case/i);
+		).rejects.toThrow(/clip/i);
 	});
 });
 

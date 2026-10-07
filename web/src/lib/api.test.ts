@@ -2206,7 +2206,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarReplayCases } = await import('./api');
 				await expect(getLidarReplayCases()).rejects.toThrow(
-					'Could not load replay cases (HTTP 500 — server error, check the service is running)'
+					'Could not load clips (HTTP 500 — server error, check the service is running)'
 				);
 			});
 
@@ -2244,6 +2244,26 @@ describe('api', () => {
 				});
 				const { getLidarRuns } = await import('./api');
 				await expect(getLidarRuns()).resolves.toEqual([]);
+			});
+		});
+
+		describe('getLidarRun', () => {
+			it('fetches one run by id', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ run_id: 'r1', sensor_id: 'hesai' })
+				});
+				const { getLidarRun } = await import('./api');
+				await expect(getLidarRun('r1')).resolves.toEqual({ run_id: 'r1', sensor_id: 'hesai' });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r1');
+			});
+
+			it('names the run it could not load', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getLidarRun } = await import('./api');
+				await expect(getLidarRun('gone')).rejects.toThrow(
+					'Could not load the run (HTTP 404 — not found on server)'
+				);
 			});
 		});
 
@@ -2396,7 +2416,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLidarReplayCase } = await import('./api');
 				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
-					'Could not load replay case (HTTP 404 — not found on server)'
+					'Could not load the clip (HTTP 404 — not found on server)'
 				);
 			});
 		});
@@ -2438,7 +2458,7 @@ describe('api', () => {
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
-				).rejects.toThrow('Could not create replay case (HTTP 400)');
+				).rejects.toThrow('Could not create the clip (HTTP 400)');
 			});
 		});
 
@@ -2476,7 +2496,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateLidarReplayCase } = await import('./api');
 				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
-					'Could not update replay case (HTTP 500 — server error, check the service is running)'
+					'Could not update the clip (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
@@ -2498,7 +2518,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteLidarReplayCase } = await import('./api');
 				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
-					'Could not delete replay case (HTTP 404 — not found on server)'
+					'Could not delete the clip (HTTP 404 — not found on server)'
 				);
 			});
 		});

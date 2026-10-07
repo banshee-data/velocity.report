@@ -792,14 +792,14 @@ export async function getLidarReplayCases(sensorId?: string): Promise<LidarRepla
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw apiError('Could not load replay cases', res.status);
+	if (!res.ok) throw apiError('Could not load clips', res.status);
 	const data = await res.json();
 	return data.scenes || [];
 }
 
 export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
-	if (!res.ok) throw apiError('Could not load replay case', res.status);
+	if (!res.ok) throw apiError('Could not load the clip', res.status);
 	return res.json();
 }
 
@@ -815,7 +815,7 @@ export async function createLidarReplayCase(scene: {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
 	});
-	if (!res.ok) throw apiError('Could not create replay case', res.status);
+	if (!res.ok) throw apiError('Could not create the clip', res.status);
 	return res.json();
 }
 
@@ -840,7 +840,7 @@ export async function updateLidarReplayCase(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-	if (!res.ok) throw apiError('Could not update replay case', res.status);
+	if (!res.ok) throw apiError('Could not update the clip', res.status);
 	return res.json();
 }
 
@@ -848,7 +848,7 @@ export async function deleteLidarReplayCase(replayCaseId: string): Promise<void>
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw apiError('Could not delete replay case', res.status);
+	if (!res.ok) throw apiError('Could not delete the clip', res.status);
 }
 
 // PCAP file scanning API
@@ -886,6 +886,13 @@ export async function getLidarRuns(params?: {
 	if (!res.ok) throw new Error(`Could not load runs: ${res.status}`);
 	const data = await res.json();
 	return data.runs || [];
+}
+
+/** getLidarRun fetches one run, for a link to a run the paged list does not hold. */
+export async function getLidarRun(runId: string): Promise<AnalysisRun> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}`);
+	if (!res.ok) throw apiError('Could not load the run', res.status);
+	return res.json();
 }
 
 export async function getRunTracks(runId: string): Promise<RunTrack[]> {
@@ -1782,7 +1789,7 @@ export async function createReplayCaseFromCaptures(request: {
 		} catch {
 			// A non-JSON body leaves the status to speak for itself.
 		}
-		throw apiError(detail || 'Could not create the replay case', res.status);
+		throw apiError(detail || 'Could not create the clip', res.status);
 	}
 	return res.json();
 }
@@ -1831,7 +1838,7 @@ export async function clearReplayCaseLocation(replayCaseId: string): Promise<voi
  * and cases within each. */
 export async function getSceneMap(): Promise<SceneMapResponse> {
 	const res = await fetch(`${API_BASE}/lidar/scene-map`);
-	if (!res.ok) throw apiError('Could not load the scene map', res.status);
+	if (!res.ok) throw apiError('Could not load clip locations', res.status);
 	return res.json();
 }
 

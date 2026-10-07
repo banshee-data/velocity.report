@@ -3,13 +3,14 @@
 	 * LiDAR Runs Page
 	 *
 	 * Table layout with a detail panel that slides out to the right,
-	 * matching the replay cases page layout pattern.
+	 * matching the Clips page layout pattern.
 	 */
 	import {
 		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
 		getLidarReplayCases,
+		getLidarRun,
 		getLidarRuns,
 		getRunTracks
 	} from '#lib/api.js';
@@ -19,6 +20,9 @@
 		LidarReplayCase,
 		RunTrack
 	} from '#lib/types/lidar.js';
+	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -98,6 +102,12 @@
 	}
 
 	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
+		// A run that records its clip names it; older runs do not, so fall back
+		// to the clip that holds the run as its reference, then to the capture.
+		if (run.replay_case_id) {
+			const recorded = scenes.find((s) => s.replay_case_id === run.replay_case_id);
+			if (recorded) return recorded;
+		}
 		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
 		if (byRef) return byRef;
 		if (run.source_path) {
@@ -175,17 +185,52 @@
 		}
 	}
 
-	/** Build href for the tracks page, passing scene and run IDs as query params. */
+	/** Build href for the tracks page, passing the clip and run as query params. */
 	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
-		const parts: string[] = [];
-		parts.push(`sensor_id=${encodeURIComponent(run.sensor_id)}`);
-		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
-		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);
-		return `/app/lidar/tracks?${parts.join('&')}`;
+		return `${resolve('/lidar/tracks')}?${tracksQuery({
+			sensorId: run.sensor_id,
+			clipId: scene?.replay_case_id,
+			runId: run.run_id
+		})}`;
 	}
 
-	onMount(loadData);
+	/** Build href for one clip on the Clips page. */
+	function clipHref(scene: LidarReplayCase): string {
+		return `${resolve('/lidar/replay-cases')}?${clipQuery(scene.replay_case_id)}`;
+	}
+
+	/** Select a run already in the list by id, e.g. a clip's reference run. */
+	function selectRunById(runId: string) {
+		const run = runs.find((r) => r.run_id === runId);
+		if (run) selectRun(run);
+	}
+
+	/** Open a linked run, fetching it when it is older than the listed page. */
+	async function openLinkedRun(runId: string) {
+		let run = runs.find((r) => r.run_id === runId);
+		if (!run) {
+			try {
+				run = await getLidarRun(runId);
+				runs = [run, ...runs];
+			} catch (e) {
+				error = e instanceof Error ? e.message : 'Could not load the run.';
+				return;
+			}
+		}
+		selectRun(run);
+	}
+
+	onMount(async () => {
+		await loadData();
+		// Other pages link to one run with ?id=; open it once the list is in.
+		const linked = linkedId(page.url);
+		if (linked) await openLinkedRun(linked);
+	});
 </script>
+
+<svelte:head>
+	<title>Runs — velocity.report</title>
+</svelte:head>
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
@@ -194,7 +239,8 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Runs</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Analysis runs with parameters, replay cases, and track summaries
+					Each run is one pass of the pipeline over a clip, a capture or live data, with its
+					parameters and tracks
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -220,9 +266,7 @@
 			{:else if runs.length === 0}
 				<div class="text-surface-content/50 py-12 text-center">
 					<p>No runs yet.</p>
-					<p class="mt-1 text-sm">
-						Runs appear when a replay case is played back or live analysis starts.
-					</p>
+					<p class="mt-1 text-sm">Runs appear when a clip is replayed or live analysis starts.</p>
 				</div>
 			{:else}
 				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
@@ -238,8 +282,7 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Tracks</th
 								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Replay Case</th
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -296,7 +339,19 @@
 										role="button"
 										tabindex="0"
 									>
-										{scene ? scene.description || scene.replay_case_id.substring(0, 8) : '-'}
+										{#if scene}
+											<!-- eslint-disable svelte/no-navigation-without-resolve -->
+											<a
+												href={clipHref(scene)}
+												class="text-primary hover:underline"
+												on:click|stopPropagation
+											>
+												{scene.description || scene.replay_case_id.substring(0, 8)}
+											</a>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										{:else}
+											-
+										{/if}
 									</td>
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
@@ -431,9 +486,18 @@
 						</div>
 					{/if}
 
-					<!-- Replay case info -->
+					<!-- Clip info -->
 					<div>
-						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Replay Case</div>
+						<div class="text-surface-content/70 mb-1 flex justify-between text-sm font-medium">
+							<span>Clip</span>
+							{#if scene}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a href={clipHref(scene)} class="text-primary text-xs font-normal hover:underline"
+									>Open clip →</a
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
+						</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -441,7 +505,7 @@
 									<dd class="text-surface-content">{scene.description || '-'}</dd>
 								</div>
 								<div class="flex justify-between py-1">
-									<dt class="text-surface-content/60">PCAP</dt>
+									<dt class="text-surface-content/60">Capture</dt>
 									<dd class="text-surface-content font-mono text-xs break-all">
 										{scene.pcap_file}
 									</dd>
@@ -462,13 +526,24 @@
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Ref. Run</dt>
 										<dd class="text-surface-content font-mono text-xs">
-											{scene.reference_run_id.substring(0, 12)}
+											{#if scene.reference_run_id === selectedRun.run_id}
+												this run
+											{:else if runs.some((r) => r.run_id === scene.reference_run_id)}
+												<button
+													class="text-primary hover:underline"
+													on:click={() => selectRunById(scene.reference_run_id ?? '')}
+												>
+													{scene.reference_run_id.substring(0, 12)}
+												</button>
+											{:else}
+												{scene.reference_run_id.substring(0, 12)}
+											{/if}
 										</dd>
 									</div>
 								{/if}
 							</dl>
 						{:else}
-							<p class="text-surface-content/50 text-sm">No associated replay case found</p>
+							<p class="text-surface-content/50 text-sm">No clip found for this run</p>
 						{/if}
 					</div>
 

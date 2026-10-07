@@ -5,8 +5,10 @@
 	 * Lists sweep/auto-tune runs with a detail panel showing recommendation,
 	 * request config, and links to the sweep dashboard.
 	 */
-	import { applyLidarParams, continueHINT, getSweep, listSweeps } from '#lib/api.js';
-	import type { SweepRecord, SweepSummary } from '#lib/types/lidar.js';
+	import { applyLidarParams, continueHINT, getHINTState, getSweep, listSweeps } from '#lib/api.js';
+	import { runQuery, tracksQuery } from '#lib/lidarLinks.js';
+	import type { HINTState, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -31,6 +33,22 @@
 
 	// Detail panel state
 	let selectedSweep: SweepRecord | null = null;
+
+	// While a HINT sweep waits for labels, the run to label is the reference
+	// run, which the HINT state names and the sweep record does not.
+	let labelRunId: string | null = null;
+
+	async function loadLabelRun(sweep: SweepRecord | null) {
+		labelRunId = null;
+		if (sweep?.mode !== 'hint' || sweep.status !== 'awaiting_labels') return;
+		try {
+			const state = (await getHINTState()) as Partial<HINTState>;
+			labelRunId = state.status === 'awaiting_labels' ? (state.reference_run_id ?? null) : null;
+		} catch {
+			labelRunId = null;
+		}
+	}
+
 	let detailLoading = false;
 	let applyStatus: string | null = null;
 
@@ -79,10 +97,12 @@
 		} finally {
 			detailLoading = false;
 		}
+		await loadLabelRun(selectedSweep);
 	}
 
 	function deselectSweep() {
 		selectedSweep = null;
+		labelRunId = null;
 		applyStatus = null;
 	}
 
@@ -166,6 +186,7 @@
 			if (selectedSweep) {
 				selectedSweep = await getSweep(selectedSweep.sweep_id);
 			}
+			await loadLabelRun(selectedSweep);
 		} catch (e) {
 			continueStatus = `Could not continue: ${e instanceof Error ? e.message : String(e)}`;
 		}
@@ -236,6 +257,10 @@
 
 	onMount(loadData);
 </script>
+
+<svelte:head>
+	<title>Sweeps — velocity.report</title>
+</svelte:head>
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
@@ -410,6 +435,18 @@
 						<div class="mb-4 rounded bg-yellow-50 px-4 py-3">
 							<p class="mb-2 text-sm font-medium text-yellow-800">
 								Awaiting track labels — label tracks then continue to sweep.
+								{#if labelRunId}
+									<!-- eslint-disable svelte/no-navigation-without-resolve -->
+									<a
+										href={`${resolve('/lidar/tracks')}?${tracksQuery({ sensorId: SENSOR_ID, runId: labelRunId })}`}
+										class="text-primary ml-1 font-normal underline">Label tracks →</a
+									>
+									<a
+										href={`${resolve('/lidar/runs')}?${runQuery(labelRunId)}`}
+										class="text-primary ml-1 font-normal underline">Open run →</a
+									>
+									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								{/if}
 							</p>
 							<div class="flex items-center gap-3">
 								<Button

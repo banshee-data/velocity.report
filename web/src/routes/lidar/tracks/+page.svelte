@@ -7,15 +7,17 @@
 	 * - Bottom pane (40%): SVG timeline with playback controls
 	 *
 	 * Supports both historical playback (24-hour window) and live streaming.
-	 * Includes scene/run selection and track labelling workflow.
+	 * Includes clip/run selection and track labelling workflow.
 	 */
 	import { browser } from '$app/env';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
 		createMissedRegion,
 		deleteMissedRegion,
 		getLabellingProgress,
 		getLidarReplayCases,
+		getLidarRun,
 		getLidarRuns,
 		getMissedRegions,
 		getRunTracks,
@@ -26,6 +28,7 @@
 	import TimelinePane from '#lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '#lib/components/lidar/TrackList.svelte';
 	import { unixNanosToMillis } from '#lib/dateUtils.js';
+	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
 	import type {
 		AnalysisRun,
 		LabellingProgress,
@@ -393,10 +396,17 @@
 				return;
 			}
 
-			const resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
+			let resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
 			if (!resolvedRun) {
-				clearRunSelectionState();
-				return;
+				// The run list is paged; a linked run older than it is fetched
+				// directly, so a link from Runs or Clips still opens it.
+				try {
+					resolvedRun = await getLidarRun(qsRunId);
+					runs = [resolvedRun, ...runs];
+				} catch {
+					clearRunSelectionState();
+					return;
+				}
 			}
 
 			selectedRunId = resolvedRun.run_id;
@@ -718,20 +728,39 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Tracks — velocity.report</title>
+</svelte:head>
+
 <main id="main-content" class="vr-page">
 	<!-- Header -->
 	<div class="vr-toolbar h-20">
 		<div class="flex h-full items-center justify-between overflow-hidden">
 			<div class="min-w-0 flex-1">
-				<h1 class="text-surface-content truncate text-2xl font-semibold">
-					LiDAR Track Visualization
-				</h1>
+				<h1 class="text-surface-content truncate text-2xl font-semibold">LiDAR Tracks</h1>
+				<!-- The clip and run lead, so the links survive the truncation a
+				     narrow toolbar applies to the rest of the line. -->
 				<p class="text-surface-content/60 mt-1 truncate text-sm">
-					Sensor: {sensorId} • {selectedRunId ? visibleRunTracks.length : visibleTracks.length} tracks
-					visible
-					{#if selectedRun}
-						• Run: {selectedRun.run_id.substring(0, 8)}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					{#if selectedScene}
+						Clip:
+						<a
+							href={`${resolve('/lidar/replay-cases')}?${clipQuery(selectedScene.replay_case_id)}`}
+							class="text-primary hover:underline"
+							>{selectedScene.description || selectedScene.replay_case_id.substring(0, 8)}</a
+						>
+						•
 					{/if}
+					{#if selectedRun}
+						Run:
+						<a
+							href={`${resolve('/lidar/runs')}?${runQuery(selectedRun.run_id)}`}
+							class="text-primary font-mono hover:underline">{selectedRun.run_id.substring(0, 8)}</a
+						>
+						•
+					{/if}
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					{selectedRunId ? visibleRunTracks.length : visibleTracks.length} tracks visible • Sensor: {sensorId}
 				</p>
 			</div>
 
@@ -746,9 +775,9 @@
 					disabled
 				/>
 
-				<!-- Scene Selection -->
+				<!-- Clip selection -->
 				<SelectField
-					label="Scene"
+					label="Clip"
 					bind:value={selectedSceneId}
 					on:change={handleSceneChange}
 					options={[
@@ -763,7 +792,7 @@
 					class="w-56"
 				/>
 
-				<!-- Run Selection (only shown when scene selected) -->
+				<!-- Run selection (only shown when a clip is selected) -->
 				{#if selectedScene}
 					<SelectField
 						label="Run"

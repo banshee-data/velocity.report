@@ -94,3 +94,17 @@ export function segmentDetail(segment: SegmentMeasures, finder: string): string 
 	}
 	return `${segment.events ?? 0} observations`;
 }
+
+// The server's window states predate the platform vocabulary: a window with a
+// clip made from it is "case", and one whose pack job is queued or running is
+// "clipping", from when the pack was called a clip. Shown in today's words;
+// pack review states (packed, proposed, reviewed) already are.
+const STATUS_TEXT: Record<string, string> = {
+	case: 'clip made',
+	clipping: 'packing'
+};
+
+/** The table's status column for a window or its pack. */
+export function statusText(status: string): string {
+	return STATUS_TEXT[status] ?? status;
+}

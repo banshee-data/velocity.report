@@ -836,7 +836,7 @@
 			<div class="text-surface-content/50 text-xs">
 				<p class="font-medium">Labelling Mode</p>
 				<p class="mt-1">
-					Select a Scene and Run from the header dropdowns to enable track labelling.
+					Select a Clip and Run from the header dropdowns to enable track labelling.
 				</p>
 			</div>
 		</div>
