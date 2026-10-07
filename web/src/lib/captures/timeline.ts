@@ -6,7 +6,14 @@
  * arithmetic — which is where a timeline goes wrong — be tested directly.
  */
 
-import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
+import {
+	PROBE_FAILED,
+	PROBE_OK,
+	PROBE_PENDING,
+	type CaptureFile,
+	type CaptureSession,
+	type MotionPeriod
+} from '#lib/types/captures.js';
 
 /** Nanoseconds in a millisecond and a second, named so the maths reads. */
 const NS_PER_MS = 1_000_000;
@@ -317,6 +324,45 @@ export function formatClock(ns: number, withSeconds = false): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	const base = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	return withSeconds ? `${base}:${pad(d.getSeconds())}` : base;
+}
+
+/**
+ * zoneLabel names the timezone formatClock and formatDay show times in: the
+ * browser's own. The times themselves are the capturing host's packet clock
+ * (pcap record headers), never the sensor's, whose clock was never set.
+ */
+export function zoneLabel(date: Date = new Date()): string {
+	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const short = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
+		.formatToParts(date)
+		.find((part) => part.type === 'timeZoneName')?.value;
+	if (zone && short && short !== zone) return `${zone} (${short})`;
+	return zone || short || 'local time';
+}
+
+/** How many of a volume's captures each probe state holds. */
+export interface ProbeCounts {
+	total: number;
+	probed: number;
+	pending: number;
+	failed: number;
+}
+
+/**
+ * probeCounts tallies the captures present on a volume by probe state. Only a
+ * probed capture has a packet extent, and only those make sessions, so the
+ * pending ones are absent from Coverage until a probe reaches them.
+ */
+export function probeCounts(files: CaptureFile[]): ProbeCounts {
+	const counts: ProbeCounts = { total: 0, probed: 0, pending: 0, failed: 0 };
+	for (const f of files) {
+		if (!f.present) continue;
+		counts.total++;
+		if (f.probe_state === PROBE_OK) counts.probed++;
+		else if (f.probe_state === PROBE_PENDING) counts.pending++;
+		else if (f.probe_state === PROBE_FAILED) counts.failed++;
+	}
+	return counts;
 }
 
 /** formatDay renders an epoch-nanosecond stamp as a short date. */

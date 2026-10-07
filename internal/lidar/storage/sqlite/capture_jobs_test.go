@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
 )
 
 // setupJobsDB applies migrations 039 and 040 so the tests run against the
@@ -39,6 +41,89 @@ func seedSession(t *testing.T, store *CaptureStore) string {
 		t.Fatalf("derived %d sessions, want 1", len(sessions))
 	}
 	return sessions[0].SessionID
+}
+
+// extendRun probes one more capture abutting the last of a run seedSession
+// made, so that re-deriving grows the session rather than reproducing it.
+func extendRun(t *testing.T, store *CaptureStore, rootID string, n int) {
+	t.Helper()
+	var found []capindex.File
+	for i := range n + 1 {
+		found = append(found, scanFile(captureName(i), 724<<20, captureBase, "tag-"+captureName(i)))
+	}
+	known, err := store.IndexedFiles(rootID)
+	if err != nil {
+		t.Fatalf("IndexedFiles: %v", err)
+	}
+	if err := store.ApplyScan(rootID, found, capindex.DiffScan(known, found)); err != nil {
+		t.Fatalf("ApplyScan: %v", err)
+	}
+	start := captureBase.Add(time.Duration(n) * 5 * time.Minute)
+	if err := store.RecordProbe(rootID, captureName(n),
+		start.UnixNano(), start.Add(5*time.Minute).UnixNano(), 540000, 2368); err != nil {
+		t.Fatalf("RecordProbe: %v", err)
+	}
+}
+
+// A motion pass reads every byte of a session's captures. A rescan that finds
+// the same captures reproduces the same session and must keep its periods.
+// The migrated database enforces the cascade from sessions to periods, as
+// production does, so this fails if the session row is deleted and remade.
+func TestCaptureStorePeriodsSurviveARescanOfTheSameCaptures(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewCaptureStore(db)
+	sessionID := seedSession(t, store)
+	if err := store.ReplaceSessionPeriods(sessionID, samplePeriods(captureBase)); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+	if err := store.SetSessionLabel(sessionID, "kirk", "hesai-pandar40p"); err != nil {
+		t.Fatalf("SetSessionLabel: %v", err)
+	}
+	sessions, err := store.ListSessions("")
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("sessions = %v (%v), want 1", sessions, err)
+	}
+
+	again, err := store.DeriveSessions(sessions[0].RootID)
+	if err != nil {
+		t.Fatalf("re-derive: %v", err)
+	}
+	if len(again) != 1 || again[0].SessionID != sessionID || again[0].Label != "kirk" {
+		t.Fatalf("re-derived %+v, want session %s still labelled kirk", again, sessionID)
+	}
+	if left, err := store.ListSessionPeriods(sessionID); err != nil || len(left) != 3 {
+		t.Fatalf("periods after a rescan of the same captures = %d (%v), want 3", len(left), err)
+	}
+}
+
+// Periods describe the captures a session had when the pass ran. When a
+// rescan finds more, the session changes and its periods go with it.
+func TestCaptureStorePeriodsGoWhenTheSessionChanges(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewCaptureStore(db)
+	sessionID := seedSession(t, store)
+	if err := store.ReplaceSessionPeriods(sessionID, samplePeriods(captureBase)); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+	sessions, err := store.ListSessions("")
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("sessions = %v (%v), want 1", sessions, err)
+	}
+	rootID := sessions[0].RootID
+
+	extendRun(t, store, rootID, 3)
+	again, err := store.DeriveSessions(rootID)
+	if err != nil {
+		t.Fatalf("re-derive: %v", err)
+	}
+	if len(again) != 1 || again[0].SessionID != sessionID || again[0].FileCount != 4 {
+		t.Fatalf("re-derived %+v, want session %s grown to 4 captures", again, sessionID)
+	}
+	if left, err := store.ListSessionPeriods(sessionID); err != nil || len(left) != 0 {
+		t.Fatalf("periods after the session grew = %d (%v), want none", len(left), err)
+	}
 }
 
 func samplePeriods(base time.Time) []MotionPeriod {

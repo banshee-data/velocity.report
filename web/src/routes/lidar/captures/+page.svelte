@@ -30,9 +30,11 @@
 		gradeSelection,
 		jobProgressPercent,
 		periodTrim,
+		probeCounts,
 		probedFiles,
 		sessionShare,
-		trimWindow
+		trimWindow,
+		zoneLabel
 	} from '#lib/captures/timeline.js';
 	import { pickActiveRoot, rootLabel } from '#lib/captures/roots.js';
 	import { clipQuery } from '#lib/lidarLinks.js';
@@ -60,6 +62,14 @@
 
 	let roots: CaptureRoot[] = [];
 	let sessions: CaptureSession[] = [];
+	// Every capture on every volume, for the probe tally. Only probed captures
+	// make sessions, so without it a volume that is mostly unprobed looks like
+	// one whose missing days were never captured.
+	let allFiles: CaptureFile[] = [];
+	// Sessions whose motion periods failed to load: their strips would
+	// otherwise read "no motion pass yet", which is a different claim.
+	let periodsFailed = 0;
+	const zone = zoneLabel();
 	let jobs: CaptureJob[] = [];
 	let periodsBySession: Record<string, MotionPeriod[]> = {};
 
@@ -101,6 +111,7 @@
 	let locationNote: string | null = null;
 
 	$: activeRoot = pickActiveRoot(roots, selectedRootId);
+	$: rootCounts = probeCounts(allFiles.filter((f) => f.root_id === activeRoot?.root_id));
 	$: visibleSessions = activeRoot
 		? sessions.filter((s) => s.root_id === activeRoot.root_id)
 		: sessions;
@@ -121,14 +132,16 @@
 		loading = true;
 		error = null;
 		try {
-			const [rootsResult, sessionsResult, jobsResult] = await Promise.all([
+			const [rootsResult, sessionsResult, jobsResult, filesResult] = await Promise.all([
 				getCaptureRoots(),
 				getCaptureSessions(),
-				getCaptureJobs({ limit: 25 })
+				getCaptureJobs({ limit: 25 }),
+				getCaptureFiles()
 			]);
 			roots = rootsResult;
 			sessions = sessionsResult;
 			jobs = jobsResult;
+			allFiles = filesResult;
 			if (!selectedRootId) selectedRootId = pickActiveRoot(roots, null)?.root_id ?? null;
 			await loadPeriodsFor(sessionsResult);
 		} catch (e) {
@@ -144,17 +157,20 @@
 	 * strip renders as "no motion pass yet" rather than as an empty session.
 	 */
 	async function loadPeriodsFor(list: CaptureSession[]) {
+		let failed = 0;
 		const results = await Promise.all(
 			list.map(async (s) => {
 				try {
 					const r = await getCapturePeriods(s.session_id);
 					return [s.session_id, r.periods] as const;
 				} catch {
+					failed++;
 					return [s.session_id, [] as MotionPeriod[]] as const;
 				}
 			})
 		);
 		periodsBySession = Object.fromEntries(results);
+		periodsFailed = failed;
 	}
 
 	async function runScan(probe: boolean) {
@@ -557,6 +573,26 @@
 						<h2 class="text-surface-content text-sm font-medium">Coverage</h2>
 						<MotionLegend compact />
 					</div>
+					<p class="text-surface-content/50 mb-2 text-xs">
+						Times are when each capture was recorded, by the capturing computer's clock, shown in
+						{zone}.
+						{#if rootCounts.pending > 0}
+							<span class="text-amber-700">
+								{rootCounts.pending} of {rootCounts.total} captures on this volume are not probed yet,
+								so they are not here: Scan and probe adds them.
+							</span>
+						{/if}
+						{#if rootCounts.failed > 0}
+							{rootCounts.failed} could not be probed.
+						{/if}
+					</p>
+					{#if periodsFailed > 0}
+						<p class="mb-2 rounded bg-red-50 px-3 py-2 text-xs text-red-600">
+							Could not load motion periods for {periodsFailed} session{periodsFailed === 1
+								? ''
+								: 's'}; their strips may read "no motion pass yet" when a pass has run.
+						</p>
+					{/if}
 					<CoverageTimeline
 						sessions={visibleSessions}
 						{periodsBySession}

@@ -13,10 +13,12 @@ import {
 	jobProgressPercent,
 	nsToDate,
 	periodTrim,
+	probeCounts,
 	probedFiles,
 	sessionShare,
 	toBands,
-	trimWindow
+	trimWindow,
+	zoneLabel
 } from '../timeline';
 
 const SEC = 1_000_000_000;
@@ -460,5 +462,26 @@ describe('jobProgressPercent', () => {
 
 	it('clamps a progress report past its own total', () => {
 		expect(jobProgressPercent(12, 8)).toBe(100);
+	});
+});
+
+describe('probeCounts', () => {
+	it('tallies present captures by probe state', () => {
+		const failed = { ...file('c.pcap', 600, 300), probe_state: 'failed' };
+		const gone = { ...file('d.pcap', 900, 300), present: false };
+		expect(
+			probeCounts([file('a.pcap', 0, 300), file('b.pcap', 300, 300, false), failed, gone])
+		).toEqual({ total: 3, probed: 1, pending: 1, failed: 1 });
+	});
+
+	it('is all zeros for an empty volume', () => {
+		expect(probeCounts([])).toEqual({ total: 0, probed: 0, pending: 0, failed: 0 });
+	});
+});
+
+describe('zoneLabel', () => {
+	it("names the browser's own zone", () => {
+		const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		expect(zoneLabel(new Date(BASE / 1e6))).toContain(zone);
 	});
 });

@@ -188,10 +188,10 @@ func TestSetCaseSession(t *testing.T) {
 
 // A case notes the session and motion period it was cut from, and the note is
 // never a foreign key (data model review, finding 9). Re-deriving the index
-// replaces sessions and drops their periods; the case keeps its files, its
-// window and its note, even when the note names a period that is gone. The
-// platform vocabulary plan drops both columns in v0.6.7 (Item 18), and this
-// test with them.
+// after the session's captures changed replaces the session and drops its
+// periods; the case keeps its files, its window and its note, even when the
+// note names a period that is gone. The platform vocabulary plan drops both
+// columns in v0.6.7 (Item 18), and this test with them.
 func TestACaseOutlivesTheSessionItWasCutFrom(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -224,6 +224,8 @@ func TestACaseOutlivesTheSessionItWasCutFrom(t *testing.T) {
 	if err != nil || len(sessions) != 1 {
 		t.Fatalf("sessions = %v (%v), want 1", sessions, err)
 	}
+	// A rescan of the same captures keeps the periods, so grow the session.
+	extendRun(t, captures, sessions[0].RootID, 3)
 	if _, err := captures.DeriveSessions(sessions[0].RootID); err != nil {
 		t.Fatalf("re-derive: %v", err)
 	}

@@ -395,17 +395,38 @@ func (s *CaptureStore) ProbedFiles(rootID string) ([]capindex.Probed, error) {
 // Labels survive: a session that still starts at the same file keeps its
 // identity, and with it the site name an operator gave it. A session whose
 // first file changed is a different session and starts unlabelled.
+//
+// Motion periods survive when they still describe the session. One the new
+// derivation reproduces over the same captures (same first file, count,
+// extent and size) is updated in place, so its periods, which cost a full
+// read of its captures, outlive a rescan. A session that is gone, or whose
+// captures changed, is deleted, and its periods with it.
 func (s *CaptureStore) ReplaceSessions(rootID string, sessions []capindex.Session) error {
 	now := time.Now().UnixNano()
 
-	labels := map[string]string{}
 	existing, err := s.ListSessions(rootID)
 	if err != nil {
 		return err
 	}
+	labels := map[string]string{}
+	previous := map[string]CaptureSession{}
 	for _, e := range existing {
 		if e.Label != "" {
 			labels[e.SessionID] = e.Label
+		}
+		previous[e.SessionID] = e
+	}
+
+	unchanged := map[string]bool{}
+	for _, sess := range sessions {
+		if len(sess.Files) == 0 {
+			continue
+		}
+		id := sessionID(rootID, sess.Files[0].RelPath)
+		if p, ok := previous[id]; ok && p.FileCount == len(sess.Files) &&
+			p.StartNs == sess.Start.UnixNano() && p.EndNs == sess.End.UnixNano() &&
+			p.SizeBytes == sess.SizeBytes {
+			unchanged[id] = true
 		}
 	}
 
@@ -415,8 +436,13 @@ func (s *CaptureStore) ReplaceSessions(rootID string, sessions []capindex.Sessio
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.Exec(`DELETE FROM lidar_capture_sessions WHERE root_id = ?`, rootID); err != nil {
-		return fmt.Errorf("clear sessions: %w", err)
+	for id := range previous {
+		if unchanged[id] {
+			continue
+		}
+		if _, err := tx.Exec(`DELETE FROM lidar_capture_sessions WHERE session_id = ?`, id); err != nil {
+			return fmt.Errorf("clear session %s: %w", id, err)
+		}
 	}
 	if _, err := tx.Exec(`
 		UPDATE lidar_capture_files SET session_id = NULL WHERE root_id = ?`, rootID); err != nil {
@@ -428,7 +454,15 @@ func (s *CaptureStore) ReplaceSessions(rootID string, sessions []capindex.Sessio
 			continue
 		}
 		id := sessionID(rootID, sess.Files[0].RelPath)
-		if _, err := tx.Exec(`
+		if unchanged[id] {
+			if _, err := tx.Exec(`
+				UPDATE lidar_capture_sessions
+				   SET covered_ns = ?, lost_ns = ?, worst_seam = ?, derived_at_ns = ?
+				 WHERE session_id = ?`,
+				int64(sess.Covered), int64(sess.Lost), string(sess.Worst), now, id); err != nil {
+				return fmt.Errorf("refresh session: %w", err)
+			}
+		} else if _, err := tx.Exec(`
 			INSERT INTO lidar_capture_sessions
 				(session_id, root_id, label, file_count, start_ns, end_ns, covered_ns,
 				 lost_ns, worst_seam, size_bytes, derived_at_ns)
