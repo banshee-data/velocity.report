@@ -2,8 +2,9 @@
 	/**
 	 * When there are captures, and what is in them.
 	 *
-	 * One group per day, each session positioned across the span that day's
-	 * sessions occupy. A day has a lane per folder, so the original rolls and
+	 * One group per day, every day on the same clock-time axis, so a bar's
+	 * length is the same duration on every row and a time of day lines up down
+	 * the page. A day has a lane per folder, so the original rolls and
 	 * an export of the same hours sit one above the other on a shared axis
 	 * rather than on top of each other, and more lanes where a folder's own
 	 * sessions overlap. The bar is filled with the session's motion timeline
@@ -11,7 +12,7 @@
 	 * answer to "how much of it is usable?" are the same picture.
 	 */
 	import type { CaptureSession, MotionPeriod } from '#lib/types/captures.js';
-	import { coverageRows, formatClock } from '#lib/captures/timeline.js';
+	import { coverageRows, coverageTicks, formatClock } from '#lib/captures/timeline.js';
 	import MotionStrip from './MotionStrip.svelte';
 
 	export let sessions: CaptureSession[] = [];
@@ -23,6 +24,7 @@
 	export let folderBySession: Record<string, string> = {};
 
 	$: rows = coverageRows(sessions, (s) => folderBySession[s.session_id] ?? '');
+	$: ticks = coverageTicks(rows);
 	// A folder column only earns its width when there is more than one folder.
 	$: showFolders = new Set(rows.flatMap((row) => row.lanes.map((lane) => lane.folder))).size > 1;
 </script>
@@ -33,6 +35,20 @@
 	</p>
 {:else}
 	<div class="flex flex-col gap-3">
+		<!-- The clock times every row shares. -->
+		<div class="flex items-end gap-3" aria-hidden="true">
+			<span class="w-20 shrink-0"></span>
+			{#if showFolders}<span class="w-44 shrink-0"></span>{/if}
+			<div class="relative h-4 flex-1">
+				{#each ticks as tick (tick.label + tick.left)}
+					<span
+						class="text-surface-content/40 absolute -translate-x-1/2 font-mono text-[10px]"
+						style="left: {tick.left}%">{tick.label}</span
+					>
+				{/each}
+			</div>
+			<span class="w-28 shrink-0"></span>
+		</div>
 		{#each rows as row (row.day)}
 			<div class="flex flex-col gap-1">
 				{#each row.lanes as lane, i (lane.key)}
@@ -48,6 +64,13 @@
 							>
 						{/if}
 						<div class="bg-surface-100 relative h-7 flex-1 rounded">
+							{#each ticks as tick (tick.label + tick.left)}
+								<span
+									class="bg-surface-content/10 pointer-events-none absolute top-0 bottom-0 w-px"
+									style="left: {tick.left}%"
+									aria-hidden="true"
+								></span>
+							{/each}
 							{#each lane.bars as bar (bar.session.session_id)}
 								<button
 									type="button"
@@ -83,8 +106,8 @@
 	</div>
 
 	<p class="text-surface-content/40 mt-3 text-xs">
-		Each day spans the period its sessions occupy, not the whole day, with a lane per folder so
-		copies of the same hours sit one above the other. Bars are filled with the session's motion
-		timeline once a motion pass has run.
+		Every day shares one clock-time axis, so bars compare in length across days and a time of day
+		lines up down the page. A lane per folder keeps copies of the same hours one above the other.
+		Bars are filled with the session's motion timeline once a motion pass has run.
 	</p>
 {/if}

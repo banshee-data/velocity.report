@@ -4,6 +4,7 @@ import {
 	captureFolder,
 	clockTicks,
 	coverageRows,
+	coverageTicks,
 	fileBoundaries,
 	formatClock,
 	formatDay,
@@ -415,16 +416,24 @@ describe('coverageRows', () => {
 		expect(rows.map((r) => r.day)).toEqual(['2026-09-03', '2026-09-02']);
 	});
 
-	it('spans the day the sessions occupy, not midnight to midnight', () => {
-		// Two forty-minute visits on an empty day would otherwise draw two
-		// slivers on a mostly empty bar and answer nothing.
-		const rows = coverageRows([session('ses-1', 0, 2400), session('ses-2', 7200, 9600)]);
-		const [first, second] = bars(rows[0]);
-		expect(first.width).toBeGreaterThan(15);
-		expect(second.left).toBeGreaterThan(first.left);
+	it('draws every day on one clock-time axis', () => {
+		// Twenty minutes on a quiet day and twenty on a busy one are the same
+		// length, and the same clock time sits at the same place on both rows.
+		const oneDay = 24 * 3600;
+		const rows = coverageRows([
+			session('quiet', 0, 1200),
+			session('busy-early', oneDay - 3 * 3600, oneDay - 2 * 3600),
+			session('busy', oneDay, oneDay + 1200)
+		]);
+		const quiet = bars(rows[1]).find((b) => b.session.session_id === 'quiet')!;
+		const busy = bars(rows[0]).find((b) => b.session.session_id === 'busy')!;
+		expect(busy.width).toBeCloseTo(quiet.width, 6);
+		expect(busy.left).toBeCloseTo(quiet.left, 6);
+		expect(rows[0].clockStartNs).toBe(rows[1].clockStartNs);
+		expect(rows[0].clockEndNs).toBe(rows[1].clockEndNs);
 	});
 
-	it('pads a single session so it does not fill the row', () => {
+	it('keeps a lone session off the edges and short of the full row', () => {
 		// A full-width bar would read as continuous coverage of the whole day.
 		const rows = coverageRows([session('ses-1', 0, 600)]);
 		expect(bars(rows[0])[0].width).toBeLessThan(100);
@@ -473,6 +482,32 @@ describe('coverageRows', () => {
 
 	it('handles no sessions', () => {
 		expect(coverageRows([])).toEqual([]);
+	});
+});
+
+describe('coverageTicks', () => {
+	it('marks whole hours across the shared axis', () => {
+		// BASE is 13:20; a session to 14:00 gives an axis of 13:00 to 15:00.
+		const ticks = coverageTicks(coverageRows([session('ses-1', 0, 2400)]));
+		expect(ticks.map((t) => t.label)).toEqual(['13:00', '14:00', '15:00']);
+		expect(ticks[0].left).toBe(0);
+		expect(ticks[2].left).toBe(100);
+	});
+
+	it('marks every second hour on a long axis', () => {
+		const ticks = coverageTicks(coverageRows([session('ses-1', 0, 11 * 3600)]));
+		expect(ticks.map((t) => t.label)).toEqual([
+			'14:00',
+			'16:00',
+			'18:00',
+			'20:00',
+			'22:00',
+			'00:00'
+		]);
+	});
+
+	it('is empty with no rows', () => {
+		expect(coverageTicks([])).toEqual([]);
 	});
 });
 

@@ -425,6 +425,12 @@ export interface CoverageRow {
 	/** The span the row covers, so bars and axis labels agree. */
 	startNs: number;
 	endNs: number;
+	/**
+	 * The same span as nanoseconds after local midnight. Every row covers the
+	 * same clock times, so these are equal on all rows.
+	 */
+	clockStartNs: number;
+	clockEndNs: number;
 	/** One per folder, or more where a folder's sessions overlap; on one shared axis. */
 	lanes: CoverageLane[];
 }
@@ -437,18 +443,18 @@ export function captureFolder(relPath: string): string {
 
 /**
  * coverageRows groups sessions by the local day they start on and positions
- * each across that day's occupied span.
+ * each on a clock-time axis that every day shares.
  *
- * The span is the day's own sessions rather than midnight to midnight: a
- * volume holding two forty-minute visits would otherwise draw two slivers on a
- * mostly empty bar and answer nothing. Padding keeps a single short session
- * from filling the row edge to edge and implying continuous coverage.
+ * The axis runs from the earliest time of day any session starts to the
+ * latest any ends, padded and rounded out to the hour, rather than midnight to
+ * midnight: field visits fill a working day, and a 24-hour axis would draw
+ * them as slivers. Because every row shares it, a bar's length is the same
+ * duration on every row and the same clock time lines up down the page.
  *
  * A day has a lane per folder, because a volume can hold more than one copy of
  * the same hours (the original rolls and an export of them) and drawn in one
  * lane they would sit on top of each other. Sessions in one folder that still
- * overlap take further lanes. All of a day's lanes share its axis, so a copy
- * and its original line up.
+ * overlap take further lanes.
  */
 export function coverageRows(
 	sessions: CaptureSession[],
@@ -462,16 +468,38 @@ export function coverageRows(
 		else byDay.set(key, [s]);
 	}
 
+	// One clock-time axis for every day, so a bar's length means the same
+	// duration on every row and the same time of day lines up down the page.
+	// A per-day axis stretched a lone twenty-minute session across most of its
+	// row while a forty-minute one on a busier day took a third of its.
+	const midnightOf = (ns: number) => {
+		const d = nsToDate(ns);
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() * NS_PER_MS;
+	};
+	const offsets = sessions.map((s) => {
+		const from = s.start_ns - midnightOf(s.start_ns);
+		return { from, to: from + (s.end_ns - s.start_ns) };
+	});
+	const hourNs = 3600 * NS_PER_SEC;
+	// Padded before rounding to the hour, so a session starting on the hour
+	// still has room before it and no bar touches an edge.
+	const edgeNs = 5 * 60 * NS_PER_SEC;
+	const clockStartNs = sessions.length
+		? Math.floor((Math.min(...offsets.map((o) => o.from)) - edgeNs) / hourNs) * hourNs
+		: 0;
+	const clockEndNs = sessions.length
+		? Math.max(
+				Math.ceil((Math.max(...offsets.map((o) => o.to)) + edgeNs) / hourNs) * hourNs,
+				clockStartNs + hourNs
+			)
+		: hourNs;
+	const span = clockEndNs - clockStartNs;
+
 	const rows: CoverageRow[] = [];
 	for (const [day, daySessions] of byDay) {
-		const earliest = Math.min(...daySessions.map((s) => s.start_ns));
-		const latest = Math.max(...daySessions.map((s) => s.end_ns));
-		// A day holding one session would otherwise span exactly that session
-		// and fill the row, reading as complete coverage of the day.
-		const pad = Math.max((latest - earliest) * 0.05, 5 * 60 * NS_PER_SEC);
-		const startNs = earliest - pad;
-		const endNs = latest + pad;
-		const span = endNs - startNs;
+		const midnight = midnightOf(daySessions[0].start_ns);
+		const startNs = midnight + clockStartNs;
+		const endNs = midnight + clockEndNs;
 		const bar = (session: CaptureSession): CoverageBar => ({
 			session,
 			left: ((session.start_ns - startNs) / span) * 100,
@@ -509,10 +537,47 @@ export function coverageRows(
 			);
 		}
 
-		rows.push({ day, dayLabel: formatDay(earliest), startNs, endNs, lanes });
+		rows.push({
+			day,
+			dayLabel: formatDay(daySessions[0].start_ns),
+			startNs,
+			endNs,
+			clockStartNs,
+			clockEndNs,
+			lanes
+		});
 	}
 
 	return rows.sort((a, b) => (a.day < b.day ? 1 : -1));
+}
+
+/** A clock time marked along the coverage axis. */
+export interface CoverageTick {
+	label: string;
+	/** Percentage from the left edge of the timeline. */
+	left: number;
+}
+
+/**
+ * coverageTicks marks whole hours along the axis every row shares, every
+ * second hour once the axis is longer than ten.
+ */
+export function coverageTicks(rows: CoverageRow[]): CoverageTick[] {
+	if (rows.length === 0) return [];
+	const { clockStartNs, clockEndNs } = rows[0];
+	const hourNs = 3600 * NS_PER_SEC;
+	const span = clockEndNs - clockStartNs;
+	if (span <= 0) return [];
+	const step = span > 10 * hourNs ? 2 * hourNs : hourNs;
+	const ticks: CoverageTick[] = [];
+	for (let t = Math.ceil(clockStartNs / step) * step; t <= clockEndNs; t += step) {
+		const hour = Math.round(t / hourNs) % 24;
+		ticks.push({
+			label: `${String(hour).padStart(2, '0')}:00`,
+			left: ((t - clockStartNs) / span) * 100
+		});
+	}
+	return ticks;
 }
 
 /** sessionShare reports what fraction of a session is static, 0-1. */
