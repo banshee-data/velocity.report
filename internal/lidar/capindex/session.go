@@ -1,6 +1,7 @@
 package capindex
 
 import (
+	"path"
 	"sort"
 	"time"
 
@@ -54,9 +55,43 @@ func (s Session) Duration() time.Duration { return s.End.Sub(s.Start) }
 // recording however close their filenames look. An overlap means the same,
 // arrived at differently.
 //
+// A session never crosses directories. A directory is one recording's
+// lineage: the capture tool rolls a recording's files into one, and a copy of
+// the same hours, such as an export cut on another grid or one file per site,
+// lives in another. Sequenced together, the copies interleave: their overlaps
+// split each other into fragments, or chain one copy's file onto the other's.
+//
 // Files without a usable extent are not sessioned; a caller that wants them
 // listed should list them from the index directly.
 func Sessions(files []Probed, tol capseq.Tolerances) []Session {
+	byDir := make(map[string][]Probed)
+	for _, f := range files {
+		dir := path.Dir(f.RelPath)
+		byDir[dir] = append(byDir[dir], f)
+	}
+	dirs := make([]string, 0, len(byDir))
+	for dir := range byDir {
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+
+	var sessions []Session
+	for _, dir := range dirs {
+		sessions = append(sessions, sessionsInDir(byDir[dir], tol)...)
+	}
+	// Chronological across directories, so copies of the same hours sit side
+	// by side; the first file breaks a tie, which keeps the order stable.
+	sort.SliceStable(sessions, func(i, j int) bool {
+		if sessions[i].Start.Equal(sessions[j].Start) {
+			return sessions[i].Files[0].RelPath < sessions[j].Files[0].RelPath
+		}
+		return sessions[i].Start.Before(sessions[j].Start)
+	})
+	return sessions
+}
+
+// sessionsInDir sequences one directory's files into runs.
+func sessionsInDir(files []Probed, tol capseq.Tolerances) []Session {
 	usable := make([]Probed, 0, len(files))
 	for _, f := range files {
 		if f.FirstPacket.IsZero() || f.LastPacket.IsZero() || f.LastPacket.Before(f.FirstPacket) {

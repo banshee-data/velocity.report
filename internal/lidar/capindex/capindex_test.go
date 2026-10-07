@@ -3,6 +3,7 @@ package capindex
 import (
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -355,6 +356,39 @@ func TestSessionsSplitsOnOverlap(t *testing.T) {
 	sessions := Sessions(files, capseq.DefaultTolerances())
 	if len(sessions) != 2 {
 		t.Fatalf("derived %d sessions, want 2 for overlapping files", len(sessions))
+	}
+}
+
+func TestSessionsKeepCopiesInOtherDirectoriesApart(t *testing.T) {
+	// The field volume holds the original five-minute rolls and an export of
+	// the same hours as one file per site. Each copy is a session of its own;
+	// neither breaks the other, and no session mixes them.
+	var files []Probed
+	for i := range 6 {
+		files = append(files, probed("s2/"+fileNameFor(i), time.Duration(i)*rollFile, rollFile))
+	}
+	files = append(files,
+		probed("sf-street-speeds/raw/lidar/site-a.pcapng", 2*time.Minute, 12*time.Minute),
+		probed("sf-street-speeds/raw/lidar/site-b.pcapng", 15*time.Minute, 12*time.Minute),
+	)
+
+	sessions := Sessions(files, capseq.DefaultTolerances())
+	if len(sessions) != 3 {
+		t.Fatalf("derived %d sessions, want the six rolls as one and each export file alone", len(sessions))
+	}
+	for _, s := range sessions {
+		dir := path.Dir(s.Files[0].RelPath)
+		for _, f := range s.Files {
+			if path.Dir(f.RelPath) != dir {
+				t.Errorf("session from %s also holds %s", s.Files[0].RelPath, f.RelPath)
+			}
+		}
+	}
+	if got := len(sessions[0].Files); got != 6 {
+		t.Errorf("the rolls made a session of %d files, want 6", got)
+	}
+	if !sessions[1].Start.Before(sessions[2].Start) || sessions[0].Start.After(sessions[1].Start) {
+		t.Error("sessions are not in chronological order across directories")
 	}
 }
 

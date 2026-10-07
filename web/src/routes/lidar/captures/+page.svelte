@@ -30,6 +30,7 @@
 		gradeSelection,
 		jobProgressPercent,
 		periodTrim,
+		captureFolder,
 		probeCounts,
 		probedFiles,
 		sessionShare,
@@ -112,6 +113,13 @@
 
 	$: activeRoot = pickActiveRoot(roots, selectedRootId);
 	$: rootCounts = probeCounts(allFiles.filter((f) => f.root_id === activeRoot?.root_id));
+	// Which folder of the volume each session's captures sit in. A volume can
+	// hold more than one copy of the same hours, and the folder tells them apart.
+	$: folderBySession = Object.fromEntries(
+		allFiles
+			.filter((f) => f.session_id)
+			.map((f) => [f.session_id as string, captureFolder(f.rel_path)])
+	);
 	$: visibleSessions = activeRoot
 		? sessions.filter((s) => s.root_id === activeRoot.root_id)
 		: sessions;
@@ -595,6 +603,7 @@
 					{/if}
 					<CoverageTimeline
 						sessions={visibleSessions}
+						{folderBySession}
 						{periodsBySession}
 						selectedSessionId={expandedSessionId}
 						onSelect={toggleSession}
@@ -632,6 +641,11 @@
 									{s.label || s.session_id}
 									{#if s.label}<span class="text-surface-content/40 ml-2 font-mono text-xs"
 											>{s.session_id}</span
+										>{/if}
+									{#if folderBySession[s.session_id]}<span
+											class="text-surface-content/50 ml-2 font-mono text-xs"
+											title="The folder these captures sit in"
+											>{folderBySession[s.session_id]}/</span
 										>{/if}
 								</span>
 								<span class="text-surface-content/70 w-40 font-mono text-xs">

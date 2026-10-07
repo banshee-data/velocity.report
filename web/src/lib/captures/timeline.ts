@@ -379,6 +379,20 @@ export interface CoverageBar {
 	width: number;
 }
 
+/**
+ * One lane of a day: sessions from one folder that do not overlap each other.
+ * A folder whose sessions overlap, such as a capture and a trimmed copy of it
+ * beside it, gets as many lanes as it needs to draw them all.
+ */
+export interface CoverageLane {
+	key: string;
+	/** The folder the lane's captures sit in, within the volume; '' at its top level. */
+	folder: string;
+	/** True on a folder's first lane, which carries its label. */
+	firstOfFolder: boolean;
+	bars: CoverageBar[];
+}
+
 /** A coverage timeline: the sessions of one day, positioned across it. */
 export interface CoverageRow {
 	/** Local date key, YYYY-MM-DD. */
@@ -387,7 +401,14 @@ export interface CoverageRow {
 	/** The span the row covers, so bars and axis labels agree. */
 	startNs: number;
 	endNs: number;
-	bars: CoverageBar[];
+	/** One per folder, or more where a folder's sessions overlap; on one shared axis. */
+	lanes: CoverageLane[];
+}
+
+/** captureFolder is the folder a capture sits in within its volume; '' at its top level. */
+export function captureFolder(relPath: string): string {
+	const slash = relPath.lastIndexOf('/');
+	return slash < 0 ? '' : relPath.slice(0, slash);
 }
 
 /**
@@ -398,8 +419,17 @@ export interface CoverageRow {
  * volume holding two forty-minute visits would otherwise draw two slivers on a
  * mostly empty bar and answer nothing. Padding keeps a single short session
  * from filling the row edge to edge and implying continuous coverage.
+ *
+ * A day has a lane per folder, because a volume can hold more than one copy of
+ * the same hours (the original rolls and an export of them) and drawn in one
+ * lane they would sit on top of each other. Sessions in one folder that still
+ * overlap take further lanes. All of a day's lanes share its axis, so a copy
+ * and its original line up.
  */
-export function coverageRows(sessions: CaptureSession[]): CoverageRow[] {
+export function coverageRows(
+	sessions: CaptureSession[],
+	folderOf: (session: CaptureSession) => string = () => ''
+): CoverageRow[] {
 	const byDay = new Map<string, CaptureSession[]>();
 	for (const s of sessions) {
 		const d = nsToDate(s.start_ns);
@@ -419,21 +449,44 @@ export function coverageRows(sessions: CaptureSession[]): CoverageRow[] {
 		const startNs = earliest - pad;
 		const endNs = latest + pad;
 		const span = endNs - startNs;
-
-		rows.push({
-			day,
-			dayLabel: formatDay(earliest),
-			startNs,
-			endNs,
-			bars: daySessions
-				.slice()
-				.sort((a, b) => a.start_ns - b.start_ns)
-				.map((session) => ({
-					session,
-					left: ((session.start_ns - startNs) / span) * 100,
-					width: Math.max(((session.end_ns - session.start_ns) / span) * 100, 0.4)
-				}))
+		const bar = (session: CaptureSession): CoverageBar => ({
+			session,
+			left: ((session.start_ns - startNs) / span) * 100,
+			width: Math.max(((session.end_ns - session.start_ns) / span) * 100, 0.4)
 		});
+
+		const byFolder = new Map<string, CaptureSession[]>();
+		for (const s of daySessions) {
+			const folder = folderOf(s);
+			const list = byFolder.get(folder);
+			if (list) list.push(s);
+			else byFolder.set(folder, [s]);
+		}
+
+		const lanes: CoverageLane[] = [];
+		for (const folder of [...byFolder.keys()].sort()) {
+			// Greedy interval packing: each session takes the first lane it
+			// does not overlap, so a folder uses as few lanes as it can.
+			const packed: { endNs: number; bars: CoverageBar[] }[] = [];
+			const ordered = byFolder
+				.get(folder)!
+				.slice()
+				.sort((a, b) => a.start_ns - b.start_ns || a.end_ns - b.end_ns);
+			for (const s of ordered) {
+				const lane = packed.find((l) => l.endNs <= s.start_ns);
+				if (lane) {
+					lane.bars.push(bar(s));
+					lane.endNs = s.end_ns;
+				} else {
+					packed.push({ endNs: s.end_ns, bars: [bar(s)] });
+				}
+			}
+			packed.forEach((lane, i) =>
+				lanes.push({ key: `${folder}#${i}`, folder, firstOfFolder: i === 0, bars: lane.bars })
+			);
+		}
+
+		rows.push({ day, dayLabel: formatDay(earliest), startNs, endNs, lanes });
 	}
 
 	return rows.sort((a, b) => (a.day < b.day ? 1 : -1));

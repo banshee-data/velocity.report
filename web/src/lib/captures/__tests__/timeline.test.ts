@@ -1,5 +1,7 @@
 import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
+import type { CoverageRow } from '../timeline';
 import {
+	captureFolder,
 	clockTicks,
 	coverageRows,
 	fileBoundaries,
@@ -357,6 +359,8 @@ describe('nsToDate', () => {
 });
 
 describe('coverageRows', () => {
+	const bars = (row: CoverageRow) => row.lanes.flatMap((lane) => lane.bars);
+
 	it('groups sessions by day, newest day first', () => {
 		const oneDay = 24 * 3600;
 		const rows = coverageRows([
@@ -365,33 +369,78 @@ describe('coverageRows', () => {
 			session('ses-3', oneDay, oneDay + 600)
 		]);
 		expect(rows).toHaveLength(2);
-		expect(rows[0].bars).toHaveLength(1);
-		expect(rows[1].bars).toHaveLength(2);
+		expect(bars(rows[0])).toHaveLength(1);
+		expect(bars(rows[1])).toHaveLength(2);
 	});
 
 	it('spans the day the sessions occupy, not midnight to midnight', () => {
 		// Two forty-minute visits on an empty day would otherwise draw two
 		// slivers on a mostly empty bar and answer nothing.
 		const rows = coverageRows([session('ses-1', 0, 2400), session('ses-2', 7200, 9600)]);
-		const row = rows[0];
-		expect(row.bars[0].width).toBeGreaterThan(15);
-		expect(row.bars[1].left).toBeGreaterThan(row.bars[0].left);
+		const [first, second] = bars(rows[0]);
+		expect(first.width).toBeGreaterThan(15);
+		expect(second.left).toBeGreaterThan(first.left);
 	});
 
 	it('pads a single session so it does not fill the row', () => {
 		// A full-width bar would read as continuous coverage of the whole day.
 		const rows = coverageRows([session('ses-1', 0, 600)]);
-		expect(rows[0].bars[0].width).toBeLessThan(100);
-		expect(rows[0].bars[0].left).toBeGreaterThan(0);
+		expect(bars(rows[0])[0].width).toBeLessThan(100);
+		expect(bars(rows[0])[0].left).toBeGreaterThan(0);
 	});
 
-	it('orders bars within a day chronologically', () => {
+	it('orders bars within a lane chronologically', () => {
 		const rows = coverageRows([session('late', 7200, 7800), session('early', 0, 600)]);
-		expect(rows[0].bars.map((b) => b.session.session_id)).toEqual(['early', 'late']);
+		expect(rows[0].lanes).toHaveLength(1);
+		expect(bars(rows[0]).map((b) => b.session.session_id)).toEqual(['early', 'late']);
+	});
+
+	it('gives each folder its own lane on the shared axis', () => {
+		// The original rolls and an export of the same hours, side by side.
+		const folders: Record<string, string> = {
+			rolls: 's2',
+			export: 'sf-street-speeds/raw/lidar'
+		};
+		const rows = coverageRows(
+			[session('rolls', 0, 3600), session('export', 600, 1800)],
+			(s) => folders[s.session_id]
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].lanes.map((l) => [l.folder, l.firstOfFolder])).toEqual([
+			['s2', true],
+			['sf-street-speeds/raw/lidar', true]
+		]);
+		const [rolls] = rows[0].lanes[0].bars;
+		const [copy] = rows[0].lanes[1].bars;
+		expect(copy.left).toBeGreaterThan(rolls.left);
+		expect(copy.left + copy.width).toBeLessThan(rolls.left + rolls.width);
+	});
+
+	it('adds lanes for a folder whose sessions overlap, and reuses one when they do not', () => {
+		const rows = coverageRows([
+			session('whole', 0, 2400),
+			session('trimmed', 300, 2400),
+			session('later', 3000, 3600)
+		]);
+		expect(rows[0].lanes.map((l) => l.bars.map((b) => b.session.session_id))).toEqual([
+			['whole', 'later'],
+			['trimmed']
+		]);
+		expect(rows[0].lanes.map((l) => l.firstOfFolder)).toEqual([true, false]);
 	});
 
 	it('handles no sessions', () => {
 		expect(coverageRows([])).toEqual([]);
+	});
+});
+
+describe('captureFolder', () => {
+	it('is the folder within the volume, or empty at its top level', () => {
+		expect(captureFolder('s2/s2_sf_8_20260903135034_00001.pcap')).toBe('s2');
+		expect(captureFolder('sf-street-speeds/raw/lidar/site.pcapng')).toBe(
+			'sf-street-speeds/raw/lidar'
+		);
+		expect(captureFolder('kirk0.pcapng')).toBe('');
 	});
 });
 
