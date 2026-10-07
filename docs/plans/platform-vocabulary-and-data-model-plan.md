@@ -485,21 +485,21 @@ Renamed proto fields keep their numbers; old names are reserved.
 
 ### 6. macOS visualiser
 
-| Current                                                                                           | Target                                                                        | Action | Release | Decision  |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------ | ------- | --------- |
-| Toolbar "Source" picker Live / Replay; mode badges REPLAY (PCAP), PCAP (ANALYSIS), REPLAY (VRLOG) | same picker; badges REPLAY (CAPTURE), CAPTURE (ANALYSIS), PLAYBACK (VRLOG)    | amend  | v0.5.9  | V22       |
-| Run browser: columns Run, Date, Case, Duration, Tracks, Labels                                    | Case becomes Clip; loads a vrlog for playback                                 | amend  | v0.5.8  | V18       |
-| Labels panel: Classification, Flags                                                               | Class, Quality flags                                                          | amend  | v0.5.10 | V20       |
-| Annotation window, Generate Annotation Pack sheet                                                 | same words: annotation, pack; "Generate from Run" writes a pack               | keep   |         | V10       |
-| `SourceMode` enum                                                                                 | live, capture, captureAnalysis, vrlog, synthetic                              | rename | v0.5.9  | V22       |
-| `PlaybackMode` replayNonSeekable, replaySeekable                                                  | replay, playback                                                              | rename | v0.5.9  | V22       |
-| `RunTrackLabelAPIClient.loadVRLog`, `stopVRLog`, `returnToLive`                                   | `startPlayback` (`/replay/start` with `vrlog`), `stopReplay` (`/replay/stop`) | rename | v0.5.9  | V22       |
-| `LabelAPIClient` create, update, delete                                                           | retired; labels are written through the run-track route                       | drop   | v0.5.10 | V27       |
-| `LabelSet.sessionID`, `getLabelsForSession`                                                       | `clipID`, `getLabelsForClip`                                                  | rename | v0.5.10 | V7        |
-| `CoordinateFrameInfo`, `AnnotationPose`                                                           | `FrameInfo`, `AnnotationBox`                                                  | rename | v0.6.1  | V16       |
-| `HeadingSource`, `Track.heading`                                                                  | `YawSource`, `yaw`                                                            | rename | v0.6.1  | V16       |
-| `AnnotationExportAPIClient` path                                                                  | `/api/lidar/runs/{id}/pack`                                                   | rename | v0.5.10 | V10       |
-| README's "Open Recording", "Export Labels" menu items                                             | removed from the README; they do not exist                                    | amend  | v0.5.8  | inventory |
+| Current                                                                                           | Target                                                                                                                              | Action | Release | Decision  |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ | ------- | --------- |
+| Toolbar "Source" picker Live / Replay; mode badges REPLAY (PCAP), PCAP (ANALYSIS), REPLAY (VRLOG) | same picker; badges REPLAY (CAPTURE), CAPTURE (ANALYSIS), PLAYBACK (VRLOG)                                                          | amend  | v0.5.9  | V22       |
+| Run browser: columns Run, Date, Case, Duration, Tracks, Labels                                    | Case is headed Source (the cell is the source file's name, not a clip); Clip once runs carry their clip; loads a vrlog for playback | amend  | v0.5.8  | V18       |
+| Labels panel: Classification, Flags                                                               | Class, Quality flags                                                                                                                | amend  | v0.5.10 | V20       |
+| Annotation window, Generate Annotation Pack sheet                                                 | same words: annotation, pack; "Generate from Run" writes a pack                                                                     | keep   |         | V10       |
+| `SourceMode` enum                                                                                 | live, capture, captureAnalysis, vrlog, synthetic                                                                                    | rename | v0.5.9  | V22       |
+| `PlaybackMode` replayNonSeekable, replaySeekable                                                  | replay, playback                                                                                                                    | rename | v0.5.9  | V22       |
+| `RunTrackLabelAPIClient.loadVRLog`, `stopVRLog`, `returnToLive`                                   | `startPlayback` (`/replay/start` with `vrlog`), `stopReplay` (`/replay/stop`)                                                       | rename | v0.5.9  | V22       |
+| `LabelAPIClient` create, update, delete                                                           | retired; labels are written through the run-track route                                                                             | drop   | v0.5.10 | V27       |
+| `LabelSet.sessionID`, `getLabelsForSession`                                                       | `clipID`, `getLabelsForClip`                                                                                                        | rename | v0.5.10 | V7        |
+| `CoordinateFrameInfo`, `AnnotationPose`                                                           | `FrameInfo`, `AnnotationBox`                                                                                                        | rename | v0.6.1  | V16       |
+| `HeadingSource`, `Track.heading`                                                                  | `YawSource`, `yaw`                                                                                                                  | rename | v0.6.1  | V16       |
+| `AnnotationExportAPIClient` path                                                                  | `/api/lidar/runs/{id}/pack`                                                                                                         | rename | v0.5.10 | V10       |
+| README's "Open Recording", "Export Labels" menu items                                             | removed from the README; they do not exist                                                                                          | amend  | v0.5.8  | inventory |
 
 ### 7. CLI and flags
 

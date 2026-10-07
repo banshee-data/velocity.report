@@ -8,6 +8,16 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 7, 2026 - The LiDAR web pages read as one workflow
+
+- {claude/web-ui-coherence-fc5dd5} Ordered the LiDAR pages in one navigation group as the work runs, linked each record to the next, moved Scene Map out of the navigation and called the replay case a clip in web copy only (#707).
+- {claude/web-ui-coherence-fc5dd5} Opened Captures on a configured volume instead of a dropped one showing a month-old "context canceled", and kept a session's motion periods when a rescan reproduces it: 24 of 31 development clips named a period an earlier scan had deleted (#707).
+- {claude/web-ui-coherence-fc5dd5} Kept copies of a capture in different folders as separate sessions in their own Coverage lanes, put every day on one clock axis, showed probe progress, queued every missing motion pass at once and wrote dates as yyyy-mm-dd (#707).
+- {claude/web-ui-coherence-fc5dd5} Made Tracks read-only and played a selected run from its own VRLOG, exported on first request and cached: the observation table it had played has no run column, so a kirk0 run showed 3,681 track IDs where it had 87 (#707).
+- {claude/web-ui-coherence-fc5dd5} Ranked a Segments run once, with its score strip in the same response, and kept pack listings and recording series until their files change: each load had re-read about 60 MB of review sidecars and the whole recording from the USB volume (#707).
+- {claude/web-ui-coherence-fc5dd5} Matched a clip's volume-relative capture path to a run's absolute one, which had never matched, so 474 of the latest 500 development runs named their clip instead of none; Runs also showed each run's parameter digest and labelling share (#707).
+- {claude/web-ui-coherence-fc5dd5} Named each sweep's clip or capture and its objective on the Sweeps cards, a plain sweep reading "none, compared by hand", and headed the macOS run browser's Case column Source, since it holds a file name (#707).
+
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 
 - Read PCAP packets in place on the caller's goroutine instead of through gopacket's channel: replay CPU fell about 10 % and the scheduler's share from 57-59 % to 34 %, with byte-identical outputs (#679).
