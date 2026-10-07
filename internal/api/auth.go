@@ -1,53 +1,16 @@
-// Capability-grant authorization for the HTTP API.
+// Capability-grant authorisation for the HTTP API.
 //
-// Tailscale application capability grants
-// (https://tailscale.com/kb/1324/grants-app-capabilities) are used
-// to split the API surface between read-only and admin clients.
-// The middleware is applied to the entire mux at Start() time with
-// a small allowlist of unauthenticated paths, so adding a new route
-// later does not silently bypass the gate.  See server.go for the
-// allowlist and how the wrapper is composed.
+// Off preserves existing deployments. On enforces Tailscale view/admin grants
+// while retaining the historical LAN and loopback bypass. Hardened instead
+// grants anonymous LAN aggregate/PDF reading, resolves direct peers through
+// WhoIs, and accepts per-request Serve capabilities only on a dedicated
+// loopback backend. Named operation permissions cover the complete mux.
 //
-// Trust model
-//
-// 1. Source classification.  A request is "from the tailnet" only
-//    when it actually arrived through tailscale serve, which means
-//    the upstream connection lands on loopback and the original
-//    peer IP is in X-Forwarded-For.  A direct connection from a LAN
-//    address, or a loopback connection with no X-Forwarded-For (the
-//    Go server itself, `velocity device`, a local curl), is treated
-//    as admin: those paths require already being on a network or
-//    host the operator controls, which is the same trust boundary
-//    the device has had since it shipped.
-//
-//    XFF is *only* trusted when r.RemoteAddr is loopback, otherwise
-//    a LAN attacker who can reach the server directly could forge a
-//    tailnet identity.  A loopback request whose XFF is not a tailnet
-//    address was forwarded on behalf of someone outside the tailnet,
-//    as tailscale serve does for a Funnel request from the internet;
-//    with enforcement on it is refused, as is any request carrying
-//    Tailscale-Funnel-Request.
-//
-// 2. Authorization on the tailnet.  Once classified as tailnet, the
-//    daemon is asked for the peer's grants via the local API.  Any
-//    one of velocity.report/cap/{view,admin} authorises the
-//    corresponding access level; admin implies view.
-//
-// 3. Failure modes.  A definitive "no such peer" from the daemon
-//    is 403 (the tailnet identity is unknown — no caps).  A transient
-//    lookup error (socket down, timeout) is 503: an unresolved peer
-//    is never granted anything, because a peer able to slow or break
-//    the lookup could otherwise reach every route.  A peer resolved
-//    within the last ten minutes keeps the identity it had then
-//    (tailscale.Manager.LookupPeer), so a tailscaled hiccup does not
-//    lock out users who were working a moment ago.
-//
-// 4. Modes.  Off disables the entire mechanism — tailnet peers
-//    behave like LAN peers (admin).  On enforces caps for tailnet
-//    peers.  Lockout safety is handled by the LAN bypass: an
-//    operator with a misconfigured ACL drops back to LAN access,
-//    fixes the grants, and tries again.  Operators should leave
-//    the gate off until they have confirmed grants on a test peer.
+// Unknown peers are refused (403), unavailable lookups fail closed (503),
+// and successful identities are cached for at most five seconds. There is
+// no stale-grant fallback. Hardened mode never silently becomes off and never
+// treats ordinary HTTP loopback traffic as OS-authorised maintenance.
+// Bootstrap and recovery use the OS-controlled Tailscale CLI and service flags.
 
 package api
 
@@ -77,9 +40,12 @@ const (
 	// EnforcementOn enforces capability checks for tailnet-sourced
 	// requests.  LAN/loopback requests still pass as admin.
 	EnforcementOn
+	// EnforcementHardened applies operation permissions to every request, with
+	// anonymous LAN reading and a dedicated Serve backend. HTTP has no OS-admin bypass.
+	EnforcementHardened
 )
 
-// ParseEnforcement maps "off"/"on" (and a few common synonyms) to
+// ParseEnforcement maps "off"/"on"/"hardened" (and compatibility synonyms) to
 // a CapEnforcement value.  Empty string is treated as "off" for
 // backwards compatibility with deployments that had no flag.
 func ParseEnforcement(s string) (CapEnforcement, error) {
@@ -88,8 +54,10 @@ func ParseEnforcement(s string) (CapEnforcement, error) {
 		return EnforcementOff, nil
 	case "on", "true", "1", "yes":
 		return EnforcementOn, nil
+	case "hardened":
+		return EnforcementHardened, nil
 	}
-	return EnforcementOff, errors.New("invalid cap enforcement (want off|on)")
+	return EnforcementOff, errors.New("invalid cap enforcement (want off|on|hardened)")
 }
 
 // CapKind is the access level a route requires.
@@ -134,7 +102,7 @@ type authGate struct {
 // equivalent to EnforcementOff: every request is admin, no daemon
 // calls are made.
 func newAuthGate(tc PeerAuthClient, mode CapEnforcement) *authGate {
-	if tc == nil {
+	if tc == nil && mode != EnforcementHardened {
 		mode = EnforcementOff
 	}
 	return &authGate{tc: tc, mode: mode, timeout: 750 * time.Millisecond}

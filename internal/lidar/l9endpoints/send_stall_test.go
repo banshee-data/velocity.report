@@ -82,7 +82,7 @@ func startStalledStream(t *testing.T) (*blockingStreamServer, *lockedBuffer, cha
 	SetLogWriters(opsBuf, nil, nil)
 	t.Cleanup(func() { SetLogWriters(nil, nil, nil) })
 
-	pub := NewPublisher(Config{SensorID: "test-sensor"})
+	pub := NewPublisher(Config{ListenAddr: "127.0.0.1:0", SensorID: "test-sensor"})
 	if err := pub.Start(); err != nil {
 		t.Fatalf("start publisher: %v", err)
 	}

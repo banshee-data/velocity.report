@@ -114,6 +114,40 @@ export interface Capabilities {
 
 const API_BASE = '/api';
 
+export type AccessPermission =
+	| 'aggregate:view'
+	| 'reports:read'
+	| 'reports:create'
+	| 'configuration:read'
+	| 'configuration:write'
+	| 'data:export'
+	| 'maintenance:use'
+	| 'access:manage';
+
+export interface CallerAccess {
+	profile: 'off' | 'on' | 'hardened';
+	mechanism: string;
+	authenticated: boolean;
+	permissions: AccessPermission[];
+}
+
+export async function getCallerAccess(signal?: AbortSignal): Promise<CallerAccess> {
+	const response = await fetch(`${API_BASE}/access`, { signal, cache: 'no-store' });
+	if (!response.ok) throw apiError('Could not check your access', response.status);
+	const value = await response.json();
+	if (
+		!value ||
+		!['off', 'on', 'hardened'].includes(value.profile) ||
+		typeof value.mechanism !== 'string' ||
+		typeof value.authenticated !== 'boolean' ||
+		!Array.isArray(value.permissions) ||
+		!value.permissions.every((permission: unknown) => typeof permission === 'string')
+	) {
+		throw new Error('The server returned an invalid access response.');
+	}
+	return value;
+}
+
 function buildRelativeApiPath(
 	path: string,
 	params: Record<string, string | number | null | undefined>

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/tailscale"
 )
 
@@ -80,6 +81,17 @@ func (s *Server) handleTailscaleStatus(w http.ResponseWriter, r *http.Request) {
 // whoever opens it.  Host and LAN callers, and every caller with
 // enforcement off, see it all.
 func (s *Server) tailscaleStatusFor(r *http.Request, st tailscale.Status) tailscale.Status {
+	if s.hardened() {
+		// Enrolment is OS-authorised, including for ordinary administrators.
+		st.LoginURL, st.Redacted = "", true
+		p, ok := requestPrincipal(r)
+		if !ok || !p.Allows(access.Request{Operation: access.ReadConfiguration, Resource: "/api/tailscale/status"}) {
+			return tailscale.Status{DaemonRunning: st.DaemonRunning, BackendState: st.BackendState,
+				LoginInProgress: st.LoginInProgress, SSHEnabled: st.SSHEnabled,
+				ServePublished: st.ServePublished, Version: st.Version, Redacted: true}
+		}
+		return st
+	}
 	g := s.authGate
 	if g == nil || g.mode == EnforcementOff || g.tc == nil {
 		return st

@@ -49,14 +49,15 @@ Three boundaries, each enforced by something other than convention:
    user to drive `tailscaled` without root for everything else
    (login, prefs, serve config, status).
 
-3. **Inbound HTTP authorization is by source plus optional
-   capability grant.** LAN and loopback are admin; the tailnet is
-   gated by `velocity.report/cap/{view,admin}` grants in your tailnet
-   policy (see [Capability grants](#capability-grants) below).
+3. **Inbound HTTP authorisation follows the selected profile.** `off` and
+   `on` preserve the historical LAN/loopback administration policy. `hardened`
+   limits anonymous LAN/loopback callers to aggregate viewing and existing ordinary
+   PDF downloads. Tailscale grants confer routine operations; maintenance and access
+   management remain OS-local (see [Hardened profile](#hardened-profile)).
 
 ## Enable / disable flow
 
-When the operator toggles Tailscale on in Settings:
+In compatibility profiles, when the operator toggles Tailscale on in Settings:
 
 1. The web UI POSTs `/api/tailscale/enable`. The Go server runs
    `sudo /usr/local/bin/velocity device tailscale install`, which
@@ -157,12 +158,13 @@ Add a grant to your tailnet policy:
 The `-ts-cap-enforcement` flag on `velocity-report` controls whether
 the gate is active:
 
-| Mode  | Behaviour                                                                                                         |
-| ----- | ----------------------------------------------------------------------------------------------------------------- |
-| `off` | (default) Capability checks disabled. Every reachable peer is admin. Use this until grants are validated.         |
-| `on`  | Enforce caps for tailnet-sourced requests. LAN and loopback are still admin. Flip to `on` after grants are wired. |
+| Mode       | Behaviour                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `off`      | (default) Capability checks disabled. Every reachable peer is admin. Use this until grants are validated.                                                                      |
+| `on`       | Enforce caps for tailnet-sourced requests. LAN and loopback are still admin. Flip to `on` after grants are wired.                                                              |
+| `hardened` | Anonymous LAN/loopback aggregate/PDF reads; explicit permissions for routine administration; OS-local access management and maintenance. Requires the dedicated Serve backend. |
 
-### Trust model
+### Compatibility trust model (`on`)
 
 The gate is a **default-deny wrapper** installed around the entire HTTP
 mux. Anything not on a small explicit allowlist requires a cap; routes
@@ -194,18 +196,14 @@ Failure modes:
 
 - The daemon authoritatively reporting "no such peer" → 403
   `{"error":"unknown_peer"}`.
-- A transient lookup error (socket down, timeout) → the identity the
-  peer had at its last successful lookup, if that was within ten
-  minutes, so a tailscaled blip does not lock out users who were
-  working a moment ago. Otherwise 503
-  `{"error":"peer_lookup_unavailable"}` with `Retry-After`: an
-  unresolved peer is never granted anything, since a peer able to slow
-  or break the lookup could otherwise reach every route.
-  The cost: a grant revoked while tailscaled is unreachable can still be
-  honoured for up to those ten minutes, until a lookup succeeds.
+- A transient lookup error (socket down, timeout) → 503
+  `{"error":"peer_lookup_unavailable"}` with `Retry-After`. Successful lookups
+  are cached for at most five seconds, measured from lookup start. There is no
+  ten-minute stale-identity fallback. Concurrent requests share one in-flight
+  lookup per peer; an older completion cannot restore a revoked identity.
 - A peer with no caps → 403 `{"error":"missing_cap","required":"…"}`.
 
-### Caveats
+### Compatibility caveats
 
 - **Non-tailnet sources are always admin.** Loopback (`127.0.0.1`,
   `velocity device`) and LAN sources bypass the cap check entirely.
@@ -229,6 +227,100 @@ Failure modes:
 - **Recovery from a misconfigured ACL relies on the LAN bypass.**
   Once you've validated grants on a test peer, flip
   `-ts-cap-enforcement=on` and restart.
+
+## Hardened profile
+
+Select `--ts-cap-enforcement=hardened` explicitly. Existing installations stay on
+`off` by default; `on` remains the compatibility profile. No failed hardened
+configuration silently falls back to either mode.
+
+| Caller                                  | Aggregate charts and site display   | Existing PDFs                       | Settings and report generation                      | Raw/source exports | Maintenance or Tailscale enrolment |
+| --------------------------------------- | ----------------------------------- | ----------------------------------- | --------------------------------------------------- | ------------------ | ---------------------------------- |
+| Anonymous LAN or ordinary loopback HTTP | Yes                                 | Yes                                 | No                                                  | No                 | No                                 |
+| Tailscale `view` grant                  | Yes                                 | Yes                                 | No                                                  | No                 | No                                 |
+| Tailscale `admin` grant                 | Yes                                 | Yes                                 | Yes                                                 | Yes                | No                                 |
+| OS-authorised operator                  | Use the application policy for HTTP | Use the application policy for HTTP | Use authenticated Tailscale HTTP or local CLI tools | Local CLI tools    | Local CLI/console only             |
+
+Ordinary PDFs are deliberately disclosed to the LAN, including their embedded
+content. This profile has no per-report privacy designation. Future private reports
+must be withheld from the anonymous audience, not merely assigned a native user role.
+Source ZIPs, raw events and LiDAR evidence require `data:export`. Site display responses
+omit contact/surveyor/address fields; report metadata omits local file paths. Status
+responses hide enrolment URLs from every HTTP caller and detailed tailnet metadata
+from viewers. `/api/access` returns the caller's operation permissions without a
+human identity claim; the frontend gates page mounting and protected actions on them.
+
+Direct Tailscale requests use verified `WhoIs` grants. The LAN listener rejects all
+forwarding/capability identity headers and refuses public source addresses. A subnet
+router which source-NATs receives only anonymous LAN permissions. Ordinary loopback
+traffic also receives only that reading policy.
+
+Serve uses a **separate loopback backend**, `--ts-serve-listen=127.0.0.1:8082` by default.
+The manager requests forwarding of `velocity.report/cap/view` and `velocity.report/cap/admin`
+via `AcceptAppCaps`; the daemon must support [Serve app capability forwarding](https://tailscale.com/docs/reference/examples/serve#forward-app-capabilities-to-a-local-service)
+(Tailscale 1.92 or later). The backend accepts one bounded JSON capability header,
+including the daemon's MIME encoding, and refuses missing, duplicate or malformed
+claims. It does not infer authority from forwarded IP addresses. Processes able to
+connect locally to this backend belong to the OS trust boundary: firewall/container
+forwarding must never expose it to another host. Funnel is disabled in managed Serve
+configuration and refused by the application.
+
+Authenticated browser requests must have a same-origin `Origin` when supplied;
+Cross-site and same-site browser fetches are refused. Direct authenticated access accepts literal
+private/tailnet/loopback IP hosts or `localhost`, preventing a public or mDNS
+hostname from acquiring authority through DNS rebinding. Use Serve's HTTPS hostname
+for MagicDNS browsing. Command-line clients may omit browser headers. Native cookies
+and sessions are future work; adding them must preserve origin and credential checks.
+
+Full gRPC requires literal loopback or `localhost` in every profile, including
+standalone publishers; it has no authenticated remote mode. Hardened startup also
+requires the separate LiDAR HTTP listener to be local, even when currently disabled. Main-mux LiDAR routes carry operation metadata. Remote debug,
+SQL, backup and maintenance remain disabled in this profile, irrespective of admin
+grants or legacy inner debug gates. Full gRPC stays local: playback controls mutate
+shared state and replay completion can return the pipeline to live input. Recording
+RPCs are unimplemented and are no longer advertised as supported.
+
+### OS bootstrap, persistent activation and recovery
+
+Retain a working console or OS-authorised SSH session before changing policy. The
+`velocity device tailscale` commands manage installation and daemon lifecycle, not
+HTTP permissions or enrolment. From that session:
+
+```bash
+sudo /usr/local/bin/velocity device tailscale install
+sudo /usr/local/bin/velocity device tailscale enable-tailscaled
+sudo /usr/local/bin/tailscale up
+```
+
+Approve the device and configure the grants in your own tailnet. Check the installed
+daemon with `tailscale version`. Preserve the existing unit's database, serial and
+LiDAR flags when applying a systemd override. For the stock image's command:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --ts-cap-enforcement=hardened --ts-serve-listen=127.0.0.1:8082
+```
+
+Save with `sudo systemctl edit velocity-report`, then run
+`sudo systemctl daemon-reload` and `sudo systemctl restart velocity-report`.
+The first daemon `Running` event reconciles the dedicated Serve target and accepted
+capabilities, including after a server restart. Check journal output for
+`auth: operation enforcement armed (mode=hardened)` and the Serve publication result.
+Unsupported daemon versions refuse the new Serve configuration; direct lookup and LAN permissions
+retain their hardened checks. Missing adapters or invalid listeners refuse startup.
+A backend bind failure stops the server with a failing exit status for systemd.
+
+If grants, Serve or Tailscale fail, repair them from the retained OS session; local
+HTTP does not become admin during recovery. To roll back intentionally, edit the
+same override to `--ts-cap-enforcement=off`, reload and restart. This restores the
+legacy trust policy, so make that choice explicitly. Stop remote access through
+`sudo /usr/local/bin/velocity device tailscale disable-tailscaled` when required.
+
+Local regression tests do not establish successful appliance deployment. Before
+recommending hardened activation on v0.5.1, exercise persistent activation, restart,
+rollback, viewer/admin parity over direct Tailscale and Serve, outages, revocation,
+PDF/ZIP classification and alternate-listener refusal on a Pi and live tailnet.
 
 ## Hostname and MagicDNS
 
@@ -258,7 +350,7 @@ full listener segmentation.
 | Login URL never appears                                  | Daemon cannot reach `login.tailscale.com`. Almost always a DNS or outbound-firewall problem.                                         | `journalctl -u tailscaled` and `tailscale netcheck` over SSH.                                                                  |
 | Connected but Settings shows "Web UI: failed"            | MagicDNS name not yet propagated, or HTTPS certs disabled in the admin console.                                                      | The manager retries serve setup 6 times; if it still fails, enable HTTPS at `login.tailscale.com/admin/dns` and toggle off/on. |
 | Cap-gated peer gets 403 when it shouldn't                | Grant is on the wrong tailnet policy line, or `-ts-cap-enforcement=on` was set prematurely.                                          | Check the grant in the admin console, and look for `auth: capability enforcement armed` in the journald log.                   |
-| Peer gets 503 `peer_lookup_unavailable`                  | tailscaled did not answer the identity lookup, and the peer had no successful lookup in the last ten minutes.                        | `journalctl -u tailscaled`; the request can be retried once the daemon answers.                                                |
+| Peer gets 503 `peer_lookup_unavailable`                  | tailscaled did not answer a fresh identity lookup; expired grants are not reused.                                                    | `journalctl -u tailscaled`; the request can be retried once the daemon answers.                                                |
 | Visitor gets 403 `funnel_request` or `untrusted_forward` | Funnel is enabled, or a reverse proxy on the host forwards for addresses outside the tailnet. With enforcement on, both are refused. | Funnel is unsupported (see Non-goals). Disable it, or the proxy.                                                               |
 
 For the velocity-report side, `journalctl -u velocity-report` shows

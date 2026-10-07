@@ -1103,8 +1103,18 @@ Web Development:
 
 **API Access**:
 
-- Currently no authentication (local network only)
-- **TODO**: Add API key authentication for production deployments
+- `--ts-cap-enforcement=off` preserves existing access; `on` applies Tailscale
+  viewer/admin grants with the legacy LAN/loopback bypass.
+- Opt-in `hardened` resolves a transport-independent principal and operation/resource
+  permission before dispatch. Anonymous LAN callers may view aggregates and existing
+  ordinary PDFs; Tailscale admin grants bundle configuration, report creation and
+  raw/source exports. Maintenance/access management remain OS-local.
+- Direct peers use `WhoIs`; Serve forwards selected capability claims to a dedicated
+  loopback backend. Hardened startup contains alternate LiDAR HTTP and full gRPC on
+  loopback. Shared playback controls make full gRPC privileged even without file writes.
+- Native users/groups, private resource policy and authenticated LAN gRPC are future
+  work using the same operation boundary. See the [design](docs/plans/platform-access-control-hardening-plan.md)
+  and [activation/recovery runbook](docs/platform/operations/tailscale-remote-access.md#hardened-profile).
 
 **Database**:
 

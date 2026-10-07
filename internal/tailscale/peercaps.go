@@ -45,8 +45,8 @@ type PeerIdentity struct {
 // reachable and authoritative but does not know the address — i.e.
 // the address is not a tailnet peer.  This is distinct from a
 // transient lookup error (network/socket/timeout) and the api layer
-// uses the distinction to fail closed only on an authoritative
-// "no such peer" result.
+// uses the distinction to report forbidden versus temporarily unavailable.
+// Both results fail closed.
 var ErrPeerNotFound = errors.New("tailscale: peer not found")
 
 // LookupPeer resolves a remote address to a PeerIdentity.
@@ -60,47 +60,18 @@ var ErrPeerNotFound = errors.New("tailscale: peer not found")
 //     and reports the address is not a tailnet peer.  Authoritative
 //     "no" — the api layer fails closed.
 //   - (PeerIdentity{}, other error) on transport/timeout/socket
-//     failures, when no recent identity is known for the address.
-//     The api layer fails closed on these too: an unresolved peer is
-//     never granted anything.
-//
-// A transient failure does not lock out a peer that was resolved
-// recently: within lastGoodGrace of its last successful lookup, the
-// identity it had then is returned instead of the error.  A tailscaled
-// blip therefore costs nobody access they had a moment ago, and a
-// peer the daemon has never resolved gains none.
+//     failures. Once the short cache expires, previous grants never
+//     stand in for a failed lookup.
 //
 // Results are cached for a short TTL keyed on remoteAddr to keep
 // daemon traffic proportional to peer count rather than request
 // rate.  The cache is process-local, so a restart re-reads grants
-// fresh.
+// fresh. Only one lookup for a given peer may be in flight: callers
+// share its answer rather than allowing an older answer to arrive
+// after a newer authoritative denial. Active lookups are bounded and
+// are never evicted to make room for another peer.
 func (m *Manager) LookupPeer(ctx context.Context, remoteAddr string) (PeerIdentity, error) {
-	if v, ok := m.peerCache.get(remoteAddr); ok {
-		return v.id, v.err
-	}
-	// Every write is stamped with when its lookup started, and none
-	// replaces an entry from a lookup that started later: two lookups for
-	// one peer can finish out of order, and a slow answer from before a
-	// grant was revoked must not overwrite the newer one.
-	started := time.Now()
-	id, err := m.lookupPeerUncached(ctx, remoteAddr)
-	switch {
-	case err == nil:
-		m.peerCache.set(remoteAddr, peerCacheEntry{id: id, at: started})
-		m.peerCache.setLastGood(remoteAddr, id, started)
-	case errors.Is(err, ErrPeerNotFound):
-		// Authoritative: cache it, and forget any identity the address
-		// had, so a removed node is not served from lastGood.
-		m.peerCache.set(remoteAddr, peerCacheEntry{err: err, at: started})
-		m.peerCache.forgetLastGood(remoteAddr, started)
-	default:
-		// Transient errors are not cached, so a 1-second outage is not
-		// amplified to peerCacheTTL of refusals.
-		if last, ok := m.peerCache.lastGood(remoteAddr); ok {
-			return last, nil
-		}
-	}
-	return id, err
+	return m.peerCache.lookup(ctx, remoteAddr, m.lookupPeerUncached)
 }
 
 func (m *Manager) lookupPeerUncached(ctx context.Context, remoteAddr string) (PeerIdentity, error) {
@@ -140,35 +111,99 @@ func (m *Manager) lookupPeerUncached(ctx context.Context, remoteAddr string) (Pe
 // burst of polling from the Settings page.
 const peerCacheTTL = 5 * time.Second
 
-// lastGoodGrace bounds how long a peer's last successful identity
-// stands in for a transient lookup failure.  It is long enough to ride
-// out a tailscaled restart and short enough that a revoked grant is not
-// honoured for long while the daemon is unreachable.
-const lastGoodGrace = 10 * time.Minute
-
-// maxPeerCacheEntries bounds each of the cache's maps.  The tailnet
-// has a handful of peers; only a local process forging
-// X-Forwarded-For across the tailnet range could add more, and it
-// would not get past the gate by doing so.
+// maxPeerCacheEntries bounds both cached results and active peer lookups.
 const maxPeerCacheEntries = 1024
+
+var errPeerLookupBusy = errors.New("tailscale: peer lookup capacity exhausted")
+var errPeerLookupExpired = errors.New("tailscale: peer lookup expired before use")
 
 type peerCacheEntry struct {
 	id  PeerIdentity
 	err error
-	// at is when the lookup that produced the entry started: the moment
-	// its answer describes.
+	// at is when the lookup started, so a slow lookup cannot extend
+	// the lifetime of an old grant by the time it spent in flight.
 	at time.Time
 }
 
-type peerCache struct {
-	mu   sync.Mutex
-	m    map[string]peerCacheEntry
-	good map[string]peerCacheEntry
+type peerLookup struct {
+	done chan struct{}
+	id   PeerIdentity
+	err  error
 }
 
-func (c *peerCache) get(k string) (peerCacheEntry, bool) {
+type peerCache struct {
+	mu       sync.Mutex
+	m        map[string]peerCacheEntry
+	inflight map[string]*peerLookup
+}
+
+func (c *peerCache) lookup(ctx context.Context, k string, lookup func(context.Context, string) (PeerIdentity, error)) (PeerIdentity, error) {
+	if err := ctx.Err(); err != nil {
+		return PeerIdentity{}, err
+	}
+	c.mu.Lock()
+	if e, ok := c.getLocked(k); ok {
+		c.mu.Unlock()
+		return e.id, e.err
+	}
+	if pending, ok := c.inflight[k]; ok {
+		c.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return PeerIdentity{}, ctx.Err()
+		case <-pending.done:
+			return c.completed(ctx, k, pending)
+		}
+	}
+	if len(c.inflight) >= maxPeerCacheEntries {
+		c.mu.Unlock()
+		return PeerIdentity{}, errPeerLookupBusy
+	}
+	if c.inflight == nil {
+		c.inflight = make(map[string]*peerLookup)
+	}
+	pending := &peerLookup{done: make(chan struct{})}
+	c.inflight[k] = pending
+	started := time.Now()
+	c.mu.Unlock()
+
+	id, err := lookup(ctx, k)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		id, err = PeerIdentity{}, ctxErr
+	}
+	c.mu.Lock()
+	// Transient failures are never cached and never reuse an old grant.
+	if err == nil || errors.Is(err, ErrPeerNotFound) {
+		c.setLocked(k, peerCacheEntry{id: id, err: err, at: started})
+	}
+	pending.id, pending.err = id, err
+	delete(c.inflight, k)
+	close(pending.done)
+	c.mu.Unlock()
+	return c.completed(ctx, k, pending)
+}
+
+// completed rechecks the current cache before returning a grant. A waiter
+// may resume after the shared answer expired and a later lookup revoked the
+// grant; returning pending.id directly would authorise that older answer.
+func (c *peerCache) completed(ctx context.Context, k string, pending *peerLookup) (PeerIdentity, error) {
+	if err := ctx.Err(); err != nil {
+		return PeerIdentity{}, err
+	}
+	if pending.err != nil {
+		return PeerIdentity{}, pending.err
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if e, ok := c.getLocked(k); ok {
+		return e.id, e.err
+	}
+	return PeerIdentity{}, errPeerLookupExpired
+}
+
+// getLocked and setLocked are called while c.mu is held. Cache eviction
+// never touches inflight, so eviction cannot permit competing lookups.
+func (c *peerCache) getLocked(k string) (peerCacheEntry, bool) {
 	e, ok := c.m[k]
 	if !ok {
 		return peerCacheEntry{}, false
@@ -180,55 +215,12 @@ func (c *peerCache) get(k string) (peerCacheEntry, bool) {
 	return e, true
 }
 
-// set stores e unless the entry for k came from a lookup that started
-// after e's.
-func (c *peerCache) set(k string, e peerCacheEntry) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *peerCache) setLocked(k string, e peerCacheEntry) {
 	if c.m == nil {
 		c.m = make(map[string]peerCacheEntry)
 	}
-	if old, ok := c.m[k]; ok && old.at.After(e.at) {
-		return
-	}
 	c.m[k] = e
 	boundEntries(c.m, peerCacheTTL)
-}
-
-// setLastGood records id as k's identity as of started, unless a later
-// lookup already recorded one.
-func (c *peerCache) setLastGood(k string, id PeerIdentity, started time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.good == nil {
-		c.good = make(map[string]peerCacheEntry)
-	}
-	if old, ok := c.good[k]; ok && old.at.After(started) {
-		return
-	}
-	c.good[k] = peerCacheEntry{id: id, at: started}
-	boundEntries(c.good, lastGoodGrace)
-}
-
-func (c *peerCache) lastGood(k string) (PeerIdentity, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e, ok := c.good[k]
-	if !ok || time.Since(e.at) > lastGoodGrace {
-		return PeerIdentity{}, false
-	}
-	return e.id, true
-}
-
-// forgetLastGood drops k's identity unless a lookup that started after
-// started recorded it.
-func (c *peerCache) forgetLastGood(k string, started time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if old, ok := c.good[k]; ok && old.at.After(started) {
-		return
-	}
-	delete(c.good, k)
 }
 
 // boundEntries keeps m within maxPeerCacheEntries: it drops expired
