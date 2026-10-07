@@ -6,7 +6,7 @@
 	 * request config, and links to the sweep dashboard.
 	 */
 	import { applyLidarParams, continueHINT, getHINTState, getSweep, listSweeps } from '#lib/api.js';
-	import { runQuery, tracksQuery } from '#lib/lidarLinks.js';
+	import { runQuery } from '#lib/lidarLinks.js';
 	import type { HINTState, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -434,13 +434,10 @@
 						{@const isContinuing = continueStatus === 'Continuing…'}
 						<div class="mb-4 rounded bg-yellow-50 px-4 py-3">
 							<p class="mb-2 text-sm font-medium text-yellow-800">
-								Awaiting track labels — label tracks then continue to sweep.
+								Awaiting track labels — label the run's tracks in the macOS app, then continue to
+								sweep.
 								{#if labelRunId}
 									<!-- eslint-disable svelte/no-navigation-without-resolve -->
-									<a
-										href={`${resolve('/lidar/tracks')}?${tracksQuery({ sensorId: SENSOR_ID, runId: labelRunId })}`}
-										class="text-primary ml-1 font-normal underline">Label tracks →</a
-									>
 									<a
 										href={`${resolve('/lidar/runs')}?${runQuery(labelRunId)}`}
 										class="text-primary ml-1 font-normal underline">Open run →</a

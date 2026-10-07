@@ -13,12 +13,11 @@
 		deleteLidarReplayCase,
 		getLidarReplayCase,
 		getLidarReplayCases,
-		getLidarRuns,
 		scanPcapFiles,
 		updateLidarReplayCase
 	} from '#lib/api.js';
-	import type { AnalysisRun, LidarReplayCase } from '#lib/types/lidar.js';
-	import { linkedId, runQuery, tracksQuery } from '#lib/lidarLinks.js';
+	import type { LidarReplayCase } from '#lib/types/lidar.js';
+	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -29,9 +28,6 @@
 	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
-
-	// Runs (for reference_run_id dropdown)
-	let runs: AnalysisRun[] = [];
 
 	// Selected scene for editing
 	let selectedScene: LidarReplayCase | null = null;
@@ -48,7 +44,6 @@
 
 	// Edit form state
 	let editDescription = '';
-	let editReferenceRunId: string | null = null;
 	let editOptimalParams = '';
 	let editPcapStartSecs = '';
 	let editPcapDurationSecs = '';
@@ -77,21 +72,12 @@
 		}
 	}
 
-	async function loadRuns() {
-		try {
-			runs = await getLidarRuns();
-		} catch {
-			runs = [];
-		}
-	}
-
 	async function selectScene(scene: LidarReplayCase) {
 		// The list only carries file_count, not the file list itself — fetch
 		// the full case so a scene with several joined captures shows all of
 		// them rather than only the first (pcap_file, the legacy projection).
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
-		editReferenceRunId = scene.reference_run_id ?? null;
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
@@ -115,7 +101,6 @@
 	function deselectScene() {
 		selectedScene = null;
 		editDescription = '';
-		editReferenceRunId = null;
 		editOptimalParams = '';
 		editPcapStartSecs = '';
 		editPcapDurationSecs = '';
@@ -156,7 +141,6 @@
 			const optimalParams = parseJSONObject(editOptimalParams);
 			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
-				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: optimalParams ?? undefined,
 				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
 				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined,
@@ -297,7 +281,6 @@
 	}
 
 	onMount(async () => {
-		loadRuns();
 		await loadScenes();
 		// Other pages link to one clip with ?id=; open it once the list is in.
 		const linked = linkedId(page.url);
@@ -564,16 +547,10 @@
 									>Description</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Sensor</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>PCAP File</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
 									>Files</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Ref. Run</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -595,9 +572,6 @@
 									<td class="text-surface-content px-4 py-3 text-sm">
 										{scene.description || scene.replay_case_id.substring(0, 8)}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
-										{scene.sensor_id}
-									</td>
 									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
 										{scene.pcap_file}
 									</td>
@@ -611,22 +585,6 @@
 											</span>
 										{:else}
 											<span class="text-surface-content/40">1</span>
-										{/if}
-									</td>
-									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
-										{#if scene.reference_run_id}
-											<!-- eslint-disable svelte/no-navigation-without-resolve -->
-											<a
-												href={`${resolve('/lidar/runs')}?${runQuery(scene.reference_run_id)}`}
-												class="text-primary hover:underline"
-												title="Open the reference run"
-												on:click|stopPropagation
-											>
-												{scene.reference_run_id.substring(0, 8)}
-											</a>
-											<!-- eslint-enable svelte/no-navigation-without-resolve -->
-										{:else}
-											-
 										{/if}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 text-sm">
@@ -667,22 +625,15 @@
 					{selectedScene.replay_case_id}
 				</div>
 
-				<div class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+				<div class="mb-4 text-sm">
 					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<a
 						href={`${resolve('/lidar/tracks')}?${tracksQuery({
 							sensorId: selectedScene.sensor_id,
-							clipId: selectedScene.replay_case_id,
-							runId: selectedScene.reference_run_id
+							clipId: selectedScene.replay_case_id
 						})}`}
 						class="text-primary hover:underline">Open in Tracks →</a
 					>
-					{#if selectedScene.reference_run_id}
-						<a
-							href={`${resolve('/lidar/runs')}?${runQuery(selectedScene.reference_run_id)}`}
-							class="text-primary hover:underline">Reference run →</a
-						>
-					{/if}
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 
@@ -701,38 +652,6 @@
 							rows="3"
 							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
 						></textarea>
-					</div>
-
-					<div>
-						<label for="edit-ref-run" class="text-surface-content/70 mb-1 block text-sm font-medium"
-							>Reference Run</label
-						>
-						<SelectField
-							label=""
-							bind:value={editReferenceRunId}
-							options={[
-								{ label: 'None', value: null },
-								...runs.map((r) => ({
-									label: `${r.run_id.substring(0, 8)} (${r.total_tracks} tracks)`,
-									value: r.run_id
-								})),
-								// The run list is paged; a reference run older than it is
-								// still the clip's, and must stay selected rather than blank.
-								...(selectedScene.reference_run_id &&
-								!runs.some((r) => r.run_id === selectedScene?.reference_run_id)
-									? [
-											{
-												label: selectedScene.reference_run_id.substring(0, 8),
-												value: selectedScene.reference_run_id
-											}
-										]
-									: [])
-							]}
-							size="sm"
-						/>
-						<p class="text-surface-content/40 mt-1 text-xs">
-							The reference run contains ground truth labels for evaluation.
-						</p>
 					</div>
 
 					<div>

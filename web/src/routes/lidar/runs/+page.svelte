@@ -103,7 +103,8 @@
 
 	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
 		// A run that records its clip names it; older runs do not, so fall back
-		// to the clip that holds the run as its reference, then to the capture.
+		// to the clip that still names the run in its legacy reference_run_id
+		// (no longer shown), then to the capture.
 		if (run.replay_case_id) {
 			const recorded = scenes.find((s) => s.replay_case_id === run.replay_case_id);
 			if (recorded) return recorded;
@@ -197,12 +198,6 @@
 	/** Build href for one clip on the Clips page. */
 	function clipHref(scene: LidarReplayCase): string {
 		return `${resolve('/lidar/replay-cases')}?${clipQuery(scene.replay_case_id)}`;
-	}
-
-	/** Select a run already in the list by id, e.g. a clip's reference run. */
-	function selectRunById(runId: string) {
-		const run = runs.find((r) => r.run_id === runId);
-		if (run) selectRun(run);
 	}
 
 	/** Open a linked run, fetching it when it is older than the listed page. */
@@ -520,25 +515,6 @@
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Duration</dt>
 										<dd class="text-surface-content">{scene.pcap_duration_secs}s</dd>
-									</div>
-								{/if}
-								{#if scene.reference_run_id}
-									<div class="flex justify-between py-1">
-										<dt class="text-surface-content/60">Ref. Run</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{#if scene.reference_run_id === selectedRun.run_id}
-												this run
-											{:else if runs.some((r) => r.run_id === scene.reference_run_id)}
-												<button
-													class="text-primary hover:underline"
-													on:click={() => selectRunById(scene.reference_run_id ?? '')}
-												>
-													{scene.reference_run_id.substring(0, 12)}
-												</button>
-											{:else}
-												{scene.reference_run_id.substring(0, 12)}
-											{/if}
-										</dd>
 									</div>
 								{/if}
 							</dl>
