@@ -17,6 +17,7 @@ older entries stay put, however tempting hindsight may be.
 - {claude/web-ui-coherence-fc5dd5} Ranked a Segments run once, with its score strip in the same response, and kept pack listings and recording series until their files change: each load had re-read about 60 MB of review sidecars and the whole recording from the USB volume (#707).
 - {claude/web-ui-coherence-fc5dd5} Matched a clip's volume-relative capture path to a run's absolute one, which had never matched, so 474 of the latest 500 development runs named their clip instead of none; Runs also showed each run's parameter digest and labelling share (#707).
 - {claude/web-ui-coherence-fc5dd5} Named each sweep's clip or capture and its objective on the Sweeps cards, a plain sweep reading "none, compared by hand", and headed the macOS run browser's Case column Source, since it holds a file name (#707).
+- {claude/web-ui-coherence-fc5dd5} Reconciled the October workflow design with the vocabulary plan in the [LiDAR workflow UI plan](plans/lidar-ui-workflow-plan.md): candidates on Clips rather than a Windows page, a derived pack status rather than a writable one, and sites through deployments, with eleven backlog items from v0.5.9 to v0.6.6 (#707).
 
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 

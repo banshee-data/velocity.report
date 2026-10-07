@@ -17,7 +17,7 @@ surveys. Capture exports also require P2-A digests.
 ## Delivery outline
 
 1. Merge site identities using the agreed provenance/precedence policy; set aside coordinate conflicts rather than averaging them.
-2. Introduce deployment rows and explicit mounting/calibration relationships for both sensors.
+2. Introduce deployment rows and explicit mounting/calibration relationships for both sensors. A capture session takes its site from the deployment covering it, replacing the free-text session label on Captures ([workflow UI](lidar-ui-workflow-plan.md), T7).
 3. Create surveys and report relationships with complete historical row-accounting and operator workflows.
 4. Move public publication onto surveys with old-page redirects, explicit export tiers and tests excluding private contact/trajectory fields.
 

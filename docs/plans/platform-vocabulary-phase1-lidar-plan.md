@@ -32,7 +32,7 @@ route, type, response key, query parameter or schema name, so every step below r
 
 1. Trace clip/run and capture/sequence/period/volume names through existing schema metadata, store methods, handlers and response types.
 2. Rename existing metadata without changing stored values, keys, row counts or relationships; update indexes, triggers and embedded schema references.
-3. Follow each slice through web and macOS copy, navigation, API clients and label/annotation type names.
+3. Follow each slice through web and macOS copy, navigation, API clients and label/annotation type names. The screen words follow the [workflow UI vocabulary](lidar-ui-workflow-plan.md#vocabulary): candidate rather than window, split for a named set of packs, and labels apart from annotations.
 4. Keep old external route, field and persisted-file spellings readable through explicit aliases or versioned compatibility readers.
 
 ## PR structure

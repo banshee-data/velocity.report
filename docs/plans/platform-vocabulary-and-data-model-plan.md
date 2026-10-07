@@ -3,7 +3,7 @@
 - **Status:** Draft, for review. Nine decision rounds and two plan reviews are recorded below; the plan proposes and changes no code and no schema
 - **Layers:** Cross-cutting (SQLite schema, Go stores and APIs for radar and LiDAR, CLI, Svelte pages, macOS visualiser, public site, docs)
 - **Target:** Phase 1 delivers terminology and compatibility before Phase 2 delivers feature and data-model improvements. The item-level release targets below are the original allocation, to be re-baselined after the terminology phase is sized; they do not authorise overlapping the phases
-- **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) (superseded by this plan), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-annotation-segment-finder-plan](lidar-annotation-segment-finder-plan.md), [lidar-vrlog-observation-format-plan](lidar-vrlog-observation-format-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [platform-typed-uuid-prefixes-plan](platform-typed-uuid-prefixes-plan.md), [lidar-cluster-observation-log-and-async-tracking-plan](lidar-cluster-observation-log-and-async-tracking-plan.md), [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [platform-survey-capture-export-plan](platform-survey-capture-export-plan.md) (added by round nine)
+- **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) (superseded by this plan), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-annotation-segment-finder-plan](lidar-annotation-segment-finder-plan.md), [lidar-vrlog-observation-format-plan](lidar-vrlog-observation-format-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [platform-typed-uuid-prefixes-plan](platform-typed-uuid-prefixes-plan.md), [lidar-cluster-observation-log-and-async-tracking-plan](lidar-cluster-observation-log-and-async-tracking-plan.md), [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [platform-survey-capture-export-plan](platform-survey-capture-export-plan.md) (added by round nine), [lidar-ui-workflow-plan](lidar-ui-workflow-plan.md) (the screens these nouns appear on)
 - **Canonical:** [PLATFORM.md](../platform/PLATFORM.md)
 
 A review of the schema and product surfaces that carry sensor data from a port to a report, for
@@ -452,6 +452,11 @@ deprecation, until the alias is retired in v0.6.7.
 Renamed proto fields keep their numbers; old names are reserved.
 
 ### 5. Web pages, navigation and types
+
+The October 2026 workflow design sets the screen targets for these pages and the macOS rows in
+§ 6; [lidar-ui-workflow-plan](lidar-ui-workflow-plan.md) reconciles it with this ledger. It keeps
+these nouns. Its "Windows" page becomes the candidates panel on Clips, and its writable pack
+state becomes the status the Segments page already derives.
 
 | Current                                                                                  | Target                                                                                                                                          | Action | Release                | Decision           |
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------- | ------------------ |
@@ -957,8 +962,9 @@ Settings page shows a serial and a udp port; the visualiser's badges name captur
    `lidar_segment_clip_jobs` copied in and dropped, which V29 permits because no release carried
    them. A selection whose absolute window disagrees with its clip's offsets, where the first
    capture is probed, is set aside in `migration_rejects`.
-2. `/api/lidar/clips/candidates`, `/selectors`; the candidates panel on the Clips page; the
-   Segments route removed from the navigation.
+2. `/api/lidar/clips/candidates`, `/selectors`; the candidates panel on the Clips page, showing
+   each candidate's derived pack status ([workflow UI](lidar-ui-workflow-plan.md#pack-status));
+   the Segments route removed from the navigation.
 3. `pack_id`, `selection.json`, `config/selectors.defaults.json`, `config/presets/`, each read
    under its old name too.
 
