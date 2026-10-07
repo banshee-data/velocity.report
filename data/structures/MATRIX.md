@@ -132,16 +132,17 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Clusters       | `track_api.go`         | `GET /api/lidar/clusters`                       | ✅  | ✅  | -   |
 | Observations   | `track_api.go`         | `GET /api/lidar/observations`                   | ✅  | ✅  | -   |
 | Runs           | `run_track_api.go`     | `GET /api/lidar/runs`                           | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}`                      | ✅  | -   | ✅  |
+| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}`                      | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`     | `DELETE /api/lidar/runs/{id}`                   | ✅  | ✅  | -   |
 | Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`     | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | ✅  | -   |
+| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
+| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
 | Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
 | Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
 | Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |
+| Runs           | `run_scene_api.go`     | `GET /api/lidar/runs/{id}/scene/{file}`         | ✅  | ✅  | -   |
 | Labels         | `lidar_labels.go`      | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
 | Labels         | `lidar_labels.go`      | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | ✅  |
 | Labels         | `lidar_labels.go`      | `GET /api/lidar/labels/export`                  | ✅  | ✅  | ✅  |
@@ -150,7 +151,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Scenes         | `scene_api.go`         | `POST /api/lidar/scenes/{id}/replay`            | ✅  | -   | -   |
 | Scenes         | `scene_api.go`         | `GET/POST /api/lidar/scenes/{id}/evaluations`   | ✅  | -   | -   |
 | Missed regions | `run_track_api.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
-| Missed regions | `run_track_api.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | ✅  | -   |
+| Missed regions | `run_track_api.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
 | Sweep history  | `routes.go`            | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
 | Sweep history  | `routes.go`            | `GET /api/lidar/sweeps/{id}`                    | ✅  | ✅  | -   |
 | Sweep history  | `routes.go`            | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | -   |
@@ -1152,7 +1153,7 @@ documented in §15. The radar server debug routes are attached via
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 101   | 61  | 86  | 11  |
+| HTTP endpoints (LiDAR)  | 103   | 63  | 85  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 44    | -   | 34  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
