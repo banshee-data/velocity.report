@@ -61,6 +61,12 @@ type Options struct {
 	VoxelMetres float64
 	// BucketSeconds is the timeline summary resolution. 0 uses the default.
 	BucketSeconds float64
+	// KeepTrackIDs writes the tracker's own track identifiers instead of
+	// re-keying them per export. Only for exports that stay on the device:
+	// the operator's Tracks page matches a clicked box to the run's tracks by
+	// identifier. A published export re-keys, so a trajectory cannot be linked
+	// across parts or sites.
+	KeepTrackIDs bool
 }
 
 // Result reports what an export produced.
@@ -363,7 +369,7 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (
 					continue
 				}
 				out.Tracks = append(out.Tracks, TrackJSON{
-					ID:       keys.local(t.TrackID),
+					ID:       trackID(t.TrackID, opts, keys),
 					X:        round2(t.X),
 					Y:        round2(t.Y),
 					Z:        round2(t.Z),
@@ -416,6 +422,15 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (
 type trackKeyer struct {
 	seen map[string]string
 	next int
+}
+
+// trackID is the identifier a track carries in the export: its own when the
+// export stays on the device, a per-export key otherwise.
+func trackID(src string, opts Options, keys *trackKeyer) string {
+	if opts.KeepTrackIDs {
+		return src
+	}
+	return keys.local(src)
 }
 
 func newTrackKeyer() *trackKeyer {

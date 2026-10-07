@@ -1003,6 +1003,16 @@ export async function mountScenePlayer({
     }
   }
 
+  // Hosts that keep a timeline of their own follow this clock rather than
+  // running a second one: see session.playback below.
+  const clockListeners = new Set();
+  const clockSnapshot = () => ({
+    seconds: state.seconds,
+    playing: state.playing,
+    rate: state.rate,
+    duration: playbackDuration(),
+  });
+
   function syncUI() {
     strip?.setPlayhead(state.seconds);
     // The strip is a slider to a screen reader, so it has to say where it is.
@@ -1023,6 +1033,10 @@ export async function mountScenePlayer({
         "aria-label",
         state.playing ? "Pause" : "Play",
       );
+    }
+    if (clockListeners.size) {
+      const snapshot = clockSnapshot();
+      for (const listener of clockListeners) listener(snapshot);
     }
   }
 
@@ -1543,6 +1557,39 @@ export async function mountScenePlayer({
     });
   });
   session.dispose = () => teardown.dispose();
+
+  // The transport for a host page with its own timeline: the operator's
+  // Tracks page seeks, plays and sets the rate through this, and follows the
+  // clock with onChange, so the scene and the page cannot drift apart.
+  session.playback = {
+    seek(seconds) {
+      // A jump is not continuous motion: trails before it describe nothing
+      // about where playback lands.
+      resetVisuals();
+      state.pointCloudLoopingIn = false;
+      state.seconds = Math.min(
+        Math.max(Number(seconds) || 0, 0),
+        playbackDuration(),
+      );
+      void show(state.seconds);
+      syncUI();
+    },
+    setPlaying(playing) {
+      state.playing = Boolean(playing);
+      syncUI();
+    },
+    setRate(rate) {
+      state.rate = Number(rate) > 0 ? Number(rate) : 1;
+      if (ui.rate) ui.rate.value = String(state.rate);
+      syncUI();
+    },
+    onChange(listener) {
+      clockListeners.add(listener);
+      listener(clockSnapshot());
+      return () => clockListeners.delete(listener);
+    },
+  };
+  teardown.onDispose(() => clockListeners.clear());
 
   requestAnimationFrame(loop);
 

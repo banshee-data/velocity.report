@@ -17,6 +17,7 @@
 		getLidarReplayCases,
 		getLidarRun,
 		getLidarRuns,
+		getRunScene,
 		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
@@ -27,6 +28,7 @@
 	import TrackList from '#lib/components/lidar/TrackList.svelte';
 	import { unixNanosToMillis } from '#lib/dateUtils.js';
 	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
+	import type { PageClock } from '#lib/scene/sceneClock.js';
 	import type {
 		AnalysisRun,
 		LabellingProgress,
@@ -126,6 +128,20 @@
 
 	// A run's missed regions, shown, never edited here
 	let missedRegions: MissedRegion[] = [];
+
+	// A run with a recording plays that recording, and the page follows the
+	// player's clock. Without one the scene draws database observations, which
+	// carry no run: for a replayed capture they mix every replay of it.
+	let recording: { manifestURL: string; backgroundURL: string } | null = null;
+	let recordingChecking = false;
+	let recordingNote: string | null = null;
+	// An at_ns link's instant, applied once the recording reports its clock.
+	let pendingSeekMs: number | null = null;
+	let scenePane: {
+		seekToMs(ms: number): void;
+		setPlaying(playing: boolean): void;
+		setRate(rate: number): void;
+	} | null = null;
 
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
@@ -276,6 +292,7 @@
 	}
 
 	function clearRunSelectionState() {
+		clearRecording();
 		selectedRunId = null;
 		runTracks = [];
 		labellingProgress = null;
@@ -340,10 +357,59 @@
 			if (requestedMs !== null && requestedMs >= timeRange.start && requestedMs <= timeRange.end) {
 				selectedTime = requestedMs;
 			}
-			loadForegroundObservations(timeRange.start, timeRange.end);
+			await showRunSource(requestedMs);
 		} catch (error) {
 			console.error('[TrackHistory] Could not load tracks for run window:', error);
 		}
+	}
+
+	/**
+	 * Plays the selected run's recording when it has one, else falls back to
+	 * database observations and says why. The first request for a run exports
+	 * its recording, which takes about a second for a minute of it.
+	 */
+	async function showRunSource(requestedMs: number | null) {
+		const runId = selectedRunId;
+		if (!runId || !timeRange) return;
+		recordingChecking = true;
+		recordingNote = null;
+		const scene = await getRunScene(runId).catch((error: unknown) => ({
+			available: false as const,
+			reason: error instanceof Error ? error.message : String(error)
+		}));
+		recordingChecking = false;
+		if (runId !== selectedRunId) return; // another run was chosen meanwhile
+		if (scene.available) {
+			handlePause();
+			foregroundObservations = [];
+			fgWindowCentre = 0;
+			pendingSeekMs = requestedMs;
+			recording = { manifestURL: scene.manifestURL, backgroundURL: scene.backgroundURL };
+			return;
+		}
+		recording = null;
+		recordingNote = `No recording to play (${scene.reason}). Showing database observations, which mix every replay of this capture.`;
+		loadForegroundObservations(timeRange.start, timeRange.end);
+	}
+
+	/** Follows the recording's clock: the player owns time while it plays. */
+	function handleSceneClock(clock: PageClock) {
+		if (pendingSeekMs !== null) {
+			const target = pendingSeekMs;
+			pendingSeekMs = null;
+			scenePane?.seekToMs(target);
+			return;
+		}
+		selectedTime = clock.timeMs;
+		isPlaying = clock.playing;
+		playbackSpeed = clock.rate;
+	}
+
+	function clearRecording() {
+		recording = null;
+		recordingNote = null;
+		recordingChecking = false;
+		pendingSeekMs = null;
 	}
 
 	async function syncSelectionFromUrl(qsSceneId: string | null, qsRunId: string | null) {
@@ -422,6 +488,7 @@
 	// Looks up the scene directly from scenes array rather than relying on
 	// derived $: selectedScene which may not have updated yet.
 	function handleSceneChange() {
+		clearRecording();
 		selectedRunId = null;
 		runTracks = [];
 		labellingProgress = null;
@@ -440,6 +507,7 @@
 
 	// Handle run selection change
 	function handleRunChange() {
+		clearRecording();
 		if (selectedRunId !== null) {
 			// loadTracksForRunWindow uses runTracks state, so await loadRunTracks first
 			loadRunTracks()
@@ -497,6 +565,17 @@
 		})
 		.map((w) => w.track);
 
+	// Missed regions were marked over database observations, which the API
+	// serves with x and y swapped into a display frame; a recording plays in
+	// the sensor's own frame, so they are swapped back for it.
+	$: sceneRegions = recording
+		? missedRegions.map((region) => ({
+				...region,
+				center_x: region.center_y,
+				center_y: region.center_x
+			}))
+		: missedRegions;
+
 	// Run-scoped foreground observations
 	$: visibleForeground =
 		runTrackMap && runTrackGeometryLinked
@@ -531,6 +610,10 @@
 	}
 
 	function handlePlaybackToggle() {
+		if (recording) {
+			scenePane?.setPlaying(!isPlaying);
+			return;
+		}
 		if (isPlaying) {
 			handlePause();
 		} else {
@@ -540,9 +623,14 @@
 
 	function handleTimeChange(newTime: number) {
 		selectedTime = newTime;
+		if (recording) scenePane?.seekToMs(newTime);
 	}
 
 	function handleSpeedChange(speed: number) {
+		if (recording) {
+			scenePane?.setRate(speed);
+			return;
+		}
 		playbackSpeed = speed;
 		if (isPlaying) {
 			handlePause();
@@ -587,6 +675,7 @@
 	// (task 6.5). No longer gated on an overlay toggle: these observations are
 	// what the scene draws, so not loading them would leave it empty.
 	$: if (
+		!recording &&
 		!foregroundLoading &&
 		fgWindowCentre > 0 &&
 		Math.abs(selectedTime - fgWindowCentre) > FG_RELOAD_DRIFT_MS
@@ -686,21 +775,11 @@
 						•
 					{/if}
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-					{selectedRunId ? visibleRunTracks.length : visibleTracks.length} tracks visible • Sensor: {sensorId}
+					{selectedRunId ? visibleRunTracks.length : visibleTracks.length} tracks visible
 				</p>
 			</div>
 
 			<div class="flex flex-none items-center gap-4 pl-4">
-				<!-- Sensor Selection -->
-				<SelectField
-					label="Sensor"
-					value={sensorId}
-					options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
-					size="sm"
-					class="w-48"
-					disabled
-				/>
-
 				<!-- Clip selection -->
 				<SelectField
 					label="Clip"
@@ -758,10 +837,17 @@
 				     they affect; the manual overlay offset went with the flat
 				     map it existed to align. -->
 				<div class="text-surface-content flex items-center gap-3 text-xs">
-					{#if foregroundLoading}
+					{#if recordingChecking}
+						<span class="text-surface-content/70">Preparing the run's recording…</span>
+					{:else if recording}
+						<span class="text-surface-content/70">Playing the run's recording</span>
+					{:else if foregroundLoading}
 						<span class="text-surface-content/70">Loading observations…</span>
 					{:else if foregroundError}
 						<span class="text-error-500">{foregroundError}</span>
+					{/if}
+					{#if recordingNote}
+						<span class="max-w-md text-amber-600" title={recordingNote}>{recordingNote}</span>
 					{/if}
 				</div>
 			</div>
@@ -776,14 +862,18 @@
 			style={topPaneHeight !== null ? `height: ${topPaneHeight}px; flex-shrink: 0` : 'flex: 3'}
 		>
 			<!-- The 3D scene view runs the same three.js player as the public
-			     scenes, driven by a session built over these live
-			     observations rather than a published export. -->
+			     scenes: over the run's recording when it has one, else over
+			     observations read from the database. -->
 			<ScenePane
-				observations={visibleForeground}
+				bind:this={scenePane}
+				observations={recording ? [] : visibleForeground}
 				{runTracks}
 				{sensorId}
 				title={selectedSceneId ?? 'Live run'}
-				{missedRegions}
+				manifestURL={recording?.manifestURL ?? null}
+				backgroundURL={recording?.backgroundURL ?? null}
+				onClock={handleSceneClock}
+				missedRegions={sceneRegions}
 				onTrackSelect={handleTrackSelect}
 			/>
 		</div>

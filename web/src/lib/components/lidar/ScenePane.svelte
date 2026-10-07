@@ -7,14 +7,19 @@
 	 * public_html/src/js, not copied: a copy would drift the moment either
 	 * side fixed a camera, a trail or a colour.
 	 *
-	 * The data path is the only difference. A published scene reads static
-	 * gzipped chunks; this mounts a session built over live observations from
-	 * the database, so playback, seeking and trail reconstruction stay the
-	 * shared implementation.
+	 * It plays one of two sources. A run with a recording plays that recording,
+	 * exported by the server the way a published survey is (manifestURL), with
+	 * the settled background it holds. Anything else plays observations read
+	 * from the database through a session built over them; those carry no run,
+	 * so for a replayed capture they mix every replay of it.
+	 *
+	 * With a recording, the player owns the clock: the page follows it through
+	 * onClock and drives it through seekToMs, setPlaying and setRate.
 	 */
 	import { mountScenePlayer } from '$scene/scene-player.js';
 	import type { SceneInteraction, SceneSession } from '$scene/scene-reader.js';
 	import { createLiveSceneSession } from '#lib/scene/liveSceneSource.js';
+	import { clockFollower, startMsOf, type PageClock } from '#lib/scene/sceneClock.js';
 	import type { MissedRegion, RunTrack, TrackObservation } from '#lib/types/lidar.js';
 	import { onDestroy } from 'svelte';
 
@@ -22,6 +27,12 @@
 	export let runTracks: RunTrack[] = [];
 	export let sensorId = 'hesai-pandar40p';
 	export let title = 'Live run';
+	/** A run's exported recording. When set, it is played instead of observations. */
+	export let manifestURL: string | null = null;
+	/** The recording's settled background, drawn behind the boxes. */
+	export let backgroundURL: string | null = null;
+	/** Called as a recording plays, about ten times a second, and on any control change. */
+	export let onClock: ((clock: PageClock) => void) | null = null;
 
 	/** A run's missed regions, drawn as rings on the ground. Shown, not edited. */
 	export let missedRegions: MissedRegion[] = [];
@@ -58,6 +69,8 @@
 	// the same canvas and controls, and one left running would keep drawing
 	// into the canvas and answering the Play button alongside it.
 	let player: SceneSession | null = null;
+	// Where the mounted recording starts, in Unix milliseconds.
+	let startMs = 0;
 	// Mounting is asynchronous, so a newer mount can start before an older one
 	// returns; the older one's player is disposed as soon as it arrives.
 	let mountSeq = 0;
@@ -65,17 +78,32 @@
 	/**
 	 * Remounting on every observation change would reset the camera mid-review,
 	 * so the player is mounted once the first data arrives and the key is
-	 * tracked to detect a genuinely different run.
+	 * tracked to detect a genuinely different run. A recording mounts once.
 	 */
 	let mountedKey = '';
 
-	$: sceneKey = `${sensorId}|${observations.length}|${observations[0]?.timestamp ?? ''}|${
-		observations[observations.length - 1]?.timestamp ?? ''
-	}`;
+	$: sceneKey = manifestURL
+		? `recording|${manifestURL}`
+		: `${sensorId}|${observations.length}|${observations[0]?.timestamp ?? ''}|${
+				observations[observations.length - 1]?.timestamp ?? ''
+			}`;
 
-	$: if (canvas && observations.length > 0 && sceneKey !== mountedKey) {
+	$: if (canvas && (manifestURL || observations.length > 0) && sceneKey !== mountedKey) {
 		mountedKey = sceneKey;
 		void mount();
+	}
+
+	/** Moves a recording's playhead to an absolute time. */
+	export function seekToMs(ms: number) {
+		player?.playback?.seek((ms - startMs) / 1000);
+	}
+
+	export function setPlaying(playing: boolean) {
+		player?.playback?.setPlaying(playing);
+	}
+
+	export function setRate(value: number) {
+		player?.playback?.setRate(value);
 	}
 
 	function disposePlayer() {
@@ -88,41 +116,52 @@
 		mountError = null;
 		const seq = ++mountSeq;
 		disposePlayer();
+		const ui = {
+			labelLayer,
+			presets,
+			clock,
+			duration,
+			stats,
+			status,
+			playToggle,
+			rate,
+			lidarToggle,
+			boxesToggle,
+			trailsToggle,
+			gridToggle,
+			gridAzimuthDeg,
+			northAzimuthDeg
+		};
 		try {
-			const built = createLiveSceneSession({
-				observations,
-				runTracks,
-				sensorId,
-				title
-			});
-			skipped = built.skippedObservations;
-			frameCount = built.frameCount;
-
-			const session = await mountScenePlayer({
-				canvas,
-				session: built.session,
-				ui: {
-					labelLayer,
-					presets,
-					clock,
-					duration,
-					stats,
-					status,
-					playToggle,
-					rate,
-					lidarToggle,
-					boxesToggle,
-					trailsToggle,
-					gridToggle,
-					gridAzimuthDeg,
-					northAzimuthDeg
-				}
-			});
+			let session: SceneSession;
+			if (manifestURL) {
+				skipped = 0;
+				frameCount = 0;
+				session = await mountScenePlayer({
+					canvas,
+					manifestURL,
+					ui: { ...ui, backgroundURL: backgroundURL ?? undefined }
+				});
+			} else {
+				const built = createLiveSceneSession({
+					observations,
+					runTracks,
+					sensorId,
+					title
+				});
+				skipped = built.skippedObservations;
+				frameCount = built.frameCount;
+				session = await mountScenePlayer({ canvas, session: built.session, ui });
+			}
 			if (seq !== mountSeq) {
 				session.dispose?.();
 				return;
 			}
 			player = session;
+			startMs = startMsOf(session.parts[0]?.startNs);
+			if (manifestURL && onClock && session.playback) {
+				session.playback.onChange(clockFollower(startMs, (c) => onClock?.(c)));
+			}
 			interaction = session.interaction ?? null;
 			interaction?.setRegions(missedRegions);
 			mounted = true;
@@ -159,10 +198,12 @@
 	<div class="scene-pane__controls">
 		<button bind:this={playToggle} type="button" class="scene-pane__button">Play</button>
 		<select bind:this={rate} class="scene-pane__select" aria-label="Playback rate">
+			<!-- The Tracks page's speeds, so a rate it sets is one this can show. -->
+			<option value="0.5">0.5x</option>
 			<option value="1">1x</option>
 			<option value="2">2x</option>
-			<option value="4">4x</option>
-			<option value="8">8x</option>
+			<option value="5">5x</option>
+			<option value="10">10x</option>
 			<option value="16">16x</option>
 		</select>
 		<span bind:this={clock} class="scene-pane__clock">0:00</span>
@@ -194,7 +235,7 @@
 
 	{#if mountError}
 		<p class="scene-pane__error">Could not start the scene view: {mountError}</p>
-	{:else if observations.length === 0}
+	{:else if !manifestURL && observations.length === 0}
 		<p class="scene-pane__empty">No observations in this window.</p>
 	{:else if mounted && skipped > 0}
 		<!-- A partial load has to be visible: a dropped row would otherwise

@@ -2247,6 +2247,44 @@ describe('api', () => {
 			});
 		});
 
+		describe('getRunScene', () => {
+			it('names the export when the run has a recording', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('run 1')).resolves.toEqual({
+					available: true,
+					manifestURL: '/api/lidar/runs/run%201/scene/manifest.json',
+					backgroundURL: '/api/lidar/runs/run%201/scene/background/background.json.gz'
+				});
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/run%201/scene/manifest.json');
+			});
+
+			it("passes on the server's reason when there is none", async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 404,
+					json: async () => ({ error: 'this run has no recording' })
+				});
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('r')).resolves.toEqual({
+					available: false,
+					reason: 'this run has no recording'
+				});
+			});
+
+			it('falls back to the status when the body is not JSON', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					json: async () => {
+						throw new Error('not json');
+					}
+				});
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('r')).resolves.toEqual({ available: false, reason: 'HTTP 500' });
+			});
+		});
+
 		describe('getLidarRun', () => {
 			it('fetches one run by id', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({

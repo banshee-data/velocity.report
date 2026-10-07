@@ -902,6 +902,36 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	return data.tracks || [];
 }
 
+/** Where a run's recording, exported by the server as a scene, is served. */
+export function runScenePaths(runId: string): { manifestURL: string; backgroundURL: string } {
+	const base = `${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/scene`;
+	return {
+		manifestURL: `${base}/manifest.json`,
+		backgroundURL: `${base}/background/background.json.gz`
+	};
+}
+
+/**
+ * getRunScene asks the server for a run's recording as a scene, exporting it
+ * on first request. A run with no usable recording answers 404, and the reason
+ * comes back so the page can say what it is showing instead.
+ */
+export async function getRunScene(
+	runId: string
+): Promise<
+	| { available: true; manifestURL: string; backgroundURL: string }
+	| { available: false; reason: string }
+> {
+	const paths = runScenePaths(runId);
+	const res = await fetch(paths.manifestURL);
+	if (res.ok) return { available: true, ...paths };
+	const body = await res.json().catch(() => ({}));
+	return {
+		available: false,
+		reason: typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
+	};
+}
+
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
 	if (!res.ok) throw new Error(`Could not load labelling progress: ${res.status}`);
