@@ -50,7 +50,11 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit({
 			preprocess: vitePreprocess(),
-			adapter: adapter(),
+			// strict: false because /scene/[id] and /site/[id] are not
+			// prerendered (their ids are database rows) and there is no adapter
+			// fallback page. They are still reachable: the Go server answers
+			// any unknown /app path with index.html, the app shell.
+			adapter: adapter({ strict: false }),
 			// $scene is deliberately aliased in resolve.alias below rather
 			// than here. A kit alias also lands in the generated tsconfig
 			// paths, which would make svelte-check follow checkJs into
@@ -62,9 +66,11 @@ export default defineConfig({
 				base: '/app',
 				relative: false
 			},
+			// handleUnseenRoutes keeps kit's default, 'fail': a route left
+			// prerenderable that the crawler cannot reach should be marked
+			// `prerender = false`, as the two dynamic routes are.
 			prerender: {
-				handleMissingId: 'warn',
-				handleUnseenRoutes: 'warn'
+				handleMissingId: 'warn'
 			},
 			// One JS bundle and one CSS file for the whole app, which is what
 			// the old rollupOptions.output.manualChunks asked for (kit 3 sets
