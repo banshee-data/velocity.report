@@ -13,7 +13,7 @@ import type {
 	HeadwayVersionSummary,
 	InteractionVersion,
 	SceneHeadway
-} from '$lib/api';
+} from '#lib/api.js';
 
 /** Registry ids the page reads (docs/platform/architecture/metrics-registry.md). */
 export const HEADWAY_METRICS = {

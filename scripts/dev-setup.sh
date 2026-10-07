@@ -314,9 +314,9 @@ setup_web() {
     if ! command_exists node; then
         print_error "Node.js is not installed"
         echo ""
-        echo "Please install Node.js 18 or later:"
+        echo "Please install Node.js 22.17 or later:"
         if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
-            echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
+            echo "  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
             echo "  sudo apt-get install -y nodejs"
         elif [[ "$OS" == "macos" ]]; then
             echo "  brew install node"

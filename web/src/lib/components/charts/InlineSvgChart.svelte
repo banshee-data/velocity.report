@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import {
 		buildInlineSvgChartBlobUrl,
 		buildInlineSvgChartRequestUrl,
@@ -8,7 +8,7 @@
 		isInlineSvgContentType,
 		resolveInlineSvgChartDarkColours,
 		transformInlineSvgChartSvg
-	} from '$lib/components/charts/inlineSvgChart';
+	} from '#lib/components/charts/inlineSvgChart.js';
 	import { onMount } from 'svelte';
 	import { getSettings } from 'svelte-ux';
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '$lib/dateUtils';
-	import { buildReportRequest, resolveDashboardReportFilters } from '$lib/reportRequests';
+	import { browser } from '$app/env';
+	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '#lib/dateUtils.js';
+	import { buildReportRequest, resolveDashboardReportFilters } from '#lib/reportRequests.js';
 	import {
 		isDateRangeStale,
 		parseStoredReportSettings,
 		REPORT_SETTINGS_KEY,
 		type StoredReportSettings
-	} from '$lib/reportSettings';
+	} from '#lib/reportSettings.js';
 	import { PeriodType } from '@layerstack/utils';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';

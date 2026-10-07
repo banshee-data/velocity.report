@@ -2,14 +2,14 @@
 	// A scene's following distribution: the Go-served histogram SVG
 	// (/api/charts/histogram?kind=headway, D-11/D-17) and the summary tables
 	// from GET /api/scenes/<id>/headway. Every figure is the server's; the
-	// helpers in $lib/headway only format it.
+	// helpers in #lib/headway only format it.
 	import {
 		buildHeadwayChartPath,
 		getSceneHeadway,
 		type HeadwaySelection,
 		type SceneHeadway
-	} from '$lib/api';
-	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
+	} from '#lib/api.js';
+	import InlineSvgChart from '#lib/components/charts/InlineSvgChart.svelte';
 	import {
 		HEADWAY_METRICS,
 		headwayAvailabilityMessage,
@@ -21,7 +21,7 @@
 		headwaySummaryRows,
 		versionKey,
 		versionLabel
-	} from '$lib/headway';
+	} from '#lib/headway.js';
 
 	export let sceneId: string;
 

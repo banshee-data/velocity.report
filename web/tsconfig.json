@@ -1,19 +1,14 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": "$app/tsconfig",
 	"compilerOptions": {
-		"allowJs": true,
-		"checkJs": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": true,
-		"moduleResolution": "bundler"
-	}
-	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
-	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-	//
-	// To make changes to top-level options such as include and exclude, we recommend extending
-	// the generated config; see https://svelte.dev/docs/kit/configuration#typescript
+		"strict": true
+	},
+	// $app/tsconfig (generated into node_modules by `svelte-kit sync`) supplies
+	// the module settings, checkJs and the $app types, but no include list.
+	// SvelteKit suggests ["src", "test", "*"]; "*" would put the CommonJS and
+	// Node-only root files (jest.config.js, jest.esbuild-transformer.cjs, …)
+	// under checkJs, so only the Vite config is named. There is no test/ here.
+	"include": ["src", "vite.config.ts"],
+	"exclude": ["src/service-worker"]
 }

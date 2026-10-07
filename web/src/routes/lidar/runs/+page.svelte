@@ -12,8 +12,13 @@
 		getLidarReplayCases,
 		getLidarRuns,
 		getRunTracks
-	} from '$lib/api';
-	import type { AnalysisRun, LabellingProgress, LidarReplayCase, RunTrack } from '$lib/types/lidar';
+	} from '#lib/api.js';
+	import type {
+		AnalysisRun,
+		LabellingProgress,
+		LidarReplayCase,
+		RunTrack
+	} from '#lib/types/lidar.js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
