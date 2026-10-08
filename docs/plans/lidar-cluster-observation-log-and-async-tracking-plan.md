@@ -4,7 +4,7 @@ This plan evaluates separating durable LiDAR observations from revisable track e
 out what that would buy in accuracy, what evidence must survive the split, and the consequences for
 storage, queues, battery operation, and processing elsewhere.
 
-- **Status:** Proposal and sizing study; no runtime changes implemented
+- **Status:** Proposal and sizing study with a cost evaluation (Section 10); no runtime changes implemented
 - **Layers:** L1–L4 capture and perception; L5–L8 estimation and analytics; L9–L10 delivery
 - **Canonical:** [LiDAR architecture](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Related:** [Bodies in motion](lidar-bodies-in-motion-plan.md),
@@ -12,7 +12,10 @@ storage, queues, battery operation, and processing elsewhere.
   [performance measurement](lidar-performance-measurement-harness-plan.md),
   [VRLOG recording contract review](lidar-vrlog-recording-contract-review.md)
 - **Evidence baseline:** Repository commit `9b2014b90`; source inspection, existing benchmark
-  documentation, and manufacturer specifications
+  documentation, and manufacturer specifications. Section 10 adds the committed kirk0 Mac
+  baseline, the [October campaign](../lidar/operations/near-edge-campaign-2026-10.md) timings,
+  and the
+  [facet maths review](../../data/maths/proposals/20261008-facet-registration-maths-review.md)
 
 ## Recommendation
 
@@ -35,6 +38,15 @@ measurements of capture energy and worst-scene processing cost.
 The project gains a repeatable boundary between **what was observed** and **what we currently think
 moved through it**. It also takes on a durable queue, result revisions, and explicit completeness
 semantics. This is a substantial architecture change, not merely another goroutine.
+
+**On cost.** Section 10 evaluates the plan as a cost measure against the committed Mac baseline
+and the October campaign's tracker timings. Decoupling moves the frame deadline and turns an
+overrun into lag; it does not reduce the device's work, and the serial path's largest cost is
+clustering, which sits before the boundary. The near-edge arm's measured 15 to 35 times cost is
+consistent with an algorithmic hot spot that can be removed in place. The order is therefore:
+measure the Pi cells and profile the arms, reduce the arm, then the smallest in-process slice,
+then lagged execution for the heavy estimators, and remote placement only where a deployment
+mode needs it.
 
 ### Integration on the state-estimation branch
 
@@ -764,19 +776,125 @@ qualified site, but should never be required for capture continuity.
   retention to remote copies too. These observations remain spatial evidence about a place;
   offloading changes where the project's locally controlled data resides.
 
-## 10. Evaluation and delivery plan
+## 10. Cost: what decoupling mitigates, measured against the tracker arms
+
+This section evaluates the plan as a cost measure. "Cost" is five things that move
+independently: the serial frame deadline on the capture device, total CPU-seconds and energy,
+latency to a usable result, memory and storage, and the engineering and evaluation cost of the
+machinery itself. Asynchronous execution helps with the first and third, remote placement with
+the second, and neither helps with the costs that the measurements below say are largest today.
+
+### 10.1 Where the frame time goes now
+
+| Measured input                                           | Value                                                                                                                      | Source                                                                                 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| kirk0 `full` on the Mac, per frame                       | mean 8.1 ms, p50 4.0, p95 34.3, p99 77.9, worst 95.7 ms; budget 98 ms                                                      | Committed baseline `internal/lidar/perf/baseline/baseline-kirk0-full-mac.json`         |
+| kirk0 `l3-only` on the Mac                               | mean 3.4 ms, p99 3.7 ms                                                                                                    | Same baseline set                                                                      |
+| Stage totals over 832 frames                             | clustering 4.65 ms per frame on average; tracking 0.017 ms; classification 0.007 ms                                        | Same baseline; `detect` is 0.3 percent cheaper than `full`                             |
+| Production tracker update, p99, three busy sites, M1 Pro | 0.17 to 0.38 ms                                                                                                            | [October campaign](../lidar/operations/near-edge-campaign-2026-10.md), balanced timing |
+| Near-edge tracked arm (A2) update, p99, same sites       | 3.5 to 8.0 ms, 15 to 35 times B0                                                                                           | Same                                                                                   |
+| Allocation rate on the Mac                               | 1.9 GB/s, 742 collections, 50 ms of pause over 9 s                                                                         | Same baseline                                                                          |
+| Pi 4 against the Mac                                     | "roughly an order of magnitude" slower; the Pi cell is not yet measured                                                    | [Performance reference](../lidar/operations/performance-regression-testing.md)         |
+| Overrun policy today                                     | Frames pass through an 8-deep channel to one callback goroutine; a full channel drops frames live, blocks in analysis mode | `internal/lidar/l2frames/frame_builder.go`; `pipeline/tracking_pipeline.go`            |
+| Socket buffer                                            | 4 MiB default holds about 1.9 s of live packets at 1,800 packets/s                                                         | `network-configuration.md`; packet size 1,262 B                                        |
+
+Three things follow. The serial callback's tail is clustering: L3 is a flat 3.4 ms and L5 is
+negligible under the production tracker, so the p95 of 34 ms and the worst frame of 96 ms are L4
+on busy frames. Overrun today costs evidence, not latency: the eighth queued frame is dropped, and
+every frame behind a stall is lost. And if the perf reference's order-of-magnitude factor holds,
+the Pi's L3 plus L4 p95 is about 340 ms before any tracker work, which the 98 ms budget does not
+admit; either the factor is pessimistic for this workload or the device already drops frames on
+busy scenes. That is the first measurement to take, and no change to L5 scheduling can supply it.
+
+### 10.2 Four levers, and which cost each one moves
+
+| Lever                               | What it changes                                                                                                                                                                                                                                                                                                                      | What it costs                                                                                                                                                                                                                                                       | Which arms it serves                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| A. In-process decoupling            | L5 and later run on a second goroutine from the committed L4 frontier. On a four-core device the deadline becomes the larger of L3 plus L4 and L5 instead of their sum; an overrun becomes lag rather than dropped frames; per-frame persistence leaves the capture path                                                             | A bounded queue (4 to 11 MiB for twenty frames of members at 72 B a point); provisional and final publication for live consumers; capture-time batching so replay stays byte-equal                                                                                  | A2 and any estimator under about 100 ms a frame on the device                          |
+| B. Algorithmic reduction of the arm | Removes work rather than moving it. The A2 cost is consistent with the extent span search: two faces, 21 axis angles, each a projection and two selections over every member, per track per frame. At 300 to 800 members and 20 to 30 tracks that model gives 3 to 13 ms a frame on the Mac, which brackets the measured 3.5 to 8 ms | A profiling build to confirm, then a few days: search 5 angles then refine, use the 256-point sample T0 showed gives identical fixes, search only while an extent is unconverged, pool the projection buffers. The reduced model is about 0.2 ms a frame on the Mac | A2 first; the same discipline applies to C and D's extractors                          |
+| C. Lagged execution                 | The product, the following report, is consumed hours after capture. A heavy estimator can run from the durable frontier at low priority with seconds or minutes of lag, while the live view consumes the cheap tracker's provisional tracks                                                                                          | Two estimators and two identities on one capture, which the annotation ledger already allows for; a declared lag; a service rate of at least one times real time on the device or the backlog never drains                                                          | B and D on a device that can sustain them on average but not per frame                 |
+| D. Remote placement                 | Removes the layers after the boundary from the device entirely                                                                                                                                                                                                                                                                       | 1.03 Mbit/s busy summaries or 13.8 Mbit/s busy clusters with members (Section 9); a second machine; the lease, checkpoint and ownership machinery of the capture-package section above; latency and a link that must stay up or spool                               | B and D where the device cannot reach one times real time; fleet and offline workflows |
+
+Lever B is not an asynchronous measure, and it is the one that answers the campaign's cost breach.
+If the span model is right, A2 reduced is within a few milliseconds on the Pi and needs no
+scheduling change. Lever A is then insurance against the next heavier arm rather than the fix for
+this one. Levers C and D are what make arms B and D deployable at all: a body-local registration
+over a map of a thousand points with 500 members and three iterations a frame is roughly 1 ms a
+track on the Mac, 18 ms a frame at twenty tracks, and about 180 ms a frame on the Pi by the same
+factor. That exceeds the deadline under any scheduling, so on the Pi those arms are lagged or
+remote by construction. The estimates are models, labelled as such; the profiling build in
+Section 10.5 replaces them.
+
+### 10.3 What decoupling does not mitigate
+
+- **The clustering tail.** L4 is the serial path's largest and most variable cost and sits before
+  the boundary. Its levers are different: parallel DBSCAN, a cheaper clusterer on busy frames, or
+  the "foreground before L4" profile of Section 4, which moves L4 to the worker at about 1.6 MB/s
+  of serialised foreground at the 8,000-point cap.
+- **Total CPU-seconds and energy on the device.** A local worker does the same work later. Only
+  remote placement removes it, and Section 8 shows the transfer can cost more energy than the
+  work it saves.
+- **Allocation.** The pipeline allocates 1.9 GB/s on the Mac. On the Pi that is a cost in itself
+  and a cause of pauses; a queue adds to it. Pooling the per-frame buffers is a separate task.
+- **Evaluation cost.** The campaign's standard is byte-equal repeats. A worker that batches by
+  wall clock makes its output depend on machine speed, the failure the June 2026 baseline taught.
+  Batches must be cut by capture time and frame count, never by elapsed time, and the same rule
+  applies to a remote worker's input ranges.
+- **Latency for live consumers.** The visualiser and the live track API see the worker's lag.
+  Declare it, show it, and keep a cheap causal tracker for the live view where one is wanted.
+
+### 10.4 Scenario table
+
+Per-frame cost on the Pi 4 by the order-of-magnitude factor, against the 98 ms budget. These are
+scaling estimates for deciding what to measure first, not measurements.
+
+| Estimator and mode                          | Device cost per frame                    | Fits the deadline?                                     |
+| ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| B0, synchronous                             | 2 to 4 ms of tracker on top of L3 and L4 | Yes, if L3 plus L4 does                                |
+| A2 as measured, synchronous                 | 35 to 80 ms added                        | No when aligned with an L4 tail; marginal otherwise    |
+| A2 reduced by lever B, synchronous          | about 2 to 5 ms added                    | Yes, if L3 plus L4 does                                |
+| A2 as measured, in-process worker (lever A) | 35 to 80 ms on a second core             | Yes: under 100 ms a frame on its own core              |
+| Arm B body-map registration, synchronous    | 46 to 180 ms added                       | No                                                     |
+| Arm B, in-process worker                    | 46 to 180 ms on a second core            | No at the upper estimate; the backlog grows            |
+| Arm B, lagged local at low priority         | Same work, spread                        | Only if the average is at or under one times real time |
+| Arm B, remote over LAN                      | Serialisation only, about 14 Mbit/s busy | Yes on the device; the worker host has its own budget  |
+
+The [facet plan's compute profile](lidar-facet-registration-experiment-plan.md#11-compute-profile-real-time-hardware-and-offline-throughput)
+extends this table to the full facet arm by scene load and host class, and gives the offline
+factor on the Mac.
+
+### 10.5 Order of work for cost
+
+1. **Measure before moving.** Capture the Pi cells of the perf matrix with the
+   [Pi benchmark runbook](../lidar/operations/pi-benchmark-runbook.md), and run the campaign's
+   first follow-up, a stage and CPU profile of B0, shadow and A2 on one build. Both are days,
+   not weeks, and they decide whether the problem is L4, L5, or the factor.
+2. **Reduce the arm.** Apply lever B to the near-edge measurement and re-time it. If the span
+   model holds, the campaign's cost breach closes here.
+3. **The in-process slice.** One worker goroutine reading the durable L4 frontier that phase 2
+   already delivers on the desktop, batching by capture time, publishing provisional states with
+   a lag field, and taking per-frame persistence with it. No lease, no remote, no ledger. This is
+   the smallest change that turns an overrun from lost frames into lag.
+4. **Lagged mode for heavy estimators.** The report consumes a final run; the live view consumes
+   the cheap tracker. Arms B and D run here or nowhere on the Pi.
+5. **Remote placement and the rest of this plan** when a deployment mode needs it: a device that
+   cannot sustain one times real time, a backpack capture, or a fleet. They are deployment
+   decisions, not the cost fix.
+
+## 11. Evaluation and delivery plan
 
 Deliver a measurable boundary before committing to the most elaborate estimator. Each phase should
 produce a reviewable artefact and a decision about the next expense.
 
-| Phase                       | Work and deliverable                                                                                                                                                                                   | Exit decision                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| 1. Measure the boundary     | Representative quiet, ordinary, congested, turning, occluded, poor-weather, and disturbed-background captures; distributions of points/clusters/tracks; per-stage CPU, heap, disk bytes, battery watts | Choose evidence profiles and a measured capacity envelope; identify field hardware able to sustain L1–L4         |
-| 2. Replayable observations  | Version VRLOG for all L4 observations and rich evidence; existing tracker consumes the recorded boundary                                                                                               | Equivalent observations and baseline results within declared tolerances; restart, gaps, and hashes verified      |
-| 3. Smoothing experiment     | Compare causal tracking, fixed-association smoothing, and bounded reassociation at 0.5/1/2 seconds; test motion models separately                                                                      | Retain the smallest horizon and model that improve accuracy without unacceptable identity or latency regressions |
-| 4. Results and annotations  | Provisional intervals, finality watermark, lineage, one annotation ledger and API projections, corrected analytics, replay composition                                                                 | No mixed-version trails, lost labels, duplicate counts, or reports over unprocessed data                         |
-| 5. Field and worker handoff | One executor contract on both hosts; leases, checkpoints, LAN and cellular handoff, RAM/SSD/HDD modes, full battery sessions                                                                           | Qualify hardware; publish measured queue, energy, loss, handoff, and recovery envelopes                          |
-| 6. Retention decision       | Quantify failures recoverable only from PCAP; measure codec compression and total bytes including results                                                                                              | Decide whether and where rich observations can replace routine raw retention                                     |
+| Phase                       | Work and deliverable                                                                                                                                                                                                                                                         | Exit decision                                                                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Measure the boundary     | Representative quiet, ordinary, congested, turning, occluded, poor-weather, and disturbed-background captures; distributions of points/clusters/tracks; per-stage CPU, heap, disk bytes, battery watts; the Pi perf cells and the B0/shadow/A2 stage profile of Section 10.5 | Choose evidence profiles and a measured capacity envelope; identify field hardware able to sustain L1–L4; say whether L4 or L5 binds on the Pi |
+| 2. Replayable observations  | Version VRLOG for all L4 observations and rich evidence; existing tracker consumes the recorded boundary                                                                                                                                                                     | Equivalent observations and baseline results within declared tolerances; restart, gaps, and hashes verified                                    |
+| 2a. In-process worker slice | One L5+ worker goroutine from the durable frontier, capture-time batches, provisional states with a lag field, persistence off the capture path; no remote, lease or ledger                                                                                                  | Byte-equal replay against the serial path on the corpus; overrun produces lag and no dropped frames; lag shown                                 |
+| 3. Smoothing experiment     | Compare causal tracking, fixed-association smoothing, and bounded reassociation at 0.5/1/2 seconds; test motion models separately                                                                                                                                            | Retain the smallest horizon and model that improve accuracy without unacceptable identity or latency regressions                               |
+| 4. Results and annotations  | Provisional intervals, finality watermark, lineage, one annotation ledger and API projections, corrected analytics, replay composition                                                                                                                                       | No mixed-version trails, lost labels, duplicate counts, or reports over unprocessed data                                                       |
+| 5. Field and worker handoff | One executor contract on both hosts; leases, checkpoints, LAN and cellular handoff, RAM/SSD/HDD modes, full battery sessions                                                                                                                                                 | Qualify hardware; publish measured queue, energy, loss, handoff, and recovery envelopes                                                        |
+| 6. Retention decision       | Quantify failures recoverable only from PCAP; measure codec compression and total bytes including results                                                                                                                                                                    | Decide whether and where rich observations can replace routine raw retention                                                                   |
 
 Accuracy evaluation needs independently aligned reference trajectories or speed measurements; the
 existing track output and a visually smooth trail are not ground truth. Use separate tuning and
