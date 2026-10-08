@@ -51,7 +51,9 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 	if source == "" {
 		source = cfg.Source
 	}
-	statsSiteID := reportStatsSiteID(source, cfg)
+	// Same site join as the primary period, so a comparison never pairs
+	// corrected figures with uncorrected ones.
+	statsSiteID := cfg.SiteID
 
 	summaryResult, err := database.RadarObjectRollupRange(
 		cs.Unix(), ce.Unix(), 0, minSpeedMPS,

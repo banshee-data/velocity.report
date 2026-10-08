@@ -80,18 +80,17 @@ type loadedData struct {
 	totalCount    int
 }
 
-// The legacy Python report used raw transit speeds, while object rollups were
-// site-corrected. Keep PDF metrics on that baseline.
-func reportStatsSiteID(source string, cfg Config) int {
-	if source == "radar_data_transits" {
-		return 0
-	}
-	return cfg.SiteID
-}
-
+// loadData fetches every statistic the report prints. All of them go through
+// the same site join: given a site ID, RadarObjectRollupRange joins
+// site_config_periods and divides each speed by cos(angle) for whichever period
+// covers it, for every source including radar_data_transits. Between PR #481
+// and 2026-10-08 the transit source bypassed that join (site ID 0) while the
+// Survey Parameters section still printed the cosine rows, so the default
+// report claimed a correction it had not applied. The claim now follows the
+// same predicate as the query: see cosineCorrectionApplied.
 func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error) {
 	cfg := plan.cfg
-	statsSiteID := reportStatsSiteID(cfg.Source, cfg)
+	statsSiteID := cfg.SiteID
 
 	summaryResult, err := database.RadarObjectRollupRange(
 		plan.startUnix, plan.endUnix, 0, plan.minSpeedMPS,
