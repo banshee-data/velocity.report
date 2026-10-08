@@ -1,6 +1,6 @@
 # S2 archive site index
 
-Every site the sensor was parked at on `/Volumes/lidar/lidar/s2`, across the
+Every site the sensor was parked at on `/Volumes/lidar/lidar/pcaps/s2`, across the
 three recording days, with the captures each one spans and an approximate
 position.
 
@@ -107,11 +107,11 @@ The index is built from the analysis under `<archive root>/s2/`, which is mounte
 differently on each machine. Pass it with `--archive` (default `$LIDAR_PCAP_DIR`).
 A missing analysis directory stops the script without writing. To rebuild the
 index, the map and the pages in one go, use `make render-scene-map-mac`
-(`/Volumes/lidar/lidar`) or `make render-scene-map-linux` (`/mnt/captures/lidar`);
+(`/Volumes/lidar/lidar/pcaps`) or `make render-scene-map-linux` (`/mnt/captures/lidar`);
 override either path with `SCENE_ARCHIVE_MAC=` / `SCENE_ARCHIVE_LINUX=`.
 
 ```bash
-python3 tools/s2-archive/build-site-index.py --archive /Volumes/lidar/lidar   # after editing map-marks.json
+python3 tools/s2-archive/build-site-index.py --archive /Volumes/lidar/lidar/pcaps   # after editing map-marks.json
 python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 ```
 
@@ -127,8 +127,8 @@ Each sidecar includes the approximate WGS84 latitude and longitude and the
 
 ```bash
 python3 tools/s2-archive/export-static-pcaps.py \
-  --archive /Volumes/lidar/lidar/s2 \
-  --output /Volumes/lidar/lidar/s2/static-huggingface
+  --archive /Volumes/lidar/lidar/pcaps/s2 \
+  --output /Volumes/lidar/lidar/pcaps/s2/static-huggingface
 ```
 
 Use `--dry-run` to review paths, or repeat `--site van-ness-sacramento` for one
@@ -141,7 +141,7 @@ metadata-only backfill:
 
 ```bash
 python3 tools/s2-archive/export-static-pcaps.py \
-  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --output /Volumes/lidar/lidar/pcaps/s2/static-huggingface \
   --backfill-sidecars
 ```
 
@@ -152,7 +152,7 @@ publication layout: the latter is intentionally shallow and documented in
 
 ```bash
 node tools/s2-archive/organise-static-pcaps.mjs \
-  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --output /Volumes/lidar/lidar/pcaps/s2/static-huggingface \
   --apply
 ```
 
@@ -162,7 +162,7 @@ entire `assets/` tree, including the manifest, part metadata and frame chunks:
 
 ```bash
 node tools/s2-archive/organise-static-pcaps.mjs \
-  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --output /Volumes/lidar/lidar/pcaps/s2/static-huggingface \
   --copy-vrlogs \
   --apply
 ```
@@ -172,7 +172,7 @@ exports into the shallow dataset root and writes its `manifest.json`:
 
 ```bash
 node tools/s2-archive/stage-huggingface-dataset.mjs \
-  --output /Volumes/lidar/lidar/hf \
+  --output /Volumes/lidar/lidar/pcaps/sf-street-speeds \
   --apply
 ```
 
@@ -193,7 +193,7 @@ The server must be running, with its replay directory pointed at the volume
 that holds the corpus:
 
 ```bash
-make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar/pcaps
 ```
 
 Then, in another shell:
@@ -238,7 +238,7 @@ the batch discover it one refusal at a time.
 
 ## Rebuild inputs and publication state
 
-The scripts read the local archive at `/Volumes/lidar/lidar/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
+The scripts read the local archive at `/Volumes/lidar/lidar/pcaps/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
 
 `build-site-index.py` reads both analysis trees, checked-in reanalyses, the field marks, the operator joins, and any locally available scene headers. It writes only `site-index.json`. `deployments.py` prints a filename-based grouping; its eleven-minute grouping threshold is not the production replay continuity policy. The publishing launcher remains with PR #569 because it requires the new multi-file replay API.
 

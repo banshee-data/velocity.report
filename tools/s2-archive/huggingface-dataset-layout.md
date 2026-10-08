@@ -1,7 +1,7 @@
 # San Francisco street-speed dataset layout
 
 This is the release layout for the Hugging Face dataset rooted at
-`/Volumes/lidar/lidar/hf`. It keeps evidence, products and reporting separate
+`/Volumes/lidar/lidar/pcaps/sf-street-speeds`. It keeps evidence, products and reporting separate
 without making readers descend through a calendar, S2 tree or one directory per
 junction.
 
@@ -89,7 +89,7 @@ fields.
 ## Existing-artifact mapping
 
 The current static release at
-`/Volumes/lidar/lidar/s2/static-huggingface` contains 24 extracted PCAPNGs and
+`/Volumes/lidar/lidar/pcaps/s2/static-huggingface` contains 24 extracted PCAPNGs and
 their web-scene exports. It maps as follows:
 
 | Existing artifact                     | Dataset destination                      | Notes                                                                                                                                                            |
@@ -126,7 +126,7 @@ the dataset-card `README.md`. Hugging Face supports mappings from YAML
 
 ## Migration safety
 
-`/Volumes/lidar/lidar/hf` is the target root. Do not overwrite an existing
+`/Volumes/lidar/lidar/pcaps/sf-street-speeds` is the target root. Do not overwrite an existing
 target artifact. First inventory the current release, then copy or move only
 after the 24 planned stems, paths and manifest entries have been reviewed.
 The present source tree is about 68 GiB, so duplicating it for a staging copy is
