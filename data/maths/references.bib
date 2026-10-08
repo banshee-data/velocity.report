@@ -713,6 +713,258 @@
                {LiDAR}; informs geometry-coherent tracking}
 }
 
+% -----------------------------------------------------------------------------
+% Facet registration review (data/maths/proposals/20261008-facet-registration-maths-review.md)
+% -----------------------------------------------------------------------------
+
+@article{Petrovskaya2009,
+  author    = {Petrovskaya, Anna and Thrun, Sebastian},
+  title     = {Model Based Vehicle Detection and Tracking for Autonomous Urban
+               Driving},
+  journal   = {Autonomous Robots},
+  volume    = {26},
+  number    = {2--3},
+  pages     = {123--139},
+  year      = {2009},
+  note      = {One Bayes filter per vehicle over pose and box geometry; anchor
+               points couple shape to motion; virtual-scan ray likelihood with
+               free space}
+}
+
+@inproceedings{Granstrom2011,
+  author    = {Granstr{\"o}m, Karl and Lundquist, Christian and Orguner, Umut},
+  title     = {Tracking Rectangular and Elliptical Extended Targets Using Laser
+               Measurements},
+  booktitle = {Proceedings of the 14th International Conference on Information
+               Fusion ({FUSION} 2011)},
+  year      = {2011},
+  note      = {Rectangle measurement model for laser scanners: predicted
+               measurements along the visible sides with innovation covariance;
+               the near-edge model is a special case}
+}
+
+@article{Wyffels2015,
+  author    = {Wyffels, Kevin and Campbell, Mark E.},
+  title     = {Negative Information for Occlusion Reasoning in Dynamic Extended
+               Multiobject Tracking},
+  journal   = {{IEEE} Transactions on Robotics},
+  volume    = {31},
+  number    = {2},
+  pages     = {425--442},
+  year      = {2015},
+  doi       = {10.1109/TRO.2015.2409413},
+  note      = {The absence of detections updates occluded extended objects,
+               existence, and association}
+}
+
+@inproceedings{Held2014,
+  author    = {Held, David and Levinson, Jesse and Thrun, Sebastian and
+               Savarese, Silvio},
+  title     = {Combining {3D} Shape, Colour, and Motion for Robust Anytime
+               Tracking},
+  booktitle = {Proceedings of Robotics: Science and Systems ({RSS} 2014)},
+  year      = {2014},
+  doi       = {10.15607/RSS.2014.X.014},
+  note      = {Annealed dynamic histograms; a measurement model accounting for
+               sensor resolution; accuracy degrades gracefully to few points}
+}
+
+@inproceedings{Kraemer2018,
+  author    = {Kraemer, Stefan and Stiller, Christoph and Bouzouraa,
+               Mohamed Essayed},
+  title     = {{LiDAR}-Based Object Tracking and Shape Estimation Using Polylines
+               and Free-Space Information},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2018)},
+  pages     = {4515--4522},
+  year      = {2018},
+  note      = {Polyline shape estimation with explicit free-space evidence}
+}
+
+@inproceedings{Pang2021,
+  author    = {Pang, Ziqi and Li, Zhichao and Wang, Naiyan},
+  title     = {Model-free Vehicle Tracking and State Estimation in Point Cloud
+               Sequences},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2021)},
+  year      = {2021},
+  note      = {SOTracker: registration, accumulated body shape, and motion
+               prior from a supplied initial box; arXiv 2103.06028}
+}
+
+@inproceedings{Segal2009,
+  author    = {Segal, Aleksandr and Haehnel, Dirk and Thrun, Sebastian},
+  title     = {Generalized-{ICP}},
+  booktitle = {Proceedings of Robotics: Science and Systems ({RSS} 2009)},
+  year      = {2009},
+  doi       = {10.15607/RSS.2009.V.021},
+  note      = {Plane-to-plane registration with per-point covariance from local
+               normals}
+}
+
+@inproceedings{Zhang2014,
+  author    = {Zhang, Ji and Singh, Sanjiv},
+  title     = {{LOAM}: Lidar Odometry and Mapping in Real-time},
+  booktitle = {Proceedings of Robotics: Science and Systems ({RSS} 2014)},
+  year      = {2014},
+  doi       = {10.15607/RSS.2014.X.007},
+  note      = {Edge and planar features by curvature within a scan line;
+               point-to-line and point-to-plane residuals}
+}
+
+@inproceedings{Censi2007,
+  author    = {Censi, Andrea},
+  title     = {An Accurate Closed-Form Estimate of {ICP}'s Covariance},
+  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
+               and Automation ({ICRA} 2007)},
+  pages     = {3167--3172},
+  year      = {2007},
+  note      = {Closed-form ICP covariance; known to be optimistic in 3D}
+}
+
+@article{Brossard2020,
+  author    = {Brossard, Martin and Bonnabel, Silv{\`e}re and Barrau, Axel},
+  title     = {A New Approach to {3D} {ICP} Covariance Estimation},
+  journal   = {{IEEE} Robotics and Automation Letters},
+  year      = {2020},
+  doi       = {10.1109/LRA.2020.2965391},
+  note      = {Unscented propagation of initialisation uncertainty; bias and
+               under-constrained directions dominate ICP error}
+}
+
+@inproceedings{Zhang2016,
+  author    = {Zhang, Ji and Kaess, Michael and Singh, Sanjiv},
+  title     = {On Degeneracy of Optimization-based State Estimation Problems},
+  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
+               and Automation ({ICRA} 2016)},
+  pages     = {809--816},
+  year      = {2016},
+  note      = {Degeneracy detection and partial solving along well-conditioned
+               directions}
+}
+
+@article{Tuna2024,
+  author    = {Tuna, Turcan and Nubert, Julian and Nava, Yoshua and Khattak,
+               Shehryar and Hutter, Marco},
+  title     = {{X-ICP}: Localizability-Aware {LiDAR} Registration for Robust
+               Localization in Extreme Environments},
+  journal   = {{IEEE} Transactions on Robotics},
+  year      = {2024},
+  note      = {Per-iteration localisability categories and constrained
+               optimisation along weak directions; arXiv 2211.16335}
+}
+
+@inproceedings{Bonnabel2016,
+  author    = {Bonnabel, Silv{\`e}re and Barczyk, Martin and Goulette,
+               Fran{\c{c}}ois},
+  title     = {On the Covariance of {ICP}-Based Scan-Matching Techniques},
+  booktitle = {Proceedings of the American Control Conference ({ACC} 2016)},
+  year      = {2016},
+  note      = {Point-to-point rematching manufactures apparent information;
+               point-to-plane covariance under stated assumptions;
+               arXiv 1410.7632}
+}
+
+@misc{Hatleskog2024,
+  author    = {Hatleskog, Johan and Alexis, Kostas},
+  title     = {Probabilistic Degeneracy Detection for Point-to-Plane Error
+               Minimization},
+  year      = {2024},
+  howpublished = {arXiv 2410.10784},
+  note      = {Noise-aware degeneracy tests for point-to-plane registration}
+}
+
+@article{Granstrom2017,
+  author    = {Granstr{\"o}m, Karl and Baum, Marcus and Reuter, Stephan},
+  title     = {Extended Object Tracking: Introduction, Overview and
+               Applications},
+  journal   = {Journal of Advances in Information Fusion},
+  volume    = {12},
+  number    = {2},
+  pages     = {139--174},
+  year      = {2017},
+  note      = {Survey: random matrices, star-convex shapes, multi-object
+               filters, lidar applications; arXiv 1604.00970}
+}
+
+@article{Wahlstrom2015,
+  author    = {Wahlstr{\"o}m, Niklas and {\"O}zkan, Emre},
+  title     = {Extended Target Tracking Using {G}aussian Processes},
+  journal   = {{IEEE} Transactions on Signal Processing},
+  volume    = {63},
+  number    = {16},
+  pages     = {4165--4178},
+  year      = {2015},
+  doi       = {10.1109/TSP.2015.2424194},
+  note      = {Gaussian-process shape with confidence intervals, estimated
+               jointly with kinematics}
+}
+
+@article{Kumru2021,
+  author    = {Kumru, Murat and {\"O}zkan, Emre},
+  title     = {Three-Dimensional Extended Object Tracking and Shape Learning
+               Using {G}aussian Processes},
+  journal   = {{IEEE} Transactions on Aerospace and Electronic Systems},
+  volume    = {57},
+  number    = {5},
+  pages     = {2795--2814},
+  year      = {2021},
+  doi       = {10.1109/TAES.2021.3067668},
+  note      = {3D radial-function shape with a Gaussian-process prior;
+               arXiv 1909.11358}
+}
+
+@article{Xia2021,
+  author    = {Xia, Yuxuan and Wang, Pu and Berntorp, Karl and Svensson,
+               Lennart and Granstr{\"o}m, Karl and Mansour, Hassan and
+               Boufounos, Petros and Orlik, Philip V.},
+  title     = {Learning-Based Extended Object Tracking Using Hierarchical
+               Truncation Measurement Model With Automotive Radar},
+  journal   = {{IEEE} Journal of Selected Topics in Signal Processing},
+  volume    = {15},
+  number    = {4},
+  pages     = {1013--1029},
+  year      = {2021},
+  doi       = {10.1109/JSTSP.2021.3058062},
+  note      = {Hierarchical truncated Gaussian measurement model with learned
+               truncation bounds}
+}
+
+@article{Scheel2019,
+  author    = {Scheel, Alexander and Dietmayer, Klaus},
+  title     = {Tracking Multiple Vehicles Using a Variational Radar Model},
+  journal   = {{IEEE} Transactions on Intelligent Transportation Systems},
+  volume    = {20},
+  number    = {10},
+  pages     = {3721--3736},
+  year      = {2019},
+  doi       = {10.1109/TITS.2018.2879041},
+  note      = {Variational Gaussian-mixture measurement model learned from
+               data inside a random-finite-set tracker}
+}
+
+@inproceedings{Rieken2016,
+  author    = {Rieken, Jens and Maurer, Markus},
+  title     = {Sensor Scan Timing Compensation in Environment Models for
+               Automated Road Vehicles},
+  booktitle = {Proceedings of the {IEEE} International Conference on Intelligent
+               Transportation Systems ({ITSC} 2016)},
+  pages     = {635--642},
+  year      = {2016},
+  note      = {Scan-timing distortion in grid and object models; adaptive
+               prediction horizon}
+}
+
+@article{Mannari2025,
+  author    = {Mannari, Prabhanjan and others},
+  title     = {{ET-PMHT} for Partially Visible Convex Polytopes},
+  journal   = {{IET} Radar, Sonar \& Navigation},
+  year      = {2025},
+  doi       = {10.1049/rsn2.70061},
+  note      = {Extended-target PMHT that adds polytope faces as they become
+               visible; single or widely separated targets}
+}
+
 
 % =============================================================================
 % Standards and datasets
