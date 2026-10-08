@@ -8,11 +8,15 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 8, 2026 - Motion passes report their progress and stop when cancelled, and replays read each capture once
+## October 8, 2026 - Motion passes report progress, replays read each capture once, and facet F0 on kirk0
 
 - {claude/capture-reads-once} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless.
 - {claude/capture-reads-once} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read.
 - {claude/capture-reads-once} Took replay's capture extents from the index too, for multi-file clips and single captures alike, so a replay no longer reads each file once to count it before reading it again. Case authoring now matches index rows by the exact file rather than the file name, which two folders of copies share.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Ran the facet F0 attribution protocol on kirk0's reviewed pack, tuning only, in the [F0 report](lidar/operations/facet-f0-attribution-kirk0-report.md): the control's end face sat a median 0.85 m short of 3,151 labelled masks' returns, and two slow trucks gave half the face scores.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Found the believed length shorter than the labelled span in 83 % of car and 97 % of truck instants; removing that forced shortfall moved the end-face median to −0.02 m, so the predeclared gate reading that kept arm D's case open rested on an extent error, and the gate needs restating.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Confirmed on labels that A2 lowered the end-face residual by 0.13 m at an AssA cost of 0.16, A1 doubled ID switches from 100 to 199, T5 moved no face toward the sensor, and the sparse tail began in the 50 to 80 m bin.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Corrected the F0 protocol's kirk0 capture digest to the git-lfs object ID both copies hash to.
 
 ## October 7, 2026 - The LiDAR web pages read as one workflow
 
