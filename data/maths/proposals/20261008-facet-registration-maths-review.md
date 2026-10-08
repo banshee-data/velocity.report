@@ -318,7 +318,7 @@ when another object hides most of the body.
 | Within-cluster scan timing                            | 1.4 cm at 50 m                                               | Not applicable                                | Existing capture time                                                      |
 
 The first five rows are the sparse tail's error budget. None is reduced by subdividing a visible
-surface into persistent patches. The table is the reason the plan's Section 9.3 condition, that
+surface into persistent patches. The table is the reason the state plan's Section 9.3 condition, that
 residual error be attributable to edge localisation rather than the dimension prior, will almost
 certainly fail in the tail: edge localisation is the smallest row.
 
