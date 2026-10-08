@@ -517,7 +517,8 @@ def main():
     print(f"""
 next, in order:
   1. stop the server; review {out}/apply.sh and run it
-  2. cp -c sensor_data.db, then scripts/rekey-lidar-capture-index.py --db <copy> --plan {out}/plan.tsv
+  2. sqlite3 sensor_data.db ".backup <copy>" (a bare cp misses the WAL), then
+     scripts/rekey-lidar-capture-index.py --db <copy> --plan {out}/plan.tsv
      (dry run first, then --apply), and swap the copy in
   3. set LIDAR_PCAP_DIR = {root}/pcaps in local.mk, and pass -pcap-root there to the
      state-estimation baseline tool
