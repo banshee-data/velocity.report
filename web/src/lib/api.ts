@@ -792,14 +792,14 @@ export async function getLidarReplayCases(sensorId?: string): Promise<LidarRepla
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw apiError('Could not load replay cases', res.status);
+	if (!res.ok) throw apiError('Could not load clips', res.status);
 	const data = await res.json();
 	return data.scenes || [];
 }
 
 export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
-	if (!res.ok) throw apiError('Could not load replay case', res.status);
+	if (!res.ok) throw apiError('Could not load the clip', res.status);
 	return res.json();
 }
 
@@ -815,7 +815,7 @@ export async function createLidarReplayCase(scene: {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
 	});
-	if (!res.ok) throw apiError('Could not create replay case', res.status);
+	if (!res.ok) throw apiError('Could not create the clip', res.status);
 	return res.json();
 }
 
@@ -840,7 +840,7 @@ export async function updateLidarReplayCase(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-	if (!res.ok) throw apiError('Could not update replay case', res.status);
+	if (!res.ok) throw apiError('Could not update the clip', res.status);
 	return res.json();
 }
 
@@ -848,7 +848,7 @@ export async function deleteLidarReplayCase(replayCaseId: string): Promise<void>
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw apiError('Could not delete replay case', res.status);
+	if (!res.ok) throw apiError('Could not delete the clip', res.status);
 }
 
 // PCAP file scanning API
@@ -881,11 +881,20 @@ export async function getLidarRuns(params?: {
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
 	if (params?.limit) searchParams.set('limit', String(params.limit));
-	const url = `${API_BASE}/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
+	// The trailing slash is the list's route; without it the server answers
+	// with a redirect to it, a round trip before every list.
+	const url = `${API_BASE}/lidar/runs/${searchParams.toString() ? '?' + searchParams : ''}`;
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Could not load runs: ${res.status}`);
 	const data = await res.json();
 	return data.runs || [];
+}
+
+/** getLidarRun fetches one run, for a link to a run the paged list does not hold. */
+export async function getLidarRun(runId: string): Promise<AnalysisRun> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}`);
+	if (!res.ok) throw apiError('Could not load the run', res.status);
+	return res.json();
 }
 
 export async function getRunTracks(runId: string): Promise<RunTrack[]> {
@@ -895,38 +904,34 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	return data.tracks || [];
 }
 
-export async function updateTrackLabel(
-	runId: string,
-	trackId: string,
-	label: {
-		user_label?: string;
-		quality_label?: string;
-		label_confidence?: number;
-		labeler_id?: string;
-	}
-): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/label`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(label)
-	});
-	if (!res.ok) throw new Error(`Could not update label: ${res.status}`);
+/** Where a run's recording, exported by the server as a scene, is served. */
+export function runScenePaths(runId: string): { manifestURL: string; backgroundURL: string } {
+	const base = `${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/scene`;
+	return {
+		manifestURL: `${base}/manifest.json`,
+		backgroundURL: `${base}/background/background.json.gz`
+	};
 }
 
-export async function updateTrackFlags(
-	runId: string,
-	trackId: string,
-	flags: {
-		linked_track_ids?: string[];
-		user_label?: string;
-	}
-): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/flags`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(flags)
-	});
-	if (!res.ok) throw new Error(`Could not update flags: ${res.status}`);
+/**
+ * getRunScene asks the server for a run's recording as a scene, exporting it
+ * on first request. A run with no usable recording answers 404, and the reason
+ * comes back so the page can say what it is showing instead.
+ */
+export async function getRunScene(
+	runId: string
+): Promise<
+	| { available: true; manifestURL: string; backgroundURL: string }
+	| { available: false; reason: string }
+> {
+	const paths = runScenePaths(runId);
+	const res = await fetch(paths.manifestURL);
+	if (res.ok) return { available: true, ...paths };
+	const body = await res.json().catch(() => ({}));
+	return {
+		available: false,
+		reason: typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
+	};
 }
 
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
@@ -953,34 +958,6 @@ export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
 	if (!res.ok) throw new Error(`Could not load missed regions: ${res.status}`);
 	const data = await res.json();
 	return data.regions || [];
-}
-
-export async function createMissedRegion(
-	runId: string,
-	region: {
-		center_x: number;
-		center_y: number;
-		radius_m?: number;
-		time_start_ns: number;
-		time_end_ns: number;
-		expected_label?: string;
-		notes?: string;
-	}
-): Promise<MissedRegion> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(region)
-	});
-	if (!res.ok) throw new Error(`Could not create missed region: ${res.status}`);
-	return res.json();
-}
-
-export async function deleteMissedRegion(runId: string, regionId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions/${regionId}`, {
-		method: 'DELETE'
-	});
-	if (!res.ok) throw new Error(`Could not delete missed region: ${res.status}`);
 }
 
 /**
@@ -1642,6 +1619,7 @@ import type {
 	CaptureJob,
 	CaptureRoot,
 	CaptureSession,
+	MissingMotionPassesResponse,
 	PeriodsResponse,
 	ScanResponse
 } from '#lib/types/captures.js';
@@ -1717,6 +1695,23 @@ export async function startCaptureMotionPass(sessionId: string): Promise<Capture
 	return data.job;
 }
 
+/**
+ * queueMissingMotionPasses queues a motion pass for every session of a root
+ * (every configured root when none is named) that has no timeline and no pass
+ * already queued or running. Asking twice queues nothing the second time.
+ */
+export async function queueMissingMotionPasses(
+	rootId?: string
+): Promise<MissingMotionPassesResponse> {
+	const params = new URLSearchParams();
+	if (rootId) params.set('root_id', rootId);
+	const url = `${API_BASE}/lidar/capture/motion-pass/missing${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url, { method: 'POST' });
+	if (!res.ok) throw apiError('Could not queue the motion passes', res.status);
+	const data = await res.json();
+	return { ...data, jobs: data.jobs || [] };
+}
+
 export async function getCaptureJobs(options?: {
 	sessionId?: string;
 	limit?: number;
@@ -1782,7 +1777,7 @@ export async function createReplayCaseFromCaptures(request: {
 		} catch {
 			// A non-JSON body leaves the status to speak for itself.
 		}
-		throw apiError(detail || 'Could not create the replay case', res.status);
+		throw apiError(detail || 'Could not create the clip', res.status);
 	}
 	return res.json();
 }
@@ -1831,7 +1826,7 @@ export async function clearReplayCaseLocation(replayCaseId: string): Promise<voi
  * and cases within each. */
 export async function getSceneMap(): Promise<SceneMapResponse> {
 	const res = await fetch(`${API_BASE}/lidar/scene-map`);
-	if (!res.ok) throw apiError('Could not load the scene map', res.status);
+	if (!res.ok) throw apiError('Could not load clip locations', res.status);
 	return res.json();
 }
 

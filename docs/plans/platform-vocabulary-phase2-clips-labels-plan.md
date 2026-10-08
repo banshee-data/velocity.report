@@ -18,7 +18,7 @@ follows the required P2-C subject columns. Label consolidation can proceed indep
 
 1. Fold selections into clips with explicit selection/selector provenance, generated query fields and a digest-based held-out index.
 2. Preserve the stored replay offsets without recomputation; set aside incompatible rows with their reason and row accounting.
-3. Integrate candidates into the Clips workflow without losing hand-made clips, finder provenance or pack compatibility.
+3. Integrate candidates into the Clips workflow without losing hand-made clips, finder provenance or pack compatibility. The [workflow UI plan](lidar-ui-workflow-plan.md) sets the screens: a candidates panel with each candidate's derived pack status, clips made from selected periods, and a clip panel that reads out periods and recommended parameters.
 4. Consolidate label storage and writers with compatibility projections; preserve each existing label and its precedence policy.
 
 ## PR structure
@@ -37,7 +37,9 @@ with migration and client validation.
 ## Boundaries and risks
 
 No silent window repair or label conflict resolution. Do not drop shipped storage merely because
-new terminology is in place.
+new terminology is in place. A clip stays one window; one that spans several periods with motion
+between them is a schema decision, recorded here before any migration if the workflow UI's first
+open question asks for it.
 
 The programme's original decisions and detailed ledger remain authoritative for this outline. Where
 an implementation needs a new decision, record it before writing the migration or changing a wire

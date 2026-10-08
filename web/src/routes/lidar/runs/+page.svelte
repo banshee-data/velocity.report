@@ -3,13 +3,14 @@
 	 * LiDAR Runs Page
 	 *
 	 * Table layout with a detail panel that slides out to the right,
-	 * matching the replay cases page layout pattern.
+	 * matching the Clips page layout pattern.
 	 */
 	import {
 		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
 		getLidarReplayCases,
+		getLidarRun,
 		getLidarRuns,
 		getRunTracks
 	} from '#lib/api.js';
@@ -19,6 +20,10 @@
 		LidarReplayCase,
 		RunTrack
 	} from '#lib/types/lidar.js';
+	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
+	import { clipForRun, labelShare, shortDigest } from '#lib/lidarRecords.js';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -97,17 +102,6 @@
 		}
 	}
 
-	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
-		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
-		if (byRef) return byRef;
-		if (run.source_path) {
-			return (
-				scenes.find((s) => s.pcap_file === run.source_path && s.sensor_id === run.sensor_id) ?? null
-			);
-		}
-		return null;
-	}
-
 	async function selectRun(run: AnalysisRun) {
 		selectedRun = run;
 		tracksLoading = true;
@@ -175,17 +169,46 @@
 		}
 	}
 
-	/** Build href for the tracks page, passing scene and run IDs as query params. */
+	/** Build href for the tracks page, passing the clip and run as query params. */
 	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
-		const parts: string[] = [];
-		parts.push(`sensor_id=${encodeURIComponent(run.sensor_id)}`);
-		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
-		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);
-		return `/app/lidar/tracks?${parts.join('&')}`;
+		return `${resolve('/lidar/tracks')}?${tracksQuery({
+			sensorId: run.sensor_id,
+			clipId: scene?.replay_case_id,
+			runId: run.run_id
+		})}`;
 	}
 
-	onMount(loadData);
+	/** Build href for one clip on the Clips page. */
+	function clipHref(scene: LidarReplayCase): string {
+		return `${resolve('/lidar/replay-cases')}?${clipQuery(scene.replay_case_id)}`;
+	}
+
+	/** Open a linked run, fetching it when it is older than the listed page. */
+	async function openLinkedRun(runId: string) {
+		let run = runs.find((r) => r.run_id === runId);
+		if (!run) {
+			try {
+				run = await getLidarRun(runId);
+				runs = [run, ...runs];
+			} catch (e) {
+				error = e instanceof Error ? e.message : 'Could not load the run.';
+				return;
+			}
+		}
+		selectRun(run);
+	}
+
+	onMount(async () => {
+		await loadData();
+		// Other pages link to one run with ?id=; open it once the list is in.
+		const linked = linkedId(page.url);
+		if (linked) await openLinkedRun(linked);
+	});
 </script>
+
+<svelte:head>
+	<title>Runs — velocity.report</title>
+</svelte:head>
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
@@ -194,7 +217,8 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Runs</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Analysis runs with parameters, replay cases, and track summaries
+					Each run is one pass of the pipeline over a clip, a capture or live data, with its
+					parameters and tracks
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -220,9 +244,7 @@
 			{:else if runs.length === 0}
 				<div class="text-surface-content/50 py-12 text-center">
 					<p>No runs yet.</p>
-					<p class="mt-1 text-sm">
-						Runs appear when a replay case is played back or live analysis starts.
-					</p>
+					<p class="mt-1 text-sm">Runs appear when a clip is replayed or live analysis starts.</p>
 				</div>
 			{:else}
 				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
@@ -235,11 +257,16 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Source</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>Parameters</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Tracks</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Replay Case</th
+									>Labels</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -251,7 +278,8 @@
 						</thead>
 						<tbody>
 							{#each runs as run (run.run_id)}
-								{@const scene = findSceneForRun(run)}
+								{@const scene = clipForRun(run, scenes)}
+								{@const share = labelShare(run.label_rollup)}
 								{@const isSelected = selectedRun?.run_id === run.run_id}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0 {isSelected
@@ -287,6 +315,48 @@
 										role="button"
 										tabindex="0"
 									>
+										{#if scene}
+											<!-- eslint-disable svelte/no-navigation-without-resolve -->
+											<a
+												href={clipHref(scene)}
+												class="text-primary hover:underline"
+												on:click|stopPropagation
+											>
+												{scene.description || scene.replay_case_id.substring(0, 8)}
+											</a>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										{:else}
+											-
+										{/if}
+									</td>
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm whitespace-nowrap"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
+										{#if run.params_hash}
+											<code class="text-xs" title={run.params_hash}
+												>{shortDigest(run.params_hash)}</code
+											>
+											{#if scene?.recommended_params_hash === run.params_hash}
+												<span
+													class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+													title="The clip's recommended parameters">recommended</span
+												>
+											{/if}
+										{:else}
+											-
+										{/if}
+									</td>
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{run.total_tracks} / {run.confirmed_tracks}
 									</td>
 									<td
@@ -296,7 +366,22 @@
 										role="button"
 										tabindex="0"
 									>
-										{scene ? scene.description || scene.replay_case_id.substring(0, 8) : '-'}
+										{#if share}
+											<div
+												class="flex items-center gap-2 whitespace-nowrap"
+												title="{share.labelled} of {share.total} tracks labelled in the macOS visualiser"
+											>
+												<div class="bg-surface-200 h-1.5 w-12 overflow-hidden rounded">
+													<div
+														class="h-full bg-green-500"
+														style="width: {share.fraction * 100}%"
+													></div>
+												</div>
+												<span class="text-xs">{share.labelled}/{share.total}</span>
+											</div>
+										{:else}
+											-
+										{/if}
 									</td>
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
@@ -327,7 +412,7 @@
 
 		<!-- Right: Detail Panel -->
 		{#if selectedRun}
-			{@const scene = findSceneForRun(selectedRun)}
+			{@const scene = clipForRun(selectedRun, scenes)}
 			<div
 				class="border-surface-content/10 bg-surface-100 w-[400px] flex-none overflow-y-auto border-l p-6"
 			>
@@ -431,9 +516,18 @@
 						</div>
 					{/if}
 
-					<!-- Replay case info -->
+					<!-- Clip info -->
 					<div>
-						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Replay Case</div>
+						<div class="text-surface-content/70 mb-1 flex justify-between text-sm font-medium">
+							<span>Clip</span>
+							{#if scene}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a href={clipHref(scene)} class="text-primary text-xs font-normal hover:underline"
+									>Open clip →</a
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
+						</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -441,7 +535,7 @@
 									<dd class="text-surface-content">{scene.description || '-'}</dd>
 								</div>
 								<div class="flex justify-between py-1">
-									<dt class="text-surface-content/60">PCAP</dt>
+									<dt class="text-surface-content/60">Capture</dt>
 									<dd class="text-surface-content font-mono text-xs break-all">
 										{scene.pcap_file}
 									</dd>
@@ -458,17 +552,9 @@
 										<dd class="text-surface-content">{scene.pcap_duration_secs}s</dd>
 									</div>
 								{/if}
-								{#if scene.reference_run_id}
-									<div class="flex justify-between py-1">
-										<dt class="text-surface-content/60">Ref. Run</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{scene.reference_run_id.substring(0, 12)}
-										</dd>
-									</div>
-								{/if}
 							</dl>
 						{:else}
-							<p class="text-surface-content/50 text-sm">No associated replay case found</p>
+							<p class="text-surface-content/50 text-sm">No clip found for this run</p>
 						{/if}
 					</div>
 
@@ -505,16 +591,22 @@
 								{#if selectedRun.config_hash}
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Config Hash</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{shortID(selectedRun.config_hash)}
+										<dd
+											class="text-surface-content font-mono text-xs"
+											title={selectedRun.config_hash}
+										>
+											{shortDigest(selectedRun.config_hash)}
 										</dd>
 									</div>
 								{/if}
 								{#if selectedRun.params_hash}
 									<div class="flex justify-between py-1">
 										<dt class="text-surface-content/60">Params Hash</dt>
-										<dd class="text-surface-content font-mono text-xs">
-											{shortID(selectedRun.params_hash)}
+										<dd
+											class="text-surface-content font-mono text-xs"
+											title={selectedRun.params_hash}
+										>
+											{shortDigest(selectedRun.params_hash)}
 										</dd>
 									</div>
 								{/if}

@@ -56,6 +56,23 @@ export function segmentQuery(runID: string, selector: string, role: string): str
 	return new URLSearchParams({ run_id: runID, selector, role }).toString();
 }
 
+/**
+ * The query the page ranks with: segmentQuery's, asking for the ranking's
+ * score strip in the same response. The strip endpoint would rank the run a
+ * second time, after the table had already waited for the first.
+ */
+export function rankingQuery(runID: string, selector: string, role: string): string {
+	return `${segmentQuery(runID, selector, role)}&strip=1`;
+}
+
+/**
+ * An image source for the server's strip SVG. It is shown as an image, as
+ * the strip endpoint's response was, so nothing in it runs or styles the page.
+ */
+export function stripImage(svg: string): string {
+	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 /** What a selector requires, in words: "pair_seconds ≥ 2". Empty when nothing. */
 export function requirementText(selector: SegmentSelector): string {
 	return selector.require
@@ -93,4 +110,18 @@ export function segmentDetail(segment: SegmentMeasures, finder: string): string 
 		);
 	}
 	return `${segment.events ?? 0} observations`;
+}
+
+// The server's window states predate the platform vocabulary: a window with a
+// clip made from it is "case", and one whose pack job is queued or running is
+// "clipping", from when the pack was called a clip. Shown in today's words;
+// pack review states (packed, proposed, reviewed) already are.
+const STATUS_TEXT: Record<string, string> = {
+	case: 'clip made',
+	clipping: 'packing'
+};
+
+/** The table's status column for a window or its pack. */
+export function statusText(status: string): string {
+	return STATUS_TEXT[status] ?? status;
 }

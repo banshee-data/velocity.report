@@ -1,22 +1,30 @@
 import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
+import type { CoverageRow } from '../timeline';
 import {
+	captureFolder,
 	clockTicks,
 	coverageRows,
+	coverageTicks,
 	fileBoundaries,
 	formatClock,
+	formatDay,
 	formatDuration,
 	formatGap,
 	formatSize,
+	formatStamp,
+	formatWindow,
 	gradeGap,
 	gradeSelection,
 	isReplayable,
 	jobProgressPercent,
 	nsToDate,
 	periodTrim,
+	probeCounts,
 	probedFiles,
 	sessionShare,
 	toBands,
-	trimWindow
+	trimWindow,
+	zoneLabel
 } from '../timeline';
 
 const SEC = 1_000_000_000;
@@ -316,6 +324,42 @@ describe('formatClock', () => {
 	});
 });
 
+describe('formatDay', () => {
+	it('renders a local date as yyyy-mm-dd', () => {
+		expect(formatDay(BASE)).toBe('2026-09-02');
+	});
+
+	it('pads single-digit months and days', () => {
+		expect(formatDay(new Date(2027, 0, 5, 9, 0).getTime() * MS)).toBe('2027-01-05');
+	});
+
+	it('reports nothing for an absent stamp', () => {
+		expect(formatDay(0)).toBe('—');
+		expect(formatDay(Number.NaN)).toBe('—');
+	});
+});
+
+describe('formatStamp', () => {
+	it('renders a local date and wall clock', () => {
+		expect(formatStamp(BASE)).toBe('2026-09-02 13:20');
+		expect(formatStamp(BASE, true)).toBe('2026-09-02 13:20:37');
+	});
+
+	it('reports nothing for an absent stamp', () => {
+		expect(formatStamp(0)).toBe('—');
+	});
+});
+
+describe('formatWindow', () => {
+	it('names the date once for a span within a day', () => {
+		expect(formatWindow(BASE, BASE + 36 * 60 * SEC)).toBe('2026-09-02 13:20–13:56');
+	});
+
+	it('names both dates for a span crossing midnight', () => {
+		expect(formatWindow(BASE, BASE + 11 * 3600 * SEC)).toBe('2026-09-02 13:20 – 2026-09-03 00:20');
+	});
+});
+
 describe('clockTicks', () => {
 	it('lays seconds-scale ticks across a short clip', () => {
 		expect(clockTicks(BASE, BASE + 40 * SEC)).toEqual([
@@ -355,6 +399,8 @@ describe('nsToDate', () => {
 });
 
 describe('coverageRows', () => {
+	const bars = (row: CoverageRow) => row.lanes.flatMap((lane) => lane.bars);
+
 	it('groups sessions by day, newest day first', () => {
 		const oneDay = 24 * 3600;
 		const rows = coverageRows([
@@ -363,33 +409,115 @@ describe('coverageRows', () => {
 			session('ses-3', oneDay, oneDay + 600)
 		]);
 		expect(rows).toHaveLength(2);
-		expect(rows[0].bars).toHaveLength(1);
-		expect(rows[1].bars).toHaveLength(2);
+		expect(bars(rows[0])).toHaveLength(1);
+		expect(bars(rows[1])).toHaveLength(2);
+		// Rows are labelled in the page's one date format, the same as their key.
+		expect(rows.map((r) => r.dayLabel)).toEqual(['2026-09-03', '2026-09-02']);
+		expect(rows.map((r) => r.day)).toEqual(['2026-09-03', '2026-09-02']);
 	});
 
-	it('spans the day the sessions occupy, not midnight to midnight', () => {
-		// Two forty-minute visits on an empty day would otherwise draw two
-		// slivers on a mostly empty bar and answer nothing.
-		const rows = coverageRows([session('ses-1', 0, 2400), session('ses-2', 7200, 9600)]);
-		const row = rows[0];
-		expect(row.bars[0].width).toBeGreaterThan(15);
-		expect(row.bars[1].left).toBeGreaterThan(row.bars[0].left);
+	it('draws every day on one clock-time axis', () => {
+		// Twenty minutes on a quiet day and twenty on a busy one are the same
+		// length, and the same clock time sits at the same place on both rows.
+		const oneDay = 24 * 3600;
+		const rows = coverageRows([
+			session('quiet', 0, 1200),
+			session('busy-early', oneDay - 3 * 3600, oneDay - 2 * 3600),
+			session('busy', oneDay, oneDay + 1200)
+		]);
+		const quiet = bars(rows[1]).find((b) => b.session.session_id === 'quiet')!;
+		const busy = bars(rows[0]).find((b) => b.session.session_id === 'busy')!;
+		expect(busy.width).toBeCloseTo(quiet.width, 6);
+		expect(busy.left).toBeCloseTo(quiet.left, 6);
+		expect(rows[0].clockStartNs).toBe(rows[1].clockStartNs);
+		expect(rows[0].clockEndNs).toBe(rows[1].clockEndNs);
 	});
 
-	it('pads a single session so it does not fill the row', () => {
+	it('keeps a lone session off the edges and short of the full row', () => {
 		// A full-width bar would read as continuous coverage of the whole day.
 		const rows = coverageRows([session('ses-1', 0, 600)]);
-		expect(rows[0].bars[0].width).toBeLessThan(100);
-		expect(rows[0].bars[0].left).toBeGreaterThan(0);
+		expect(bars(rows[0])[0].width).toBeLessThan(100);
+		expect(bars(rows[0])[0].left).toBeGreaterThan(0);
 	});
 
-	it('orders bars within a day chronologically', () => {
+	it('orders bars within a lane chronologically', () => {
 		const rows = coverageRows([session('late', 7200, 7800), session('early', 0, 600)]);
-		expect(rows[0].bars.map((b) => b.session.session_id)).toEqual(['early', 'late']);
+		expect(rows[0].lanes).toHaveLength(1);
+		expect(bars(rows[0]).map((b) => b.session.session_id)).toEqual(['early', 'late']);
+	});
+
+	it('gives each folder its own lane on the shared axis', () => {
+		// The original rolls and an export of the same hours, side by side.
+		const folders: Record<string, string> = {
+			rolls: 's2',
+			export: 'sf-street-speeds/raw/lidar'
+		};
+		const rows = coverageRows(
+			[session('rolls', 0, 3600), session('export', 600, 1800)],
+			(s) => folders[s.session_id]
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].lanes.map((l) => [l.folder, l.firstOfFolder])).toEqual([
+			['s2', true],
+			['sf-street-speeds/raw/lidar', true]
+		]);
+		const [rolls] = rows[0].lanes[0].bars;
+		const [copy] = rows[0].lanes[1].bars;
+		expect(copy.left).toBeGreaterThan(rolls.left);
+		expect(copy.left + copy.width).toBeLessThan(rolls.left + rolls.width);
+	});
+
+	it('adds lanes for a folder whose sessions overlap, and reuses one when they do not', () => {
+		const rows = coverageRows([
+			session('whole', 0, 2400),
+			session('trimmed', 300, 2400),
+			session('later', 3000, 3600)
+		]);
+		expect(rows[0].lanes.map((l) => l.bars.map((b) => b.session.session_id))).toEqual([
+			['whole', 'later'],
+			['trimmed']
+		]);
+		expect(rows[0].lanes.map((l) => l.firstOfFolder)).toEqual([true, false]);
 	});
 
 	it('handles no sessions', () => {
 		expect(coverageRows([])).toEqual([]);
+	});
+});
+
+describe('coverageTicks', () => {
+	it('marks whole hours across the shared axis', () => {
+		// BASE is 13:20; a session to 14:00 gives an axis of 13:00 to 15:00.
+		const ticks = coverageTicks(coverageRows([session('ses-1', 0, 2400)]));
+		expect(ticks.map((t) => t.label)).toEqual(['13:00', '14:00', '15:00']);
+		expect(ticks[0].left).toBe(0);
+		expect(ticks[2].left).toBe(100);
+	});
+
+	it('marks every second hour on a long axis', () => {
+		const ticks = coverageTicks(coverageRows([session('ses-1', 0, 11 * 3600)]));
+		expect(ticks.map((t) => t.label)).toEqual([
+			'14:00',
+			'16:00',
+			'18:00',
+			'20:00',
+			'22:00',
+			'00:00'
+		]);
+	});
+
+	it('is empty with no rows', () => {
+		expect(coverageTicks([])).toEqual([]);
+	});
+});
+
+describe('captureFolder', () => {
+	it('is the folder within the volume, or empty at its top level', () => {
+		expect(captureFolder('s2/s2_sf_8_20260903135034_00001.pcap')).toBe('s2');
+		expect(captureFolder('sf-street-speeds/raw/lidar/site.pcapng')).toBe(
+			'sf-street-speeds/raw/lidar'
+		);
+		expect(captureFolder('kirk0.pcapng')).toBe('');
 	});
 });
 
@@ -460,5 +588,26 @@ describe('jobProgressPercent', () => {
 
 	it('clamps a progress report past its own total', () => {
 		expect(jobProgressPercent(12, 8)).toBe(100);
+	});
+});
+
+describe('probeCounts', () => {
+	it('tallies present captures by probe state', () => {
+		const failed = { ...file('c.pcap', 600, 300), probe_state: 'failed' };
+		const gone = { ...file('d.pcap', 900, 300), present: false };
+		expect(
+			probeCounts([file('a.pcap', 0, 300), file('b.pcap', 300, 300, false), failed, gone])
+		).toEqual({ total: 3, probed: 1, pending: 1, failed: 1 });
+	});
+
+	it('is all zeros for an empty volume', () => {
+		expect(probeCounts([])).toEqual({ total: 0, probed: 0, pending: 0, failed: 0 });
+	});
+});
+
+describe('zoneLabel', () => {
+	it("names the browser's own zone", () => {
+		const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		expect(zoneLabel(new Date(BASE / 1e6))).toContain(zone);
 	});
 });

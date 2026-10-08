@@ -14,11 +14,25 @@ same evaluation window after its names change.
 Follows P1-A. Coordinate shared CLI and protocol spellings with P1-D; no capture digest or
 selection consolidation is required.
 
+## Landed ahead of this plan
+
+The web UI coherence PR (#707) applied the agreed words to user-facing copy only. It changed no
+route, type, response key, query parameter or schema name, so every step below remains.
+
+- The LiDAR navigation is one group, spelt LiDAR, in workflow order: Captures, Clips, Segments,
+  Runs, Tracks, Sweeps. Scene Map left the navigation and is reached from Clips as "Clip
+  locations".
+- "Replay case", and "scene" where it meant a case, read "clip" on the Clips, Runs, Tracks,
+  Captures and Segments pages and in the web API client's error messages.
+- The macOS run browser's Case column is headed Source, because the cell holds the run's source
+  file name rather than a clip (§ Ledger 6 is amended to match). It becomes Clip once runs record
+  their clip.
+
 ## Delivery outline
 
 1. Trace clip/run and capture/sequence/period/volume names through existing schema metadata, store methods, handlers and response types.
 2. Rename existing metadata without changing stored values, keys, row counts or relationships; update indexes, triggers and embedded schema references.
-3. Follow each slice through web and macOS copy, navigation, API clients and label/annotation type names.
+3. Follow each slice through web and macOS copy, navigation, API clients and label/annotation type names. The screen words follow the [workflow UI vocabulary](lidar-ui-workflow-plan.md#vocabulary): candidate rather than window, split for a named set of packs, and labels apart from annotations.
 4. Keep old external route, field and persisted-file spellings readable through explicit aliases or versioned compatibility readers.
 
 ## PR structure

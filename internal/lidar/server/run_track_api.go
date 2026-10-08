@@ -49,6 +49,12 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/scene/... (the run's recording as a scene export)
+	if subPath == "scene" || strings.HasPrefix(subPath, "scene/") {
+		ws.handleRunScene(w, r, runID, strings.TrimPrefix(strings.TrimPrefix(subPath, "scene"), "/"))
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/tracks (list run tracks)
 	if subPath == "tracks" {
 		ws.handleListRunTracks(w, r, runID)

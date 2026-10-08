@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
@@ -46,7 +47,7 @@ func (ws *Server) handleAnnotationPacks(w http.ResponseWriter, r *http.Request) 
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	listed := []packListing{}
+	dirs := []string{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -59,8 +60,9 @@ func (ws *Server) handleAnnotationPacks(w http.ResponseWriter, r *http.Request) 
 		if _, err := os.Stat(filepath.Join(candidate, "manifest.json")); err != nil {
 			continue
 		}
-		listed = append(listed, readPackListing(candidate))
+		dirs = append(dirs, candidate)
 	}
+	listed := ws.packListings.list(dirs, time.Now())
 	ws.writeJSON(w, 200, map[string]any{"packs": listed, "count": len(listed)})
 }
 

@@ -2206,7 +2206,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarReplayCases } = await import('./api');
 				await expect(getLidarReplayCases()).rejects.toThrow(
-					'Could not load replay cases (HTTP 500 — server error, check the service is running)'
+					'Could not load clips (HTTP 500 — server error, check the service is running)'
 				);
 			});
 
@@ -2229,6 +2229,10 @@ describe('api', () => {
 				const { getLidarRuns } = await import('./api');
 				const result = await getLidarRuns({ sensor_id: 'hesai', status: 'complete', limit: 10 });
 				expect(result).toEqual([{ run_id: 'r1' }]);
+				// The list's own route, not the one the server redirects from.
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/?sensor_id=hesai&status=complete&limit=10'
+				);
 			});
 
 			it('should handle errors', async () => {
@@ -2244,6 +2248,64 @@ describe('api', () => {
 				});
 				const { getLidarRuns } = await import('./api');
 				await expect(getLidarRuns()).resolves.toEqual([]);
+			});
+		});
+
+		describe('getRunScene', () => {
+			it('names the export when the run has a recording', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('run 1')).resolves.toEqual({
+					available: true,
+					manifestURL: '/api/lidar/runs/run%201/scene/manifest.json',
+					backgroundURL: '/api/lidar/runs/run%201/scene/background/background.json.gz'
+				});
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/run%201/scene/manifest.json');
+			});
+
+			it("passes on the server's reason when there is none", async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 404,
+					json: async () => ({ error: 'this run has no recording' })
+				});
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('r')).resolves.toEqual({
+					available: false,
+					reason: 'this run has no recording'
+				});
+			});
+
+			it('falls back to the status when the body is not JSON', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					json: async () => {
+						throw new Error('not json');
+					}
+				});
+				const { getRunScene } = await import('./api');
+				await expect(getRunScene('r')).resolves.toEqual({ available: false, reason: 'HTTP 500' });
+			});
+		});
+
+		describe('getLidarRun', () => {
+			it('fetches one run by id', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ run_id: 'r1', sensor_id: 'hesai' })
+				});
+				const { getLidarRun } = await import('./api');
+				await expect(getLidarRun('r1')).resolves.toEqual({ run_id: 'r1', sensor_id: 'hesai' });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r1');
+			});
+
+			it('names the run it could not load', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getLidarRun } = await import('./api');
+				await expect(getLidarRun('gone')).rejects.toThrow(
+					'Could not load the run (HTTP 404 — not found on server)'
+				);
 			});
 		});
 
@@ -2271,52 +2333,6 @@ describe('api', () => {
 				});
 				const { getRunTracks } = await import('./api');
 				await expect(getRunTracks('run-empty')).resolves.toEqual([]);
-			});
-		});
-
-		describe('updateTrackLabel', () => {
-			it('should update label via PUT', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { updateTrackLabel } = await import('./api');
-				await updateTrackLabel('run-001', 'track-001', {
-					user_label: 'car',
-					quality_label: 'perfect'
-				});
-				const call = (global.fetch as jest.Mock).mock.calls[0];
-				expect(call[1].method).toBe('PUT');
-				expect(JSON.parse(call[1].body)).toEqual({
-					user_label: 'car',
-					quality_label: 'perfect'
-				});
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { updateTrackLabel } = await import('./api');
-				await expect(updateTrackLabel('r', 't', { user_label: 'invalid' })).rejects.toThrow(
-					'Could not update label: 400'
-				);
-			});
-		});
-
-		describe('updateTrackFlags', () => {
-			it('should update flags via PUT', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { updateTrackFlags } = await import('./api');
-				await updateTrackFlags('run-001', 'track-001', {
-					linked_track_ids: ['t2'],
-					user_label: 'split'
-				});
-				const call = (global.fetch as jest.Mock).mock.calls[0];
-				expect(call[1].method).toBe('PUT');
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { updateTrackFlags } = await import('./api');
-				await expect(updateTrackFlags('r', 't', { linked_track_ids: [] })).rejects.toThrow(
-					'Could not update flags: 500'
-				);
 			});
 		});
 
@@ -2396,7 +2412,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLidarReplayCase } = await import('./api');
 				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
-					'Could not load replay case (HTTP 404 — not found on server)'
+					'Could not load the clip (HTTP 404 — not found on server)'
 				);
 			});
 		});
@@ -2438,7 +2454,7 @@ describe('api', () => {
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
-				).rejects.toThrow('Could not create replay case (HTTP 400)');
+				).rejects.toThrow('Could not create the clip (HTTP 400)');
 			});
 		});
 
@@ -2476,7 +2492,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateLidarReplayCase } = await import('./api');
 				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
-					'Could not update replay case (HTTP 500 — server error, check the service is running)'
+					'Could not update the clip (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
@@ -2498,7 +2514,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteLidarReplayCase } = await import('./api');
 				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
-					'Could not delete replay case (HTTP 404 — not found on server)'
+					'Could not delete the clip (HTTP 404 — not found on server)'
 				);
 			});
 		});
@@ -2572,75 +2588,6 @@ describe('api', () => {
 				const { getMissedRegions } = await import('./api');
 				await expect(getMissedRegions('run-001')).rejects.toThrow(
 					'Could not load missed regions: 404'
-				);
-			});
-		});
-
-		describe('createMissedRegion', () => {
-			it('should create a new missed region', async () => {
-				const newRegion = {
-					center_x: 10.5,
-					center_y: 20.3,
-					radius_m: 5.0,
-					time_start_ns: 1000000000,
-					time_end_ns: 2000000000,
-					expected_label: 'vehicle',
-					notes: 'Test missed region'
-				};
-				const mockResponse = {
-					...newRegion,
-					region_id: 'region-new',
-					run_id: 'run-001'
-				};
-				(global.fetch as jest.Mock).mockResolvedValueOnce({
-					ok: true,
-					json: async () => mockResponse
-				});
-				const { createMissedRegion } = await import('./api');
-				const result = await createMissedRegion('run-001', newRegion);
-				expect(result).toEqual(mockResponse);
-				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/runs/run-001/missed-regions',
-					expect.objectContaining({
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(newRegion)
-					})
-				);
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { createMissedRegion } = await import('./api');
-				await expect(
-					createMissedRegion('run-001', {
-						center_x: 10.5,
-						center_y: 20.3,
-						time_start_ns: 1000000000,
-						time_end_ns: 2000000000
-					})
-				).rejects.toThrow('Could not create missed region: 400');
-			});
-		});
-
-		describe('deleteMissedRegion', () => {
-			it('should delete a missed region', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { deleteMissedRegion } = await import('./api');
-				await deleteMissedRegion('run-001', 'region-001');
-				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/runs/run-001/missed-regions/region-001',
-					expect.objectContaining({
-						method: 'DELETE'
-					})
-				);
-			});
-
-			it('should handle errors', async () => {
-				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { deleteMissedRegion } = await import('./api');
-				await expect(deleteMissedRegion('run-001', 'region-001')).rejects.toThrow(
-					'Could not delete missed region: 404'
 				);
 			});
 		});

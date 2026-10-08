@@ -1,6 +1,6 @@
 # Run list labelling rollup
 
-- **Status:** Implemented; macOS visualiser and backend complete. Web runs-list parity deferred.
+- **Status:** Implemented; macOS visualiser and backend complete. The web Runs page shows each run's labelled share from the same rollup (#707); the capsule icon itself is not ported.
 
 Compact run-list icon in the visualiser's run list showing human review progress for each analysis run at a glance. The icon communicates human review progress: not model carry-over state.
 
@@ -87,6 +87,7 @@ phase.
 
 ## Deferred work
 
-- Web runs-list parity UI: rendering the same capsule icon in the Svelte web frontend
+- Web runs-list parity UI: rendering the same capsule icon in the Svelte web frontend. The Runs
+  page shows labelled of total from `label_rollup` (#707); the four-bucket capsule is still to do
 - Decide whether `/flags` mutations should update the local rollup path in Swift
 - Operator-facing docs for the icon's workflow meaning

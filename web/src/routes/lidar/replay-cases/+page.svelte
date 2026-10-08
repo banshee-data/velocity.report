@@ -1,9 +1,10 @@
 <script lang="ts">
 	/**
-	 * LiDAR Replay Case Management Page
+	 * Clips — windows of captures kept for labelling, evaluation and tuning.
 	 *
-	 * CRUD interface for managing LiDAR replay cases — associating PCAP files,
-	 * region maps, and background grids with a replay case for ground truth labelling.
+	 * The platform vocabulary names this window a clip; the API, the store and
+	 * the types still call it a replay case until that rename lands with its
+	 * aliases, so the code below keeps their names and only the page says clip.
 	 */
 	import type { PcapFileInfo } from '#lib/api.js';
 	import {
@@ -12,12 +13,13 @@
 		deleteLidarReplayCase,
 		getLidarReplayCase,
 		getLidarReplayCases,
-		getLidarRuns,
 		scanPcapFiles,
 		updateLidarReplayCase
 	} from '#lib/api.js';
-	import type { AnalysisRun, LidarReplayCase } from '#lib/types/lidar.js';
+	import type { LidarReplayCase } from '#lib/types/lidar.js';
+	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -26,9 +28,6 @@
 	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
-
-	// Runs (for reference_run_id dropdown)
-	let runs: AnalysisRun[] = [];
 
 	// Selected scene for editing
 	let selectedScene: LidarReplayCase | null = null;
@@ -45,7 +44,6 @@
 
 	// Edit form state
 	let editDescription = '';
-	let editReferenceRunId: string | null = null;
 	let editOptimalParams = '';
 	let editPcapStartSecs = '';
 	let editPcapDurationSecs = '';
@@ -68,17 +66,9 @@
 		try {
 			scenes = await getLidarReplayCases();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not load replay cases.';
+			error = e instanceof Error ? e.message : 'Could not load clips.';
 		} finally {
 			loading = false;
-		}
-	}
-
-	async function loadRuns() {
-		try {
-			runs = await getLidarRuns();
-		} catch {
-			runs = [];
 		}
 	}
 
@@ -88,7 +78,6 @@
 		// them rather than only the first (pcap_file, the legacy projection).
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
-		editReferenceRunId = scene.reference_run_id ?? null;
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
@@ -112,7 +101,6 @@
 	function deselectScene() {
 		selectedScene = null;
 		editDescription = '';
-		editReferenceRunId = null;
 		editOptimalParams = '';
 		editPcapStartSecs = '';
 		editPcapDurationSecs = '';
@@ -139,7 +127,7 @@
 			newPcapDurationSecs = '';
 			showCreateForm = false;
 		} catch (e) {
-			createError = e instanceof Error ? e.message : 'Could not create replay case.';
+			createError = e instanceof Error ? e.message : 'Could not create the clip.';
 		} finally {
 			creating = false;
 		}
@@ -153,7 +141,6 @@
 			const optimalParams = parseJSONObject(editOptimalParams);
 			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
-				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: optimalParams ?? undefined,
 				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
 				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined,
@@ -166,14 +153,14 @@
 			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
 			selectScene(updated);
 		} catch (e) {
-			saveError = e instanceof Error ? e.message : 'Could not update replay case.';
+			saveError = e instanceof Error ? e.message : 'Could not update the clip.';
 		} finally {
 			saving = false;
 		}
 	}
 
 	async function handleDelete(sceneId: string) {
-		if (!confirm('Delete this replay case? Cannot be undone.')) return;
+		if (!confirm('Delete this clip? Cannot be undone.')) return;
 		try {
 			await deleteLidarReplayCase(sceneId);
 			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
@@ -181,7 +168,7 @@
 				deselectScene();
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not delete replay case.';
+			error = e instanceof Error ? e.message : 'Could not delete the clip.';
 		}
 	}
 
@@ -287,28 +274,39 @@
 			// Refresh to pick up in_use flags.
 			await loadScenes();
 		} catch (e) {
-			scanError = e instanceof Error ? e.message : 'Could not create the replay case.';
+			scanError = e instanceof Error ? e.message : 'Could not create the clip.';
 		} finally {
 			bulkCreating = false;
 		}
 	}
 
-	onMount(() => {
-		loadScenes();
-		loadRuns();
+	onMount(async () => {
+		await loadScenes();
+		// Other pages link to one clip with ?id=; open it once the list is in.
+		const linked = linkedId(page.url);
+		const scene = linked ? scenes.find((s) => s.replay_case_id === linked) : undefined;
+		if (scene) selectScene(scene);
 	});
 </script>
+
+<svelte:head>
+	<title>Clips — velocity.report</title>
+</svelte:head>
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
 	<div class="vr-toolbar">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-surface-content text-2xl font-semibold">Replay Cases</h1>
+				<h1 class="text-surface-content text-2xl font-semibold">Clips</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Manage replay cases for ground truth labelling and parameter tuning. To build one from a
-					session's captures, start on
-					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>.
+					A clip is a window of captures kept for labelling tracks, scoring runs and tuning
+					parameters. Make one from a session on
+					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
+					or from a ranked window on
+					<a href={resolve('/lidar/segments')} class="text-primary hover:underline">Segments</a>;
+					<a href={resolve('/lidar/scene-map')} class="text-primary hover:underline">Locations</a>
+					shows where the located ones were captured.
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -316,7 +314,7 @@
 					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
 				</Button>
 				<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
-					{showCreateForm ? 'Cancel' : 'New Replay Case'}
+					{showCreateForm ? 'Cancel' : 'New Clip'}
 				</Button>
 			</div>
 		</div>
@@ -335,7 +333,7 @@
 			<!-- Create Form -->
 			{#if showCreateForm}
 				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
-					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Replay Case</h2>
+					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Clip</h2>
 
 					{#if createError}
 						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -374,7 +372,7 @@
 							<textarea
 								id="new-desc"
 								bind:value={newDescription}
-								placeholder="Describe the replay case environment..."
+								placeholder="Describe what the clip covers..."
 								rows="2"
 								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
 							></textarea>
@@ -417,7 +415,7 @@
 							on:click={handleCreate}
 							disabled={creating || !newPcapFile}
 						>
-							{creating ? 'Creating...' : 'Create Replay Case'}
+							{creating ? 'Creating...' : 'Create Clip'}
 						</Button>
 					</div>
 				</div>
@@ -469,8 +467,8 @@
 									{bulkCreating
 										? 'Creating...'
 										: selectedFiles.size > 1
-											? `Join ${selectedFiles.size} Selected into One Replay Case`
-											: 'Add Selected as a Replay Case'}
+											? `Join ${selectedFiles.size} Selected into One Clip`
+											: 'Add Selected as a Clip'}
 								</Button>
 							{/if}
 						</div>
@@ -530,11 +528,15 @@
 
 			<!-- Scene Table -->
 			{#if loading}
-				<div class="text-surface-content/50 py-12 text-center">Loading replay cases...</div>
+				<div class="text-surface-content/50 py-12 text-center">Loading clips...</div>
 			{:else if scenes.length === 0}
 				<div class="text-surface-content/50 py-12 text-center">
-					<p>No replay cases yet.</p>
-					<p class="mt-1 text-sm">Create a replay case to start labelling tracks.</p>
+					<p>No clips yet.</p>
+					<p class="mt-1 text-sm">
+						Make one from a session on
+						<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
+						to start labelling tracks.
+					</p>
 				</div>
 			{:else}
 				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
@@ -545,16 +547,10 @@
 									>Description</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Sensor</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>PCAP File</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
 									>Files</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Ref. Run</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -576,9 +572,6 @@
 									<td class="text-surface-content px-4 py-3 text-sm">
 										{scene.description || scene.replay_case_id.substring(0, 8)}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
-										{scene.sensor_id}
-									</td>
 									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
 										{scene.pcap_file}
 									</td>
@@ -593,9 +586,6 @@
 										{:else}
 											<span class="text-surface-content/40">1</span>
 										{/if}
-									</td>
-									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
-										{scene.reference_run_id ? scene.reference_run_id.substring(0, 8) : '-'}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 text-sm">
 										{formatDate(scene.created_at_ns)}
@@ -622,7 +612,7 @@
 				class="border-surface-content/10 bg-surface-100 w-[400px] flex-none overflow-y-auto border-l p-6"
 			>
 				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-surface-content text-lg font-semibold">Edit Replay Case</h2>
+					<h2 class="text-surface-content text-lg font-semibold">Edit Clip</h2>
 					<button
 						class="text-surface-content/50 hover:text-surface-content text-sm"
 						on:click={deselectScene}
@@ -631,8 +621,20 @@
 					</button>
 				</div>
 
-				<div class="text-surface-content/50 mb-4 font-mono text-xs">
+				<div class="text-surface-content/50 mb-2 font-mono text-xs">
 					{selectedScene.replay_case_id}
+				</div>
+
+				<div class="mb-4 text-sm">
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						href={`${resolve('/lidar/tracks')}?${tracksQuery({
+							sensorId: selectedScene.sensor_id,
+							clipId: selectedScene.replay_case_id
+						})}`}
+						class="text-primary hover:underline">Open in Tracks →</a
+					>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 
 				{#if saveError}
@@ -653,27 +655,6 @@
 					</div>
 
 					<div>
-						<label for="edit-ref-run" class="text-surface-content/70 mb-1 block text-sm font-medium"
-							>Reference Run</label
-						>
-						<SelectField
-							label=""
-							bind:value={editReferenceRunId}
-							options={[
-								{ label: 'None', value: null },
-								...runs.map((r) => ({
-									label: `${r.run_id.substring(0, 8)} (${r.total_tracks} tracks)`,
-									value: r.run_id
-								}))
-							]}
-							size="sm"
-						/>
-						<p class="text-surface-content/40 mt-1 text-xs">
-							The reference run contains ground truth labels for evaluation.
-						</p>
-					</div>
-
-					<div>
 						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
 							>Captures, in replay order</label
 						>
@@ -691,7 +672,13 @@
 
 					{#if selectedScene.location}
 						<div>
-							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Captured at</div>
+							<div class="text-surface-content/70 mb-1 flex justify-between text-sm font-medium">
+								<span>Captured at</span>
+								<a
+									href={resolve('/lidar/scene-map')}
+									class="text-primary text-xs font-normal hover:underline">Locations →</a
+								>
+							</div>
 							<div
 								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-xs"
 							>
@@ -755,7 +742,7 @@
 							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 font-mono text-xs"
 						></textarea>
 						<p class="text-surface-content/40 mt-1 text-xs">
-							Best-known parameters for this scene, saved by auto-tuning.
+							Best-known parameters for this clip, saved by auto-tuning.
 						</p>
 					</div>
 

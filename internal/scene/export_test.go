@@ -217,6 +217,20 @@ func TestExportRekeysTrackIDsLocally(t *testing.T) {
 	}
 }
 
+func TestExportKeepsTrackIDsForADeviceView(t *testing.T) {
+	// The operator's Tracks page matches a clicked box to the run's tracks by
+	// identifier, so an export that stays on the device keeps the tracker's.
+	src := writeVRLOG(t, evenTimestamps(4))
+	out := filepath.Join(t.TempDir(), "out")
+	if _, err := Export(Options{VRLOGPath: src, OutDir: out, KeepTrackIDs: true}); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	frames := readFrames(t, out)
+	if got := frames[0].Tracks[0].ID; !strings.Contains(got, "source-track") {
+		t.Errorf("track ID = %q, want the source identifier", got)
+	}
+}
+
 func TestExportChunkRollover(t *testing.T) {
 	src := writeVRLOG(t, evenTimestamps(25))
 	out := filepath.Join(t.TempDir(), "out")

@@ -49,6 +49,9 @@ func (m *memStore) MarkScanned(_, state, scanErr string) error {
 }
 
 func (m *memStore) RecordProbe(_, relPath string, firstNs, lastNs, count int64, udpPort int) error {
+	if m.failOn == "RecordProbe" {
+		return errors.New("cannot record probe")
+	}
 	m.probes[relPath] = Extent{FirstPacketNs: firstNs, LastPacketNs: lastNs,
 		PacketCount: uint64(count), UDPPort: udpPort}
 	return nil
@@ -263,6 +266,30 @@ func TestIndexerHonoursCancellation(t *testing.T) {
 	if len(store.probes) > 1 {
 		t.Errorf("probed %d files after cancellation, want at most 1", len(store.probes))
 	}
+	// The interruption belongs to the caller, not the volume: it must not be
+	// left on the root as a scan error.
+	if store.scanState != StateOK || store.scanErr != "" {
+		t.Errorf("root marked %q (%q) after cancellation, want %q with no error",
+			store.scanState, store.scanErr, StateOK)
+	}
+}
+
+func TestIndexerRecordsAProbeFaultAsAnError(t *testing.T) {
+	// Only an interruption is exempt: a store failure mid-probe still marks
+	// the root, so a volume that cannot be indexed says so.
+	store := newMemStore()
+	ix, _ := probeRoot(t, store, nil, "a.pcap")
+	ix.Probe = func(string, int) (Extent, error) {
+		return Extent{FirstPacketNs: 1, LastPacketNs: 2, PacketCount: 1}, nil
+	}
+	store.failOn = "RecordProbe"
+
+	if _, err := ix.Refresh(context.Background()); err == nil {
+		t.Fatal("Refresh succeeded, want the store failure")
+	}
+	if store.scanState != StateError {
+		t.Errorf("root marked %q, want %q", store.scanState, StateError)
+	}
 }
 
 func TestIndexerSkipsProbingWhenNoProberIsSet(t *testing.T) {
@@ -287,26 +314,59 @@ func TestIndexerSkipsProbingWhenNoProberIsSet(t *testing.T) {
 
 func TestIndexerReportsProgress(t *testing.T) {
 	store := newMemStore()
-	ix, _ := probeRoot(t, store, okProbe(scanBase), "a.pcap", "b.pcap")
-	var seen []int
-	ix.OnProgress = func(done, total int, _ string) {
-		seen = append(seen, done)
-		if total != 2 {
-			t.Errorf("progress total = %d, want 2", total)
+	ix, _ := probeRoot(t, store, nil, "a.pcap", "b.pcap", "corrupt.pcap")
+	ix.Probe = func(path string, _ int) (Extent, error) {
+		if strings.Contains(path, "corrupt") {
+			return Extent{}, errors.New("truncated capture")
 		}
+		return Extent{FirstPacketNs: 1, LastPacketNs: 2, PacketCount: 10, UDPPort: 2368}, nil
 	}
+	var seen []Progress
+	ix.OnProgress = func(p Progress) { seen = append(seen, p) }
 	if _, err := ix.Refresh(context.Background()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
-	// One call before each file plus a final completion call.
-	want := []int{0, 1, 2}
+	// One call before each file, naming it, plus a final one naming none. The
+	// tallies are of the files already finished, so a page polling mid-pass
+	// can say how many probes have worked so far, not only at the end.
+	want := []Progress{
+		{Done: 0, Total: 3, Current: "a.pcap"},
+		{Done: 1, Total: 3, Current: "b.pcap", Probed: 1},
+		{Done: 2, Total: 3, Current: "corrupt.pcap", Probed: 2},
+		{Done: 3, Total: 3, Probed: 2, Failed: 1},
+	}
 	if len(seen) != len(want) {
-		t.Fatalf("progress reported %v, want %v", seen, want)
+		t.Fatalf("progress reported %+v, want %+v", seen, want)
 	}
 	for i := range want {
 		if seen[i] != want[i] {
-			t.Errorf("progress %d = %d, want %d", i, seen[i], want[i])
+			t.Errorf("progress %d = %+v, want %+v", i, seen[i], want[i])
 		}
+	}
+}
+
+func TestIndexerReportsNoProgressWhenNothingNeedsProbing(t *testing.T) {
+	// An unchanged, fully probed volume reads nothing, so there is no pass to
+	// report on, and a zero-of-zero report would read as a stalled one.
+	store := newMemStore()
+	ix, _ := probeRoot(t, store, okProbe(scanBase), "a.pcap")
+	if _, err := ix.Refresh(context.Background()); err != nil {
+		t.Fatalf("first Refresh: %v", err)
+	}
+	store.indexed = nil
+	for _, f := range store.applied {
+		store.indexed = append(store.indexed, Indexed{
+			RelPath: f.RelPath, SizeBytes: f.SizeBytes,
+			ModifiedAt: f.ModifiedAt, ContentTag: f.ContentTag, Present: true,
+		})
+	}
+	calls := 0
+	ix.OnProgress = func(Progress) { calls++ }
+	if _, err := ix.Refresh(context.Background()); err != nil {
+		t.Fatalf("second Refresh: %v", err)
+	}
+	if calls != 0 {
+		t.Errorf("progress reported %d times for a pass with nothing to probe, want 0", calls)
 	}
 }
 

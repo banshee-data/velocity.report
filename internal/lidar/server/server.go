@@ -147,6 +147,12 @@ type Server struct {
 	// reads the default one: the repository's file, or the binary's copy.
 	segmentSelectors *segments.Catalogue
 
+	// packListings and segmentRecordings keep what the Segments page reads
+	// on every load, read again only when the files behind it change. See
+	// segment_read_cache.go.
+	packListings      packListingCache
+	segmentRecordings recordingSeriesCache
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int

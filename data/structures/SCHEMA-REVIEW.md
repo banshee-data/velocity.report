@@ -138,15 +138,17 @@ whole read, but the probe's read makes that saving small, and two identities wou
 ### A replay case notes where it was cut from
 
 A case's `session_id` and `source_period_id` say which session and motion period it was cut from.
-Re-deriving a root's sessions replaces them and drops their motion periods, which come back only
-when a motion pass runs again. In the development database, 24 of 31 replay cases name a period
-that no longer exists, and no motion period exists at all.
+Re-deriving a root's sessions replaces those whose captures changed and drops their motion
+periods, which come back only when a motion pass runs again; a session reproduced over the same
+captures keeps its periods. Until October 2026 every re-derive, so every scan, dropped every
+period: in the development database, 24 of 31 replay cases name a period that no longer exists,
+and no motion period exists at all.
 
 **Decision:** both columns are notes, never foreign keys. A case's own ordered files and window
 are the authority, so a re-derive can lose a note's target but never the case.
-`TestACaseOutlivesTheSessionItWasCutFrom` in `internal/lidar/storage/sqlite` re-derives under a
-case and fails if either column becomes a key. Both columns stay notes until the vocabulary plan
-drops them in v0.6.7 (Item 18), and the test goes with them.
+`TestACaseOutlivesTheSessionItWasCutFrom` in `internal/lidar/storage/sqlite` grows the session and
+re-derives under a case, and fails if either column becomes a key. Both columns stay notes until
+the vocabulary plan drops them in v0.6.7 (Item 18), and the test goes with them.
 
 ### A capture's clock may step backwards
 

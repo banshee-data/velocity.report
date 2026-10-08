@@ -102,12 +102,35 @@ declare module '$scene/scene-reader.js' {
 		setRegions(regions: SceneRegion[]): void;
 	}
 
+	/** A player's clock as a host page reads it. */
+	export interface SceneClockReading {
+		seconds: number;
+		playing: boolean;
+		rate: number;
+		duration: number;
+	}
+
+	export interface ScenePlayback {
+		seek(seconds: number): void;
+		setPlaying(playing: boolean): void;
+		setRate(rate: number): void;
+		/** Calls listener now and on every clock change; returns an unsubscribe. */
+		onChange(listener: (reading: SceneClockReading) => void): () => void;
+	}
+
 	export class SceneSession {
 		constructor(manifestURL: string);
 		parts: PartReader[];
 		duration: number;
 		readonly title: string;
 		interaction?: SceneInteraction;
+		/**
+		 * Set by mountScenePlayer: removes the player's listeners, stops its
+		 * frame loop and frees what it drew. Safe to call more than once.
+		 */
+		dispose?(): void;
+		/** Set by mountScenePlayer: the transport for a host with its own timeline. */
+		playback?: ScenePlayback;
 		static fromParts(parts: PartReader[], options?: { title?: string }): SceneSession;
 		open(): Promise<this>;
 		locate(seconds: number): { partIndex: number; part: PartReader; us: number };

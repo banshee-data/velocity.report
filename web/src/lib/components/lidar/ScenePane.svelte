@@ -7,14 +7,19 @@
 	 * public_html/src/js, not copied: a copy would drift the moment either
 	 * side fixed a camera, a trail or a colour.
 	 *
-	 * The data path is the only difference. A published scene reads static
-	 * gzipped chunks; this mounts a session built over live observations from
-	 * the database, so playback, seeking and trail reconstruction stay the
-	 * shared implementation.
+	 * It plays one of two sources. A run with a recording plays that recording,
+	 * exported by the server the way a published survey is (manifestURL), with
+	 * the settled background it holds. Anything else plays observations read
+	 * from the database through a session built over them; those carry no run,
+	 * so for a replayed capture they mix every replay of it.
+	 *
+	 * With a recording, the player owns the clock: the page follows it through
+	 * onClock and drives it through seekToMs, setPlaying and setRate.
 	 */
 	import { mountScenePlayer } from '$scene/scene-player.js';
-	import type { SceneInteraction } from '$scene/scene-reader.js';
+	import type { SceneInteraction, SceneSession } from '$scene/scene-reader.js';
 	import { createLiveSceneSession } from '#lib/scene/liveSceneSource.js';
+	import { clockFollower, startMsOf, type PageClock } from '#lib/scene/sceneClock.js';
 	import type { MissedRegion, RunTrack, TrackObservation } from '#lib/types/lidar.js';
 	import { onDestroy } from 'svelte';
 
@@ -22,14 +27,16 @@
 	export let runTracks: RunTrack[] = [];
 	export let sensorId = 'hesai-pandar40p';
 	export let title = 'Live run';
+	/** A run's exported recording. When set, it is played instead of observations. */
+	export let manifestURL: string | null = null;
+	/** The recording's settled background, drawn behind the boxes. */
+	export let backgroundURL: string | null = null;
+	/** Called as a recording plays, about ten times a second, and on any control change. */
+	export let onClock: ((clock: PageClock) => void) | null = null;
 
-	/** Regions already marked, drawn as rings on the ground. */
+	/** A run's missed regions, drawn as rings on the ground. Shown, not edited. */
 	export let missedRegions: MissedRegion[] = [];
-	/** When on, a click marks a region instead of selecting a track. */
-	export let markMissedMode = false;
 	export let onTrackSelect: (trackId: string) => void = () => {};
-	/** Called with the ENU ground position of a click while marking. */
-	export let onMapClick: ((worldX: number, worldY: number) => void) | null = null;
 	/**
 	 * The sensor's zero azimuth against this site's street grid, in degrees.
 	 * Turning the reference grid by it lines the squares up with the kerbs; it
@@ -58,55 +65,103 @@
 	let skipped = 0;
 	let frameCount = 0;
 	let interaction: SceneInteraction | null = null;
+	// The mounted player. A remount disposes it first: the next player takes
+	// the same canvas and controls, and one left running would keep drawing
+	// into the canvas and answering the Play button alongside it.
+	let player: SceneSession | null = null;
+	// Where the mounted recording starts, in Unix milliseconds.
+	let startMs = 0;
+	// Mounting is asynchronous, so a newer mount can start before an older one
+	// returns; the older one's player is disposed as soon as it arrives.
+	let mountSeq = 0;
 
 	/**
 	 * Remounting on every observation change would reset the camera mid-review,
 	 * so the player is mounted once the first data arrives and the key is
-	 * tracked to detect a genuinely different run.
+	 * tracked to detect a genuinely different run. A recording mounts once.
 	 */
 	let mountedKey = '';
 
-	$: sceneKey = `${sensorId}|${observations.length}|${observations[0]?.timestamp ?? ''}|${
-		observations[observations.length - 1]?.timestamp ?? ''
-	}`;
+	$: sceneKey = manifestURL
+		? `recording|${manifestURL}`
+		: `${sensorId}|${observations.length}|${observations[0]?.timestamp ?? ''}|${
+				observations[observations.length - 1]?.timestamp ?? ''
+			}`;
 
-	$: if (canvas && observations.length > 0 && sceneKey !== mountedKey) {
+	$: if (canvas && (manifestURL || observations.length > 0) && sceneKey !== mountedKey) {
 		mountedKey = sceneKey;
 		void mount();
 	}
 
+	/** Moves a recording's playhead to an absolute time. */
+	export function seekToMs(ms: number) {
+		player?.playback?.seek((ms - startMs) / 1000);
+	}
+
+	export function setPlaying(playing: boolean) {
+		player?.playback?.setPlaying(playing);
+	}
+
+	export function setRate(value: number) {
+		player?.playback?.setRate(value);
+	}
+
+	function disposePlayer() {
+		player?.dispose?.();
+		player = null;
+		interaction = null;
+	}
+
 	async function mount() {
 		mountError = null;
+		const seq = ++mountSeq;
+		disposePlayer();
+		const ui = {
+			labelLayer,
+			presets,
+			clock,
+			duration,
+			stats,
+			status,
+			playToggle,
+			rate,
+			lidarToggle,
+			boxesToggle,
+			trailsToggle,
+			gridToggle,
+			gridAzimuthDeg,
+			northAzimuthDeg
+		};
 		try {
-			const built = createLiveSceneSession({
-				observations,
-				runTracks,
-				sensorId,
-				title
-			});
-			skipped = built.skippedObservations;
-			frameCount = built.frameCount;
-
-			const session = await mountScenePlayer({
-				canvas,
-				session: built.session,
-				ui: {
-					labelLayer,
-					presets,
-					clock,
-					duration,
-					stats,
-					status,
-					playToggle,
-					rate,
-					lidarToggle,
-					boxesToggle,
-					trailsToggle,
-					gridToggle,
-					gridAzimuthDeg,
-					northAzimuthDeg
-				}
-			});
+			let session: SceneSession;
+			if (manifestURL) {
+				skipped = 0;
+				frameCount = 0;
+				session = await mountScenePlayer({
+					canvas,
+					manifestURL,
+					ui: { ...ui, backgroundURL: backgroundURL ?? undefined }
+				});
+			} else {
+				const built = createLiveSceneSession({
+					observations,
+					runTracks,
+					sensorId,
+					title
+				});
+				skipped = built.skippedObservations;
+				frameCount = built.frameCount;
+				session = await mountScenePlayer({ canvas, session: built.session, ui });
+			}
+			if (seq !== mountSeq) {
+				session.dispose?.();
+				return;
+			}
+			player = session;
+			startMs = startMsOf(session.parts[0]?.startNs);
+			if (manifestURL && onClock && session.playback) {
+				session.playback.onChange(clockFollower(startMs, (c) => onClock?.(c)));
+			}
 			interaction = session.interaction ?? null;
 			interaction?.setRegions(missedRegions);
 			mounted = true;
@@ -116,57 +171,39 @@
 	}
 
 	/**
-	 * A click either marks a region or selects a track, never both: marking
-	 * mode is explicit, so a click while it is on is unambiguous.
-	 *
-	 * The player answers where the click landed, because it owns the camera
-	 * and the ENU-to-scene mapping.
+	 * A click selects the track under it. The player answers which, because it
+	 * owns the camera and the ENU-to-scene mapping.
 	 */
 	function handleCanvasClick(event: MouseEvent) {
 		if (!interaction) return;
-
-		if (markMissedMode) {
-			const ground = interaction.groundAt(event.clientX, event.clientY);
-			// A ray that misses the ground plane entirely — a click on the sky —
-			// is not a position, so nothing is marked.
-			if (ground && onMapClick) onMapClick(ground.x, ground.y);
-			return;
-		}
-
 		const trackId = interaction.trackAt(event.clientX, event.clientY);
 		if (trackId) onTrackSelect(trackId);
 	}
 
 	// Regions are pushed to the overlay whenever they change, not only at
-	// mount, so a newly marked one appears without a remount.
+	// mount, so a newly loaded set appears without a remount.
 	$: if (interaction) interaction.setRegions(missedRegions);
 
 	onDestroy(() => {
+		mountSeq++;
+		disposePlayer();
 		mounted = false;
-		interaction = null;
 	});
 </script>
 
 <div class="scene-pane">
-	<canvas
-		bind:this={canvas}
-		class="scene-pane__canvas"
-		class:scene-pane__canvas--marking={markMissedMode}
-		on:click={handleCanvasClick}
-	></canvas>
+	<canvas bind:this={canvas} class="scene-pane__canvas" on:click={handleCanvasClick}></canvas>
 	<div bind:this={labelLayer} class="scene-pane__labels"></div>
-
-	{#if markMissedMode}
-		<p class="scene-pane__hint">Click the ground to mark a missed region</p>
-	{/if}
 
 	<div class="scene-pane__controls">
 		<button bind:this={playToggle} type="button" class="scene-pane__button">Play</button>
 		<select bind:this={rate} class="scene-pane__select" aria-label="Playback rate">
-			<option value="1">1x</option>
+			<!-- The Tracks page's speeds, so a rate it sets is one this can show. -->
+			<option value="0.5">0.5x</option>
+			<option value="1" selected>1x</option>
 			<option value="2">2x</option>
-			<option value="4">4x</option>
-			<option value="8">8x</option>
+			<option value="5">5x</option>
+			<option value="10">10x</option>
 			<option value="16">16x</option>
 		</select>
 		<span bind:this={clock} class="scene-pane__clock">0:00</span>
@@ -198,7 +235,7 @@
 
 	{#if mountError}
 		<p class="scene-pane__error">Could not start the scene view: {mountError}</p>
-	{:else if observations.length === 0}
+	{:else if !manifestURL && observations.length === 0}
 		<p class="scene-pane__empty">No observations in this window.</p>
 	{:else if mounted && skipped > 0}
 		<!-- A partial load has to be visible: a dropped row would otherwise
@@ -224,26 +261,27 @@
 		min-height: 0;
 		display: block;
 	}
-	.scene-pane__canvas--marking {
-		cursor: crosshair;
-	}
 	.scene-pane__labels {
 		position: absolute;
 		inset: 0;
+		overflow: hidden;
 		pointer-events: none;
 	}
-	.scene-pane__hint {
+	/* The player creates these labels and places them by left and top; the
+	   public survey layout styles them, and without this they stack static in
+	   the corner. Kept in step with public_html/src/_layouts/scene.njk. */
+	.scene-pane__labels :global(.scene-label) {
 		position: absolute;
-		top: 0.5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		margin: 0;
-		padding: 0.25rem 0.6rem;
-		font-size: 0.78rem;
-		color: #f3e8ff;
-		background: rgba(124, 58, 237, 0.85);
-		border-radius: 3px;
-		pointer-events: none;
+		transform: translate(-50%, -100%);
+		font-size: 0.68rem;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		padding: 0.1rem 0.32rem;
+		border-radius: 2px;
+		white-space: nowrap;
+		background: rgba(11, 16, 19, 0.78);
+		color: #ffd7d4;
+		border: 1px solid rgba(242, 80, 75, 0.55);
 	}
 	.scene-pane__controls {
 		display: flex;

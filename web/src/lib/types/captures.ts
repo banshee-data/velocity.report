@@ -21,6 +21,40 @@ export interface CaptureRoot {
 	updated_at_ns: number;
 	/** A full probe is running on this server process. */
 	scan_in_progress?: boolean;
+	/** How far that probe has got; present only while it runs. */
+	scan_progress?: CaptureScanProgress;
+	/** How the last scan this server process ran over the root ended. */
+	last_scan_result?: ScanOutcome;
+}
+
+/** Phases a background scan of one root passes through. */
+export const SCAN_PHASE_QUEUED = 'queued';
+export const SCAN_PHASE_LISTING = 'listing';
+export const SCAN_PHASE_PROBING = 'probing';
+export const SCAN_PHASE_DERIVING = 'deriving';
+
+/**
+ * How far a background scan of one root has got. Elapsed times are measured
+ * by the server when it answers, so they hold even when the browser's clock
+ * disagrees with the server's.
+ */
+export interface CaptureScanProgress {
+	/** queued | listing | probing | deriving */
+	phase: string;
+	/** Captures the probe has finished with, of the total it set out to read. */
+	done: number;
+	total: number;
+	/** The capture being read now. */
+	current?: string;
+	/** Done, split by outcome. */
+	probed: number;
+	probe_failed: number;
+	started_at_ns: number;
+	probe_started_at_ns?: number;
+	/** When the progress last moved: for a probe, when the current read began. */
+	updated_at_ns: number;
+	elapsed_ns: number;
+	probe_elapsed_ns?: number;
 }
 
 /** Scan states a root can report. */
@@ -109,6 +143,9 @@ export interface CaptureJob {
 	finished_at_ns?: number;
 }
 
+/** Job kinds. */
+export const JOB_KIND_MOTION_PASS = 'motion_pass';
+
 /** Job states. */
 export const JOB_QUEUED = 'queued';
 export const JOB_RUNNING = 'running';
@@ -131,9 +168,28 @@ export interface ScanRootResult {
 	sessions?: CaptureSession[];
 }
 
+/** How the last scan of a root ended, as the server remembers it. */
+export interface ScanOutcome extends ScanRootResult {
+	/** Whether the scan read captures for their extents, or only listed them. */
+	probe: boolean;
+	started_at_ns: number;
+	finished_at_ns: number;
+}
+
 export interface ScanResponse {
 	roots: ScanRootResult[];
 	count: number;
+}
+
+/** What asking for every missing motion pass queued. */
+export interface MissingMotionPassesResponse {
+	queued: number;
+	skipped: number;
+	/** Sessions left alone because they already have a timeline. */
+	skipped_with_periods: number;
+	/** Sessions left alone because a pass is already queued or running. */
+	skipped_active: number;
+	jobs: CaptureJob[];
 }
 
 export interface PeriodsResponse {

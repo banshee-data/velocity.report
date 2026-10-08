@@ -9,6 +9,7 @@ import * as THREE from "three";
 import {
   TrackVisual,
   buildRegionRing,
+  createTeardown,
   buildTrailHistories,
   pointerToNDC,
   sceneGroundToENU,
@@ -238,5 +239,38 @@ describe("region markers", () => {
     assert.ok(Number.isFinite(ring.position.z));
     assert.equal(Math.abs(ring.position.x), 0);
     assert.equal(Math.abs(ring.position.z), 0);
+  });
+});
+
+describe("createTeardown", () => {
+  test("aborts its signal, so a listener bound to it stops firing", () => {
+    const teardown = createTeardown();
+    const target = new EventTarget();
+    let calls = 0;
+    target.addEventListener("ping", () => calls++, { signal: teardown.signal });
+    target.dispatchEvent(new Event("ping"));
+    teardown.dispose();
+    target.dispatchEvent(new Event("ping"));
+    assert.equal(calls, 1, "the listener ran before dispose and not after");
+    assert.equal(teardown.signal.aborted, true);
+  });
+
+  test("runs cleanups once, newest first, and survives one that throws", () => {
+    const teardown = createTeardown();
+    const ran = [];
+    teardown.onDispose(() => ran.push("renderer"));
+    teardown.onDispose(() => {
+      throw new Error("already gone");
+    });
+    teardown.onDispose(() => ran.push("visuals"));
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      teardown.dispose();
+      teardown.dispose();
+    } finally {
+      console.warn = warn;
+    }
+    assert.deepEqual(ran, ["visuals", "renderer"]);
   });
 });

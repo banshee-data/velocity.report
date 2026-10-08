@@ -5,8 +5,18 @@
 	 * Lists sweep/auto-tune runs with a detail panel showing recommendation,
 	 * request config, and links to the sweep dashboard.
 	 */
-	import { applyLidarParams, continueHINT, getSweep, listSweeps } from '#lib/api.js';
-	import type { SweepRecord, SweepSummary } from '#lib/types/lidar.js';
+	import {
+		applyLidarParams,
+		continueHINT,
+		getHINTState,
+		getLidarReplayCases,
+		getSweep,
+		listSweeps
+	} from '#lib/api.js';
+	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
+	import { objectiveText } from '#lib/lidarRecords.js';
+	import type { HINTState, LidarReplayCase, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -29,8 +39,30 @@
 	let loading = true;
 	let error: string | null = null;
 
+	// Clips name the sweeps that replayed them. Without them a card still
+	// shows the clip's id, so a failed load costs only the description.
+	let clips: LidarReplayCase[] = [];
+
 	// Detail panel state
 	let selectedSweep: SweepRecord | null = null;
+	// The list row carries the clip and objective already read out of the request.
+	let selectedSummary: SweepSummary | null = null;
+
+	// While a HINT sweep waits for labels, the run to label is the reference
+	// run, which the HINT state names and the sweep record does not.
+	let labelRunId: string | null = null;
+
+	async function loadLabelRun(sweep: SweepRecord | null) {
+		labelRunId = null;
+		if (sweep?.mode !== 'hint' || sweep.status !== 'awaiting_labels') return;
+		try {
+			const state = (await getHINTState()) as Partial<HINTState>;
+			labelRunId = state.status === 'awaiting_labels' ? (state.reference_run_id ?? null) : null;
+		} catch {
+			labelRunId = null;
+		}
+	}
+
 	let detailLoading = false;
 	let applyStatus: string | null = null;
 
@@ -61,7 +93,12 @@
 		loading = true;
 		error = null;
 		try {
-			sweeps = await listSweeps(SENSOR_ID, 50);
+			const [sweepList, clipList] = await Promise.all([
+				listSweeps(SENSOR_ID, 50),
+				getLidarReplayCases().catch(() => [] as LidarReplayCase[])
+			]);
+			sweeps = sweepList;
+			clips = clipList;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load sweeps.';
 		} finally {
@@ -69,9 +106,25 @@
 		}
 	}
 
+	/** The clip a sweep replayed, by its description where the clip is known. */
+	function clipName(clipId: string): string {
+		const clip = clips.find((c) => c.replay_case_id === clipId);
+		return clip?.description || clipId.substring(0, 8);
+	}
+
+	function clipHref(clipId: string): string {
+		return `${resolve('/lidar/replay-cases')}?${clipQuery(clipId)}`;
+	}
+
+	function basename(path: string): string {
+		const i = path.lastIndexOf('/');
+		return i >= 0 ? path.substring(i + 1) : path;
+	}
+
 	async function selectSweep(summary: SweepSummary) {
 		detailLoading = true;
 		applyStatus = null;
+		selectedSummary = summary;
 		try {
 			selectedSweep = await getSweep(summary.sweep_id);
 		} catch {
@@ -79,10 +132,13 @@
 		} finally {
 			detailLoading = false;
 		}
+		await loadLabelRun(selectedSweep);
 	}
 
 	function deselectSweep() {
 		selectedSweep = null;
+		selectedSummary = null;
+		labelRunId = null;
 		applyStatus = null;
 	}
 
@@ -166,6 +222,7 @@
 			if (selectedSweep) {
 				selectedSweep = await getSweep(selectedSweep.sweep_id);
 			}
+			await loadLabelRun(selectedSweep);
 		} catch (e) {
 			continueStatus = `Could not continue: ${e instanceof Error ? e.message : String(e)}`;
 		}
@@ -236,6 +293,10 @@
 
 	onMount(loadData);
 </script>
+
+<svelte:head>
+	<title>Sweeps — velocity.report</title>
+</svelte:head>
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
@@ -309,6 +370,35 @@
 									{formatDuration(sweep.started_at, sweep.completed_at)}
 								</span>
 							</div>
+							{#if sweep.replay_case_id || sweep.pcap_file || sweep.objective_name}
+								<div class="text-surface-content/60 mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+									{#if sweep.replay_case_id}
+										<span class="whitespace-nowrap"
+											>clip
+											<!-- eslint-disable svelte/no-navigation-without-resolve -->
+											<a
+												href={clipHref(sweep.replay_case_id)}
+												class="text-primary hover:underline"
+												on:click|stopPropagation>{clipName(sweep.replay_case_id)}</a
+											>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										</span>
+									{:else if sweep.pcap_file}
+										<span class="whitespace-nowrap" title={sweep.pcap_file}
+											>capture <span class="text-surface-content/80"
+												>{basename(sweep.pcap_file)}</span
+											></span
+										>
+									{/if}
+									{#if sweep.objective_name}
+										<span class="whitespace-nowrap"
+											>objective <span class="text-surface-content/80"
+												>{objectiveText(sweep.objective_name)}</span
+											></span
+										>
+									{/if}
+								</div>
+							{/if}
 							{#if sweep.error}
 								<p class="mt-1 truncate text-xs text-red-500">{sweep.error}</p>
 							{/if}
@@ -377,6 +467,28 @@
 							<span class="text-surface-content/60">Mode</span>
 							<span>{modeLabel(selectedSweep.mode)}</span>
 						</div>
+						{#if selectedSummary?.replay_case_id}
+							<div class="flex justify-between">
+								<span class="text-surface-content/60">Clip</span>
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									href={clipHref(selectedSummary.replay_case_id)}
+									class="text-primary hover:underline">{clipName(selectedSummary.replay_case_id)}</a
+								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							</div>
+						{:else if selectedSummary?.pcap_file}
+							<div class="flex justify-between">
+								<span class="text-surface-content/60">Capture</span>
+								<span title={selectedSummary.pcap_file}>{basename(selectedSummary.pcap_file)}</span>
+							</div>
+						{/if}
+						{#if selectedSummary?.objective_name}
+							<div class="flex justify-between">
+								<span class="text-surface-content/60">Objective</span>
+								<span>{objectiveText(selectedSummary.objective_name)}</span>
+							</div>
+						{/if}
 						<div class="flex justify-between">
 							<span class="text-surface-content/60">Started</span>
 							<span>{formatDate(selectedSweep.started_at)}</span>
@@ -409,7 +521,16 @@
 						{@const isContinuing = continueStatus === 'Continuing…'}
 						<div class="mb-4 rounded bg-yellow-50 px-4 py-3">
 							<p class="mb-2 text-sm font-medium text-yellow-800">
-								Awaiting track labels — label tracks then continue to sweep.
+								Awaiting track labels — label the run's tracks in the macOS app, then continue to
+								sweep.
+								{#if labelRunId}
+									<!-- eslint-disable svelte/no-navigation-without-resolve -->
+									<a
+										href={`${resolve('/lidar/runs')}?${runQuery(labelRunId)}`}
+										class="text-primary ml-1 font-normal underline">Open run →</a
+									>
+									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								{/if}
 							</p>
 							<div class="flex items-center gap-3">
 								<Button

@@ -45,7 +45,8 @@ Two consequences worth stating, because they resolve questions that keep
 recurring. Track labelling exists in full in both the Svelte app and the macOS
 side panel, against the same endpoint; `docs/lidar/operations/track-labelling-ui-implementation.md`
 already chose Swift-native and deferred web parity, so the web labeller should be
-demoted to read-only review rather than kept in step. And evaluation output is
+demoted to read-only review rather than kept in step. #707 did so; the
+[workflow UI plan](lidar-ui-workflow-plan.md) sets what each LiDAR page shows. And evaluation output is
 the one item on the list with _no_ surface at all: `GET/POST /api/lidar/scenes/{id}/evaluations`
 has a backend and zero consumers, and `analysis.CompareReports` has never had a
 UI. Everything else has too many.
