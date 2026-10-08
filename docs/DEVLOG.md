@@ -8,22 +8,22 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 8, 2026 - Motion passes report their progress and stop when cancelled
+## October 8, 2026 - Motion passes report their progress and stop when cancelled, and replays read each capture once
 
-- {claude/web-ui-coherence-fc5dd5} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless (#707).
-- {claude/web-ui-coherence-fc5dd5} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read (#707).
-- {claude/web-ui-coherence-fc5dd5} Took replay's capture extents from the index too, for multi-file clips and single captures alike, so a replay no longer reads each file once to count it before reading it again. Case authoring now matches index rows by the exact file rather than the file name, which two folders of copies share (#707).
+- {claude/capture-reads-once} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless.
+- {claude/capture-reads-once} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read.
+- {claude/capture-reads-once} Took replay's capture extents from the index too, for multi-file clips and single captures alike, so a replay no longer reads each file once to count it before reading it again. Case authoring now matches index rows by the exact file rather than the file name, which two folders of copies share.
 
 ## October 7, 2026 - The LiDAR web pages read as one workflow
 
-- {claude/web-ui-coherence-fc5dd5} Ordered the LiDAR pages in one navigation group as the work runs, linked each record to the next, moved Scene Map out of the navigation and called the replay case a clip in web copy only (#707).
-- {claude/web-ui-coherence-fc5dd5} Opened Captures on a configured volume instead of a dropped one showing a month-old "context canceled", and kept a session's motion periods when a rescan reproduces it: 24 of 31 development clips named a period an earlier scan had deleted (#707).
-- {claude/web-ui-coherence-fc5dd5} Kept copies of a capture in different folders as separate sessions in their own Coverage lanes, put every day on one clock axis, showed probe progress, queued every missing motion pass at once and wrote dates as yyyy-mm-dd (#707).
-- {claude/web-ui-coherence-fc5dd5} Made Tracks read-only and played a selected run from its own VRLOG, exported on first request and cached: the observation table it had played has no run column, so a kirk0 run showed 3,681 track IDs where it had 87 (#707).
-- {claude/web-ui-coherence-fc5dd5} Ranked a Segments run once, with its score strip in the same response, and kept pack listings and recording series until their files change: each load had re-read about 60 MB of review sidecars and the whole recording from the USB volume (#707).
-- {claude/web-ui-coherence-fc5dd5} Matched a clip's volume-relative capture path to a run's absolute one, which had never matched, so 474 of the latest 500 development runs named their clip instead of none; Runs also showed each run's parameter digest and labelling share (#707).
-- {claude/web-ui-coherence-fc5dd5} Named each sweep's clip or capture and its objective on the Sweeps cards, a plain sweep reading "none, compared by hand", and headed the macOS run browser's Case column Source, since it holds a file name (#707).
-- {claude/web-ui-coherence-fc5dd5} Reconciled the October workflow design with the vocabulary plan in the [LiDAR workflow UI plan](plans/lidar-ui-workflow-plan.md): candidates on Clips rather than a Windows page, a derived pack status rather than a writable one, and sites through deployments, with eleven backlog items from v0.5.9 to v0.6.6 (#707).
+- Ordered the LiDAR pages in one navigation group as the work runs, linked each record to the next, moved Scene Map out of the navigation and called the replay case a clip in web copy only (#707).
+- Opened Captures on a configured volume instead of a dropped one showing a month-old "context canceled", and kept a session's motion periods when a rescan reproduces it: 24 of 31 development clips named a period an earlier scan had deleted (#707).
+- Kept copies of a capture in different folders as separate sessions in their own Coverage lanes, put every day on one clock axis, showed probe progress, queued every missing motion pass at once and wrote dates as yyyy-mm-dd (#707).
+- Made Tracks read-only and played a selected run from its own VRLOG, exported on first request and cached: the observation table it had played has no run column, so a kirk0 run showed 3,681 track IDs where it had 87 (#707).
+- Ranked a Segments run once, with its score strip in the same response, and kept pack listings and recording series until their files change: each load had re-read about 60 MB of review sidecars and the whole recording from the USB volume (#707).
+- Matched a clip's volume-relative capture path to a run's absolute one, which had never matched, so 474 of the latest 500 development runs named their clip instead of none; Runs also showed each run's parameter digest and labelling share (#707).
+- Named each sweep's clip or capture and its objective on the Sweeps cards, a plain sweep reading "none, compared by hand", and headed the macOS run browser's Case column Source, since it holds a file name (#707).
+- Reconciled the October workflow design with the vocabulary plan in the [LiDAR workflow UI plan](plans/lidar-ui-workflow-plan.md): candidates on Clips rather than a Windows page, a derived pack status rather than a writable one, and sites through deployments, with eleven backlog items from v0.5.9 to v0.6.6 (#707).
 
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 
