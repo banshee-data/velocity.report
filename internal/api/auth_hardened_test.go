@@ -139,6 +139,9 @@ func TestHardenedServeClaims(t *testing.T) {
 		{"trailing", `{"velocity.report/cap/admin":[]} {}`, "127.0.0.1:1234", "/api/config", 403},
 		{"nonloopback", `{"velocity.report/cap/admin":[]}`, "192.168.1.50:1234", "/api/config", 403},
 		{"oversized", strings.Repeat(" ", 8193), "127.0.0.1:1234", "/api/config", 403},
+		{"undecodable MIME word", "=?no-such-charset?q?x?=", "127.0.0.1:1234", "/api/config", 403},
+		{"unterminated", `{"velocity.report/cap/admin":[]`, "127.0.0.1:1234", "/api/config", 403},
+		{"mismatched close", `{"velocity.report/cap/admin":[]]`, "127.0.0.1:1234", "/api/config", 403},
 		{"encoded", mime.QEncoding.Encode("utf-8", `{"velocity.report/cap/admin":["é"]}`), "127.0.0.1:1234", "/api/serial/configs", 200},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

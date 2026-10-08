@@ -377,6 +377,9 @@ func TestParseEnforcement(t *testing.T) {
 		"true":  EnforcementOn,
 		"1":     EnforcementOn,
 		"yes":   EnforcementOn,
+
+		"hardened":   EnforcementHardened,
+		" Hardened ": EnforcementHardened,
 	}
 	for in, want := range cases {
 		got, err := ParseEnforcement(in)
