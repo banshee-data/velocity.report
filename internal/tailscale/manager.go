@@ -174,6 +174,10 @@ type Manager struct {
 	serveTarget       string
 	serveCapabilities []tailcfg.PeerCapability
 
+	// serveForwards caches the ports unmanaged Serve handlers forward to
+	// (see UnmanagedServePorts).  It has its own lock.
+	serveForwards serveForwardsCache
+
 	mu          sync.RWMutex
 	browseURL   string    // most recent BrowseToURL from the IPN bus, if any
 	urlSetAt    time.Time // when browseURL was set; used for staleness eviction
