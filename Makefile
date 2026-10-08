@@ -22,9 +22,9 @@ VERSION := 0.5.1-pre44
 # paths belong in local.mk (untracked, included below), not in this file:
 #
 #     # local.mk
-#     LIDAR_PCAP_DIR = /Volumes/lidar/lidar
+#     LIDAR_PCAP_DIR = /Volumes/lidar/lidar/pcaps
 #
-# or per invocation: make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+# or per invocation: make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar/pcaps
 # Untracked local overrides, included before the defaults so that either `=`
 # or `?=` in local.mk takes effect: the `?=` below then leaves anything it
 # already set alone. Optional, so a fresh clone needs no such file.
@@ -2244,7 +2244,7 @@ render-scene-map: install-s2-hilbert site-index
 # The analysis the index is built from lives in the archive, and each machine
 # mounts that archive somewhere different. These pin the location per platform
 # whatever local.mk says; override the path with SCENE_ARCHIVE_MAC/_LINUX.
-SCENE_ARCHIVE_MAC ?= /Volumes/lidar/lidar
+SCENE_ARCHIVE_MAC ?= /Volumes/lidar/lidar/pcaps
 SCENE_ARCHIVE_LINUX ?= /mnt/captures/lidar
 
 render-scene-map-mac:
@@ -2277,7 +2277,7 @@ test-s2-hilbert: install-s2-hilbert
 #
 # This is slow and it needs a running server. In one shell:
 #
-#     make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+#     make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar/pcaps
 #
 # and in another:
 #

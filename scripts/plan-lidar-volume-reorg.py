@@ -3,10 +3,16 @@
 
 Reads the volume and writes a plan; it never moves, renames or deletes anything.
 
-    pcaps/      source captures only: the one directory the pipeline scans
+    pcaps/      what the pipeline reads: source captures, and the published
+                sf-street-speeds corpus that scene publishing replays
     work/       derived output, experiments, scratch: never scanned
-    publish/    dataset staging
     manifests/  hand-authored provenance, left where it is
+
+pcaps/ is the new LIDAR_PCAP_DIR, and the s2-archive tools treat it as their
+archive root. So s2/ keeps its analysis/, analysis-continuous/ and
+static-huggingface/ beside the captures, where those tools read them (the
+scanner already skips analysis output), and sf-street-speeds/ sits under it
+because the server refuses to replay anything outside LIDAR_PCAP_DIR.
 
 Outputs, in --out:
     plan.tsv         one row per step: op, source, destination, bytes, category, note
@@ -100,7 +106,7 @@ GROUPS = [
 
 # Top-level directories, by name pattern, to their new home.
 DIR_HOMES = [
-    (re.compile(r"^sf-street-speeds$"), "publish"),
+    (re.compile(r"^sf-street-speeds$"), "pcaps"),
     (re.compile(r"^(velocity-campaign|seg|vrlog)$"), "work"),
     (re.compile(r"^state-estimation-.*"), "work/state-estimation"),
     (
@@ -119,15 +125,13 @@ STAY = {
     "manifests",
     "pcaps",
     "work",
-    "publish",
     "banshee-data-organization-card-README.md",
 }
 
-# Inside s2/, entries that are not source chunks, and where they go.
+# Inside s2/, entries the scanner would index that are not source chunks, and
+# where they go. Analysis output stays: the scanner skips it, and the archive
+# tools read it beside the captures.
 S2_EXTRACT = [
-    (re.compile(r"^(analysis|analysis-continuous|vrlog)$"), "work/s2"),
-    (re.compile(r"^pcap_split_analysis_.*$"), "work/s2"),
-    (re.compile(r"^static-huggingface$"), "publish"),
     # Same chunk names as s2_sf_7_*, renamed 00-..04-. Verify by hash before deleting.
     (re.compile(r"^embarcadero-folsom-41cfqfsw$"), "work/duplicates-to-verify"),
 ]
@@ -189,7 +193,7 @@ def build_plan(root):
                             src=f"pcaps/s2/{child.name}",
                             dst=f"{dest_dir}/{child.name}",
                             bytes=tree_size(child),
-                            category="derived" if "work" in dest_dir else "publish",
+                            category="derived",
                             note=note,
                         )
                     )
@@ -276,12 +280,17 @@ def build_plan(root):
                             dst=f"{home}/{name}",
                             bytes=tree_size(p),
                             category=(
-                                "derived" if home.startswith("work") else "publish"
+                                "derived" if home.startswith("work") else "corpus"
                             ),
                             note=(
-                                "contains pcaps the scanner would otherwise index"
-                                if scan_count(p)[0]
-                                else ""
+                                "published dataset; scene publishing replays it, so it "
+                                "stays under LIDAR_PCAP_DIR"
+                                if home == "pcaps"
+                                else (
+                                    "contains pcaps the scanner would otherwise index"
+                                    if scan_count(p)[0]
+                                    else ""
+                                )
                             ),
                         )
                     )
@@ -485,7 +494,7 @@ def main():
         e
         for e in plan
         if e["note"]
-        and e["category"] in ("source-compressed", "derived", "publish")
+        and e["category"] in ("source-compressed", "derived")
         and ("twin" in e["note"] or "verify" in e["note"])
     ]
     if notes:
