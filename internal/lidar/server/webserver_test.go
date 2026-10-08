@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
@@ -4792,6 +4793,66 @@ func TestStart_WrappersServeTheListenerAndHandler(t *testing.T) {
 	cancel()
 	if err := <-errCh; err != nil {
 		t.Errorf("Start returned %v after shutdown", err)
+	}
+}
+
+// The LiDAR listener refuses a DNS-rebinding page's Host like the main one,
+// by default and with an operator's policy.
+func TestStart_RefusesADNSRebindingHost(t *testing.T) {
+	policy, err := access.NewHostPolicy([]string{"lidar.example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, set := range map[string]*access.HostPolicy{"default": nil, "operator": policy} {
+		t.Run(name, func(t *testing.T) {
+			srv := NewServer(Config{Address: "127.0.0.1:0", Stats: NewPacketStats()})
+			srv.setTestSourcePCAPReplaying()
+			if set != nil {
+				srv.SetHostPolicy(set)
+			}
+			bound := make(chan string, 1)
+			srv.SetListenerWrapper(func(l net.Listener) net.Listener {
+				bound <- l.Addr().String()
+				return l
+			})
+			ctx, cancel := context.WithCancel(context.Background())
+			errCh := make(chan error, 1)
+			go func() { errCh <- srv.Start(ctx) }()
+			defer func() {
+				cancel()
+				<-errCh
+			}()
+			addr := <-bound
+			status := func(host string) int {
+				r, _ := http.NewRequest("GET", "http://"+addr+"/health", nil)
+				r.Host = host
+				var response *http.Response
+				for range 50 {
+					if response, err = (&http.Client{Timeout: time.Second}).Do(r); err == nil {
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				response.Body.Close()
+				return response.StatusCode
+			}
+			if got := status("rebind.attacker.example"); got != http.StatusForbidden {
+				t.Fatalf("rebinding host: HTTP %d", got)
+			}
+			if got := status("velocity.local:8081"); got != http.StatusOK {
+				t.Fatalf("velocity.local: HTTP %d", got)
+			}
+			want := http.StatusForbidden
+			if set != nil {
+				want = http.StatusOK
+			}
+			if got := status("lidar.example.com"); got != want {
+				t.Fatalf("operator's name: HTTP %d, want %d", got, want)
+			}
+		})
 	}
 }
 

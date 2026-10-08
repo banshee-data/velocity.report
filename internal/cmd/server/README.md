@@ -48,6 +48,13 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
   Hardened startup also requires loopback LiDAR HTTP/gRPC bindings. Follow the
   [activation and recovery runbook](../../../docs/platform/operations/tailscale-remote-access.md#hardened-profile)
   before changing the appliance's persistent service flags.
+- `--allowed-hosts` (comma-separated): Host names the HTTP listeners answer in every
+  profile, besides address literals, `localhost`, single-label names and names under
+  `.local`, `.lan`, `.home`, `.home.arpa`, `.internal`, `.localdomain` and `.ts.net`.
+  Any other `Host` gets 403 `{"error":"host_not_allowed"}`, which stops a DNS-rebinding
+  page from reaching the device through a visitor's browser. Add a name you serve the
+  device under, such as a reverse proxy's `velocity.example.com`, or `.example.com` for
+  every name beneath it.
 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
