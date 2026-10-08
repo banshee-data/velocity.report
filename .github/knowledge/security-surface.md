@@ -12,7 +12,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 - Default `off` preserves existing access; `on` enforces Tailscale grants with the LAN/loopback bypass.
 - Opt-in `hardened` checks operation/resource permissions: anonymous aggregate/PDF reading, verified Tailscale routine administration, OS-local maintenance/access management.
 - Dedicated loopback Serve capability backend; origin and forwarding checks; alternate LiDAR HTTP/full gRPC remain loopback. Native users/groups and authenticated LAN gRPC are later work.
-- A Serve TCP forward, TCP Funnel or other Serve handler velocity.report did not install arrives from tailscaled on the host with client-written headers. With `on` or `hardened`, every listener drops connections from the host while one targets its port (`access.GuardListener`, reading tailscaled's Serve configuration at most every five seconds, failing closed when it cannot). `off` checks nothing.
+- A Serve TCP forward, TCP Funnel or other Serve handler velocity.report did not install arrives from tailscaled on the host with client-written headers. With `on` or `hardened`, every listener drops connections from the host while one targets its port, and HTTP listeners recheck each request (`access.GuardListener`, `access.GuardHandler`; tailscaled's Serve configuration is read at most every five seconds, and an unreadable configuration or undecidable target fails closed). With `on`, the ungated LiDAR HTTP listener must be loopback, as gRPC is in every profile. `off` checks nothing.
 - Canonical [access policy and acceptance boundary](../../docs/plans/platform-access-control-hardening-plan.md).
 
 ### LIDAR UDP Listener (192.168.100.151)
