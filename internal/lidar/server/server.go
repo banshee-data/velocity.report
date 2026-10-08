@@ -61,7 +61,8 @@ type Server struct {
 	boundAddr         atomic.Value // string; set by Start once its listener is bound
 	stats             *PacketStats
 	server            *http.Server
-	onReady           func() // run by Start once it is serving; see SetOnReady
+	onReady           func()                          // run by Start once it is serving; see SetOnReady
+	wrapListener      func(net.Listener) net.Listener // see SetListenerWrapper
 	forwardingEnabled bool
 	forwardAddr       string
 	forwardPort       int
@@ -523,6 +524,12 @@ func (ws *Server) SetOnReady(fn func()) {
 	ws.onReady = fn
 }
 
+// SetListenerWrapper wraps the HTTP listener once it is bound, such as with
+// access.GuardListener.  Call it before Start.
+func (ws *Server) SetListenerWrapper(fn func(net.Listener) net.Listener) {
+	ws.wrapListener = fn
+}
+
 // Start begins the HTTP server in a goroutine and handles graceful shutdown.
 // A listener it cannot bind is returned as an error before anything is
 // served, so the caller can report the LiDAR subsystem as failed.
@@ -547,6 +554,9 @@ func (ws *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
 	ws.boundAddr.Store(ln.Addr().String())
+	if ws.wrapListener != nil {
+		ln = ws.wrapListener(ln)
+	}
 
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
