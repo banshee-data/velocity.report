@@ -494,7 +494,12 @@ func TestClassifySource_Edges(t *testing.T) {
 		{"tailnet address without a port", "100.64.0.9", "", "100.64.0.9", sourceTailnet},
 		{"LAN address without a port", "192.168.1.50", "", "192.168.1.50", sourceLocal},
 		{"not an address", "@", "", "invalid IP", sourceLocal},
-		{"loopback with a malformed XFF", "127.0.0.1:54321", "not-an-ip", "127.0.0.1", sourceLocal},
+		// tailscale serve writes one bare address; anything else came from
+		// someone else and is refused rather than read as the host.
+		{"loopback with a malformed XFF", "127.0.0.1:54321", "not-an-ip", "invalid IP", sourceForwarded},
+		{"loopback with an address and port in XFF", "127.0.0.1:54321", "203.0.113.7:4444", "invalid IP", sourceForwarded},
+		{"loopback with a bracketed IPv6 XFF", "[::1]:54321", "[2001:db8::1]", "invalid IP", sourceForwarded},
+		{"loopback with an empty first XFF entry", "127.0.0.1:54321", " , 100.64.0.5", "invalid IP", sourceForwarded},
 		{"loopback with a tailnet XFF first", "127.0.0.1:54321", "100.64.0.5, 203.0.113.7", "100.64.0.5", sourceTailnet},
 		{"loopback with a public XFF first", "127.0.0.1:54321", "203.0.113.7, 100.64.0.5", "203.0.113.7", sourceForwarded},
 	} {

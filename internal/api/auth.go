@@ -225,18 +225,25 @@ func classifySource(r *http.Request) (netip.Addr, requestSource) {
 	// Trust XFF only when the upstream is loopback (the only path
 	// by which tailscale serve forwards requests to us).
 	if remoteIP.IsLoopback() {
-		if xff := firstXFF(r.Header.Get("X-Forwarded-For")); xff.IsValid() {
+		if raw := r.Header.Get("X-Forwarded-For"); raw != "" {
+			xff := firstXFF(raw)
 			if isTailnetIP(xff) {
 				return xff, sourceTailnet
 			}
-			// XFF is set but not a tailnet IP: tailscale serve
+			// XFF is set but is not a tailnet IP: tailscale serve
 			// forwarding a Funnel request from the internet, or a
-			// local reverse proxy forwarding for someone else.
-			// Neither is the host or the LAN.
+			// local reverse proxy forwarding for someone else.  One
+			// that does not parse is not tailscale serve's, which
+			// sets a single address: whoever wrote it is unknown.
+			// None of these is the host or the LAN.
 			return xff, sourceForwarded
 		}
 		// Loopback with no XFF: a process on the host (the Go
-		// server itself, `velocity device`, a local curl).
+		// server itself, `velocity device`, a local curl).  The
+		// listener refuses connections from this host while
+		// tailscaled forwards to it through a Serve handler the
+		// manager did not install (access.GuardListener), since such
+		// a forward arrives here too, with no XFF or a forged one.
 		return remoteIP, sourceLocal
 	}
 	// Direct connection (LAN, or the listener exposed somewhere).  XFF
