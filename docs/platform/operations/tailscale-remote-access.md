@@ -235,7 +235,8 @@ Failure modes:
   which enrols the device for whoever opens it.
 - **Grants only protect the velocity-report HTTP API.** They do not
   cover Tailscale SSH, the gRPC visualiser stream, or any other
-  port. Use ACL rules for those.
+  port. Use ACL rules for those. The LiDAR monitor and gRPC must stay
+  on loopback with `on`, so tailnet peers cannot reach them directly.
 - **A subnet router's traffic arrives looking local.** A subnet router
   that source-NATs delivers peer traffic from its own LAN address, which
   is treated as LAN, hence admin. The gate covers `tailscale serve` HTTP
@@ -270,12 +271,18 @@ all, would read as a tailnet admin or as the host.
 With `on` or `hardened`, each listener (main HTTP, the Serve backend,
 LiDAR HTTP on `:8081` and gRPC on `:50051`) therefore drops connections
 from the device itself while tailscaled forwards to its port through any
-handler velocity.report did not install. The server reads tailscaled's
+handler velocity.report did not install. The HTTP listeners also check
+every request again, so a kept-alive connection opened before the
+forward appeared is refused from then on (403
+`{"error":"unmanaged_serve_forward"}`). The server reads tailscaled's
 Serve configuration for this, at most every five seconds, so a forward
-is noticed within that time. If the configuration cannot be read, local
-connections are dropped too; if tailscaled is not running, it forwards
-nothing and nothing is dropped. Connections from other hosts are
-unaffected, and so is a target that names another machine by address.
+is noticed within that time. A target whose port cannot be worked out
+counts as a forward to every listener. If the configuration cannot be
+read, including when velocity.report may not open tailscaled's socket,
+local connections are refused too. If tailscaled is not running (its
+socket is missing or refuses connections), it forwards nothing and
+nothing is refused. Connections from other hosts are unaffected, and so
+is a target that names another machine by address.
 
 The journal says which listener is refusing and why:
 
@@ -406,10 +413,11 @@ when connected.
 The served web UI proxies to the server's own port on `127.0.0.1`
 (`:80` on the Pi image, `:8080` by default elsewhere) — the same Go
 server that the LAN reaches. The LiDAR monitor (`:8081`) and the gRPC
-visualiser stream (`:50051`) bind to loopback by default, so they are
-not reachable over the tailnet unless an operator rebinds them or
-forwards to them with Serve; with `on` or `hardened` such a forward
-makes them refuse local connections (see
+visualiser stream (`:50051`) bind to loopback by default. Neither has a
+gate of its own, so gRPC must stay on loopback in every profile, and the
+LiDAR monitor must too with `on` or `hardened`: startup refuses any
+other address. With those profiles, a Serve forward to either makes it
+refuse local connections (see
 [Serve and Funnel configured elsewhere](#serve-and-funnel-configured-elsewhere)). See
 [networking.md](../../radar/architecture/networking.md) for the
 full listener segmentation.
