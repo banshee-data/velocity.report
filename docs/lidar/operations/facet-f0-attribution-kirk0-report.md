@@ -318,7 +318,10 @@ with L = 4.5 m, W = 1.8 m, the Pandar40P's 40-channel elevation table, and a 1.5
 sensor's 2.3 m mount, its height above the road at kirk0 and every site
 ([hardware](../../../.github/knowledge/hardware.md#mounting)). kirk0's settled background agrees:
 within 15 m of the sensor its road returns lie at −2.2 to −2.3 m. The run first used the
-protocol's 3 m default, before the height was recorded; both are given, 3 m in brackets.
+protocol's 3 m default, before the height was recorded; both are given, 3 m in brackets. The
+model counts every ring from the road to the roof. That holds on kirk0, where the height band's
+−2.8 m floor sits below the road and clips no body returns; under the slope-aware surface clip,
+whose floor is 0.2 m above the road, a near body would lose one of its 11 rings.
 
 | Range   | Instants (objects) | Rings on a 1.5 m body at bin centre | `returns / N_pred` median | IQR       |
 | ------- | -----------------: | ----------------------------------: | ------------------------: | --------- |

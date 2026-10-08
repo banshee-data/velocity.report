@@ -282,7 +282,9 @@ consequence of the 2.3 m mount and the Pandar40P ring table, not a property of l
 
 A 4.5 by 1.8 by 1.5 m box on a flat road, sensor 2.3 m up (the deployed height), azimuth step 0.2
 degrees, the real Pandar40P elevation table (check 2). The first version of this table assumed a
-3 m mount; the recorded height changes only the 10, 20 and 100 m rows.
+3 m mount. At 2.3 m the ring counts change at 10, 20 and 100 m. From 30 to 80 m a different set of
+rings strikes the body, but as many of them, so the returns are unchanged; the largest gap moves
+by at most 3 mm, enough to round 80 m's from 0.48 to 0.47 m.
 
 | Range | Rings on the body | Returns per ring, side | Returns per ring, end | Side returns | End returns | Largest ring gap on the face |
 | ----: | ----------------: | ---------------------: | --------------------: | -----------: | ----------: | ---------------------------: |
@@ -294,6 +296,14 @@ degrees, the real Pandar40P elevation table (check 2). The first version of this
 |  60 m |                 4 |                     22 |                     9 |           86 |          34 |                       0.36 m |
 |  80 m |                 3 |                     16 |                     6 |           48 |          19 |                       0.47 m |
 | 100 m |                 2 |                     13 |                     5 |           26 |          10 |                       0.59 m |
+
+The table counts every ring from the road to the roof. That matches the live height band on level
+road at 2.3 m, whose -2.8 m floor sits below the road and clips nothing. The slope-aware surface
+clip, with its floor 0.2 m above the fitted surface, would remove one ring at 10, 30, 40 and 60 m:
+end returns at 60 m fall from 34 to 26, and check 7's expected support there from 24.1 to 18.0,
+still above eight. On a down-slope the absolute band removes far more; at Marina's grade its floor
+is 0.8 m above the road 30 m down. The first version had the same premise: at 3 m the band's floor
+sat 0.2 m above the road and was not counted either.
 
 Three things follow. The number of rings on the body peaks where the dense band of the table,
 which sits around the horizon, crosses the body: by 10 to 20 m at this mount, with 11 rings (at
