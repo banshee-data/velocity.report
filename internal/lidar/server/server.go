@@ -60,6 +60,7 @@ type Server struct {
 	server            *http.Server
 	onReady           func()                          // run by Start once it is serving; see SetOnReady
 	wrapListener      func(net.Listener) net.Listener // see SetListenerWrapper
+	wrapHandler       func(http.Handler) http.Handler // see SetHandlerWrapper
 	forwardingEnabled bool
 	forwardAddr       string
 	forwardPort       int
@@ -479,6 +480,12 @@ func (ws *Server) SetListenerWrapper(fn func(net.Listener) net.Listener) {
 	ws.wrapListener = fn
 }
 
+// SetHandlerWrapper wraps the HTTP handler, outermost, such as with
+// access.GuardHandler.  Call it before Start.
+func (ws *Server) SetHandlerWrapper(fn func(http.Handler) http.Handler) {
+	ws.wrapHandler = fn
+}
+
 // Start begins the HTTP server in a goroutine and handles graceful shutdown.
 // A listener it cannot bind is returned as an error before anything is
 // served, so the caller can report the LiDAR subsystem as failed.
@@ -494,6 +501,9 @@ func (ws *Server) Start(ctx context.Context) error {
 	}
 	if ws.wrapListener != nil {
 		ln = ws.wrapListener(ln)
+	}
+	if ws.wrapHandler != nil {
+		ws.server.Handler = ws.wrapHandler(ws.server.Handler)
 	}
 
 	ws.dataSourceMu.Lock()

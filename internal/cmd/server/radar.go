@@ -303,19 +303,6 @@ func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterfa
 	return api.NewSerialPortManager(database, current, snapshot, runtimeSerialFactory(reloadEnabled))
 }
 
-// listenerGuard returns a wrapper for each named listener that refuses local
-// connections while tailscaled forwards to it through a Serve handler the
-// manager did not install (access.GuardListener).  With enforcement off the
-// wrappers leave the listeners as they are: that profile trusts every caller.
-func listenerGuard(mode api.CapEnforcement, forwards access.ServeForwards) func(name string) func(net.Listener) net.Listener {
-	return func(name string) func(net.Listener) net.Listener {
-		if mode == api.EnforcementOff || forwards == nil {
-			return nil
-		}
-		return func(l net.Listener) net.Listener { return access.GuardListener(l, forwards, name) }
-	}
-}
-
 // Main
 // tailscaleServeTarget derives the loopback HTTP URL that `tailscale serve`
 // should proxy to from the server's --listen address, so the published HTTPS
@@ -409,10 +396,8 @@ func Main(args []string) int {
 	if err := access.ValidateLoopbackListen(*lidarGRPCListen); err != nil {
 		log.Fatalf("gRPC is local until authentication is implemented: %v", err)
 	}
-	if capMode == api.EnforcementHardened {
-		if err := validateHardenedListeners(*tsServeListen, *lidarListen, *lidarGRPCListen); err != nil {
-			log.Fatalf("Hardened listener configuration: %v", err)
-		}
+	if err := validateEnforcedListeners(capMode, *tsServeListen, *lidarListen, *lidarGRPCListen); err != nil {
+		log.Fatalf("Listener configuration for --ts-cap-enforcement=%s: %v", *tsCapEnforcement, err)
 	}
 	lidar.SetLogWriters(writers)
 	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
@@ -588,7 +573,7 @@ func Main(args []string) int {
 	tsManager := tailscale.New(tsOptions...)
 	tsManager.Start(ctx)
 	defer tsManager.Stop()
-	guard := listenerGuard(capMode, tsManager)
+	guards := serveForwardGuards{mode: capMode, forwards: tsManager}
 
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
@@ -713,7 +698,7 @@ func Main(args []string) int {
 				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
-				vizConfig.WrapListener = guard("gRPC server")
+				vizConfig.WrapListener = guards.listener("gRPC server")
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
@@ -991,7 +976,8 @@ func Main(args []string) int {
 				}
 			},
 		})
-		lidarServer.SetListenerWrapper(guard("LiDAR HTTP server"))
+		lidarServer.SetListenerWrapper(guards.listener("LiDAR HTTP server"))
+		lidarServer.SetHandlerWrapper(guards.handler("LiDAR HTTP server"))
 		// A VRLOG that plays to its end stays loaded and stays the data source.
 		// Only the replay slot is released, so another replay can start; the
 		// recording remains on screen at its final frame and the visualiser's
