@@ -457,13 +457,13 @@ The `GroundSurface` interface is deliberately **non-point-based**: it exposes pl
 **Mode 1: Post-L3 (uses background grid)**
 
 - L3 background grid classifies points as background/foreground.
-- Ground plane extractor consumes **static background points within ground Z-band** (e.g., −3.0 m < Z < −2.5 m).
+- Ground plane extractor consumes **static background points within ground Z-band** (e.g., −2.6 m < Z < −2.0 m about a road near −2.3 m at the deployed ~2.3 m mount).
 - Advantage: Pre-filtered points reduce noise; faster convergence.
 - Disadvantage: Depends on L3 settlement (background grid must stabilise first).
 
 **Mode 2: Direct from L2 (independent)**
 
-- Ground plane extractor receives all L2 frame points, applies its own ground filter (simple Z-band threshold: −3.0 m < Z < −2.0 m).
+- Ground plane extractor receives all L2 frame points, applies its own ground filter (simple Z-band threshold, e.g. −2.8 m < Z < −1.8 m at the deployed ~2.3 m mount).
 - Fits planes independently of L3 background grid.
 - Advantage: No dependency on L3 settlement; can operate in parallel.
 - Disadvantage: More noisy points (vehicles, pedestrians) require robust outlier rejection.
