@@ -43,7 +43,9 @@ type Server struct {
 	// serveListen is a separate loopback-only backend for verified Serve claims.
 	serveListen string
 	// serveForwards guards the listeners against unmanaged Serve forwards.
-	serveForwards    access.ServeForwards
+	serveForwards access.ServeForwards
+	// hostPolicy refuses Host headers a DNS-rebinding page could send.
+	hostPolicy       *access.HostPolicy
 	routePermissions []routePermission
 }
 
@@ -147,6 +149,19 @@ func (s *Server) SetServeForwards(f access.ServeForwards) { s.serveForwards = f 
 
 func (s *Server) guardsServeForwards() bool {
 	return s.serveForwards != nil && s.authGate != nil && s.authGate.mode != EnforcementOff
+}
+
+// SetHostPolicy sets the Host headers the listeners answer, in every
+// profile.  Without it they answer the default set (access.DefaultHostPolicy).
+// Call before Start.
+func (s *Server) SetHostPolicy(p *access.HostPolicy) { s.hostPolicy = p }
+
+func (s *Server) hostChecked(h http.Handler) http.Handler {
+	p := s.hostPolicy
+	if p == nil {
+		p = access.DefaultHostPolicy()
+	}
+	return p.Handler(h)
 }
 
 // guardListener wraps l with the Serve-forward guard when enforcement is on.
@@ -608,7 +623,7 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 
 	// Order: logging on the outside (so 403s from auth are logged),
 	// auth on the inside (so the cap check sees the real handler).
-	server := &http.Server{Handler: LoggingMiddleware(s.guardHandler(s.authWrapper(mux), "HTTP server"))}
+	server := &http.Server{Handler: LoggingMiddleware(s.hostChecked(s.guardHandler(s.authWrapper(mux), "HTTP server")))}
 	var backend *http.Server
 	var backendListener net.Listener
 	if s.hardened() {
@@ -619,7 +634,7 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		}
 		backendListener = s.guardListener(backendListener, "Serve backend")
 		defer backendListener.Close()
-		backend = &http.Server{Handler: LoggingMiddleware(s.guardHandler(s.hardenedWrapper(mux, true), "Serve backend"))}
+		backend = &http.Server{Handler: LoggingMiddleware(s.hostChecked(s.guardHandler(s.hardenedWrapper(mux, true), "Serve backend")))}
 		defer backend.Close()
 		log.Printf("Tailscale Serve backend listening on %s (hardened)", backendListener.Addr())
 	}
