@@ -6,23 +6,16 @@ in. The proposal's two useful ideas survive: a versioned, offline reference asse
 cite, and a local crash-history record for each site. Its framing does not: no "axioms", no
 kinematic priors from in-vehicle studies, no geohash, no agent protocol, and no risk score.
 
-- **Status:** Proposed; review of an external proposal and the plan that replaces it. No dataset
-  ingested, no code written. Source pages were checked on October 8, 2026 through search results
-  only; direct fetches of the TIMS, DataSF and AAA Foundation pages failed from the review
-  environment, so every rights and figure claim below is marked for primary confirmation.
-- **Layers:** Cross-cutting (PDF report, site configuration, importer tooling); L8 behaviour
-  benchmarks
-- **Target:** v0.5.10 for the cited risk curves in the report; v0.6.8 for site crash context and
-  the before/after model, alongside survey hand-off; v1.0 for anything that needs posted limits or
-  the vector scene
-- **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md),
-  [posted speed limits](posted-speed-limits-plan.md),
-  [vehicle encyclopedia](vehicle-encyclopedia-plan.md),
-  [spatial priors reference data](spatial-priors-reference-data-plan.md)
-- **Related:** [identifiability analysis](../platform/architecture/identifiability-analysis.md),
-  [S2 conventions](../lidar/architecture/geographic-indexing.md),
-  [PDF reporting](../platform/operations/pdf-reporting.md), [TENETS](../../TENETS.md)
-- **Canonical:** [Data science methodology](../platform/operations/data-science-methodology.md)
+Sources were checked on October 8, 2026 through search results only. Direct fetches of the TIMS,
+DataSF and AAA Foundation pages failed from the review environment, so every rights claim and
+figure below is marked for confirmation against the primary document.
+
+- **Status:** Proposed; no dataset ingested and no code written
+- **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
+- **Target:** v0.5.10 for the cited harm curves; v0.6.8 for site crash context and the before-and-after model; v1.0 for road-segment attachment
+- **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md)
+- **Related:** [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [TENETS](../../TENETS.md)
+- **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
 
 ## Motivation
 
@@ -88,7 +81,9 @@ against, and a geographic index that contradicts the repository's S2 convention.
   ([python-venv](../platform/operations/python-venv.md)). Operator importers are Go commands under
   `cmd/tools/`, such as `import-s2-site-index`. Exploration lives in `data/explore/`.
 
-## Findings: review of the external proposal
+## Findings
+
+### Review of the external proposal
 
 | Proposal                                                                                                      | Review                                                                                                                                                                                                                                                                                                                                                                                                                                        | Consequence                                                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -105,7 +100,7 @@ against, and a geographic index that contradicts the repository's S2 convention.
 | "Go or Python for the ingestion scripts?"                                                                     | Decided by [policy](../platform/operations/python-venv.md): Python never runs on the device and never ships; anything that produces a record the server stores is Go                                                                                                                                                                                                                                                                          | Go importer under `cmd/tools/`. Python in `data/explore/` for looking at a dataset before writing the adapter                                                                                              |
 | "Draft the JSON from validated federal briefs"                                                                | The numbers worth pinning are not SHRP2 kinematics. They are pedestrian injury-risk curves and speed-change crash models, and each needs its primary paper read, not a brief                                                                                                                                                                                                                                                                  | Item 1 below is that reading                                                                                                                                                                               |
 
-## What the evidence can and cannot establish
+### What the evidence can and cannot establish
 
 Three questions a report reader asks, three source families, and the boundary of each.
 
@@ -172,7 +167,8 @@ Rules:
 - A site without coordinates has no context, and the report says nothing rather than something.
 - Counts are aggregates over a window of years. Where a count would single out a person, which
   the source's own publication may already do, the report lengthens the window or suppresses the
-  cell, following the [identifiability analysis](../platform/architecture/identifiability-analysis.md).
+  cell, following the
+  [identifiability analysis](../platform/architecture/identifiability-analysis.md).
 - The record attaches to the site now and to the vector-scene road segment at v1.0, when the
   posted limits plan gives a segment to attach to. Nothing in the row depends on the scene.
 
@@ -180,8 +176,8 @@ Rules:
 
 1. **Cited harm paragraph.** Replace the kinetic-energy paragraph with a short statement of the
    impact-speed curves, the figure for the site's posted or operator-supplied limit against its
-   measured p85 and p98, in the sign's unit, and the citation with the edition. The impact-versus-travel
-   caveat is printed, not footnoted.
+   measured p85 and p98, in the sign's unit, and the citation with the edition. The
+   impact-versus-travel caveat is printed, not footnoted.
 2. **Site context block.** Counts by severity and mode over the window, the designation and its
    version, the source and licence line. Absent when there is no record.
 3. **Before and after.** When a report compares two periods at one site, the mean-speed change and
@@ -301,34 +297,6 @@ crashes by severity from the pinned model, with its interval.
 | Figures in this plan drawn from search summaries are wrong                         | Medium     | Medium | Item 1 is the first milestone and replaces every marked figure from the primary paper                                             |
 | The join radius misattributes an adjacent arterial's crashes to a side street      | Medium     | Medium | Operator confirmation of segments; segment attachment at v1.0                                                                     |
 
-## Checklist
-
-### Complete
-
-- [x] Review of the external proposal and the repository's existing benchmark, privacy, naming
-      and tooling conventions it bears on
-
-### Outstanding
-
-- [ ] Item 1: primary-source reading and rights record (`S`)
-- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`)
-- [ ] Item 3: before-and-after model section (`M`)
-- [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`)
-
-### Deferred
-
-- [ ] Item 5: road-segment attachment, tracked by the
-      [posted speed limits plan](posted-speed-limits-plan.md)
-- [ ] Mass and front-end geometry in the harm curve, tracked by the
-      [vehicle encyclopedia plan](vehicle-encyclopedia-plan.md)
-
-### Accepted residuals (no action planned)
-
-- [ ] SHRP2 kinematic thresholds: not measurable by this sensor, not adopted
-- [ ] Per-passage crash or near-crash classification: out of scope here and in the
-      state-estimation plan's Section 12
-- [ ] Surrogate-measure-to-crash calibration at a single site: not establishable from one site
-
 ## Open questions
 
 - Is `published_model` a sixth benchmark kind, or is a cited curve a `research_threshold` with a
@@ -344,35 +312,54 @@ crashes by severity from the pinned model, with its interval.
 
 ## Sources checked
 
-Checked on October 8, 2026 through search results; marked **confirm** where the primary document
-was not read.
+Checked on October 8, 2026 through search results. **Confirm** marks a claim whose primary
+document was not read.
 
-- SHRP2 NDS access: the InSight portal is view-only for registered users, with Terms of Use that
-  bar downloading sensor data; data use licences are executed with VTTI for research use.
-  [TRB access page](https://trb.org/StrategicHighwayResearchProgram2SHRP2/SHRP2DataSafetyAccess.aspx).
-  Published aggregate reports such as DOT HS 812 858 are citable as the behaviour plan already does.
-- Dingus et al. 2016, PNAS 113(10), 905 crash events; the proposal's 68% distraction figure was
-  not confirmed from the sources retrieved. **confirm**
-- TIMS: terms are set out in a licence agreement the review could not read; attribution to
-  SafeTREC requested; data as-is. [About TIMS](https://tims.berkeley.edu/about.php). **confirm**
-- DataSF terms of use: PDDL v1.0 unless a dataset page says otherwise.
-  [DataSF terms](https://sf.gov/reports/april-2017/datasf-terms-use),
-  [licensing standard](https://datasf.org/resources/open-data-licensing-standard/). **confirm per dataset**
-- Vision Zero High Injury Network 2022: SFDPH, at least 10 severe or fatal injuries per mile,
-  streets only, window stated as 2017 to 2021 in the methodology and 2017 to 2022 in the catalogue.
-  [Methodology](https://www.visionzerosf.org/wp-content/uploads/2023/03/2022_Vision_Zero_Network_Update_Methodology.pdf),
-  [catalogue record](https://catalog.data.gov/dataset/vision-zero-high-injury-network). **confirm window**
-- FARS: census of fatal crashes from 1975, CSV downloads, catalogued as US public domain.
-  [data.gov record](https://catalog.data.gov/dataset/fatality-analysis-reporting-system-fars-ftp-raw-data).
-- STATS19: Great Britain, Open Government Licence v3.0.
-  [stats19 package documentation](https://packages.ropensci.org/stats19/doc/stats19.html).
-- Tefft 2013: 50% severe injury at about 31 mph, 50% death at about 42 mph, standardised to
-  2007 to 2009 US pedestrians and vehicles.
-  [AAA Foundation summary](https://aaafoundation.org/impact-speed-pedestrians-risk-severe-injury-death/),
-  [NHTSA countermeasures](https://nhtsa.gov/book/countermeasures-that-work/pedestrian-safety/understanding-problem).
-  **confirm from the paper**
-- Nilsson power model and Elvik exponential model: both fit post-2000 data well; the relationship
-  holds at the individual and aggregate level.
-  [Elvik et al. 2019](https://swov.nl/en/publicatie/updated-estimates-relationship-between-speed-and-road-safety-aggregate-and-individual),
-  [ITF note](https://www.itf-oecd.org/sites/default/files/docs/speed-changes-crash-risk.pdf).
-  Coefficients **confirm from the paper**.
+| Source                     | What the search results support                                                                                                                                                     | Status                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| [SHRP2 NDS access][shrp2]  | InSight is view-only for registered users and its terms bar downloading sensor data; data use licences are executed with VTTI for research. Published aggregate reports are citable | Checked                  |
+| Dingus et al. 2016, PNAS   | 905 crash events, volume 113 issue 10; the proposal's 68% distraction figure was not found in the sources retrieved                                                                 | **Confirm**              |
+| [TIMS][tims]               | Terms are set out in a licence agreement the review could not read; attribution to SafeTREC requested; data supplied as-is                                                          | **Confirm**              |
+| [DataSF terms][datasf]     | PDDL v1.0 unless a dataset page says otherwise, per the [licensing standard][datasf-pddl]                                                                                           | **Confirm per dataset**  |
+| [High Injury Network][hin] | SFDPH, 2022 update, at least 10 severe or fatal injuries per mile, streets only; window is 2017 to 2021 in the methodology and 2017 to 2022 in the [catalogue][hin-catalogue]       | **Confirm window**       |
+| [FARS][fars]               | Census of fatal crashes since 1975, CSV downloads, catalogued as US public domain                                                                                                   | Checked                  |
+| [STATS19][stats19]         | Great Britain road casualty data under the Open Government Licence v3.0                                                                                                             | Checked                  |
+| [Tefft 2013][tefft]        | 50% severe-injury risk at about 31 mph and 50% fatality risk at about 42 mph, standardised to 2007 to 2009 US pedestrians and vehicles, per the [NHTSA summary][nhtsa-ped]          | **Confirm from paper**   |
+| [Elvik et al. 2019][elvik] | Power and exponential models both fit post-2000 data well, at individual and aggregate level; see also the [ITF note][itf]                                                          | **Confirm coefficients** |
+
+[shrp2]: https://trb.org/StrategicHighwayResearchProgram2SHRP2/SHRP2DataSafetyAccess.aspx
+[tims]: https://tims.berkeley.edu/about.php
+[datasf]: https://sf.gov/reports/april-2017/datasf-terms-use
+[datasf-pddl]: https://datasf.org/resources/open-data-licensing-standard/
+[hin]: https://www.visionzerosf.org/wp-content/uploads/2023/03/2022_Vision_Zero_Network_Update_Methodology.pdf
+[hin-catalogue]: https://catalog.data.gov/dataset/vision-zero-high-injury-network
+[fars]: https://catalog.data.gov/dataset/fatality-analysis-reporting-system-fars-ftp-raw-data
+[stats19]: https://packages.ropensci.org/stats19/doc/stats19.html
+[tefft]: https://aaafoundation.org/impact-speed-pedestrians-risk-severe-injury-death/
+[nhtsa-ped]: https://nhtsa.gov/book/countermeasures-that-work/pedestrian-safety/understanding-problem
+[elvik]: https://swov.nl/en/publicatie/updated-estimates-relationship-between-speed-and-road-safety-aggregate-and-individual
+[itf]: https://www.itf-oecd.org/sites/default/files/docs/speed-changes-crash-risk.pdf
+
+## Checklist
+
+### Complete
+
+- [x] Review of the external proposal against the repository's benchmark, privacy, naming and tooling conventions
+
+### Outstanding
+
+- [ ] Item 1: primary-source reading and rights record (`S`)
+- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`)
+- [ ] Item 3: before-and-after model section (`M`)
+- [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`)
+
+### Deferred
+
+- [ ] Item 5: road-segment attachment, tracked by [posted-speed-limits-plan](posted-speed-limits-plan.md)
+- [ ] Mass and front-end geometry in the harm curve, tracked by [vehicle-encyclopedia-plan](vehicle-encyclopedia-plan.md)
+
+### Accepted residuals (no action planned)
+
+- [ ] SHRP2 kinematic thresholds: not measurable by this sensor, not adopted
+- [ ] Per-passage crash or near-crash classification: out of scope here and in the state-estimation plan's Section 12
+- [ ] Surrogate-measure-to-crash calibration at a single site: not establishable from one site
