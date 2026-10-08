@@ -27,7 +27,10 @@ alternate LiDAR HTTP and gRPC) drops connections from the host while tailscaled
 forwards to its port through a Serve handler the manager did not install: such a
 forward carries client-written forwarding and capability headers. The image unit
 selects the profile through `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in
-survives later changes to its command line.
+survives later changes to its command line. In every profile the HTTP listeners
+answer only `Host` names a DNS-rebinding page cannot use (addresses, local and private
+names, `.ts.net`, and `--allowed-hosts`); before that, a rebinding page in a LAN
+browser could start enrolment under `off` or `on` and read the login URL.
 
 OS CLI enrolment, persistent systemd activation and rollback are documented in the
 [operator runbook](../platform/operations/tailscale-remote-access.md#hardened-profile).

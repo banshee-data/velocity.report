@@ -16,6 +16,7 @@ older entries stay put, however tempting hindsight may be.
 - {patrickod/tailscale-acls} Dropped connections from the host on every listener while tailscaled forwarded to its port through a Serve handler the manager had not installed: a TCP forward or TCP Funnel had read as the host or as a forged tailnet identity (#503).
 - {patrickod/tailscale-acls} Refused an unparseable forwarded address in `on` mode, let the view grant read the offline docs, and pinned the view inventory and the review's integration matrix through the installed wrappers (#503).
 - {patrickod/tailscale-acls} Chose the image's access profile with `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in survives unit changes, and documented Serve forwards, 100.64 LANs and what `off` leaves open (#503).
+- {patrickod/tailscale-acls} Refused requests whose Host a DNS-rebinding page could send, in every profile: a page in a LAN browser could otherwise start Tailscale enrolment under `off` and read the login URL. `--allowed-hosts` adds names such as a reverse proxy's (#503).
 
 ## October 7, 2026 - The LiDAR web pages read as one workflow, and access hardening keeps viewing separate from control
 

@@ -232,7 +232,10 @@ Failure modes:
   and recover. With enforcement on, a peer without a view grant gets
   the state fields alone (`redacted: true`), not the tailnet's names,
   peer count or error text, and only an admin gets a pending login URL,
-  which enrols the device for whoever opens it.
+  which enrols the device for whoever opens it. The host and LAN still
+  get it, as the Settings page's enrolment flow needs; a web page
+  cannot reach it through a LAN browser by DNS rebinding (see
+  [Host names the device answers](#host-names-the-device-answers)).
 - **Grants only protect the velocity-report HTTP API.** They do not
   cover Tailscale SSH, the gRPC visualiser stream, or any other
   port. Use ACL rules for those. The LiDAR monitor and gRPC must stay
@@ -336,9 +339,11 @@ install is refused at the listener: see
 [Serve and Funnel configured elsewhere](#serve-and-funnel-configured-elsewhere).
 
 Authenticated browser requests must have a same-origin `Origin` when supplied;
-Cross-site and same-site browser fetches are refused. Direct authenticated access accepts literal
-private/tailnet/loopback IP hosts or `localhost`, preventing a public or mDNS
-hostname from acquiring authority through DNS rebinding. Use Serve's HTTPS hostname
+Cross-site and same-site browser fetches are refused. Every caller, anonymous ones
+included, must name the device by a host it answers (see
+[Host names the device answers](#host-names-the-device-answers)). Direct authenticated
+access is narrower still: literal private/tailnet/loopback IP hosts or `localhost`,
+so even a private name cannot carry tailnet authority into a browser. Use Serve's HTTPS hostname
 for MagicDNS browsing. Command-line clients may omit browser headers. Native cookies
 and sessions are future work; adding them must preserve origin and credential checks.
 
@@ -373,7 +378,9 @@ changes to the unit's command line. Run `sudo systemctl edit velocity-report` an
 Environment=VELOCITY_ACCESS_PROFILE=hardened
 ```
 
-The Serve backend defaults to `127.0.0.1:8082`. Then run
+The Serve backend defaults to `127.0.0.1:8082`. If you also serve the device under a
+name of your own, set `VELOCITY_ALLOWED_HOSTS` in the same drop-in (see
+[Host names the device answers](#host-names-the-device-answers)). Then run
 `sudo systemctl daemon-reload` and `sudo systemctl restart velocity-report`.
 A unit from an image built before the variable existed needs an `ExecStart=` override
 instead: clear it with an empty `ExecStart=` line, then repeat the unit's own command
@@ -397,6 +404,44 @@ Local regression tests do not establish successful appliance deployment. Before
 recommending hardened activation on v0.5.1, exercise persistent activation, restart,
 rollback, viewer/admin parity over direct Tailscale and Serve, outages, revocation,
 PDF/ZIP classification and alternate-listener refusal on a Pi and live tailnet.
+
+## Host names the device answers
+
+In every profile, the HTTP listeners (main, Serve backend and LiDAR monitor) answer
+only requests whose `Host` header names the device in a way a stranger's DNS cannot:
+
+- an IP address, `localhost` or a name under `.localhost`;
+- a single-label name, such as `velocity`;
+- a name under `.local` (mDNS), `.lan`, `.home`, `.home.arpa`, `.internal` or
+  `.localdomain`, which no public resolver answers;
+- a MagicDNS name under `.ts.net`;
+- a name listed with `--allowed-hosts`.
+
+Anything else gets 403 `{"error":"host_not_allowed"}`, and the journal names the host:
+
+```text
+access: refusing requests for host "rebind.attacker.example", which may be a DNS-rebinding page; add it with --allowed-hosts if it names this device
+```
+
+This stops DNS rebinding. A web page in a LAN visitor's browser can re-resolve its
+own name to the device's address, which makes its requests same-origin. Without the
+check, such a page could read the device's data or, with `off` or `on` (where the LAN
+is admin), start Tailscale enrolment and read back the login URL. Approving that URL
+in the page author's tailnet would hand them the device, with Tailscale SSH on. Only
+the `Host` header still carries the page's name.
+
+If you reach the device under a public name of your own, such as through a reverse
+proxy at `velocity.example.com`, list that name. On the image, set it in a drop-in
+(`sudo systemctl edit velocity-report`):
+
+```ini
+[Service]
+Environment=VELOCITY_ALLOWED_HOSTS=velocity.example.com
+```
+
+Separate several names with commas. An entry starting with `.` (`.example.com`) matches
+every name beneath it. Entries are host names only, without scheme, port or path; an
+invalid entry stops the server at startup.
 
 ## Hostname and MagicDNS
 
