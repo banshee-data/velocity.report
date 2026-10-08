@@ -4749,9 +4749,10 @@ func (l *countingListener) Accept() (net.Conn, error) {
 	return c, err
 }
 
-// The listener wrapper sees the bound listener and serves through what it
-// returns, which is how access.GuardListener reaches this server.
-func TestStart_ListenerWrapperServesThroughTheWrapper(t *testing.T) {
+// The listener and handler wrappers see the bound listener and the handler,
+// and the server serves through what they return: that is how
+// access.GuardListener and access.GuardHandler reach it.
+func TestStart_WrappersServeTheListenerAndHandler(t *testing.T) {
 	srv := NewServer(Config{Address: "127.0.0.1:0", Stats: NewPacketStats()})
 	srv.setTestSourcePCAPReplaying()
 	wrapped := make(chan *countingListener, 1)
@@ -4759,6 +4760,12 @@ func TestStart_ListenerWrapperServesThroughTheWrapper(t *testing.T) {
 		c := &countingListener{Listener: l}
 		wrapped <- c
 		return c
+	})
+	srv.SetHandlerWrapper(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Wrapped", "yes")
+			next.ServeHTTP(w, r)
+		})
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
@@ -4778,6 +4785,9 @@ func TestStart_ListenerWrapperServesThroughTheWrapper(t *testing.T) {
 	response.Body.Close()
 	if l.accepted.Load() == 0 {
 		t.Fatal("the server did not accept through the wrapper")
+	}
+	if response.Header.Get("X-Wrapped") != "yes" {
+		t.Fatal("the handler wrapper did not run")
 	}
 	cancel()
 	if err := <-errCh; err != nil {

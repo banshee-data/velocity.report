@@ -145,12 +145,25 @@ func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 // hardened; with enforcement off nothing is checked.  Call before Start.
 func (s *Server) SetServeForwards(f access.ServeForwards) { s.serveForwards = f }
 
+func (s *Server) guardsServeForwards() bool {
+	return s.serveForwards != nil && s.authGate != nil && s.authGate.mode != EnforcementOff
+}
+
 // guardListener wraps l with the Serve-forward guard when enforcement is on.
 func (s *Server) guardListener(l net.Listener, name string) net.Listener {
-	if s.serveForwards == nil || s.authGate == nil || s.authGate.mode == EnforcementOff {
+	if !s.guardsServeForwards() {
 		return l
 	}
 	return access.GuardListener(l, s.serveForwards, name)
+}
+
+// guardHandler rechecks each request on a guarded listener, so a kept-alive
+// connection admitted before a forward was noticed loses its trust too.
+func (s *Server) guardHandler(h http.Handler, name string) http.Handler {
+	if !s.guardsServeForwards() {
+		return h
+	}
+	return access.GuardHandler(h, s.serveForwards, name)
 }
 
 // viewRoutes is the allowlist of read-only endpoints that should
@@ -595,7 +608,7 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 
 	// Order: logging on the outside (so 403s from auth are logged),
 	// auth on the inside (so the cap check sees the real handler).
-	server := &http.Server{Handler: LoggingMiddleware(s.authWrapper(mux))}
+	server := &http.Server{Handler: LoggingMiddleware(s.guardHandler(s.authWrapper(mux), "HTTP server"))}
 	var backend *http.Server
 	var backendListener net.Listener
 	if s.hardened() {
@@ -606,7 +619,7 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		}
 		backendListener = s.guardListener(backendListener, "Serve backend")
 		defer backendListener.Close()
-		backend = &http.Server{Handler: LoggingMiddleware(s.hardenedWrapper(mux, true))}
+		backend = &http.Server{Handler: LoggingMiddleware(s.guardHandler(s.hardenedWrapper(mux, true), "Serve backend"))}
 		defer backend.Close()
 		log.Printf("Tailscale Serve backend listening on %s (hardened)", backendListener.Addr())
 	}

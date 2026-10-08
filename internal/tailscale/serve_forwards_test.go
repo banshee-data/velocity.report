@@ -3,10 +3,13 @@ package tailscale
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -92,7 +95,8 @@ func TestUnmanagedServePorts(t *testing.T) {
 
 func TestLocalTargetPort(t *testing.T) {
 	self := netip.MustParseAddr("192.0.2.10")
-	local := map[netip.Addr]bool{self: true}
+	linkLocal := netip.MustParseAddr("fe80::10")
+	local := map[netip.Addr]bool{self: true, linkLocal: true}
 	cases := []struct {
 		target string
 		port   uint16
@@ -109,14 +113,19 @@ func TestLocalTargetPort(t *testing.T) {
 		{"http://127.0.0.1:8080/", 8080, true},
 		{"https+insecure://localhost", 443, true},
 		{"https://[::ffff:127.0.0.1]:8443", 8443, true},
+		{"[fe80::10%eth0]:80", 80, true},
+		{"localhost:http", 80, true},
 		{"198.51.100.7:8080", 0, false},
+		{"198.51.100.7:http", 0, false},
+		{"[fe80::99%eth0]:80", 0, false},
 		{"http://198.51.100.7:8080", 0, false},
 		{"unix:/run/velocity.sock", 0, false},
-		{"tcp://127.0.0.1", 0, false},
 		{"", 0, false},
-		{"localhost", 0, false},
-		{"localhost:http", 0, false},
-		{"://bad", 0, false},
+		// Undecidable ports on what may be this host match every listener.
+		{"tcp://127.0.0.1", 0, true},
+		{"localhost", 0, true},
+		{"localhost:no-such-service", 0, true},
+		{"://bad", 0, true},
 	}
 	for _, tc := range cases {
 		port, ok := localTargetPort(tc.target, local)
@@ -126,13 +135,47 @@ func TestLocalTargetPort(t *testing.T) {
 	}
 }
 
+func dialError(errno syscall.Errno) error {
+	return fmt.Errorf("getting serve config: %w", &net.OpError{Op: "dial", Net: "unix", Err: os.NewSyscallError("connect", errno)})
+}
+
 func TestUnmanagedServePorts_DaemonAbsentForwardsNothing(t *testing.T) {
-	m, _ := forwardsManager(func() (*ipn.ServeConfig, error) {
-		return nil, &net.OpError{Op: "dial", Net: "unix", Err: errors.New("connect: no such file or directory")}
+	for _, errno := range []syscall.Errno{syscall.ENOENT, syscall.ECONNREFUSED} {
+		m, calls := forwardsManager(func() (*ipn.ServeConfig, error) { return nil, dialError(errno) })
+		for range 2 {
+			got, err := m.UnmanagedServePorts(context.Background())
+			if err != nil || len(got) != 0 {
+				t.Fatalf("%v: got %v, %v; want no ports and no error", errno, got, err)
+			}
+		}
+		// Absence is not cached: a daemon that starts is read at once.
+		if calls.Load() != 2 {
+			t.Fatalf("%v: reads = %d, want 2", errno, calls.Load())
+		}
+	}
+}
+
+func TestUnmanagedServePorts_ASocketItMayNotOpenIsAFailure(t *testing.T) {
+	m, _ := forwardsManager(func() (*ipn.ServeConfig, error) { return nil, dialError(syscall.EACCES) })
+	if _, err := m.UnmanagedServePorts(context.Background()); err == nil {
+		t.Fatal("permission denied on the daemon socket read as an absent daemon")
+	}
+}
+
+func TestUnmanagedServePorts_ASlowFailureIsCachedFromItsEnd(t *testing.T) {
+	clock := time.Unix(1000, 0)
+	m, calls := forwardsManager(func() (*ipn.ServeConfig, error) {
+		clock = clock.Add(serveForwardsTimeout)
+		return nil, context.DeadlineExceeded
 	})
-	got, err := m.UnmanagedServePorts(context.Background())
-	if err != nil || len(got) != 0 {
-		t.Fatalf("got %v, %v; want no ports and no error", got, err)
+	m.serveForwards.now = func() time.Time { return clock }
+	for range 3 {
+		if _, err := m.UnmanagedServePorts(context.Background()); err == nil {
+			t.Fatal("a timed-out read must fail")
+		}
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("reads = %d: a failure that outlasted its TTL was retried by every caller", calls.Load())
 	}
 }
 

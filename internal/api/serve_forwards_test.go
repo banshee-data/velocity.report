@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"strconv"
@@ -148,5 +149,38 @@ func TestOffModeListenerIsNotGuarded(t *testing.T) {
 	forwards.forward(address)
 	if got := fetch(t, address, "/api/db_stats", nil); got != http.StatusOK {
 		t.Fatalf("off mode: HTTP %d, want 200", got)
+	}
+}
+
+// A kept-alive connection admitted before a forward is noticed keeps no
+// trust: each request on it is checked again.
+func TestGuardedListenerRechecksRequestsOnAKeptAliveConnection(t *testing.T) {
+	s, database := setupTestServer(t)
+	defer cleanupTestServer(t, database)
+	s.SetAuthGate(&fakePeerAuth{}, EnforcementOn)
+	forwards := &serveForwardsStub{}
+	s.SetServeForwards(forwards)
+	address, cancel, done := startServerOnFreePort(t, s, false)
+	defer func() {
+		cancel()
+		<-done
+	}()
+	client := &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{MaxIdleConnsPerHost: 1}}
+	get := func() (int, string) {
+		response, err := client.Get("http://" + address + "/api/db_stats")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		var body forbiddenBody
+		_ = json.NewDecoder(response.Body).Decode(&body)
+		return response.StatusCode, body.Error
+	}
+	if code, _ := get(); code != http.StatusOK {
+		t.Fatalf("no forward: HTTP %d", code)
+	}
+	forwards.forward(address)
+	if code, reason := get(); code != http.StatusForbidden || reason != "unmanaged_serve_forward" {
+		t.Fatalf("forward added: HTTP %d %q, want 403 unmanaged_serve_forward", code, reason)
 	}
 }
