@@ -2,12 +2,10 @@ package server
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
-	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // motionProgressInterval is the longest a running motion pass goes without
@@ -15,38 +13,6 @@ import (
 // capture. A pass reads a 700 MB capture in under a minute; the reader reports
 // every hundred packets, far more often than the job row needs writing.
 const motionProgressInterval = 2 * time.Second
-
-// indexedExtents returns the session's captures as the index probed them, for
-// a motion pass to join without reading every capture once to count it first.
-//
-// It returns nil, so the pass counts them itself, unless every capture has a
-// probe on record and still has the size and modification time it was indexed
-// with. A capture rewritten since its probe would otherwise be joined from
-// extents that no longer describe it.
-func indexedExtents(files []sqlite.CaptureFile, paths []string,
-	stat func(string) (os.FileInfo, error)) []capseq.Segment {
-
-	if len(files) == 0 || len(files) != len(paths) {
-		return nil
-	}
-	extents := make([]capseq.Segment, 0, len(files))
-	for i, f := range files {
-		if f.FirstPacketNs == nil || f.LastPacketNs == nil || f.PacketCount == nil || *f.PacketCount <= 0 {
-			return nil
-		}
-		info, err := stat(paths[i])
-		if err != nil || info.Size() != f.SizeBytes || info.ModTime().UnixNano() != f.ModifiedAtNs {
-			return nil
-		}
-		extents = append(extents, capseq.Segment{
-			Path:        paths[i],
-			FirstPacket: time.Unix(0, *f.FirstPacketNs),
-			LastPacket:  time.Unix(0, *f.LastPacketNs),
-			PacketCount: uint64(*f.PacketCount),
-		})
-	}
-	return extents
-}
 
 // motionProgress turns the reader's packet count into a motion pass's job
 // progress: packets read of the session's total, and which capture of the

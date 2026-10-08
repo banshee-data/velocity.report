@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func caseServer(t *testing.T, gap time.Duration, names ...string) *Server {
 	original := probeExtent
 	t.Cleanup(func() { probeExtent = original })
 	probeExtent = func(path string, _ int) (capindex.Extent, error) {
-		i := index[pathTail(path)]
+		i := index[filepath.Base(path)]
 		start := base.Add(time.Duration(i) * (5*time.Minute + gap))
 		return capindex.Extent{
 			PacketCount:   540000,
@@ -70,30 +71,6 @@ func TestValidateCaseFilesRejectsAnUnknownCapture(t *testing.T) {
 	ws := caseServer(t, 0, "file7.pcap")
 	if _, err := ws.validateCaseFiles([]string{"file7.pcap", "absent.pcap"}); err == nil {
 		t.Fatal("a case naming an absent capture was accepted")
-	}
-}
-
-func TestValidateCaseFilesPrefersTheIndexOverProbing(t *testing.T) {
-	// Reading a 700 MB capture to learn what the index already knows would make
-	// authoring a case from the Captures page a minute-long wait per file.
-	ws, _ := scannedSession(t, "a.pcap", "b.pcap")
-	probed := 0
-	original := probeExtent
-	t.Cleanup(func() { probeExtent = original })
-	probeExtent = func(string, int) (capindex.Extent, error) {
-		probed++
-		return capindex.Extent{}, nil
-	}
-
-	extent, ok := ws.indexedExtent("a.pcap")
-	if !ok {
-		t.Fatal("an indexed capture was not found in the index")
-	}
-	if extent.PacketCount == 0 {
-		t.Error("the indexed extent carries no packet count")
-	}
-	if probed != 0 {
-		t.Errorf("read %d captures to learn what the index already held", probed)
 	}
 }
 

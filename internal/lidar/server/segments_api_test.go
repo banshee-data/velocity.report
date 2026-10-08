@@ -22,6 +22,18 @@ import (
 
 const segmentTestTime int64 = 1788466680 * 1_000_000_000
 
+// captureSizeAndTime is a fixture capture's size and modification time as the
+// index records them, so an index row inserted by hand describes the file on
+// disk and lookups that check the two trust it.
+func captureSizeAndTime(t *testing.T, path string) []any {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return []any{info.Size(), info.ModTime().UnixNano()}
+}
+
 func segmentServer(t *testing.T) (*Server, string) {
 	t.Helper()
 	database, cleanup := setupTestDBWrapped(t)
@@ -39,7 +51,7 @@ func segmentServer(t *testing.T) (*Server, string) {
 		args []any
 	}{
 		{`INSERT INTO lidar_capture_roots(root_id,path,created_at_ns,updated_at_ns) VALUES('root',?,1,1)`, []any{dir}},
-		{`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('file','root','capture.pcap',7,1,?,?, 'ok',1,1)`, []any{segmentTestTime - 1_000_000_000, segmentTestTime + 80_000_000_000}},
+		{`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,packet_count,udp_port,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('file','root','capture.pcap',?,?,?,?,1000,2369,'ok',1,1)`, append(captureSizeAndTime(t, capture), segmentTestTime-1_000_000_000, segmentTestTime+80_000_000_000)},
 		{`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms) VALUES('run',1,'pcap',?,'sensor','completed',0,0,0,0,0,0)`, []any{capture}},
 	}
 	for _, q := range statements {
@@ -619,7 +631,8 @@ func TestSegmentCaseValidatesMultiCaptureSeams(t *testing.T) {
 			if _, err := ws.db.Exec(`UPDATE lidar_capture_files SET last_packet_ns=? WHERE capture_file_id='file'`, segmentTestTime+5_000_000_000); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ws.db.Exec(`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('second','root','second.pcap',7,1,?,?, 'ok',1,1)`, tc.secondFrom, segmentTestTime+80_000_000_000); err != nil {
+			if _, err := ws.db.Exec(`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,packet_count,udp_port,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('second','root','second.pcap',?,?,?,?,1000,2369,'ok',1,1)`,
+				append(captureSizeAndTime(t, second), tc.secondFrom, segmentTestTime+80_000_000_000)...); err != nil {
 				t.Fatal(err)
 			}
 			store := sqlite.NewReplayCaseStore(ws.db)

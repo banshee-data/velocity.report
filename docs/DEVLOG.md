@@ -12,6 +12,7 @@ older entries stay put, however tempting hindsight may be.
 
 - {claude/web-ui-coherence-fc5dd5} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless (#707).
 - {claude/web-ui-coherence-fc5dd5} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read (#707).
+- {claude/web-ui-coherence-fc5dd5} Took replay's capture extents from the index too, for multi-file clips and single captures alike, so a replay no longer reads each file once to count it before reading it again. Case authoring now matches index rows by the exact file rather than the file name, which two folders of copies share (#707).
 
 ## October 7, 2026 - The LiDAR web pages read as one workflow
 

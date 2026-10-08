@@ -24,9 +24,11 @@ func indexedCapture(t *testing.T, dir, name string, first time.Time, count int64
 		t.Fatal(err)
 	}
 	firstNs, lastNs := first.UnixNano(), first.Add(5*time.Minute).UnixNano()
+	port := 2369
 	return sqlite.CaptureFile{
 		RelPath: name, SizeBytes: info.Size(), ModifiedAtNs: info.ModTime().UnixNano(),
 		FirstPacketNs: &firstNs, LastPacketNs: &lastNs, PacketCount: &count,
+		UDPPort: &port, ProbeState: sqlite.ProbeStateOK, Present: true,
 	}, path
 }
 
