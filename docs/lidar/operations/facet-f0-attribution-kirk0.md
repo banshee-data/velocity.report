@@ -6,7 +6,7 @@ present body estimate gets wrong on the faces a person labelled, which part of t
 extent prior owns, how much of it arrives with a face transition, and where on this capture the
 sparse tail begins. It runs existing tools only. Nothing in it tunes an estimator.
 
-- **Status:** Protocol, not yet run; written for a separate runner
+- **Status:** Run 2026-10-08; results in the [F0 report](facet-f0-attribution-kirk0-report.md)
 - **Layers:** L4 geometric evidence, L5 estimation, L8 analytics, offline evaluation
 - **Related:** [Facet registration plan](../../plans/lidar-facet-registration-experiment-plan.md) (F0 and the attribution gate), [facet maths review](../../../data/maths/proposals/20261008-facet-registration-maths-review.md), [near-edge tracked state](../../plans/lidar-near-edge-tracked-state-plan.md) (F9), [near-face evaluation](near-face-evaluation.md), [per-frame evaluation](per-frame-evaluation.md), [October campaign](near-edge-campaign-2026-10.md)
 - **Code:** [lidar-near-face-eval](../../../cmd/tools/lidar-near-face-eval/main.go), [lidar-ground-truth-eval](../../../cmd/tools/lidar-ground-truth-eval/main.go), [lidar-annotation-split-draft](../../../cmd/tools/lidar-annotation-split-draft/main.go), [lidar-state-estimation-baseline](../../../cmd/tools/lidar-state-estimation-baseline/main.go)

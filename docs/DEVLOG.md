@@ -8,6 +8,13 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 8, 2026 - Facet F0 on kirk0: the end error is mostly extent
+
+- {claude/facet-f0-cpu-analysis-d2ae1e} Ran the facet F0 attribution protocol on kirk0's reviewed pack, tuning only, in the [F0 report](lidar/operations/facet-f0-attribution-kirk0-report.md): the control's end face sat a median 0.85 m short of 3,151 labelled masks' returns, and two slow trucks gave half the face scores.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Found the believed length shorter than the labelled span in 83 % of car and 97 % of truck instants; removing that forced shortfall moved the end-face median to −0.02 m, so the predeclared gate reading that kept arm D's case open rested on an extent error, and the gate needs restating.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Confirmed on labels that A2 lowered the end-face residual by 0.13 m at an AssA cost of 0.16, A1 doubled ID switches from 100 to 199, T5 moved no face toward the sensor, and the sparse tail began in the 50 to 80 m bin.
+- {claude/facet-f0-cpu-analysis-d2ae1e} Corrected the F0 protocol's kirk0 capture digest to the git-lfs object ID both copies hash to.
+
 ## October 7, 2026 - The LiDAR web pages read as one workflow
 
 - {claude/web-ui-coherence-fc5dd5} Ordered the LiDAR pages in one navigation group as the work runs, linked each record to the next, moved Scene Map out of the navigation and called the replay case a clip in web copy only (#707).
