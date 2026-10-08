@@ -333,7 +333,11 @@ F2/F3; week 6 only for reference/review allowance or a declared evidence decisio
 has its own schedule; parallel boxes on a calendar do not make references arrive sooner.
 
 With **one engineer**, spend at most two days now on F0's evidence audit and error attribution,
-then finish the provisional headway MVP and unblock its physical references. Resume the remaining
+then finish the provisional headway MVP and unblock its physical references. The first session
+of that audit is written up as a runnable protocol on kirk0's reviewed pack
+([F0 attribution on kirk0](../lidar/operations/facet-f0-attribution-kirk0.md)): four existing
+arms, the near-face and identity scorers, and predeclared readings for the attribution gate, the
+face-entry tail, and the sparse-tail onset. Resume the remaining
 experiment after MVP A while field qualification is being prepared. Splitting one person between
 two critical paths adds delay to both. Keep a named date or milestone for the research decision;
 do not leave an indefinitely running background experiment.

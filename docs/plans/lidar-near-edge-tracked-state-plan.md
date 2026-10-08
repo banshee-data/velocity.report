@@ -1012,7 +1012,9 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       held-out case untouched: scoring it needs a governed split and a single-score audit first
 - [ ] F9: kirk0's reviewed pack (20 road-user objects): identity (per-frame) and near-face
       residuals for the control, tracked, T5 and A1 arms, on the Mac; tuning only
-      ([near-face evaluation](../lidar/operations/near-face-evaluation.md))
+      ([near-face evaluation](../lidar/operations/near-face-evaluation.md)). The facet plan's
+      F0 session runs it with predeclared strata and readings
+      ([protocol](../lidar/operations/facet-f0-attribution-kirk0.md))
 - [x] Coverage survey (`-survey-coverage`), reproducing kirk0's declared range
 - [x] Sensor geometry surveyed for the tuning and screen cases, on the Mac: all 23 full circle
       ([survey](../lidar/operations/state-estimation-phase01-corpus-baseline.md#the-s2-corpus-survey-october-2026))
