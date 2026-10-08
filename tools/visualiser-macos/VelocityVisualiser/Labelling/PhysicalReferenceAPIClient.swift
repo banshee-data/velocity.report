@@ -133,6 +133,32 @@ struct PhysicalReferenceAPIClient {
         try await post("api/annotations/physical/save", edit, as: PhysicalEditResult.self)
     }
 
+    /// Asks for an object's physical reference fitted to its reviewed returns.
+    /// The service stores nothing; the answer's proposals go into the draft.
+    struct FitRequest: Encodable {
+        var pack: String
+        var packDigest: String
+        var membershipDigest: String
+        var objectID: String
+        var samples: [Int]
+        var author: String
+        var session: String
+
+        enum CodingKeys: String, CodingKey {
+            case pack
+            case packDigest = "pack_digest"
+            case membershipDigest = "membership_digest"
+            case objectID = "object_id"
+            case samples
+            case author
+            case session
+        }
+    }
+
+    func fit(_ fit: FitRequest) async throws -> PhysicalFitResult {
+        try await post("api/annotations/physical/fit", fit, as: PhysicalFitResult.self)
+    }
+
     struct ReviewRequest: Encodable {
         var pack: String
         var packDigest: String

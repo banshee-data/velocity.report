@@ -46,6 +46,9 @@ import Foundation
     /// of the editable sketch. Source bytes are named in tracker_source.
     @Published var seedGhost: PhysicalTrackerSeed?
 
+    /// The last fit, shown beside the draft it filled until another replaces it.
+    @Published private(set) var lastFit: PhysicalFitResult?
+
     /// Retained revisions, newest first, once asked for.
     @Published private(set) var history: [PhysicalRevisionSummary] = []
 
@@ -219,6 +222,7 @@ import Foundation
         var next = draft
         change(&next)
         PhysicalDraft.applyExposure(before: draft, after: &next, exposure: exposure)
+        PhysicalDraft.fillManualAssumptions(&next)
         PhysicalDraft.canonicalise(&next)
         guard next != draft else { return }
         undoStack.append(draft)
@@ -253,6 +257,7 @@ import Foundation
     func endGesture() {
         guard let start = gestureStart else { return }
         gestureStart = nil
+        PhysicalDraft.fillManualAssumptions(&draft)
         guard draft != start else { return }
         undoStack.append(start)
         if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
@@ -404,6 +409,73 @@ import Foundation
             pack: packHandle, packDigest: packDigest, baseRevision: state.revision,
             baseDigest: state.digest, membershipDigest: membershipDigest(), author: author(),
             session: sessionID, objects: draft)
+    }
+
+    // MARK: Fitting
+
+    /// Fits an object to its reviewed returns and places the proposals in the
+    /// draft as one undo step. The service checks the membership the operator
+    /// is looking at and refuses an object with proposed masks; nothing is
+    /// stored until the draft is saved.
+    @discardableResult func fit(objectID: String, scope: PhysicalFitScope) async -> Bool {
+        guard canEdit, !needsReload else {
+            if needsReload {
+                lastError = "Reload before fitting: the last write's outcome is not known."
+            }
+            return false
+        }
+        guard !author().trimmingCharacters(in: .whitespaces).isEmpty else {
+            lastError =
+                "Enter your name under Labelled by before fitting: a proposal has an author."
+            return false
+        }
+        var samples: [Int] = []
+        if case .pose(let sampleID) = scope { samples = [sampleID] }
+        let request = PhysicalReferenceAPIClient.FitRequest(
+            pack: packHandle, packDigest: packDigest, membershipDigest: membershipDigest(),
+            objectID: objectID, samples: samples, author: author(), session: sessionID)
+        generation &+= 1
+        busy = true
+        let result: PhysicalFitResult
+        do { result = try await client.fit(request) } catch let error as PhysicalReferenceAPIError {
+            busy = false
+            report(error)
+            return false
+        } catch {
+            busy = false
+            report(.transport(error.localizedDescription))
+            return false
+        }
+        busy = false
+        var placed = 0
+        edit { placed = PhysicalDraft.applyFit(result, scope: scope, to: &$0) }
+        lastFit = result
+        clearError()
+        lastNote = Self.describeFit(result, scope: scope, placed: placed)
+        return true
+    }
+
+    static func describeFit(
+        _ fit: PhysicalFitResult, scope: PhysicalFitScope, placed: Int
+    ) -> String {
+        func size(_ name: String, _ d: PhysicalDimension?) -> String? {
+            guard let d else { return nil }
+            switch d.choice {
+            case .unknown: return nil
+            case .atLeast: return String(format: "%@ at least %.2f m", name, d.lowerM ?? 0)
+            case .full:
+                guard let best = d.best else { return nil }
+                return String(format: "%@ %.2f ± %.2f m", name, best.value, best.halfWidth)
+            }
+        }
+        let body = fit.object?.body
+        let sizes = [size("length", body?.length), size("width", body?.width)].compactMap { $0 }
+        let poses = placed == 1 ? "1 pose" : "\(placed) poses"
+        let what =
+            scope == .object
+            ? "Fitted \(sizes.joined(separator: ", ")); placed \(poses)"
+            : "Fitted the pose at this frame"
+        return what + ". Check each in the views, save, then review."
     }
 
     // MARK: Writing

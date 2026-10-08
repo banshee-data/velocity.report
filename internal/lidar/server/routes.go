@@ -227,6 +227,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
 	mux.HandleFunc("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
 	mux.HandleFunc("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
+	mux.HandleFunc("/api/annotations/physical/fit", ws.handlePhysicalFit)
 	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
 	mux.HandleFunc("/api/annotations/physical/history", ws.handlePhysicalHistory)
 	mux.HandleFunc("/api/annotations/physical/restore", ws.handlePhysicalRestore)

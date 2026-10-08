@@ -439,30 +439,39 @@ report bytes. Their bounds remain absent: state conservative bounds and assumpti
 then save and review. The original estimate is a dashed pink outline in Top while you edit.
 It is a source sketch, not another independent reference. Discard removes that session's ghost.
 
-1. Choose the object in the list. Membership and identity come first, in Points mode.
-2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
-   is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
-   inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
-   external reference it rests on. Enter a whole span as **value ± tolerance**: the tolerance
-   states how far either way it could be wrong. **Exact min/max (advanced)** preserves
-   asymmetric bounds. A partial span uses **at least**, a lower bound only. A value without
-   bounds can draw an incomplete sketch; it is not supported geometry for scoring.
-3. **2 · Pose at this frame** holds this frame's pose. Click in the Top view to place its
-   position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
-   say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
-   face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
-   and only after the position exists.
-   A named face position is its **face centre**, not an arbitrary point on the face or a patch's
-   changing visible centre. Its offset is only along the inward normal. If the along-face centre
-   is unseen, the position bound must include that uncertainty; use Facets for a repeatable edge
-   or mirror point with a separate body relation.
-4. Give each record its method and uncertainty assumptions. The server checks the draft as you
-   edit and says what it would refuse, and which reviews a save would reset.
-5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
-   and steps to the next frame. A save never reviews anything. A changed
-   body dimension is a new body under a new ID, and every keyframe of that object returns to
-   proposed.
-6. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
+1. Choose the object in the list. Membership and identity come first, in Points mode: the fit
+   reads only a reviewed object whose every frame is reviewed, from the saved masks.
+2. **Fit to reviewed points** is first in the column. **Fit object** measures the size from the
+   frames that show it end to end and places a pose at each of them; **Fit pose here** places the
+   pose at this frame and keeps the draft's size if it has one. The fit fills the draft as one
+   undo step and stores nothing. Below the buttons it shows the fitted size, any notes (returns
+   apart from the body usually mean a mask holding something else), and what this frame shows of
+   each face: seen or not, why, and its bound with the terms it adds up. See
+   [Fitting to reviewed points](#fitting-to-reviewed-points) for what a fitted box means.
+3. **1 · Object size · all frames** holds one length, width and height for the whole episode.
+   Each dimension is **Full**, **At least** or **Unknown**; there is no evidence picker. A fitted
+   dimension says how it is known beneath it. Set by hand, a full value is inferred from the
+   frame it was read at and a lower bound is an observation of that frame. Enter a whole span as
+   **value ± tolerance**; **Exact min/max** keeps asymmetric bounds. A value without `±` is
+   flagged beside the field.
+4. **2 · Pose at this frame** shows the pose at a glance: its anchor, position and heading with
+   their bounds, and what is still missing. The one judgement per end is a checkbox, **Front is a
+   real end in this frame** and the same for the rear: tick it when this frame's returns reach
+   the vehicle's real end, not the edge of something in front of it. Unticked, an end is placed
+   by the body's length when that is known end to end. Everything else is under **Adjust by
+   hand**: the axis, heading and its bound, the anchor and its offset, the position (click in Top
+   to place it; a typed position is an observation of this frame), **Anchor height (optional)**,
+   which is the anchor's height and not the body's, shared errors, and the method and
+   assumptions. A named face position is its **face centre**; its offset is only along the
+   inward normal.
+5. Method and assumptions fill themselves: a fitted record states the fit's, and a record whose
+   bounds are set by hand states that they were read off the returns with the tolerance beside
+   them. The server checks the draft as you edit and says what it would refuse, and which
+   reviews a save would reset.
+6. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
+   and steps to the next frame. A save never reviews anything. A changed body dimension is a new
+   body under a new ID, and every keyframe of that object returns to proposed.
+7. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
    separately. Review is refused while the draft has unsaved changes, because it confirms the
    saved record.
 

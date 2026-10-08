@@ -6,7 +6,7 @@ belong to the object, and whether an end the returns reach is the vehicle's real
 of something hiding it. The fit does the arithmetic, states every bound it uses, and writes
 proposals that go through the same validation and review as anything typed by hand.
 
-- **Status:** F1 built: the Go fit and `velocity lidar annotation-reference fit`; F2–F5 (the window) open
+- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed; F3 (errors at the field), F4 and F5 open
 - **Target:** v0.5.2, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
@@ -169,6 +169,28 @@ returns span 10.43 m, and one frame's span is a lower bound, which is why the fi
 percentile over many frames. Truck 2's width is measured across its front, mirrors included, as
 the convention says. These are fitted
 proposals on a tuning pack, not physical validation: nothing here was measured independently.
+
+## F2 as built
+
+`POST /api/annotations/physical/fit` returns a fit for the membership the window is looking at,
+by its digest, and stores nothing. In the window:
+
+- **Fit to reviewed points** comes first. **Fit object** takes the fitted size and every fitted
+  pose; **Fit pose here** takes this frame's pose and keeps the draft's size if it has one. Either
+  is one undo step. The section says why it cannot run (an unreviewed object, proposed frames,
+  unsaved point changes) and shows the fitted size, the notes, and this frame's faces with their
+  bound terms.
+- **No evidence pickers.** A dimension is Full, At least or Unknown. Set by hand, a full value is
+  inferred from the frame it was read at and a lower bound is observed there; a typed position
+  is observed at its frame. Each end is one checkbox: a real end in this frame, or placed by the
+  length.
+- **Adjust by hand** holds the axis, heading, anchor and offset, position, the renamed **Anchor
+  height (optional)**, shared errors, and method and assumptions. A record whose bounds are set by
+  hand states its assumptions itself, so no free-text field blocks a save; a missing `±` is
+  flagged beside its value.
+
+That takes part of F3 early. What F3 still needs is the service's refusals shown beside the field
+that causes them, rather than at the top and bottom of the column.
 
 ## The pane
 

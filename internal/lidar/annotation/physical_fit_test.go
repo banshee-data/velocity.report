@@ -1,7 +1,11 @@
 package annotation
 
 import (
+	"bytes"
+	"encoding/json"
+	"flag"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -371,5 +375,47 @@ func TestFitTrimsSupportToPosedFrames(t *testing.T) {
 	partial := DimensionBound{Status: EvidenceObserved, Span: SpanPartial, LowerM: fp64(4), Support: EvidenceSupport{Frames: []int{1}}}
 	if note := trimSupport(&partial, map[int]bool{}); note == "" || partial.Status != EvidenceUnknown || partial.LowerM != nil {
 		t.Errorf("a lower bound with no posed frame: %+v (%q), want unknown", partial, note)
+	}
+}
+
+var updatePhysicalFitFixture = flag.Bool("update-physical-fit-fixture", false,
+	"rewrite testdata/physical_fit_fixture.json from the current fit")
+
+const physicalFitFixture = "testdata/physical_fit_fixture.json"
+
+// The macOS client places a fit's proposals in its draft. This fixture holds
+// the two to each other: Go writes a fit of the passing car, and the Swift
+// tests (PhysicalFitTests.swift) decode it and apply it to a draft. Without the
+// flag the stored fixture must still decode strictly and import into the same
+// scene's pack, so a change to the fit's JSON fails here before Swift sees it.
+// The pack's identity is taken from the pack written here, because float
+// rounding in the ray cast may differ between architectures.
+func TestPhysicalFitSwiftFixture(t *testing.T) {
+	p, s := fitScenePack(t, passingCar(), "")
+	if *updatePhysicalFitFixture {
+		b, err := json.MarshalIndent(fitCar(t, p, s, 15), "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(physicalFitFixture, append(b, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := os.ReadFile(physicalFitFixture)
+	if err != nil {
+		t.Fatalf("%v: run with -update-physical-fit-fixture", err)
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	var res FitResult
+	if err := dec.Decode(&res); err != nil {
+		t.Fatalf("decode %s: %v", physicalFitFixture, err)
+	}
+	if res.Import == nil || len(res.Import.Objects) != 1 || len(res.Frames) == 0 {
+		t.Fatalf("fixture lacks an import or frames")
+	}
+	res.Import.PackDigest, res.Import.DatasetID, res.Import.Source = p.Manifest.PackDigest, p.Manifest.DatasetID, PackPhysicalSource(p)
+	if _, err := PreparePhysicalImport(p, res.Import, false); err != nil {
+		t.Fatalf("the fixture no longer imports: %v", err)
 	}
 }

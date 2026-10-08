@@ -1,0 +1,3896 @@
+{
+  "object_id": "car",
+  "membership_revision": 1,
+  "membership_digest": "sha256:f86fb584bfd5a970ab17280a11dc9583a0d0bdecc82f14ab5234bbb2bbfde774",
+  "import": {
+    "schema": "velocity.report/physical-reference-import",
+    "schema_version": 1,
+    "pack_digest": "sha256:9d387183c064e116ebc10fa91c3718aea997b9789d961c273fda7adf4c6d2574",
+    "dataset_id": "ds_9d387183c064e116",
+    "source": {
+      "sensor_id": "hesai-test",
+      "vrlog_header_sha256": "sha256:header",
+      "vrlog_frames_sha256": "sha256:frames",
+      "coordinate_frame": "sensor",
+      "reference_frame": "sensor",
+      "transform_version": "",
+      "units": "metres"
+    },
+    "objects": [
+      {
+        "object_id": "car",
+        "body": {
+          "body_id": "body_4a264d3b9869",
+          "axis_convention": "x_front_y_left_z_up",
+          "length": {
+            "status": "observed",
+            "span": "full",
+            "lower_m": 4.374,
+            "upper_m": 4.549,
+            "value_m": 4.462,
+            "support": {
+              "frames": [
+                12,
+                14,
+                16
+              ]
+            }
+          },
+          "width": {
+            "status": "observed",
+            "span": "full",
+            "lower_m": 1.595,
+            "upper_m": 1.95,
+            "value_m": 1.772,
+            "support": {
+              "frames": [
+                4,
+                26,
+                29
+              ]
+            }
+          },
+          "height": {
+            "status": "observed",
+            "span": "partial",
+            "lower_m": 1.1,
+            "support": {
+              "frames": [
+                0
+              ]
+            }
+          },
+          "review": {
+            "status": "proposed",
+            "origin": "independent",
+            "method": "fit:mask_v1",
+            "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. length 4.46 ± 0.09 m: the 90th percentile of the spans of the frames that measure it end to end (each span is a lower bound, as a frame sees at most the whole body), its half-width the median bound of the longer half; width 1.77 ± 0.18 m: the 90th percentile of the spans of the frames that measure it end to end (each span is a lower bound, as a frame sees at most the whole body), its half-width the median bound of the longer half; height at least 1.10 m: the vertical span of the returns.",
+            "provenance": {
+              "author": "op",
+              "created_utc": "2026-10-08T23:02:15.045722Z",
+              "operation": "fit_to_points",
+              "revision": 0
+            }
+          }
+        },
+        "keyframes": [
+          {
+            "keyframe_id": "keyframe_b7ade6dc5822",
+            "sample_id": 4,
+            "timestamp_ns": 1400000000,
+            "anchor": {
+              "kind": "front_face",
+              "offset_m": 2.231,
+              "offset_bound_m": 0.044
+            },
+            "position": {
+              "status": "observed",
+              "x_m": -8.722,
+              "y_m": 5.801,
+              "bound_m": 0.258,
+              "support": {
+                "frames": [
+                  4
+                ]
+              }
+            },
+            "yaw": {
+              "status": "inferred",
+              "axis": "resolved",
+              "yaw_rad": -0.041206,
+              "bound_rad": 0.039022,
+              "support": {
+                "frames": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14
+                ]
+              }
+            },
+            "front": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  4
+                ]
+              }
+            },
+            "rear": {
+              "status": "inferred",
+              "support": {
+                "frames": [
+                  4,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.2°. front faces the sensor (±0.08 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.038); rear faces away, and the side facing the sensor does not run to it (±0.15 m: sampling 0.112, stragglers 0.000, heading 0.038). Anchor front_face, on the front face seen; along ±0.08 m, across ±0.24 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_8d85bcc0db36",
+            "sample_id": 12,
+            "timestamp_ns": 2200000000,
+            "anchor": {
+              "kind": "body_centre"
+            },
+            "position": {
+              "status": "inferred",
+              "x_m": -2.973,
+              "y_m": 5.944,
+              "bound_m": 0.219,
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  16
+                ]
+              }
+            },
+            "yaw": {
+              "status": "inferred",
+              "axis": "resolved",
+              "yaw_rad": -0.018906,
+              "bound_rad": 0.034907,
+              "support": {
+                "frames": [
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17,
+                  18,
+                  19,
+                  20,
+                  21,
+                  22
+                ]
+              }
+            },
+            "front": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  12
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  12
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.0°. front faces the sensor (±0.08 m: range 0.030, sampling 0.018, stragglers 0.000, heading 0.031); rear the side facing the sensor runs to it (±0.06 m: sampling 0.031, stragglers 0.000, heading 0.031). Anchor body_centre, midway between the two ends seen; along ±0.07 m, across ±0.21 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_b5c9d7bcf0fa",
+            "sample_id": 14,
+            "timestamp_ns": 2400000000,
+            "anchor": {
+              "kind": "body_centre"
+            },
+            "position": {
+              "status": "inferred",
+              "x_m": -1,
+              "y_m": 5.986,
+              "bound_m": 0.148,
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  16
+                ]
+              }
+            },
+            "yaw": {
+              "status": "observed",
+              "axis": "resolved",
+              "yaw_rad": 0,
+              "bound_rad": 0.008727,
+              "support": {
+                "frames": [
+                  14
+                ]
+              }
+            },
+            "front": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  14
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  14
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.019, heading 0.000); rear the side facing the sensor runs to it (±0.05 m: sampling 0.021, stragglers 0.025, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_0a3cadf959b0",
+            "sample_id": 15,
+            "timestamp_ns": 2500000000,
+            "anchor": {
+              "kind": "body_centre"
+            },
+            "position": {
+              "status": "inferred",
+              "x_m": 0,
+              "y_m": 5.986,
+              "bound_m": 0.144,
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  15,
+                  16
+                ]
+              }
+            },
+            "yaw": {
+              "status": "observed",
+              "axis": "resolved",
+              "yaw_rad": 0,
+              "bound_rad": 0.008727,
+              "support": {
+                "frames": [
+                  15
+                ]
+              }
+            },
+            "front": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  15
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  15
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.021, heading 0.000); rear the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.021, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_f4c7f1ddc282",
+            "sample_id": 16,
+            "timestamp_ns": 2600000000,
+            "anchor": {
+              "kind": "body_centre"
+            },
+            "position": {
+              "status": "inferred",
+              "x_m": 1,
+              "y_m": 5.986,
+              "bound_m": 0.148,
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  16
+                ]
+              }
+            },
+            "yaw": {
+              "status": "observed",
+              "axis": "resolved",
+              "yaw_rad": 0,
+              "bound_rad": 0.008727,
+              "support": {
+                "frames": [
+                  16
+                ]
+              }
+            },
+            "front": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  16
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  16
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.05 m: sampling 0.021, stragglers 0.025, heading 0.000); rear the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.019, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_332215ca4fd3",
+            "sample_id": 26,
+            "timestamp_ns": 3600000000,
+            "anchor": {
+              "kind": "rear_face",
+              "offset_m": 2.231,
+              "offset_bound_m": 0.044
+            },
+            "position": {
+              "status": "observed",
+              "x_m": 8.722,
+              "y_m": 5.801,
+              "bound_m": 0.258,
+              "support": {
+                "frames": [
+                  26
+                ]
+              }
+            },
+            "yaw": {
+              "status": "inferred",
+              "axis": "resolved",
+              "yaw_rad": 0.041206,
+              "bound_rad": 0.039022,
+              "support": {
+                "frames": [
+                  16,
+                  17,
+                  18,
+                  19,
+                  20,
+                  21,
+                  22,
+                  23,
+                  24,
+                  25,
+                  26,
+                  27,
+                  28,
+                  29,
+                  30
+                ]
+              }
+            },
+            "front": {
+              "status": "inferred",
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  16,
+                  26
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  26
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.2°. front faces away, and the side facing the sensor does not run to it (±0.15 m: sampling 0.112, stragglers 0.000, heading 0.038); rear faces the sensor (±0.08 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.038). Anchor rear_face, on the rear face seen; along ±0.08 m, across ±0.24 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          },
+          {
+            "keyframe_id": "keyframe_41eb513e5121",
+            "sample_id": 29,
+            "timestamp_ns": 3900000000,
+            "anchor": {
+              "kind": "rear_face",
+              "offset_m": 2.231,
+              "offset_bound_m": 0.044
+            },
+            "position": {
+              "status": "observed",
+              "x_m": 11.724,
+              "y_m": 5.827,
+              "bound_m": 0.29,
+              "support": {
+                "frames": [
+                  29
+                ]
+              }
+            },
+            "yaw": {
+              "status": "inferred",
+              "axis": "resolved",
+              "yaw_rad": 0.035803,
+              "bound_rad": 0.048529,
+              "support": {
+                "frames": [
+                  19,
+                  20,
+                  21,
+                  22,
+                  23,
+                  24,
+                  25,
+                  26,
+                  27,
+                  28,
+                  29,
+                  30
+                ]
+              }
+            },
+            "front": {
+              "status": "inferred",
+              "support": {
+                "frames": [
+                  12,
+                  14,
+                  16,
+                  29
+                ]
+              }
+            },
+            "rear": {
+              "status": "observed",
+              "support": {
+                "frames": [
+                  29
+                ]
+              }
+            },
+            "review": {
+              "status": "proposed",
+              "origin": "independent",
+              "method": "fit:mask_v1",
+              "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.8°. front faces away, and the side facing the sensor does not run to it (±0.21 m: sampling 0.163, stragglers 0.000, heading 0.047); rear faces the sensor (±0.09 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.047). Anchor rear_face, on the rear face seen; along ±0.09 m, across ±0.27 m, combined as a radius.",
+              "provenance": {
+                "author": "op",
+                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "operation": "fit_to_points",
+                "revision": 0
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "frames": [
+    {
+      "sample_id": 0,
+      "returns": 180,
+      "range_m": 14.782,
+      "aspect_deg": 20.298,
+      "yaw_rad": -0.033141,
+      "yaw_bound_rad": 0.052992,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -12.913,
+        "bound_m": 0.098,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.051
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -17.377,
+        "bound_m": 0.234,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.183
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.051
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.439,
+        "bound_m": 0.202,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.054
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.118
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.527,
+        "bound_m": 0.2,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.052
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.118
+          }
+        ]
+      },
+      "length_span_m": 4.464,
+      "width_span_m": 1.912,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width",
+        "height"
+      ]
+    },
+    {
+      "sample_id": 1,
+      "returns": 195,
+      "range_m": 13.871,
+      "aspect_deg": 21.618,
+      "yaw_rad": -0.035803,
+      "yaw_bound_rad": 0.048529,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -11.925,
+        "bound_m": 0.094,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.047
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -16.347,
+        "bound_m": 0.21,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.163
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.047
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.441,
+        "bound_m": 0.188,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.05
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.107
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.518,
+        "bound_m": 0.186,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.048
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.107
+          }
+        ]
+      },
+      "length_span_m": 4.422,
+      "width_span_m": 1.923,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 2,
+      "returns": 213,
+      "range_m": 13.001,
+      "aspect_deg": 23.013,
+      "yaw_rad": -0.038599,
+      "yaw_bound_rad": 0.044864,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -10.94,
+        "bound_m": 0.09,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.043
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -15.428,
+        "bound_m": 0.189,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.146
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.043
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.429,
+        "bound_m": 0.178,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.047
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.101
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.508,
+        "bound_m": 0.176,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.045
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.101
+          }
+        ]
+      },
+      "length_span_m": 4.488,
+      "width_span_m": 1.921,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 3,
+      "returns": 234,
+      "range_m": 12.127,
+      "aspect_deg": 24.743,
+      "yaw_rad": -0.040778,
+      "yaw_bound_rad": 0.041769,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -9.951,
+        "bound_m": 0.087,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.04
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -14.44,
+        "bound_m": 0.169,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.129
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.04
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.449,
+        "bound_m": 0.168,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.044
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.094
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.515,
+        "bound_m": 0.165,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.041
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.094
+          }
+        ]
+      },
+      "length_span_m": 4.489,
+      "width_span_m": 1.934,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 4,
+      "returns": 258,
+      "range_m": 11.264,
+      "aspect_deg": 26.868,
+      "yaw_rad": -0.041206,
+      "yaw_bound_rad": 0.039022,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -8.953,
+        "bound_m": 0.085,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.038
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -13.416,
+        "bound_m": 0.15,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.112
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.038
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.495,
+        "bound_m": 0.157,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.04
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.087
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.551,
+        "bound_m": 0.155,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.038
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.087
+          }
+        ]
+      },
+      "length_span_m": 4.463,
+      "width_span_m": 1.943,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 5,
+      "returns": 285,
+      "range_m": 10.424,
+      "aspect_deg": 29.341,
+      "yaw_rad": -0.040603,
+      "yaw_bound_rad": 0.036588,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -7.952,
+        "bound_m": 0.082,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.035
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -12.389,
+        "bound_m": 0.132,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.097
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.035
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.536,
+        "bound_m": 0.148,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.037
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.081
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.601,
+        "bound_m": 0.145,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.034
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.081
+          }
+        ]
+      },
+      "length_span_m": 4.437,
+      "width_span_m": 1.935,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 6,
+      "returns": 318,
+      "range_m": 9.614,
+      "aspect_deg": 32.236,
+      "yaw_rad": -0.0394,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -6.946,
+        "bound_m": 0.081,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -11.383,
+        "bound_m": 0.117,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.083
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.598,
+        "bound_m": 0.141,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.033
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.077
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.655,
+        "bound_m": 0.138,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.03
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.077
+          }
+        ]
+      },
+      "length_span_m": 4.437,
+      "width_span_m": 1.942,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 7,
+      "returns": 357,
+      "range_m": 8.847,
+      "aspect_deg": 35.527,
+      "yaw_rad": -0.037861,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -5.94,
+        "bound_m": 0.081,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -10.415,
+        "bound_m": 0.105,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.071
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.654,
+        "bound_m": 0.138,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.03
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.709,
+        "bound_m": 0.135,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.027
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.475,
+      "width_span_m": 1.945,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 8,
+      "returns": 399,
+      "range_m": 8.112,
+      "aspect_deg": 39.36,
+      "yaw_rad": -0.03543,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -4.928,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -9.413,
+        "bound_m": 0.094,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.061
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.687,
+        "bound_m": 0.135,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.026
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.77,
+        "bound_m": 0.132,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.023
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.485,
+      "width_span_m": 1.918,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 9,
+      "returns": 444,
+      "range_m": 7.415,
+      "aspect_deg": 43.952,
+      "yaw_rad": -0.032197,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -3.912,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": -8.353,
+        "bound_m": 0.084,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.051
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.725,
+        "bound_m": 0.13,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.023
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.834,
+        "bound_m": 0.127,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.02
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.441,
+      "width_span_m": 1.892,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 10,
+      "returns": 495,
+      "range_m": 6.79,
+      "aspect_deg": 49.152,
+      "yaw_rad": -0.028596,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -2.895,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -7.346,
+        "bound_m": 0.076,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.043
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.759,
+        "bound_m": 0.127,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.892,
+        "bound_m": 0.124,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.016
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.451,
+      "width_span_m": 1.867,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 11,
+      "returns": 549,
+      "range_m": 6.243,
+      "aspect_deg": 55.118,
+      "yaw_rad": -0.024224,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -1.873,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.018
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -6.353,
+        "bound_m": 0.07,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.037
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.821,
+        "bound_m": 0.124,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.016
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.948,
+        "bound_m": 0.121,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.013
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.479,
+      "width_span_m": 1.874,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 12,
+      "returns": 594,
+      "range_m": 5.775,
+      "aspect_deg": 61.893,
+      "yaw_rad": -0.018906,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": -0.847,
+        "bound_m": 0.079,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.018
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.031
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -5.322,
+        "bound_m": 0.062,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.031
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.031
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.778,
+        "bound_m": 0.12,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.012
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5,
+        "bound_m": 0.118,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.01
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.475,
+      "width_span_m": 1.778,
+      "height_span_m": 1.1,
+      "width_how": "roof",
+      "used_for": [
+        "length",
+        "width",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 13,
+      "returns": 639,
+      "range_m": 5.408,
+      "aspect_deg": 70.561,
+      "yaw_rad": 0,
+      "yaw_bound_rad": 0.012987,
+      "yaw_source": "geometry",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 0.223,
+        "bound_m": 0.037,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.018
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -4.204,
+        "bound_m": 0.054,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.024
+          },
+          {
+            "name": "stragglers",
+            "m": 0.03
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 5.1,
+        "bound_m": 0.065,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.006
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.029
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.1,
+        "bound_m": 0.065,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.006
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.029
+          }
+        ]
+      },
+      "length_span_m": 4.427,
+      "width_span_m": 0,
+      "height_span_m": 1.1,
+      "used_for": [
+        "length"
+      ]
+    },
+    {
+      "sample_id": 14,
+      "returns": 696,
+      "range_m": 5.178,
+      "aspect_deg": 80.044,
+      "yaw_rad": 0,
+      "yaw_bound_rad": 0.008727,
+      "yaw_source": "geometry",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 1.224,
+        "bound_m": 0.037,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.019
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -3.224,
+        "bound_m": 0.046,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.021
+          },
+          {
+            "name": "stragglers",
+            "m": 0.025
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 5.1,
+        "bound_m": 0.053,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.003
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.1,
+        "bound_m": 0.053,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.003
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "length_span_m": 4.448,
+      "width_span_m": 0,
+      "height_span_m": 1.1,
+      "used_for": [
+        "length",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 15,
+      "returns": 714,
+      "range_m": 5.1,
+      "aspect_deg": 90,
+      "yaw_rad": 0,
+      "yaw_bound_rad": 0.008727,
+      "yaw_source": "geometry",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 2.218,
+        "bound_m": 0.041,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.021
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -2.218,
+        "bound_m": 0.041,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.021
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 5.1,
+        "bound_m": 0.049,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.1,
+        "bound_m": 0.049,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "length_span_m": 4.435,
+      "width_span_m": 0,
+      "height_span_m": 1.1,
+      "used_for": [
+        "length",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 16,
+      "returns": 696,
+      "range_m": 5.178,
+      "aspect_deg": 80.044,
+      "yaw_rad": 0,
+      "yaw_bound_rad": 0.008727,
+      "yaw_source": "geometry",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 3.224,
+        "bound_m": 0.046,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.021
+          },
+          {
+            "name": "stragglers",
+            "m": 0.025
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -1.224,
+        "bound_m": 0.037,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.019
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 5.1,
+        "bound_m": 0.053,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.003
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.1,
+        "bound_m": 0.053,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.003
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.019
+          }
+        ]
+      },
+      "length_span_m": 4.448,
+      "width_span_m": 0,
+      "height_span_m": 1.1,
+      "used_for": [
+        "length",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 17,
+      "returns": 639,
+      "range_m": 5.408,
+      "aspect_deg": 70.561,
+      "yaw_rad": 0,
+      "yaw_bound_rad": 0.012987,
+      "yaw_source": "geometry",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 4.204,
+        "bound_m": 0.054,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.024
+          },
+          {
+            "name": "stragglers",
+            "m": 0.03
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": -0.223,
+        "bound_m": 0.037,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0.018
+          },
+          {
+            "name": "heading",
+            "m": 0
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 5.1,
+        "bound_m": 0.065,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.006
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.029
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.1,
+        "bound_m": 0.065,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.006
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.029
+          }
+        ]
+      },
+      "length_span_m": 4.427,
+      "width_span_m": 0,
+      "height_span_m": 1.1,
+      "used_for": [
+        "length"
+      ]
+    },
+    {
+      "sample_id": 18,
+      "returns": 594,
+      "range_m": 5.775,
+      "aspect_deg": 61.893,
+      "yaw_rad": 0.018906,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 5.322,
+        "bound_m": 0.062,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.031
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.031
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 0.847,
+        "bound_m": 0.079,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.018
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.031
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.778,
+        "bound_m": 0.12,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.012
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5,
+        "bound_m": 0.118,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.01
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.475,
+      "width_span_m": 1.778,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 19,
+      "returns": 549,
+      "range_m": 6.243,
+      "aspect_deg": 55.118,
+      "yaw_rad": 0.024224,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 6.353,
+        "bound_m": 0.07,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.037
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 1.873,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.018
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.821,
+        "bound_m": 0.124,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.016
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.948,
+        "bound_m": 0.121,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.013
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.479,
+      "width_span_m": 1.874,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 20,
+      "returns": 495,
+      "range_m": 6.79,
+      "aspect_deg": 49.152,
+      "yaw_rad": 0.028596,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": true,
+        "reason": "the side facing the sensor runs to it",
+        "at_m": 7.346,
+        "bound_m": 0.076,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.043
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 2.895,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.759,
+        "bound_m": 0.127,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.019
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.892,
+        "bound_m": 0.124,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.016
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.451,
+      "width_span_m": 1.867,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 21,
+      "returns": 444,
+      "range_m": 7.415,
+      "aspect_deg": 43.952,
+      "yaw_rad": 0.032197,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 8.353,
+        "bound_m": 0.084,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.051
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 3.912,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.725,
+        "bound_m": 0.13,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.023
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.834,
+        "bound_m": 0.127,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.02
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.441,
+      "width_span_m": 1.892,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 22,
+      "returns": 399,
+      "range_m": 8.112,
+      "aspect_deg": 39.36,
+      "yaw_rad": 0.03543,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 9.413,
+        "bound_m": 0.094,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.061
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.928,
+        "bound_m": 0.08,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.033
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.687,
+        "bound_m": 0.135,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.026
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.77,
+        "bound_m": 0.132,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.023
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.485,
+      "width_span_m": 1.918,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 23,
+      "returns": 357,
+      "range_m": 8.847,
+      "aspect_deg": 35.527,
+      "yaw_rad": 0.037861,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 10.415,
+        "bound_m": 0.105,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.071
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 5.94,
+        "bound_m": 0.081,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.654,
+        "bound_m": 0.138,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.03
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.709,
+        "bound_m": 0.135,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.027
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.078
+          }
+        ]
+      },
+      "length_span_m": 4.475,
+      "width_span_m": 1.945,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 24,
+      "returns": 318,
+      "range_m": 9.614,
+      "aspect_deg": 32.236,
+      "yaw_rad": 0.0394,
+      "yaw_bound_rad": 0.034907,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 11.383,
+        "bound_m": 0.117,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.083
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 6.946,
+        "bound_m": 0.081,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.034
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.598,
+        "bound_m": 0.141,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.033
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.077
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.655,
+        "bound_m": 0.138,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.03
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.077
+          }
+        ]
+      },
+      "length_span_m": 4.437,
+      "width_span_m": 1.942,
+      "height_span_m": 1.1,
+      "width_how": "roof"
+    },
+    {
+      "sample_id": 25,
+      "returns": 285,
+      "range_m": 10.424,
+      "aspect_deg": 29.341,
+      "yaw_rad": 0.040603,
+      "yaw_bound_rad": 0.036588,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 12.389,
+        "bound_m": 0.132,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.097
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.035
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 7.952,
+        "bound_m": 0.082,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.035
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.536,
+        "bound_m": 0.148,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.037
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.081
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.601,
+        "bound_m": 0.145,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.034
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.081
+          }
+        ]
+      },
+      "length_span_m": 4.437,
+      "width_span_m": 1.935,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 26,
+      "returns": 258,
+      "range_m": 11.264,
+      "aspect_deg": 26.868,
+      "yaw_rad": 0.041206,
+      "yaw_bound_rad": 0.039022,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 13.416,
+        "bound_m": 0.15,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.112
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.038
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 8.953,
+        "bound_m": 0.085,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.038
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.495,
+        "bound_m": 0.157,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.04
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.087
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.551,
+        "bound_m": 0.155,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.038
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.087
+          }
+        ]
+      },
+      "length_span_m": 4.463,
+      "width_span_m": 1.943,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 27,
+      "returns": 234,
+      "range_m": 12.127,
+      "aspect_deg": 24.743,
+      "yaw_rad": 0.040778,
+      "yaw_bound_rad": 0.041769,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 14.44,
+        "bound_m": 0.169,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.129
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.04
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 9.951,
+        "bound_m": 0.087,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.04
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.449,
+        "bound_m": 0.168,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.044
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.094
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.515,
+        "bound_m": 0.165,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.041
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.094
+          }
+        ]
+      },
+      "length_span_m": 4.489,
+      "width_span_m": 1.934,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 28,
+      "returns": 213,
+      "range_m": 13.001,
+      "aspect_deg": 23.013,
+      "yaw_rad": 0.038599,
+      "yaw_bound_rad": 0.044864,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 15.428,
+        "bound_m": 0.189,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.146
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.043
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 10.94,
+        "bound_m": 0.09,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.043
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.429,
+        "bound_m": 0.178,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.047
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.101
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.508,
+        "bound_m": 0.176,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.045
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.101
+          }
+        ]
+      },
+      "length_span_m": 4.488,
+      "width_span_m": 1.921,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    },
+    {
+      "sample_id": 29,
+      "returns": 195,
+      "range_m": 13.871,
+      "aspect_deg": 21.618,
+      "yaw_rad": 0.035803,
+      "yaw_bound_rad": 0.048529,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 16.347,
+        "bound_m": 0.21,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.163
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.047
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 11.925,
+        "bound_m": 0.094,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.047
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.441,
+        "bound_m": 0.188,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.05
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.107
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.518,
+        "bound_m": 0.186,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.048
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.107
+          }
+        ]
+      },
+      "length_span_m": 4.422,
+      "width_span_m": 1.923,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width",
+        "pose"
+      ]
+    },
+    {
+      "sample_id": 30,
+      "returns": 180,
+      "range_m": 14.782,
+      "aspect_deg": 20.298,
+      "yaw_rad": 0.033141,
+      "yaw_bound_rad": 0.052992,
+      "yaw_source": "course",
+      "axis": "resolved",
+      "front": {
+        "seen": false,
+        "reason": "faces away, and the side facing the sensor does not run to it",
+        "at_m": 17.377,
+        "bound_m": 0.234,
+        "terms": [
+          {
+            "name": "sampling",
+            "m": 0.183
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.051
+          }
+        ]
+      },
+      "rear": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 12.913,
+        "bound_m": 0.098,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.017
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.051
+          }
+        ]
+      },
+      "left": {
+        "seen": false,
+        "reason": "faces away",
+        "at_m": 6.439,
+        "bound_m": 0.202,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.054
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.118
+          }
+        ]
+      },
+      "right": {
+        "seen": true,
+        "reason": "faces the sensor",
+        "at_m": 4.527,
+        "bound_m": 0.2,
+        "terms": [
+          {
+            "name": "range",
+            "m": 0.03
+          },
+          {
+            "name": "sampling",
+            "m": 0.052
+          },
+          {
+            "name": "stragglers",
+            "m": 0
+          },
+          {
+            "name": "heading",
+            "m": 0.118
+          }
+        ]
+      },
+      "length_span_m": 4.464,
+      "width_span_m": 1.912,
+      "height_span_m": 1.1,
+      "width_how": "end face",
+      "used_for": [
+        "width"
+      ]
+    }
+  ]
+}
