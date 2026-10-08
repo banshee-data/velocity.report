@@ -633,6 +633,46 @@ review a proposal, draft it again with `--reviewed` and the same `--id`, and imp
 `--replace`. `--tracker-source` names tracker output the decision was made against; the record is
 then tracker-assisted, and a later draft under its ID cannot make it independent.
 
+### Fitting to reviewed points
+
+Once an object and every one of its masks are reviewed, `fit` measures its body from those
+returns instead of asking you to type it: its length and width from the frames that show them
+end to end, its height as a lower bound, and a pose at each frame that measured them and at any
+`--sample` you add. It writes the result as an import file of proposals
+([plan](../../plans/lidar-physical-fit-to-points-plan.md)):
+
+```bash
+velocity lidar annotation-reference fit --pack "$PACK" --object "$OBJECT" --sample 504 \
+  --author "$NAME" --out fit.json --diagnostics fit-frames.json
+velocity lidar annotation-reference import --pack "$PACK" --file fit.json --author "$NAME"
+```
+
+What a fitted box means:
+
+- **The plan-view envelope of the reviewed returns**, mirrors included. A face sits at the
+  outermost return along its normal, ignoring at most five stragglers.
+- **The front is the direction of travel.** An object that does not move gets a
+  front/rear-ambiguous axis and no named ends.
+- **Every bound is a conservative half-width** that adds named terms: the azimuth step where a
+  face is seen edge-on, range accuracy where it is seen face-on, the stragglers ignored, and the
+  chord the heading bound sweeps. The command prints each term for every pose's ends and sides;
+  `--diagnostics` writes them for every frame.
+- **An end is seen** when it faces the sensor, or when the side facing the sensor runs to it, and
+  nothing nearer lies just beyond it. An end that a nearer return borders is reported as cut.
+- **A length or width is stated end to end** from at least three frames that measure it, as the
+  90th percentile of their spans: one frame's span is a lower bound, because a frame sees at most
+  the whole body. With fewer frames it is a lower bound.
+- **Returns apart from the body** along its axis are reported in runs of frames, with the worst
+  frame named. They usually mean a mask that holds something else.
+
+Every record is a proposal with method `fit:mask_v1`, independent of the tracker, with its
+uncertainty assumptions written out. Import it, check each pose in the window, and review the body
+and each pose as you would anything typed by hand. Fitting over a body or keyframes already stored
+needs `--replace`, as the import would. The file is checked as an import before it is written, an
+existing file is never overwritten, and nothing is stored until you import. The fit refuses an
+object with proposed masks, and a pack with a site transform, whose sensor position it cannot
+know.
+
 ### Scoring against physical references
 
 The [per-frame evaluator](per-frame-evaluation.md) scores two estimate versions against the
