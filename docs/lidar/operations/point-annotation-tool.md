@@ -603,6 +603,36 @@ record that no longer holds; on a pack with none it says so. `validate --revisio
 retained revision. Each command prints the revision, the digests and the counts, including how
 many keyframes are reviewed and independent.
 
+### Drafting a following reference
+
+The window shows following references but does not author them. `draft-following` writes the
+import file for one decision: what a follower follows over an interval of samples.
+
+```bash
+velocity lidar annotation-reference draft-following --pack "$PACK" --follower "$FOLLOWER" \
+  --leader "$LEADER" --first 120 --last 180 --author "$NAME" --reviewed --out following.json
+velocity lidar annotation-reference import --pack "$PACK" --file following.json --author "$NAME"
+```
+
+`--decision` is `leader` (the default, with `--leader`), `no_leader` or `ambiguous`. The decision
+is yours; the gaps are not typed in. For a leader, the helper drafts a gap at each sample in the
+interval where both parties have a reviewed, independent keyframe that places the bumper the gap
+needs: the follower's front and the leader's rear. The gap is the leader's rear minus the
+follower's front along the follower's axis, its status the weaker of the two bumpers', and its
+bounds add both bumpers' bounds and the chord the follower's yaw bound sweeps across the
+separation. Every other sample where either party has a keyframe is listed with the reason it has
+no gap: no keyframe for the other party, a keyframe not reviewed or tracker-assisted, a bumper the
+keyframe does not place, or a leader behind the follower. Those instants score as having no gap
+reference.
+
+The draft is checked exactly as `validate --file` would check it, and is written only if the
+import would accept it. An existing file is never overwritten, and nothing is stored until you
+import. A following record has no review step after import, so its review is the one it is
+imported with: without `--reviewed` it is a proposal, which scoring counts as unreviewed. To
+review a proposal, draft it again with `--reviewed` and the same `--id`, and import that with
+`--replace`. `--tracker-source` names tracker output the decision was made against; the record is
+then tracker-assisted, and a later draft under its ID cannot make it independent.
+
 ### Scoring against physical references
 
 The [per-frame evaluator](per-frame-evaluation.md) scores two estimate versions against the
@@ -952,7 +982,8 @@ revision it pins stays.
   which reaches the macOS client and is never populated. Filling that in, and recording the site
   in the pack, is what would close the loop.
 - The web client has none of this. It keeps its existing track label CRUD.
-- Following references are read and kept, but not authored, in the window. Height is set
+- Following references are read and kept, but not authored, in the window; draft them with
+  [`draft-following`](#drafting-a-following-reference). Height is set
   numerically. Length and width have separate handles; a side-face position anchor requires a
   numeric width edit because its centre offset is coupled to width.
 - Compare opens a saved report; it does not start an evaluation.

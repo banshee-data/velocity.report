@@ -28,7 +28,7 @@ A **ground plane extraction subsystem** within L4 Perception that models the roa
 
 ### Motivation
 
-The current L4 `HeightBandFilter` ([internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)) removes ground returns using fixed Z-band thresholds (floor at −2.8 m, ceiling at +1.5 m for a ~3 m sensor mount). This approach has limitations:
+The current L4 `HeightBandFilter` ([internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)) removes ground returns using fixed Z-band thresholds (floor at −2.8 m, ceiling at +1.5 m, chosen for a ~3 m sensor mount; the deployed sensor sits ~2.3 m above the road, where the floor is about 0.5 m below the road surface). This approach has limitations:
 
 1. **No geometric surface model**: The filter discards ground points but doesn't model the surface itself. Height-above-ground measurements require a reference plane for accurate object classification (e.g., distinguishing pedestrians from vehicles).
 2. **Fixed thresholds vulnerable to terrain variation**: San Francisco's hilly streets exhibit significant slope and curvature; a fixed floor height misclassifies points on steep grades.
@@ -457,13 +457,13 @@ The `GroundSurface` interface is deliberately **non-point-based**: it exposes pl
 **Mode 1: Post-L3 (uses background grid)**
 
 - L3 background grid classifies points as background/foreground.
-- Ground plane extractor consumes **static background points within ground Z-band** (e.g., −3.0 m < Z < −2.5 m).
+- Ground plane extractor consumes **static background points within ground Z-band** (e.g., −2.6 m < Z < −2.0 m about a road near −2.3 m at the deployed ~2.3 m mount).
 - Advantage: Pre-filtered points reduce noise; faster convergence.
 - Disadvantage: Depends on L3 settlement (background grid must stabilise first).
 
 **Mode 2: Direct from L2 (independent)**
 
-- Ground plane extractor receives all L2 frame points, applies its own ground filter (simple Z-band threshold: −3.0 m < Z < −2.0 m).
+- Ground plane extractor receives all L2 frame points, applies its own ground filter (simple Z-band threshold, e.g. −2.8 m < Z < −1.8 m at the deployed ~2.3 m mount).
 - Fits planes independently of L3 background grid.
 - Advantage: No dependency on L3 settlement; can operate in parallel.
 - Disadvantage: More noisy points (vehicles, pedestrians) require robust outlier rejection.
@@ -558,7 +558,7 @@ Feature `properties` include:
 
 | Property       | Type     | Description                     |
 | -------------- | -------- | ------------------------------- |
-| `z_offset`     | float    | Ground height (e.g. −2.85 m)    |
+| `z_offset`     | float    | Ground height (e.g. −2.3 m)     |
 | `plane_normal` | [3]float | Unit normal vector (nx, ny, nz) |
 | `planarity`    | float    | Planarity score (0–1)           |
 | `point_count`  | int      | Observation count               |

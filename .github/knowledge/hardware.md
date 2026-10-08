@@ -60,6 +60,19 @@ Each detection produces a JSON event:
 | Subnet       | 192.168.100.0/24     |
 | Data rate    | 10–20 Hz frame rate  |
 | Points/frame | Up to 70,000         |
+| Mount height | ~2.3 m above road    |
+
+### Mounting
+
+The sensor sits about 2.3 m above road level at kirk0 and at every recorded site. In the sensor
+frame (identity pose, Z = 0 at the sensor's horizontal plane) the road is therefore near
+Z = −2.3 m; kirk0's settled background puts it at −2.2 to −2.3 m within 15 m of the sensor.
+
+Several defaults were chosen for a ~3 m mount and have not been retuned. The L4 height band's
+floor of −2.8 m was meant to sit 0.2 m above the road; at 2.3 m it is about 0.5 m below it, so it
+does not exclude road returns, and its +1.5 m ceiling is 3.8 m above the road. The synthetic
+sensor (`l4perception.DefaultSyntheticSensor`) keeps the state plan's 3 m experiment geometry.
+Pass the deployed height when a synthetic result is meant to describe a real site.
 
 ### Network Configuration
 

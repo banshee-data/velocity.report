@@ -109,7 +109,7 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 	if code, _, stderr := runReference("export"); code != 2 || !strings.Contains(stderr, "unknown annotation-reference command") {
 		t.Errorf("unknown command exited %d: %s", code, stderr)
 	}
-	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}} {
+	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}} {
 		if code, _, _ := runReference(args...); code != 0 {
 			t.Errorf("%v exited %d", args, code)
 		}
@@ -245,5 +245,191 @@ func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
 	}
 	if code, _, _ := runReference("validate", "--pack", pack.Dir); code != 1 {
 		t.Error("validated against a damaged sidecar")
+	}
+}
+
+// followingPack writes a two-sample pack with two reviewed cars along +x and
+// stores their references: a 4 m body each, and at sample 0 a reviewed,
+// independent keyframe placing car a's front at x = 12 and car b's rear at
+// x = 18, so a follows b by 6 m there. Sample 1 has no keyframe.
+func followingPack(t *testing.T) *annotation.Pack {
+	t.Helper()
+	pts := annotation.Points{X: []float32{8, 12, 18, 22}, Y: []float32{0, 0, 0, 0}, Z: []float32{0.5, 0.5, 0.5, 0.5}}
+	block, err := annotation.EncodePoints(pts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	samples := []annotation.Sample{
+		{SourceOrdinal: 0, TimestampNs: 1_000_000_000, SensorID: "s", PointCount: 4},
+		{SourceOrdinal: 1, TimestampNs: 1_100_000_000, SensorID: "s", PointCount: 4},
+	}
+	dir := filepath.Join(t.TempDir(), "pack")
+	m := annotation.Manifest{
+		Coverage:   annotation.CoverageForegroundOnly,
+		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
+		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
+	}
+	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := annotation.OpenPack(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := annotation.NewSidecar(pack)
+	s.Change = annotation.Provenance{Author: "op"}
+	for i, id := range []string{"a", "b"} {
+		s.Objects = append(s.Objects, annotation.Object{ObjectID: id, Class: "car", Confidence: 1, Status: annotation.StatusReviewed})
+		for sample := 0; sample < 2; sample++ {
+			s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: id, SampleID: sample, PointIndices: []int{2 * i, 2*i + 1},
+				Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
+		}
+	}
+	if err := annotation.SaveSidecar(pack, s); err != nil {
+		t.Fatal(err)
+	}
+	review := annotation.PhysicalReview{
+		Status: annotation.StatusReviewed, Origin: annotation.OriginIndependent, Method: "manual_box",
+		UncertaintyAssumptions: "hard bounds", Provenance: annotation.Provenance{Author: "op"},
+	}
+	seen := annotation.EvidenceSupport{Frames: []int{0}}
+	unknown := annotation.EndpointEvidence{Status: annotation.EvidenceUnknown}
+	car := func(id string, x float64, front, rear annotation.EndpointEvidence) annotation.PhysicalObject {
+		return annotation.PhysicalObject{
+			ObjectID: id,
+			Body: &annotation.BodyGeometry{
+				BodyID: "body-" + id, AxisConvention: annotation.BodyAxisConvention,
+				Length: annotation.DimensionBound{Status: annotation.EvidenceInferred, Span: annotation.SpanFull,
+					LowerM: refFloat(3.9), UpperM: refFloat(4.1), Support: annotation.EvidenceSupport{External: "registration record"}},
+				Width:  annotation.DimensionBound{Status: annotation.EvidenceUnknown},
+				Height: annotation.DimensionBound{Status: annotation.EvidenceUnknown},
+				Review: review,
+			},
+			Keyframes: []annotation.PhysicalKeyframe{{
+				KeyframeID: "kf-" + id, SampleID: 0, TimestampNs: 1_000_000_000,
+				Anchor: annotation.PhysicalAnchor{Kind: annotation.AnchorBodyCentre},
+				Position: annotation.PositionBound{Status: annotation.EvidenceObserved, XM: refFloat(x), YM: refFloat(0),
+					BoundM: refFloat(0.2), Support: seen},
+				Yaw: annotation.YawBound{Status: annotation.EvidenceObserved, Axis: annotation.AxisResolved,
+					YawRad: refFloat(0), BoundRad: refFloat(0.05), Support: seen},
+				Front: front, Rear: rear, Review: review,
+			}},
+		}
+	}
+	imp := &annotation.PhysicalReferenceImport{
+		Schema: annotation.PhysicalImportSchema, SchemaVersion: annotation.PhysicalImportSchemaVersion,
+		PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, Source: annotation.PackPhysicalSource(pack),
+		Objects: []annotation.PhysicalObject{
+			car("a", 10, annotation.EndpointEvidence{Status: annotation.EvidenceObserved, Support: seen}, unknown),
+			car("b", 20, unknown, annotation.EndpointEvidence{Status: annotation.EvidenceObserved, Support: seen}),
+		},
+	}
+	if _, err := annotation.ImportPhysicalReferences(pack, imp, annotation.Provenance{Author: "op"}, false); err != nil {
+		t.Fatal(err)
+	}
+	return pack
+}
+
+func TestAnnotationReferenceDraftFollowing(t *testing.T) {
+	pack := followingPack(t)
+	out := filepath.Join(t.TempDir(), "following.json")
+	draft := []string{"draft-following", "--pack", pack.Dir, "--follower", "a", "--leader", "b",
+		"--first", "0", "--last", "1", "--author", "op", "--id", "follow-a", "--reviewed", "--out", out}
+
+	code, stdout, stderr := runReference(draft...)
+	if code != 0 {
+		t.Fatalf("draft exited %d: %s%s", code, stdout, stderr)
+	}
+	for _, want := range []string{
+		"drafted following follow-a: a follows b over samples [0, 1], reviewed and independent",
+		"gap at sample 0: observed, 6.00 m in [",
+		"(current revision 1); importing would save revision 2",
+		"1 following references",
+		"wrote " + out,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("draft output lacks %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, "proposed:") {
+		t.Errorf("a reviewed draft was called a proposal:\n%s", stdout)
+	}
+	before, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Drafting stores nothing; the file imports as it is.
+	if code, stdout, _ := runReference("validate", "--pack", pack.Dir); code != 0 || !strings.Contains(stdout, "0 following references") {
+		t.Fatalf("drafting stored references: exit %d: %s", code, stdout)
+	}
+	if code, stdout, stderr := runReference("import", "--pack", pack.Dir, "--file", out, "--author", "op"); code != 0 ||
+		!strings.Contains(stdout, "revision 2") || !strings.Contains(stdout, "1 following references") {
+		t.Fatalf("import of the draft exited %d: %s%s", code, stdout, stderr)
+	}
+
+	// An existing file is never overwritten, and a draft the import would
+	// refuse is not written.
+	if code, _, stderr := runReference(draft...); code != 1 || !strings.Contains(stderr, "already exists") {
+		t.Fatalf("a colliding draft exited %d: %s", code, stderr)
+	}
+	if after, _ := os.ReadFile(out); !bytes.Equal(before, after) {
+		t.Fatal("a refused draft rewrote the file")
+	}
+	replaced := filepath.Join(t.TempDir(), "replaced.json")
+	redraft := append(append([]string(nil), draft[:len(draft)-1]...), replaced, "--replace")
+	if code, stdout, stderr := runReference(redraft...); code != 0 || !strings.Contains(stdout, "importing would save revision 3") {
+		t.Fatalf("a replacing draft exited %d: %s%s", code, stdout, stderr)
+	}
+	ghost := filepath.Join(t.TempDir(), "ghost.json")
+	if code, _, stderr := runReference("draft-following", "--pack", pack.Dir, "--follower", "a", "--leader", "ghost",
+		"--first", "0", "--last", "1", "--author", "op", "--out", ghost); code != 1 || !strings.Contains(stderr, `leader "ghost" is not an object`) {
+		t.Fatalf("a draft naming an undeclared leader exited %d: %s", code, stderr)
+	}
+	if _, err := os.Stat(ghost); !os.IsNotExist(err) {
+		t.Fatal("a refused draft was written")
+	}
+
+	// A decision without a leader has no gaps, and a proposal says how it is
+	// reviewed.
+	none := filepath.Join(t.TempDir(), "none.json")
+	code, stdout, stderr = runReference("draft-following", "--pack", pack.Dir, "--follower", "b", "--decision", "no_leader",
+		"--first", "0", "--last", "1", "--author", "op", "--out", none)
+	if code != 0 || !strings.Contains(stdout, "b no_leader over samples [0, 1], proposed and independent") ||
+		!strings.Contains(stdout, "proposed: scoring counts it as unreviewed") || strings.Contains(stdout, "gap at sample") {
+		t.Fatalf("no_leader draft exited %d: %s%s", code, stdout, stderr)
+	}
+}
+
+func TestAnnotationReferenceDraftFollowingUsage(t *testing.T) {
+	base := []string{"--pack", "p", "--follower", "a", "--author", "op", "--out", "o.json", "--first", "0", "--last", "1"}
+	without := func(flag string) []string {
+		var out []string
+		for i := 0; i < len(base); i += 2 {
+			if base[i] != flag {
+				out = append(out, base[i], base[i+1])
+			}
+		}
+		return out
+	}
+	for name, args := range map[string][]string{
+		"no pack":                  without("--pack"),
+		"no follower":              without("--follower"),
+		"no author":                without("--author"),
+		"no out":                   without("--out"),
+		"no first":                 without("--first"),
+		"no last":                  without("--last"),
+		"leader decision, no lead": base,
+		"no_leader naming a lead":  append(append([]string(nil), base...), "--decision", "no_leader", "--leader", "b"),
+		"an unknown decision":      append(append([]string(nil), base...), "--decision", "tailgating", "--leader", "b"),
+		"a stray argument":         append(append([]string(nil), base...), "--leader", "b", "extra"),
+	} {
+		if code, _, _ := runReference(append([]string{"draft-following"}, args...)...); code != 2 {
+			t.Errorf("%s exited %d, want 2", name, code)
+		}
+	}
+	if code, _, _ := runReference("draft-following", "--pack", "missing", "--follower", "a", "--leader", "b",
+		"--first", "0", "--last", "1", "--author", "op", "--out", filepath.Join(t.TempDir(), "o.json")); code != 1 {
+		t.Errorf("a missing pack exited %d, want 1", code)
 	}
 }
