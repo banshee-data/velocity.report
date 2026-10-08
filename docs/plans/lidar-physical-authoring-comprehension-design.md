@@ -5,7 +5,7 @@ authoring task. This design pass turns that model into a visible workflow: defin
 place it at selected frames, register the surfaces that support the placement, then compare a
 named estimate against a saved reference.
 
-- **Status:** Native pose/facet authoring and horizontal body-relation inspection built and tested locally; operator validation, guided report creation and runtime facet constraints remain open
+- **Status:** Native pose/facet authoring and horizontal body-relation inspection built and tested locally; operator validation, guided report creation and runtime facet constraints remain open. The first operator pilot (2026-10-08) found the manual authoring flow unusable; it is replaced by [fitting to reviewed points](lidar-physical-fit-to-points-plan.md), which keeps this pass's record model and issue list
 - **Scope:** Physical and Compare modes, the current annotation pilot, and the next experiments
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [physical reference review](lidar-physical-reference-review-plan.md), [0.5.2 sprint](lidar-052-mvp-sprint-plan.md), [state estimation](lidar-state-estimation-plan.md)
