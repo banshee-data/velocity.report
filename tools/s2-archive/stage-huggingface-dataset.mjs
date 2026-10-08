@@ -15,7 +15,7 @@ import { s2 } from "s2js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_INDEX = path.join(HERE, "site-index.json");
-const DEFAULT_SOURCE = "/Volumes/lidar/lidar/s2/static-huggingface";
+const DEFAULT_SOURCE = "/Volumes/lidar/lidar/pcaps/s2/static-huggingface";
 const DEFAULT_README = path.join(HERE, "huggingface-dataset-README.md");
 const TIMEZONE = "America/Los_Angeles";
 

@@ -6,7 +6,7 @@ LFS pointer, a volume that filled — fails in the middle of a replay rather tha
 at the start of one, which costs an hour to discover and a whole scene to redo.
 This reads the manifest and answers the cheap question first.
 
-    S2_CORPUS_DIR=/Volumes/lidar/lidar/sf-street-speeds python3 verify-corpus.py
+    S2_CORPUS_DIR=/Volumes/lidar/lidar/pcaps/sf-street-speeds python3 verify-corpus.py
     SHA=1 ...                       # also verify the digests; reads every byte
 
 Prefer `make scene-corpus-verify`, which supplies the directory.

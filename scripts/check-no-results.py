@@ -15,7 +15,8 @@ def main():
     forbidden = [
         path
         for path in tracked.decode("utf-8", errors="surrogateescape").split("\0")
-        if path and any(part.casefold() == "results" for part in PurePosixPath(path).parts)
+        if path
+        and any(part.casefold() == "results" for part in PurePosixPath(path).parts)
     ]
     if forbidden:
         print("ERROR: result directories must not be committed:", file=sys.stderr)

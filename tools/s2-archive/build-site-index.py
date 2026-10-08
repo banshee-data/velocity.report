@@ -31,9 +31,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 _args = argparse.ArgumentParser(description="Build the archive site index.")
 _args.add_argument(
     "--archive",
-    default=os.environ.get("LIDAR_PCAP_DIR", "/Volumes/lidar/lidar"),
+    default=os.environ.get("LIDAR_PCAP_DIR", "/Volumes/lidar/lidar/pcaps"),
     help="archive root holding s2/analysis and s2/analysis-continuous "
-    "(default: $LIDAR_PCAP_DIR, else /Volumes/lidar/lidar)",
+    "(default: $LIDAR_PCAP_DIR, else /Volumes/lidar/lidar/pcaps)",
 )
 ARCHIVE = os.path.abspath(os.path.expanduser(_args.parse_args().archive))
 PER_FILE = os.path.join(ARCHIVE, "s2", "analysis")

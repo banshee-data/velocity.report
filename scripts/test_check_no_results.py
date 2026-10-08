@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 SCRIPT = Path(__file__).with_name("check-no-results.py")
 
 
