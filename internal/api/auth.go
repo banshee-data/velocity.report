@@ -257,11 +257,9 @@ func classifySource(r *http.Request) (netip.Addr, requestSource) {
 	return remoteIP, sourceLocal
 }
 
-// firstXFF parses the first entry of an X-Forwarded-For header.
+// firstXFF parses the first entry of an X-Forwarded-For header.  An entry
+// that does not parse returns an invalid address.
 func firstXFF(xff string) netip.Addr {
-	if xff == "" {
-		return netip.Addr{}
-	}
 	first, _, _ := strings.Cut(xff, ",")
 	ip, err := netip.ParseAddr(strings.TrimSpace(first))
 	if err != nil {
