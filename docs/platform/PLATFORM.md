@@ -23,6 +23,8 @@ UI surface is being changed:
 - Structured logging model
 - Typed UUID prefix conventions
 - Platform library design (TicTacTail)
+- Proposed access control across HTTP, Tailscale and future users/groups:
+  [access control hardening](../plans/platform-access-control-hardening-plan.md)
 
 ### Deployment and release
 

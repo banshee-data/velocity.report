@@ -839,7 +839,7 @@ func (s *Server) GetCapabilities(ctx context.Context, req *pb.CapabilitiesReques
 		SupportsTracks:    true,
 		SupportsDebug:     true,
 		SupportsReplay:    true,
-		SupportsRecording: true,
+		SupportsRecording: false, // Recording RPCs remain unimplemented.
 		AvailableSensors:  []string{s.publisher.config.SensorID},
 	}, nil
 }

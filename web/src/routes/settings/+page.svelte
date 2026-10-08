@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { access, hasPermission } from '#lib/stores/access.js';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -242,7 +243,7 @@
 		tailscaleStatus = next;
 		tailscaleVersion = next.version ?? 0;
 		syncTailscaleState(next);
-		updateTailscaleQr(next.login_url);
+		updateTailscaleQr(hasPermission($access, 'access:manage') ? next.login_url : undefined);
 	}
 
 	// Long-poll loop: each request is held on the server until the status
@@ -284,6 +285,7 @@
 	}
 
 	async function handleTailscaleToggle(enabled: boolean) {
+		if (!hasPermission($access, 'access:manage')) return;
 		tailscaleLoading = true;
 		tailscaleError = '';
 		try {
@@ -297,7 +299,7 @@
 	}
 
 	async function copyLoginUrl() {
-		if (!tailscaleStatus?.login_url) return;
+		if (!hasPermission($access, 'access:manage') || !tailscaleStatus?.login_url) return;
 		try {
 			await navigator.clipboard.writeText(tailscaleStatus.login_url);
 			message = 'Login URL copied to clipboard.';
@@ -329,6 +331,7 @@
 	}
 
 	async function handleTransitWorkerToggle(enabled: boolean) {
+		if (!hasPermission($access, 'configuration:write')) return;
 		transitWorkerLoading = true;
 		try {
 			const response = await updateTransitWorker({ enabled, trigger: enabled });
@@ -347,6 +350,7 @@
 	}
 
 	async function handleTransitWorkerRunNow() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!transitWorkerEnabled) {
 			message = 'Enable the transit worker first.';
 			return;
@@ -367,6 +371,7 @@
 	}
 
 	async function handleTransitWorkerRunFullHistory() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!transitWorkerEnabled) {
 			message = 'Enable the transit worker first.';
 			return;
@@ -534,6 +539,7 @@
 	}
 
 	function openCreatePanel() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		editingConfig = null;
 		testResult = null;
 		serialMessage = '';
@@ -558,6 +564,7 @@
 	}
 
 	function openEditPanel(c: SerialConfig) {
+		if (!hasPermission($access, 'configuration:write')) return;
 		editingConfig = c;
 		testResult = null;
 		serialMessage = '';
@@ -585,6 +592,7 @@
 	}
 
 	async function handleSerialSave() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		try {
 			if (editingConfig) {
 				await updateSerialConfig(editingConfig.id, formData);
@@ -602,11 +610,13 @@
 	}
 
 	function openDeleteDialog(c: SerialConfig) {
+		if (!hasPermission($access, 'configuration:write')) return;
 		deletingConfig = c;
 		showDeleteDialog = true;
 	}
 
 	async function handleSerialDelete() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!deletingConfig) return;
 		try {
 			await deleteSerialConfig(deletingConfig.id);
@@ -621,6 +631,7 @@
 	}
 
 	async function handleSerialTest() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		try {
 			testing = true;
 			testResult = await testSerialPort({
@@ -649,6 +660,7 @@
 	}
 
 	async function handleSerialReload() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		try {
 			reloadingSerial = true;
 			const result: SerialReloadResult = await reloadSerialConfig();
@@ -738,11 +750,18 @@
 									<Button
 										on:click={handleSerialReload}
 										variant="outline"
-										disabled={reloadingSerial || !serialConfigs.some((c) => c.enabled)}
+										disabled={!hasPermission($access, 'configuration:write') ||
+											reloadingSerial ||
+											!serialConfigs.some((c) => c.enabled)}
 									>
 										{reloadingSerial ? 'Applying...' : 'Apply enabled config'}
 									</Button>
-									<Button on:click={openCreatePanel} variant="fill" color="primary">
+									<Button
+										disabled={!hasPermission($access, 'configuration:write')}
+										on:click={openCreatePanel}
+										variant="fill"
+										color="primary"
+									>
 										Add serial port
 									</Button>
 								</div>
@@ -778,6 +797,7 @@
 												>
 													<td
 														class="text-surface-content cursor-pointer px-4 py-3 font-mono text-sm"
+														aria-disabled={!hasPermission($access, 'configuration:write')}
 														on:click={() => openEditPanel(row)}
 														on:keydown={(e) =>
 															handleKeyboardActivation(e, () => openEditPanel(row))}
@@ -788,6 +808,7 @@
 													</td>
 													<td
 														class="cursor-pointer px-4 py-3 text-sm"
+														aria-disabled={!hasPermission($access, 'configuration:write')}
 														on:click={() => openEditPanel(row)}
 														on:keydown={(e) =>
 															handleKeyboardActivation(e, () => openEditPanel(row))}
@@ -803,6 +824,7 @@
 													<td class="px-4 py-3 text-center">
 														<div class="flex justify-center gap-2">
 															<Button
+																disabled={!hasPermission($access, 'configuration:write')}
 																on:click={() => openEditPanel(row)}
 																size="sm"
 																variant="outline"
@@ -810,6 +832,7 @@
 																Edit
 															</Button>
 															<Button
+																disabled={!hasPermission($access, 'configuration:write')}
 																on:click={() => openDeleteDialog(row)}
 																size="sm"
 																variant="outline"
@@ -889,7 +912,7 @@
 							<div class="flex flex-wrap items-center gap-3">
 								<Switch
 									checked={transitWorkerEnabled}
-									disabled={transitWorkerLoading}
+									disabled={!hasPermission($access, 'configuration:write') || transitWorkerLoading}
 									on:change={(e) => handleTransitWorkerToggle((e as CustomEvent).detail.value)}
 								/>
 								<span class="text-sm">
@@ -899,14 +922,20 @@
 									<Button
 										variant="outline"
 										on:click={handleTransitWorkerRunNow}
-										disabled={transitWorkerLoading || !transitWorkerEnabled || !!currentRun}
+										disabled={!hasPermission($access, 'configuration:write') ||
+											transitWorkerLoading ||
+											!transitWorkerEnabled ||
+											!!currentRun}
 									>
 										Run now
 									</Button>
 									<Button
 										variant="outline"
 										on:click={handleTransitWorkerRunFullHistory}
-										disabled={transitWorkerLoading || !transitWorkerEnabled || !!currentRun}
+										disabled={!hasPermission($access, 'configuration:write') ||
+											transitWorkerLoading ||
+											!transitWorkerEnabled ||
+											!!currentRun}
 									>
 										Run full history
 									</Button>
@@ -979,7 +1008,7 @@
 							<div class="flex flex-wrap items-center gap-3">
 								<Switch
 									checked={tailscaleEnabled}
-									disabled={tailscaleLoading}
+									disabled={tailscaleLoading || !hasPermission($access, 'access:manage')}
 									on:change={(e) => {
 										const target = e.target as HTMLInputElement | null;
 										if (!target) return;
@@ -1002,11 +1031,18 @@
 								{/if}
 							</div>
 
+							{#if !hasPermission($access, 'access:manage')}
+								<p class="text-surface-content/70 text-sm">
+									Tailscale enrolment and access changes require the device operator’s local console
+									or SSH session.
+								</p>
+							{/if}
+
 							{#if tailscaleError}
 								<p class="text-xs text-red-600" role="alert">{tailscaleError}</p>
 							{/if}
 
-							{#if tailscaleEnabled && !tailscaleConnected && tailscaleStatus?.login_url}
+							{#if hasPermission($access, 'access:manage') && tailscaleEnabled && !tailscaleConnected && tailscaleStatus?.login_url}
 								<div
 									class="border-surface-content/20 bg-surface-100 grid gap-4 rounded border p-4 md:grid-cols-[auto_1fr]"
 								>
@@ -1037,7 +1073,7 @@
 										<Button variant="outline" on:click={copyLoginUrl}>Copy login URL</Button>
 									</div>
 								</div>
-							{:else if tailscaleEnabled && !tailscaleConnected}
+							{:else if hasPermission($access, 'access:manage') && tailscaleEnabled && !tailscaleConnected}
 								<p class="text-surface-content/70 text-xs italic">
 									Waiting for Tailscale to issue a login URL...
 								</p>

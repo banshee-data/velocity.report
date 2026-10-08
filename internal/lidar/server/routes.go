@@ -3,7 +3,9 @@ package server
 import (
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"tailscale.com/tsweb"
@@ -42,8 +44,20 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 }
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
-func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
+func (ws *Server) RegisterRoutes(mux *http.ServeMux, recorders ...func(string, access.Operation, access.Operation)) {
 	assetsFS := l9endpoints.LegacyAssetsFS()
+	register := func(pattern string, handler http.HandlerFunc) {
+		mux.HandleFunc(pattern, handler)
+		read, write := access.ExportData, access.Configure
+		if strings.Contains(pattern, "/debug/") || strings.Contains(pattern, "/clear") || strings.Contains(pattern, "/cleanup") {
+			read, write = access.Maintenance, access.Maintenance
+		} else if strings.HasSuffix(pattern, "/status") || strings.HasSuffix(pattern, "/params") || strings.HasSuffix(pattern, "/data_source") || strings.HasSuffix(pattern, "/monitor") || strings.HasSuffix(pattern, "/server") {
+			read = access.ReadConfiguration
+		}
+		for _, record := range recorders {
+			record(pattern, read, write)
+		}
+	}
 
 	// Core status and health routes
 	coreRoutes := []route{
@@ -174,13 +188,16 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		gridRoutes, pcapRoutes, captureRoutes, chartRoutes, debugRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
-			mux.HandleFunc(r.pattern, r.handler)
+			register(r.pattern, r.handler)
 		}
 	}
 
 	// ECharts assets (static file serving)
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
+		for _, record := range recorders {
+			record(echartsAssetsPrefix, access.ViewAggregates, "")
+		}
 	}
 
 	// Track API routes (delegate to TrackAPI handlers)
@@ -197,46 +214,46 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 			{"/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks},
 		}
 		for _, r := range trackRoutes {
-			mux.HandleFunc(r.pattern, r.handler)
+			register(r.pattern, r.handler)
 		}
 
 		// Highly destructive endpoint: only register when explicitly enabled for development/debug use.
-		mux.HandleFunc("/api/lidar/runs/clear", featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", ws.trackAPI.handleClearRuns))
+		register("/api/lidar/runs/clear", featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", ws.trackAPI.handleClearRuns))
 	}
 
 	// Label API routes (delegate to LidarLabelAPI handlers)
 	if ws.db != nil {
 		labelAPI := api.NewLidarLabelAPI(ws.db)
-		labelAPI.RegisterRoutes(mux)
+		labelAPI.RegisterRoutes(mux, recorders...)
 	}
 
 	// Run track API routes (analysis run management and track labelling)
-	mux.HandleFunc("/api/lidar/runs/", ws.withDB(ws.handleRunTrackAPI))
+	register("/api/lidar/runs/", ws.withDB(ws.handleRunTrackAPI))
 
 	// Scene API routes (scene management for track labelling and auto-tuning)
-	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
-	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
-	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
-	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
-	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
-	mux.HandleFunc("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
-	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))
-	mux.HandleFunc("/api/annotations/packs", ws.handleAnnotationPacks)
-	mux.HandleFunc("/api/annotations/physical", ws.handlePhysicalReferences)
-	mux.HandleFunc("/api/annotations/features", ws.handleFeatureAnnotations)
-	mux.HandleFunc("/api/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
-	mux.HandleFunc("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
-	mux.HandleFunc("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
-	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
-	mux.HandleFunc("/api/annotations/physical/history", ws.handlePhysicalHistory)
-	mux.HandleFunc("/api/annotations/physical/restore", ws.handlePhysicalRestore)
-	mux.HandleFunc("/api/annotations/split/preview", ws.handleSplitPreview)
-	mux.HandleFunc("/api/annotations/split/freeze", ws.handleSplitFreeze)
-	mux.HandleFunc("/api/annotations/splits", ws.handleSplits)
+	register("/api/lidar/scenes", ws.withDB(ws.handleScenes))
+	register("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+	register("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
+	register("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
+	register("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
+	register("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
+	register("/api/lidar/segments", ws.withDB(ws.handleSegments))
+	register("/api/annotations/packs", ws.handleAnnotationPacks)
+	register("/api/annotations/physical", ws.handlePhysicalReferences)
+	register("/api/annotations/features", ws.handleFeatureAnnotations)
+	register("/api/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
+	register("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
+	register("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
+	register("/api/annotations/physical/review", ws.handlePhysicalReview)
+	register("/api/annotations/physical/history", ws.handlePhysicalHistory)
+	register("/api/annotations/physical/restore", ws.handlePhysicalRestore)
+	register("/api/annotations/split/preview", ws.handleSplitPreview)
+	register("/api/annotations/split/freeze", ws.handleSplitFreeze)
+	register("/api/annotations/splits", ws.handleSplits)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed
 	// intersection midpoint) — distinct from a case's own sensor pose.
-	mux.HandleFunc("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
+	register("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
 
 }
 

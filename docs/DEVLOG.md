@@ -8,7 +8,7 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 8, 2026 - Motion passes report progress, replays read each capture once, facet F0 on kirk0, and human crash baselines in the crash-data plan
+## October 8, 2026 - Motion passes report progress, replays read each capture once, facet F0 on kirk0, human crash baselines, and the access gate answers #503's review
 
 - {claude/capture-reads-once} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless.
 - {claude/capture-reads-once} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read.
@@ -19,8 +19,12 @@ older entries stay put, however tempting hindsight may be.
 - {claude/facet-f0-cpu-analysis-d2ae1e} Corrected the F0 protocol's kirk0 capture digest to the git-lfs object ID both copies hash to.
 - {claude/laughing-curie-2l2rl5} Analysed the Waymo sober-driving baseline preprint, its fatal-rate base paper and Valgo's Human Crash Baselines API against the crash-data integration plan: re-derived the exposure-reconstruction equations, showed by Poisson arithmetic that a single site cannot test an area rate, and set out benchmark-aligned day/night and weekday/weekend strata, an area-rate table for the safety-reference edition, and what a speed survey gives back to the benchmarks ([report](platform/operations/human-crash-baselines-analysis-2026-10.md)).
 - {claude/laughing-curie-2l2rl5} Folded the analysis's five edits into the crash-data integration plan: benchmark-aligned temporal strata, an area-rate table in the safety-reference edition, site-to-area resolution with an area benchmark context block, a hosted-baselines exploration, and a multi-site research note, with the new rights rows, four risks, and two open questions answered; the backlog mirrors them at v0.5.10 and v0.6.8 ([plan](plans/platform-crash-data-integration-plan.md)).
+- {patrickod/tailscale-acls} Dropped connections from the host on every listener while tailscaled forwarded to its port through a Serve handler the manager had not installed: a TCP forward or TCP Funnel had read as the host or as a forged tailnet identity (#503).
+- {patrickod/tailscale-acls} Refused an unparseable forwarded address in `on` mode, let the view grant read the offline docs, and pinned the view inventory and the review's integration matrix through the installed wrappers (#503).
+- {patrickod/tailscale-acls} Chose the image's access profile with `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in survives unit changes, and documented Serve forwards, 100.64 LANs and what `off` leaves open (#503).
+- {patrickod/tailscale-acls} Refused requests whose Host a DNS-rebinding page could send, in every profile: a page in a LAN browser could otherwise start Tailscale enrolment under `off` and read the login URL. `--allowed-hosts` adds names such as a reverse proxy's (#503).
 
-## October 7, 2026 - The LiDAR web pages read as one workflow
+## October 7, 2026 - The LiDAR web pages read as one workflow, and access hardening keeps viewing separate from control
 
 - Ordered the LiDAR pages in one navigation group as the work runs, linked each record to the next, moved Scene Map out of the navigation and called the replay case a clip in web copy only (#707).
 - Opened Captures on a configured volume instead of a dropped one showing a month-old "context canceled", and kept a session's motion periods when a rescan reproduces it: 24 of 31 development clips named a period an earlier scan had deleted (#707).
@@ -30,6 +34,9 @@ older entries stay put, however tempting hindsight may be.
 - Matched a clip's volume-relative capture path to a run's absolute one, which had never matched, so 474 of the latest 500 development runs named their clip instead of none; Runs also showed each run's parameter digest and labelling share (#707).
 - Named each sweep's clip or capture and its objective on the Sweeps cards, a plain sweep reading "none, compared by hand", and headed the macOS run browser's Case column Source, since it holds a file name (#707).
 - Reconciled the October workflow design with the vocabulary plan in the [LiDAR workflow UI plan](plans/lidar-ui-workflow-plan.md): candidates on Clips rather than a Windows page, a derived pack status rather than a writable one, and sites through deployments, with eleven backlog items from v0.5.9 to v0.6.6 (#707).
+- {patrickod/tailscale-acls} Added an opt-in hardened HTTP profile with anonymous LAN aggregate viewing and existing ordinary PDF downloads, transport-independent operation/resource checks, and explicit Tailscale configuration/report/export permissions. Kept off/on compatibility and reserved maintenance/access management for OS-authorised tools; native users/groups remain later work (#503).
+- {patrickod/tailscale-acls} Replaced the ten-minute stale-grant fallback with bounded, coalesced lookups and a five-second cache; removed the race in which an older admin answer could resurrect a revoked grant. Added a dedicated loopback Serve capability backend, origin checks, redacted disclosure and caller-permission UI (#503).
+- {patrickod/tailscale-acls} Constrained alternate LiDAR HTTP to loopback in hardened mode and full gRPC in every mode. The gRPC audit found shared playback state changes and return-to-live effects, but no implemented settings/file/recording RPC; corrected the advertised recording capability. Recorded the historical trust policy, reproduced cache failure and release split in the [access-control plan](plans/platform-access-control-hardening-plan.md); Pi/live-tailnet acceptance remains open (#503).
 
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 
@@ -52,7 +59,7 @@ older entries stay put, however tempting hindsight may be.
 - Moved to Go 1.27.1 for `tailscale.com` 1.105.0-pre, dropped the removed netmap bit from the IPN bus watch, and held SvelteKit 3 back (#693).
 - Fixed the public_html timeline strip tests, which failed outside a browser, and ran that suite in `make test` and CI (#695).
 - Widened the lidarbench heap-stability bound to 20 % for shared CI runners, and added the tests Codecov found missing in #686 and #688 (#687, #700).
-- {dd/api/tailscale-acls-503} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
+- {patrickod/tailscale-acls} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
 
 ## October 5, 2026 - Near-edge findings and follow-ups, span selection, raw outputs stay local, a scene-change recovery plan, and the devlog register
 

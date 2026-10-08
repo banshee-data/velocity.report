@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/tailscale"
 )
 
@@ -64,11 +65,55 @@ func (s *Server) handleTailscaleStatus(w http.ResponseWriter, r *http.Request) {
 	// indefinitely.
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
-	st := s.tailscale.Status(ctx)
+	st := s.tailscaleStatusFor(r, s.tailscale.Status(ctx))
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(st); err != nil {
 		log.Printf("tailscale status: encode error: %v", err)
 	}
+}
+
+// tailscaleStatusFor trims the status to what the caller may see.  The
+// route is open to every tailnet peer so an operator with a botched grant
+// policy can still see the daemon's state; with enforcement on, a tailnet
+// peer without a view grant (or whose identity cannot be resolved) gets the
+// state fields alone, not the tailnet's names, peer count or error text, and
+// only an admin gets a pending login URL, which enrols the device for
+// whoever opens it.  Host and LAN callers, and every caller with
+// enforcement off, see it all.
+func (s *Server) tailscaleStatusFor(r *http.Request, st tailscale.Status) tailscale.Status {
+	if s.hardened() {
+		// Enrolment is OS-authorised, including for ordinary administrators.
+		st.LoginURL, st.Redacted = "", true
+		p, ok := requestPrincipal(r)
+		if !ok || !p.Allows(access.Request{Operation: access.ReadConfiguration, Resource: "/api/tailscale/status"}) {
+			return tailscale.Status{DaemonRunning: st.DaemonRunning, BackendState: st.BackendState,
+				LoginInProgress: st.LoginInProgress, SSHEnabled: st.SSHEnabled,
+				ServePublished: st.ServePublished, Version: st.Version, Redacted: true}
+		}
+		return st
+	}
+	g := s.authGate
+	if g == nil || g.mode == EnforcementOff || g.tc == nil {
+		return st
+	}
+	clientIP, source := classifySource(r)
+	if source != sourceTailnet {
+		return st
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
+	defer cancel()
+	id, err := g.tc.LookupPeer(ctx, clientIP.String())
+	switch {
+	case err != nil || !id.View:
+		return tailscale.Status{
+			DaemonRunning: st.DaemonRunning, BackendState: st.BackendState,
+			LoginInProgress: st.LoginInProgress, SSHEnabled: st.SSHEnabled,
+			ServePublished: st.ServePublished, Version: st.Version, Redacted: true,
+		}
+	case !id.Admin && st.LoginURL != "":
+		st.LoginURL, st.Redacted = "", true
+	}
+	return st
 }
 
 // parseWaitSeconds parses a positive integer seconds value, clamped to max.

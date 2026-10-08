@@ -21,6 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -56,21 +57,31 @@ import (
 var serveFlags = flag.NewFlagSet("velocity-serve", flag.ExitOnError)
 
 var (
-	fixtureMode   = serveFlags.Bool("fixture", false, "Load fixture to local database")
-	debugMode     = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen        = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
-	docsSource    = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
-	port          = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag     = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag  = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar  = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag    = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
-	versionFlag   = serveFlags.Bool("version", false, "Print version information and exit")
-	versionShort  = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile    = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
-	logLevel      = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
-	selfCheck     = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
-	selfCheckLive = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
+	fixtureMode  = serveFlags.Bool("fixture", false, "Load fixture to local database")
+	debugMode    = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen       = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
+	docsSource   = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
+	port         = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag    = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag   = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
+	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
+	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
+	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	// tsCapEnforcement controls Tailscale capability-grant authorization.
+	//   off (default): cap checks disabled; every reachable peer is admin.
+	//                  Lockout-safe by definition.
+	//   on:            cap checks enforced for tailnet-sourced requests.
+	//                  LAN/loopback peers are still admin (the LAN is the
+	//                  trust boundary in those deployments).  Recovery from
+	//                  a botched ACL: drop back to LAN access, fix grants.
+	tsCapEnforcement = serveFlags.String("ts-cap-enforcement", "off", "Access profile: off (legacy default), on (legacy LAN-admin), or hardened (LAN read-only)")
+	tsServeListen    = serveFlags.String("ts-serve-listen", "127.0.0.1:8082", "Dedicated loopback Serve backend for the hardened access profile")
+	allowedHosts     = serveFlags.String("allowed-hosts", "", "Comma-separated host names the HTTP listeners answer besides addresses, localhost, single-label and .local/.lan/.home.arpa/.internal/.ts.net names (e.g. velocity.example.com, or .example.com for every name beneath it)")
+	selfCheck        = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
+	selfCheckLive    = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
 )
 
 const (
@@ -375,6 +386,25 @@ func Main(args []string) int {
 	default:
 		log.Fatalf("Unrecognised --log-level=%q: valid values are ops, diag, trace (e.g. --log-level=diag)", *logLevel)
 	}
+	// Checked here rather than where the gate is wired, which runs in the
+	// server goroutine after listeners are up.
+	capMode, capModeErr := api.ParseEnforcement(*tsCapEnforcement)
+	if capModeErr != nil {
+		log.Fatalf("Unrecognised --ts-cap-enforcement=%q: valid values are off, on, hardened", *tsCapEnforcement)
+	}
+	// Full gRPC exposes shared playback controls and has no authentication yet.
+	// Refuse remote bindings in every profile, before any sensors start.
+	if err := access.ValidateLoopbackListen(*lidarGRPCListen); err != nil {
+		log.Fatalf("gRPC is local until authentication is implemented: %v", err)
+	}
+	// Every profile refuses a Host header a DNS-rebinding page could send.
+	hostPolicy, hostPolicyErr := access.ParseAllowedHosts(*allowedHosts)
+	if hostPolicyErr != nil {
+		log.Fatalf("Invalid --allowed-hosts: %v", hostPolicyErr)
+	}
+	if err := validateEnforcedListeners(capMode, *tsServeListen, *lidarListen, *lidarGRPCListen); err != nil {
+		log.Fatalf("Listener configuration for --ts-cap-enforcement=%s: %v", *tsCapEnforcement, err)
+	}
 	lidar.SetLogWriters(writers)
 	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	parse.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
@@ -534,6 +564,22 @@ func Main(args []string) int {
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	httpFailure := make(chan error, 1)
+
+	// Tailscale lifecycle manager: drives tailscaled on opt-in, caches the
+	// IPN bus login URL, and applies the device policy (Tailscale SSH on,
+	// tailscale serve publishing the local Go server on :443 of the tailnet)
+	// once the node is up.  It exists before any listener binds, so each
+	// listener can refuse local connections while tailscaled forwards to it
+	// through a Serve handler this manager did not install.
+	tsOptions := []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*listen))}
+	if capMode == api.EnforcementHardened {
+		tsOptions = []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*tsServeListen)), tailscale.WithServeCapabilities()}
+	}
+	tsManager := tailscale.New(tsOptions...)
+	tsManager.Start(ctx)
+	defer tsManager.Stop()
+	guards := serveForwardGuards{mode: capMode, forwards: tsManager}
 
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
@@ -658,6 +704,7 @@ func Main(args []string) int {
 				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
+				vizConfig.WrapListener = guards.listener("gRPC server")
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
@@ -935,6 +982,9 @@ func Main(args []string) int {
 				}
 			},
 		})
+		lidarServer.SetListenerWrapper(guards.listener("LiDAR HTTP server"))
+		lidarServer.SetHandlerWrapper(guards.handler("LiDAR HTTP server"))
+		lidarServer.SetHostPolicy(hostPolicy)
 		// A VRLOG that plays to its end stays loaded and stays the data source.
 		// Only the replay slot is released, so another replay can start; the
 		// recording remains on screen at its final frame and the visualiser's
@@ -1124,14 +1174,16 @@ func Main(args []string) int {
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
-		// Tailscale lifecycle manager: drives tailscaled on opt-in,
-		// caches the IPN bus login URL, and applies the device policy
-		// (Tailscale SSH on, tailscale serve publishing the local Go
-		// server on :443 of the tailnet) once the node is up.
-		tsManager := tailscale.New(tailscale.WithServeTarget(tailscaleServeTarget(*listen)))
-		tsManager.Start(ctx)
-		defer tsManager.Stop()
+		if capMode == api.EnforcementHardened {
+			apiServer.SetServeListen(*tsServeListen)
+		}
 		apiServer.SetTailscaleController(tsManager)
+
+		// Off/on retain compatibility. Hardened applies named permissions to
+		// anonymous LAN and verified Tailscale callers, with OS-local recovery.
+		apiServer.SetAuthGate(tsManager, capMode)
+		apiServer.SetServeForwards(tsManager)
+		apiServer.SetHostPolicy(hostPolicy)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// It was created before the LiDAR server started, whose startup moves
@@ -1160,13 +1212,17 @@ func Main(args []string) int {
 
 		// Attach Lidar routes if enabled
 		if lidarServer != nil {
-			lidarServer.RegisterRoutes(mux)
+			lidarServer.RegisterRoutes(mux, apiServer.RegisterOperation)
 		}
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
 			if err != context.Canceled {
 				log.Printf("HTTP server error: %v", err)
+				if capMode == api.EnforcementHardened {
+					httpFailure <- err
+					stop()
+				}
 			}
 		}
 	}()
@@ -1174,6 +1230,11 @@ func Main(args []string) int {
 	// Wait for all goroutines to finish
 	wg.Wait()
 	log.Printf("Graceful shutdown complete")
+	select {
+	case <-httpFailure:
+		return 1
+	default:
+	}
 	return 0
 }
 

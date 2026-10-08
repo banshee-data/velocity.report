@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/api"
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -58,7 +59,10 @@ type Server struct {
 	address           string
 	stats             *PacketStats
 	server            *http.Server
-	onReady           func() // run by Start once it is serving; see SetOnReady
+	onReady           func()                          // run by Start once it is serving; see SetOnReady
+	wrapListener      func(net.Listener) net.Listener // see SetListenerWrapper
+	wrapHandler       func(http.Handler) http.Handler // see SetHandlerWrapper
+	hostPolicy        *access.HostPolicy              // see SetHostPolicy
 	forwardingEnabled bool
 	forwardAddr       string
 	forwardPort       int
@@ -472,6 +476,25 @@ func (ws *Server) SetOnReady(fn func()) {
 	ws.onReady = fn
 }
 
+// SetListenerWrapper wraps the HTTP listener once it is bound, such as with
+// access.GuardListener.  Call it before Start.
+func (ws *Server) SetListenerWrapper(fn func(net.Listener) net.Listener) {
+	ws.wrapListener = fn
+}
+
+// SetHandlerWrapper wraps the HTTP handler, outermost, such as with
+// access.GuardHandler.  Call it before Start.
+func (ws *Server) SetHandlerWrapper(fn func(http.Handler) http.Handler) {
+	ws.wrapHandler = fn
+}
+
+// SetHostPolicy sets the Host headers the HTTP listener answers.  Without it
+// the listener answers the default set (access.DefaultHostPolicy), refusing
+// a DNS-rebinding page's own name.  Call it before Start.
+func (ws *Server) SetHostPolicy(p *access.HostPolicy) {
+	ws.hostPolicy = p
+}
+
 // Start begins the HTTP server in a goroutine and handles graceful shutdown.
 // A listener it cannot bind is returned as an error before anything is
 // served, so the caller can report the LiDAR subsystem as failed.
@@ -485,6 +508,17 @@ func (ws *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
+	if ws.wrapListener != nil {
+		ln = ws.wrapListener(ln)
+	}
+	if ws.wrapHandler != nil {
+		ws.server.Handler = ws.wrapHandler(ws.server.Handler)
+	}
+	hosts := ws.hostPolicy
+	if hosts == nil {
+		hosts = access.DefaultHostPolicy()
+	}
+	ws.server.Handler = hosts.Handler(ws.server.Handler)
 
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {

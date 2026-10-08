@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { access, hasPermission } from '#lib/stores/access.js';
 	import { browser } from '$app/env';
 	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '#lib/dateUtils.js';
 	import { buildReportRequest, resolveDashboardReportFilters } from '#lib/reportRequests.js';
@@ -334,6 +335,7 @@
 	let reportMetadata: SiteReport | null = null;
 
 	async function handleGenerateReport() {
+		if (!hasPermission($access, 'reports:create')) return;
 		if (!dateRange.from || !dateRange.to) {
 			lastGeneratedReportId = null;
 			reportMessage = 'Please select a date range first';
@@ -474,7 +476,9 @@
 						<div class="w-18">
 							<Button
 								on:click={handleGenerateReport}
-								disabled={generatingReport || selectedSiteId == null}
+								disabled={generatingReport ||
+									selectedSiteId == null ||
+									!hasPermission($access, 'reports:create')}
 								variant="fill"
 								color="primary"
 								class="whitespace-normal"
@@ -484,6 +488,13 @@
 							</Button>
 						</div>
 					</div>
+
+					{#if !hasPermission($access, 'reports:create')}
+						<p class="text-surface-content/70 text-sm">
+							Viewing access includes charts and existing PDFs. Generating a report requires
+							administrator access.
+						</p>
+					{/if}
 
 					{#if refreshError}
 						<div
@@ -521,7 +532,7 @@
 									>
 										📄 Download Report
 									</a>
-									{#if reportMetadata.zip_filename}
+									{#if hasPermission($access, 'data:export') && reportMetadata.zip_filename}
 										<!-- eslint-disable svelte/no-navigation-without-resolve -->
 										<a
 											href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}

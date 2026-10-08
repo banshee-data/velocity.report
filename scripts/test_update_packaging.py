@@ -133,3 +133,10 @@ def test_image_runtime_defaults_use_scoped_sudo_and_embedded_tuning_defaults():
         "ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db"
         in service_unit
     )
+    # The access profile is chosen by a drop-in that sets one variable, so the
+    # choice survives changes to ExecStart; the stock image stays off.
+    assert "Environment=VELOCITY_ACCESS_PROFILE=off" in service_unit
+    assert "--ts-cap-enforcement=${VELOCITY_ACCESS_PROFILE}" in service_unit
+    # Extra host names the server answers to, set the same way; none by default.
+    assert "Environment=VELOCITY_ALLOWED_HOSTS=\n" in service_unit
+    assert "--allowed-hosts=${VELOCITY_ALLOWED_HOSTS}" in service_unit
