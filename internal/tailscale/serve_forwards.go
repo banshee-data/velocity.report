@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"tailscale.com/ipn"
@@ -49,8 +50,12 @@ type serveForwardsCache struct {
 // its client wrote, so a listener on such a port cannot believe that a
 // connection from this host is local or that its forwarded identity is real.
 //
-// A daemon that cannot be dialled is not running and forwards nothing.  Any
-// other failure is returned, and the caller must fail closed.
+// Port 0 in the result stands for a target that may be this host on a port
+// that could not be decided; it matches every listener.
+//
+// A daemon whose socket is missing or refuses connections is not running and
+// forwards nothing; that answer is not cached, so a daemon that starts is read
+// at once.  Any other failure is returned, and the caller must fail closed.
 func (m *Manager) UnmanagedServePorts(ctx context.Context) (map[uint16]bool, error) {
 	c := &m.serveForwards
 	now := time.Now
@@ -84,13 +89,22 @@ func (m *Manager) UnmanagedServePorts(ctx context.Context) (map[uint16]bool, err
 		c.mu.Unlock()
 
 		readCtx, cancel := context.WithTimeout(context.Background(), serveForwardsTimeout)
-		ports, err := m.readUnmanagedServePorts(readCtx)
+		ports, absent, err := m.readUnmanagedServePorts(readCtx)
 		cancel()
 
 		c.mu.Lock()
-		// Stamped with the start of the read, so a slow read cannot stretch
-		// the time a reading is believed.
-		c.last = &serveForwardsResult{ports: ports, err: err, at: started}
+		switch {
+		case absent:
+			c.last = nil
+		case err != nil:
+			// Stamped on completion, so a read that timed out is not
+			// already expired when stored and retried by every caller.
+			c.last = &serveForwardsResult{err: err, at: now()}
+		default:
+			// Stamped with the start of the read, so a slow read cannot
+			// stretch the time a reading is believed.
+			c.last = &serveForwardsResult{ports: ports, at: started}
+		}
 		c.pending = nil
 		close(done)
 		c.mu.Unlock()
@@ -98,19 +112,21 @@ func (m *Manager) UnmanagedServePorts(ctx context.Context) (map[uint16]bool, err
 	}
 }
 
-func (m *Manager) readUnmanagedServePorts(ctx context.Context) (map[uint16]bool, error) {
+// readUnmanagedServePorts reads the Serve configuration.  absent reports a
+// daemon that is not running: its socket is missing or refuses connections.
+// A socket this process may not open is a failure, not an absence.
+func (m *Manager) readUnmanagedServePorts(ctx context.Context) (ports map[uint16]bool, absent bool, err error) {
 	cfg, err := m.lc.GetServeConfig(ctx)
 	if err != nil {
-		var dial *net.OpError
-		if errors.As(err, &dial) && dial.Op == "dial" {
-			return map[uint16]bool{}, nil
+		if errors.Is(err, syscall.ENOENT) || errors.Is(err, syscall.ECONNREFUSED) {
+			return map[uint16]bool{}, true, nil
 		}
-		return nil, err
+		return nil, false, err
 	}
 	local := localAddrs()
-	ports := map[uint16]bool{}
+	ports = map[uint16]bool{}
 	m.collectUnmanagedServePorts(cfg, true, local, ports)
-	return ports, nil
+	return ports, false, nil
 }
 
 // collectUnmanagedServePorts adds the local ports cfg forwards to, skipping
@@ -177,12 +193,14 @@ func (m *Manager) isManagedWebHandler(hp ipn.HostPort, mount string, h *ipn.HTTP
 	return h.Proxy == target
 }
 
-// localTargetPort returns the TCP port a Serve target names when the target
-// may be this host.  Targets take the forms tailscaled accepts: "3000",
-// "localhost:3000", "http://127.0.0.1:8080/", "https+insecure://host" and
-// "unix:/path".  A unix socket is not one of our listeners.  An address
-// literal for another host is not ours; a name other than localhost might
-// resolve to this host, so it counts.
+// localTargetPort returns the TCP port a Serve target names, and whether the
+// target may be this host.  Targets take the forms tailscaled accepts:
+// "3000", "localhost:3000", "127.0.0.1:http", "http://127.0.0.1:8080/",
+// "https+insecure://host" and "unix:/path".  A unix socket is not one of our
+// listeners, and an address literal for another host is not ours.  A name
+// other than localhost might resolve to this host, so it counts.  A target
+// that may be this host on a port that cannot be decided returns port 0,
+// which matches every listener: it fails closed.
 func localTargetPort(target string, local map[netip.Addr]bool) (uint16, bool) {
 	target = strings.TrimSpace(target)
 	if target == "" || strings.HasPrefix(target, "unix:") {
@@ -191,11 +209,11 @@ func localTargetPort(target string, local map[netip.Addr]bool) (uint16, bool) {
 	if p, err := strconv.ParseUint(target, 10, 16); err == nil {
 		return uint16(p), true
 	}
-	var host, port string
+	host, port := target, ""
 	if strings.Contains(target, "://") {
 		u, err := url.Parse(target)
 		if err != nil {
-			return 0, false
+			return 0, true
 		}
 		host, port = u.Hostname(), u.Port()
 		if port == "" {
@@ -204,28 +222,26 @@ func localTargetPort(target string, local map[netip.Addr]bool) (uint16, bool) {
 				port = "80"
 			case "https", "https+insecure":
 				port = "443"
-			default:
-				return 0, false
 			}
 		}
-	} else {
-		h, p, err := net.SplitHostPort(target)
-		if err != nil {
-			return 0, false
-		}
+	} else if h, p, err := net.SplitHostPort(target); err == nil {
 		host, port = h, p
 	}
-	p, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, false
-	}
-	if ip, err := netip.ParseAddr(host); err == nil {
-		ip = ip.Unmap()
+	if ip, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
+		// Interface addresses carry no zone.
+		ip = ip.Unmap().WithZone("")
 		if !ip.IsLoopback() && !ip.IsUnspecified() && !local[ip] {
 			return 0, false
 		}
 	}
-	return uint16(p), true
+	if p, err := strconv.ParseUint(port, 10, 16); err == nil {
+		return uint16(p), true
+	}
+	// A service name, as tailscaled's dialler resolves it.
+	if p, err := net.LookupPort("tcp", port); err == nil && port != "" {
+		return uint16(p), true
+	}
+	return 0, true
 }
 
 // interfaceAddrs is net.InterfaceAddrs outside tests.
