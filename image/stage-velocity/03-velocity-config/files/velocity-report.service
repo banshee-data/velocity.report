@@ -43,8 +43,13 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
 #   sudo systemctl edit velocity-report
 #     [Service]
 #     Environment=VELOCITY_ACCESS_PROFILE=hardened
+#
+# VELOCITY_ALLOWED_HOSTS lists extra host names the server answers to,
+# comma-separated (--allowed-hosts).  Addresses, localhost, velocity.local and
+# other private names need no entry; a reverse proxy's public name does.
 Environment=VELOCITY_ACCESS_PROFILE=off
-ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --ts-cap-enforcement=${VELOCITY_ACCESS_PROFILE}
+Environment=VELOCITY_ALLOWED_HOSTS=
+ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --ts-cap-enforcement=${VELOCITY_ACCESS_PROFILE} --allowed-hosts=${VELOCITY_ALLOWED_HOSTS}
 WorkingDirectory=/var/lib/velocity-report
 Restart=on-failure
 RestartSec=5
