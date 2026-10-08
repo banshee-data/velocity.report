@@ -29,9 +29,10 @@ type replayPlan struct {
 	Lost time.Duration
 }
 
-// buildReplaySequence resolves an ordered list of capture files, probes each
-// one's packet extent, grades the joins between them, and plans the read steps
-// for the requested window.
+// buildReplaySequence resolves an ordered list of capture files, takes each
+// one's packet extent from the capture index or counts it when the index cannot
+// vouch for it, grades the joins between them, and plans the read steps for the
+// requested window.
 //
 // The window is relative to the start of the whole sequence, not to any one
 // file: a replay case describes a stretch of a site visit, and where the
@@ -46,11 +47,21 @@ func (ws *Server) buildReplaySequence(files []string, startSecs, durationSecs fl
 			err: fmt.Errorf("no capture files given for replay")}
 	}
 
+	// The index has usually probed every capture already. Its extents spare
+	// the replay a full read of each file just to count it, before the read
+	// that replays it; a capture it does not hold, or holds stale, is counted.
+	index := ws.loadIndexedCaptures()
 	segments := make([]capseq.Segment, 0, len(files))
+	fromIndex := 0
 	for _, file := range files {
 		resolved, err := ws.resolvePCAPPath(file)
 		if err != nil {
 			return nil, err
+		}
+		if indexed, ok := index.extent(resolved, ws.udpPort); ok {
+			segments = append(segments, indexed)
+			fromIndex++
+			continue
 		}
 		count, err := countPCAPPackets(resolved, ws.udpPort)
 		if err != nil {
@@ -71,6 +82,9 @@ func (ws *Server) buildReplaySequence(files []string, startSecs, durationSecs fl
 			PacketCount: count.Count,
 		})
 	}
+
+	diagf("PCAP sequence: %d of %d capture extents from the capture index, %d counted",
+		fromIndex, len(files), len(files)-fromIndex)
 
 	seq, err := capseq.Build(segments, capseq.DefaultTolerances())
 	if err != nil {

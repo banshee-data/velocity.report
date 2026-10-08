@@ -20,22 +20,26 @@ import (
 // Replaying a sequence keeps its motion timeline continuous across those joins.
 // MotionClassifier refreshes its baseline on capture time, independently of the
 // file boundaries, so it can recognise a stop after a long drive.
-func replayForAnalysis(cfg SplitConfig, parser network.Parser,
+func replayForAnalysis(ctx context.Context, cfg SplitConfig, parser network.Parser,
 	frameBuilder network.FrameBuilder, stats network.PacketStatsInterface) error {
 
 	files := cfg.PCAPFiles
 	if len(files) <= 1 {
+		var total uint64
+		if extents, ok := knownExtents(cfg, []string{cfg.PCAPFile}); ok {
+			total = extents[0].PacketCount
+		}
 		if err := network.ReadPCAPFile(
-			context.Background(), cfg.PCAPFile, cfg.UDPPort,
+			ctx, cfg.PCAPFile, cfg.UDPPort,
 			parser, frameBuilder, stats, nil,
-			cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
+			cfg.StartSeconds, cfg.DurationSeconds, 0, total, cfg.OnProgress,
 		); err != nil {
 			return fmt.Errorf("pcap replay: %w", err)
 		}
 		return nil
 	}
 
-	seq, err := BuildSequence(files, cfg.UDPPort)
+	seq, err := sequenceForAnalysis(cfg, files)
 	if err != nil {
 		return err
 	}
@@ -44,16 +48,41 @@ func replayForAnalysis(cfg SplitConfig, parser network.Parser,
 		return fmt.Errorf("planning the replay window: %w", err)
 	}
 
-	if _, err := network.ReadPCAPSequence(context.Background(), steps,
+	if _, err := network.ReadPCAPSequence(ctx, steps,
 		network.SequenceReplayConfig{
 			UDPPort:      cfg.UDPPort,
 			Parser:       parser,
 			FrameBuilder: frameBuilder,
 			Stats:        stats,
+			OnProgress:   cfg.OnProgress,
 		}); err != nil {
 		return fmt.Errorf("pcap sequence replay: %w", err)
 	}
 	return nil
+}
+
+// sequenceForAnalysis joins the captures from the extents the caller gave, or
+// counts every capture to find them when it gave none that fit.
+func sequenceForAnalysis(cfg SplitConfig, files []string) (*capseq.Sequence, error) {
+	if extents, ok := knownExtents(cfg, files); ok {
+		return sequenceOf(extents)
+	}
+	return BuildSequence(files, cfg.UDPPort)
+}
+
+// knownExtents returns cfg.Extents when they describe files, in order, each
+// with a packet count and both packet times; otherwise it reports false, and
+// the files are counted instead. A partial or reordered set is never trusted.
+func knownExtents(cfg SplitConfig, files []string) ([]capseq.Segment, bool) {
+	if len(cfg.Extents) != len(files) || len(files) == 0 {
+		return nil, false
+	}
+	for i, e := range cfg.Extents {
+		if e.Path != files[i] || e.PacketCount == 0 || e.FirstPacket.IsZero() || e.LastPacket.IsZero() {
+			return nil, false
+		}
+	}
+	return cfg.Extents, true
 }
 
 // BuildSequence probes each capture's packet extent and grades the joins
@@ -76,6 +105,12 @@ func BuildSequence(files []string, udpPort int) (*capseq.Sequence, error) {
 		})
 	}
 
+	return sequenceOf(segments)
+}
+
+// sequenceOf grades the joins between captures and refuses a set that is not
+// one continuous recording.
+func sequenceOf(segments []capseq.Segment) (*capseq.Sequence, error) {
 	seq, err := capseq.Build(segments, capseq.DefaultTolerances())
 	if err != nil {
 		return nil, fmt.Errorf("sequencing captures: %w", err)

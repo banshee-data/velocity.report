@@ -6,8 +6,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/pcapsplit"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -18,7 +21,12 @@ import (
 // It is the same engine as `velocity lidar pcap-split --dry-run`: one
 // classification, one set of thresholds, one answer whether an operator asks
 // from the command line or the web UI.
-func sessionMotionPass(ctx context.Context, paths []string, udpPort int,
+//
+// extents are the captures as the index probed them, or nil. Given, the pass
+// joins the captures without reading each one to count it first, which halves
+// what it reads, and it can say which capture it has reached. It reports as it
+// reads and stops when ctx ends.
+func sessionMotionPass(ctx context.Context, paths []string, extents []capseq.Segment, udpPort int,
 	tuning *cfgpkg.TuningConfig, report func(current, total int64, detail string)) ([]sqlite.MotionPeriod, error) {
 
 	if len(paths) == 0 {
@@ -33,6 +41,7 @@ func sessionMotionPass(ctx context.Context, paths []string, udpPort int,
 	if len(paths) > 1 {
 		cfg.PCAPFiles = paths
 	}
+	cfg.Extents = extents
 	cfg.UDPPort = udpPort
 	cfg.Tuning = tuning
 	if tuning != nil && cfg.SensorID == "" {
@@ -41,11 +50,22 @@ func sessionMotionPass(ctx context.Context, paths []string, udpPort int,
 	cfg.DryRun = true
 
 	if report != nil {
-		report(0, int64(len(paths)), fmt.Sprintf("classifying %d captures", len(paths)))
+		report(0, int64(totalPackets(extents)), fmt.Sprintf("classifying %d captures", len(paths)))
+		send, stop := newestProgress(func(p capjobs.Progress) { report(p.Current, p.Total, p.Detail) })
+		defer stop()
+		progress := newMotionProgress(extents, len(paths), motionProgressInterval, time.Now)
+		cfg.OnProgress = func(current, total uint64) {
+			if p, ok := progress.observe(current, total); ok {
+				send(p)
+			}
+		}
 	}
 
-	analysis, err := pcapsplit.Analyse(cfg)
+	analysis, err := pcapsplit.AnalyseContext(ctx, cfg)
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		return nil, fmt.Errorf("motion pass: %w", err)
 	}
 	if err := ctx.Err(); err != nil {

@@ -628,28 +628,40 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			diagf("PacketForwarder started for PCAP replay")
 		}
 
-		// Pre-count packets for progress tracking and timeline display. A
-		// planned sequence probed every file while validating its joins, so its
-		// aggregate figures are used rather than re-counting the primary file,
-		// whose own count would scale progress to the wrong total.
+		// Packet totals for progress tracking and timeline display. A planned
+		// sequence already holds its files' extents, so its aggregate figures
+		// are used rather than re-counting the primary file, whose own count
+		// would scale progress to the wrong total. A single capture takes its
+		// extent from the capture index when the index can vouch for it, and
+		// is counted otherwise: counting reads the whole file before the replay
+		// reads it again.
 		var countResult network.PCAPCountResult
+		counted := false
 		if plan != nil {
 			countResult = network.PCAPCountResult{
 				Count:            plan.TotalPackets,
 				FirstTimestampNs: plan.FirstTimestampNs,
 				LastTimestampNs:  plan.LastTimestampNs,
 			}
-			ws.setReplayProgress(0, countResult.Count)
+			counted = true
 			diagf("PCAP sequence: %d packets across %d files", countResult.Count, len(plan.Steps))
-			if ws.onPCAPTimestamps != nil {
-				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
+		} else if indexed, ok := ws.loadIndexedCaptures().extent(path, ws.udpPort); ok {
+			countResult = network.PCAPCountResult{
+				Count:            indexed.PacketCount,
+				FirstTimestampNs: indexed.FirstPacket.UnixNano(),
+				LastTimestampNs:  indexed.LastPacket.UnixNano(),
 			}
+			counted = true
+			diagf("PCAP extent from the capture index: %d packets", countResult.Count)
 		} else if result, countErr := countPCAPPackets(path, ws.udpPort); countErr != nil {
 			opsf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
 			countResult = result
-			ws.setReplayProgress(0, countResult.Count)
+			counted = true
 			diagf("PCAP pre-count: %d packets", countResult.Count)
+		}
+		if counted {
+			ws.setReplayProgress(0, countResult.Count)
 			if ws.onPCAPTimestamps != nil {
 				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
 			}
