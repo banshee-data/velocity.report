@@ -4,11 +4,15 @@ This proposal gives viewing, report downloads, configuration changes and mainten
 one permission model. Tailscale supplies authenticated callers now; future users and
 groups must use the same authorisation boundary.
 
-- **Status:** Agreed policy; core hardening implemented on PR #684. Appliance/live-tailnet acceptance and future native authentication remain outstanding.
+- **Status:** Agreed policy; core hardening implemented on PR #503. Appliance/live-tailnet acceptance and future native authentication remain outstanding.
 - **Scope:** Main HTTP API, its alternate LiDAR HTTP entry point, local recovery and a future authenticated gRPC service.
 - **Related:** [v0.5.1 backlog](../BACKLOG.md), [networking](../radar/architecture/networking.md), [security surface](../../.github/knowledge/security-surface.md), [TENETS.md](../../TENETS.md).
 
-## Implementation boundary on PR #684
+## Implementation boundary on PR #503
+
+The hardening was developed as PR #684 on `dd/api/tailscale-acls-503`, which kept #503's
+original commits, then moved onto #503's branch so the original work and its review land
+together. References to #684 below name that earlier head and its audit.
 
 The branch implements the transport-independent operation/resource contract, anonymous
 LAN viewing/PDF policy, direct `WhoIs` adapter, dedicated Serve capability backend,
@@ -269,9 +273,9 @@ and application cache limits when describing revocation.
 ## Debug and maintenance
 
 Preserve the original sensitive-route boundary while migrating. Removing `tsweb`
-first would expose diagnostics through PR #684's LAN bypass. Move these handlers behind
-the shared maintenance policy on a protected management ingress, then remove the
-conflicting source check once equivalence tests pass.
+first would expose diagnostics through the `on` profile's LAN bypass. Move these
+handlers behind the shared maintenance policy on a protected management ingress, then
+remove the conflicting source check once equivalence tests pass.
 
 Maintenance is disabled by default and requires an explicit grant when enabled.
 Serial configuration controls belong to routine configuration permissions, even when
@@ -371,12 +375,12 @@ OS-authorised Tailscale CLI/console flow or add a protected local channel. Do no
 on a device command that merely calls HTTP endpoints after localhost administration
 has been removed.
 
-## Compatibility with PR #684
+## Compatibility with the pre-hardening gate
 
-PR #684 is a useful implementation base. Its Tailscale integration and HTTP plumbing
-are largely reusable; the trust policy needs substantial revision. A percentage of
-changed lines would obscure that distinction: a small bypass can determine the safety
-of the entire service.
+The gate as audited on PR #684 is a useful implementation base. Its Tailscale
+integration and HTTP plumbing are largely reusable; the trust policy needs substantial
+revision. A percentage of changed lines would obscure that distinction: a small bypass
+can determine the safety of the entire service.
 
 | Existing work                                                                 | Treatment in this plan                                                                                                          |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -431,7 +435,7 @@ The minimum hardened profile consists of:
    persistent activation, compatibility and rollback on a Pi/live tailnet, alongside
    the local route, outage and revocation tests.
 
-PR #684 selects the dedicated capability-header backend for this release. It requires
+PR #503 selects the dedicated capability-header backend for this release. It requires
 Tailscale 1.92 or later and configures both accepted application capabilities. There
 is no forwarded-IP fallback in hardened mode; unsupported or missing claims fail
 closed. The legacy `on` adapter remains separate for compatibility.
@@ -461,7 +465,7 @@ surface is not.
 ## Delivery sequence and acceptance
 
 1. Freeze the operation/ingress matrix and report disclosure policy. Update the v0.5.1
-   item to distinguish this hardening from PR #684's existing LAN-admin compatibility.
+   item to distinguish this hardening from the `on` profile's LAN-admin compatibility.
 2. Implement the shared principal/policy boundary, route inventory and direct/Serve
    adapters. Remove the stale-admin cache and fix the reproduced deletion race.
 3. Establish local bootstrap/recovery, migrate debug routes safely and contain the
@@ -503,7 +507,7 @@ requested Tailscale hardening and broaden this work considerably. A shared opera
 policy with a Tailscale adapter provides the boundary now and keeps account work
 separate.
 
-PR #684 settles the initial permissions, routine-admin report/export bundle, dedicated
+PR #503 settles the initial permissions, routine-admin report/export bundle, dedicated
 Serve backend and explicit compatibility choice. Remote maintenance remains disabled;
 its future activation mechanism and native private-resource policy need separate
 implementation. Software checks establish local behaviour, while the Pi/live-tailnet

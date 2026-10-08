@@ -13,8 +13,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
-- [#684] Land the opt-in operation-based access boundary: anonymous LAN aggregate/PDF reads, verified Tailscale routine administration, OS-local maintenance/access management, protected alternate listeners and permission-aware UI. Preserve compatibility modes; #684 retains and supersedes #503's commits: [plan](plans/platform-access-control-hardening-plan.md) `M`
-- [#684] Validate hardened activation, restart, rollback, direct/Serve viewer/admin parity, outage/revocation and PDF/source-export policy on a Pi and live tailnet before recommending the profile. Local software tests do not complete this acceptance gate: [runbook](platform/operations/tailscale-remote-access.md#hardened-profile) `S`
+- [#503] Land the opt-in operation-based access boundary: anonymous LAN aggregate/PDF reads, verified Tailscale routine administration, OS-local maintenance/access management, protected alternate listeners and permission-aware UI. Preserve compatibility modes; #503 keeps its original commits and carries the hardening first developed on #684: [plan](plans/platform-access-control-hardening-plan.md) `M`
+- [#503] Validate hardened activation, restart, rollback, direct/Serve viewer/admin parity, outage/revocation and PDF/source-export policy on a Pi and live tailnet before recommending the profile. Local software tests do not complete this acceptance gate: [runbook](platform/operations/tailscale-remote-access.md#hardened-profile) `S`
 - [#290] (#11) Finish serial configuration rollout: validate a USB serial adapter plus a deliberately changed-setting reload. DB-backed startup, explicit apply/reload, operator workflow guidance, and the Pi/HAT validation pass are delivered; device/baud auto-detect endpoints moved to v0.8.0: [implementation plan](plans/serial-configuration-implementation-plan.md) `S`
 
 ### v0.5.2 - Tailgating metric + distribution (052)
@@ -379,7 +379,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
 - Online geometry-prior service: opt-in community-maintained geometry priors using canonical S2 L13 data partitions beneath S2 L10 filesystem groups (local-only remains default): [design doc](lidar/architecture/geometry-prior-service.md) `L`
 - Multi-location aggregate dashboard: cross-site analytics and comparative reporting `L`
-- (#9) Native users/groups and LAN authentication: add credentials, sessions and resource-scoped policy using the operation boundary from #684; distinguish anonymous and private resources: [plan](plans/platform-access-control-hardening-plan.md) `L`
+- (#9) Native users/groups and LAN authentication: add credentials, sessions and resource-scoped policy using the operation boundary from #503; distinguish anonymous and private resources: [plan](plans/platform-access-control-hardening-plan.md) `L`
 - Authenticated LAN gRPC controls: add transport identity, method permissions and stream validation after native authentication; shared playback controls keep the full service local until then: [plan](plans/platform-access-control-hardening-plan.md#later-identities-and-additional-remote-surfaces) `M`
 - Passive LAN gRPC profile: define a separately enabled stream/capability-only method set, isolate reader state and validate payload disclosure/resource limits before exposure: [plan](plans/platform-access-control-hardening-plan.md#later-identities-and-additional-remote-surfaces) `M`
 - Remote maintenance authority: introduce explicit grants and local enablement for diagnostics, SQL and backups without inheriting routine admin rights: [plan](plans/platform-access-control-hardening-plan.md) `M`
