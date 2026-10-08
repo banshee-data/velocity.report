@@ -8,11 +8,14 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 8, 2026 - Motion passes report their progress and stop when cancelled, and replays read each capture once
+## October 8, 2026 - Motion passes report their progress and stop when cancelled, replays read each capture once, and the access gate answers #503's review
 
 - {claude/capture-reads-once} Made a session's motion pass name the capture it is reading and stop when cancelled. It had reported "0 of 27" until it finished, and a cancelled pass read on regardless.
 - {claude/capture-reads-once} Joined a session's captures from the extents the index probed instead of counting every capture first, which had read each one twice. Progress is written to the job row from its own goroutine, keeping only the newest update, so a slow write never stalls the read.
 - {claude/capture-reads-once} Took replay's capture extents from the index too, for multi-file clips and single captures alike, so a replay no longer reads each file once to count it before reading it again. Case authoring now matches index rows by the exact file rather than the file name, which two folders of copies share.
+- {patrickod/tailscale-acls} Dropped connections from the host on every listener while tailscaled forwarded to its port through a Serve handler the manager had not installed: a TCP forward or TCP Funnel had read as the host or as a forged tailnet identity (#503).
+- {patrickod/tailscale-acls} Refused an unparseable forwarded address in `on` mode, let the view grant read the offline docs, and pinned the view inventory and the review's integration matrix through the installed wrappers (#503).
+- {patrickod/tailscale-acls} Chose the image's access profile with `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in survives unit changes, and documented Serve forwards, 100.64 LANs and what `off` leaves open (#503).
 
 ## October 7, 2026 - The LiDAR web pages read as one workflow, and access hardening keeps viewing separate from control
 
