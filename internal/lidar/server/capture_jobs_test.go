@@ -10,6 +10,7 @@ import (
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -59,6 +60,110 @@ func TestMotionPassEndpointQueuesWork(t *testing.T) {
 	listed := doRequest(t, ws, "GET", "/api/lidar/capture/jobs", ws.handleCaptureJobs)
 	if listed["count"] != float64(1) {
 		t.Errorf("jobs count = %v, want 1", listed["count"])
+	}
+}
+
+// scannedSessions sets a server up with a volume whose captures are an hour
+// apart, so each is a session of its own, and returns the root and sessions.
+func scannedSessions(t *testing.T, names ...string) (*Server, string, []string) {
+	t.Helper()
+	dir := t.TempDir()
+	writeCaptures(t, dir, names...)
+	ws := captureAPIServer(t, dir)
+
+	original := captureProber
+	t.Cleanup(func() { captureProber = original })
+	const fiveMinNs = int64(300) * 1_000_000_000
+	base := int64(1_788_000_000) * 1_000_000_000
+	var n int64
+	captureProber = func(string, int) (capindex.Extent, error) {
+		first := base + n*int64(time.Hour)
+		n++
+		return capindex.Extent{FirstPacketNs: first, LastPacketNs: first + fiveMinNs,
+			PacketCount: 540000, UDPPort: 2368}, nil
+	}
+
+	payload := doRequest(t, ws, "POST", "/api/lidar/capture/scan", ws.handleCaptureScan)
+	root := payload["roots"].([]any)[0].(map[string]any)
+	sessions := root["sessions"].([]any)
+	if len(sessions) != len(names) {
+		t.Fatalf("derived %d sessions, want %d", len(sessions), len(names))
+	}
+	ids := make([]string, len(sessions))
+	for i, s := range sessions {
+		ids[i] = s.(map[string]any)["session_id"].(string)
+	}
+	return ws, root["root_id"].(string), ids
+}
+
+func TestMissingMotionPassesEndpointQueuesEachSessionOnce(t *testing.T) {
+	ws, rootID, sessionIDs := scannedSessions(t, "a.pcap", "b.pcap", "c.pcap")
+	store, _ := ws.captureStore()
+
+	// One session already has a timeline, so it is left alone.
+	base := time.Unix(0, int64(1_788_000_000)*1_000_000_000)
+	if err := store.ReplaceSessionPeriods(sessionIDs[0], []sqlite.MotionPeriod{{
+		Type: sqlite.PeriodStatic, Label: "static-0", StartNs: base.UnixNano(),
+		EndNs: base.Add(time.Minute).UnixNano(), DurationNs: int64(time.Minute),
+	}}); err != nil {
+		t.Fatalf("ReplaceSessionPeriods: %v", err)
+	}
+
+	payload := doRequest(t, ws, "POST",
+		"/api/lidar/capture/motion-pass/missing?root_id="+rootID, ws.handleCaptureMissingMotionPasses)
+	if payload["queued"] != float64(2) || payload["skipped"] != float64(1) ||
+		payload["skipped_with_periods"] != float64(1) || payload["skipped_active"] != float64(0) {
+		t.Fatalf("first request = %v, want 2 queued and the passed session skipped", payload)
+	}
+	jobs := payload["jobs"].([]any)
+	for _, j := range jobs {
+		job := j.(map[string]any)
+		if job["kind"] != sqlite.JobKindMotionPass || job["state"] != sqlite.JobQueued ||
+			job["session_id"] == sessionIDs[0] {
+			t.Errorf("queued %v, want motion passes for the sessions without one", job)
+		}
+	}
+
+	// Asking again, for every root this time, queues nothing more.
+	again := doRequest(t, ws, "POST",
+		"/api/lidar/capture/motion-pass/missing", ws.handleCaptureMissingMotionPasses)
+	if again["queued"] != float64(0) || again["skipped_active"] != float64(2) {
+		t.Errorf("second request = %v, want nothing queued and 2 already queued", again)
+	}
+	if got := again["jobs"].([]any); len(got) != 0 {
+		t.Errorf("second request listed %d jobs, want an empty list", len(got))
+	}
+	listed := doRequest(t, ws, "GET", "/api/lidar/capture/jobs", ws.handleCaptureJobs)
+	if listed["count"] != float64(2) {
+		t.Errorf("jobs count after asking twice = %v, want 2", listed["count"])
+	}
+
+	// The single-session route sees the batch's pass and returns it.
+	one := doRequest(t, ws, "POST",
+		"/api/lidar/capture/motion-pass?session_id="+sessionIDs[1], ws.handleCaptureMotionPass)
+	if one["job"].(map[string]any)["state"] != sqlite.JobQueued {
+		t.Errorf("single-session request = %v, want the queued pass", one)
+	}
+	if listed := doRequest(t, ws, "GET", "/api/lidar/capture/jobs", ws.handleCaptureJobs); listed["count"] != float64(2) {
+		t.Errorf("jobs count after a single-session request = %v, want still 2", listed["count"])
+	}
+}
+
+func TestMissingMotionPassesEndpointRejectsAnUnknownRoot(t *testing.T) {
+	ws, _, _ := scannedSessions(t, "a.pcap")
+	rec := httptest.NewRecorder()
+	ws.handleCaptureMissingMotionPasses(rec,
+		httptest.NewRequest("POST", "/api/lidar/capture/motion-pass/missing?root_id=root-nope", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (%s)", rec.Code, rec.Body.String())
+	}
+
+	noDB := &Server{captureRoots: []string{t.TempDir()}}
+	rec = httptest.NewRecorder()
+	noDB.handleCaptureMissingMotionPasses(rec,
+		httptest.NewRequest("POST", "/api/lidar/capture/motion-pass/missing", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status without a database = %d, want 503", rec.Code)
 	}
 }
 

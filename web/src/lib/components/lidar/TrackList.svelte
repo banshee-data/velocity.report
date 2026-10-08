@@ -1,16 +1,11 @@
 <script lang="ts">
-	import { updateTrackFlags, updateTrackLabel } from '#lib/api.js';
-	import type {
-		DetectionLabel,
-		LabellingProgress,
-		QualityLabel,
-		RunTrack,
-		Track
-	} from '#lib/types/lidar.js';
+	/**
+	 * The track list beside the scene player. Labels, quality flags and links
+	 * are shown, never edited: the macOS visualiser is where tracks are
+	 * labelled, so the web has no second writer to disagree with it.
+	 */
+	import type { LabellingProgress, RunTrack, Track } from '#lib/types/lidar.js';
 	import { TRACK_COLORS } from '#lib/types/lidar.js';
-	import { onDestroy, onMount } from 'svelte';
-	import { Button } from 'svelte-ux';
-	import { SvelteSet } from 'svelte/reactivity';
 
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
@@ -18,40 +13,10 @@
 	// Callback to notify parent when paginated tracks change
 	export let onPaginatedTracksChange: ((tracks: Track[]) => void) | null = null;
 
-	// Labelling workflow props
+	// A run's labels, shown alongside its tracks
 	export let runId: string | null = null;
 	export let runTracks: RunTrack[] = [];
 	export let labellingProgress: LabellingProgress | null = null;
-
-	// Bulk selection state
-	let bulkSelectedTrackIds = new SvelteSet<string>();
-
-	// Link mode state
-	let linkMode = false;
-	let linkSource: string | null = null;
-
-	// Classification label options (single-select: what is the object?)
-	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
-		{ value: 'car', label: 'Car', shortcut: '1' },
-		{ value: 'bus', label: 'Bus', shortcut: '2' },
-		{ value: 'pedestrian', label: 'Pedestrian', shortcut: '3' },
-		{ value: 'cyclist', label: 'Cyclist', shortcut: '4' },
-		{ value: 'bird', label: 'Bird', shortcut: '5' },
-		{ value: 'dynamic', label: 'Dynamic', shortcut: '6' },
-		{ value: 'noise', label: 'Noise', shortcut: '7' }
-	];
-
-	// Quality flag options (multi-select: properties of the track)
-	const QUALITY_LABELS: { value: QualityLabel; label: string; shortcut: string }[] = [
-		{ value: 'good', label: 'Good', shortcut: '' },
-		{ value: 'noisy', label: 'Noisy', shortcut: '' },
-		{ value: 'jitter_velocity', label: 'Jitter Velocity', shortcut: '' },
-		{ value: 'jitter_heading', label: 'Jitter Heading', shortcut: '' },
-		{ value: 'merge', label: 'Merge', shortcut: '' },
-		{ value: 'split', label: 'Split', shortcut: '' },
-		{ value: 'truncated', label: 'Truncated', shortcut: '' },
-		{ value: 'disconnected', label: 'Disconnected', shortcut: '' }
-	];
 
 	// Filter and sort options
 	let classFilter: string = 'all';
@@ -64,13 +29,9 @@
 	const PAGE_SIZE = 50;
 	let currentPage = 0;
 
-	// Get run track for the selected track (if in labelling mode)
+	// The run track for the selected track, when a run is shown
 	$: selectedRunTrack =
 		runId && selectedTrackId ? (runTrackMap.get(selectedTrackId) ?? null) : null;
-
-	// Labelling state
-	let isSavingLabel = false;
-	let labelError: string | null = null;
 
 	// Build a lookup map for run tracks (O(1) lookups instead of O(n²) find)
 	$: runTrackMap = new Map(runTracks.map((rt) => [rt.track_id, rt]));
@@ -124,348 +85,6 @@
 	function goToPage(page: number) {
 		currentPage = Math.max(0, Math.min(page, totalPages - 1));
 	}
-
-	// Apply detection label
-	async function applyDetectionLabel(trackId: string, label: DetectionLabel) {
-		if (!runId) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			await updateTrackLabel(runId, trackId, {
-				user_label: label,
-				labeler_id: 'web-ui'
-			});
-
-			// Update local state
-			const runTrack = runTrackMap.get(trackId);
-			if (runTrack) {
-				runTrack.user_label = label;
-				runTracks = [...runTracks]; // Trigger reactivity
-			}
-
-			console.log('[Label] Applied detection label', label, 'to track', trackId);
-		} catch (error) {
-			console.error('[Label] Could not apply detection label:', error);
-			labelError = error instanceof Error ? error.message : 'Could not apply label.';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Toggle quality flag (multi-select)
-	async function applyQualityLabel(trackId: string, label: QualityLabel) {
-		if (!runId) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			// Parse current flags and toggle the selected one
-			const runTrack = runTrackMap.get(trackId);
-			const currentFlags = new SvelteSet(
-				(runTrack?.quality_label ?? '')
-					.split(',')
-					.map((s) => s.trim())
-					.filter((s) => s.length > 0)
-			);
-
-			if (currentFlags.has(label)) {
-				currentFlags.delete(label);
-			} else {
-				currentFlags.add(label);
-			}
-
-			const newFlagsStr = [...currentFlags].sort().join(',');
-
-			await updateTrackLabel(runId, trackId, {
-				quality_label: newFlagsStr,
-				labeler_id: 'web-ui'
-			});
-
-			// Update local state
-			if (runTrack) {
-				runTrack.quality_label = newFlagsStr;
-				runTracks = [...runTracks]; // Trigger reactivity
-			}
-
-			console.log('[Label] Toggled quality flag', label, 'on track', trackId, '→', newFlagsStr);
-		} catch (error) {
-			console.error('[Label] Could not apply quality label:', error);
-			labelError = error instanceof Error ? error.message : 'Could not apply label.';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Apply bulk detection label
-	async function applyBulkDetectionLabel(label: DetectionLabel) {
-		if (!runId || bulkSelectedTrackIds.size === 0) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			// Apply label to all selected tracks
-			await Promise.all(
-				Array.from(bulkSelectedTrackIds).map((trackId) =>
-					updateTrackLabel(runId, trackId, {
-						user_label: label,
-						labeler_id: 'web-ui'
-					})
-				)
-			);
-
-			// Update local state for all tracks
-			bulkSelectedTrackIds.forEach((trackId) => {
-				const runTrack = runTrackMap.get(trackId);
-				if (runTrack) {
-					runTrack.user_label = label;
-				}
-			});
-			runTracks = [...runTracks]; // Trigger reactivity
-
-			console.log(
-				'[Label] Applied bulk detection label',
-				label,
-				'to',
-				bulkSelectedTrackIds.size,
-				'tracks'
-			);
-			bulkSelectedTrackIds.clear();
-		} catch (error) {
-			console.error('[Label] Could not apply bulk detection label:', error);
-			labelError = error instanceof Error ? error.message : 'Could not apply bulk label.';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Apply bulk quality label
-	async function applyBulkQualityLabel(label: QualityLabel) {
-		if (!runId || bulkSelectedTrackIds.size === 0) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			// Apply label to all selected tracks
-			await Promise.all(
-				Array.from(bulkSelectedTrackIds).map((trackId) =>
-					updateTrackLabel(runId, trackId, {
-						quality_label: label,
-						labeler_id: 'web-ui'
-					})
-				)
-			);
-
-			// Update local state for all tracks
-			bulkSelectedTrackIds.forEach((trackId) => {
-				const runTrack = runTrackMap.get(trackId);
-				if (runTrack) {
-					runTrack.quality_label = label;
-				}
-			});
-			runTracks = [...runTracks]; // Trigger reactivity
-
-			console.log(
-				'[Label] Applied bulk quality label',
-				label,
-				'to',
-				bulkSelectedTrackIds.size,
-				'tracks'
-			);
-			bulkSelectedTrackIds.clear();
-		} catch (error) {
-			console.error('[Label] Could not apply bulk quality label:', error);
-			labelError = error instanceof Error ? error.message : 'Could not apply bulk label.';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Link two tracks
-	async function linkTracks(trackId1: string, trackId2: string) {
-		if (!runId) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			// Link both tracks to each other
-			await Promise.all([
-				updateTrackFlags(runId, trackId1, {
-					linked_track_ids: [trackId2],
-					user_label: 'split'
-				}),
-				updateTrackFlags(runId, trackId2, {
-					linked_track_ids: [trackId1],
-					user_label: 'split'
-				})
-			]);
-
-			// Update local state
-			const runTrack1 = runTrackMap.get(trackId1);
-			const runTrack2 = runTrackMap.get(trackId2);
-			if (runTrack1) {
-				runTrack1.linked_track_ids = [trackId2];
-				runTrack1.user_label = 'split';
-			}
-			if (runTrack2) {
-				runTrack2.linked_track_ids = [trackId1];
-				runTrack2.user_label = 'split';
-			}
-			runTracks = [...runTracks]; // Trigger reactivity
-
-			console.log('[Link] Linked tracks', trackId1, 'and', trackId2);
-		} catch (error) {
-			console.error('[Link] Could not link tracks:', error);
-			labelError = error instanceof Error ? error.message : 'Could not link tracks';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Unlink a track
-	async function unlinkTrack(trackId: string) {
-		if (!runId) return;
-
-		isSavingLabel = true;
-		labelError = null;
-
-		try {
-			const runTrack = runTrackMap.get(trackId);
-			if (!runTrack || !runTrack.linked_track_ids || runTrack.linked_track_ids.length === 0) {
-				return;
-			}
-
-			// Unlink from all linked tracks
-			const linkedIds = runTrack.linked_track_ids;
-			await Promise.all([
-				// Clear this track's links
-				updateTrackFlags(runId, trackId, {
-					linked_track_ids: []
-				}),
-				// Clear links from linked tracks
-				...linkedIds.map((linkedId) =>
-					updateTrackFlags(runId, linkedId, {
-						linked_track_ids: []
-					})
-				)
-			]);
-
-			// Update local state
-			runTrack.linked_track_ids = [];
-			linkedIds.forEach((linkedId) => {
-				const linkedTrack = runTrackMap.get(linkedId);
-				if (linkedTrack) {
-					linkedTrack.linked_track_ids = [];
-				}
-			});
-			runTracks = [...runTracks]; // Trigger reactivity
-
-			console.log('[Link] Unlinked track', trackId);
-		} catch (error) {
-			console.error('[Link] Could not unlink track:', error);
-			labelError = error instanceof Error ? error.message : 'Could not unlink track';
-		} finally {
-			isSavingLabel = false;
-		}
-	}
-
-	// Handle track click (with shift-click for multi-select and link mode)
-	function handleTrackClick(trackId: string, event: MouseEvent) {
-		if (!runId) {
-			onTrackSelect(trackId);
-			return;
-		}
-
-		// Link mode - clicking a track links it to the source
-		if (linkMode) {
-			if (!linkSource) {
-				linkSource = trackId;
-				console.log('[Link] Set link source:', trackId);
-			} else {
-				if (linkSource !== trackId) {
-					linkTracks(linkSource, trackId);
-				}
-				linkMode = false;
-				linkSource = null;
-			}
-			return;
-		}
-
-		// Shift-click for multi-select
-		if (event.shiftKey) {
-			event.preventDefault();
-			if (bulkSelectedTrackIds.has(trackId)) {
-				bulkSelectedTrackIds.delete(trackId);
-			} else {
-				bulkSelectedTrackIds.add(trackId);
-			}
-			return;
-		}
-
-		// Normal click: select single track
-		onTrackSelect(trackId);
-	}
-
-	// Keyboard shortcuts for labelling
-	function handleKeyPress(event: KeyboardEvent) {
-		// Don't trigger if user is typing in an input field
-		if (
-			event.target instanceof HTMLInputElement ||
-			event.target instanceof HTMLSelectElement ||
-			event.target instanceof HTMLTextAreaElement ||
-			(event.target instanceof HTMLElement && event.target.isContentEditable)
-		) {
-			return;
-		}
-
-		// Escape to clear multi-selection
-		if (event.key === 'Escape') {
-			if (bulkSelectedTrackIds.size > 0) {
-				event.preventDefault();
-				bulkSelectedTrackIds.clear();
-				return;
-			}
-			if (linkMode) {
-				event.preventDefault();
-				linkMode = false;
-				linkSource = null;
-				return;
-			}
-		}
-
-		if (!runId || !selectedTrackId) return;
-
-		// Classification labels (1-3)
-		if (!event.shiftKey && event.key >= '1' && event.key <= '3') {
-			const index = parseInt(event.key) - 1;
-			if (index < DETECTION_LABELS.length) {
-				event.preventDefault();
-				applyDetectionLabel(selectedTrackId, DETECTION_LABELS[index].value);
-			}
-		}
-
-		// Quality flags (Shift+1 to Shift+7) — toggles
-		if (event.shiftKey && event.key >= '1' && event.key <= '7') {
-			const index = parseInt(event.key) - 1;
-			if (index < QUALITY_LABELS.length) {
-				event.preventDefault();
-				applyQualityLabel(selectedTrackId, QUALITY_LABELS[index].value);
-			}
-		}
-	}
-
-	onMount(() => {
-		window.addEventListener('keydown', handleKeyPress);
-	});
-
-	onDestroy(() => {
-		window.removeEventListener('keydown', handleKeyPress);
-	});
 
 	// Get class icon
 	function getClassIcon(track: Track): string {
@@ -529,31 +148,6 @@
 	<div class="border-surface-content/10 border-b px-4 py-3">
 		<h3 class="text-surface-content font-semibold">Tracks ({filteredTracks.length})</h3>
 
-		<!-- Link Mode Toggle -->
-		{#if runId}
-			<div class="mt-2 flex items-center gap-2">
-				<Button
-					size="sm"
-					variant={linkMode ? 'fill' : 'outline'}
-					color={linkMode ? 'primary' : 'neutral'}
-					on:click={() => {
-						linkMode = !linkMode;
-						linkSource = null;
-						bulkSelectedTrackIds.clear();
-					}}
-					class="text-xs"
-					title="Enable to link two tracks (split/merge annotation)"
-				>
-					🔗 {linkMode ? 'Link Mode Active' : 'Link Tracks'}
-				</Button>
-				{#if linkMode && linkSource}
-					<span class="text-surface-content/70 text-xs"
-						>Source: {linkSource.substring(0, 8)}... (click another track to link)</span
-					>
-				{/if}
-			</div>
-		{/if}
-
 		<!-- Labelling Progress Bar -->
 		{#if labellingProgress}
 			<div class="mt-2">
@@ -571,13 +165,6 @@
 						style="width: {labellingProgress.progress_pct}%"
 					></div>
 				</div>
-			</div>
-		{/if}
-
-		<!-- Label error display -->
-		{#if labelError}
-			<div class="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-600">
-				{labelError}
 			</div>
 		{/if}
 	</div>
@@ -692,8 +279,6 @@
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#each paginatedTracks as track (track.track_id)}
 			{@const isSelected = track.track_id === selectedTrackId}
-			{@const isMultiSelected = bulkSelectedTrackIds.has(track.track_id)}
-			{@const isLinkSource = linkMode && linkSource === track.track_id}
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
 					? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
@@ -701,33 +286,12 @@
 			{@const runTrack = runId ? (runTrackMap.get(track.track_id) ?? null) : null}
 
 			<button
-				on:click={(e) => handleTrackClick(track.track_id, e)}
+				on:click={() => onTrackSelect(track.track_id)}
 				class="border-surface-content/10 hover:bg-surface-200 w-full border-b px-4 py-3 text-left transition-colors {isSelected
 					? 'border-l-primary bg-primary/10 border-l-4'
-					: isMultiSelected || isLinkSource
-						? 'border-l-accent bg-accent/10 border-l-4'
-						: ''}"
+					: ''}"
 			>
 				<div class="flex items-start gap-3">
-					<!-- Multi-select checkbox -->
-					{#if runId && !linkMode}
-						<div class="flex-shrink-0">
-							<input
-								type="checkbox"
-								checked={isMultiSelected}
-								on:change={(e) => {
-									e.stopPropagation();
-									if (isMultiSelected) {
-										bulkSelectedTrackIds.delete(track.track_id);
-									} else {
-										bulkSelectedTrackIds.add(track.track_id);
-									}
-								}}
-								class="h-4 w-4"
-							/>
-						</div>
-					{/if}
-
 					<!-- Icon -->
 					<div class="flex-shrink-0 text-2xl">
 						{getClassIcon(track)}
@@ -830,147 +394,51 @@
 		{/if}
 	</div>
 
-	<!-- Labelling Controls (shown when track is selected in labelling mode) -->
+	<!-- The selected track's labels, read-only: they are edited in the macOS app -->
 	{#if !runId}
 		<div class="border-surface-content/10 border-t px-4 py-3">
-			<div class="text-surface-content/50 text-xs">
-				<p class="font-medium">Labelling Mode</p>
-				<p class="mt-1">
-					Select a Scene and Run from the header dropdowns to enable track labelling.
-				</p>
-			</div>
+			<p class="text-surface-content/50 text-xs">
+				Select a clip and run from the header to see the run's labels.
+			</p>
 		</div>
-	{:else if bulkSelectedTrackIds.size > 0}
-		<!-- Bulk Labelling Panel -->
-		<div class="border-surface-content/10 space-y-3 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950">
-			<div class="flex items-center justify-between">
-				<h4 class="text-surface-content text-sm font-semibold">
-					Bulk Label ({bulkSelectedTrackIds.size} tracks)
-				</h4>
-				<Button
-					size="sm"
-					variant="outline"
-					on:click={() => bulkSelectedTrackIds.clear()}
-					class="text-xs"
-				>
-					Clear Selection
-				</Button>
-			</div>
-
-			<!-- Detection Labels -->
-			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Detection</div>
-				<div class="grid grid-cols-2 gap-1">
-					{#each DETECTION_LABELS as { value, label } (value)}
-						<Button
-							size="sm"
-							variant="outline"
-							color="neutral"
-							on:click={() => applyBulkDetectionLabel(value)}
-							disabled={isSavingLabel}
-							class="text-xs"
-						>
-							{label}
-						</Button>
-					{/each}
+	{:else if selectedTrackId && selectedRunTrack}
+		<div class="border-surface-content/10 space-y-2 border-t px-4 py-3 text-xs">
+			<h4 class="text-surface-content text-sm font-semibold">Labels</h4>
+			<dl class="space-y-1">
+				<div class="flex justify-between gap-2">
+					<dt class="text-surface-content/60">Class</dt>
+					<dd class="text-surface-content">
+						{selectedRunTrack.user_label ? selectedRunTrack.user_label.replace('_', ' ') : '—'}
+					</dd>
 				</div>
-			</div>
-
-			<!-- Quality Flags -->
-			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Flags</div>
-				<div class="grid grid-cols-2 gap-1">
-					{#each QUALITY_LABELS as { value, label } (value)}
-						<Button
-							size="sm"
-							variant="outline"
-							color="neutral"
-							on:click={() => applyBulkQualityLabel(value)}
-							disabled={isSavingLabel}
-							class="text-xs"
-						>
-							{label}
-						</Button>
-					{/each}
+				<div class="flex justify-between gap-2">
+					<dt class="text-surface-content/60">Flags</dt>
+					<dd class="text-surface-content text-right">
+						{selectedRunTrack.quality_label
+							? selectedRunTrack.quality_label
+									.split(',')
+									.map((flag) => flag.trim().replace('_', ' '))
+									.filter((flag) => flag.length > 0)
+									.join(', ')
+							: '—'}
+					</dd>
 				</div>
-			</div>
-		</div>
-	{:else if runId && !selectedTrackId}
-		<div class="border-surface-content/10 border-t px-4 py-3">
-			<div class="text-surface-content/50 text-xs">
-				<p class="font-medium">Select a Track</p>
-				<p class="mt-1">Click a track from the list above or on the map to start labelling.</p>
-				<p class="mt-1">Keys 1-3: classification labels.</p>
-				<p class="mt-1">Shift+click: multi-select for bulk labelling.</p>
-			</div>
-		</div>
-	{:else if runId && selectedTrackId && selectedRunTrack}
-		<div class="border-surface-content/10 space-y-3 border-t px-4 py-3">
-			<div class="flex items-center justify-between">
-				<h4 class="text-surface-content text-sm font-semibold">Label Track</h4>
-				<!-- Unlink button -->
 				{#if selectedRunTrack.linked_track_ids && selectedRunTrack.linked_track_ids.length > 0}
-					<Button
-						size="sm"
-						variant="outline"
-						color="danger"
-						on:click={() => unlinkTrack(selectedTrackId)}
-						disabled={isSavingLabel}
-						class="text-xs"
-						title="Remove link to other track(s)"
-					>
-						Unlink
-					</Button>
+					<div class="flex justify-between gap-2">
+						<dt class="text-surface-content/60">Linked to</dt>
+						<dd class="text-surface-content text-right font-mono">
+							{selectedRunTrack.linked_track_ids.join(', ')}
+						</dd>
+					</div>
 				{/if}
-			</div>
-
-			<!-- Detection Labels -->
-			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Detection</div>
-				<div class="grid grid-cols-2 gap-1">
-					{#each DETECTION_LABELS as { value, label, shortcut } (value)}
-						<Button
-							size="sm"
-							variant={selectedRunTrack.user_label === value ? 'fill' : 'outline'}
-							color={selectedRunTrack.user_label === value ? 'primary' : 'neutral'}
-							on:click={() => applyDetectionLabel(selectedTrackId, value)}
-							disabled={isSavingLabel}
-							class="text-xs"
-							title="Keyboard: {shortcut}"
-						>
-							{label}
-						</Button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Quality Flags (multi-select) -->
-			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Flags</div>
-				<div class="grid grid-cols-2 gap-1">
-					{#each QUALITY_LABELS as { value, label } (value)}
-						{@const activeFlags = (selectedRunTrack.quality_label ?? '')
-							.split(',')
-							.map((s) => s.trim())}
-						<Button
-							size="sm"
-							variant={activeFlags.includes(value) ? 'fill' : 'outline'}
-							color={activeFlags.includes(value) ? 'primary' : 'neutral'}
-							on:click={() => applyQualityLabel(selectedTrackId, value)}
-							disabled={isSavingLabel}
-							class="text-xs"
-						>
-							{label}
-						</Button>
-					{/each}
-				</div>
-			</div>
-
-			<div class="text-surface-content/50 text-xs">
-				<p>Use keyboard shortcuts for faster labelling:</p>
-				<p>1-3: Classification labels</p>
-				<p>Shift+click: Multi-select</p>
-			</div>
+			</dl>
+			<p class="text-surface-content/50">Labels are edited in the macOS visualiser.</p>
+		</div>
+	{:else}
+		<div class="border-surface-content/10 border-t px-4 py-3">
+			<p class="text-surface-content/50 text-xs">
+				Select a track to see its labels. Labels are edited in the macOS visualiser.
+			</p>
 		</div>
 	{/if}
 

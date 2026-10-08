@@ -131,8 +131,9 @@ Three other things exist, and none of them is a second instrument:
 - **The command line** proposes, scores and exports for automation and for machines with no
   display. It never grades; a grade is always a person's.
 - **The web** identifies datasets: the scene map, capture inventory, run lists, published
-  scenes. Its existing track label create, read, update and delete stays exactly as it is:
-  nothing is added to it and nothing is taken away. This workflow builds nothing else there.
+  scenes. Its track labels are read-only since #707, at the operator's request, so labels change
+  only in this tool. This workflow builds nothing else there; the
+  [workflow UI plan](lidar-ui-workflow-plan.md) sets what the web shows of it.
 
 The rule that keeps it this way: a feature that creates, edits or grades truth is built in the
 macOS tool first and need never be built anywhere else. A web view may show what the macOS tool
@@ -412,7 +413,7 @@ step away, and the score report counts from-scratch subjects as misses of every 
 
 ### Item 8: web views for identifying datasets
 
-**Summary:** Optional read-only views of what exists and what has been graded. Not part of any grading or validity path. Existing web functionality, track label editing included, is neither extended nor removed.
+**Summary:** Optional read-only views of what exists and what has been graded. Not part of any grading or validity path. The web's track label editing was removed in #707; these views add nothing that writes.
 
 **Steps:**
 

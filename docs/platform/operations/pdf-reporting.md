@@ -1,5 +1,7 @@
 # PDF reporting: Go + Typst pipeline
 
+- **Plans:** [crash data and published risk models](../../plans/platform-crash-data-integration-plan.md)
+
 This pipeline arrived in two migrations: report data loading and chart
 generation moved into Go, then the external typesetting layer was replaced
 with Typst.

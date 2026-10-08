@@ -322,6 +322,55 @@ func TestSweepStore_ListSweeps(t *testing.T) {
 	}
 }
 
+func TestSweepStore_ListSweepsNamesTheClipAndObjective(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+	store := NewSweepStore(db)
+
+	base := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	records := []SweepRecord{
+		{SweepID: "by-clip", Request: json.RawMessage(`{"replay_case_id":"clip-1","pcap_file":"/c/kirk0.pcapng"}`),
+			ObjectiveName: "ground_truth"},
+		{SweepID: "by-scene-id", Request: json.RawMessage(`{"scene_id":"clip-2","replay_case_id":""}`)},
+		{SweepID: "by-capture", Request: json.RawMessage(`{"pcap_file":"/c/kirk1.pcapng","objective":"weighted"}`)},
+		{SweepID: "live", Request: json.RawMessage(`{"params":[]}`)},
+	}
+	for i, r := range records {
+		r.SensorID, r.Mode, r.Status = "sensor-001", "sweep", "completed"
+		r.StartedAt = base.Add(-time.Duration(i) * time.Minute)
+		if err := store.InsertSweep(r); err != nil {
+			t.Fatalf("InsertSweep(%s): %v", r.SweepID, err)
+		}
+	}
+	// A request that is not JSON must not cost the rest of the list.
+	if _, err := db.Exec(`INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES ('garbled', 'sensor-001', 'sweep', 'failed', 'not json', '2026-10-07T11:00:00Z')`); err != nil {
+		t.Fatalf("insert garbled: %v", err)
+	}
+
+	got, err := store.ListSweeps("sensor-001", 10)
+	if err != nil {
+		t.Fatalf("ListSweeps: %v", err)
+	}
+	type named struct{ objective, clip, pcap string }
+	want := map[string]named{
+		"by-clip":     {"ground_truth", "clip-1", "/c/kirk0.pcapng"},
+		"by-scene-id": {"", "clip-2", ""},
+		"by-capture":  {"weighted", "", "/c/kirk1.pcapng"},
+		"live":        {"", "", ""},
+		"garbled":     {"", "", ""},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("listed %d sweeps, want %d", len(got), len(want))
+	}
+	for _, s := range got {
+		w := want[s.SweepID]
+		if g := (named{s.ObjectiveName, s.ReplayCaseID, s.PCAPFile}); g != w {
+			t.Errorf("%s: got %+v, want %+v", s.SweepID, g, w)
+		}
+	}
+}
+
 func TestSweepStore_ListSweeps_LimitBounds(t *testing.T) {
 	db := setupTestSweepDB(t)
 	defer db.Close()

@@ -430,6 +430,12 @@ export interface SweepSummary {
 	error?: string;
 	started_at: string;
 	completed_at?: string;
+	/** What the sweep scored against; scores under different objectives do not compare. */
+	objective_name?: string;
+	/** The clip the sweep replayed, read from its request. */
+	replay_case_id?: string;
+	/** The capture the sweep replayed, when its request named no clip. */
+	pcap_file?: string;
 }
 
 /** Full sweep record including results, recommendation, charts, and round results. */

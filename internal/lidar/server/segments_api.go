@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -217,7 +219,13 @@ func (ws *Server) loadRunSeries(run *sqlite.AnalysisRun) ([]segments.Point, erro
 	if err != nil {
 		return nil, fmt.Errorf("run's recording is not within the allowed directory: %w", err)
 	}
-	points, err = segments.LoadRunRecording(ws.db.DB, run.RunID, recording)
+	// The marks are read on every request: they live on the run's track
+	// summaries, which change when a track is labelled, while the
+	// recording, whose series is kept between requests, does not.
+	flagged, err := segments.RunFlags(ws.db.DB, run.RunID)
+	if err == nil {
+		points, err = ws.segmentRecordings.load(recording, flagged, time.Now())
+	}
 	if err != nil {
 		return nil, fmt.Errorf("run has no stored observations and its recording could not be read: %w", err)
 	}
@@ -284,8 +292,17 @@ func (ws *Server) handleSegments(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, 400, err.Error())
 		return
 	}
-	ws.writeJSON(w, 200, map[string]any{"windows": windows, "count": len(windows), "parameters": sel.Parameters, "run_id": req.RunID,
-		"finder": sel.Finder, "selector": sel.Provenance(), "role": req.Role})
+	body := map[string]any{"windows": windows, "count": len(windows), "parameters": sel.Parameters, "run_id": req.RunID,
+		"finder": sel.Finder, "selector": sel.Provenance(), "role": req.Role}
+	// strip=1 carries the score strip of this ranking, so that a page need
+	// not ask the strip endpoint, which ranks the run again. A ranking too
+	// large to draw has none, as the strip endpoint refuses it.
+	if r.URL.Query().Get("strip") == "1" {
+		if strip, err := segmentStripSVG(windows, sel.Score.Order == "ascending"); err == nil {
+			body["strip_svg"] = strip
+		}
+	}
+	ws.writeJSON(w, 200, body)
 }
 
 // A compact per-capture score strip. It contains no labels or truth state.
@@ -313,10 +330,20 @@ func (ws *Server) handleSegmentStripWith(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-// writeSegmentStrip shades each window by its score, brightest for the best
+func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascending bool) error {
+	svg, err := segmentStripSVG(windows, ascending)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
+	_, _ = io.WriteString(w, svg)
+	return nil
+}
+
+// segmentStripSVG shades each window by its score, brightest for the best
 // whichever way the selector ranks: a selector that puts the smallest first
 // shades the smallest brightest.
-func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascending bool) error {
+func segmentStripSVG(windows []segments.Window, ascending bool) (string, error) {
 	byCapture := map[string][]segments.Window{}
 	names := []string{}
 	maxScore := 0.0
@@ -334,13 +361,13 @@ func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascendi
 		}
 	}
 	if len(names) > 100 || len(windows) > 10000 {
-		return fmt.Errorf("too many windows for strip")
+		return "", fmt.Errorf("too many windows for strip")
 	}
 	sort.Strings(names)
 	width := 800
 	height := 24 + len(names)*32
-	w.Header().Set("Content-Type", "image/svg+xml")
-	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" role="img"><title>Segment scores per capture</title><rect width="100%%" height="100%%" fill="#101827"/>`, width, height)
+	var w strings.Builder
+	fmt.Fprintf(&w, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" role="img"><title>Segment scores per capture</title><rect width="100%%" height="100%%" fill="#101827"/>`, width, height)
 	for row, name := range names {
 		cells := byCapture[name]
 		sort.Slice(cells, func(i, j int) bool { return cells[i].StartNs < cells[j].StartNs })
@@ -349,7 +376,7 @@ func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascendi
 		if len(label) > 32 {
 			label = label[:29] + "..."
 		}
-		fmt.Fprintf(w, `<text x="8" y="%d" fill="white" font-size="11">%s</text>`, row*32+20, xmlEscape(label))
+		fmt.Fprintf(&w, `<text x="8" y="%d" fill="white" font-size="11">%s</text>`, row*32+20, xmlEscape(label))
 		for _, s := range cells {
 			alpha := 0.2
 			if maxScore > 0 {
@@ -363,11 +390,11 @@ func writeSegmentStrip(w http.ResponseWriter, windows []segments.Window, ascendi
 			if last > first {
 				x += int(float64(s.StartNs-first) / float64(last-first) * float64(width-220))
 			}
-			fmt.Fprintf(w, `<rect x="%d" y="%d" width="3" height="18" fill="#36c9b0" opacity="%.3f"><title>%.2f at %d</title></rect>`, x, row*32+5, alpha, s.Score, s.StartNs)
+			fmt.Fprintf(&w, `<rect x="%d" y="%d" width="3" height="18" fill="#36c9b0" opacity="%.3f"><title>%.2f at %d</title></rect>`, x, row*32+5, alpha, s.Score, s.StartNs)
 		}
 	}
-	fmt.Fprint(w, "</svg>")
-	return nil
+	w.WriteString("</svg>")
+	return w.String(), nil
 }
 
 func xmlEscape(s string) string {

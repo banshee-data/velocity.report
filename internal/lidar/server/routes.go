@@ -137,6 +137,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux, recorders ...func(string, a
 		{"GET /api/lidar/capture/files", ws.handleCaptureFiles},
 		{"POST /api/lidar/capture/session/label", ws.handleCaptureSessionLabel},
 		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
+		{"POST /api/lidar/capture/motion-pass/missing", ws.handleCaptureMissingMotionPasses},
 		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
 		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
 		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},

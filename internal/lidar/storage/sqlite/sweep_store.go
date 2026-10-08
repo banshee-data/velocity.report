@@ -200,6 +200,13 @@ type SweepSummary struct {
 	Error       string     `json:"error,omitempty"`
 	StartedAt   time.Time  `json:"started_at"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	// ObjectiveName is what the sweep scored against. Scores under different
+	// objectives are not comparable, so a list that shows scores names it.
+	ObjectiveName string `json:"objective_name,omitempty"`
+	// ReplayCaseID is the clip the sweep replayed, and PCAPFile the capture
+	// when it named no clip. Both come from the stored request.
+	ReplayCaseID string `json:"replay_case_id,omitempty"`
+	PCAPFile     string `json:"pcap_file,omitempty"`
 }
 
 // ListSweeps returns recent sweeps for a sensor, ordered by most recent first.
@@ -212,8 +219,20 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 		limit = 100
 	}
 
+	// The clip and capture are read out of the request rather than returned
+	// with it: requests carry every parameter range and can be large. Older
+	// requests name the clip scene_id. An auto-tune recorded before
+	// objective_name existed still says what it scored in its request.
+	// JSON_VALID guards each read, since one malformed request would
+	// otherwise fail the whole list.
 	query := `
-		SELECT id, sweep_id, sensor_id, mode, status, error, started_at, completed_at
+		SELECT id, sweep_id, sensor_id, mode, status, error, started_at, completed_at,
+		       COALESCE(objective_name,
+		                CASE WHEN JSON_VALID(request) THEN JSON_EXTRACT(request, '$.objective') END),
+		       CASE WHEN JSON_VALID(request) THEN
+		            COALESCE(NULLIF(JSON_EXTRACT(request, '$.replay_case_id'), ''),
+		                     NULLIF(JSON_EXTRACT(request, '$.scene_id'), '')) END,
+		       CASE WHEN JSON_VALID(request) THEN JSON_EXTRACT(request, '$.pcap_file') END
 		FROM lidar_tuning_sweeps
 		WHERE sensor_id = ?
 		ORDER BY started_at DESC
@@ -231,14 +250,19 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 		var rec SweepSummary
 		var errMsg sql.NullString
 		var startedAt, completedAt sql.NullString
+		var objective, clipID, pcapFile sql.NullString
 
-		if err := rows.Scan(&rec.ID, &rec.SweepID, &rec.SensorID, &rec.Mode, &rec.Status, &errMsg, &startedAt, &completedAt); err != nil {
+		if err := rows.Scan(&rec.ID, &rec.SweepID, &rec.SensorID, &rec.Mode, &rec.Status, &errMsg, &startedAt, &completedAt,
+			&objective, &clipID, &pcapFile); err != nil {
 			return nil, fmt.Errorf("scanning sweep row: %w", err)
 		}
 
 		if errMsg.Valid {
 			rec.Error = errMsg.String
 		}
+		rec.ObjectiveName = objective.String
+		rec.ReplayCaseID = clipID.String
+		rec.PCAPFile = pcapFile.String
 		if startedAt.Valid {
 			t, err := time.Parse(time.RFC3339, startedAt.String)
 			if err != nil {

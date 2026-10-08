@@ -162,7 +162,7 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
-            Text("Case").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
+            Text("Source").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
@@ -202,7 +202,9 @@ private struct RunBrowserHeaderRow: View {
                 width: RunBrowserLayout.dateWidth, alignment: .leading
             ).lineLimit(1)
 
-            // Col 3: Replay case name
+            // Col 3: the source's file name. The server calls it replay_case_name,
+            // but it is the capture or recording the run read, not a clip: runs
+            // started from a capture record no clip to name.
             Text(run.replayCaseName ?? "-").font(.caption).frame(
                 width: RunBrowserLayout.replayCaseWidth, alignment: .leading
             ).lineLimit(1)

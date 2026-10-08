@@ -20,6 +20,7 @@ claiming is enabled only after contention tests pass.
 2. Replace migration 000058 kind triggers before renaming vrlog_record or adding another kind; preserve legacy job-state transitions.
 3. Make readers select their supported kinds/executors and honour ownership during claims, restart and recovery.
 4. Move distributed workers onto the shared queue with atomic claims and a documented failure/retry lifecycle.
+5. Run sweeps as a job kind, so a sweep requested while another runs waits in the queue instead of failing with "sweep already in progress" ([workflow UI](lidar-ui-workflow-plan.md), T5).
 
 ## PR structure
 
@@ -31,6 +32,7 @@ compatibility window explicit.
 - [ ] Every migrated job has a valid subject under the agreed rules; legacy orphaned jobs retain a recoverable disposition.
 - [ ] Two workers and the server cannot run the same claimed job twice in a contention test.
 - [ ] Restart/requeue behaviour does not steal another executor's work; failed and interrupted jobs retain their output/provenance contract.
+- [ ] A sweep requested while one runs is queued, and starts when the running sweep ends.
 
 ## Boundaries and risks
 

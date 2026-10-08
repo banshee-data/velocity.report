@@ -6,7 +6,14 @@
  * arithmetic — which is where a timeline goes wrong — be tested directly.
  */
 
-import type { CaptureFile, CaptureSession, MotionPeriod } from '#lib/types/captures.js';
+import {
+	PROBE_FAILED,
+	PROBE_OK,
+	PROBE_PENDING,
+	type CaptureFile,
+	type CaptureSession,
+	type MotionPeriod
+} from '#lib/types/captures.js';
 
 /** Nanoseconds in a millisecond and a second, named so the maths reads. */
 const NS_PER_MS = 1_000_000;
@@ -319,10 +326,73 @@ export function formatClock(ns: number, withSeconds = false): string {
 	return withSeconds ? `${base}:${pad(d.getSeconds())}` : base;
 }
 
-/** formatDay renders an epoch-nanosecond stamp as a short date. */
+/**
+ * zoneLabel names the timezone formatClock and formatDay show times in: the
+ * browser's own. The times themselves are the capturing host's packet clock
+ * (pcap record headers), never the sensor's, whose clock was never set.
+ */
+export function zoneLabel(date: Date = new Date()): string {
+	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const short = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
+		.formatToParts(date)
+		.find((part) => part.type === 'timeZoneName')?.value;
+	if (zone && short && short !== zone) return `${zone} (${short})`;
+	return zone || short || 'local time';
+}
+
+/** How many of a volume's captures each probe state holds. */
+export interface ProbeCounts {
+	total: number;
+	probed: number;
+	pending: number;
+	failed: number;
+}
+
+/**
+ * probeCounts tallies the captures present on a volume by probe state. Only a
+ * probed capture has a packet extent, and only those make sessions, so the
+ * pending ones are absent from Coverage until a probe reaches them.
+ */
+export function probeCounts(files: CaptureFile[]): ProbeCounts {
+	const counts: ProbeCounts = { total: 0, probed: 0, pending: 0, failed: 0 };
+	for (const f of files) {
+		if (!f.present) continue;
+		counts.total++;
+		if (f.probe_state === PROBE_OK) counts.probed++;
+		else if (f.probe_state === PROBE_PENDING) counts.pending++;
+		else if (f.probe_state === PROBE_FAILED) counts.failed++;
+	}
+	return counts;
+}
+
+/**
+ * formatDay renders an epoch-nanosecond stamp as a local yyyy-mm-dd date: the
+ * one date format the Captures page uses, so a day reads the same in the
+ * coverage rows, the sessions table and the scan stamp, and sorts as text.
+ */
 export function formatDay(ns: number): string {
 	if (!Number.isFinite(ns) || ns <= 0) return '—';
-	return nsToDate(ns).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	const d = nsToDate(ns);
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** formatStamp renders an epoch-nanosecond stamp as a local date and time. */
+export function formatStamp(ns: number, withSeconds = false): string {
+	if (!Number.isFinite(ns) || ns <= 0) return '—';
+	return `${formatDay(ns)} ${formatClock(ns, withSeconds)}`;
+}
+
+/**
+ * formatWindow renders a span as its date and wall-clock bounds,
+ * "2026-09-02 13:17–13:56", naming the second date only when the span
+ * crosses midnight.
+ */
+export function formatWindow(startNs: number, endNs: number): string {
+	if (formatDay(startNs) === formatDay(endNs)) {
+		return `${formatStamp(startNs)}–${formatClock(endNs)}`;
+	}
+	return `${formatStamp(startNs)} – ${formatStamp(endNs)}`;
 }
 
 /** A session laid out on a coverage timeline. */
@@ -333,6 +403,20 @@ export interface CoverageBar {
 	width: number;
 }
 
+/**
+ * One lane of a day: sessions from one folder that do not overlap each other.
+ * A folder whose sessions overlap, such as a capture and a trimmed copy of it
+ * beside it, gets as many lanes as it needs to draw them all.
+ */
+export interface CoverageLane {
+	key: string;
+	/** The folder the lane's captures sit in, within the volume; '' at its top level. */
+	folder: string;
+	/** True on a folder's first lane, which carries its label. */
+	firstOfFolder: boolean;
+	bars: CoverageBar[];
+}
+
 /** A coverage timeline: the sessions of one day, positioned across it. */
 export interface CoverageRow {
 	/** Local date key, YYYY-MM-DD. */
@@ -341,56 +425,159 @@ export interface CoverageRow {
 	/** The span the row covers, so bars and axis labels agree. */
 	startNs: number;
 	endNs: number;
-	bars: CoverageBar[];
+	/**
+	 * The same span as nanoseconds after local midnight. Every row covers the
+	 * same clock times, so these are equal on all rows.
+	 */
+	clockStartNs: number;
+	clockEndNs: number;
+	/** One per folder, or more where a folder's sessions overlap; on one shared axis. */
+	lanes: CoverageLane[];
+}
+
+/** captureFolder is the folder a capture sits in within its volume; '' at its top level. */
+export function captureFolder(relPath: string): string {
+	const slash = relPath.lastIndexOf('/');
+	return slash < 0 ? '' : relPath.slice(0, slash);
 }
 
 /**
  * coverageRows groups sessions by the local day they start on and positions
- * each across that day's occupied span.
+ * each on a clock-time axis that every day shares.
  *
- * The span is the day's own sessions rather than midnight to midnight: a
- * volume holding two forty-minute visits would otherwise draw two slivers on a
- * mostly empty bar and answer nothing. Padding keeps a single short session
- * from filling the row edge to edge and implying continuous coverage.
+ * The axis runs from the earliest time of day any session starts to the
+ * latest any ends, padded and rounded out to the hour, rather than midnight to
+ * midnight: field visits fill a working day, and a 24-hour axis would draw
+ * them as slivers. Because every row shares it, a bar's length is the same
+ * duration on every row and the same clock time lines up down the page.
+ *
+ * A day has a lane per folder, because a volume can hold more than one copy of
+ * the same hours (the original rolls and an export of them) and drawn in one
+ * lane they would sit on top of each other. Sessions in one folder that still
+ * overlap take further lanes.
  */
-export function coverageRows(sessions: CaptureSession[]): CoverageRow[] {
+export function coverageRows(
+	sessions: CaptureSession[],
+	folderOf: (session: CaptureSession) => string = () => ''
+): CoverageRow[] {
 	const byDay = new Map<string, CaptureSession[]>();
 	for (const s of sessions) {
-		const d = nsToDate(s.start_ns);
-		const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		const key = formatDay(s.start_ns);
 		const list = byDay.get(key);
 		if (list) list.push(s);
 		else byDay.set(key, [s]);
 	}
 
+	// One clock-time axis for every day, so a bar's length means the same
+	// duration on every row and the same time of day lines up down the page.
+	// A per-day axis stretched a lone twenty-minute session across most of its
+	// row while a forty-minute one on a busier day took a third of its.
+	const midnightOf = (ns: number) => {
+		const d = nsToDate(ns);
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() * NS_PER_MS;
+	};
+	const offsets = sessions.map((s) => {
+		const from = s.start_ns - midnightOf(s.start_ns);
+		return { from, to: from + (s.end_ns - s.start_ns) };
+	});
+	const hourNs = 3600 * NS_PER_SEC;
+	// Padded before rounding to the hour, so a session starting on the hour
+	// still has room before it and no bar touches an edge.
+	const edgeNs = 5 * 60 * NS_PER_SEC;
+	const clockStartNs = sessions.length
+		? Math.floor((Math.min(...offsets.map((o) => o.from)) - edgeNs) / hourNs) * hourNs
+		: 0;
+	const clockEndNs = sessions.length
+		? Math.max(
+				Math.ceil((Math.max(...offsets.map((o) => o.to)) + edgeNs) / hourNs) * hourNs,
+				clockStartNs + hourNs
+			)
+		: hourNs;
+	const span = clockEndNs - clockStartNs;
+
 	const rows: CoverageRow[] = [];
 	for (const [day, daySessions] of byDay) {
-		const earliest = Math.min(...daySessions.map((s) => s.start_ns));
-		const latest = Math.max(...daySessions.map((s) => s.end_ns));
-		// A day holding one session would otherwise span exactly that session
-		// and fill the row, reading as complete coverage of the day.
-		const pad = Math.max((latest - earliest) * 0.05, 5 * 60 * NS_PER_SEC);
-		const startNs = earliest - pad;
-		const endNs = latest + pad;
-		const span = endNs - startNs;
+		const midnight = midnightOf(daySessions[0].start_ns);
+		const startNs = midnight + clockStartNs;
+		const endNs = midnight + clockEndNs;
+		const bar = (session: CaptureSession): CoverageBar => ({
+			session,
+			left: ((session.start_ns - startNs) / span) * 100,
+			width: Math.max(((session.end_ns - session.start_ns) / span) * 100, 0.4)
+		});
+
+		const byFolder = new Map<string, CaptureSession[]>();
+		for (const s of daySessions) {
+			const folder = folderOf(s);
+			const list = byFolder.get(folder);
+			if (list) list.push(s);
+			else byFolder.set(folder, [s]);
+		}
+
+		const lanes: CoverageLane[] = [];
+		for (const folder of [...byFolder.keys()].sort()) {
+			// Greedy interval packing: each session takes the first lane it
+			// does not overlap, so a folder uses as few lanes as it can.
+			const packed: { endNs: number; bars: CoverageBar[] }[] = [];
+			const ordered = byFolder
+				.get(folder)!
+				.slice()
+				.sort((a, b) => a.start_ns - b.start_ns || a.end_ns - b.end_ns);
+			for (const s of ordered) {
+				const lane = packed.find((l) => l.endNs <= s.start_ns);
+				if (lane) {
+					lane.bars.push(bar(s));
+					lane.endNs = s.end_ns;
+				} else {
+					packed.push({ endNs: s.end_ns, bars: [bar(s)] });
+				}
+			}
+			packed.forEach((lane, i) =>
+				lanes.push({ key: `${folder}#${i}`, folder, firstOfFolder: i === 0, bars: lane.bars })
+			);
+		}
 
 		rows.push({
 			day,
-			dayLabel: formatDay(earliest),
+			dayLabel: formatDay(daySessions[0].start_ns),
 			startNs,
 			endNs,
-			bars: daySessions
-				.slice()
-				.sort((a, b) => a.start_ns - b.start_ns)
-				.map((session) => ({
-					session,
-					left: ((session.start_ns - startNs) / span) * 100,
-					width: Math.max(((session.end_ns - session.start_ns) / span) * 100, 0.4)
-				}))
+			clockStartNs,
+			clockEndNs,
+			lanes
 		});
 	}
 
 	return rows.sort((a, b) => (a.day < b.day ? 1 : -1));
+}
+
+/** A clock time marked along the coverage axis. */
+export interface CoverageTick {
+	label: string;
+	/** Percentage from the left edge of the timeline. */
+	left: number;
+}
+
+/**
+ * coverageTicks marks whole hours along the axis every row shares, every
+ * second hour once the axis is longer than ten.
+ */
+export function coverageTicks(rows: CoverageRow[]): CoverageTick[] {
+	if (rows.length === 0) return [];
+	const { clockStartNs, clockEndNs } = rows[0];
+	const hourNs = 3600 * NS_PER_SEC;
+	const span = clockEndNs - clockStartNs;
+	if (span <= 0) return [];
+	const step = span > 10 * hourNs ? 2 * hourNs : hourNs;
+	const ticks: CoverageTick[] = [];
+	for (let t = Math.ceil(clockStartNs / step) * step; t <= clockEndNs; t += step) {
+		const hour = Math.round(t / hourNs) % 24;
+		ticks.push({
+			label: `${String(hour).padStart(2, '0')}:00`,
+			left: ((t - clockStartNs) / span) * 100
+		});
+	}
+	return ticks;
 }
 
 /** sessionShare reports what fraction of a session is static, 0-1. */

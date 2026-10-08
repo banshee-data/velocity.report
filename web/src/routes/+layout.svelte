@@ -1,16 +1,17 @@
 <script lang="ts">
 	import {
-		mdiArchiveOutline,
 		mdiBookOpenPageVariantOutline,
 		mdiChartBoxOutline,
 		mdiCog,
 		mdiFileDocument,
+		mdiFilmstrip,
 		mdiGithub,
+		mdiHarddisk,
 		mdiHome,
 		mdiMapMarker,
 		mdiMapMarkerPath,
-		mdiMovieOpen,
-		mdiPlayCircleOutline
+		mdiPlayCircleOutline,
+		mdiSelection
 	} from '@mdi/js';
 	import {
 		AppBar,
@@ -116,38 +117,54 @@
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={navUrl} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={navUrl} />
 		{#if hasPermission($access, 'configuration:write') && Object.values($capabilities.lidar).some((s) => s.enabled)}
-			<NavItem
-				text="Lidar Tracks"
-				icon={mdiMapMarkerPath}
-				path="/app/lidar/tracks"
-				currentUrl={navUrl}
-			/>
-			<NavItem text="Captures" icon={mdiMovieOpen} path="/app/lidar/captures" currentUrl={navUrl} />
-			<NavItem
-				text="Replay Cases"
-				icon={mdiArchiveOutline}
-				path="/app/lidar/replay-cases"
-				currentUrl={navUrl}
-			/>
-			<NavItem text="Segments" icon={mdiMovieOpen} path="/app/lidar/segments" currentUrl={navUrl} />
-			<NavItem
-				text="Scene Map"
-				icon={mdiMapMarkerPath}
-				path="/app/lidar/scene-map"
-				currentUrl={navUrl}
-			/>
-			<NavItem
-				text="Lidar Runs"
-				icon={mdiPlayCircleOutline}
-				path="/app/lidar/runs"
-				currentUrl={navUrl}
-			/>
-			<NavItem
-				text="Lidar Sweeps"
-				icon={mdiChartBoxOutline}
-				path="/app/lidar/sweeps"
-				currentUrl={navUrl}
-			/>
+			<!-- In the order the work runs: captures are cut into clips (by hand, or
+			     from a ranked segment), clips are replayed as runs, runs are labelled
+			     as tracks, and sweeps tune the parameters the runs use. The clip
+			     locations page is reached from Clips rather than listed here. -->
+			<div role="group" aria-labelledby="nav-lidar">
+				<div
+					id="nav-lidar"
+					class="text-surface-content/50 pt-4 pb-1 pl-6 text-xs font-semibold tracking-wide"
+				>
+					LiDAR
+				</div>
+				<NavItem
+					text="Captures"
+					icon={mdiHarddisk}
+					path="/app/lidar/captures"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Clips"
+					icon={mdiFilmstrip}
+					path="/app/lidar/replay-cases"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Segments"
+					icon={mdiSelection}
+					path="/app/lidar/segments"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Runs"
+					icon={mdiPlayCircleOutline}
+					path="/app/lidar/runs"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Tracks"
+					icon={mdiMapMarkerPath}
+					path="/app/lidar/tracks"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Sweeps"
+					icon={mdiChartBoxOutline}
+					path="/app/lidar/sweeps"
+					currentUrl={navUrl}
+				/>
+			</div>
 		{/if}
 		{#if hasPermission($access, 'configuration:read')}
 			<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={navUrl} />

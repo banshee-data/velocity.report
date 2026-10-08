@@ -263,8 +263,13 @@ A new route, `/app/lidar/segments`, beside Captures and Replay cases:
 - **Preview.** Opens the tracks page's scene player on the window, from stored tracks; no points
   needed.
 - **Actions.** Make case, cut clip, dismiss. Status runs candidate, case, clipping, packed,
-  proposed, reviewed (from the sidecar), frozen (in a split).
-- **Open in macOS.** A link that names the pack; the macOS app resolves it through the hub.
+  proposed, reviewed (from the sidecar), frozen (in a split). The
+  [workflow UI plan](lidar-ui-workflow-plan.md#pack-status) carries this status to the
+  candidates panel on Clips, counts it per clip, and splits "reviewed", now set at the first
+  reviewed mask, into "in review" and "reviewed".
+- **Open in macOS.** A link that names the pack; the macOS app resolves it through the hub. The
+  web Tracks page's "Open in visualiser" uses the same URL scheme, with a run and frame in place
+  of the pack.
 
 Segments are computed on read and not stored until chosen. A segment's `{id}` is the digest of
 its finder, version, parameters, source and window, so it can be named without being stored, and

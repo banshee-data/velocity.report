@@ -78,6 +78,30 @@ func TestCaptureStoreUpsertRootIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestCaptureStoreListsConfiguredRootsFirst(t *testing.T) {
+	// A root dropped from the configuration keeps its row, and is usually the
+	// older one. It must not come first, or the Captures page opens on it.
+	store := NewCaptureStore(setupCaptureDB(t))
+	if _, err := store.UpsertRoot("/Volumes/lidar/lidar/s2", "", false); err != nil {
+		t.Fatalf("UpsertRoot (dropped): %v", err)
+	}
+	if _, err := store.UpsertRoot("/Volumes/lidar/lidar", "", true); err != nil {
+		t.Fatalf("UpsertRoot (configured): %v", err)
+	}
+
+	roots, err := store.ListRoots()
+	if err != nil {
+		t.Fatalf("ListRoots: %v", err)
+	}
+	if len(roots) != 2 {
+		t.Fatalf("ListRoots returned %d roots, want 2", len(roots))
+	}
+	if !roots[0].Enabled || roots[0].Path != "/Volumes/lidar/lidar" {
+		t.Errorf("first root = %q (enabled %v), want the configured /Volumes/lidar/lidar",
+			roots[0].Path, roots[0].Enabled)
+	}
+}
+
 func TestCaptureStoreMarkScanned(t *testing.T) {
 	store := NewCaptureStore(setupCaptureDB(t))
 	root, err := store.UpsertRoot("/Volumes/lidar", "", true)

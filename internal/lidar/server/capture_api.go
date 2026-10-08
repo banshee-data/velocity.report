@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -17,12 +18,79 @@ import (
 // them racing over one volume would double the I/O to produce the same index.
 var captureScanMu sync.Mutex
 
+// captureScanSchedule is what this process knows about scans: which roots
+// have a background scan scheduled or running, how far each has got, and how
+// the last scan of each ended. None of it is persisted. A restart cannot
+// truthfully claim a cancelled probe continues, and the outcome of the last
+// scan is on the root row in the shape that matters (state, error, time).
 var captureScanSchedule = struct {
 	sync.Mutex
-	roots map[string]bool
-}{roots: map[string]bool{}}
+	roots    map[string]bool
+	progress map[string]*captureScanProgress
+	outcomes map[string]captureScanOutcome
+}{
+	roots:    map[string]bool{},
+	progress: map[string]*captureScanProgress{},
+	outcomes: map[string]captureScanOutcome{},
+}
 
 const captureScanStateRunning = "scanning"
+
+// Phases a background scan of one root passes through.
+const (
+	// captureScanQueued waits for another scan to release the volume lock.
+	captureScanQueued = "queued"
+	// captureScanListing walks the volume and records what changed.
+	captureScanListing = "listing"
+	// captureScanProbing reads captures in full for their packet extents.
+	captureScanProbing = "probing"
+	// captureScanDeriving rebuilds the root's sessions from what was probed.
+	captureScanDeriving = "deriving"
+)
+
+// captureScanProgress is how far a background scan of one root has got. It
+// exists from when the scan is scheduled until it ends.
+type captureScanProgress struct {
+	Phase string `json:"phase"`
+	// Done is how many captures the probe has finished with, and Total how
+	// many it set out to read. Both stay zero until listing has found them.
+	Done  int `json:"done"`
+	Total int `json:"total"`
+	// Current is the capture being read now.
+	Current string `json:"current,omitempty"`
+	// Probed and Failed split Done by outcome.
+	Probed int `json:"probed"`
+	Failed int `json:"probe_failed"`
+	// StartedAtNs is when this root's scan began (or was queued, while it is
+	// queued); ProbeStartedAtNs when its first capture read began, which is
+	// the base for a rate, since listing a slow volume takes time of its own.
+	StartedAtNs      int64 `json:"started_at_ns"`
+	ProbeStartedAtNs int64 `json:"probe_started_at_ns,omitempty"`
+	UpdatedAtNs      int64 `json:"updated_at_ns"`
+	// ElapsedNs and ProbeElapsedNs are measured by this process when the root
+	// is listed, so a browser whose clock disagrees with it still shows the
+	// right times.
+	ElapsedNs      int64 `json:"elapsed_ns"`
+	ProbeElapsedNs int64 `json:"probe_elapsed_ns,omitempty"`
+}
+
+// captureScanOutcome is how the last scan of a root ended, kept so a page
+// that was not watching when a background scan finished can still say what
+// it found.
+type captureScanOutcome struct {
+	captureScanResult
+	Probe        bool  `json:"probe"`
+	StartedAtNs  int64 `json:"started_at_ns"`
+	FinishedAtNs int64 `json:"finished_at_ns"`
+}
+
+// captureRootView is a root as GET /api/lidar/capture/roots lists it: the
+// stored row plus what this process knows about scans of it.
+type captureRootView struct {
+	sqlite.CaptureRoot
+	ScanProgress   *captureScanProgress `json:"scan_progress,omitempty"`
+	LastScanResult *captureScanOutcome  `json:"last_scan_result,omitempty"`
+}
 
 type captureScanResult struct {
 	RootID   string                  `json:"root_id"`
@@ -126,8 +194,8 @@ func (ws *Server) handleCaptureRoots(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	markScheduledRoots(roots)
-	writeCaptureJSON(w, map[string]any{"roots": roots, "count": len(roots)})
+	views := captureRootViews(roots, time.Now())
+	writeCaptureJSON(w, map[string]any{"roots": views, "count": len(views)})
 }
 
 // handleCaptureScan re-indexes one root, or every configured root when no
@@ -163,9 +231,9 @@ func (ws *Server) handleCaptureScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if background {
-		results, started := scheduledCaptureScans(roots, wanted)
-		if started {
-			go ws.refreshCaptureRoots(roots, wanted, true)
+		results, claimed := scheduledCaptureScans(roots, wanted)
+		if len(claimed) > 0 {
+			go ws.refreshCaptureRoots(claimed)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
@@ -173,7 +241,7 @@ func (ws *Server) handleCaptureScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := ws.refreshCaptureRootsWithContext(r.Context(), roots, wanted, probe)
+	results := ws.refreshCaptureRootsWithContext(r.Context(), roots, wanted, probe, false)
 
 	if wanted != "" && len(results) == 0 {
 		ws.writeJSONError(w, http.StatusNotFound, "no such capture root")
@@ -194,51 +262,145 @@ func hasEnabledCaptureRoot(roots []sqlite.CaptureRoot, wanted string) bool {
 // scheduledCaptureScans makes the action visible before the goroutine starts,
 // so the UI can poll normal root state instead of holding an HTTP request open
 // for a multi-hour first probe of an archive volume.
-func scheduledCaptureScans(roots []sqlite.CaptureRoot, wanted string) ([]captureScanResult, bool) {
+//
+// It returns the roots this call claimed: those with no scan already
+// scheduled. Only they are handed to the new goroutine, so asking for every
+// root while one is already being probed neither probes that one twice nor
+// lets the first scan to finish clear the flag of a scan still waiting.
+func scheduledCaptureScans(roots []sqlite.CaptureRoot, wanted string) ([]captureScanResult, []sqlite.CaptureRoot) {
 	results := []captureScanResult{}
-	started := false
+	var claimed []sqlite.CaptureRoot
+	now := time.Now().UnixNano()
 	captureScanSchedule.Lock()
 	defer captureScanSchedule.Unlock()
 	for _, root := range roots {
 		if !root.Enabled || (wanted != "" && root.RootID != wanted) {
 			continue
 		}
+		drift := "a scan and probe is already running"
 		if !captureScanSchedule.roots[root.RootID] {
 			captureScanSchedule.roots[root.RootID] = true
-			started = true
+			captureScanSchedule.progress[root.RootID] = &captureScanProgress{
+				Phase: captureScanQueued, StartedAtNs: now, UpdatedAtNs: now,
+			}
+			claimed = append(claimed, root)
+			drift = "scan and probe queued"
 		}
 		results = append(results, captureScanResult{
 			RootID: root.RootID, Path: root.Path, State: captureScanStateRunning,
-			Drift: "scan and probe queued",
+			Drift: drift,
 		})
 	}
-	return results, started
+	return results, claimed
 }
 
-func (ws *Server) refreshCaptureRoots(roots []sqlite.CaptureRoot, wanted string, probe bool) {
-	defer clearScheduledRoots(roots, wanted)
-	ws.refreshCaptureRootsWithContext(context.Background(), roots, wanted, probe)
+// refreshCaptureRoots scans and probes the roots a scheduling call claimed,
+// reporting its progress as it goes.
+func (ws *Server) refreshCaptureRoots(claimed []sqlite.CaptureRoot) {
+	defer clearScheduledRoots(claimed)
+	ws.refreshCaptureRootsWithContext(context.Background(), claimed, "", true, true)
 }
 
-func markScheduledRoots(roots []sqlite.CaptureRoot) {
+// captureRootViews adds this process's scan state to each root: whether a
+// scan is running, how far it has got, and how the last one ended. Elapsed
+// times are measured against now so the client need not trust its own clock.
+func captureRootViews(roots []sqlite.CaptureRoot, now time.Time) []captureRootView {
+	nowNs := now.UnixNano()
 	captureScanSchedule.Lock()
 	defer captureScanSchedule.Unlock()
-	for i := range roots {
-		roots[i].ScanInProgress = captureScanSchedule.roots[roots[i].RootID]
+	views := make([]captureRootView, 0, len(roots))
+	for _, root := range roots {
+		root.ScanInProgress = captureScanSchedule.roots[root.RootID]
+		view := captureRootView{CaptureRoot: root}
+		if p := captureScanSchedule.progress[root.RootID]; p != nil && root.ScanInProgress {
+			snapshot := *p
+			snapshot.ElapsedNs = max(0, nowNs-snapshot.StartedAtNs)
+			if snapshot.ProbeStartedAtNs > 0 {
+				snapshot.ProbeElapsedNs = max(0, nowNs-snapshot.ProbeStartedAtNs)
+			}
+			view.ScanProgress = &snapshot
+		}
+		if o, ok := captureScanSchedule.outcomes[root.RootID]; ok {
+			view.LastScanResult = &o
+		}
+		views = append(views, view)
 	}
+	return views
 }
 
-func clearScheduledRoots(roots []sqlite.CaptureRoot, wanted string) {
+// clearScheduledRoots forgets the scheduled scans of the given roots and
+// their progress. A root that finished normally has already been cleared;
+// this covers a pass that stopped before reaching it.
+func clearScheduledRoots(roots []sqlite.CaptureRoot) {
 	captureScanSchedule.Lock()
 	defer captureScanSchedule.Unlock()
 	for _, root := range roots {
-		if root.Enabled && (wanted == "" || root.RootID == wanted) {
-			delete(captureScanSchedule.roots, root.RootID)
-		}
+		delete(captureScanSchedule.roots, root.RootID)
+		delete(captureScanSchedule.progress, root.RootID)
 	}
 }
 
-func (ws *Server) refreshCaptureRootsWithContext(ctx context.Context, roots []sqlite.CaptureRoot, wanted string, probe bool) []captureScanResult {
+// updateCaptureScanProgress applies change to a root's progress under the
+// schedule lock. A root with no scan scheduled has no progress to update.
+func updateCaptureScanProgress(rootID string, change func(p *captureScanProgress, nowNs int64)) {
+	captureScanSchedule.Lock()
+	defer captureScanSchedule.Unlock()
+	p := captureScanSchedule.progress[rootID]
+	if p == nil {
+		return
+	}
+	now := time.Now().UnixNano()
+	change(p, now)
+	p.UpdatedAtNs = now
+}
+
+// setCaptureScanPhase moves a root's background scan to a new phase.
+// Entering listing restarts the clock, because time spent queued behind
+// another scan is not time spent on this one.
+func setCaptureScanPhase(rootID, phase string) {
+	updateCaptureScanProgress(rootID, func(p *captureScanProgress, nowNs int64) {
+		p.Phase = phase
+		if phase == captureScanListing {
+			p.StartedAtNs = nowNs
+		}
+	})
+}
+
+// recordCaptureProbeProgress is the indexer's progress callback for one root.
+func recordCaptureProbeProgress(rootID string, ip capindex.Progress) {
+	updateCaptureScanProgress(rootID, func(p *captureScanProgress, nowNs int64) {
+		p.Phase = captureScanProbing
+		if p.ProbeStartedAtNs == 0 {
+			p.ProbeStartedAtNs = nowNs
+		}
+		p.Done, p.Total, p.Current = ip.Done, ip.Total, ip.Current
+		p.Probed, p.Failed = ip.Probed, ip.Failed
+	})
+}
+
+// finishCaptureScan records how a root's scan ended. For a background scan
+// it also ends that root's visible scan state at once, rather than when
+// every root the pass covers is done, so a page watching one volume sees it
+// finish when it does.
+func finishCaptureScan(result captureScanResult, probe bool, startedAt time.Time, background bool) {
+	result.Sessions = nil
+	outcome := captureScanOutcome{
+		captureScanResult: result, Probe: probe,
+		StartedAtNs: startedAt.UnixNano(), FinishedAtNs: time.Now().UnixNano(),
+	}
+	captureScanSchedule.Lock()
+	defer captureScanSchedule.Unlock()
+	captureScanSchedule.outcomes[result.RootID] = outcome
+	if background {
+		delete(captureScanSchedule.roots, result.RootID)
+		delete(captureScanSchedule.progress, result.RootID)
+	}
+}
+
+// refreshCaptureRootsWithContext scans the enabled roots wanted (every one
+// when wanted is empty), probing when asked. A background pass reports its
+// progress per root as it goes.
+func (ws *Server) refreshCaptureRootsWithContext(ctx context.Context, roots []sqlite.CaptureRoot, wanted string, probe, background bool) []captureScanResult {
 	captureScanMu.Lock()
 	defer captureScanMu.Unlock()
 
@@ -251,9 +413,15 @@ func (ws *Server) refreshCaptureRootsWithContext(ctx context.Context, roots []sq
 		if !root.Enabled || (wanted != "" && root.RootID != wanted) {
 			continue
 		}
+		startedAt := time.Now()
 		ix := &capindex.Indexer{RootID: root.RootID, RootPath: root.Path, Store: store, UDPPort: ws.udpPort}
 		if probe {
 			ix.Probe = captureProber
+		}
+		if background {
+			setCaptureScanPhase(root.RootID, captureScanListing)
+			rootID := root.RootID
+			ix.OnProgress = func(p capindex.Progress) { recordCaptureProbeProgress(rootID, p) }
 		}
 		res, refreshErr := ix.Refresh(ctx)
 		out := captureScanResult{
@@ -263,14 +431,19 @@ func (ws *Server) refreshCaptureRootsWithContext(ctx context.Context, roots []sq
 		}
 		if refreshErr != nil {
 			out.Error = refreshErr.Error()
+			finishCaptureScan(out, probe, startedAt, background)
 			results = append(results, out)
 			continue
+		}
+		if background {
+			setCaptureScanPhase(root.RootID, captureScanDeriving)
 		}
 		if sessions, deriveErr := store.DeriveSessions(root.RootID); deriveErr != nil {
 			out.Error = deriveErr.Error()
 		} else {
 			out.Sessions = sessions
 		}
+		finishCaptureScan(out, probe, startedAt, background)
 		results = append(results, out)
 	}
 	return results
