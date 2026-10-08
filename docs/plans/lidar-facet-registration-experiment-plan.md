@@ -337,7 +337,11 @@ then finish the provisional headway MVP and unblock its physical references. The
 of that audit is written up as a runnable protocol on kirk0's reviewed pack
 ([F0 attribution on kirk0](../lidar/operations/facet-f0-attribution-kirk0.md)): four existing
 arms, the near-face and identity scorers, and predeclared readings for the attribution gate, the
-face-entry tail, and the sparse-tail onset. Resume the remaining
+face-entry tail, and the sparse-tail onset. It ran on 2026-10-08
+([report](../lidar/operations/facet-f0-attribution-kirk0-report.md)). The predeclared gate
+reading kept arm D's case open, but the end error it attributes to localisation was mostly a
+believed extent shorter than the labelled span; restate the gate to separate the two before it
+funds arm D. Resume the remaining
 experiment after MVP A while field qualification is being prepared. Splitting one person between
 two critical paths adds delay to both. Keep a named date or milestone for the research decision;
 do not leave an indefinitely running background experiment.

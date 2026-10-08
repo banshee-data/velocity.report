@@ -3,7 +3,7 @@
 How to score where an estimated body puts the face the sensor sees, against the returns a person
 labelled on it, and how to draft the split manifest that selects the labelled window.
 
-- **Status:** Implemented and tested on synthetic packs; the first run on a reviewed pack is open
+- **Status:** Implemented; first run on a reviewed pack (kirk0, tuning) in the [F0 report](facet-f0-attribution-kirk0-report.md)
 - **Layers:** L5 Tracks, L8 Analytics, offline analysis
 - **Related:** [Per-frame evaluation](per-frame-evaluation.md), [Point annotation tool](point-annotation-tool.md), [near-edge tracked state](../../plans/lidar-near-edge-tracked-state-plan.md), [physical reference review](../../plans/lidar-physical-reference-review-plan.md)
 - **Code:** [perframeeval/neareface.go](../../../internal/lidar/perframeeval/neareface.go), [lidar-near-face-eval](../../../cmd/tools/lidar-near-face-eval/main.go), [split_draft.go](../../../internal/lidar/annotation/split_draft.go), [lidar-annotation-split-draft](../../../cmd/tools/lidar-annotation-split-draft/main.go)
@@ -127,8 +127,9 @@ several metres means they do not.
 
 ## What remains
 
-- The first run on a reviewed pack. kirk0's pack has 20 road-user objects, 19 of them (about
-  3,100 of 3,400 scored masks) after the first estimate at 6.2 s.
+- A reviewed pack other than kirk0. The first run, on kirk0's 20 objects and 3,151 scored masks
+  after 6.2 s, is the [F0 report](facet-f0-attribution-kirk0-report.md): two slow trucks gave half
+  the face scores and a parked car a quarter of the labels.
 - Held-out use. kirk0 cannot be held out. A labelled `embarcadero-folsom` window cut through the
   Segments flow is what a held-out score needs.
 - The side-face tangent and a far-face estimate are not scored.
