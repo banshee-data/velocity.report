@@ -15,12 +15,14 @@ import (
 type mockDB struct {
 	callCount int
 	siteIDs   []int
+	sources   []string
 	rollupFn  func(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error)
 }
 
 func (m *mockDB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error) {
 	m.callCount++
 	m.siteIDs = append(m.siteIDs, siteID)
+	m.sources = append(m.sources, dataSource)
 	if m.rollupFn != nil {
 		return m.rollupFn(startUnix, endUnix, groupSeconds, minSpeed, dataSource, modelVersion, histBucketSize, histMax, siteID, boundaryThreshold)
 	}
@@ -194,7 +196,11 @@ func TestPlanRun_PaperSizeNormalisation(t *testing.T) {
 	}
 }
 
-func TestLoadData_ReportStatsQueriesUsePythonCompatibleSiteIDs(t *testing.T) {
+// TestLoadData_AllStatsQueriesUseSiteID pins that every statistic the report
+// prints is fetched through the site join, whichever source it comes from.
+// radar_data_transits, the default source, used to be queried with site ID 0
+// (no cosine correction) while the report still printed the cosine rows.
+func TestLoadData_AllStatsQueriesUseSiteID(t *testing.T) {
 	cfg := Config{
 		SiteID:        42,
 		StartDate:     "2025-06-01",
@@ -226,14 +232,17 @@ func TestLoadData_ReportStatsQueriesUsePythonCompatibleSiteIDs(t *testing.T) {
 	if len(m.siteIDs) != 6 {
 		t.Fatalf("expected 6 report stats queries, got %d site IDs: %v", len(m.siteIDs), m.siteIDs)
 	}
-	for i, got := range m.siteIDs[:3] {
-		if got != 0 {
-			t.Fatalf("primary transit query %d used siteID %d; want 0 to match legacy report metrics", i, got)
-		}
+	wantSources := []string{
+		"radar_data_transits", "radar_data_transits", "radar_data_transits",
+		"radar_objects", "radar_objects", "radar_objects",
 	}
-	for i, got := range m.siteIDs[3:] {
+	for i, got := range m.siteIDs {
+		if m.sources[i] != wantSources[i] {
+			t.Fatalf("query %d source = %q, want %q", i, m.sources[i], wantSources[i])
+		}
 		if got != cfg.SiteID {
-			t.Fatalf("comparison object query %d used siteID %d; want %d", i, got, cfg.SiteID)
+			t.Fatalf("query %d (%s) used siteID %d; want %d so the cosine correction applies",
+				i, m.sources[i], got, cfg.SiteID)
 		}
 	}
 }

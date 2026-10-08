@@ -180,3 +180,10 @@ analyses live in git history under `docs/plans/`.
   make external map requests should use the SVG upload path.
 - The source ZIP is part of the public contract of the report pipeline; treat
   it as a first-class artefact, not a debug afterthought.
+- Every statistic in a report is fetched through the same `site_config_periods`
+  join, for all three sources including the default `radar_data_transits`, and
+  Survey Parameters prints the cosine rows and the "corrected" note only when
+  that join was applied. A report generated without a site says explicitly that
+  no correction was applied. Transit-sourced PDFs made before 2026-10-08 carry
+  raw speeds whatever their Survey Parameters say; see the
+  [cosine correction spec](../../radar/architecture/site-config-cosine-correction-spec.md).

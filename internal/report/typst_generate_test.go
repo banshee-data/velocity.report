@@ -291,6 +291,68 @@ func TestGenerateTypst_Comparison(t *testing.T) {
 	}
 }
 
+// TestGenerateTypst_TransitReportClaimsOnlyAppliedCorrection pins that a
+// transit-sourced report (the API default) prints the cosine rows and the
+// "corrected" note only when its statistics were fetched through the site
+// join. The mock records the site ID and source of every rollup query so the
+// claim in data.json can be checked against what was actually queried.
+func TestGenerateTypst_TransitReportClaimsOnlyAppliedCorrection(t *testing.T) {
+	useMockTypstBinary(t)
+
+	t.Run("site join applied", func(t *testing.T) {
+		m := &mockDB{}
+		cfg := baseTypstConfig(t.TempDir()) // radar_data_transits, SiteID 1, 21°
+		res, err := GenerateTypst(context.Background(), m, cfg)
+		if err != nil {
+			t.Fatalf("GenerateTypst: %v", err)
+		}
+		if len(m.siteIDs) == 0 {
+			t.Fatal("no rollup queries recorded")
+		}
+		for i, id := range m.siteIDs {
+			if m.sources[i] != "radar_data_transits" {
+				t.Fatalf("query %d source = %q, want radar_data_transits", i, m.sources[i])
+			}
+			if id != cfg.SiteID {
+				t.Fatalf("transit query %d used siteID %d; want %d so the statistics are cosine-corrected", i, id, cfg.SiteID)
+			}
+		}
+		rd, _ := readReportDataFromZip(t, res.ZIPPath)
+		if rd.Radar.CosineErrorAngle != "21.0" || rd.Radar.CosineErrorFactor != "1.071145" {
+			t.Fatalf("cosine rows = %q / %q, want 21.0 / 1.071145", rd.Radar.CosineErrorAngle, rd.Radar.CosineErrorFactor)
+		}
+		if rd.CosineCorrectionNote != cosineCorrectedNote {
+			t.Fatalf("note = %q, want %q", rd.CosineCorrectionNote, cosineCorrectedNote)
+		}
+	})
+
+	t.Run("no site means no join and no claim", func(t *testing.T) {
+		m := &mockDB{}
+		cfg := baseTypstConfig(t.TempDir())
+		cfg.SiteID = 0
+		res, err := GenerateTypst(context.Background(), m, cfg)
+		if err != nil {
+			t.Fatalf("GenerateTypst: %v", err)
+		}
+		for i, id := range m.siteIDs {
+			if id != 0 {
+				t.Fatalf("query %d used siteID %d without a site", i, id)
+			}
+		}
+		rd, _ := readReportDataFromZip(t, res.ZIPPath)
+		if rd.Radar.CosineErrorAngle != "" || rd.Radar.CosineErrorFactor != "" {
+			t.Fatalf("cosine rows %q / %q printed beside statistics that were never site-joined",
+				rd.Radar.CosineErrorAngle, rd.Radar.CosineErrorFactor)
+		}
+		if rd.CosineCorrectionNote == cosineCorrectedNote {
+			t.Fatal("report claims a cosine correction it did not apply")
+		}
+		if rd.CosineCorrectionNote != cosineUncorrectedNote {
+			t.Fatalf("note = %q, want %q", rd.CosineCorrectionNote, cosineUncorrectedNote)
+		}
+	})
+}
+
 // TestGeneratePDF_DefaultsToTypst verifies the public entry point uses Typst.
 func TestGeneratePDF_DefaultsToTypst(t *testing.T) {
 	useMockTypstBinary(t)
@@ -370,17 +432,43 @@ func TestToTypstRows_ZeroCountNilPercentiles(t *testing.T) {
 }
 
 func TestBuildTypstRadarAndHelpers(t *testing.T) {
-	radar := buildTypstRadar(Config{FirmwareVersion: "1.2.3", CosineAngle: 21.0, CompareCosineAngle: 18.5})
+	radar := buildTypstRadar(Config{SiteID: 1, FirmwareVersion: "1.2.3", CosineAngle: 21.0, CompareCosineAngle: 18.5})
 	if radar.FirmwareVersion != "1.2.3" {
 		t.Fatalf("firmware version = %q, want 1.2.3", radar.FirmwareVersion)
 	}
 	if radar.CosineErrorAngle == "" || radar.CompareCosineErrorAngle == "" {
-		t.Fatal("cosine fields should be populated when angles are provided")
+		t.Fatal("cosine fields should be populated when angles are provided and the site join applies")
 	}
 
-	plain := buildTypstRadar(Config{})
+	plain := buildTypstRadar(Config{SiteID: 1})
 	if plain.CosineErrorAngle != "" || plain.CompareCosineErrorAngle != "" {
 		t.Fatal("cosine fields should be empty when no angles are provided")
+	}
+
+	// Without a site the rollup query never joins site_config_periods, so the
+	// angles must not be printed however they were configured.
+	unjoined := buildTypstRadar(Config{CosineAngle: 21.0, CompareCosineAngle: 18.5})
+	if unjoined.CosineErrorAngle != "" || unjoined.CosineErrorFactor != "" ||
+		unjoined.CompareCosineErrorAngle != "" || unjoined.CompareCosineErrorFactor != "" {
+		t.Fatalf("cosine fields %+v printed for a report whose statistics were not site-joined", unjoined)
+	}
+
+	for _, tc := range []struct {
+		name string
+		cfg  Config
+		want string
+	}{
+		{"no angle, no site", Config{}, ""},
+		{"no angle, site", Config{SiteID: 1}, ""},
+		{"angle, site", Config{SiteID: 1, CosineAngle: 21}, cosineCorrectedNote},
+		{"label, site", Config{SiteID: 1, CosineCorrectionLabel: "multiple periods: 5.0°, 12.0°"}, cosineCorrectedNote},
+		{"compare angle, site", Config{SiteID: 1, CompareCosineAngle: 12}, cosineCorrectedNote},
+		{"angle, no site", Config{CosineAngle: 21}, cosineUncorrectedNote},
+		{"label, no site", Config{CompareCosineCorrectionLabel: "multiple periods: 5.0°, 12.0°"}, cosineUncorrectedNote},
+	} {
+		if got := cosineCorrectionNote(tc.cfg); got != tc.want {
+			t.Errorf("cosineCorrectionNote(%s) = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 
 	if got := typstPaperName(chart.PaperLetter); got != "us-letter" {

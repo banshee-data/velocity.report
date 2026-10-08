@@ -226,10 +226,7 @@ func buildTypstData(plan runPlan, data loadedData, primaryDaily []db.RadarObject
 		)
 	}
 
-	if cfg.CosineAngle > 0 || cfg.CompareCosineAngle > 0 ||
-		cfg.CosineCorrectionLabel != "" || cfg.CompareCosineCorrectionLabel != "" {
-		rd.CosineCorrectionNote = "Note: speeds have been corrected to account for sensor angle."
-	}
+	rd.CosineCorrectionNote = cosineCorrectionNote(cfg)
 
 	if data.compareResult != nil {
 		cr := data.compareResult
@@ -261,10 +258,48 @@ func buildTypstData(plan runPlan, data loadedData, primaryDaily []db.RadarObject
 	return rd
 }
 
+// Survey Parameters wording. The template prints whichever note is non-empty
+// beneath the parameter table.
+const (
+	cosineCorrectedNote   = "Note: speeds have been corrected to account for sensor angle."
+	cosineUncorrectedNote = "Note: no sensor-angle correction was applied. This report was " +
+		"generated without a site, so every speed is as measured by the sensor."
+)
+
+// cosineCorrectionApplied reports whether the statistics in this report went
+// through the site_config_periods join. RadarObjectRollupRange applies the
+// cosine correction only when it is given a site ID, for every source, so this
+// one predicate decides both what was queried and what Survey Parameters may
+// claim about it.
+func cosineCorrectionApplied(cfg Config) bool {
+	return cfg.SiteID > 0
+}
+
+// cosineAngleConfigured reports whether the caller supplied sensor-angle
+// metadata for either period.
+func cosineAngleConfigured(cfg Config) bool {
+	return cfg.CosineAngle > 0 || cfg.CompareCosineAngle > 0 ||
+		cfg.CosineCorrectionLabel != "" || cfg.CompareCosineCorrectionLabel != ""
+}
+
+// cosineCorrectionNote returns the note under Survey Parameters. A report may
+// say its speeds were corrected only when the join was applied. One given an
+// angle but no site says so explicitly rather than staying silent, because the
+// reader has no other way to tell corrected figures from raw ones.
+func cosineCorrectionNote(cfg Config) string {
+	if !cosineAngleConfigured(cfg) {
+		return ""
+	}
+	if cosineCorrectionApplied(cfg) {
+		return cosineCorrectedNote
+	}
+	return cosineUncorrectedNote
+}
+
 // buildTypstRadar fills the hardware specs and the per-period cosine figures
-// as preformatted strings. An
-// empty angle string means no correction applied and the template omits the
-// row.
+// as preformatted strings. An empty angle string means no correction was
+// applied and the template omits the row, so the figures are emitted only when
+// the statistics actually went through the site join.
 func buildTypstRadar(cfg Config) typst.RadarData {
 	r := typst.RadarData{
 		SensorModel:        "OmniPreSense OPS243-A",
@@ -274,6 +309,9 @@ func buildTypstRadar(cfg Config) typst.RadarData {
 		VelocityResolution: "0.272 mph",
 		AzimuthFOV:         "20°",
 		ElevationFOV:       "24°",
+	}
+	if !cosineCorrectionApplied(cfg) {
+		return r
 	}
 	if cfg.CosineAngle > 0 {
 		r.CosineErrorAngle = fmt.Sprintf("%.1f", cfg.CosineAngle)
