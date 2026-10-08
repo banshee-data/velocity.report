@@ -859,6 +859,10 @@ scaling estimates for deciding what to measure first, not measurements.
 | Arm B, lagged local at low priority         | Same work, spread                        | Only if the average is at or under one times real time |
 | Arm B, remote over LAN                      | Serialisation only, about 14 Mbit/s busy | Yes on the device; the worker host has its own budget  |
 
+The [facet plan's compute profile](lidar-facet-registration-experiment-plan.md#11-compute-profile-real-time-hardware-and-offline-throughput)
+extends this table to the full facet arm by scene load and host class, and gives the offline
+factor on the Mac.
+
 ### 10.5 Order of work for cost
 
 1. **Measure before moving.** Capture the Pi cells of the perf matrix with the

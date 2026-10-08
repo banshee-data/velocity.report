@@ -426,3 +426,117 @@ The [review][review], Section 8, derives each entry; this table is the working l
 | Persistence and VRLOG       | Patch identities, revisions, and body registrations need a schema to be inspected or replayed                        | Offline and separately versioned until F4                                                      |
 | Operator load               | Facet review per informative frame                                                                                   | The labeller proposes edge labels; measure the first five episodes and reforecast              |
 | Privacy                     | A persisted vehicle shape cache is a new class of retained data; H4 retrieval approaches identification              | The retention rule in Section 8; family-level H4; aggregate descriptors only                   |
+
+## 11. Compute profile: real-time hardware and offline throughput
+
+This section sizes the full facet arm, D with the shared visibility component V, for two
+questions: what hardware runs it in real time, and how fast it runs offline on the Mac. It is a
+model anchored to measurements, not a profile. The anchors are the committed kirk0 Mac baseline
+(L1 to L4 at 8.1 ms mean, 34 ms p95, 78 ms p99 per frame), the October campaign's tracker update
+timings (B0 0.17 to 0.38 ms p99; the near-edge arm 3.5 to 8 ms), and public single-core
+benchmark ratios for the candidate hosts. The async plan's Section 10 gives the levers; this
+section gives the envelope. The profiling build named there replaces these figures.
+
+### 11.1 What the arm does per frame, and what each part costs
+
+| Part                             | Work per frame                                                                                                                                             | Model cost on the M1 Pro, one core                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Extraction, per cluster          | Neighbour tree over the members, local normals or strand grouping with 16 neighbours, line and plane fits                                                  | 0.30 ms at 400 members, 0.38 ms at 500; scales as `N log N`             |
+| Registration, per track          | Four Gauss-Newton iterations of point-to-plane residuals against a body-local map of 1,000 points; three hypotheses on the ambiguous fifth of track-frames | 1.3 ms at 400 members, 1.6 ms at 500; scales as `N log M` per iteration |
+| Map upkeep, per track            | Insert, de-duplicate, amortised rebuild                                                                                                                    | 0.2 ms                                                                  |
+| Visibility component, per track  | Cast the predicted body against the L3 polar baseline, about 2,600 cells at 20 m                                                                           | 0.01 ms                                                                 |
+| Relational graph, per track      | Up to twenty patches, local relations only                                                                                                                 | Under 0.01 ms                                                           |
+| Near-edge faces kept for extents | The current span search, or its reduced form                                                                                                               | 0.30 ms unreduced, 0.01 ms reduced (async plan, lever B)                |
+| L1 to L4, unchanged              | Parsing, background, clustering                                                                                                                            | 8.1 ms mean on kirk0, 34 ms on busy frames, 78 ms at the kirk0 p99      |
+
+Two prerequisites are plumbing, not compute: the laser channel is on the L2 point and dropped at
+the L4 conversion, so ring strands need one byte carried through, and the members must reach the
+tracker (`KeepClusterMembers`), which the near-edge arm already does in replay.
+
+### 11.2 Per-frame cost by scene load
+
+Loads follow the async plan's table. The L1 to L4 column uses the kirk0 mean for the light loads
+and the kirk0 p95 and p99 for busy and stress frames, because busy frames are the clustering tail.
+
+| Load       | Clusters, tracks, members | L1 to L4 | Extraction | Registration and upkeep | Total, one core | Worst case, three hypotheses and unreduced faces |
+| ---------- | ------------------------- | -------: | ---------: | ----------------------: | --------------: | -----------------------------------------------: |
+| kirk0-like | 3.4, 8, 400               |   8.1 ms |     1.0 ms |                 10.4 ms |         19.5 ms |                                          31.4 ms |
+| Ordinary   | 15, 8, 400                |  12.2 ms |     4.5 ms |                 10.4 ms |         27.0 ms |                                          39.0 ms |
+| Busy       | 50, 30, 500               |  34.3 ms |    19.1 ms |                 48.1 ms |        101.5 ms |                                         155.2 ms |
+| Stress     | 150, 80, 300              |  77.9 ms |    32.6 ms |                 79.0 ms |        189.5 ms |                                         284.7 ms |
+
+Registration is per track and extraction per cluster, so both parallelise across cores with a
+deterministic merge in track order; L1 to L4 and association stay serial as the code stands.
+
+### 11.3 Offline on the Mac: the scaling factor
+
+| Load       | One core     | Four worker cores | Eight worker cores |
+| ---------- | ------------ | ----------------- | ------------------ |
+| kirk0-like | 5.0 times RT | 8.7 times RT      | 9.9 times RT       |
+| Ordinary   | 3.6 times RT | 6.1 times RT      | 6.9 times RT       |
+| Busy       | 1.0 times RT | 1.9 times RT      | 2.3 times RT       |
+| Stress     | 0.5 times RT | 0.9 times RT      | 1.1 times RT       |
+
+RT is real time, the capture's own duration. These exclude evidence writes: the corpus tool runs
+B0 and the shadow at about four to five times real time per pass with evidence and the
+determinism repeat, against the bench's 9.2 times without them, so evidence writing roughly
+halves throughput. The factor the work needs is set by the corpus, not the sensor:
+
+| Use                                                  | Capture-hours per arm pass | Needed factor to finish in the stated window                                                                              |
+| ---------------------------------------------------- | -------------------------: | ------------------------------------------------------------------------------------------------------------------------- |
+| E2 decision corpus: 60 passages over three captures  |                  about 1.5 | Any factor over 0.5 times RT finishes four arms and a repeat in a day                                                     |
+| Campaign-scale confirmation: 29 cases, 9.5 h, 4 arms |                        9.5 | At least 2 times RT per pass to fit a two-day window on one Mac, run one case at a time; 4 times to match today's cadence |
+
+So the arm as modelled runs the pilot comfortably on the Mac and runs a campaign at the busy
+sites at the edge of acceptable, single-threaded. Per-track parallelism inside the tracker, or
+running independent cases concurrently with their evidence on the internal disk, which the
+campaign found necessary anyway, doubles it. No Mac hardware change is needed; a GPU is not.
+
+### 11.4 Real time on a device
+
+Real time has two forms. Synchronous: the whole frame fits 98 ms at p99 on the capture path.
+Decoupled: L1 to L4 fits 98 ms on its own core, and the worker averages under 100 ms a frame on
+the remaining cores (async plan, lever A). Per-core speed is relative to the M1, from public
+single-core benchmark ratios, and is approximate: Pi 4 about 0.13, Pi 5 about 0.34, Jetson Orin
+NX about 0.38, an N100 mini PC 0.40 to 0.53.
+
+| Load       | Pi 4, 4 cores             | Pi 5, 4 cores            | Orin NX, 8 cores                    | N100 class, 4 cores                 | M1-class, 8 cores |
+| ---------- | ------------------------- | ------------------------ | ----------------------------------- | ----------------------------------- | ----------------- |
+| kirk0-like | 96 ms, fits               | 37 ms, fits              | 27 ms, fits                         | 28 ms, fits                         | 10 ms, fits       |
+| Ordinary   | 136 ms, no; decoupled yes | 52 ms, fits              | 39 ms, fits                         | 39 ms, fits                         | 15 ms, fits       |
+| Busy       | 440 ms, no; L4 alone 264  | 168 ms, no; L4 alone 101 | 117 ms, no; decoupled yes, L4 at 90 | 127 ms, no; decoupled yes, L4 at 76 | 44 ms, fits       |
+| Stress     | no                        | no                       | no, L4 at 205                       | no, L4 at 173                       | 94 ms, fits       |
+
+The required per-core speed to fit synchronously with three worker cores is 0.18 times the M1 at
+ordinary load, 0.58 at busy, and 1.18 at stress; the serial L1 to L4 path alone needs 0.12, 0.35,
+and 0.79. The hardware profile therefore reads:
+
+- **Pi 4:** not a host for this arm at any load above kirk0's, and at busy sites not a host for
+  L1 to L4 either, if the benchmark ratio holds. The Pi perf cell must be measured before that is
+  stated as fact.
+- **Ordinary sites:** a Pi 5-class four-core ARM board with the decoupled worker suffices, with
+  margin at p95 and little at p99.
+- **Busy urban sites:** a per-core speed of at least 0.4 times the M1 and at least four cores,
+  decoupled, an N100 or Orin NX class; even then L4 sits at 76 to 90 ms at p95 on its core, so
+  the clustering tail decides the frame-drop rate, not the facet arm. Parallelising L4 or a
+  cheaper clusterer on busy frames is the lever there.
+- **Stress scenes:** M-series class, or L4 moved to the worker with the "foreground before L4"
+  profile of the async plan.
+- **GPU:** not warranted. The arm's parallel work is at most about 96,000 residual rows per frame
+  at stress, which one core does in about 2 ms, below the latency of a kernel launch and copy on
+  an integrated GPU. A GPU would pay only for dense per-point work over whole scans or batch
+  processing of many frames offline, neither of which the arm needs, and it would add a cgo
+  dependency the repository does not carry.
+- **RAM:** small. Body-local maps and their trees are 1.8 MiB at 30 live tracks and 18 MiB at
+  300; the decoupled queue is 11 MiB at twenty frames of 8,000 members; patches and graphs are
+  under 1 MiB. The existing 4 to 8 GB Pi configuration is not the constraint and no additional
+  RAM is needed for the arm; evidence writes and the background grid remain the larger users.
+- **Thermal and allocation:** the table assumes sustained clocks. The pipeline allocates 1.9 GB/s
+  on the Mac; on a small board that rate is itself a cost, and pooling per-frame buffers is part
+  of making any of these rows true.
+
+The arm's cost sits mainly in registration, which scales with members times live tracks. The
+cheapest way to buy headroom is not hardware but a lower member budget for registration (the
+256-point sample T0 showed reproduces the near-edge fixes), fewer iterations once converged, and
+hypotheses only where the face identity is open. Those halve the registration column before any
+host is chosen.
