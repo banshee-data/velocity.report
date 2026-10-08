@@ -4,6 +4,7 @@
 package pcapsplit
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -45,6 +46,13 @@ type Analysis struct {
 // timeline and segment writing are separate steps. This is pass 1 of the
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
+	return AnalyseContext(context.Background(), cfg)
+}
+
+// AnalyseContext is Analyse that stops reading when ctx ends, returning its
+// error. A session's motion pass reads gigabytes over minutes; a job that is
+// cancelled, or a server that is stopping, should not wait for the last one.
+func AnalyseContext(ctx context.Context, cfg SplitConfig) (*Analysis, error) {
 	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
 	parserCfg, err := loadAnalysisPandarConfig()
 	if err != nil {
@@ -122,7 +130,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	// Wrap the frame builder so the scan pass captures motor RPM (reported per
 	// packet via SetMotorSpeed); point assembly still flows to the real builder.
 	sb := &statsBuilder{inner: fb}
-	if err := replayForAnalysis(cfg, parser, sb, reader); err != nil {
+	if err := replayForAnalysis(ctx, cfg, parser, sb, reader); err != nil {
 		return nil, err
 	}
 

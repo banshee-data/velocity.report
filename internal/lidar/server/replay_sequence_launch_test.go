@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 )
@@ -267,5 +268,66 @@ func TestStartPCAPLockedSingleFileStillUsesTheFileReader(t *testing.T) {
 	mu.Unlock()
 	if got != 1 {
 		t.Errorf("single-file reader called %d times, want 1", got)
+	}
+}
+
+func TestStartPCAPLockedSingleFileTakesItsTotalFromTheIndex(t *testing.T) {
+	// A single capture the index has probed is not counted before it is
+	// replayed: counting reads the whole file, and the replay then reads it
+	// again.
+	t.Cleanup(restoreDatasourceHandlerSeams())
+	sensorID := "single-file-indexed"
+	ws := launchServer(t, sensorID, "a.pcap")
+	database, cleanup := db.NewTestDB(t)
+	t.Cleanup(cleanup)
+	ws.db = database
+	ws.captureRoots = []string{ws.pcapSafeDir}
+	ws.udpPort = 2368
+	stubCaptureProber(t)
+	payload := doRequest(t, ws, "POST", "/api/lidar/capture/scan", ws.handleCaptureScan)
+	if root := payload["roots"].([]any)[0].(map[string]any); root["state"] != "ok" {
+		t.Fatalf("scan state = %v (%v)", root["state"], root["error"])
+	}
+
+	var mu sync.Mutex
+	counted := 0
+	countPCAPPackets = func(string, int) (network.PCAPCountResult, error) {
+		mu.Lock()
+		counted++
+		mu.Unlock()
+		return network.PCAPCountResult{}, nil
+	}
+	var total uint64
+	readPCAPFile = func(_ context.Context, _ string, _ int, _ network.Parser,
+		_ network.FrameBuilder, _ network.PacketStatsInterface, _ *network.PacketForwarder,
+		_, _ float64, _, totalPackets uint64, _ func(current, total uint64)) error {
+		mu.Lock()
+		total = totalPackets
+		mu.Unlock()
+		return nil
+	}
+	getReplayFrameBuilder = func(string) replayFrameBuilder {
+		return &stubReplayFrameBuilder{}
+	}
+
+	err := ws.startPCAPLockedWithConfig("a.pcap", ReplayConfig{
+		AnalysisMode:     true,
+		DisableRecording: true,
+		SpeedMode:        "analysis",
+		SensorID:         sensorID,
+		DurationSeconds:  -1,
+	})
+	if err != nil {
+		t.Fatalf("startPCAPLockedWithConfig(): %v", err)
+	}
+	waitForPCAPDone(t, ws)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if counted != 0 {
+		t.Errorf("counted the capture %d times, want its total from the index", counted)
+	}
+	if total != 540000 {
+		t.Errorf("replay total = %d, want the index's 540000", total)
 	}
 }
