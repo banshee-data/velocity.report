@@ -22,6 +22,13 @@ The legacy `off`/`on` profiles remain explicit compatibility choices; `off` stay
 installation default. Routine admin includes configuration, report creation and
 export, while HTTP maintenance and access management remain disabled in hardened mode.
 
+Following #503's original review, every listener (main HTTP, Serve backend,
+alternate LiDAR HTTP and gRPC) drops connections from the host while tailscaled
+forwards to its port through a Serve handler the manager did not install: such a
+forward carries client-written forwarding and capability headers. The image unit
+selects the profile through `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in
+survives later changes to its command line.
+
 OS CLI enrolment, persistent systemd activation and rollback are documented in the
 [operator runbook](../platform/operations/tailscale-remote-access.md#hardened-profile).
 Local tests and builds are software evidence; the Pi/live-tailnet acceptance matrix
