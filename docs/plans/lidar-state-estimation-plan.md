@@ -505,7 +505,8 @@ error rather than waiting for the full model.
 ### 3.1 Method
 
 A synthetic Hesai Pandar40P was modelled: 0.2 degree azimuth steps, fourteen elevation rings
-spanning the dense band, sensor at the origin 3 m above the road. A 4.5 x 1.8 x 1.5 m box vehicle
+spanning the dense band, sensor at the origin 3 m above the road (the deployed sensor sits about
+2.3 m up). A 4.5 x 1.8 x 1.5 m box vehicle
 travels in a dead-straight line at exactly 12.0 m/s past the sensor at 5 m lateral offset, sampled
 every 100 ms. Returns are generated only on faces the sensor can see, by slab intersection. Frames
 18 to 20 have a 1.2 degree azimuth wedge deleted to model a foreground occluder.

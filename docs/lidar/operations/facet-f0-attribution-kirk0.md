@@ -211,7 +211,9 @@ at least three since the last change. Report `measurement_rank`, `fallback_reaso
 
 **Return budget against the synthetic model.** For every scored instant, compare `returns` with the
 synthetic prediction at the same range and aspect, using the deployed ring table and the
-mount height recorded for kirk0's deployment (if none is recorded, use 3 m and say so):
+recorded mount height: the sensor sits about 2.3 m above the road at kirk0 and every site
+([hardware](../../../.github/knowledge/hardware.md#mounting)). The first run used 3 m before the
+height was recorded; its report gives both.
 
 ```text
 N_pred(r, a) = rings_on_body(r) * (L sin a + W cos a) / (r * 0.2 deg in radians)
@@ -283,7 +285,7 @@ pair carries every reading in Section 6 except the two named for them.
   centimetres floors every residual, and a partly seen face gives a lower bound on where it ends.
 - Nineteen objects on one capture, one placement, one day. Intervals resample objects and will be
   wide; a reading that depends on a handful of objects is reported with their count.
-- The return-budget comparison assumes a mount height; the report states the value used.
+- The return-budget comparison depends on the mount height; the report states the value used.
 - Update cost is not measured here. The campaign's timing figures stand.
 
 ## 9. What this run sets up, and does not do

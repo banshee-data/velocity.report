@@ -28,7 +28,7 @@ A **ground plane extraction subsystem** within L4 Perception that models the roa
 
 ### Motivation
 
-The current L4 `HeightBandFilter` ([internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)) removes ground returns using fixed Z-band thresholds (floor at −2.8 m, ceiling at +1.5 m for a ~3 m sensor mount). This approach has limitations:
+The current L4 `HeightBandFilter` ([internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)) removes ground returns using fixed Z-band thresholds (floor at −2.8 m, ceiling at +1.5 m, chosen for a ~3 m sensor mount; the deployed sensor sits ~2.3 m above the road, where the floor is about 0.5 m below the road surface). This approach has limitations:
 
 1. **No geometric surface model**: The filter discards ground points but doesn't model the surface itself. Height-above-ground measurements require a reference plane for accurate object classification (e.g., distinguishing pedestrians from vehicles).
 2. **Fixed thresholds vulnerable to terrain variation**: San Francisco's hilly streets exhibit significant slope and curvature; a fixed floor height misclassifies points on steep grades.
@@ -558,7 +558,7 @@ Feature `properties` include:
 
 | Property       | Type     | Description                     |
 | -------------- | -------- | ------------------------------- |
-| `z_offset`     | float    | Ground height (e.g. −2.85 m)    |
+| `z_offset`     | float    | Ground height (e.g. −2.3 m)     |
 | `plane_normal` | [3]float | Unit normal vector (nx, ny, nz) |
 | `planarity`    | float    | Planarity score (0–1)           |
 | `point_count`  | int      | Observation count               |
