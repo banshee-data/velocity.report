@@ -174,13 +174,15 @@ var viewRoutes = map[string]struct{}{
 // viewRoutesGetOnly is the allowlist of paths where GET/HEAD/OPTIONS
 // require CapView but write methods require CapAdmin.  Used for
 // REST collections that mix read and write under one mux entry
-// (e.g. /api/sites, /api/reports/).
+// (e.g. /api/sites, /api/reports/), and for the offline docs.
 var viewRoutesGetOnly = []string{
 	"/api/sites",
 	"/api/sites/",
 	"/api/site_config_periods",
 	"/api/reports",
 	"/api/reports/",
+	"/docs",
+	"/docs/",
 }
 
 // authAllowlist is the set of paths exempted from cap checks

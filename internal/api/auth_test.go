@@ -347,7 +347,8 @@ func TestClassifyRoute(t *testing.T) {
 		{"/debug/db/backup", "POST", true, CapAdmin},      // db admin routes
 		{"/api/lidar/runs/", "GET", true, CapAdmin},       // lidar routes default to admin
 		{"/api/totally-new-route", "GET", true, CapAdmin}, // future routes default-deny
-		{"/docs/", "GET", true, CapAdmin},                 // docsite — admin by default
+		{"/docs/", "GET", true, CapView},                  // offline docs: viewers read them
+		{"/docs/guides/setup", "POST", true, CapAdmin},    // and write nothing
 	}
 	for _, tc := range cases {
 		t.Run(tc.path+" "+tc.method, func(t *testing.T) {
