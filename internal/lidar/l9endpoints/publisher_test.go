@@ -2,7 +2,9 @@
 package l9endpoints
 
 import (
+	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -94,6 +96,48 @@ func TestPublisher_StartStop(t *testing.T) {
 
 	// Stop again should be safe
 	pub.Stop()
+}
+
+// WrapListener sees the bound listener, and the gRPC server serves through
+// what it returns, which is how access.GuardListener reaches it.
+func TestPublisher_WrapListenerServesThroughTheWrapper(t *testing.T) {
+	var accepted atomic.Int32
+	cfg := Config{ListenAddr: "localhost:0", WrapListener: func(l net.Listener) net.Listener {
+		return &acceptCounter{Listener: l, n: &accepted}
+	}}
+	pub := NewPublisher(cfg)
+	if err := pub.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer pub.Stop()
+	if _, ok := pub.listener.(*acceptCounter); !ok {
+		t.Fatalf("listener is %T, want the wrapper", pub.listener)
+	}
+	c, err := net.DialTimeout("tcp", pub.listener.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	deadline := time.Now().Add(2 * time.Second)
+	for accepted.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if accepted.Load() == 0 {
+		t.Fatal("the server did not accept through the wrapper")
+	}
+}
+
+type acceptCounter struct {
+	net.Listener
+	n *atomic.Int32
+}
+
+func (l *acceptCounter) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err == nil {
+		l.n.Add(1)
+	}
+	return c, err
 }
 
 func TestPublisher_StartWithServiceRegistersBeforeServe(t *testing.T) {

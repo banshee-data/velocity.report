@@ -303,6 +303,19 @@ func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterfa
 	return api.NewSerialPortManager(database, current, snapshot, runtimeSerialFactory(reloadEnabled))
 }
 
+// listenerGuard returns a wrapper for each named listener that refuses local
+// connections while tailscaled forwards to it through a Serve handler the
+// manager did not install (access.GuardListener).  With enforcement off the
+// wrappers leave the listeners as they are: that profile trusts every caller.
+func listenerGuard(mode api.CapEnforcement, forwards access.ServeForwards) func(name string) func(net.Listener) net.Listener {
+	return func(name string) func(net.Listener) net.Listener {
+		if mode == api.EnforcementOff || forwards == nil {
+			return nil
+		}
+		return func(l net.Listener) net.Listener { return access.GuardListener(l, forwards, name) }
+	}
+}
+
 // Main
 // tailscaleServeTarget derives the loopback HTTP URL that `tailscale serve`
 // should proxy to from the server's --listen address, so the published HTTPS
@@ -562,6 +575,21 @@ func Main(args []string) int {
 	defer stop()
 	httpFailure := make(chan error, 1)
 
+	// Tailscale lifecycle manager: drives tailscaled on opt-in, caches the
+	// IPN bus login URL, and applies the device policy (Tailscale SSH on,
+	// tailscale serve publishing the local Go server on :443 of the tailnet)
+	// once the node is up.  It exists before any listener binds, so each
+	// listener can refuse local connections while tailscaled forwards to it
+	// through a Serve handler this manager did not install.
+	tsOptions := []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*listen))}
+	if capMode == api.EnforcementHardened {
+		tsOptions = []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*tsServeListen)), tailscale.WithServeCapabilities()}
+	}
+	tsManager := tailscale.New(tsOptions...)
+	tsManager.Start(ctx)
+	defer tsManager.Stop()
+	guard := listenerGuard(capMode, tsManager)
+
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
 
@@ -685,6 +713,7 @@ func Main(args []string) int {
 				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
+				vizConfig.WrapListener = guard("gRPC server")
 				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
@@ -962,6 +991,7 @@ func Main(args []string) int {
 				}
 			},
 		})
+		lidarServer.SetListenerWrapper(guard("LiDAR HTTP server"))
 		// A VRLOG that plays to its end stays loaded and stays the data source.
 		// Only the replay slot is released, so another replay can start; the
 		// recording remains on screen at its final frame and the visualiser's
@@ -1151,23 +1181,15 @@ func Main(args []string) int {
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
-		// Tailscale lifecycle manager: drives tailscaled on opt-in,
-		// caches the IPN bus login URL, and applies the device policy
-		// (Tailscale SSH on, tailscale serve publishing the local Go
-		// server on :443 of the tailnet) once the node is up.
-		tsOptions := []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*listen))}
 		if capMode == api.EnforcementHardened {
-			tsOptions = []tailscale.Option{tailscale.WithServeTarget(tailscaleServeTarget(*tsServeListen)), tailscale.WithServeCapabilities()}
 			apiServer.SetServeListen(*tsServeListen)
 		}
-		tsManager := tailscale.New(tsOptions...)
-		tsManager.Start(ctx)
-		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
 
 		// Off/on retain compatibility. Hardened applies named permissions to
 		// anonymous LAN and verified Tailscale callers, with OS-local recovery.
 		apiServer.SetAuthGate(tsManager, capMode)
+		apiServer.SetServeForwards(tsManager)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// It was created before the LiDAR server started, whose startup moves

@@ -29,6 +29,10 @@ type Config struct {
 
 	// BackgroundInterval is how often to send background snapshots (default: 30s)
 	BackgroundInterval time.Duration
+
+	// WrapListener, if set, wraps the listener once it is bound, such as
+	// with access.GuardListener.
+	WrapListener func(net.Listener) net.Listener
 }
 
 // DefaultConfig returns a default configuration.
@@ -377,6 +381,9 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 	diagf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
+	if p.config.WrapListener != nil {
+		lis = p.config.WrapListener(lis)
+	}
 	p.listener = lis
 
 	// Configure max message size for large point clouds (64k+ points).

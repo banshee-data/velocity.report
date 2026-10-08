@@ -41,7 +41,9 @@ type Server struct {
 	// server.
 	mux *http.ServeMux
 	// serveListen is a separate loopback-only backend for verified Serve claims.
-	serveListen      string
+	serveListen string
+	// serveForwards guards the listeners against unmanaged Serve forwards.
+	serveForwards    access.ServeForwards
 	routePermissions []routePermission
 }
 
@@ -135,6 +137,20 @@ func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 	} else if s.authGate.mode == EnforcementHardened {
 		log.Print("auth: operation enforcement armed (mode=hardened)")
 	}
+}
+
+// SetServeForwards lets the listeners refuse connections from this host while
+// tailscaled forwards to them through a Serve handler velocity.report did not
+// install (see access.GuardListener).  It applies when enforcement is on or
+// hardened; with enforcement off nothing is checked.  Call before Start.
+func (s *Server) SetServeForwards(f access.ServeForwards) { s.serveForwards = f }
+
+// guardListener wraps l with the Serve-forward guard when enforcement is on.
+func (s *Server) guardListener(l net.Listener, name string) net.Listener {
+	if s.serveForwards == nil || s.authGate == nil || s.authGate.mode == EnforcementOff {
+		return l
+	}
+	return access.GuardListener(l, s.serveForwards, name)
 }
 
 // viewRoutes is the allowlist of read-only endpoints that should
@@ -440,6 +456,8 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		}
 	}
 
+	listener = s.guardListener(listener, "HTTP server")
+
 	// Store debug mode for use in handlers
 	s.debugMode = devMode
 
@@ -584,6 +602,7 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		if err != nil {
 			return fmt.Errorf("Serve backend: %w", err)
 		}
+		backendListener = s.guardListener(backendListener, "Serve backend")
 		defer backendListener.Close()
 		backend = &http.Server{Handler: LoggingMiddleware(s.hardenedWrapper(mux, true))}
 		defer backend.Close()

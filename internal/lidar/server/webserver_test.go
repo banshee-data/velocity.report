@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -4727,6 +4728,56 @@ func TestStart_OnReadyRunsOnceServing(t *testing.T) {
 		t.Fatalf("Start returned %v before ready", err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("ready hook never ran")
+	}
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Errorf("Start returned %v after shutdown", err)
+	}
+}
+
+// countingListener counts the connections it hands to the server.
+type countingListener struct {
+	net.Listener
+	accepted atomic.Int32
+}
+
+func (l *countingListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err == nil {
+		l.accepted.Add(1)
+	}
+	return c, err
+}
+
+// The listener wrapper sees the bound listener and serves through what it
+// returns, which is how access.GuardListener reaches this server.
+func TestStart_ListenerWrapperServesThroughTheWrapper(t *testing.T) {
+	srv := NewServer(Config{Address: "127.0.0.1:0", Stats: NewPacketStats()})
+	srv.setTestSourcePCAPReplaying()
+	wrapped := make(chan *countingListener, 1)
+	srv.SetListenerWrapper(func(l net.Listener) net.Listener {
+		c := &countingListener{Listener: l}
+		wrapped <- c
+		return c
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(ctx) }()
+	var l *countingListener
+	select {
+	case l = <-wrapped:
+	case err := <-errCh:
+		t.Fatalf("Start returned %v before wrapping", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the wrapper was never called")
+	}
+	response, err := (&http.Client{Timeout: 2 * time.Second}).Get("http://" + l.Addr().String() + "/health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if l.accepted.Load() == 0 {
+		t.Fatal("the server did not accept through the wrapper")
 	}
 	cancel()
 	if err := <-errCh; err != nil {
