@@ -7,8 +7,8 @@ package l4perception
 // IMPORTANT — coordinate frame: unless a real sensor→world pose transform
 // is applied beforehand, Z=0 is the sensor's horizontal plane, NOT the
 // ground surface. Filter bounds must be expressed in the same frame as the
-// input points. For a sensor mounted ~3 m above ground level with an
-// identity pose, the ground surface sits at approximately Z = −3.0 m.
+// input points. The deployed sensor sits ~2.3 m above the road, so with an
+// identity pose the road surface is at approximately Z = −2.3 m.
 type GroundRemover interface {
 	// FilterVertical returns only points within the valid detection zone,
 	// discarding ground plane and overhead structure returns.
@@ -19,8 +19,9 @@ type GroundRemover interface {
 // Designed for street scenes with approximately level terrain where valid objects
 // (vehicles, pedestrians, cyclists) occupy a known vertical band.
 //
-// When operating in sensor frame (identity pose), typical values for a sensor
-// mounted ~3 m above road level are floor ≈ −2.8 m and ceiling ≈ +1.5 m.
+// The defaults, floor −2.8 m and ceiling +1.5 m in sensor frame (identity
+// pose), were chosen for a ~3 m mount; see DefaultHeightBandFilter for what
+// they mean at the deployed ~2.3 m.
 type HeightBandFilter struct {
 	// FloorHeightM defines the lower bound (metres in the input frame).
 	// Points below this are assumed to be road surface returns.
@@ -38,9 +39,8 @@ type HeightBandFilter struct {
 }
 
 // NewHeightBandFilter constructs a vertical filter with floor and ceiling bounds.
-// Bounds are in the same coordinate frame as the input points. For sensor-frame
-// operation with a ~3 m mount height, recommended defaults are floor=−2.8 m,
-// ceiling=+1.5 m.
+// Bounds are in the same coordinate frame as the input points. The shipped
+// defaults are floor=−2.8 m, ceiling=+1.5 m; see DefaultHeightBandFilter.
 func NewHeightBandFilter(floorM, ceilingM float64) *HeightBandFilter {
 	return &HeightBandFilter{
 		FloorHeightM:   floorM,
@@ -48,11 +48,15 @@ func NewHeightBandFilter(floorM, ceilingM float64) *HeightBandFilter {
 	}
 }
 
-// DefaultHeightBandFilter returns a filter configured for a sensor mounted
-// approximately 3 m above road level, operating in sensor frame (identity
-// pose, Z=0 at the sensor's horizontal plane):
-//   - Floor at −2.8 m (≈ 0.2 m above road surface, excludes ground returns)
+// DefaultHeightBandFilter returns the shipped band in sensor frame (identity
+// pose, Z=0 at the sensor's horizontal plane), chosen for a sensor mounted
+// approximately 3 m above road level:
+//   - Floor at −2.8 m (≈ 0.2 m above the road at a 3 m mount)
 //   - Ceiling at +1.5 m (includes tall trucks, excludes overhead structures)
+//
+// The deployed sensor sits ~2.3 m above the road, where the floor is about
+// 0.5 m below the road surface, so it does not exclude road returns, and the
+// ceiling is 3.8 m above the road.
 func DefaultHeightBandFilter() *HeightBandFilter {
 	return NewHeightBandFilter(-2.8, 1.5)
 }

@@ -103,7 +103,7 @@ handle them or declare and test suppression. Report empty strata.
 
 Predeclare the sparse-tail strata before E1 and report them separately in every arm: range at or
 beyond 50 m; fewer than 60 returns on the object; folded aspect within 20 degrees of end-on; and
-any frame in which an extent end is labelled occluded. On the deployed ring table and a 3 m mount,
+any frame in which an extent end is labelled occluded. On the deployed ring table and 2.3 m mount,
 an end face drops below the near-edge model's eight-return floor at about 80 m and a side beyond
 100 m, so the range bins are 20 to 50 m, 50 to 80 m, and beyond 80 m. Label every extent end of
 every evidence frame as physical, occluded, field of view, or dropout by casting the reviewed body

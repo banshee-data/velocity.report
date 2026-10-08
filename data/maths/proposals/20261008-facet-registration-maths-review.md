@@ -269,32 +269,46 @@ The sag across a 4.5 m face (check 12):
 |         10 m |           -15° |              0.07 m |
 |         20 m |            -5° |              0.01 m |
 
-At 5 m only the two steepest rings strike a 1.5 m face. A three-dimensional straight-line fit to
+At the deployed 2.3 m mount seven rings, from -9.6 to -24.6 degrees, strike a 1.5 m face at 5 m,
+each with its own sag; at 3 m only the two steepest would. A three-dimensional straight-line fit to
 such a strand, or a planarity test on a patch spanning rings, would reject a flat door panel near
 the sensor. E1's line fragments must be fitted in plan view, or against the cone, and the
 non-planarity threshold for patches must allow this known sag. This is a repository-specific
-consequence of a 3 m mount and the Pandar40P ring table, not a property of lidar in general.
+consequence of the 2.3 m mount and the Pandar40P ring table, not a property of lidar in general.
 
 ## 5. The sparse tail
 
 ### 5.1 Return budget on the deployed ring table
 
-A 4.5 by 1.8 by 1.5 m box on a flat road, sensor 3 m up, azimuth step 0.2 degrees, the real
-Pandar40P elevation table (check 2):
+A 4.5 by 1.8 by 1.5 m box on a flat road, sensor 2.3 m up (the deployed height), azimuth step 0.2
+degrees, the real Pandar40P elevation table (check 2). The first version of this table assumed a
+3 m mount. At 2.3 m the ring counts change at 10, 20 and 100 m. From 30 to 80 m a different set of
+rings strikes the body, but as many of them, so the returns are unchanged; the largest gap moves
+by at most 3 mm, enough to round 80 m's from 0.48 to 0.47 m.
 
 | Range | Rings on the body | Returns per ring, side | Returns per ring, end | Side returns | End returns | Largest ring gap on the face |
 | ----: | ----------------: | ---------------------: | --------------------: | -----------: | ----------: | ---------------------------: |
-|  10 m |                 6 |                    129 |                    52 |          773 |         309 |                       0.21 m |
-|  20 m |                 7 |                     65 |                    26 |          451 |         180 |                       0.35 m |
+|  10 m |                11 |                    129 |                    52 |        1,418 |         567 |                       0.21 m |
+|  20 m |                11 |                     65 |                    26 |          709 |         284 |                       0.12 m |
 |  30 m |                 8 |                     43 |                    17 |          344 |         138 |                       0.18 m |
 |  40 m |                 6 |                     32 |                    13 |          193 |          77 |                       0.24 m |
 |  50 m |                 5 |                     26 |                    10 |          129 |          52 |                       0.30 m |
 |  60 m |                 4 |                     22 |                     9 |           86 |          34 |                       0.36 m |
-|  80 m |                 3 |                     16 |                     6 |           48 |          19 |                       0.48 m |
-| 100 m |                 3 |                     13 |                     5 |           39 |          15 |                       0.59 m |
+|  80 m |                 3 |                     16 |                     6 |           48 |          19 |                       0.47 m |
+| 100 m |                 2 |                     13 |                     5 |           26 |          10 |                       0.59 m |
 
-Three things follow. The number of rings on the body is not monotonic in range, because the dense
-band of the table sits around the horizon and sweeps across the body between 20 and 40 m. The
+The table counts every ring from the road to the roof. That matches the live height band on level
+road at 2.3 m, whose -2.8 m floor sits below the road and clips nothing. The slope-aware surface
+clip, with its floor 0.2 m above the fitted surface, would remove one ring at 10, 30, 40 and 60 m:
+end returns at 60 m fall from 34 to 26, and check 7's expected support there from 24.1 to 18.0,
+still above eight. On a down-slope the absolute band removes far more; at Marina's grade its floor
+is 0.8 m above the road 30 m down. The first version had the same premise: at 3 m the band's floor
+sat 0.2 m above the road and was not counted either.
+
+Three things follow. The number of rings on the body peaks where the dense band of the table,
+which sits around the horizon, crosses the body: by 10 to 20 m at this mount, with 11 rings (at
+3 m it crossed between 20 and 40 m). Beyond that the count falls with range, apart from
+single-ring steps up as the next ring enters. The
 ring gap stays below the DBSCAN `foreground_dbscan_eps` of 0.8 m to 100 m, so vertical ring
 spacing does not split a vehicle at the ranges the corpus covers; membership failures at range
 have other causes. And the near-edge support floor of eight returns is marginal for an end face
@@ -484,26 +498,28 @@ labels, six degrees of freedom, and a general factor graph.
 
 Twelve arithmetic checks were run for this note with the script `facet_checks.py`, kept in the
 session scratch area and not committed; the inputs and expected results are recorded here so they
-can be promoted to fixture-backed tests before any implementation. They are equation checks, not
+can be promoted to fixture-backed tests before any implementation. Checks 2 and 12 were rerun on
+2026-10-08 at the recorded 2.3 m mount, after first reproducing the 3 m figures; check 7's ranges
+are unchanged by it. They are equation checks, not
 a sensor simulation or a tracker test.
 
-| Check | Inputs                                                                               | Verified result                                                                |
-| ----: | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-|     1 | Side at `y = 0.9`, normal `(0, 1)`, support `u = -2..2`, unit weights                | Information diagonal 0, 5, 10; tangent null                                    |
-|     1 | Same side split into four patches, twenty returns                                    | Diagonal 0, 20, 29.47; rank 2                                                  |
-|     1 | Side plus three returns on a rear face at `x = -2.25`                                | `H_xx = 3`; rank 3                                                             |
-|     1 | Twenty normals perturbed uniformly within one degree, seed 20261008                  | `H_xx = 0.0024` against the expected 0.0020                                    |
-|     2 | 4.5 by 1.8 by 1.5 m box, 3 m mount, 0.2 degree azimuth, Pandar40P table, 10 to 100 m | Rings 6, 7, 8, 6, 5, 4, 3, 3; end returns 309 down to 15; ring gap under 0.6 m |
-|     3 | `sigma_r = 0.02 m`, `N = 3, 8, 20, 100`                                              | Plane sigma 11.5, 7.1, 4.5, 2.0 mm; prior to plane ratio 28 at `N = 8`         |
-|     4 | Strand yaw bound at 20, 50, 80 m, incidence 0 to 70 degrees                          | 0.11 to 0.79 degrees                                                           |
-|     5 | 4.5 m body at 10, 20, 50 m; 10 Hz sweep                                              | Sweep 7.2, 3.6, 1.4 ms; smear 7.2, 3.6, 1.4 cm at 10 m/s                       |
-|     6 | 100 repeats at correlation 0.9; 20 at 0.5; 10 at 0                                   | `n_eff` 1.110, 1.905, 10                                                       |
-|     7 | Expected end-face support with detection probability 0.7 at 40, 60, 80 m             | 54.1, 24.1, 13.5 returns; `P(N < 8)` 0, 0, 0.041                               |
-|     8 | Quarter and half of a 4.5 m side hidden; quarter of a 1.8 m end                      | Midpoint bias 0.562, 1.125, 0.225 m                                            |
-|     9 | Gap 10 m, speed 10 m/s, gap error 0.5 m, speed error 1 m/s                           | Time-gap error 0.05 s and 0.1 s                                                |
-|    10 | Azimuth step at 20, 30, 50 m                                                         | Resolved-edge tangential sigma 2.0, 3.0, 5.0 cm                                |
-|    11 | Plane sigma 0.05 m, width sigma 0.4 m, correlation 0, 0.5, -0.5                      | Centre sigma 0.206, 0.229, 0.180 m                                             |
-|    12 | Ring sag across a 4.5 m face at 5, 10, 20 m for elevations -5 to -24.6 degrees       | 0.011 to 0.221 m; rings between -31 and -16.7 degrees strike the face at 5 m   |
+| Check | Inputs                                                                                 | Verified result                                                                                                                                     |
+| ----: | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     1 | Side at `y = 0.9`, normal `(0, 1)`, support `u = -2..2`, unit weights                  | Information diagonal 0, 5, 10; tangent null                                                                                                         |
+|     1 | Same side split into four patches, twenty returns                                      | Diagonal 0, 20, 29.47; rank 2                                                                                                                       |
+|     1 | Side plus three returns on a rear face at `x = -2.25`                                  | `H_xx = 3`; rank 3                                                                                                                                  |
+|     1 | Twenty normals perturbed uniformly within one degree, seed 20261008                    | `H_xx = 0.0024` against the expected 0.0020                                                                                                         |
+|     2 | 4.5 by 1.8 by 1.5 m box, 2.3 m mount, 0.2 degree azimuth, Pandar40P table, 10 to 100 m | Rings 11, 11, 8, 6, 5, 4, 3, 2; end returns 567 down to 10; ring gap under 0.6 m (at 3 m: rings 6, 7, 8, 6, 5, 4, 3, 3; end returns 309 down to 15) |
+|     3 | `sigma_r = 0.02 m`, `N = 3, 8, 20, 100`                                                | Plane sigma 11.5, 7.1, 4.5, 2.0 mm; prior to plane ratio 28 at `N = 8`                                                                              |
+|     4 | Strand yaw bound at 20, 50, 80 m, incidence 0 to 70 degrees                            | 0.11 to 0.79 degrees                                                                                                                                |
+|     5 | 4.5 m body at 10, 20, 50 m; 10 Hz sweep                                                | Sweep 7.2, 3.6, 1.4 ms; smear 7.2, 3.6, 1.4 cm at 10 m/s                                                                                            |
+|     6 | 100 repeats at correlation 0.9; 20 at 0.5; 10 at 0                                     | `n_eff` 1.110, 1.905, 10                                                                                                                            |
+|     7 | Expected end-face support with detection probability 0.7 at 40, 60, 80 m               | 54.1, 24.1, 13.5 returns; `P(N < 8)` 0, 0, 0.041                                                                                                    |
+|     8 | Quarter and half of a 4.5 m side hidden; quarter of a 1.8 m end                        | Midpoint bias 0.562, 1.125, 0.225 m                                                                                                                 |
+|     9 | Gap 10 m, speed 10 m/s, gap error 0.5 m, speed error 1 m/s                             | Time-gap error 0.05 s and 0.1 s                                                                                                                     |
+|    10 | Azimuth step at 20, 30, 50 m                                                           | Resolved-edge tangential sigma 2.0, 3.0, 5.0 cm                                                                                                     |
+|    11 | Plane sigma 0.05 m, width sigma 0.4 m, correlation 0, 0.5, -0.5                        | Centre sigma 0.206, 0.229, 0.180 m                                                                                                                  |
+|    12 | Ring sag across a 4.5 m face at 5, 10, 20 m for elevations -5 to -24.6 degrees         | 0.011 to 0.221 m; rings between -24.7 and -9.1 degrees strike the face at 5 m at the 2.3 m mount (-31 to -16.7 at 3 m)                              |
 
 Checks 1, 6, 9, and 11 reproduce or extend the visibility-aware note's own checks and agree with
 them.

@@ -7,7 +7,8 @@ pack: four arms replayed from one build, scored against 3,151 labelled instants 
 stratified and joined to face entries. Every number here is a tuning score on the capture the
 shadow work was developed on.
 
-- **Status:** Complete, 2026-10-08. Tuning split only; Step 6 not run (the pack has no physical
+- **Status:** Complete, 2026-10-08; Section 4.5 revised the same day for the recorded 2.3 m
+  mount. Tuning split only; Step 6 not run (the pack has no physical
   references), so the attribution gate is bounded, not closed
 - **Layers:** L4 geometric evidence, L5 estimation, L8 analytics, offline evaluation
 - **Related:** [F0 protocol](facet-f0-attribution-kirk0.md), [facet registration plan](../../plans/lidar-facet-registration-experiment-plan.md), [near-edge tracked state](../../plans/lidar-near-edge-tracked-state-plan.md) (F9), [near-face evaluation](near-face-evaluation.md), [per-frame evaluation](per-frame-evaluation.md), [October campaign](near-edge-campaign-2026-10.md)
@@ -31,16 +32,16 @@ the extents are "evidence" extents, accumulated from what the sensor saw.
 
 The predeclared readings, in the protocol's order:
 
-| Question                                 | Result                                                                                                     | Reading                                                                                                                                                      |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Does the extent prior own the end error? | Prior 1.20 m mean absolute (43 instants, 4 objects) against evidence 1.65 m (630, 16): ratio 0.73          | Under 1.25, so by the rule edge localisation is in play and arm D keeps its case. The rule's premise fails here; see [Section 4.1](#41-the-attribution-gate) |
-| Is the end tangent a real error?         | Control end-tangent p95 absolute 2.03 m (280 instants); cars alone 1.10 m                                  | Over 0.3 m: the error a rank-one fix leaves is material                                                                                                      |
-| Is the lateral-entry tail accuracy?      | End tangent worse at entry in all four arms (+0.16 to +0.62 m); interval excludes zero only for control    | Not settled. No arm is worse by more than its interval width                                                                                                 |
-| Where does the sparse tail begin here?   | End exposure 53 % and 59 % below 50 m, 15 % at 50 to 80 m; 38 % of masks there under 8 returns             | Onset in the 50 to 80 m bin, consistent with the review's 60 to 80 m. The loss is fallback and non-association, not unseen ends                              |
-| Is the synthetic sampling model usable?  | `returns / N_pred` median 1.71 below 20 m (337 instants, 10 cars), 0.31 at 20 to 50 m (13 instants, 1 car) | Falling with range, a factor of 5.5: the generator needs a dropout model before E1 trusts it at range. One car carries the far bin; this reading is weak     |
-| Does T5 pull centres toward the sensor?  | `track_t5` minus `track`: end −0.059 m [−0.126, 0.000], side +0.009 m [−0.013, +0.033]                     | No shift beyond the interval: T5 is harmless on labelled faces and still not worth keeping                                                                   |
-| Does A2's gate protect identity?         | `track_a1` minus `track`: ID switches +99 (100 to 199), fragmentations +5, IDF1 −0.053                     | More switches and fragmentations under A1 confirm the campaign's reading on labels                                                                           |
-| Does the tracked arm beat the shadow?    | `track` minus control end-normal mean absolute −0.130 m [−0.219, −0.017]; side −0.041 m [−0.105, +0.030]   | A paired end-face improvement with an interval excluding zero: the first label-backed evidence for A2. No sparse-tail regression. Identity costs beside it   |
+| Question                                 | Result                                                                                                                                  | Reading                                                                                                                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Does the extent prior own the end error? | Prior 1.20 m mean absolute (43 instants, 4 objects) against evidence 1.65 m (630, 16): ratio 0.73                                       | Under 1.25, so by the rule edge localisation is in play and arm D keeps its case. The rule's premise fails here; see [Section 4.1](#41-the-attribution-gate)                                         |
+| Is the end tangent a real error?         | Control end-tangent p95 absolute 2.03 m (280 instants); cars alone 1.10 m                                                               | Over 0.3 m: the error a rank-one fix leaves is material                                                                                                                                              |
+| Is the lateral-entry tail accuracy?      | End tangent worse at entry in all four arms (+0.16 to +0.62 m); interval excludes zero only for control                                 | Not settled. No arm is worse by more than its interval width                                                                                                                                         |
+| Where does the sparse tail begin here?   | End exposure 53 % and 59 % below 50 m, 15 % at 50 to 80 m; 38 % of masks there under 8 returns                                          | Onset in the 50 to 80 m bin, consistent with the review's 60 to 80 m. The loss is fallback and non-association, not unseen ends                                                                      |
+| Is the synthetic sampling model usable?  | `returns / N_pred` median 0.65 below 20 m (337 instants, 10 cars), 0.29 at 20 to 50 m (13 instants, 1 car), at the recorded 2.3 m mount | Falling with range, a factor of 2.3 (5.5 at the 3 m first assumed): over 1.5, so the generator needs a dropout model before E1 trusts it at range. One car carries the far bin; this reading is weak |
+| Does T5 pull centres toward the sensor?  | `track_t5` minus `track`: end −0.059 m [−0.126, 0.000], side +0.009 m [−0.013, +0.033]                                                  | No shift beyond the interval: T5 is harmless on labelled faces and still not worth keeping                                                                                                           |
+| Does A2's gate protect identity?         | `track_a1` minus `track`: ID switches +99 (100 to 199), fragmentations +5, IDF1 −0.053                                                  | More switches and fragmentations under A1 confirm the campaign's reading on labels                                                                                                                   |
+| Does the tracked arm beat the shadow?    | `track` minus control end-normal mean absolute −0.130 m [−0.219, −0.017]; side −0.041 m [−0.105, +0.030]                                | A paired end-face improvement with an interval excluding zero: the first label-backed evidence for A2. No sparse-tail regression. Identity costs beside it                                           |
 
 What this does not establish: anything held out, anything about the far side of a body or the
 along-path error where no end is visible (Step 6 had no physical references to score), and
@@ -313,24 +314,29 @@ tracks it.
 ### 4.5 Synthetic sampling model
 
 Cars only, control instants, `N_pred(r, a) = rings_on_body(r) * (L sin a + W cos a) / (r * 0.2°)`
-with L = 4.5 m, W = 1.8 m, the Pandar40P's 40-channel elevation table, and a 1.5 m body under a
-3 m mount. No mount height is recorded for kirk0; 3 m is the protocol's default, and the pack's
-height band (floor 2.8 m below the sensor) is consistent with it.
+with L = 4.5 m, W = 1.8 m, the Pandar40P's 40-channel elevation table, and a 1.5 m body under the
+sensor's 2.3 m mount, its height above the road at kirk0 and every site
+([hardware](../../../.github/knowledge/hardware.md#mounting)). kirk0's settled background agrees:
+within 15 m of the sensor its road returns lie at −2.2 to −2.3 m. The run first used the
+protocol's 3 m default, before the height was recorded; both are given, 3 m in brackets. The
+model counts every ring from the road to the roof. That holds on kirk0, where the height band's
+−2.8 m floor sits below the road and clips no body returns; under the slope-aware surface clip,
+whose floor is 0.2 m above the road, a near body would lose one of its 11 rings.
 
 | Range   | Instants (objects) | Rings on a 1.5 m body at bin centre | `returns / N_pred` median | IQR       |
 | ------- | -----------------: | ----------------------------------: | ------------------------: | --------- |
-| < 20 m  |           337 (10) |                                   6 |                      1.71 | 0.97–2.15 |
-| 20–50 m |             13 (1) |                                   7 |                      0.31 | 0.30–0.31 |
-| 50–80 m |              0 (0) |                                   4 |                         – | –         |
-| ≥ 80 m  |              0 (0) |                                   3 |                         – | –         |
+| < 20 m  |           337 (10) |                              11 (6) |               0.65 (1.71) | 0.50–0.86 |
+| 20–50 m |             13 (1) |                               8 (7) |               0.29 (0.31) | 0.27–0.31 |
+| 50–80 m |              0 (0) |                               3 (4) |                         – | –         |
+| ≥ 80 m  |              0 (0) |                               3 (3) |                         – | –         |
 
-**Reading.** The median falls by a factor of 5.5 from the near bin to the next, so by the rule the
-generator needs a dropout model before E1 trusts it at range. The far bin is one car
+**Reading.** At the recorded mount the median falls by a factor of 2.3 from the near bin to the
+next. That is outside the rule's 1.5, so the generator still needs a dropout model before E1
+trusts it at range, though the fall is less than half the 5.5 read at 3 m. The far bin is one car
 (`obj_4929e754`, 13 instants) and there are no scored cars beyond 50 m, so the evidence for
-"falling" is one object. The near bin is the firmer finding, and it is the opposite of a dropout:
-close cars return more than the model predicts (median 1.7), which a lower mount than 3 m, taller
-bodies, or the model's ring count at short range would each produce. Recording kirk0's mount
-height would remove the first.
+"falling" is one object. Both bins are now under one, as the protocol expected. The near-bin
+excess read at 3 m (median 1.7) came from the assumed mount, which put 6 rings on a near body
+where the deployed geometry puts 11.
 
 ### 4.6 Paired differences and identity
 
@@ -411,7 +417,8 @@ Identity, per frame on the same labels (online-stage track estimates, footprint 
 - The extent diagnostic in Section 4.1 is post hoc. It rests on the believed heading: a wrong
   heading inflates the span across it, which is what the bus shows. It gives a lower bound on the
   shortfall, not the object's length.
-- The return-budget comparison assumes a 3 m mount and a 1.5 m body, and its far bin is one car.
+- The return-budget comparison uses the recorded 2.3 m mount and a 1.5 m body, and its far bin is
+  one car.
 - Update cost and the label-free five-point residual are not measured here; the campaign's
   figures stand.
 - Identity scores online-stage track estimates, as the protocol specified, not solid bodies.
@@ -428,29 +435,32 @@ Identity, per frame on the same labels (online-stage track estimates, footprint 
    and interval-output question, and it may be cheaper than any facet arm.
 3. Score the same arms against physical references when kirk0 or another reviewed pack has them;
    that is the only route to the along-path error when no end is visible.
-4. Record kirk0's mount height, and repeat the return-budget comparison on a capture with cars
-   beyond 50 m before E1 relies on the synthetic generator at range.
+4. Repeat the return-budget comparison on a capture with cars beyond 50 m before E1 relies on the
+   synthetic generator at range. kirk0's mount height is now recorded (2.3 m), and Section 4.5
+   uses it.
 5. Treat the A2 face-placement gain as real but small, and weigh it with its identity cost, which
    this run confirms on labels.
 
 ## 7. Provenance
 
-| Item                 | Value                                                                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Run                  | 2026-10-08, on the Mac (8 cores), Go 1.27.1 darwin/arm64                                                                                                              |
-| Commit               | `e49051335cde9b5f01bb2caa793caae2191dc343` (this branch, with main through #709)                                                                                      |
-| `baseline` binary    | `897eaf72aac1664423c3595e8ee86fab913acfd51d69db328be094f1f846995f`                                                                                                    |
-| `split-draft` binary | `dd43d3da4e7548ebab3add07d0edca0b82dde7401e1ae1940afd01bc9d413e1f`                                                                                                    |
-| `near-face` binary   | `8246d7cdc71f0e0e23f58739cd236b17eb4e6e5aa8bd316129abfdc0a311c64f`                                                                                                    |
-| `gt-eval` binary     | `48f3dbb71799c54d018c910094bf682d2239bfaf568f2674b023f56d47133b0a`                                                                                                    |
-| Capture              | `kirk0.pcapng`, SHA-256 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                                                            |
-| Source manifest      | `sha256:15e3ed3fb5c32f628e26be5743a87df9e7178cc1bda20d141beb3741b9226a79`, all four arms                                                                              |
-| Pack                 | `ad8b9438-…-20260929-184718.156560000`, dataset `ds_95be6fb22498b44a`, digest `sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6`, sensor frame |
-| Sidecar              | revision 1974 (2026-10-07T23:56:38Z), `annotations.json` SHA-256 `c2426a32c6e442af87f81050c5a8885612a3341e8abbe13108a48febd5b614c8`                                   |
-| Split manifest       | `kirk0-tuning.json`, SHA-256 `eb53dca8fe568b2f1309aa652d87237b32f52b2a8b0de02fadec0f9db54d48ec`, episode `tuning-from-62`                                             |
-| Analysis script      | SHA-256 `3fd04bbbdd82b9e258d924ffce218872de4a1c7416e7a3e7a1e4f23f489e22e7` (Python 3.14, NumPy 2.5.3)                                                                 |
-| Analysis output      | SHA-256 `443a6625e53abb03aabe7afe91c84cbf8fb34987b4ab5ba9da44c729d7181f7a`                                                                                            |
-| Arm parameter hashes | control `2faa2a0d…`, `track` `5c7fd88a…`, `track_t5` `edeb3ad9…`, `track_a1` `03c15760…` (solid bodies, `cv_kf_v1`, online)                                           |
+| Item                    | Value                                                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run                     | 2026-10-08, on the Mac (8 cores), Go 1.27.1 darwin/arm64                                                                                                              |
+| Commit                  | `e49051335cde9b5f01bb2caa793caae2191dc343` (this branch, with main through #709)                                                                                      |
+| `baseline` binary       | `897eaf72aac1664423c3595e8ee86fab913acfd51d69db328be094f1f846995f`                                                                                                    |
+| `split-draft` binary    | `dd43d3da4e7548ebab3add07d0edca0b82dde7401e1ae1940afd01bc9d413e1f`                                                                                                    |
+| `near-face` binary      | `8246d7cdc71f0e0e23f58739cd236b17eb4e6e5aa8bd316129abfdc0a311c64f`                                                                                                    |
+| `gt-eval` binary        | `48f3dbb71799c54d018c910094bf682d2239bfaf568f2674b023f56d47133b0a`                                                                                                    |
+| Capture                 | `kirk0.pcapng`, SHA-256 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                                                            |
+| Source manifest         | `sha256:15e3ed3fb5c32f628e26be5743a87df9e7178cc1bda20d141beb3741b9226a79`, all four arms                                                                              |
+| Pack                    | `ad8b9438-…-20260929-184718.156560000`, dataset `ds_95be6fb22498b44a`, digest `sha256:95be6fb22498b44a49821b98043e830130c74a0c4968d9806a984aeefa3849d6`, sensor frame |
+| Sidecar                 | revision 1974 (2026-10-07T23:56:38Z), `annotations.json` SHA-256 `c2426a32c6e442af87f81050c5a8885612a3341e8abbe13108a48febd5b614c8`                                   |
+| Split manifest          | `kirk0-tuning.json`, SHA-256 `eb53dca8fe568b2f1309aa652d87237b32f52b2a8b0de02fadec0f9db54d48ec`, episode `tuning-from-62`                                             |
+| Analysis script (3 m)   | SHA-256 `3fd04bbbdd82b9e258d924ffce218872de4a1c7416e7a3e7a1e4f23f489e22e7` (Python 3.14, NumPy 2.5.3)                                                                 |
+| Analysis output (3 m)   | SHA-256 `443a6625e53abb03aabe7afe91c84cbf8fb34987b4ab5ba9da44c729d7181f7a`                                                                                            |
+| Analysis script (2.3 m) | SHA-256 `ccf81e1ea0e7e0e69b704e12c0e0824112eb0a27f369ff55a499864cf48a2337`: the 3 m script with the mount set to 2.3 m and a new output folder                        |
+| Analysis output (2.3 m) | SHA-256 `47ca2d854e47a7357964fb653a7e3d19894ac3519399b8f38e61a3bd73db6d44`; differs from the 3 m output only in the return budget and its flatness reading            |
+| Arm parameter hashes    | control `2faa2a0d…`, `track` `5c7fd88a…`, `track_t5` `edeb3ad9…`, `track_a1` `03c15760…` (solid bodies, `cv_kf_v1`, online)                                           |
 
 Raw outputs (evidence databases, scorer JSON, logs, the analysis script and its output) are kept
 outside the repository and are not part of this report.

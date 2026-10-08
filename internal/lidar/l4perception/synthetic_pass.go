@@ -59,6 +59,8 @@ var Pandar40PElevationsDeg = []float64{
 
 // DefaultSyntheticSensor is Section 3.1's sampling geometry — 0.2 degree
 // azimuth steps, 3 m above the road — with the real Pandar40P ring table.
+// The deployed sensor sits ~2.3 m above the road; set HeightMetres to that
+// when a synthetic result is meant to describe a real site.
 func DefaultSyntheticSensor() SyntheticSensor {
 	elevations := make([]float64, len(Pandar40PElevationsDeg))
 	copy(elevations, Pandar40PElevationsDeg)

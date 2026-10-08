@@ -309,7 +309,8 @@ type TrackingPipelineConfig struct {
 	// HeightBandFloor is the lower bound (metres) for the vertical height
 	// band filter. Values are in the same frame as the points passed to
 	// FilterVertical — typically sensor frame where Z=0 is the sensor's
-	// horizontal plane. Default: −2.8 (≈ 0.2 m above road for a ~3 m mount).
+	// horizontal plane. Default: −2.8, chosen as ≈ 0.2 m above the road for a
+	// ~3 m mount; at the deployed ~2.3 m it is ≈ 0.5 m below the road.
 	HeightBandFloor float64
 
 	// HeightBandCeiling is the upper bound (metres) for the vertical height
@@ -726,7 +727,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Stage 2b: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
 		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
-		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
+		// plane, and the road is at approximately −2.3 m for the deployed ~2.3 m mount.
 		filteredPoints := worldPoints
 		var lowerGroundRejected []l4perception.WorldPoint
 		if removeGround {
