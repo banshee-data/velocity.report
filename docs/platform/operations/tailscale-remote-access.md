@@ -127,14 +127,26 @@ access. To split read from write, use
 
 velocity-report recognises two cap names:
 
-- `velocity.report/cap/view` — the read-only endpoints listed in
-  `viewRoutes` (`internal/api/server.go`): `/api/events`,
-  `/api/radar_stats`, the three `/api/charts/` SVGs, `/api/timeline`,
-  `/api/config`, `/api/capabilities`, `/api/version` and a few more;
-  plus `GET` on sites, site configuration periods and reports
-  (`viewRoutesGetOnly`). Every other route, the LiDAR API included,
-  needs admin: an unlisted route defaults to admin.
+- `velocity.report/cap/view` — reading. With `on`, that is exactly
+  `viewRoutes` and the `GET` side of `viewRoutesGetOnly`
+  (`internal/api/server.go`):
+  - any method on `/api/commands`, `/api/events`, `/api/radar_stats`,
+    `/api/config`, `/api/capabilities`, `/api/version`, `/api/timeline`,
+    `/api/db_stats` and the three `/api/charts/` SVGs, all of which
+    answer `GET` only;
+  - `GET`, `HEAD` and `OPTIONS` on `/api/sites`, `/api/site_config_periods`,
+    `/api/reports` (PDF and source ZIP downloads included) and the
+    offline docs under `/docs/`.
+
+  Every other route needs admin, the LiDAR API and serial configuration
+  included: an unlisted route defaults to admin.
+  `TestOnModeViewGrantInventory` pins this list route by route.
+
 - `velocity.report/cap/admin` — full access (implies view).
+
+The same grant reaches less under `hardened`: there `view` is aggregate
+viewing and existing PDFs, and raw events, the timeline, database
+statistics and source ZIPs need `admin` (see [Hardened profile](#hardened-profile)).
 
 Add a grant to your tailnet policy:
 
@@ -160,7 +172,7 @@ the gate is active:
 
 | Mode       | Behaviour                                                                                                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `off`      | (default) Capability checks disabled. Every reachable peer is admin. Use this until grants are validated.                                                                      |
+| `off`      | (default) Capability checks disabled. Every reachable caller is admin, including one arriving through Funnel or a Serve forward. Use this until grants are validated.          |
 | `on`       | Enforce caps for tailnet-sourced requests. LAN and loopback are still admin. Flip to `on` after grants are wired.                                                              |
 | `hardened` | Anonymous LAN/loopback aggregate/PDF reads; explicit permissions for routine administration; OS-local access management and maintenance. Requires the dedicated Serve backend. |
 
@@ -176,17 +188,23 @@ Source classification rules:
 - **Loopback `RemoteAddr` + `X-Forwarded-For` a tailnet address** →
   trust XFF; this is how `tailscale serve` forwards tailnet requests
   to the local HTTP server. Subject to grants.
-- **Loopback `RemoteAddr` + `X-Forwarded-For` any other address** →
-  forwarded for someone outside the tailnet, as serve does for a
-  Funnel client. Refused: 403 `{"error":"untrusted_forward"}`.
+- **Loopback `RemoteAddr` + `X-Forwarded-For` any other address, or
+  one that does not parse** → forwarded for someone outside the
+  tailnet, as serve does for a Funnel client, or by a proxy other than
+  serve, which writes one bare address. Refused: 403
+  `{"error":"untrusted_forward"}`.
 - **`Tailscale-Funnel-Request` header** → serve accepted the request
   from the public internet. Refused: 403 `{"error":"funnel_request"}`.
   serve strips any copy a client sends.
 - **Loopback with no XFF** → host-local (the Go server itself,
-  `velocity device`, a local `curl`). Treated as admin.
-- **Non-loopback `RemoteAddr` in the tailnet range** → a peer
-  connecting to the node's tailnet address directly (the Pi image
-  listens on `:80` on every interface). Subject to grants.
+  `velocity device`, a local `curl`). Treated as admin, unless
+  tailscaled forwards to the port through a handler velocity.report did
+  not install: see [Serve and Funnel configured elsewhere](#serve-and-funnel-configured-elsewhere).
+- **Non-loopback `RemoteAddr` in the tailnet range** (`100.64.0.0/10`,
+  `fd7a:115c:a1e0::/48`) → a peer connecting to the node's tailnet
+  address directly (the Pi image listens on `:80` on every interface).
+  Subject to grants. A LAN host numbered in that range is read the same
+  way and refused: see the caveats.
 - **Any other non-loopback `RemoteAddr`** → LAN. `X-Forwarded-For` is
   **ignored** entirely so a LAN attacker who can reach the server
   directly cannot forge a tailnet identity by setting the header.
@@ -218,15 +236,57 @@ Failure modes:
 - **Grants only protect the velocity-report HTTP API.** They do not
   cover Tailscale SSH, the gRPC visualiser stream, or any other
   port. Use ACL rules for those.
-- **Some tailnet paths arrive looking local.** A subnet router that
-  source-NATs delivers peer traffic from its own LAN address, and
-  `tailscale serve --tcp` forwards without `X-Forwarded-For`; both are
-  treated as LAN or host traffic, hence admin. The gate covers
-  `tailscale serve` HTTP and direct connections to the node's tailnet
-  address only.
+- **A subnet router's traffic arrives looking local.** A subnet router
+  that source-NATs delivers peer traffic from its own LAN address, which
+  is treated as LAN, hence admin. The gate covers `tailscale serve` HTTP
+  and direct connections to the node's tailnet address. A Serve TCP
+  forward or TCP Funnel to the device is refused instead (see below).
+- **A LAN numbered in `100.64.0.0/10` is locked out.** That block is
+  RFC 6598 shared address space, which Tailscale also uses. With `on` or
+  `hardened`, every source in it is treated as a tailnet peer and looked
+  up; the daemon does not know a LAN host there, so it gets 403
+  `{"error":"unknown_peer"}`, and the LAN recovery path below does not
+  exist for such a network. There is no override: renumber the LAN, or
+  stay on `off`.
 - **Recovery from a misconfigured ACL relies on the LAN bypass.**
   Once you've validated grants on a test peer, flip
   `-ts-cap-enforcement=on` and restart.
+- **`off` protects nothing.** Funnel, a Serve TCP forward or any other
+  route to the device reaches the whole API as admin. Turn on `on` or
+  `hardened` before exposing the device beyond a trusted LAN.
+
+### Serve and Funnel configured elsewhere
+
+velocity.report installs one Serve handler: HTTPS on `:443`, path `/`,
+proxying to the main listener (`on`) or the Serve backend (`hardened`).
+tailscaled can also be told to forward to the device's listeners by
+hand: `tailscale serve --tcp`, `tailscale funnel --tls-terminated-tcp`,
+another web handler, a foreground `tailscale serve` session or a
+Tailscale Service. Such a forward arrives from tailscaled on the device
+itself and carries whatever its client wrote, so a forged
+`X-Forwarded-For` or `Tailscale-App-Capabilities` header, or none at
+all, would read as a tailnet admin or as the host.
+
+With `on` or `hardened`, each listener (main HTTP, the Serve backend,
+LiDAR HTTP on `:8081` and gRPC on `:50051`) therefore drops connections
+from the device itself while tailscaled forwards to its port through any
+handler velocity.report did not install. The server reads tailscaled's
+Serve configuration for this, at most every five seconds, so a forward
+is noticed within that time. If the configuration cannot be read, local
+connections are dropped too; if tailscaled is not running, it forwards
+nothing and nothing is dropped. Connections from other hosts are
+unaffected, and so is a target that names another machine by address.
+
+The journal says which listener is refusing and why:
+
+```text
+access: HTTP server refusing connections from this host: tailscaled forwards to this port through a Serve handler velocity.report did not install (see `tailscale serve status`)
+```
+
+List the handlers with `tailscale serve status` and remove the extra
+one. Refusal also stops the managed Serve handler and local tools
+reaching that listener until it is gone. `off` reads nothing and drops
+nothing.
 
 ## Hardened profile
 
@@ -263,7 +323,10 @@ including the daemon's MIME encoding, and refuses missing, duplicate or malforme
 claims. It does not infer authority from forwarded IP addresses. Processes able to
 connect locally to this backend belong to the OS trust boundary: firewall/container
 forwarding must never expose it to another host. Funnel is disabled in managed Serve
-configuration and refused by the application.
+configuration and refused by the application. tailscaled forwarding to the backend,
+the LAN listener, LiDAR HTTP or gRPC through a handler velocity.report did not
+install is refused at the listener: see
+[Serve and Funnel configured elsewhere](#serve-and-funnel-configured-elsewhere).
 
 Authenticated browser requests must have a same-origin `Origin` when supplied;
 Cross-site and same-site browser fetches are refused. Direct authenticated access accepts literal
@@ -293,17 +356,22 @@ sudo /usr/local/bin/tailscale up
 ```
 
 Approve the device and configure the grants in your own tailnet. Check the installed
-daemon with `tailscale version`. Preserve the existing unit's database, serial and
-LiDAR flags when applying a systemd override. For the stock image's command:
+daemon with `tailscale version`. The stock unit passes
+`--ts-cap-enforcement=${VELOCITY_ACCESS_PROFILE}` and sets the variable to `off`.
+Choose the profile with a drop-in that sets only that variable, so it survives later
+changes to the unit's command line. Run `sudo systemctl edit velocity-report` and add:
 
 ```ini
 [Service]
-ExecStart=
-ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --ts-cap-enforcement=hardened --ts-serve-listen=127.0.0.1:8082
+Environment=VELOCITY_ACCESS_PROFILE=hardened
 ```
 
-Save with `sudo systemctl edit velocity-report`, then run
+The Serve backend defaults to `127.0.0.1:8082`. Then run
 `sudo systemctl daemon-reload` and `sudo systemctl restart velocity-report`.
+A unit from an image built before the variable existed needs an `ExecStart=` override
+instead: clear it with an empty `ExecStart=` line, then repeat the unit's own command
+with `--ts-cap-enforcement=hardened` appended, preserving its database, serial and
+LiDAR flags.
 The first daemon `Running` event reconciles the dedicated Serve target and accepted
 capabilities, including after a server restart. Check journal output for
 `auth: operation enforcement armed (mode=hardened)` and the Serve publication result.
@@ -312,8 +380,9 @@ retain their hardened checks. Missing adapters or invalid listeners refuse start
 A backend bind failure stops the server with a failing exit status for systemd.
 
 If grants, Serve or Tailscale fail, repair them from the retained OS session; local
-HTTP does not become admin during recovery. To roll back intentionally, edit the
-same override to `--ts-cap-enforcement=off`, reload and restart. This restores the
+HTTP does not become admin during recovery. To roll back intentionally, set
+`VELOCITY_ACCESS_PROFILE=off` in the same drop-in (or edit the override to
+`--ts-cap-enforcement=off`), reload and restart. This restores the
 legacy trust policy, so make that choice explicitly. Stop remote access through
 `sudo /usr/local/bin/velocity device tailscale disable-tailscaled` when required.
 
@@ -338,7 +407,10 @@ The served web UI proxies to the server's own port on `127.0.0.1`
 (`:80` on the Pi image, `:8080` by default elsewhere) — the same Go
 server that the LAN reaches. The LiDAR monitor (`:8081`) and the gRPC
 visualiser stream (`:50051`) bind to loopback by default, so they are
-not reachable over the tailnet unless an operator rebinds them. See
+not reachable over the tailnet unless an operator rebinds them or
+forwards to them with Serve; with `on` or `hardened` such a forward
+makes them refuse local connections (see
+[Serve and Funnel configured elsewhere](#serve-and-funnel-configured-elsewhere)). See
 [networking.md](../../radar/architecture/networking.md) for the
 full listener segmentation.
 
