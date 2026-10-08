@@ -50,9 +50,10 @@ Work from a clean checkout of `main` merged with the branch that carries this pr
 commit. Then:
 
 1. **Capture.** `internal/lidar/perf/pcap/kirk0.pcapng` is a git-lfs object. Confirm it is the
-   real file, not a pointer, and that its digest is
-   `ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6`, the value the coverage
-   survey recorded. If it is a pointer, run `git lfs pull` first.
+   real file, not a pointer, and that `shasum -a 256` gives
+   `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`, its git-lfs object ID.
+   The capture index's `content_tag` for kirk0 (`06c987bc…`) is a different digest; do not
+   compare against it. If it is a pointer, run `git lfs pull` first.
 2. **Pack.** The pack is
    `/Volumes/lidar/offload/sensor_data/lidar/annotation-packs/ad8b9438-c1d4-40f0-bd0a-f1852c984569-20260929-184718.156560000`.
    List it. Expect `manifest.json`, `samples.json`, `points.bin`, and `annotations.json`. Record
