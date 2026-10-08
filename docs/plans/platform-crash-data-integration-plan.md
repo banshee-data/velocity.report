@@ -12,9 +12,9 @@ figure below is marked for confirmation against the primary document.
 
 - **Status:** Proposed; no dataset ingested and no code written
 - **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
-- **Target:** v0.5.10 for the cited harm curves; v0.6.8 for site crash context and the before-and-after model; v1.0 for road-segment attachment
+- **Target:** v0.5.10 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md)
-- **Related:** [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [TENETS](../../TENETS.md)
+- **Related:** [sober driving and human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
 
 ## Motivation
@@ -64,11 +64,21 @@ against, and a geographic index that contradicts the repository's S2 convention.
   enters a measurement.
 - **Wording guard.** The headway report's `VerdictPattern` in `internal/report/headway/wording.go`
   fails any served payload containing `tailgat`, `aggress`, `driver`, `risk`, `score`, `verdict`,
-  `unsafe`, `danger` or `violat`.
+  `unsafe`, `danger`, `violat`, `offend`, `propensity` or `profil`.
 - **Crash data.** No crash or collision dataset, designation layer, or speed-to-harm model is
   referenced anywhere in code, configuration, `data/maths/references.bib` or the docs. SHRP2
   appears once, for its free-flow opportunity method (DOT HS 812 858), already cited in the
   behaviour plan.
+- **Human crash baselines.** The [October 2026 analysis][hcb] read the Waymo sober-baseline and
+  fatal-rate papers and Valgo's client README against this plan. It verified the sober paper's
+  exposure-reconstruction algebra ([Finding 2][hcb-f2]) and located the uncertainty: the fatal
+  reduction is pinned near the observed alcohol share, so the relative risk's interval moves it
+  only from 21.7% to 25.5%, while the police-reported sober rate of 4.51 (4.01, 4.82) against a
+  status quo of 4.88 incidents per million miles spans a reduction of 1.2% to 17.8%
+  ([Finding 3][hcb-f3]). Its arithmetic shows that one site cannot test an area rate: a
+  residential site of 1,500 transits a day over 0.1 mile expects 0.27 police-reported
+  involvements a year ([Finding 6][hcb-f6]). No code, configuration, or `references.bib` entry
+  cites these sources yet.
 - **Shipped reference data.** The precedent for embedding third-party data is the
   [vehicle encyclopedia](../platform/architecture/vehicle-encyclopedia.md): a versioned subset,
   pinned at build time, never a runtime dependency, with per-field provenance and year-marked
@@ -102,13 +112,15 @@ against, and a geographic index that contradicts the repository's S2 convention.
 
 ### What the evidence can and cannot establish
 
-Three questions a report reader asks, three source families, and the boundary of each.
+Four questions a report reader asks, four source families, and the boundary of each. The fourth,
+from the [human crash baselines analysis][hcb-align], is the first family with a denominator.
 
-| Question                                                                         | Source family                                                                                                                                                              | Establishes                                                                                                                                                 | Does not establish                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| How much more does a pedestrian stand to lose at 35 mph than at 25?              | Published impact-speed injury and fatality curves: Tefft 2013 (AAA Foundation, _Accident Analysis & Prevention_), Rosén and Sander 2009, Hussain et al. 2019 meta-analysis | The probability of severe injury or death as a function of **impact** speed, for the population and vehicle fleet the study standardised to, with its curve | Harm from a **travel** speed: a driver brakes before impact. Applied to measured speeds the curve is an upper bound, and the report says so. Mass and front-end geometry, which the encyclopedia supplies later, shift the curve and are absent |
-| If mean speed rose after repaving, what does the literature predict for crashes? | Speed-change crash models: Nilsson's power model, Elvik's exponential model, with exponents and intervals from Elvik et al. 2019                                           | The expected relative change in crashes by severity for a change in **mean speed** of the same traffic on the same road, with a confidence interval         | A crash count for this street; anything from a change in p85 or p98 alone; anything across a change in road users or volume                                                                                                                     |
-| What has actually happened on this street?                                       | Jurisdiction crash records (DataSF injury crashes; FARS; STATS19) and designation layers (Vision Zero High Injury Network)                                                 | Counts by severity and mode over a stated window near a stated geometry, from a named source with its reporting rules; designation membership and version   | A rate, without exposure; a trend, without a long window; causation from the measured speeds; anything about an individual passage                                                                                                              |
+| Question                                                                                               | Source family                                                                                                                                                                                                                                            | Establishes                                                                                                                                                                                                               | Does not establish                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| How much more does a pedestrian stand to lose at 35 mph than at 25?                                    | Published impact-speed injury and fatality curves: Tefft 2013 (AAA Foundation, _Accident Analysis & Prevention_), Rosén and Sander 2009, Hussain et al. 2019 meta-analysis                                                                               | The probability of severe injury or death as a function of **impact** speed, for the population and vehicle fleet the study standardised to, with its curve                                                               | Harm from a **travel** speed: a driver brakes before impact. Applied to measured speeds the curve is an upper bound, and the report says so. Mass and front-end geometry, which the encyclopedia supplies later, shift the curve and are absent |
+| If mean speed rose after repaving, what does the literature predict for crashes?                       | Speed-change crash models: Nilsson's power model, Elvik's exponential model, with exponents and intervals from Elvik et al. 2019                                                                                                                         | The expected relative change in crashes by severity for a change in **mean speed** of the same traffic on the same road, with a confidence interval                                                                       | A crash count for this street; anything from a change in p85 or p98 alone; anything across a change in road users or volume                                                                                                                     |
+| What has actually happened on this street?                                                             | Jurisdiction crash records (DataSF injury crashes; FARS; STATS19) and designation layers (Vision Zero High Injury Network)                                                                                                                               | Counts by severity and mode over a stated window near a stated geometry, from a named source with its reporting rules; designation membership and version                                                                 | A rate, without exposure; a trend, without a long window; causation from the measured speeds; anything about an individual passage                                                                                                              |
+| What involvement rate does this area's traffic have, by stratum, and what would it be without alcohol? | Exposure-normalised area crash involvement rates with Poisson intervals: the fatal-rate paper (FCIR, 50 urban areas), the sober paper (sober and impaired cohorts), the SAE paper (police-reported, counties), and Valgo (hosted, definition-selectable) | The rate per vehicle-mile for the area, road type, stratum, severity, and cohort, in a stated year under a stated definition, with the count's interval; the expected involvements implied for a stated volume and length | Anything at one street; a measured rate at the site; the site's crash history, which the context record carries; any causal link from the site's speeds; impairment at the site                                                                 |
 
 What no source here establishes: that any observed passage was a near-crash, that this site's
 speeds caused its crash history, or a calibration from surrogate safety measures to crashes at
@@ -136,12 +148,26 @@ A small Go package, proposed as `internal/report/safetyref`, embeds one JSON edi
   population, standardisation, the speed it is a function of (impact, not travel), and the unit.
 - **Models.** Exponent or coefficient per severity class with its interval, the road types it was
   estimated on, and the paper.
+- **Area rates.** Crash involvement rates per vehicle-mile, one row per area, road type, temporal
+  stratum, severity, cohort (status quo or sober), crash year, and source edition. Each row
+  carries its rate, lower and upper bound, count, vehicle-miles, unit (IP100MM, incidents per 100
+  million miles, for fatal; IPMM, per million miles, for police-reported), and definition
+  ([alignment][hcb-align]). Rows are per area, never the 50-area averages with averaged bounds
+  that the sober paper's Table 4 prints ([sober paper][hcb-sober]). The fatal-rate paper's
+  supplemental data is the first content once Item 1 clears its licence; the sober paper's rows
+  wait until it publishes with data, since the preprint has per-area values only in figures. Each
+  row enters a report as an `external_distribution` benchmark with its citation and
+  stratification, a kind `Validate` already refuses without a citation, so a rate needs no new
+  kind. `l8behaviour.Benchmark` carries one `Threshold` and no interval, so the bounds live in the
+  edition entry the `Citation` names and the report prints them from there: a question for the
+  behaviour plan's owner, beside `published_model`.
 - **Edition.** A year-marked identifier, the date each source was read, and a digest. The report
   prints the edition it rendered with. A correction is a new edition; a published report stays
   reproducible.
 
 No network, no runtime fetch, no crash records in the edition. This follows Tenet 7 and the
-encyclopedia's edition model exactly, at a size of a few kilobytes.
+encyclopedia's edition model exactly, at a size of a few kilobytes before the area-rate table,
+whose size Item 1's reading of the supplement fixes.
 
 ### A site crash-context record
 
@@ -172,6 +198,48 @@ Rules:
 - The record attaches to the site now and to the vector-scene road segment at v1.0, when the
   posted limits plan gives a segment to attach to. Nothing in the row depends on the scene.
 
+### Benchmark-aligned temporal strata
+
+The papers cut the week the way the NHTSA convention does, and a report can cut its own transits
+the same way with no external data ([Finding 5][hcb-f5]):
+
+| Stratum | Local clock time             |
+| ------- | ---------------------------- |
+| Day     | 06:00 to 17:59               |
+| Night   | 18:00 to 05:59               |
+| Weekday | Monday 06:00 to Friday 17:59 |
+| Weekend | Friday 18:00 to Monday 05:59 |
+
+Day and night cross weekday and weekend into the four cells the papers report. The weekend begins
+on Friday at 18:00, not Saturday at midnight. Each transit takes its stratum from its start time,
+`transit_start_unix`, in the site's IANA zone, which `site_reports.timezone` already carries, with
+daylight saving as the clock showed it.
+
+- Per stratum, the report prints the count and p50, p85, and p98 over per-transit maximum speeds,
+  as [percentile aggregation semantics](../radar/architecture/percentile-aggregation-semantics.md)
+  requires, and never averages them across strata.
+- A stratum under 50 transits prints its count and masks its percentiles
+  ([Finding 5][hcb-f5]). The charts use 50 as `LowSampleThreshold` and shade below it rather
+  than blank, so the stratum table is the stricter of the two.
+- The boundary-hour filter (`BoundaryThreshold`) applies to the stratum counts exactly as to the
+  headline numbers, or the report prints the difference: the first and last hour of each day,
+  which it drops when sparse, fall inside the night stratum at a site that records all day.
+- The headline numbers do not change.
+
+The same per-site distribution of passes by time of day and day of week is the evidence
+[Q35](../../data/QUESTIONS.md) asks for, for a privacy reason.
+
+### Site-to-area resolution
+
+The area benchmark context needs the area whose rates apply. The site's latitude and longitude
+resolve to a 2020 Census urban area or a county, the geographies the papers publish
+([alignment][hcb-align]). The resolution is a suggestion until the operator confirms it, exactly
+as the crash-context join is: a lookup in a coarse covering pinned in the edition, or an
+operator-entered area id from the edition's list. The confirmed area id sits on the site with the
+site's S2 L13 token. It is never a geocoder call, and the web test that asserts there is no
+geocoder (`MapEditorInteractive.test.ts`) stays green. A site without coordinates or a confirmed
+area has no area benchmark context.
+
 ### Report surfaces
 
 1. **Cited harm paragraph.** Replace the kinetic-energy paragraph with a short statement of the
@@ -183,8 +251,39 @@ Rules:
 3. **Before and after.** When a report compares two periods at one site, the mean-speed change and
    the model's predicted relative change in crashes by severity, with the interval, labelled as a
    model prediction from a named paper. Never computed from p85 alone.
-4. **Wording guard.** The headway report's verdict test extends to these sections. "Risk score",
+4. **Area benchmark context.** The confirmed area's status-quo and sober rates by stratum, each
+   with its interval, crash year, and definition; the expected involvements the area's crash
+   involvement rate implies for the surveyed segment, `E = CIR x N x L`, from the site's stratum
+   counts N and an operator-stated segment length L ([Finding 6][hcb-f6]); and the printed
+   sentence that this is what the area rate implies for this segment's volume, not a measurement
+   at this site. Absent when the site has no confirmed area, no stated length, or no unmasked
+   stratum. The block says "status-quo cohort" and "sober cohort", never "drivers": the guard's
+   `VerdictPattern` matches `driver` and `risk` anywhere in a served payload, so citation strings
+   render from a field the guard skips or use titles that pass. The fatal-rate and sober papers'
+   titles pass as written; Table 3's "Relative-Risk" does not ([alignment][hcb-align]).
+5. **Wording guard.** The headway report's verdict test extends to these sections. "Risk score",
    "unsafe", "dangerous" and "likelihood" do not reach a page.
+
+### Hosted baselines: what an exploration could add
+
+Valgo serves the status-quo rate for a region under a definition the caller chooses, outcome,
+vehicle class, road type, weather, crash year, and, in some regions, posted-speed band, and
+returns the rate with its bounds, count, and vehicle-miles ([Valgo][hcb-valgo]). The report's
+rates come from the pinned edition, and Tenets 1, 4, and 7 keep a runtime call out of the product
+([incorporation][hcb-incorporate]). What a workstation exploration could learn beside the edition:
+
+- How far an area rate moves under matched definitions, the sensitivity [Finding 7][hcb-f7]
+  illustrates from one published number, and so which definition a report names when it quotes
+  an area rate.
+- Rates by posted-speed band where the service offers them, which the
+  [posted speed limits plan](posted-speed-limits-plan.md) would let a site cite for roads posted
+  like it.
+- Regions, corridors, and crash years the open papers do not cover.
+
+The exploration lives in `data/explore/` with the Python client, under the
+[Python policy](../platform/operations/python-venv.md). Each result is kept with its full
+definition and retrieval date, and nothing from it reaches a report. What it shows to be useful
+returns to this plan as a proposal, with the service's terms of use read first.
 
 ### Machine access
 
@@ -197,7 +296,8 @@ benchmark taxonomy and this plan.
 
 No composite score. No per-track geography. No runtime network access. No SHRP2 kinematic
 thresholds. No "likelihood" column. No crash records in the binary. No claim that a surrogate
-measure predicts a crash at this site.
+measure predicts a crash at this site. No site crash rate: a rate is printed for an area, never
+computed for a site.
 
 ## Scope
 
@@ -219,14 +319,23 @@ paper, and record each source's rights.
    window (sources disagree between 2017 to 2021 and 2017 to 2022), and licence.
 4. TIMS licence agreement, read in full, before SWITRS is used directly. FARS and STATS19 terms
    for the non-SF adapters.
-5. Add every source to `data/maths/references.bib` and a dated verified-sources table to this
+5. The fourth family's rights, per the [analysis's rights rows][hcb-align]: the fatal-rate paper
+   and its supplement under CC BY-NC-ND 4.0, settling whether an embedded subset table is a
+   derivative and whether this use is non-commercial; the sober paper, whose preprint states no
+   terms, confirmed on publication; the SAE police-reported paper; FHWA HM-71 and VM-4, confirming
+   no third-party component; INRIX, proprietary, so only the aggregates the papers publish are
+   citable.
+6. Open the fatal-rate paper's supplement and record whether it carries the temporal vehicle-mile
+   fractions as well as the rates. The research note in the Deferred checklist depends on it.
+7. Add every source to `data/maths/references.bib` and a dated verified-sources table to this
    plan.
 
 **Milestone:** v0.5.10
 
 ### Item 2: safety-reference edition and the cited harm paragraph
 
-**Summary:** Ship the edition package and replace the uncited report copy.
+**Summary:** Ship the edition package with its area-rate table and replace the uncited report
+copy.
 
 **Steps:**
 
@@ -237,8 +346,30 @@ paper, and record each source's rights.
    the impact-versus-travel caveat and the edition identifier.
 4. The wording-guard test over the new section.
 5. Answer Q30 to the extent the curves allow and record the decision in `data/QUESTIONS.md`.
+6. The area-rate table from the fatal-rate paper's supplement: per-area rows with the fields in
+   the design, a validation test that every row carries its bounds, count, vehicle-miles, unit,
+   definition, and citation, and the guard test over every citation string. If Item 1 refuses an
+   embedded subset, the edition cites the paper instead and the table waits.
 
-**Milestone:** v0.5.10
+**Milestone:** v0.5.10; the area-rate table (step 6) at v0.5.10 if Item 1 clears the rights, else
+v0.6.8
+
+### Item 2a: benchmark-aligned temporal strata
+
+**Summary:** Print each report's counts and percentiles in the papers' four temporal cells, with
+no external data.
+
+**Steps:**
+
+1. Stratum assignment from each transit's start time in the site's IANA zone, in the rollup
+   (`RadarObjectRollupRange`) or in Go after it.
+2. Per-stratum rows in `data.json`: count, p50, p85, p98, and whether the stratum is masked.
+3. One PDF table of the four cells, with the boundary-hour filter applied identically or its
+   difference printed.
+4. Tests on the Friday 18:00 boundary ([Finding 5][hcb-f5]) and on both daylight-saving
+   transitions, and a test that the headline numbers do not change.
+
+**Milestone:** v0.5.10; depends on nothing
 
 ### Item 3: before-and-after model section
 
@@ -256,7 +387,8 @@ crashes by severity from the pinned model, with its interval.
 
 ### Item 4: site crash-context importer and record
 
-**Summary:** A Go importer for DataSF, the `site_crash_context` migration, and the report block.
+**Summary:** A Go importer for DataSF, the `site_crash_context` migration, the report block, and
+the site-to-area resolution with the area benchmark context block.
 
 **Steps:**
 
@@ -266,8 +398,16 @@ crashes by severity from the pinned model, with its interval.
 3. Small-count handling per the identifiability analysis, tested.
 4. The site context block in the report, with source and licence line.
 5. A second adapter, FARS or STATS19, to prove the source interface is not SF-shaped.
+6. Site-to-area resolution: the suggested area from the edition's covering or an operator-entered
+   area id, written on the site only when the operator confirms it, carrying the S2 L13 token; a
+   test that the resolution makes no network call, beside the web test that asserts no geocoder.
+7. The area benchmark context block from the edition and the site's stratum counts, with the
+   implied-not-measured sentence, absent without a confirmed area, a stated length, or an
+   unmasked stratum; the guard test over the block and its citation strings, and a test that the
+   sentence is printed.
 
-**Milestone:** v0.6.8
+**Milestone:** v0.6.8; steps 6 and 7 after the sites merge in the vocabulary plan and after the
+area-rate table
 
 ### Item 5: attach context to road segments
 
@@ -280,22 +420,28 @@ crashes by severity from the pinned model, with its interval.
 - [Posted speed limits](posted-speed-limits-plan.md) for any compliance framing; until then the
   harm paragraph uses the per-request limit and says it was operator-supplied.
 - The merged `sites` table with coordinate provenance, in the
-  [vocabulary plan](platform-vocabulary-and-data-model-plan.md), for where the context row hangs.
+  [vocabulary plan](platform-vocabulary-and-data-model-plan.md), for where the context row hangs
+  and for the site-to-area resolution, which needs coordinates with a provenance.
+- Item 2a's per-stratum counts for the area benchmark context block, which multiplies the area
+  rate by them.
 - G-SMO-1 before any LiDAR kinematic quantity is compared with anything.
 - The [vehicle encyclopedia](vehicle-encyclopedia-plan.md) for mass and front-end geometry, which
   this plan does not wait for.
 
 ## Risks
 
-| Risk                                                                               | Likelihood | Impact | Mitigation                                                                                                                        |
-| ---------------------------------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| A curve for impact speed is read as a statement about travel speed                 | High       | High   | The caveat is printed in the section; the edition entry names the independent variable; the guard test checks the phrase is there |
-| A source's licence forbids redistribution of the aggregate                         | Medium     | High   | Rights manifest per source; the row stores counts, not records; TIMS not used until its agreement is read                         |
-| Small crash counts near a quiet site identify a person                             | Low        | High   | Window lengthening and cell suppression from the identifiability analysis; never victim-level fields                              |
-| The before/after model is applied to a p85 change or across a configuration change | Medium     | Medium | The section refuses unless both periods share site configuration and sensor; mean speed only                                      |
-| Reviewers want a single "safety score" anyway                                      | Medium     | Medium | The behaviour plan's Section 1 rule, restated here; the wording guard makes the score impossible to print                         |
-| Figures in this plan drawn from search summaries are wrong                         | Medium     | Medium | Item 1 is the first milestone and replaces every marked figure from the primary paper                                             |
-| The join radius misattributes an adjacent arterial's crashes to a side street      | Medium     | Medium | Operator confirmation of segments; segment attachment at v1.0                                                                     |
+| Risk                                                                               | Likelihood | Impact | Mitigation                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A curve for impact speed is read as a statement about travel speed                 | High       | High   | The caveat is printed in the section; the edition entry names the independent variable; the guard test checks the phrase is there                                                                           |
+| A source's licence forbids redistribution of the aggregate                         | Medium     | High   | Rights manifest per source; the row stores counts, not records; TIMS not used until its agreement is read                                                                                                   |
+| Small crash counts near a quiet site identify a person                             | Low        | High   | Window lengthening and cell suppression from the identifiability analysis; never victim-level fields                                                                                                        |
+| The before/after model is applied to a p85 change or across a configuration change | Medium     | Medium | The section refuses unless both periods share site configuration and sensor; mean speed only                                                                                                                |
+| Reviewers want a single "safety score" anyway                                      | Medium     | Medium | The behaviour plan's Section 1 rule, restated here; the wording guard makes the score impossible to print                                                                                                   |
+| Figures in this plan drawn from search summaries are wrong                         | Medium     | Medium | Item 1 is the first milestone and replaces every marked figure from the primary paper                                                                                                                       |
+| The join radius misattributes an adjacent arterial's crashes to a side street      | Medium     | Medium | Operator confirmation of segments; segment attachment at v1.0                                                                                                                                               |
+| An area rate is read as the site's rate                                            | High       | High   | The block prints the sentence that the rate is what the area implies, not a measurement at the site; a test checks the sentence is there and the guard refuses verdict words; no site rate is ever computed |
+| The sober paper's Table 4 averaged bounds are quoted as one area's interval        | Medium     | Medium | The edition holds per-area rows only; a report quotes one area's rate with that area's interval                                                                                                             |
+| The CC BY-NC-ND derivative question blocks the area-rate table                     | Medium     | Medium | Item 1 reads the licence before Item 2 builds the table; if a subset is refused, the edition cites the paper instead of embedding it and the context block waits                                            |
 
 ## Open questions
 
@@ -304,28 +450,48 @@ crashes by severity from the pinned model, with its interval.
 - What join geometry does the first importer use: a fixed radius, or the operator's named
   segments from the start?
 - What window length does a quiet residential site need before counts are printed at all?
+  **Answered:** no window turns a residential count into a rate. At 0.27 expected police-reported
+  involvements a year, a count of ten takes 37 years ([Finding 6][hcb-f6]). The record prints the
+  count, the window, and the interval, with the area rate as the prior; small-count suppression
+  still follows the identifiability analysis.
 - Sites outside the United States: Transport Canada's National Collision Database publishes no
   coordinates, so a Canadian site may get a model prediction and no local context. Is that
   acceptable, or does the context block need a provincial or municipal adapter first?
 - Does the context row belong to the site or to a site configuration period, given that a
-  quick-build changes the street the counts describe?
+  quick-build changes the street the counts describe? **Answered:** the area rate attaches to the
+  site's area, which a quick-build does not move, and the counts stay on the site as this plan has
+  them ([alignment][hcb-align]).
+- Does `l8behaviour.Benchmark` gain an interval field, or do an area rate's bounds stay in the
+  edition entry its citation names? Decided in the behaviour plan, beside `published_model`.
+- Is an embedded subset of the fatal-rate paper's supplement a derivative under CC BY-NC-ND 4.0,
+  and is this project's use non-commercial ([rights rows][hcb-align])? Item 1 settles both before
+  Item 2 builds the table.
+- Which road type does the context block print for a surface-street site: the surface-street rows
+  where the edition has them, or all roads, the only road type the sober paper publishes?
 
 ## Sources checked
 
-Checked on October 8, 2026 through search results. **Confirm** marks a claim whose primary
+Checked on October 8, 2026 through search results, except where a row names the
+[human crash baselines analysis][hcb] as the reader. **Confirm** marks a claim whose primary
 document was not read.
 
-| Source                     | What the search results support                                                                                                                                                     | Status                   |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| [SHRP2 NDS access][shrp2]  | InSight is view-only for registered users and its terms bar downloading sensor data; data use licences are executed with VTTI for research. Published aggregate reports are citable | Checked                  |
-| Dingus et al. 2016, PNAS   | 905 crash events, volume 113 issue 10; the proposal's 68% distraction figure was not found in the sources retrieved                                                                 | **Confirm**              |
-| [TIMS][tims]               | Terms are set out in a licence agreement the review could not read; attribution to SafeTREC requested; data supplied as-is                                                          | **Confirm**              |
-| [DataSF terms][datasf]     | PDDL v1.0 unless a dataset page says otherwise, per the [licensing standard][datasf-pddl]                                                                                           | **Confirm per dataset**  |
-| [High Injury Network][hin] | SFDPH, 2022 update, at least 10 severe or fatal injuries per mile, streets only; window is 2017 to 2021 in the methodology and 2017 to 2022 in the [catalogue][hin-catalogue]       | **Confirm window**       |
-| [FARS][fars]               | Census of fatal crashes since 1975, CSV downloads, catalogued as US public domain                                                                                                   | Checked                  |
-| [STATS19][stats19]         | Great Britain road casualty data under the Open Government Licence v3.0                                                                                                             | Checked                  |
-| [Tefft 2013][tefft]        | 50% severe-injury risk at about 31 mph and 50% fatality risk at about 42 mph, standardised to 2007 to 2009 US pedestrians and vehicles, per the [NHTSA summary][nhtsa-ped]          | **Confirm from paper**   |
-| [Elvik et al. 2019][elvik] | Power and exponential models both fit post-2000 data well, at individual and aggregate level; see also the [ITF note][itf]                                                          | **Confirm coefficients** |
+| Source                                                             | What the checked sources support                                                                                                                                                                                                                                                                                                                                                       | Status                                              |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [SHRP2 NDS access][shrp2]                                          | InSight is view-only for registered users and its terms bar downloading sensor data; data use licences are executed with VTTI for research. Published aggregate reports are citable                                                                                                                                                                                                    | Checked                                             |
+| Dingus et al. 2016, PNAS                                           | 905 crash events, volume 113 issue 10; the proposal's 68% distraction figure was not found in the sources retrieved                                                                                                                                                                                                                                                                    | **Confirm**                                         |
+| [TIMS][tims]                                                       | Terms are set out in a licence agreement the review could not read; attribution to SafeTREC requested; data supplied as-is                                                                                                                                                                                                                                                             | **Confirm**                                         |
+| [DataSF terms][datasf]                                             | PDDL v1.0 unless a dataset page says otherwise, per the [licensing standard][datasf-pddl]                                                                                                                                                                                                                                                                                              | **Confirm per dataset**                             |
+| [High Injury Network][hin]                                         | SFDPH, 2022 update, at least 10 severe or fatal injuries per mile, streets only; window is 2017 to 2021 in the methodology and 2017 to 2022 in the [catalogue][hin-catalogue]                                                                                                                                                                                                          | **Confirm window**                                  |
+| [FARS][fars]                                                       | Census of fatal crashes since 1975, CSV downloads, catalogued as US public domain                                                                                                                                                                                                                                                                                                      | Checked                                             |
+| [STATS19][stats19]                                                 | Great Britain road casualty data under the Open Government Licence v3.0                                                                                                                                                                                                                                                                                                                | Checked                                             |
+| [Tefft 2013][tefft]                                                | 50% severe-injury risk at about 31 mph and 50% fatality risk at about 42 mph, standardised to 2007 to 2009 US pedestrians and vehicles, per the [NHTSA summary][nhtsa-ped]                                                                                                                                                                                                             | **Confirm from paper**                              |
+| [Elvik et al. 2019][elvik]                                         | Power and exponential models both fit post-2000 data well, at individual and aggregate level; see also the [ITF note][itf]                                                                                                                                                                                                                                                             | **Confirm coefficients**                            |
+| [Scanlon et al. 2026, TIP][tip]                                    | Fatal crash involvement rates by urban area, road type, and temporal stratum for 2023, with exact Poisson intervals; DOI 10.1080/15389588.2026.2684002; CC BY-NC-ND 4.0, stated on the article; results downloadable as supplemental data, not opened. Read in full by the [analysis][hcb-tip]                                                                                         | Checked; **Confirm** licence reading and supplement |
+| Scanlon, Kusano, McMurry, Campolettano, and Victor, JSR (accepted) | Sober and impaired cohort rates by exposure reconstruction, read in full from the preprint by the [analysis][hcb-sober]; per-area values in figures only; the preprint states no terms                                                                                                                                                                                                 | **Confirm on publication**                          |
+| [Scanlon, McMurry, Chen, Kusano, and Victor 2026, SAE][sae]        | Police-reported status-quo involvement rates by county, which the sober paper's police-reported phase scales; SAE International Technical Paper 09-14-02-0003, as the sober paper's reference list cites it; neither paper nor terms read                                                                                                                                              | **Confirm**                                         |
+| [FHWA Highway Statistics][fhwa] HM-71 and VM-4                     | Vehicle-miles by urban area and functional class (HM-71) and passenger-vehicle share by state (VM-4), the fatal-rate paper's denominators; a US government publication                                                                                                                                                                                                                 | **Confirm** no third-party component                |
+| INRIX                                                              | Proprietary; the fatal-rate paper uses its probe-based volumes to distribute the FHWA totals across the temporal strata, and only the aggregates the papers publish are citable ([analysis][hcb-tip])                                                                                                                                                                                  | Checked (paper states source)                       |
+| [Valgo `humanbaselines` client][valgo]                             | Apache-2.0 Python client, version 0.4.0 on PyPI, for a key-authenticated REST API returning rate, bounds, N, D_miles, and cells under a selectable definition ([analysis][hcb-valgo]). The valgo.ai and humanbaselines.com pages were not reachable from the review environment, so every page claim is **Confirm**; the terms of use are read before any exploration result is quoted | Checked (README); **Confirm** pages                 |
 
 [shrp2]: https://trb.org/StrategicHighwayResearchProgram2SHRP2/SHRP2DataSafetyAccess.aspx
 [tims]: https://tims.berkeley.edu/about.php
@@ -339,27 +505,48 @@ document was not read.
 [nhtsa-ped]: https://nhtsa.gov/book/countermeasures-that-work/pedestrian-safety/understanding-problem
 [elvik]: https://swov.nl/en/publicatie/updated-estimates-relationship-between-speed-and-road-safety-aggregate-and-individual
 [itf]: https://www.itf-oecd.org/sites/default/files/docs/speed-changes-crash-risk.pdf
+[tip]: https://doi.org/10.1080/15389588.2026.2684002
+[sae]: https://doi.org/10.4271/09-14-02-0003
+[fhwa]: https://www.fhwa.dot.gov/policyinformation/statistics.cfm
+[valgo]: https://pypi.org/project/humanbaselines/
+[hcb]: ../platform/operations/human-crash-baselines-analysis-2026-10.md
+[hcb-f2]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#2-the-exposure-reconstruction-algebra-is-correct
+[hcb-f3]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#3-where-the-uncertainty-lives
+[hcb-f5]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#5-temporal-strata-the-site-can-align-with
+[hcb-f6]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#6-exposure-arithmetic-what-a-site-count-can-and-cannot-say
+[hcb-f7]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#7-valgos-definition-sensitivity-from-the-one-number-it-publishes
+[hcb-align]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#alignment-with-the-crash-data-integration-plan
+[hcb-survey]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#what-a-speed-survey-adds-to-these-datasets
+[hcb-incorporate]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#how-to-incorporate-the-datasets
+[hcb-sober]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#the-sober-baseline-paper-scanlon-et-al-journal-of-safety-research-accepted
+[hcb-tip]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#the-status-quo-base-paper-scanlon-et-al-traffic-injury-prevention-2026
+[hcb-valgo]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#valgo-human-crash-baselines
 
 ## Checklist
 
 ### Complete
 
 - [x] Review of the external proposal against the repository's benchmark, privacy, naming and tooling conventions
+- [x] Human crash baselines analysis folded in: the fourth source family, its rights rows, the temporal strata, the area-rate table, the area benchmark context block, and the hosted-baselines exploration
 
 ### Outstanding
 
-- [ ] Item 1: primary-source reading and rights record (`S`)
-- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`)
+- [ ] Item 1: primary-source reading and rights record, with the fourth family's rights rows and the fatal-rate supplement's contents (`S`)
+- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`); area-rate table from the fatal-rate paper's supplement (`M`, v0.5.10 if Item 1 clears the rights, else v0.6.8)
+- [ ] Item 2a: benchmark-aligned temporal strata in `data.json` and the PDF (`S`)
 - [ ] Item 3: before-and-after model section (`M`)
-- [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`)
+- [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`); site-to-area resolution and area benchmark context block (`M`)
 
 ### Deferred
 
 - [ ] Item 5: road-segment attachment, tracked by [posted-speed-limits-plan](posted-speed-limits-plan.md)
 - [ ] Mass and front-end geometry in the harm curve, tracked by [vehicle-encyclopedia-plan](vehicle-encyclopedia-plan.md)
+- [ ] Research note: multi-site temporal exposure and speed by stratum against the published strata, in `data/explore/` (`S`), after Item 2a runs at several sites; it tests the fatal-rate paper's stated assumption for INRIX-excluded segments only if the supplement carries the temporal vehicle-mile fractions ([analysis][hcb-survey])
+- [ ] Hosted-baselines exploration in `data/explore/`: definition sensitivity, posted-speed bands, and coverage beside the pinned edition, each result kept with its definition and retrieval date, with the service's terms of use read first (`S`)
 
 ### Accepted residuals (no action planned)
 
 - [ ] SHRP2 kinematic thresholds: not measurable by this sensor, not adopted
 - [ ] Per-passage crash or near-crash classification: out of scope here and in the state-estimation plan's Section 12
 - [ ] Surrogate-measure-to-crash calibration at a single site: not establishable from one site
+- [ ] A site crash rate: not computable at one site, by the arithmetic in the [report][hcb-f6]
