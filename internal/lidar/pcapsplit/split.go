@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 )
 
 // Default split parameters.
@@ -31,6 +32,17 @@ type SplitConfig struct {
 	// Empty means the single PCAPFile. When set, PCAPFile names the first
 	// entry so output naming and reporting have one file to refer to.
 	PCAPFiles []string `json:"pcap_files,omitempty"`
+	// Extents are the captures' packet extents, in InputFiles order, when the
+	// caller already knows them. The capture index probes every file for its
+	// first and last packet and its count, which is all that joining a
+	// sequence needs; given here, they spare the analysis a full read of every
+	// capture just to count it before the read that classifies it. Empty, or
+	// not naming InputFiles in order, means count them.
+	Extents []capseq.Segment `json:"-"`
+	// OnProgress receives the packets read so far and the total across every
+	// capture, zero when the total is unknown. It is called every hundred
+	// packets, so a caller that stores progress throttles it.
+	OnProgress func(current, total uint64) `json:"-"`
 
 	StartSeconds     float64 `json:"start_seconds"`
 	DurationSeconds  float64 `json:"duration_seconds"`

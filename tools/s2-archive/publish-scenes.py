@@ -8,7 +8,7 @@ started again from where it left off.
 Prefer the Makefile, which supplies the settings below and checks the corpus
 before it starts a fourteen-hour batch:
 
-    make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar   # in another shell
+    make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar/pcaps   # in another shell
     make scene-assets-status                                # what is outstanding
     make scene-assets                                       # rebuild it
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -140,8 +141,11 @@ func (ws *Server) runMotionPass(ctx context.Context, job capjobs.Job, report fun
 
 	// Use the port the index recorded for these captures rather than the one
 	// this process listens on. They differ whenever captures were recorded
-	// elsewhere, and the probe already established which is right.
-	periods, err := sessionMotionPassFunc(ctx, paths, sessionUDPPort(files, ws.udpPort),
+	// elsewhere, and the probe already established which is right. The probe
+	// also recorded each capture's extent, which spares the pass a counting
+	// read of every file before the read that classifies it.
+	periods, err := sessionMotionPassFunc(ctx, paths, indexedExtents(files, paths, os.Stat),
+		sessionUDPPort(files, ws.udpPort),
 		ws.snapshotTuningConfig(),
 		func(current, total int64, detail string) {
 			report(capjobs.Progress{Current: current, Total: total, Detail: detail})

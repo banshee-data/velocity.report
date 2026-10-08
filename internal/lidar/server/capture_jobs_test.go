@@ -12,6 +12,7 @@ import (
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -262,9 +263,11 @@ func TestRunMotionPassStoresTheTimeline(t *testing.T) {
 	original := sessionMotionPassFunc
 	t.Cleanup(func() { sessionMotionPassFunc = original })
 	var sawPaths []string
-	sessionMotionPassFunc = func(_ context.Context, paths []string, _ int,
+	var sawExtents []capseq.Segment
+	sessionMotionPassFunc = func(_ context.Context, paths []string, extents []capseq.Segment, _ int,
 		_ *cfgpkg.TuningConfig, report func(int64, int64, string)) ([]sqlite.MotionPeriod, error) {
 		sawPaths = paths
+		sawExtents = extents
 		report(1, 2, "halfway")
 		base := time.Date(2026, 9, 2, 13, 20, 0, 0, time.UTC)
 		return []sqlite.MotionPeriod{{
@@ -285,6 +288,11 @@ func TestRunMotionPassStoresTheTimeline(t *testing.T) {
 	// The pass must receive the session's captures joined, not one at a time.
 	if len(sawPaths) != 2 {
 		t.Errorf("the pass saw %d captures, want the session's 2", len(sawPaths))
+	}
+	// The index probed both captures, so the pass is handed their extents
+	// rather than reading every capture to count it.
+	if len(sawExtents) != 2 || sawExtents[0].Path != sawPaths[0] || sawExtents[1].PacketCount == 0 {
+		t.Errorf("the pass got extents %+v, want the index's probe of both captures", sawExtents)
 	}
 	periods, err := store.ListSessionPeriods(sessionID)
 	if err != nil {

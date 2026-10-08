@@ -119,6 +119,12 @@ The production pipeline uses four math-heavy layers:
   Mathematical review of the seeded tracker: censored dimensions, surface observability,
   correlated shape memory, course/body-yaw distinctions, and falsifiable evaluation.
   Includes declarations for the active heading sprint; no runtime validation is claimed.
+- [Facet registration maths review](proposals/20261008-facet-registration-maths-review.md):
+  Review of the facet registration experiment plan: what a plane patch can observe, why patch
+  density cannot reduce the half-extent error, the return budget and error sources of the sparse
+  tail, negative information from the L3 baseline, prior work from Petrovskaya to X-ICP, expected
+  shortcomings, side effects, and the revisions made to the plan. Arithmetic checks recorded; no
+  implementation or measured result.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md):
   Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence,
   low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol.

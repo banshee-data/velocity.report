@@ -4,11 +4,13 @@ Test whether persistent fragments of a vehicle's surface improve physical tracki
 measurements enough to justify their cost. Start with a bounded offline comparison alongside
 0.5.2. A useful negative result is an acceptable exit.
 
-- **Status:** Proposed experiment; no implementation or measured benefit
+- **Status:** Proposed experiment, revised after the mathematical review; no implementation or measured benefit
 - **Target:** Decision experiment alongside v0.5.2 when independently staffed; conditional integration in v0.5.6; catalogue and mesh follow-ons at v1.x+
-- **Layers:** L4 geometric evidence, L5 estimation, L6 identification, L8 following evaluation
+- **Layers:** L3 visibility, L4 geometric evidence, L5 estimation, L6 identification, L8 following evaluation
 - **Canonical:** [Visibility-aware tracking maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
-- **Related:** [0.5.2 MVP](lidar-052-mvp-sprint-plan.md), [near-edge tracked state](lidar-near-edge-tracked-state-plan.md), [state estimation](lidar-state-estimation-plan.md), [physical references](lidar-physical-reference-review-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md), [single-site demo](lidar-single-site-shape-demo-sprint-plan.md), [vehicle identification](scene-vehicle-identification-plan.md)
+- **Related:** [Facet registration maths review][review], [0.5.2 MVP](lidar-052-mvp-sprint-plan.md), [near-edge tracked state](lidar-near-edge-tracked-state-plan.md), [October near-edge campaign](../lidar/operations/near-edge-campaign-2026-10.md), [state estimation](lidar-state-estimation-plan.md), [physical references](lidar-physical-reference-review-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md), [single-site demo](lidar-single-site-shape-demo-sprint-plan.md), [vehicle identification](scene-vehicle-identification-plan.md)
+
+[review]: ../../data/maths/proposals/20261008-facet-registration-maths-review.md
 
 ## 1. Decision and priority
 
@@ -39,18 +41,32 @@ offline diagnostic can investigate that condition now; adopting facets must sati
 error comes from an unseen bumper or a wrong length prior, more patches on the same side will
 not create the missing measurement.
 
+The [mathematical review][review] makes that limit quantitative and extends it to the sparse
+tail. A patch constrains its normal and nothing else, and patches on one plane share a null
+direction whatever their number. Eight returns already place a face plane to 7 mm, while the
+half-extent prior that turns a face into a centre carries 0.2 m. The errors that dominate far,
+end-on, or occluded views are face identity, the unobserved extent, membership, and occlusion
+boundaries read as edges; persistent patch identity reduces none of them. The experiment therefore
+separates two decisions. Arm D is a bounded challenger for mid-pass lateral steadiness, where the
+near-edge campaign's face-transition tail lives. Arm B, body-local memory of the shape learned
+while the vehicle was dense, with a shared visibility component, is the candidate for the sparse
+tail. Neither creates a measurement of an unseen bumper: the output contract for that case is an
+interval, not a point.
+
 ## 2. Separate the claims
 
-| Claim                                               | Evidence needed                                                                                                              | What a pass permits                                            |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| H1: geometric fragments repeat                      | Repeatability under known motion, changing scan phase, range, and aspect; physical support distinct from sampling boundaries | Build a temporal patch representation                          |
-| H2: persistent geometry improves pose               | Paired physical endpoint and pose errors against the best simpler comparator, with matched information and motion priors     | Try a facet measurement in the tracked state                   |
-| H3: a constellation improves identity and following | Automatic membership and association, correct leader choice, calibrated bumper gap and net time gap, honest coverage         | Consider integration into the field-qualified pipeline         |
-| H4: the geometry distinguishes vehicle types        | Held-out physical vehicles and absent-catalogue examples, with confidence and rejection calibrated                           | Add a supported identification depth                           |
-| H5: the geometry supports a map or mesh             | Held-out observed-surface accuracy, view coverage, and revision consistency                                                  | Publish a measured partial surface, with completion provenance |
+| Claim                                                                    | Evidence needed                                                                                                                                                                      | What a pass permits                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| H1: geometric fragments are physical                                     | Repeatability under known motion, changing scan phase, range, and aspect; every extent end labelled physical, occluded, field of view, or dropout by a scored visibility labeller    | Build a temporal patch representation                                         |
+| H2: persistent geometry improves pose                                    | Paired physical endpoint and pose errors against the best simpler comparator, with matched information and motion priors                                                             | Try a facet measurement in the tracked state                                  |
+| H2s: body memory and visibility evidence improve pose in the sparse tail | Paired physical pose and endpoint errors in the far, end-on, and occluded strata, with abstention counted; arm B with the visibility component against arm A with the same component | Promote the sparse-tail candidate; publish interval output for unseen extents |
+| H3: a constellation improves identity and following                      | Automatic membership and association, correct leader choice, calibrated bumper gap and net time gap, honest coverage                                                                 | Consider integration into the field-qualified pipeline                        |
+| H4: the geometry distinguishes vehicle types                             | Held-out physical vehicles and absent-catalogue examples, with confidence and rejection calibrated                                                                                   | Add a supported identification depth                                          |
+| H5: the geometry supports a map or mesh                                  | Held-out observed-surface accuracy, view coverage, and revision consistency                                                                                                          | Publish a measured partial surface, with completion provenance                |
 
-H2 can pass while H3 fails. H4 and H5 are later experiments. A smooth trail, low registration
-residual, or attractive mesh cannot substitute for any of these measurements.
+H2 and H2s are decided separately; either can pass while H3 fails. H4 and H5 are later
+experiments. A smooth trail, low registration residual, or attractive mesh cannot substitute for
+any of these measurements.
 
 ## 3. Evidence and controls
 
@@ -85,6 +101,16 @@ bodies, turns, braking, reversing, temporary occlusion, neighbouring vehicles, a
 a wall. Include trailers, strong road grade, and clipped scans as explicit stress cases; either
 handle them or declare and test suppression. Report empty strata.
 
+Predeclare the sparse-tail strata before E1 and report them separately in every arm: range at or
+beyond 50 m; fewer than 60 returns on the object; folded aspect within 20 degrees of end-on; and
+any frame in which an extent end is labelled occluded. On the deployed ring table and a 3 m mount,
+an end face drops below the near-edge model's eight-return floor at about 80 m and a side beyond
+100 m, so the range bins are 20 to 50 m, 50 to 80 m, and beyond 80 m. Label every extent end of
+every evidence frame as physical, occluded, field of view, or dropout by casting the reviewed body
+against the L3 range baseline and the frame's nearer returns ([review][review], Section 5.4). The
+label is reference material for E1 and an input to the visibility component in E2; its own
+precision and recall against the facet audit are an E1 result.
+
 Review three distinct things:
 
 - Membership and identity: which returns belong to which physical vehicle across the episode.
@@ -102,7 +128,10 @@ bounds exceed the proposed improvement cannot decide that improvement.
 Freeze capture, calibration, ring/firing metadata, build, parameters, source times, reference
 revision, split, and estimator version. Verify per-return acquisition time and scan topology in
 the chosen evidence profile. If topology is absent, restrict that arm to spatial patches and
-record that single-strand repeatability was not tested.
+record that single-strand repeatability was not tested. The timing requirement is sized: the
+sweep inside one cluster is 7 ms at 10 m and 1.4 ms at 50 m, so a body-local map built at close
+range must deskew, while the filter's per-cluster capture instant stands as it is and deskew
+beyond 50 m buys less than the plane sigma ([review][review], Section 4.7).
 
 ## 4. Experiment in three steps
 
@@ -126,24 +155,50 @@ independent physical references, never using the candidate registration as its o
 results by range, aspect, support, and primitive type. Perturb and re-match to expose weak motion
 directions; verify that a plane remains unconstrained along its tangent despite extra points.
 
+Four checks are must-pass before E2 is funded, each on synthetic truth with the inputs recorded in
+the review's Section 9:
+
+- Patches on one plane leave the data-only tangential eigenvalue at zero however many there are.
+  An extractor that reports otherwise is counting fixed correspondences or noisy normals.
+- Normals perturbed within one degree produce a spurious tangential eigenvalue of order
+  `N sin^2(eps)`. The degeneracy test must reject it at a stated noise level, not at a raw
+  condition number.
+- Line fragments are fitted in plan view or against the ring's cone. A constant-elevation ring
+  sags 0.13 to 0.22 m across a flat 4.5 m face at 5 m on the steep rings, and a three-dimensional
+  straight-line fit or a planarity threshold must not reject a flat panel for it.
+- The extent-end labeller's precision and recall against the facet audit, by range and aspect,
+  with the bias an unlabelled occlusion boundary would introduce, half the hidden length, reported
+  beside it.
+
 ### E2: isolate the registration benefit
 
 Use reviewed memberships as a deliberately favourable diagnostic for every arm. Supply the same
 initial seed and seed uncertainty, body-origin convention, motion prior, time correction,
 available returns, and history horizon. Subsequent physical references are evaluation-only.
 
-| Arm | Measurement/representation                                                                | Purpose                                                                                                         |
-| --- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| A   | Frozen current near-edge tracked baseline                                                 | Measures the value beyond work already funded for 0.5.2                                                         |
-| B   | Robust point registration with bounded accumulated shape                                  | Controls for gains due merely to retaining history; locally inspired by SOTracker, not an asserted reproduction |
-| C   | Lines and finite planes fitted afresh each frame, with no persistent primitive identities | Tests whether better local geometry alone supplies the gain                                                     |
-| D   | Persistent body-local patches and a small graph of rigid geometric relationships          | Tests the full constellation hypothesis against A, B, and C                                                     |
+| Arm | Measurement/representation                                                                                                                                                                                                                                                                                                            | Purpose                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | Frozen current near-edge tracked baseline                                                                                                                                                                                                                                                                                             | Measures the value beyond work already funded for 0.5.2                                                                                           |
+| B   | Body-local map capped at a declared number of returns, each with provenance and per-return anisotropic noise; robust point-to-plane residuals against normals from the map; the map frozen before each update and de-duplicated against the current scan; abstention below a declared overlap; no exported inverse-Hessian covariance | Controls for gains due merely to retaining history, and is the sparse-tail candidate; locally inspired by SOTracker, not an asserted reproduction |
+| C   | Lines and finite planes fitted afresh each frame, with no persistent primitive identities, plus physical-edge features where the labeller supports them                                                                                                                                                                               | Tests whether better local geometry alone supplies the gain                                                                                       |
+| D0  | Persistent body-local patch identities without relational terms                                                                                                                                                                                                                                                                       | Optional: separates the identity claim from the graph claim when D differs from C                                                                 |
+| D   | Persistent body-local patches and a small graph of rigid geometric relationships                                                                                                                                                                                                                                                      | Tests the full constellation hypothesis against A, B, and C                                                                                       |
+| V   | Shared visibility component: extent-end labels, expected support per face, and a free-space penalty from the L3 range baseline and the frame's nearer returns                                                                                                                                                                         | Applied to every arm in the sparse-tail pass; supplies arm A's truncation flag                                                                    |
 
 Give B and D the same permitted history and information; compare C and D with the same extraction
 settings. Keep the native A input contract, and disclose representation differences. Run a
 matched-input comparison first, then report an equal-memory/compute comparison separately. Do
 not improve only D's seed, deskew, loss, or ground calibration. Tune each arm on the same tuning
 partition with a declared budget.
+
+Run E2 in two passes. The matched-input pass compares A to D without V on the full population.
+The sparse-tail pass adds V to every arm and decides H2s on the predeclared strata, with
+abstentions counted in every denominator. Between E1 and E2, decompose the baseline's along-path
+endpoint error per development episode into extent-prior error, edge localisation, and filter
+lag, using the reviewed references. Fund E2's D arm only if the share a facet can move is large
+enough to meet the H2 threshold, and record the decomposition whichever way it falls: edge
+localisation is the smallest term in the review's error budget, and a decomposition dominated by
+the extent prior routes the effort to extent memory and interval output instead.
 
 Begin with a bounded number of patches and only local graph relationships, such as adjacency,
 relative orientation, and separations of supported physical features. A visible patch centroid
@@ -157,9 +212,11 @@ Record data-only observable directions separately from the motion prior. Correla
 points must not count as independent evidence, and a registration posterior containing the
 motion prior must not enter that same prior again as a fresh measurement.
 
-Use one bounded optimiser and a declared uncertainty approximation for the pilot. A general joint
-shape/pose factor graph is a later escalation if the approximation cannot meet calibration. Label
-uncalibrated confidence as diagnostic until tested.
+Use one bounded optimiser and a declared uncertainty approximation for the pilot, scored by
+G-UNC-1 stratified by data-only rank. Report a prior-dominated direction as prior-dominated, never
+as a Gaussian sigma: inverse-Hessian covariance from point-to-plane registration is optimistic in
+exactly those directions. A general joint shape/pose factor graph is a later escalation if the
+approximation cannot meet calibration. Label uncalibrated confidence as diagnostic until tested.
 
 ### E3: expose the automatic pipeline and following consequences
 
@@ -173,6 +230,13 @@ fragmentation, two vehicles temporarily merged by L4, a wrong patch association,
 after the offending evidence is removed. H3 needs a way to propose a split or to suppress an
 unresolved merge; a shape cache must not silently make the mistake permanent. General multi-body
 reassociation is beyond this pilot and is costed in the follow-on.
+
+Test track-conditioned membership as a mechanism, not only a policy: gather returns inside the
+predicted body footprint widened by its covariance, let the visibility component reject returns
+the hypothesis cannot explain, and compare against the clusterer's partition in the sparse-tail
+strata. Include the cache rollback case: one wrong association enters the body-local map, its
+revision is removed, and the fit must return to within the plane sigma of its pre-contamination
+state.
 
 Feed each arm's versioned body trajectory through the existing following analyser. Hold the
 reference path fixed first to isolate endpoint error, then repeat with each arm's normal fitted
@@ -197,15 +261,17 @@ capture groups for intervals; do not treat frames or overlapping pairs as indepe
 The following are proposed research decision thresholds. Confirm their practicality on development
 data and freeze them before decision scoring. They are additional to the existing release gates.
 
-| Decision                      | Proposed criterion                                                                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Continue after E1             | Real-data geometric support agrees with the synthetic mechanism; retained patches add observable information or reduce measurement bias on target cases. If only sampling boundaries repeat, stop persistent facet identity work.                                                                                                                                                                   |
-| H2 worth integration          | At least 20% reduction in paired p95 absolute along-path physical-endpoint error against the best simpler arm; improvement interval excludes zero and exceeds reference resolution. Publish absolute metres as well as percentages.                                                                                                                                                                 |
-| Constellation justified       | D provides that material gain over the best of A/B/C, or a separately predeclared coverage benefit at equivalent physical accuracy. If C or B ties D within the decision resolution, choose the simpler representation.                                                                                                                                                                             |
-| H3 worth field promotion work | Default objective: at least 20% lower p95 physical gap error at matched supported opportunity, with no degradation beyond frozen margins in speed, net time gap, pairing, identity, or uncertainty. An alternative objective is at least 10 percentage points more valid opportunity while meeting the same absolute accuracy and calibration limits. Choose the objective before decision scoring. |
-| Guardrails                    | Freeze absolute error/non-inferiority margins from the following error budget in F0. Retain existing geometry/identity/manoeuvre criteria; report failures and denominator changes. A stratum with insufficient truth cannot pass.                                                                                                                                                                  |
-| Uncertainty                   | Evaluate empirical coverage and interval width together, by support/range/aspect, using the existing G-UNC-1 protocol where its assumptions hold. Narrower wrong intervals fail; wider intervals alone do not win.                                                                                                                                                                                  |
-| Runtime                       | Measure added p50/p95/p99 frame time and bounded memory on M1 at a declared scene load. The state plan's under-3-ms added frame-time gate still applies to promotion; an offline result may pass H2 while failing deployability.                                                                                                                                                                    |
+| Decision                      | Proposed criterion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Continue after E1             | Real-data geometric support agrees with the synthetic mechanism; retained patches add observable information or reduce measurement bias on target cases. If only sampling boundaries repeat, stop persistent facet identity work.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| H2 worth integration          | At least 20% reduction in paired p95 absolute along-path physical-endpoint error against the best simpler arm; improvement interval excludes zero and exceeds reference resolution. Publish absolute metres as well as percentages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Constellation justified       | D provides that material gain over the best of A/B/C, or a separately predeclared coverage benefit at equivalent physical accuracy. If C or B ties D within the decision resolution, choose the simpler representation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| H3 worth field promotion work | Default objective: at least 20% lower p95 physical gap error at matched supported opportunity, with no degradation beyond frozen margins in speed, net time gap, pairing, identity, or uncertainty. An alternative objective is at least 10 percentage points more valid opportunity while meeting the same absolute accuracy and calibration limits. Choose the objective before decision scoring.                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Sparse tail (H2s)             | On the predeclared far, end-on, and occluded strata, B with V is not worse than A with V on paired physical pose error at matched supported opportunity, and lowers abstention or error by a margin frozen in F0. D with V must match B within the decision resolution to remain a tail candidate; otherwise the tail decision names B.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Attribution gate              | E2's D arm is funded only if the per-episode decomposition of along-path endpoint error attributes enough to edge localisation for the H2 threshold to be reachable. A decomposition dominated by the extent prior routes the effort to extent memory and interval output, and that routing is itself a recorded outcome.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Guardrails                    | Freeze absolute error/non-inferiority margins from the following error budget in F0. Retain existing geometry/identity/manoeuvre criteria; report failures and denominator changes. A stratum with insufficient truth cannot pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Uncertainty                   | Evaluate empirical coverage and interval width together, by support/range/aspect and by data-only rank, using the existing G-UNC-1 protocol where its assumptions hold. Narrower wrong intervals fail; wider intervals alone do not win. A prior-dominated direction reported as a Gaussian sigma fails.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Runtime                       | Measure added p50/p95/p99 frame time and bounded memory on M1 at a declared scene load. The October campaign measured the near-edge tracked arm at 3.5 to 8 ms p99 per update on the M1 Pro, 15 to 35 times the production tracker and already above the state plan's under-3-ms gate, which still applies to promotion. F0 states a per-pair cost model and budget; a facet measurement is made per assigned pair unless association is shown to need it. An offline result may pass H2 while failing deployability. The [async tracking plan's cost section](lidar-cluster-observation-log-and-async-tracking-plan.md#10-cost-what-decoupling-mitigates-measured-against-the-tracker-arms) places B and D as lagged or remote estimators on a Pi 4 by construction, and names the in-place reduction of the near-edge arm as the fix for the measured breach. |
 
 Record longitudinal/lateral centre and endpoint error, yaw ambiguity, extent error, gaps and net
 time gaps, false leader choices, ID switches, fragmentation, reacquisition, and valid-opportunity
@@ -224,27 +290,29 @@ estimation, including implementation review, targeted tests, and the decision re
 replay, reference import/scoring, and the source evidence work. They are planning ranges, not
 measured delivery rates. Operator effort and elapsed waiting for captures are separate.
 
-| Package | Deliverable                                                                                                                              | Engineer-days | Dependency/exit                                                |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------: | -------------------------------------------------------------- |
-| F0      | Freeze source/baseline, audit scan metadata, allocate shared references, pin error budget and decision protocol                          |           2–3 | Existing S0/reference tooling; stop or repair missing evidence |
-| F1      | Ring/patch extractor, small sampling simulator, E1 repeatability and degeneracy report                                                   |           3–5 | F0; first stop/go                                              |
-| F2      | Common evaluator plus A–D seeded registration arms, bounded cache and weak-mode diagnostics                                              |           5–8 | Useful F1 primitives; H2 comparison                            |
-| F3      | Automatic-membership stress test, following adapter, paired decision scorecard and recommendation                                        |           5–9 | Physical references and F2; H2/H3 decision                     |
-| F4      | Conditional tracked-state integration, versioned persistence/revisions, inspector diagnostics, uncertainty recalibration and gate reruns |         10–15 | F3 gain and 0.5.2 contracts; scoped opt-in candidate           |
-| F5      | Wider scenes, split/merge association, cache recovery, resource limits, and robustness qualification                                     |         10–20 | F4; stated operating envelope                                  |
+| Package | Deliverable                                                                                                                                                                             | Engineer-days | Dependency/exit                                                |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------: | -------------------------------------------------------------- |
+| F0      | Freeze source/baseline, audit scan metadata, allocate shared references, pin error budget, decision protocol, sparse-tail strata, and the per-pair cost model                           |           2–4 | Existing S0/reference tooling; stop or repair missing evidence |
+| F1      | Ring/patch extractor, small sampling simulator, extent-end labeller and its score, E1 repeatability and degeneracy report                                                               |           4–6 | F0; first stop/go                                              |
+| F2      | Common evaluator plus A–D seeded registration arms with B specified, the shared visibility component, bounded cache, weak-mode diagnostics, the attribution gate, and the two E2 passes |          6–10 | Useful F1 primitives; H2 and H2s comparisons                   |
+| F3      | Automatic-membership stress test, following adapter, paired decision scorecard and recommendation                                                                                       |           5–9 | Physical references and F2; H2/H3 decision                     |
+| F4      | Conditional tracked-state integration, versioned persistence/revisions, inspector diagnostics, uncertainty recalibration and gate reruns                                                |         10–15 | F3 gain and 0.5.2 contracts; scoped opt-in candidate           |
+| F5      | Wider scenes, split/merge association, cache recovery, resource limits, and robustness qualification                                                                                    |         10–20 | F4; stated operating envelope                                  |
 
-F0–F3 total **15–25 engineer-days**, about **3–5 focused engineering weeks**. Allow
-**20–40 operator hours** initially for sparse-keyframe review and adjudication; measure the first
-five episodes and reforecast rather than hiding annotation cost inside coding. If references or
-scan-time metadata need additional plumbing, reserve **5–10 shared engineering days** and, where
+F0–F3 total **17–29 engineer-days**, about **3.5–6 focused engineering weeks**. The widening over
+the first estimate pays for the extent-end labeller, the B specification, and the second E2 pass;
+it is the review's cost, not slack. Allow **20–40 operator hours** initially for sparse-keyframe
+review and adjudication; the labeller can propose edge labels and should reduce it. Measure the
+first five episodes and reforecast rather than hiding annotation cost inside coding. If references
+or scan-time metadata need additional plumbing, reserve **5–10 shared engineering days** and, where
 needed, **1–2 controlled field days**. Those are shared 0.5.2 evidence costs and must not be counted
 twice. More independent captures or broad confirmation statistics extend the calendar.
 
-F0–F5 total **35–60 engineer-days**, about **7–12 focused engineering weeks**, conditional on each
-decision. With one dedicated engineer, a workable corpus, and a reviewer available, allow roughly
-**4–6 calendar weeks** for the first decision, then **4–7 more calendar weeks** for F4–F5. These
-figures do not estimate the remaining whole 0.5.2 programme, catalogue construction, full 6D
-tracking, articulation, a general factor graph, or Pi optimisation.
+F0–F5 total **37–64 engineer-days**, about **7.5–13 focused engineering weeks**, conditional on
+each decision. With one dedicated engineer, a workable corpus, and a reviewer available, allow
+roughly **5–7 calendar weeks** for the first decision, then **4–7 more calendar weeks** for
+F4–F5. These figures do not estimate the remaining whole 0.5.2 programme, catalogue construction,
+full 6D tracking, articulation, a general factor graph, or Pi optimisation.
 
 ## 7. Schedule against the existing MVPs
 
@@ -265,7 +333,11 @@ F2/F3; week 6 only for reference/review allowance or a declared evidence decisio
 has its own schedule; parallel boxes on a calendar do not make references arrive sooner.
 
 With **one engineer**, spend at most two days now on F0's evidence audit and error attribution,
-then finish the provisional headway MVP and unblock its physical references. Resume the remaining
+then finish the provisional headway MVP and unblock its physical references. The first session
+of that audit is written up as a runnable protocol on kirk0's reviewed pack
+([F0 attribution on kirk0](../lidar/operations/facet-f0-attribution-kirk0.md)): four existing
+arms, the near-face and identity scorers, and predeclared readings for the attribution gate, the
+face-entry tail, and the sparse-tail onset. Resume the remaining
 experiment after MVP A while field qualification is being prepared. Splitting one person between
 two critical paths adds delay to both. Keep a named date or milestone for the research decision;
 do not leave an indefinitely running background experiment.
@@ -300,6 +372,12 @@ Both estimates are exploratory extensions, not commitments to production identif
 mesh mapping. The representation can support them later without making either a prerequisite for
 measuring the distance between two vehicles.
 
+Body-local shape data is a description of one vehicle's surface. Keep it in memory for the track's
+lifetime only; persist nothing body-local in production; publish aggregate descriptors, never a
+per-vehicle surface; and report H4 at family level. No PII by architecture is a tenet, and a
+retained vehicle shape cache would be a new class of retained data that needs its own review
+before any field build carries it.
+
 ## 9. Research basis and first deliverable
 
 [SOTracker](https://arxiv.org/abs/2103.06028) combines point registration, accumulated vehicle
@@ -314,7 +392,151 @@ not solve our close-vehicle association problem.
 provides a joint shape/kinematics alternative. Keep it as a later comparator if explicit patches
 fail on curved bodies; implementing all three research systems would exceed the bounded pilot.
 
+The [mathematical review][review] adds the older and closer literature, with references in
+`data/maths/references.bib`: Petrovskaya and Thrun's per-vehicle Bayes filter with anchor points
+and a ray-cast likelihood; Granström, Lundquist, and Orguner's rectangle measurement model for
+laser scanners, of which the near-edge model is a special case; Wyffels and Campbell's negative
+information for occluded extended objects; Held et al.'s tracker that degrades gracefully to a
+handful of returns against an accumulated model; Kraemer, Stiller, and Bouzouraa's polylines with
+free-space information; Zhang et al.'s L-shape corner; and the ICP covariance and degeneracy
+results of Censi, Brossard et al., Zhang, Kaess, and Singh, and Tuna et al. None uses persistent
+small-patch identities with a relational graph as the pose measurement. The published trackers
+that handle sparse returns best use accumulated shape or free space, or both.
+
 The first deliverable is a source-pinned experiment manifest, a reference queue shared with S0,
 and a baseline error-budget report. It must say whether the present headway limit is longitudinal
 endpoint geometry, speed, identity, visibility, or missing evidence. That answer determines whether
 F1 is worth funding and gives a failed facet experiment something useful to leave behind.
+
+## 10. Side effects register
+
+The [review][review], Section 8, derives each entry; this table is the working list for F0.
+
+| Side effect                 | Expected                                                                                                             | Handling                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Runtime                     | More work per candidate pair than the near-edge arm, which already measures 3.5 to 8 ms p99 per update on the M1 Pro | Per-pair cost model and budget in F0; measurement per assigned pair; the runtime scorecard row |
+| Memory                      | A capped body-local map or patch set per live track, tens of kilobytes at a thousand returns                         | Declare the cap; evict on track end                                                            |
+| Determinism and replay      | A cross-frame cache adds state; iteration counts and float order can differ between runs                             | Fixed iteration counts, ordered reductions, byte-equal repeat runs as in the campaign          |
+| Identity stickiness         | A wrong association or merge enters the cache and keeps pulling the fit toward itself                                | Provenance per contribution; the E3 rollback case; no silent permanence                        |
+| Double counting             | Cached returns re-scored against the current scan; a posterior holding the motion prior fed back as a measurement    | Frozen pre-update cache, de-duplication, one combined update                                   |
+| Calibration                 | Inverse-Hessian covariance optimistic in weak directions; spurious eigenvalues from noisy normals                    | Prior-dominated directions reported as such; G-UNC-1 by data-only rank                         |
+| Interaction with T1, T3, T5 | A second measurement model on the same filter without a declared merger                                              | One measurement model per arm; the facet arm replaces the face update rather than adding to it |
+| Class prior                 | Half-extents remain the class prior until extents converge, whatever the patch fit does                              | Extent memory and interval output                                                              |
+| Configuration fingerprint   | New tuning keys move the fingerprint and refuse the perf baselines                                                   | An options block, absent by default, as the solid body uses                                    |
+| Persistence and VRLOG       | Patch identities, revisions, and body registrations need a schema to be inspected or replayed                        | Offline and separately versioned until F4                                                      |
+| Operator load               | Facet review per informative frame                                                                                   | The labeller proposes edge labels; measure the first five episodes and reforecast              |
+| Privacy                     | A persisted vehicle shape cache is a new class of retained data; H4 retrieval approaches identification              | The retention rule in Section 8; family-level H4; aggregate descriptors only                   |
+
+## 11. Compute profile: real-time hardware and offline throughput
+
+This section sizes the full facet arm, D with the shared visibility component V, for two
+questions: what hardware runs it in real time, and how fast it runs offline on the Mac. It is a
+model anchored to measurements, not a profile. The anchors are the committed kirk0 Mac baseline
+(L1 to L4 at 8.1 ms mean, 34 ms p95, 78 ms p99 per frame), the October campaign's tracker update
+timings (B0 0.17 to 0.38 ms p99; the near-edge arm 3.5 to 8 ms), and public single-core
+benchmark ratios for the candidate hosts. The async plan's Section 10 gives the levers; this
+section gives the envelope. The profiling build named there replaces these figures.
+
+### 11.1 What the arm does per frame, and what each part costs
+
+| Part                             | Work per frame                                                                                                                                             | Model cost on the M1 Pro, one core                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Extraction, per cluster          | Neighbour tree over the members, local normals or strand grouping with 16 neighbours, line and plane fits                                                  | 0.30 ms at 400 members, 0.38 ms at 500; scales as `N log N`             |
+| Registration, per track          | Four Gauss-Newton iterations of point-to-plane residuals against a body-local map of 1,000 points; three hypotheses on the ambiguous fifth of track-frames | 1.3 ms at 400 members, 1.6 ms at 500; scales as `N log M` per iteration |
+| Map upkeep, per track            | Insert, de-duplicate, amortised rebuild                                                                                                                    | 0.2 ms                                                                  |
+| Visibility component, per track  | Cast the predicted body against the L3 polar baseline, about 2,600 cells at 20 m                                                                           | 0.01 ms                                                                 |
+| Relational graph, per track      | Up to twenty patches, local relations only                                                                                                                 | Under 0.01 ms                                                           |
+| Near-edge faces kept for extents | The current span search, or its reduced form                                                                                                               | 0.30 ms unreduced, 0.01 ms reduced (async plan, lever B)                |
+| L1 to L4, unchanged              | Parsing, background, clustering                                                                                                                            | 8.1 ms mean on kirk0, 34 ms on busy frames, 78 ms at the kirk0 p99      |
+
+Two prerequisites are plumbing, not compute: the laser channel is on the L2 point and dropped at
+the L4 conversion, so ring strands need one byte carried through, and the members must reach the
+tracker (`KeepClusterMembers`), which the near-edge arm already does in replay.
+
+### 11.2 Per-frame cost by scene load
+
+Loads follow the async plan's table. The L1 to L4 column uses the kirk0 mean for the light loads
+and the kirk0 p95 and p99 for busy and stress frames, because busy frames are the clustering tail.
+
+| Load       | Clusters, tracks, members | L1 to L4 | Extraction | Registration and upkeep | Total, one core | Worst case, three hypotheses and unreduced faces |
+| ---------- | ------------------------- | -------: | ---------: | ----------------------: | --------------: | -----------------------------------------------: |
+| kirk0-like | 3.4, 8, 400               |   8.1 ms |     1.0 ms |                 10.4 ms |         19.5 ms |                                          31.4 ms |
+| Ordinary   | 15, 8, 400                |  12.2 ms |     4.5 ms |                 10.4 ms |         27.0 ms |                                          39.0 ms |
+| Busy       | 50, 30, 500               |  34.3 ms |    19.1 ms |                 48.1 ms |        101.5 ms |                                         155.2 ms |
+| Stress     | 150, 80, 300              |  77.9 ms |    32.6 ms |                 79.0 ms |        189.5 ms |                                         284.7 ms |
+
+Registration is per track and extraction per cluster, so both parallelise across cores with a
+deterministic merge in track order; L1 to L4 and association stay serial as the code stands.
+
+### 11.3 Offline on the Mac: the scaling factor
+
+| Load       | One core     | Four worker cores | Eight worker cores |
+| ---------- | ------------ | ----------------- | ------------------ |
+| kirk0-like | 5.0 times RT | 8.7 times RT      | 9.9 times RT       |
+| Ordinary   | 3.6 times RT | 6.1 times RT      | 6.9 times RT       |
+| Busy       | 1.0 times RT | 1.9 times RT      | 2.3 times RT       |
+| Stress     | 0.5 times RT | 0.9 times RT      | 1.1 times RT       |
+
+RT is real time, the capture's own duration. These exclude evidence writes: the corpus tool runs
+B0 and the shadow at about four to five times real time per pass with evidence and the
+determinism repeat, against the bench's 9.2 times without them, so evidence writing roughly
+halves throughput. The factor the work needs is set by the corpus, not the sensor:
+
+| Use                                                  | Capture-hours per arm pass | Needed factor to finish in the stated window                                                                              |
+| ---------------------------------------------------- | -------------------------: | ------------------------------------------------------------------------------------------------------------------------- |
+| E2 decision corpus: 60 passages over three captures  |                  about 1.5 | Any factor over 0.5 times RT finishes four arms and a repeat in a day                                                     |
+| Campaign-scale confirmation: 29 cases, 9.5 h, 4 arms |                        9.5 | At least 2 times RT per pass to fit a two-day window on one Mac, run one case at a time; 4 times to match today's cadence |
+
+So the arm as modelled runs the pilot comfortably on the Mac and runs a campaign at the busy
+sites at the edge of acceptable, single-threaded. Per-track parallelism inside the tracker, or
+running independent cases concurrently with their evidence on the internal disk, which the
+campaign found necessary anyway, doubles it. No Mac hardware change is needed; a GPU is not.
+
+### 11.4 Real time on a device
+
+Real time has two forms. Synchronous: the whole frame fits 98 ms at p99 on the capture path.
+Decoupled: L1 to L4 fits 98 ms on its own core, and the worker averages under 100 ms a frame on
+the remaining cores (async plan, lever A). Per-core speed is relative to the M1, from public
+single-core benchmark ratios, and is approximate: Pi 4 about 0.13, Pi 5 about 0.34, Jetson Orin
+NX about 0.38, an N100 mini PC 0.40 to 0.53.
+
+| Load       | Pi 4, 4 cores             | Pi 5, 4 cores            | Orin NX, 8 cores                    | N100 class, 4 cores                 | M1-class, 8 cores |
+| ---------- | ------------------------- | ------------------------ | ----------------------------------- | ----------------------------------- | ----------------- |
+| kirk0-like | 96 ms, fits               | 37 ms, fits              | 27 ms, fits                         | 28 ms, fits                         | 10 ms, fits       |
+| Ordinary   | 136 ms, no; decoupled yes | 52 ms, fits              | 39 ms, fits                         | 39 ms, fits                         | 15 ms, fits       |
+| Busy       | 440 ms, no; L4 alone 264  | 168 ms, no; L4 alone 101 | 117 ms, no; decoupled yes, L4 at 90 | 127 ms, no; decoupled yes, L4 at 76 | 44 ms, fits       |
+| Stress     | no                        | no                       | no, L4 at 205                       | no, L4 at 173                       | 94 ms, fits       |
+
+The required per-core speed to fit synchronously with three worker cores is 0.18 times the M1 at
+ordinary load, 0.58 at busy, and 1.18 at stress; the serial L1 to L4 path alone needs 0.12, 0.35,
+and 0.79. The hardware profile therefore reads:
+
+- **Pi 4:** not a host for this arm at any load above kirk0's, and at busy sites not a host for
+  L1 to L4 either, if the benchmark ratio holds. The Pi perf cell must be measured before that is
+  stated as fact.
+- **Ordinary sites:** a Pi 5-class four-core ARM board with the decoupled worker suffices, with
+  margin at p95 and little at p99.
+- **Busy urban sites:** a per-core speed of at least 0.4 times the M1 and at least four cores,
+  decoupled, an N100 or Orin NX class; even then L4 sits at 76 to 90 ms at p95 on its core, so
+  the clustering tail decides the frame-drop rate, not the facet arm. Parallelising L4 or a
+  cheaper clusterer on busy frames is the lever there.
+- **Stress scenes:** M-series class, or L4 moved to the worker with the "foreground before L4"
+  profile of the async plan.
+- **GPU:** not warranted. The arm's parallel work is at most about 96,000 residual rows per frame
+  at stress, which one core does in about 2 ms, below the latency of a kernel launch and copy on
+  an integrated GPU. A GPU would pay only for dense per-point work over whole scans or batch
+  processing of many frames offline, neither of which the arm needs, and it would add a cgo
+  dependency the repository does not carry.
+- **RAM:** small. Body-local maps and their trees are 1.8 MiB at 30 live tracks and 18 MiB at
+  300; the decoupled queue is 11 MiB at twenty frames of 8,000 members; patches and graphs are
+  under 1 MiB. The existing 4 to 8 GB Pi configuration is not the constraint and no additional
+  RAM is needed for the arm; evidence writes and the background grid remain the larger users.
+- **Thermal and allocation:** the table assumes sustained clocks. The pipeline allocates 1.9 GB/s
+  on the Mac; on a small board that rate is itself a cost, and pooling per-frame buffers is part
+  of making any of these rows true.
+
+The arm's cost sits mainly in registration, which scales with members times live tracks. The
+cheapest way to buy headroom is not hardware but a lower member budget for registration (the
+256-point sample T0 showed reproduces the near-edge fixes), fewer iterations once converged, and
+hypotheses only where the face identity is open. Those halve the registration column before any
+host is chosen.

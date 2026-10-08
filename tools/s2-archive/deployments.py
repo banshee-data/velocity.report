@@ -12,7 +12,7 @@ import os
 import re
 from datetime import datetime, timedelta
 
-PCAP_DIR = "/Volumes/lidar/lidar/s2"
+PCAP_DIR = "/Volumes/lidar/lidar/pcaps/s2"
 ANALYSIS = os.path.join(PCAP_DIR, "analysis")
 NAME = re.compile(r"^(?P<prefix>.+)_(?P<stamp>\d{14})_(?P<seq>\d+)\.pcap$")
 # Captures are five minutes apiece; a fresh site is minutes of driving away.
