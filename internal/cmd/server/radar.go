@@ -79,6 +79,7 @@ var (
 	//                  a botched ACL: drop back to LAN access, fix grants.
 	tsCapEnforcement = serveFlags.String("ts-cap-enforcement", "off", "Access profile: off (legacy default), on (legacy LAN-admin), or hardened (LAN read-only)")
 	tsServeListen    = serveFlags.String("ts-serve-listen", "127.0.0.1:8082", "Dedicated loopback Serve backend for the hardened access profile")
+	allowedHosts     = serveFlags.String("allowed-hosts", "", "Comma-separated host names the HTTP listeners answer besides addresses, localhost, single-label and .local/.lan/.home.arpa/.internal/.ts.net names (e.g. velocity.example.com, or .example.com for every name beneath it)")
 	selfCheck        = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
 	selfCheckLive    = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
 )
@@ -395,6 +396,11 @@ func Main(args []string) int {
 	// Refuse remote bindings in every profile, before any sensors start.
 	if err := access.ValidateLoopbackListen(*lidarGRPCListen); err != nil {
 		log.Fatalf("gRPC is local until authentication is implemented: %v", err)
+	}
+	// Every profile refuses a Host header a DNS-rebinding page could send.
+	hostPolicy, hostPolicyErr := access.ParseAllowedHosts(*allowedHosts)
+	if hostPolicyErr != nil {
+		log.Fatalf("Invalid --allowed-hosts: %v", hostPolicyErr)
 	}
 	if err := validateEnforcedListeners(capMode, *tsServeListen, *lidarListen, *lidarGRPCListen); err != nil {
 		log.Fatalf("Listener configuration for --ts-cap-enforcement=%s: %v", *tsCapEnforcement, err)
@@ -978,6 +984,7 @@ func Main(args []string) int {
 		})
 		lidarServer.SetListenerWrapper(guards.listener("LiDAR HTTP server"))
 		lidarServer.SetHandlerWrapper(guards.handler("LiDAR HTTP server"))
+		lidarServer.SetHostPolicy(hostPolicy)
 		// A VRLOG that plays to its end stays loaded and stays the data source.
 		// Only the replay slot is released, so another replay can start; the
 		// recording remains on screen at its final frame and the visualiser's
@@ -1176,6 +1183,7 @@ func Main(args []string) int {
 		// anonymous LAN and verified Tailscale callers, with OS-local recovery.
 		apiServer.SetAuthGate(tsManager, capMode)
 		apiServer.SetServeForwards(tsManager)
+		apiServer.SetHostPolicy(hostPolicy)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// It was created before the LiDAR server started, whose startup moves
