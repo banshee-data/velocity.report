@@ -131,6 +131,10 @@ const (
 	// length and width are at least the smallest road car's
 	// (SolidBodyOptions.VehicleExtentFloor).
 	ExperimentSolidBodyVehicleExtentFloor = "solid_body_vehicle_extent_floor"
+	// ExperimentSolidBodyEndFaceCentring: at a fix by an end face alone, the
+	// position across the body is also updated from the face's own midpoint
+	// (SolidBodyOptions.EndFaceCentring).
+	ExperimentSolidBodyEndFaceCentring = "solid_body_end_face_centring"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -177,6 +181,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyFacePlaneSpans:       true,
 	ExperimentSolidBodyExtentGrowth:         true,
 	ExperimentSolidBodyVehicleExtentFloor:   true,
+	ExperimentSolidBodyEndFaceCentring:      true,
 	ExperimentNearEdgeTrack:                 true,
 	ExperimentNearEdgeTrackA1:               true,
 }

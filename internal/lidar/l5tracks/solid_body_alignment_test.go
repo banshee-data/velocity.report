@@ -79,6 +79,17 @@ func TestCourseHeadingFollowsTravelAboveTheCourseSpeed(t *testing.T) {
 	if want := math.Pi/2 + 5*math.Pi/180; math.Abs(float64(o.PsiRad)-want) > 1e-5 || !o.IsResolved() {
 		t.Errorf("an axis 5 degrees off the course gave %v rad (resolved %v), want %v resolved", o.PsiRad, o.IsResolved(), want)
 	}
+
+	// Between the thresholds and twice them the belief turns part of the
+	// way: at 3 m/s, half way from an axis 73 degrees off toward the course.
+	ramping := movingBody(0, 3)
+	ramping.ObservationCount = 5
+	ramping.OBBHeadingRad = 0.3
+	ramping.HeadingSource = HeadingSourcePCA
+	o = tracker.solidBodyOrientation(ramping, &ramping.solidBody)
+	if want := 0.3 + (math.Pi/2-0.3)/2; math.Abs(float64(o.PsiRad)-want) > 1e-5 {
+		t.Errorf("at 3 m/s an axis 73 degrees off turned to %v rad, want half way, %v", o.PsiRad, want)
+	}
 }
 
 func TestFacePlaneSpansTakeTheDimensionAFaceLiesAcross(t *testing.T) {
@@ -269,5 +280,63 @@ func BenchmarkSolidBodyEndOnTruck(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+func TestEndFaceCentringTakesTheFacesOwnMidpoint(t *testing.T) {
+	cfg := solidBodyConfig()
+	cfg.SolidBody.EndFaceCentring = true
+	tracker := NewTracker(cfg)
+	// A front face at x = 10, its outward normal +X, seen 2.4 m across and
+	// centred 1 m to the left, with a side's returns behind it pulling the
+	// medoid further left.
+	points := append(strip(9.9, 0.1, -0.2, 2.4, 30), strip(7, 2.8, 2.0, 0.1, 30)...)
+	cluster := WorldCluster{RetainedPoints: points}
+	front := EdgeMeasurement{Face: FaceFront, NormalX: 1, PlaneOffsetMetres: 10}
+	frame := nearEdgeFrame{width: DimensionBelief{Metres: 2.5}}
+	term, ok := tracker.endFaceCentringTerm([]EdgeMeasurement{front}, frame, cluster)
+	if !ok {
+		t.Fatal("a front face seen across its width gave no term")
+	}
+	if math.Abs(term.z-1.0) > 0.05 || math.Abs(term.hy) != 1 {
+		t.Errorf("term %+v, want the face's own midpoint, 1.0 m across", term)
+	}
+	if term.variance > float64(cfg.MeasurementNoise)+0.01 {
+		t.Errorf("a face seen nearly whole has variance %v", term.variance)
+	}
+	// Seen less than half as wide as the body: cut off, and nothing.
+	narrow := WorldCluster{RetainedPoints: strip(9.9, 0.1, 0.5, 1.0, 30)}
+	if _, ok := tracker.endFaceCentringTerm([]EdgeMeasurement{front}, frame, narrow); ok {
+		t.Error("a face seen 1 m across against a 2.5 m body gave a term")
+	}
+	// A fix with a side face in it already constrains the width direction.
+	side := EdgeMeasurement{Face: FaceLeft, NormalY: 1, PlaneOffsetMetres: 2.1}
+	if _, ok := tracker.endFaceCentringTerm([]EdgeMeasurement{front, side}, frame, cluster); ok {
+		t.Error("a two-face fix gave a centring term")
+	}
+}
+
+func TestEndFaceCentringHoldsAnEndOnTruckAcross(t *testing.T) {
+	worst := func(centring bool) float64 {
+		cfg := solidBodyConfig()
+		cfg.SolidBody.CourseAlignedFaces = true
+		cfg.SolidBody.CourseHeading = true
+		cfg.SolidBody.ExtentGrowthAdmission = true
+		cfg.SolidBody.EndFaceCentring = centring
+		tracker := NewTracker(cfg)
+		var w float64
+		for _, f := range syntheticPassFrames(t, endOnTruckPass()) {
+			tracker.Update(f.clusters, f.at)
+			r, ok := mainTrack(t, tracker).SolidBody()
+			if ok && r.Estimate.Reference == ReferenceBodyCentre {
+				w = math.Max(w, math.Abs(float64(r.Estimate.Y)-f.truthY))
+			}
+		}
+		return w
+	}
+	without, with := worst(false), worst(true)
+	t.Logf("worst error across the body on body-centre frames: %.2f m without centring, %.2f m with", without, with)
+	if with > without+0.05 {
+		t.Errorf("centring made the across-body error worse: %.2f m against %.2f m", with, without)
 	}
 }

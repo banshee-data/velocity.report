@@ -6,7 +6,7 @@ within 0.25 m; neither truck is. This plan fixes the two mechanisms behind that,
 experiments, and measures them against the same frozen split, with guards that keep three
 vehicles on one capture from becoming the thing the tracker is fitted to.
 
-- **Status:** Planned, 2026-10-09; to run unattended on branch `claude/physical-align`
+- **Status:** Run 2026-10-09 on branch `claude/physical-align`: the [report](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md) keeps the course heading and growth admission as opt-in experiments, records the other three as null or harmful, and finds the rest of the trucks' error upstream of the solid body
 - **Target:** v0.5.2, Sprint 0.5.2.1, the backlog's "Solid-body extent accumulation" item
 - **Layers:** L5 tracker (solid body), offline evaluation
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
@@ -51,6 +51,13 @@ production B0, the shadow or A2 unless named.
 
 Constants are the existing ones (the class priors, `CourseAlignmentMinSpeedMps`, the 10° span
 window). None is fitted to the pilot's poses.
+
+The run added a fourth mechanism and a fifth experiment, both found by reading the rows:
+`solid_body_extent_growth` (a merge candidate no wider than the body still gives its length,
+since the merge test refused an approaching truck's length for 22 frames as its side came into
+view) and `solid_body_vehicle_extent_floor` (a rigid vehicle is at least the smallest road car).
+The course heading as built keeps an axis within the window rather than taking the course
+outright, after the first version cost an accelerating car two degrees.
 
 ## Method
 

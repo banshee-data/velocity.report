@@ -171,6 +171,19 @@ type SolidBodyOptions struct {
 	// lengthen a small car seen whole. Other classes, whose smallest size is
 	// not known, are unchanged. Default false.
 	VehicleExtentFloor bool
+	// EndFaceCentring is a rank-one remedy like T5, from the end face itself
+	// rather than the medoid: at a fix by a front or rear face alone, the
+	// width direction that face leaves open is also updated from the
+	// midpoint of the returns on the face, which it sees across its whole
+	// width, with the tracked noise R plus the square of half of however much
+	// narrower than the believed width the face was seen. Unlike T5 it
+	// applies when a side face is found but not in the fix: a side pulls the
+	// medoid toward it, but its returns lie behind the end face's plane, not
+	// on it. Without it the position across the body rides on the prediction
+	// until a side face corrects it in one step. A face seen less than half
+	// as wide as the believed width is taken as cut off and gives nothing.
+	// Default false.
+	EndFaceCentring bool
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still
@@ -724,7 +737,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			break
 		}
 		applied = applicationOf(sb.state, startState, usable)
-		if loose, ok := t.rankOneMedoidTerm(usable, f, cluster); ok {
+		loose, ok := t.endFaceCentringTerm(usable, f, cluster)
+		if !ok {
+			loose, ok = t.rankOneMedoidTerm(usable, f, cluster)
+		}
+		if ok {
 			// The faces' NIS stays the fix's, with its rank: the loose term
 			// is weak evidence about the direction no face measured, not a
 			// face; its innovation is biased toward the sensor, so its NIS
@@ -814,6 +831,39 @@ func (t *Tracker) rankOneMedoidTerm(faces []EdgeMeasurement, f nearEdgeFrame, cl
 		hx: hx, hy: hy,
 		z:        hx*float64(cluster.CentroidX) + hy*float64(cluster.CentroidY),
 		variance: float64(t.Config.MeasurementNoise) + scale*half*half,
+	}, true
+}
+
+// endFaceCentringTerm is EndFaceCentring's term at a fix by an end face
+// alone: across the body, the midpoint of the face's own returns.
+func (t *Tracker) endFaceCentringTerm(faces []EdgeMeasurement, f nearEdgeFrame, cluster WorldCluster) (looseMedoidTerm, bool) {
+	if !t.Config.SolidBody.EndFaceCentring || len(faces) != 1 || !faces[0].Face.IsLongitudinal() {
+		return looseMedoidTerm{}, false
+	}
+	e := faces[0]
+	nx, ny := float64(e.NormalX), float64(e.NormalY)
+	hx, hy := -ny, nx
+	var across []float64
+	for _, p := range nearEdgePoints(cluster) {
+		if p.X*nx+p.Y*ny >= float64(e.PlaneOffsetMetres)-DefaultFaceToleranceMetres {
+			across = append(across, p.X*hx+p.Y*hy)
+		}
+	}
+	if len(across) < DefaultMinFaceSupport {
+		return looseMedoidTerm{}, false
+	}
+	last := len(across) - 1
+	k := int(spanTrimPercent / 100 * float64(last))
+	hi := l4perception.NthFloat64(across, last-k)
+	lo := l4perception.NthFloat64(across[:last-k], k)
+	seen, width := hi-lo, float64(f.width.Metres)
+	if !(seen > 0) || seen < width/2 {
+		return looseMedoidTerm{}, false
+	}
+	short := math.Max(width-seen, 0) / 2
+	return looseMedoidTerm{
+		hx: hx, hy: hy, z: (lo + hi) / 2,
+		variance: float64(t.Config.MeasurementNoise) + short*short,
 	}, true
 }
 
@@ -1405,12 +1455,18 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 }
 
 // solidBodyOrientation is this frame's orientation belief: the tracked
-// heading's, or under CourseHeading, while the body moves fast enough for its
-// course to mean something and the tracked axis is further from it than the
-// span search covers, the course. An axis within that window is kept, turned
-// to point the way the body travels: it does not lag an acceleration as the
-// course does, and the window is the one the extent admission already uses to
-// decide whether an axis is believed.
+// heading's, or under CourseHeading, a blend toward the body's course.
+//
+// The tracked axis is kept, pointed the way the body travels, while it agrees
+// with the course to within the span window (10 degrees), the window the
+// extent admission already uses to decide whether an axis is believed: it does
+// not lag an acceleration as the course does. Beyond the window the belief
+// turns toward the course, reaching it at twice the window; and the course
+// counts from CourseAlignmentMinSpeedMps, fully at twice that speed. Both are
+// ramps rather than switches because the orientation names the faces and sets
+// the direction the body centre sits behind them: a switch turned it by the
+// whole window in one frame, and moved the centre sideways by half a length
+// times that angle.
 func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
 	tracked := orientationFromTrack(track, sb.orientation)
 	if !t.Config.SolidBody.CourseHeading {
@@ -1420,15 +1476,30 @@ func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack)
 	if !ok {
 		return tracked
 	}
-	if tracked.Provenance == ProvenanceNone ||
-		FoldAxisAngleDeg(float64(tracked.PsiRad)-float64(course.PsiRad)) > spanSearchHalfWindowDeg {
+	if tracked.Provenance == ProvenanceNone {
 		return course
 	}
 	if math.Cos(float64(tracked.PsiRad)-float64(course.PsiRad)) < 0 {
 		tracked.PsiRad = float32(math.Remainder(float64(tracked.PsiRad)+math.Pi, 2*math.Pi))
 	}
 	tracked.AmbiguousModeWeight = 0
-	return tracked
+	speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3]))
+	diff := math.Remainder(float64(course.PsiRad)-float64(tracked.PsiRad), 2*math.Pi)
+	w := ramp(math.Abs(diff)*180/math.Pi, spanSearchHalfWindowDeg) *
+		ramp(speed, CourseAlignmentMinSpeedMps)
+	if w == 0 {
+		return tracked
+	}
+	return OrientationBelief{
+		PsiRad:       float32(math.Remainder(float64(tracked.PsiRad)+w*diff, 2*math.Pi)),
+		VarianceRad2: float32((1-w)*float64(tracked.VarianceRad2) + w*float64(course.VarianceRad2)),
+		Provenance:   ProvenanceObserved,
+	}
+}
+
+// ramp is zero up to threshold, one from twice it, and linear between.
+func ramp(x, threshold float64) float64 {
+	return math.Min(math.Max(x/threshold-1, 0), 1)
 }
 
 // courseOrientation is the direction of travel as an orientation belief, and
