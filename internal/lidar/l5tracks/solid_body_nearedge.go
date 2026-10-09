@@ -137,7 +137,81 @@ type SolidBodyOptions struct {
 	// five-point residual cannot see; physical references are the check.
 	// Zero, the default, leaves the open direction to the prediction.
 	RankOneMedoidScale float32
+	// CourseHeading makes the solid body's orientation its own course while
+	// it moves at CourseAlignmentMinSpeedMps or more, resolved by the
+	// direction of travel, with the course's variance from the velocity's
+	// uncertainty across it. Below that speed the tracked heading is used.
+	// The tracked heading is a PCA axis seeded at birth, and for a cluster
+	// that is one end face, a strip as wide as the vehicle and a few
+	// decimetres deep, that axis runs across the vehicle; nothing corrects a
+	// heading that started wrong, and velocity only flips it by pi. It
+	// assumes a body moves along its length, as CourseAlignedFaces does.
+	// Default false.
+	CourseHeading bool
+	// ExtentPriorFloor holds a dimension at the class prior while what has
+	// accumulated is shorter: every span is a lower bound, and one shorter
+	// than the prior says nothing the prior does not. Without it the first
+	// span replaces the prior, so an approaching truck's front face makes it
+	// 0.6 m long. Default false.
+	ExtentPriorFloor bool
+	// FacePlaneSpans admits, for each face found, the span along that face's
+	// own plane: an end face's span across the axis as the width, a side
+	// face's span along the axis as the length. Without it each face admits
+	// the span along its normal, which a single face sees only as deep as
+	// the returns behind it reach: the face depth, for a vehicle seen end
+	// on. In a corner view the two rules admit the same two spans, since
+	// each face's normal is the other face's plane. Default false.
+	FacePlaneSpans bool
+	// VehicleExtentFloor holds a rigid vehicle's accumulated length and width
+	// at no less than the smallest road car's, 2.4 by 1.4 m. Every span is a
+	// lower bound, and one below that is a partial view, not a small vehicle;
+	// without the floor it replaces the prior, so a truck seen across its
+	// rear is a metre wide. Unlike ExtentPriorFloor it keeps the dimension
+	// accumulated, so the faces it places stay in the fix, and it does not
+	// lengthen a small car seen whole. A body of unknown class already seen
+	// as long as that car is held at its width (see widthOf); other classes,
+	// whose smallest size is not known, are unchanged. Default false.
+	VehicleExtentFloor bool
+	// EndFaceCentring is a rank-one remedy like T5, from the end face itself
+	// rather than the medoid: at a fix by a front or rear face alone, the
+	// width direction that face leaves open is also updated from the
+	// midpoint of the returns on the face, which it sees across its whole
+	// width, with the tracked noise R plus the square of half of however much
+	// narrower than the believed width the face was seen. Unlike T5 it
+	// applies when a side face is found but not in the fix: a side pulls the
+	// medoid toward it, but its returns lie behind the end face's plane, not
+	// on it. Without it the position across the body rides on the prediction
+	// until a side face corrects it in one step. A face seen less than half
+	// as wide as the believed width is taken as cut off and gives nothing.
+	// Default false.
+	EndFaceCentring bool
+	// EndFaceCentringOpenPrior, with EndFaceCentring, refuses a narrow face
+	// only against a width measured on this body. Reading a narrow face as
+	// cut off needs a width for it to be cut off from, and a class prior is
+	// the class's, not this body's; against one the face is used, at its
+	// shortfall's variance. Without it a body still at the prior width has
+	// nothing across it at an end-face fix until a width is measured, and
+	// then the term arrives in one step. Default false.
+	EndFaceCentringOpenPrior bool
+	// ExtentGrowthAdmission keeps length evidence flowing while the track is
+	// a merge candidate, if the cluster is no wider across the body than the
+	// believed width plus extentGrowthLateralMarginMetres. Width is still
+	// refused then. The merge test
+	// compares this frame's box with the mean of every earlier one, so a
+	// vehicle whose side comes into view after a run of end-on frames is a
+	// "merge" for as long as that mean takes to catch up, which refuses its
+	// length exactly when it is first visible. Two road users side by side
+	// widen the cluster across the body; one seen more fully lengthens it
+	// along the body. Default false.
+	ExtentGrowthAdmission bool
 }
+
+// extentGrowthLateralMarginMetres is how much wider than the believed width
+// a merge-candidate cluster may be and still be one body's growing view. A
+// second road user beside it adds at least a pedestrian's width, 0.6 m, and
+// the gap between them; a metre is the narrowest such pair plus a gap, so a
+// wider cluster is still refused.
+const extentGrowthLateralMarginMetres = 1.0
 
 // ReferenceChange names a change of the point a solid body's position refers
 // to, recorded on the instant it happened.
@@ -543,7 +617,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	class := solidBodyClass(track)
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
-	sb.orientation = orientationFromTrack(track, sb.orientation)
+	sb.orientation = t.solidBodyOrientation(track, sb)
 
 	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount)
 	m, outcome, _ := t.stepNearEdge(sb, cluster, prior, frame)
@@ -585,8 +659,8 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 	case sb.orientation.Provenance == ProvenanceNone:
 		f.fallback = "missing_heading"
 	default:
-		f.length = dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
-		f.width = dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
+		f.length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
+		f.width = t.widthOf(sb, prior)
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
 		f.edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
@@ -672,7 +746,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			break
 		}
 		applied = applicationOf(sb.state, startState, usable)
-		if loose, ok := t.rankOneMedoidTerm(usable, f, cluster); ok {
+		loose, ok := t.endFaceCentringTerm(usable, f, cluster)
+		if !ok {
+			loose, ok = t.rankOneMedoidTerm(usable, f, cluster)
+		}
+		if ok {
 			// The faces' NIS stays the fix's, with its rank: the loose term
 			// is weak evidence about the direction no face measured, not a
 			// face; its innovation is biased toward the sensor, so its NIS
@@ -762,6 +840,43 @@ func (t *Tracker) rankOneMedoidTerm(faces []EdgeMeasurement, f nearEdgeFrame, cl
 		hx: hx, hy: hy,
 		z:        hx*float64(cluster.CentroidX) + hy*float64(cluster.CentroidY),
 		variance: float64(t.Config.MeasurementNoise) + scale*half*half,
+	}, true
+}
+
+// endFaceCentringTerm is EndFaceCentring's term at a fix by an end face
+// alone: across the body, the midpoint of the face's own returns.
+func (t *Tracker) endFaceCentringTerm(faces []EdgeMeasurement, f nearEdgeFrame, cluster WorldCluster) (looseMedoidTerm, bool) {
+	if !t.Config.SolidBody.EndFaceCentring || len(faces) != 1 || !faces[0].Face.IsLongitudinal() {
+		return looseMedoidTerm{}, false
+	}
+	e := faces[0]
+	nx, ny := float64(e.NormalX), float64(e.NormalY)
+	hx, hy := -ny, nx
+	var across []float64
+	for _, p := range nearEdgePoints(cluster) {
+		if p.X*nx+p.Y*ny >= float64(e.PlaneOffsetMetres)-DefaultFaceToleranceMetres {
+			across = append(across, p.X*hx+p.Y*hy)
+		}
+	}
+	if len(across) < DefaultMinFaceSupport {
+		return looseMedoidTerm{}, false
+	}
+	last := len(across) - 1
+	k := int(spanTrimPercent / 100 * float64(last))
+	hi := l4perception.NthFloat64(across, last-k)
+	lo := l4perception.NthFloat64(across[:last-k], k)
+	seen, width := hi-lo, float64(f.width.Metres)
+	cutOff := seen < width/2
+	if t.Config.SolidBody.EndFaceCentringOpenPrior && !f.width.Provenance.IsEvidence() {
+		cutOff = false
+	}
+	if !(seen > 0) || cutOff {
+		return looseMedoidTerm{}, false
+	}
+	short := math.Max(width-seen, 0) / 2
+	return looseMedoidTerm{
+		hx: hx, hy: hy, z: (lo + hi) / 2,
+		variance: float64(t.Config.MeasurementNoise) + short*short,
 	}, true
 }
 
@@ -1080,7 +1195,14 @@ func scalarPositionUpdate(x *[4]float32, p *[16]float32, hx, hy, z, r float64) (
 // from the solid body's course before this frame's update.
 func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldCluster, set EdgeMeasurementSet, axis float32, axisIsCourse bool) {
 	sb := &track.solidBody
-	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising || track.MergeCandidate {
+	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising {
+		return
+	}
+	// A merge candidate that is only growing gives its length and nothing
+	// else: a view filling in lengthens a body, while a second body beside it
+	// widens it, and the corroborated maximum would keep a merged width.
+	growing := track.MergeCandidate
+	if growing && !t.growingNotMerging(track, cluster, axis) {
 		return
 	}
 	// Section 9.2: a span is lower-bound evidence only along believed axes.
@@ -1104,14 +1226,63 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 		}
 	}
 	for _, e := range set.Edges {
-		if e.Face.IsLongitudinal() {
+		// Under FacePlaneSpans a face gives the dimension it lies across: an
+		// end face the width, a side face the length.
+		alongAxis := e.Face.IsLongitudinal() != t.Config.SolidBody.FacePlaneSpans
+		if alongAxis {
+			// On a merge candidate a span matters only if it can raise the
+			// length: the span straight along the axis bounds the search's
+			// minimum from above, so when it does not exceed the belief the
+			// search is skipped, at a twenty-first of its cost.
+			if growing && !spanCouldExceed(nearEdgePoints(cluster), axis, sb.lengthBelief.Estimate()) {
+				continue
+			}
 			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis); ok {
 				sb.lengthBelief.Observe(span)
 			}
+		} else if growing {
+			continue
 		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis+math.Pi/2); ok {
 			sb.widthBelief.Observe(span)
 		}
 	}
+}
+
+// spanCouldExceed says whether the points' trimmed span straight along axisRad
+// is longer than belief: an upper bound on what minimumAxisSpan would admit.
+func spanCouldExceed(points []l4perception.WorldPoint, axisRad, belief float32) bool {
+	if len(points) < DefaultMinFaceSupport {
+		return false
+	}
+	span, ok := trimmedSpan(points, make([]float64, len(points)), math.Cos(float64(axisRad)), math.Sin(float64(axisRad)))
+	return ok && span > float64(belief)
+}
+
+// growingNotMerging says whether a merge-candidate cluster may still give
+// extent evidence under ExtentGrowthAdmission: when it is no wider across the
+// body than the believed width, or the class prior's if wider, plus
+// extentGrowthLateralMarginMetres.
+func (t *Tracker) growingNotMerging(track *TrackedObject, cluster WorldCluster, axis float32) bool {
+	if !t.Config.SolidBody.ExtentGrowthAdmission {
+		return false
+	}
+	// One trimmed span straight across the axis, not the minimum over the
+	// span window: this only has to tell a body from two side by side, and a
+	// second search would double the cost of every merge-candidate frame.
+	points := nearEdgePoints(cluster)
+	if len(points) < DefaultMinFaceSupport {
+		return false
+	}
+	across, ok := trimmedSpan(points, make([]float64, len(points)), -math.Sin(float64(axis)), math.Cos(float64(axis)))
+	if !ok {
+		return false
+	}
+	effective, _ := solidBodyClass(track).Effective()
+	width := dimensionPriorFor(effective).widthMetres
+	if w := track.solidBody.widthBelief.Estimate(); w > width {
+		width = w
+	}
+	return across <= float64(width)+extentGrowthLateralMarginMetres
 }
 
 // spanTrimPercent trims each end of a span measurement. It is smaller than the
@@ -1249,8 +1420,8 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 			sb.p[1*4+0], sb.p[1*4+1],
 		},
 		Orientation: sb.orientation,
-		Length:      dimensionFromBelief(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres),
-		Width:       dimensionFromBelief(sb.widthBelief, prior.widthMetres, prior.sigmaMetres),
+		Length:      t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres),
+		Width:       t.widthOf(sb, prior),
 		// Height stays the class prior, as in SolidBodyFromTrack: vertical
 		// extent is corrupted by the P11 grade artefact on any slope.
 		Height: DimensionBelief{
@@ -1294,4 +1465,108 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 		return o
 	}
 	return previous
+}
+
+// solidBodyOrientation is this frame's orientation belief: the tracked
+// heading's, or under CourseHeading, a blend toward the body's course.
+//
+// The tracked axis is kept, pointed the way the body travels, while it agrees
+// with the course to within the span window (10 degrees), the window the
+// extent admission already uses to decide whether an axis is believed: it does
+// not lag an acceleration as the course does. Beyond the window the belief
+// turns toward the course, reaching it at twice the window; and the course
+// counts from CourseAlignmentMinSpeedMps, fully at twice that speed. Both are
+// ramps rather than switches because the orientation names the faces and sets
+// the direction the body centre sits behind them: a switch turned it by the
+// whole window in one frame, and moved the centre sideways by half a length
+// times that angle.
+func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
+	tracked := orientationFromTrack(track, sb.orientation)
+	if !t.Config.SolidBody.CourseHeading {
+		return tracked
+	}
+	course, ok := courseOrientation(sb.state, sb.p)
+	if !ok {
+		return tracked
+	}
+	if tracked.Provenance == ProvenanceNone {
+		return course
+	}
+	if math.Cos(float64(tracked.PsiRad)-float64(course.PsiRad)) < 0 {
+		tracked.PsiRad = float32(math.Remainder(float64(tracked.PsiRad)+math.Pi, 2*math.Pi))
+	}
+	tracked.AmbiguousModeWeight = 0
+	speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3]))
+	diff := math.Remainder(float64(course.PsiRad)-float64(tracked.PsiRad), 2*math.Pi)
+	w := ramp(math.Abs(diff)*180/math.Pi, spanSearchHalfWindowDeg) *
+		ramp(speed, CourseAlignmentMinSpeedMps)
+	if w == 0 {
+		return tracked
+	}
+	return OrientationBelief{
+		PsiRad:       float32(math.Remainder(float64(tracked.PsiRad)+w*diff, 2*math.Pi)),
+		VarianceRad2: float32((1-w)*float64(tracked.VarianceRad2) + w*float64(course.VarianceRad2)),
+		Provenance:   ProvenanceObserved,
+	}
+}
+
+// ramp is zero up to threshold, one from twice it, and linear between.
+func ramp(x, threshold float64) float64 {
+	return math.Min(math.Max(x/threshold-1, 0), 1)
+}
+
+// courseOrientation is the direction of travel as an orientation belief, and
+// false below CourseAlignmentMinSpeedMps. Travel resolves the direction, so
+// the belief is unambiguous. Its variance is the velocity's variance across
+// the course over the speed squared: the angle a one-sigma sideways error in
+// the velocity turns it through, to first order.
+func courseOrientation(state [4]float32, p [16]float32) (OrientationBelief, bool) {
+	vx, vy := float64(state[2]), float64(state[3])
+	speed := math.Hypot(vx, vy)
+	if speed < CourseAlignmentMinSpeedMps {
+		return OrientationBelief{}, false
+	}
+	nx, ny := -vy/speed, vx/speed
+	across := nx*nx*float64(p[2*4+2]) + 2*nx*ny*float64(p[2*4+3]) + ny*ny*float64(p[3*4+3])
+	if !(across >= 0) {
+		across = 0
+	}
+	return OrientationBelief{
+		PsiRad:       float32(math.Atan2(vy, vx)),
+		VarianceRad2: float32(across / (speed * speed)),
+		Provenance:   ProvenanceObserved,
+	}, true
+}
+
+// dimensionOf is dimensionFromBelief under the tracker's options: with
+// ExtentPriorFloor, an accumulated extent shorter than the class prior leaves
+// the prior standing; with VehicleExtentFloor, one shorter than the class's
+// smallest member is raised to it.
+func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma, minimumMetres float32) DimensionBelief {
+	d := dimensionFromBelief(b, priorMetres, priorSigma)
+	if d.Provenance != ProvenanceAccumulated {
+		return d
+	}
+	if t.Config.SolidBody.ExtentPriorFloor && d.Metres < priorMetres {
+		return DimensionBelief{Metres: priorMetres, SigmaMetres: priorSigma, Provenance: ProvenanceClassPrior}
+	}
+	if t.Config.SolidBody.VehicleExtentFloor && d.Metres < minimumMetres {
+		d.Metres = minimumMetres
+	}
+	return d
+}
+
+// widthOf is the body's width under the tracker's options. Under
+// VehicleExtentFloor a body of no known smallest size that has already been
+// seen as long as the smallest road car is held at that car's width too: by
+// then it is a vehicle whatever its class says, and a ten-metre truck seen
+// across a sliver of its rear is not 0.4 m wide. A cyclist, at under 2 m,
+// is not reached.
+func (t *Tracker) widthOf(sb *solidBodyTrack, prior classDimensionPrior) DimensionBelief {
+	minimum := prior.minWidthMetres
+	if vehicle := dimensionPriorFor(MotionRigidVehicle); minimum == 0 &&
+		t.Config.SolidBody.VehicleExtentFloor && sb.lengthBelief.Estimate() >= vehicle.minLengthMetres {
+		minimum = vehicle.minWidthMetres
+	}
+	return t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, minimum)
 }

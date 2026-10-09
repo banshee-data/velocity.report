@@ -1166,11 +1166,11 @@ unified nonlinear state of Option B each requires evidence that the residual rec
 contain. Writing their thresholds now would be guessing, and would give three unearned decisions
 the appearance of being live. The conditions under which each becomes worth specifying:
 
-| Deferred gate                                 | Reinstate when                                                                                                                                                                                                                  |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Single model to IMM                           | G-EST-1 has passed **and** CA shows over-dispersed NIS during constant-speed segments, meaning the acceleration state is absorbing noise                                                                                        |
-| Nonlinear turning model                       | Turning is a measured failure mode: turning segments exceed 10 % of track-frames with residuals at least twice the straight-line baseline                                                                                       |
-| Option A to Option B, unified nonlinear state | Orientation variance is shown to be the limiting error term after controlling for range, aspect and point count. Test low-speed conditioning first: heading is unobservable at rest, and most of our tracks are near-stationary |
+| Deferred gate                                 | Reinstate when                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Single model to IMM                           | G-EST-1 has passed **and** CA shows over-dispersed NIS during constant-speed segments, meaning the acceleration state is absorbing noise                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Nonlinear turning model                       | Turning is a measured failure mode: turning segments exceed 10 % of track-frames with residuals at least twice the straight-line baseline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Option A to Option B, unified nonlinear state | Orientation variance is shown to be the limiting error term after controlling for range, aspect and point count. Test low-speed conditioning first: heading is unobservable at rest, and most of our tracks are near-stationary. Evidence toward it, 2026-10-09: an end-on truck held 76° off its course has a box IoU of 0.05 whatever its position, and the tracker's heading error does not fall with track age because nothing observes it; the [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md#41-an-orientation-observation-from-the-cluster) proposes the observation, kept as a separate filtered belief under Option A |
 
 Each will get a full gate in its own increment, written against the evidence that triggered it.
 
@@ -1393,6 +1393,12 @@ Progression from the near-edge model to point-to-model residuals requires the re
 work from [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md) to have shipped, plus
 evidence that residual lateral error above 0.1 m persists and is attributable to edge
 localisation rather than to the dimension prior.
+
+The gate has no heading or containment row. The
+[geometry convergence plan](lidar-tracker-geometry-convergence-plan.md#3-what-acceptable-looks-like)
+proposes both, with the measurement behind them: on kirk0 half of the near-edge model's
+body-centre rows hold under nine tenths of their own retained points, and a reported dimension
+sits below the frame's observed span in a third to two thirds of fixes.
 
 ## 10. Retrospective refinement
 

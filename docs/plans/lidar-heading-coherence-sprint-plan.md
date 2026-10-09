@@ -544,6 +544,12 @@ backlog as though no implementation exists.
 The annotation backend is work in progress, not the D2.4 client or D2.5 reference truth. The
 [backlog](../BACKLOG.md)'s v0.5.2 sprints own the cross-plan sequence.
 
+The [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md) (2026-10-09)
+proposes the structural successor to D2.1's input: a rectangle fitted to each frame's retained
+points gives the body axis within 2.6° of the reviewed yaw on kirk0 where the PCA box is 10.7°
+off, and the axial selector's labelling and abstention then run on that axis. D2.4's panel is
+where its heading source and containment diagnostics belong.
+
 ### 6.1 Day 2 gate evidence: kirk0 A/B, 2026-09-17
 
 The freeze mechanism itself (RC2/D1.4) is confirmed fixed by inspection, independent of the

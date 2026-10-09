@@ -1201,10 +1201,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	consider := hasExperiment(experiments, ExperimentSolidBodyFaceConsider)
 	course := hasExperiment(experiments, ExperimentSolidBodyCourseFaces)
 	translation := hasExperiment(experiments, ExperimentSolidBodyReferenceTranslation)
+	courseHeading := hasExperiment(experiments, ExperimentSolidBodyCourseHeading)
+	priorFloor := hasExperiment(experiments, ExperimentSolidBodyExtentPriorFloor)
+	planeSpans := hasExperiment(experiments, ExperimentSolidBodyFacePlaneSpans)
+	growth := hasExperiment(experiments, ExperimentSolidBodyExtentGrowth)
+	vehicleFloor := hasExperiment(experiments, ExperimentSolidBodyVehicleExtentFloor)
 	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
 	rankOne, err := rankOneMedoidScaleFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
+	centring, openPrior, err := endFaceCentringFor(experiments)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
@@ -1214,16 +1223,33 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
 			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
+			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
+			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
+			EndFaceCentring: centring, EndFaceCentringOpenPrior: openPrior,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
+		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// endFaceCentringFor is end-face centring's two settings: on, and on with
+// its narrow-face refusal kept for measured widths. Naming both is refused,
+// as T5's two settings are.
+func endFaceCentringFor(experiments []string) (centring, openPrior bool, err error) {
+	plain := hasExperiment(experiments, ExperimentSolidBodyEndFaceCentring)
+	open := hasExperiment(experiments, ExperimentSolidBodyEndFaceCentringOpenPrior)
+	if plain && open {
+		return false, false, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
+	}
+	return plain || open, open, nil
 }
 
 // rankOneMedoidScaleFor is remedy T5's half-extent scale: one for

@@ -166,6 +166,17 @@ double as B0's point figures for these cases.
 7. **Explicit per-row reference and support.** Every persisted estimate states its reference
    point and support token; no reader infers either.
 
+Invariant 2 has a measured cost, recorded 2026-10-09 by the
+[alignment run](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md): with the
+across direction left to the prediction at an end-face-only fix, the body drifted up to 3.1 m
+across a lane on the corpus, and on kirk0 54 % of A2's body-centre rows hold under nine tenths
+of their own retained points. The
+[geometry convergence plan](lidar-tracker-geometry-convergence-plan.md#42-a-containment-constraint-the-box-holds-the-points)
+proposes the exception the invariant should carry: a plane observes nothing along itself, and
+a one-sided containment bound with its own provenance, that the body cannot be where the points
+are not, is admitted under admitted membership and a resolved axis only, as a density truncation
+bounded by the state's own uncertainty rather than a reconstructed centre.
+
 ### One state machine for shadow and tracked
 
 The shadow's logic (initialisation window, re-reference, faceless coast, lapse, extent admission)

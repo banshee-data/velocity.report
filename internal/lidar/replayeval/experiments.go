@@ -112,6 +112,34 @@ const (
 	// They are two settings of one option, so a replay may name only one.
 	ExperimentSolidBodyRankOneMedoid      = "solid_body_rank_one_medoid"
 	ExperimentSolidBodyRankOneMedoidTight = "solid_body_rank_one_medoid_tight"
+	// The solid body's extent and heading from one face
+	// (lidar-solid-body-physical-alignment-plan.md), each qualifying
+	// solid_body like the remedies:
+	//   - ExperimentSolidBodyCourseHeading: the orientation is the course
+	//     while the body moves (SolidBodyOptions.CourseHeading);
+	//   - ExperimentSolidBodyExtentPriorFloor: a dimension shorter than the
+	//     class prior keeps the prior (ExtentPriorFloor);
+	//   - ExperimentSolidBodyFacePlaneSpans: a face gives the span along its
+	//     own plane, not its depth (FacePlaneSpans);
+	//   - ExperimentSolidBodyExtentGrowth: a merge candidate no wider than the
+	//     body still gives extents (ExtentGrowthAdmission).
+	ExperimentSolidBodyCourseHeading    = "solid_body_course_heading"
+	ExperimentSolidBodyExtentPriorFloor = "solid_body_extent_prior_floor"
+	ExperimentSolidBodyFacePlaneSpans   = "solid_body_face_plane_spans"
+	ExperimentSolidBodyExtentGrowth     = "solid_body_extent_growth"
+	// ExperimentSolidBodyVehicleExtentFloor: a rigid vehicle's accumulated
+	// length and width are at least the smallest road car's
+	// (SolidBodyOptions.VehicleExtentFloor).
+	ExperimentSolidBodyVehicleExtentFloor = "solid_body_vehicle_extent_floor"
+	// ExperimentSolidBodyEndFaceCentring: at a fix by an end face alone, the
+	// position across the body is also updated from the face's own midpoint
+	// (SolidBodyOptions.EndFaceCentring).
+	ExperimentSolidBodyEndFaceCentring = "solid_body_end_face_centring"
+	// ExperimentSolidBodyEndFaceCentringOpenPrior is end-face centring that
+	// refuses a narrow face only against a measured width, not a class
+	// prior (SolidBodyOptions.EndFaceCentringOpenPrior). It is a second
+	// setting of the same option, so naming both is refused.
+	ExperimentSolidBodyEndFaceCentringOpenPrior = "solid_body_end_face_centring_open_prior"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -150,11 +178,18 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyCourseFaces:    true,
 	ExperimentSolidBodyFullMembers:    true,
 
-	ExperimentSolidBodyReferenceTranslation: true,
-	ExperimentSolidBodyRankOneMedoid:        true,
-	ExperimentSolidBodyRankOneMedoidTight:   true,
-	ExperimentNearEdgeTrack:                 true,
-	ExperimentNearEdgeTrackA1:               true,
+	ExperimentSolidBodyReferenceTranslation:     true,
+	ExperimentSolidBodyRankOneMedoid:            true,
+	ExperimentSolidBodyRankOneMedoidTight:       true,
+	ExperimentSolidBodyCourseHeading:            true,
+	ExperimentSolidBodyExtentPriorFloor:         true,
+	ExperimentSolidBodyFacePlaneSpans:           true,
+	ExperimentSolidBodyExtentGrowth:             true,
+	ExperimentSolidBodyVehicleExtentFloor:       true,
+	ExperimentSolidBodyEndFaceCentring:          true,
+	ExperimentSolidBodyEndFaceCentringOpenPrior: true,
+	ExperimentNearEdgeTrack:                     true,
+	ExperimentNearEdgeTrackA1:                   true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

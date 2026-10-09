@@ -10,7 +10,7 @@ replayed. It is F0's Step 6, which that run could not take because the pack had 
 - **Status:** Complete, 2026-10-09. Tuning split only: one capture, three vehicles, 22 reviewed
   poses and 11 following gaps. A pilot of the workflow and a first reading, not a result
 - **Layers:** L5 estimation, L8 behaviour (following gap), offline evaluation
-- **Related:** [fitting to reviewed points](../../plans/lidar-physical-fit-to-points-plan.md), [physical-reference review plan](../../plans/lidar-physical-reference-review-plan.md) (P3), [F0 report](facet-f0-attribution-kirk0-report.md), [F0 protocol](facet-f0-attribution-kirk0.md) (Step 6), [per-frame evaluation](per-frame-evaluation.md), [point annotation tool](point-annotation-tool.md#scoring-against-physical-references)
+- **Related:** [solid-body alignment](solid-body-physical-alignment-kirk0-2026-10.md) (the follow-up run), [fitting to reviewed points](../../plans/lidar-physical-fit-to-points-plan.md), [physical-reference review plan](../../plans/lidar-physical-reference-review-plan.md) (P3), [F0 report](facet-f0-attribution-kirk0-report.md), [F0 protocol](facet-f0-attribution-kirk0.md) (Step 6), [per-frame evaluation](per-frame-evaluation.md), [point annotation tool](point-annotation-tool.md#scoring-against-physical-references)
 - **Code:** [physical fit](../../../internal/lidar/annotation/physical_fit.go), [draft-following](../../../internal/lidar/annotation/physical_following.go), [lidar-ground-truth-eval](../../../cmd/tools/lidar-ground-truth-eval/perframe.go)
 
 ## Summary
