@@ -270,6 +270,18 @@ struct AnnotationWindow: View {
     }
 }
 
+/// How the middle of the annotation window is shared, as fractions so that it
+/// keeps its proportions at any window size.
+enum AnnotationLayout {
+    /// The 3D view's share of the height above the five selection views: a
+    /// quarter, enough to see what is where, while selection gets the room.
+    static let sceneFraction = 0.24
+    /// The Top view's share of the width, the four elevations taking the rest.
+    static let topFraction = 0.38
+    static let sceneKey = "annotation.layout.sceneFraction"
+    static let topKey = "annotation.layout.topFraction"
+}
+
 /// The editing surface: the working view, the confirming view, and the pane.
 struct AnnotationWorkspace: View {
     @ObservedObject var session: AnnotationSession
@@ -283,6 +295,10 @@ struct AnnotationWorkspace: View {
 
     @EnvironmentObject private var appState: AppState
     @StateObject private var scene = AnnotationSceneModel()
+    /// How the middle of the window is shared, kept between launches.
+    @AppStorage(AnnotationLayout.sceneKey) private var sceneFraction = AnnotationLayout
+        .sceneFraction
+    @AppStorage(AnnotationLayout.topKey) private var topFraction = AnnotationLayout.topFraction
 
     private var showDiscardPrompt: Binding<Bool> {
         Binding(get: { pendingAction != nil }, set: { if !$0 { pendingAction = nil } })
@@ -349,7 +365,11 @@ struct AnnotationWorkspace: View {
                 AnnotationStatusStrip(session: session)
                 AnnotationProgressHeader(session: session)
                 Divider()
-                VSplitView {
+                // Shared by fraction, not by points: see FractionSplit.swift.
+                FractionSplit(
+                    axis: .vertical, fraction: $sceneFraction, range: 0.1...0.8,
+                    reset: AnnotationLayout.sceneFraction
+                ) {
                     // The 3D view: the main view's renderer on this sample,
                     // moved the way the main view is moved. It is for looking,
                     // not for selecting.
@@ -359,8 +379,8 @@ struct AnnotationWorkspace: View {
                         Text("3D · drag to orbit, shift-drag to pan, scroll to zoom").font(
                             .caption2
                         ).padding(4).foregroundStyle(.secondary).allowsHitTesting(false)
-                    }.frame(minHeight: 240).layoutPriority(2)
-
+                    }
+                } second: {
                     // The top view large, because that is where a selection is
                     // made, and the four elevations stacked beside it, each the
                     // sensor looking outward. Between them they show every side
@@ -370,20 +390,22 @@ struct AnnotationWorkspace: View {
                     // makes it the editing view. Review is gated on a second
                     // view, and with all five on screen there is always one to
                     // check in.
-                    HSplitView {
+                    FractionSplit(
+                        axis: .horizontal, fraction: $topFraction, range: 0.2...0.8,
+                        reset: AnnotationLayout.topFraction
+                    ) {
                         AnnotationViewportView(
                             session: session, standard: .top, editable: session.viewStandard == .top
-                        ).frame(minWidth: 320, minHeight: 240).layoutPriority(2)
-
+                        )
+                    } second: {
                         VStack(spacing: 1) {
                             ForEach(OrthoViewBasis.Standard.elevations, id: \.self) { standard in
                                 AnnotationViewportView(
                                     session: session, standard: standard,
-                                    editable: standard == session.viewStandard
-                                ).frame(minHeight: 84)
+                                    editable: standard == session.viewStandard)
                             }
-                        }.frame(minWidth: 200)
-                    }.frame(minHeight: 280)
+                        }
+                    }
                 }
                 AnnotationFrameStrip(session: session) { index in
                     if session.step(to: index) != nil {

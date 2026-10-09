@@ -133,8 +133,8 @@ truth; only reviewed objects and masks count as such.
 | Area                  | What it is                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------- |
 | Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
-| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes |
-| Top view (below left) | Large, because this is where a selection is usually made                                 |
+| 3D view (top)         | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes |
+| Top view (below left) | The largest selection view: this is where a selection is usually made                    |
 | Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
 | Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
 | Right sidebar         | The mode, pinned at the top; then how: display, tools, depth slab, saving and review     |
@@ -154,6 +154,11 @@ too small to see.
 The mode — **Object Points**, **Physical**, **Facets** or **Compare** — is the menu at the top of
 the right sidebar, above the controls it chooses between. It stays there however far the sidebar
 is scrolled.
+
+The 3D view opens at about a quarter of the height and the Top view at about two fifths of the
+width beside the elevations. Both dividers drag, and the window keeps the proportions you leave
+them at, as proportions, so a larger window or another display shows the same layout.
+Double-click a divider to put it back.
 
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.

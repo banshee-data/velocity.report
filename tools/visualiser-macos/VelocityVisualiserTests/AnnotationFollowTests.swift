@@ -11,6 +11,7 @@
 import AppKit
 import Foundation
 import MetalKit
+import SwiftUI
 import Testing
 import simd
 
@@ -174,6 +175,27 @@ private func around(_ p: simd_float2, _ r: Float = 0.3) -> SelectionPolygon {
             window.range(of: "AnnotationPane(session:session,column:.objects)"))
         #expect(picker.lowerBound > objects.lowerBound && picker.lowerBound < editing.lowerBound)
         #expect(!(try source("UI/AnnotationPane.swift")).contains("modePicker"))
+    }
+}
+
+// MARK: - The window's proportions
+
+struct AnnotationLayoutTests {
+    @Test func theViewsOpenInProportionNotByPoints() throws {
+        #expect(AnnotationLayout.sceneFraction == 0.24 && AnnotationLayout.topFraction == 0.38)
+        let window = try source("UI/AnnotationWindow.swift")
+        #expect(!window.contains("VSplitView") && !window.contains("HSplitView"))
+        #expect(window.contains("FractionSplit(axis:.vertical,fraction:$sceneFraction"))
+        #expect(window.contains("FractionSplit(axis:.horizontal,fraction:$topFraction"))
+    }
+
+    @Test func aDividerDragMovesTheFractionAndStaysInRange() {
+        typealias Split = FractionSplit<EmptyView, EmptyView>
+        #expect(
+            abs(Split.dragged(from: 0.24, by: 100, over: 1000, range: 0.1...0.8) - 0.34) < 1e-12)
+        #expect(Split.dragged(from: 0.24, by: -500, over: 1000, range: 0.1...0.8) == 0.1)
+        #expect(Split.dragged(from: 0.5, by: 900, over: 1000, range: 0.1...0.8) == 0.8)
+        #expect(Split.dragged(from: 0.5, by: 10, over: 0, range: 0.1...0.8) == 0.5)
     }
 }
 
