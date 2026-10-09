@@ -702,6 +702,10 @@
         , support_instant TEXT NOT NULL DEFAULT ''
         , support_fragmented INTEGER NOT NULL DEFAULT 0
         , support_truncated INTEGER NOT NULL DEFAULT 0
+        , containment_share REAL
+        , contained_points INTEGER NOT NULL DEFAULT 0
+        , observed_span_along_m REAL NOT NULL DEFAULT 0
+        , observed_span_across_m REAL NOT NULL DEFAULT 0
         , UNIQUE (
           track_id
         , estimator_id

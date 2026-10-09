@@ -84,6 +84,212 @@ type SolidBodySummary struct {
 	// face-stable figures is named rather than inferred.
 	SteadyTransitions    *TransitionAnatomy `json:"steady_run_transitions,omitempty"`
 	RetainedSamplePoints int                `json:"retained_sample_points,omitempty"`
+	// Containment is the reported box measured against the points it was
+	// measured from, ExtentShortfall the reported dimensions against the
+	// frame's observed spans, and AxisByAge the orientation against the
+	// course by track age: the label-free guards the geometry convergence
+	// plan's W0 asks every arm to report. Rows written before the tracker
+	// recorded containment carry no share and are left out of the first two.
+	Containment     *ContainmentSummary     `json:"containment,omitempty"`
+	ExtentShortfall *ExtentShortfallSummary `json:"extent_shortfall,omitempty"`
+	AxisByAge       []AxisAgeRow            `json:"axis_by_age,omitempty"`
+}
+
+// ContainmentHeldShare is the share of a frame's points a reported box must
+// hold, widened by the face tolerance, to count as holding its points: the
+// 2 % under it is the trim a span allows.
+const ContainmentHeldShare = 0.98
+
+// ExtentShortfallMetres is how far an observed span must exceed the reported
+// dimension before the row counts as short: one histogram bin of the extent
+// belief.
+const ExtentShortfallMetres = 0.25
+
+// ContainmentSummary is the share of rows whose reported box held their
+// points, overall and by reference point. A medoid-referenced row is centred
+// on its points by construction, so a shortfall there is a box smaller than
+// its cluster; a body-centre row can also be off it.
+type ContainmentSummary struct {
+	Rows        int                    `json:"rows"`
+	HeldShare   float64                `json:"held_share"`
+	MedianShare float64                `json:"median_share"`
+	ByReference []ContainmentReference `json:"by_reference"`
+}
+
+// ContainmentReference is ContainmentSummary for one reference point.
+type ContainmentReference struct {
+	Reference   string  `json:"reference"`
+	Rows        int     `json:"rows"`
+	HeldShare   float64 `json:"held_share"`
+	MedianShare float64 `json:"median_share"`
+}
+
+// ExtentShortfallSummary counts body-centre rows whose observed span along
+// the reported axis exceeds the reported length by more than
+// ExtentShortfallMetres, and the same across the axis against the width,
+// over rows that carry a span. The span is taken along the reported axis, so
+// a heading error reads as a shortfall too: this is the box against the
+// frame, not the frame against the truth.
+type ExtentShortfallSummary struct {
+	Rows               int     `json:"rows"`
+	LengthShortRows    int     `json:"length_short_rows"`
+	LengthShortShare   float64 `json:"length_short_share"`
+	LengthShortMedianM float64 `json:"length_short_median_m"`
+	WidthShortRows     int     `json:"width_short_rows"`
+	WidthShortShare    float64 `json:"width_short_share"`
+	WidthShortMedianM  float64 `json:"width_short_median_m"`
+}
+
+// AxisAgeRow is the orientation against the course for rows moving at
+// CourseAlignmentMinSpeedMps or more, in one bucket of track age: the axis
+// error folded to [0, 90] degrees, which no length label touches, and the
+// directed error folded to [0, 180], which includes it. The course is the
+// tracker's own velocity, so a row is a guard against a heading that never
+// converges, not a measurement against truth; under a course-fed heading the
+// two agree by construction.
+type AxisAgeRow struct {
+	Bucket              string  `json:"bucket"`
+	Rows                int     `json:"rows"`
+	AxisMedianDeg       float64 `json:"axis_median_deg"`
+	AxisP90Deg          float64 `json:"axis_p90_deg"`
+	AxisOver30Share     float64 `json:"axis_over_30_share"`
+	DirectedMedianDeg   float64 `json:"directed_median_deg"`
+	DirectedP90Deg      float64 `json:"directed_p90_deg"`
+	DirectedOver30Share float64 `json:"directed_over_30_share"`
+}
+
+// axisAgeBuckets are the track-age buckets of AxisByAge, in order.
+var axisAgeBuckets = []struct {
+	name     string
+	upToSecs float64
+}{{"0-1s", 1}, {"1-2s", 2}, {"2-4s", 4}, {"4s+", math.Inf(1)}}
+
+func axisAgeBucket(ageSecs float64) string {
+	for _, b := range axisAgeBuckets {
+		if ageSecs < b.upToSecs {
+			return b.name
+		}
+	}
+	return axisAgeBuckets[len(axisAgeBuckets)-1].name
+}
+
+// guardRows accumulates the per-row inputs of the three W0 guards.
+type guardRows struct {
+	shares     map[string][]float64 // containment share by reference
+	lengthOver []float64            // observed along-span minus reported length, body-centre rows with a span
+	widthOver  []float64            // observed across-span minus reported width
+	axis       map[string][]float64 // axis error, degrees, by age bucket
+	directed   map[string][]float64 // directed error, degrees, by age bucket
+}
+
+func newGuardRows() *guardRows {
+	return &guardRows{shares: map[string][]float64{}, axis: map[string][]float64{}, directed: map[string][]float64{}}
+}
+
+// add reads one row's guard inputs. firstFrame is the first frame of the
+// row's track.
+func (g *guardRows) add(sb observationsqlite.TrackSolidBody, firstFrame int64) {
+	e, m := sb.Reading.Estimate, sb.Reading.Measurement
+	if m.ContainmentKnown {
+		g.shares[e.Reference.String()] = append(g.shares[e.Reference.String()], float64(m.ContainmentShare))
+	}
+	if e.Reference == l5tracks.ReferenceBodyCentre && m.ObservedSpanAlongMetres > 0 && m.ObservedSpanAcrossMetres > 0 {
+		g.lengthOver = append(g.lengthOver, float64(m.ObservedSpanAlongMetres-e.Length.Metres))
+		g.widthOver = append(g.widthOver, float64(m.ObservedSpanAcrossMetres-e.Width.Metres))
+	}
+	speed := math.Hypot(float64(sb.Reading.VX), float64(sb.Reading.VY))
+	if speed >= l5tracks.CourseAlignmentMinSpeedMps && e.Orientation.Provenance != l5tracks.ProvenanceNone {
+		course := math.Atan2(float64(sb.Reading.VY), float64(sb.Reading.VX))
+		diff := float64(e.Orientation.PsiRad) - course
+		bucket := axisAgeBucket(float64(sb.FrameUnixNanos-firstFrame) / 1e9)
+		g.axis[bucket] = append(g.axis[bucket], l5tracks.FoldAxisAngleDeg(diff))
+		g.directed[bucket] = append(g.directed[bucket], math.Abs(math.Atan2(math.Sin(diff), math.Cos(diff)))*180/math.Pi)
+	}
+}
+
+func (g *guardRows) containment() *ContainmentSummary {
+	var all []float64
+	refs := make([]string, 0, len(g.shares))
+	for ref, v := range g.shares {
+		all = append(all, v...)
+		refs = append(refs, ref)
+	}
+	if len(all) == 0 {
+		return nil
+	}
+	sort.Strings(refs)
+	held := func(v []float64) float64 {
+		n := 0
+		for _, s := range v {
+			if s >= ContainmentHeldShare {
+				n++
+			}
+		}
+		return float64(n) / float64(len(v))
+	}
+	c := &ContainmentSummary{Rows: len(all), HeldShare: held(all), MedianShare: median(all)}
+	for _, ref := range refs {
+		v := g.shares[ref]
+		c.ByReference = append(c.ByReference, ContainmentReference{Reference: ref, Rows: len(v), HeldShare: held(v), MedianShare: median(v)})
+	}
+	return c
+}
+
+func (g *guardRows) extentShortfall() *ExtentShortfallSummary {
+	if len(g.lengthOver) == 0 {
+		return nil
+	}
+	short := func(over []float64) (int, float64) {
+		var excess []float64
+		for _, o := range over {
+			if o > ExtentShortfallMetres {
+				excess = append(excess, o)
+			}
+		}
+		return len(excess), median(excess)
+	}
+	s := &ExtentShortfallSummary{Rows: len(g.lengthOver)}
+	s.LengthShortRows, s.LengthShortMedianM = short(g.lengthOver)
+	s.WidthShortRows, s.WidthShortMedianM = short(g.widthOver)
+	s.LengthShortShare = float64(s.LengthShortRows) / float64(s.Rows)
+	s.WidthShortShare = float64(s.WidthShortRows) / float64(s.Rows)
+	return s
+}
+
+func (g *guardRows) axisByAge() []AxisAgeRow {
+	var rows []AxisAgeRow
+	over30 := func(v []float64) float64 {
+		n := 0
+		for _, e := range v {
+			if e > 30 {
+				n++
+			}
+		}
+		return float64(n) / float64(len(v))
+	}
+	for _, b := range axisAgeBuckets {
+		axis, directed := g.axis[b.name], g.directed[b.name]
+		if len(axis) == 0 {
+			continue
+		}
+		rows = append(rows, AxisAgeRow{
+			Bucket: b.name, Rows: len(axis),
+			AxisMedianDeg: median(axis), AxisP90Deg: percentile(axis, 0.9), AxisOver30Share: over30(axis),
+			DirectedMedianDeg: median(directed), DirectedP90Deg: percentile(directed, 0.9), DirectedOver30Share: over30(directed),
+		})
+	}
+	return rows
+}
+
+// percentile is the nearest-rank value at fraction p of the sorted values,
+// zero for none.
+func percentile(v []float64, p float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	s := append([]float64(nil), v...)
+	sort.Float64s(s)
+	return s[int(p*float64(len(s)-1))]
 }
 
 // TransitionAnatomy is the solid bodies' five-point windows on steady runs,
@@ -396,8 +602,15 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	lastFaces := map[int64]string{}
 	// lastReference is each track's previous row's reference.
 	lastReference := map[int64]l5tracks.ReferencePoint{}
+	// firstFrame is each track's first row, for its age.
+	firstFrame := map[int64]int64{}
+	guards := newGuardRows()
 	for _, sb := range bodies {
 		e, m := sb.Reading.Estimate, sb.Reading.Measurement
+		if _, ok := firstFrame[sb.CreationSequence]; !ok {
+			firstFrame[sb.CreationSequence] = sb.FrameUnixNanos
+		}
+		guards.add(sb, firstFrame[sb.CreationSequence])
 		if previous, ok := lastReference[sb.CreationSequence]; ok &&
 			previous == l5tracks.ReferenceClusterMedoid && e.Reference == l5tracks.ReferenceBodyCentre {
 			s.ReReferences++
@@ -558,7 +771,34 @@ func SummariseSolidBodies(points []observationsqlite.TrackEstimate, bodies []obs
 	s.AnchorBodiesFaceStable = l8analytics.SummariseLateralFit(bodiesFace)
 	s.FaceStableRuns = len(bodiesFace)
 	s.FaceStableStrata = anchorStrata(pointsFace, bodiesFace, faceSamples)
+	s.Containment = guards.containment()
+	s.ExtentShortfall = guards.extentShortfall()
+	s.AxisByAge = guards.axisByAge()
 	return s, nil
+}
+
+// SolidBodyGuards is the solid-body summary's label-free guards alone, for a
+// scorecard: the figures the geometry convergence plan's W0 asks every arm to
+// report, without the strata and transitions a summary carries.
+type SolidBodyGuards struct {
+	SolidBodies     int                           `json:"solid_bodies"`
+	NearEdgeFixes   int                           `json:"near_edge_fixes"`
+	FixShare        float64                       `json:"fix_share"`
+	Lapses          int                           `json:"lapses"`
+	Lateral         l8analytics.LateralFitSummary `json:"lateral_body_centre_frames"`
+	Steady          l8analytics.LateralFitSummary `json:"lateral_steady_runs"`
+	Containment     *ContainmentSummary           `json:"containment,omitempty"`
+	ExtentShortfall *ExtentShortfallSummary       `json:"extent_shortfall,omitempty"`
+	AxisByAge       []AxisAgeRow                  `json:"axis_by_age,omitempty"`
+}
+
+// Guards is the summary's label-free guards.
+func (s SolidBodySummary) Guards() SolidBodyGuards {
+	return SolidBodyGuards{
+		SolidBodies: s.SolidBodies, NearEdgeFixes: s.NearEdgeFixes, FixShare: s.FixShare, Lapses: s.Lapses,
+		Lateral: s.AnchorBodiesCentred, Steady: s.AnchorBodiesSteady,
+		Containment: s.Containment, ExtentShortfall: s.ExtentShortfall, AxisByAge: s.AxisByAge,
+	}
 }
 
 // SummariseSolidBodyEvidence reads a replay's point estimates and solid

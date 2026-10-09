@@ -300,6 +300,7 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 		     , ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state
 		     , last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated
 		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason
+		     , containment_share, contained_points, observed_span_along_m, observed_span_across_m
 		FROM lidar_track_solid_bodies
 		ORDER BY source_id, frame_unix_nanos, observation_id, estimator_id, observation_model_id, param_hash, stage, creation_sequence`)
 	if err != nil {
@@ -318,7 +319,8 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 			&row.HeightM, &row.HeightSigmaM, &row.HeightFrames, &row.HeightProvenance,
 			&row.GroundZ, &row.GroundSurfaceModel, &row.MotionClass, &row.MotionPosterior, &row.EstimationState,
 			&row.LastObservedUnixNanos, &row.SupportPoints, &row.CoastedFrames, &row.SupportInstant, &row.SupportFragmented, &row.SupportTruncated,
-			&row.MeasurementSource, &row.MeasurementRank, &row.VisibleFaces, &row.InferredExtent, &row.AspectRad, &row.NIS, &row.FallbackReason); err != nil {
+			&row.MeasurementSource, &row.MeasurementRank, &row.VisibleFaces, &row.InferredExtent, &row.AspectRad, &row.NIS, &row.FallbackReason,
+			&row.ContainmentShare, &row.ContainedPoints, &row.ObservedSpanAlongM, &row.ObservedSpanAcrossM); err != nil {
 			return fmt.Errorf("scan solid body: %w", err)
 		}
 		observation, ok := b.observations[row.ObservationID]
@@ -496,4 +498,8 @@ type oracleSolidBodyRow struct {
 	AspectRad              *float64 `json:"aspect_rad"`
 	NIS                    float64  `json:"nis"`
 	FallbackReason         string   `json:"fallback_reason"`
+	ContainmentShare       *float64 `json:"containment_share"`
+	ContainedPoints        int64    `json:"contained_points"`
+	ObservedSpanAlongM     float64  `json:"observed_span_along_m"`
+	ObservedSpanAcrossM    float64  `json:"observed_span_across_m"`
 }

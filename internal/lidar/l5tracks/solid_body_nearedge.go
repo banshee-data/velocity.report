@@ -334,6 +334,23 @@ type SolidBodyMeasurement struct {
 	FallbackReason string
 	// ReferenceChange is the reference change this instant made, if any.
 	ReferenceChange ReferenceChange
+	// ContainmentShare is the share of the frame's cluster points inside the
+	// box the estimate reports (its position, orientation and dimensions,
+	// widened by DefaultFaceToleranceMetres), and ContainedPoints is how many
+	// points were counted. It measures the box against the points it was
+	// measured from, since the body cannot be where its returns are not. It
+	// is meaningful only when ContainmentKnown: a seed, a coast or a frame
+	// with no orientation carries none.
+	ContainmentShare float32
+	ContainedPoints  int
+	ContainmentKnown bool
+	// ObservedSpanAlongMetres and ObservedSpanAcrossMetres are the cluster's
+	// trimmed spans along and across the reported orientation, zero when
+	// unknown. A span is a lower bound on the dimension (state plan 9.2.1),
+	// and along a wrong axis it overstates, so this is the reported extent
+	// measured against the frame, not a floor on it.
+	ObservedSpanAlongMetres  float32
+	ObservedSpanAcrossMetres float32
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -933,7 +950,55 @@ func (t *Tracker) completeSolidBodyFrame(track *TrackedObject, class MotionClass
 		t.solidBodyReferenceChanges.ToMedoid++
 	}
 	t.advanceSolidBodyLifecycle(track, class, !measured)
+	t.measureContainment(track, class, cluster, &m)
 	t.publishSolidBody(track, class, m)
+}
+
+// measureContainment records how the box the estimate reports sits on the
+// frame's points: the share inside it and the points' spans along and across
+// its orientation. It reads the state after the frame's update and extent
+// admission, so the box it tests is the one publishSolidBody reports.
+func (t *Tracker) measureContainment(track *TrackedObject, class MotionClassBelief, cluster WorldCluster, m *SolidBodyMeasurement) {
+	points := nearEdgePoints(cluster)
+	if len(points) == 0 || track.solidBody.orientation.Provenance == ProvenanceNone {
+		return
+	}
+	e := t.assembleSolidBody(track, class)
+	inside := boxContainment(points, float64(e.X), float64(e.Y), float64(e.Orientation.PsiRad),
+		float64(e.Length.Metres)/2+DefaultFaceToleranceMetres, float64(e.Width.Metres)/2+DefaultFaceToleranceMetres)
+	m.ContainmentShare, m.ContainedPoints, m.ContainmentKnown = float32(inside)/float32(len(points)), len(points), true
+	m.ObservedSpanAlongMetres, m.ObservedSpanAcrossMetres = observedSpans(points, float64(e.Orientation.PsiRad))
+}
+
+// boxContainment counts the points inside a box of half-extents halfL along
+// the axis at psi and halfW across it, centred at (x, y).
+func boxContainment(points []l4perception.WorldPoint, x, y, psi, halfL, halfW float64) int {
+	c, s := math.Cos(psi), math.Sin(psi)
+	inside := 0
+	for _, p := range points {
+		dx, dy := p.X-x, p.Y-y
+		if math.Abs(dx*c+dy*s) <= halfL && math.Abs(-dx*s+dy*c) <= halfW {
+			inside++
+		}
+	}
+	return inside
+}
+
+// observedSpans is the points' trimmed spans along the axis at psi and across
+// it, zero for too few points to trim.
+func observedSpans(points []l4perception.WorldPoint, psi float64) (along, across float32) {
+	if len(points) < DefaultMinFaceSupport {
+		return 0, 0
+	}
+	c, s := math.Cos(psi), math.Sin(psi)
+	scratch := make([]float64, len(points))
+	if span, ok := trimmedSpan(points, scratch, c, s); ok {
+		along = float32(span)
+	}
+	if span, ok := trimmedSpan(points, scratch, -s, c); ok {
+		across = float32(span)
+	}
+	return along, across
 }
 
 // SolidBodyReferenceChanges returns the solid bodies' reference changes since
