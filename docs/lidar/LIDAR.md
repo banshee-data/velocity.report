@@ -48,7 +48,9 @@ why the solid body misses both trucks, and opt-in experiments that correct their
 length, guarded on the 23-site corpus. The
 [geometry convergence plan](../plans/lidar-tracker-geometry-convergence-plan.md) sets out what
 replaces those patches: a heading the tracker observes every frame, and a box that holds its
-points.
+points. Its [end-on truck window spike](operations/end-on-truck-window-spike-2026-10.md)
+counts the second capture that plan needs: 33 clean windows in the corpus, an archive 6.7
+times its size, and a selection rule in place of a search.
 
 ## Terminology
 
