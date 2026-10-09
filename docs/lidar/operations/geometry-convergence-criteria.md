@@ -159,24 +159,44 @@ allows.
 `a91db3862` with the Go measures, the corpus medians from pass 4 of the alignment run's harness,
 all in the [containment corpus report](solid-body-containment-corpus-2026-10.md).
 
-| Id  | A2 with containment                                                                             | Alignment candidate with containment                   | Against the level                                                      |
-| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
-| G1  | Unchanged: yaw is not W2's to move                                                              | Unchanged                                              | Not read                                                               |
-| G3  | kirk0 `2-4s` 0.58, `4s+` 0.45; corpus 0.23, 0.26 (axis, from the rows)                          | kirk0 0.05, 0.19; corpus 0.04, 0.05                    | Not W2's; the candidate's course heading meets it by construction      |
-| G5  | Body centre 0.41 (1,108 rows); corpus median 0.60 (0.45 to 0.80 by site)                        | 0.40 (1,103 rows); corpus 0.66 (0.50 to 0.81)          | Not met, and not met by construction (amendment 2)                     |
-| G6  | Length 0.036, width 0.068; corpus 0.025, 0.058                                                  | 0.037, 0.048; corpus 0.018, 0.040                      | Not met: the frame's span against a window-minimum floor (amendment 2) |
-| G7  | 5 of 19                                                                                         | 11 of 20                                               | Unchanged by W2                                                        |
-| G8  | Car 4.05 of 4.26 m (7 of 7 within 15 %); truck 1 6.38; truck 2 1.96 reported                    | Car 3.91; truck 1 8.88; truck 2 0.75                   | Unchanged in substance: the floor, not the belief, moved               |
-| G9  | 3 of 7                                                                                          | 3 of 7                                                 | Unchanged                                                              |
-| G10 | kirk0 p99 0.291 to 0.156 m; corpus body centre +0.007 m (13 / 8), all windows −0.070 m (2 / 19) | 0.152 to 0.156 m; +0.017 m (17 / 4), −0.074 m (5 / 16) | Not met as written; met on the same windows (amendment 1)              |
-| G11 | 93, 0.306, 0.275                                                                                | 118, 0.310, 0.272                                      | Met, both inside the 19-switch band                                    |
-| G12 | p99 7.30 ms (+71 %), p50 0.416 ms (3.0×); shadow p99 +102 %                                     | Not timed                                              | Not met                                                                |
+| Id  | A2 with containment                                                                                                                                | Alignment candidate with containment                   | Against the level                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| G1  | Unchanged: yaw is not W2's to move                                                                                                                 | Unchanged                                              | Not read                                                               |
+| G3  | kirk0 `2-4s` 0.58, `4s+` 0.45; corpus 0.23, 0.26 (axis, from the rows)                                                                             | kirk0 0.05, 0.19; corpus 0.04, 0.05                    | Not W2's; the candidate's course heading meets it by construction      |
+| G5  | Body centre 0.41 (1,108 rows); corpus median 0.60 (0.45 to 0.80 by site)                                                                           | 0.40 (1,103 rows); corpus 0.66 (0.50 to 0.81)          | Not met, and not met by construction (amendment 2)                     |
+| G6  | Length 0.036, width 0.068; corpus 0.025, 0.058                                                                                                     | 0.037, 0.048; corpus 0.018, 0.040                      | Not met: the frame's span against a window-minimum floor (amendment 2) |
+| G7  | 5 of 19                                                                                                                                            | 11 of 20                                               | Unchanged by W2                                                        |
+| G8  | Car 4.05 of 4.26 m (7 of 7 within 15 %); truck 1 6.38; truck 2 1.96 reported                                                                       | Car 3.91; truck 1 8.88; truck 2 0.75                   | Unchanged in substance: the floor, not the belief, moved               |
+| G9  | 3 of 7                                                                                                                                             | 3 of 7                                                 | Unchanged                                                              |
+| G10 | kirk0 p99 0.291 to 0.156 m; corpus body centre +0.007 m (13 / 8), all windows −0.070 m (2 / 19)                                                    | 0.152 to 0.156 m; +0.017 m (17 / 4), −0.074 m (5 / 16) | Not met as written; met on the same windows (amendment 1)              |
+| G11 | 93, 0.306, 0.275                                                                                                                                   | 118, 0.310, 0.272                                      | Met, both inside the 19-switch band                                    |
+| G12 | As screened p99 7.30 ms (+71 %), shadow +102 %; with the floor's search capped (`c5bb9fcca`) 4.15 ms (−3 %), shadow +15 %, both medians about 2.5× | Not timed                                              | Met on A2 after the fix; not on the shadow                             |
+
+**W1b, `solid_body_rectangle_heading`**, its first build, with `solid_body_rectangle_course_fusion`
+built during the same run: kirk0 at `be8ace881` and `d5ff96fb6`, the corpus from passes 5 and 6,
+all in the [rectangle heading report](solid-body-rectangle-heading-2026-10.md). `a2-new-cf` is A2
+with the rectangle heading, fusion, containment, growth admission, open-prior centring and the
+vehicle floor: the alignment candidate with the rectangle heading in the course heading's place.
+
+| Id  | Rectangle heading + containment (`a2-rh-cont`)                                               | `a2-new-cf`                                                                                                   | Against the level                                                     |
+| --- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| G1  | 0° median, 1.3° p90; truck 2 0.3°                                                            | 0°, 1.2°; truck 2 0.4°                                                                                        | Met on kirk0, a fit scored against fits                               |
+| G2  | 13 of 15; truck 2 6 of 6                                                                     | 14 of 15; truck 2 6 of 6                                                                                      | Met; car 8 at 0.8 m/s on a 0.3 s-old track the one miss               |
+| G3  | kirk0 0.04 / 0.04; corpus 0.060 / 0.067, better than A2 at all 23 sites                      | kirk0 0.02 / 0.03; corpus 0.040 / 0.043, 10 sites under 0.05 at both ages                                     | Met by `a2-new-cf`, whose course is fused into the axis (amendment 3) |
+| G5  | kirk0 0.48; corpus 0.68                                                                      | kirk0 0.58; corpus 0.70                                                                                       | Not met (amendment 2)                                                 |
+| G6  | 0.010 / 0.023                                                                                | 0.012 / 0.014                                                                                                 | Not met, nearer than W2 alone (amendment 2)                           |
+| G7  | 5 of 9                                                                                       | 11 of 13                                                                                                      | Met by `a2-new-cf` on kirk0                                           |
+| G8  | 6 of 15                                                                                      | 13 of 15                                                                                                      | Met by `a2-new-cf` on kirk0                                           |
+| G9  | 0 of 7 (truck 1 matched to its cab fragment)                                                 | 3 of 7                                                                                                        | Not met: truck 2's cab never reaches the tracker (W3)                 |
+| G10 | kirk0 0.291 to 0.200 m; corpus +0.029 m against A2 with containment (17 / 6), matched p99 up | kirk0 0.136 m; corpus +0.001 m against A2, +0.009 against the alignment candidate, matched p99 0.171 to 0.171 | Not met by the rectangle heading alone; level for `a2-new-cf`         |
+| G11 | 108                                                                                          | 110                                                                                                           | Met, both                                                             |
+| G12 | +10.9 % at p99 (rectangle heading alone, without containment), p50 2.8×; shadow +10.3 %      | −1.5 % at p99, p50 4.9×                                                                                       | Met by `a2-new-cf`; the heading alone just outside                    |
 
 ## Amendments
 
-Proposed 2026-10-09 from the W2 score, neither adopted: each changes a level or its test, which
-is a decision this record only reports. Until one is adopted the levels above stand as written
-and W2 is scored against them.
+Proposed 2026-10-09 from the W2 and W1b scores, none adopted: each changes a level or its test,
+which is a decision this record only reports. Until one is adopted the levels above stand as
+written and W2 and W1b are scored against them.
 
 1. **G10's population.** The body-centre p99 is read over windows of five consecutive
    body-centre rows, and a change that keeps a claim where it used to lapse moves rows into
@@ -198,3 +218,10 @@ and W2 is scored against them.
    reach (0.98 of points within 0.15 m is above the trim), or change the floor to the frame's
    untrimmed span and re-score. Which of the three mechanisms accounts for most of the gap is
    not attributed; the per-row record distinguishes floored rows for that.
+3. **G3 under a fused course.** With `solid_body_rectangle_course_fusion` the course is a
+   second observation of the axis, so the axis column of `axis_by_age` is partly the course
+   agreeing with itself, as the course heading's always was. The fit's own axis against the
+   course is in the same table's rectangle columns, which this run found folded modulo 180
+   degrees where the fit is defined modulo 90 (corrected at `cc28d59c6`). Proposed: read G3 on
+   the rectangle columns whenever the course is fused into the axis, and on the axis columns
+   otherwise.
