@@ -43,15 +43,15 @@ unseen bumper remains unknown unless independent evidence supports it.
 
 The window uses the main view's words where it means the same thing.
 
-| Word        | Meaning                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| Run         | The recording the pack was cut from                                                           |
-| Frame       | One scan. Shown by the run's own frame number, which is the one the main view's timeline uses |
-| Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                 |
-| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame      |
-| Labelled by | Your name. Saved with every label. Not the name of an object or a track                       |
-| Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                              |
-| Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth            |
+| Word        | Meaning                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Run         | The recording the pack was cut from                                                                                                                                                                    |
+| Frame       | One scan. Named by its sample, as every tool and record names it: "Sample 500". The recording's own frame number, the one the main view's timeline uses, follows it where shown: "recording frame 504" |
+| Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                                                                                                                          |
+| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame                                                                                                               |
+| Labelled by | Your name. Saved with every label. Not the name of an object or a track                                                                                                                                |
+| Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                                                                                                                                       |
+| Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth                                                                                                                     |
 
 ## Getting a pack
 
@@ -133,11 +133,11 @@ truth; only reviewed objects and masks count as such.
 | Area                  | What it is                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------- |
 | Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
-| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting                       |
-| Top view (below left) | Large, because this is where a selection is usually made                                 |
+| 3D view (top)         | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes |
+| Top view (below left) | The largest selection view: this is where a selection is usually made                    |
 | Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
 | Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
-| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                             |
+| Right sidebar         | The mode, pinned at the top; then how: display, tools, depth slab, saving and review     |
 
 Each elevation is the sensor looking outward and **shows only the half of the scene in front of
 it**: 180° of azimuth each, the pairs opposed. Without that the half behind the sensor lands on
@@ -151,6 +151,15 @@ The top view frames the whole sample. An elevation frames its **height** and is 
 because a street is a hundred metres wide and four high and fitting its width would leave a car
 too small to see.
 
+The mode — **Object Points**, **Physical**, **Facets** or **Compare** — is the menu at the top of
+the right sidebar, above the controls it chooses between. It stays there however far the sidebar
+is scrolled.
+
+The 3D view opens at about a quarter of the height and the Top view at about two fifths of the
+width beside the elevations. Both dividers drag, and the window keeps the proportions you leave
+them at, as proportions, so a larger window or another display shows the same layout.
+Double-click a divider to put it back.
+
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
 
@@ -158,21 +167,36 @@ The status line across the top of the views always says what went wrong or what 
 
 ### Moving about
 
-| Action                       | How                                                       |
-| ---------------------------- | --------------------------------------------------------- |
-| Zoom a selection view        | Scroll or pinch, about the cursor                         |
-| Pan a selection view         | Right-drag, middle-drag, or control-drag                  |
-| Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                  |
-| Frame the views              | **Fit**: Sample, Foreground, Selection; or click a sector |
-| Step a frame                 | `←` and `→`, `,` and `.`, or the frame strip              |
-| Follow the main view         | **Follow the main view**, on by default                   |
+| Action                       | How                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| Zoom a selection view        | Scroll or pinch, about the cursor                                                       |
+| Pan a selection view         | Right-drag, middle-drag, or control-drag                                                |
+| Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                                                |
+| Frame one object             | Click it in the object list, or **Fit the views to** · **Object**                       |
+| Frame the views              | **Fit the views to**: Selection, Foreground, Whole frame; or click a sector             |
+| Step a frame                 | `←` and `→` wherever the focus is, except in a text field; `,` and `.`; the frame strip |
+| Follow the main view         | **Follow the main view**, on by default                                                 |
 
 The two bars across the top say how far through you are: this frame, and every frame in the
 pack, as labelled, agreed and in question. The ring in the left sidebar says where in the frame
 what is left is.
 
-The views hold their framing from frame to frame. Only a fit or your own pan and zoom moves
-them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
+The views hold their framing from frame to frame. Only a fit, your own pan and zoom, or an
+object being followed moves them.
+
+**Clicking an object** in the list frames it whole in all six views, the elevations included,
+and the 3D view glides round to look at it along the sensor's own line of sight, a little from
+above and at least 10 m back. Its distance only grows while it follows, so a car driving at the
+sensor, which shows little more than its front, does not draw the camera in until it drives past
+it. With **Keep the chosen object in view** on, the default, every step after that moves the
+views with it: a view you have not touched keeps the object centred and grows, never shrinks, to
+keep it whole; a view you have panned or zoomed keeps your offset and scale and moves with the
+object. In a frame the object is not labelled in, it is placed between the labelled frames
+either side; before its first and after its last, the views stay where they are. An elevation the
+object is behind is left alone. Any other fit stops following, until an object is clicked again.
+
+The arrow keys belong to the window: `←` and `→` step a frame whichever view was clicked last,
+the 3D view included, and only a text field being typed in keeps them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
 moving the main view steps here; the main view has to be replaying the same run.
 
 **Loop this pack's frames**, on by default, keeps a playing main view inside the pack: when it
@@ -248,11 +272,16 @@ mostly the speckle of every frame, are behind a toggle.
 
 ### Tools
 
-| Tool   | Use                                                                                                                                                                     |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts                                                                                             |
-| Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view |
-| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                              |
+| Tool   | Use                                                                                                                                                                                                       |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts. Shift-click takes the one return under the cursor; option-click removes the object's nearest one; a plain click does nothing |
+| Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view                                   |
+| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                                                                |
+
+A brush takes its depth from the return nearest the cursor. Holding option, it takes it from
+the nearest return **of the object** instead: in the Top view a car's returns lie over the
+road's, and a brush riding the road passed a metre under the return it was meant to remove. A
+stroke that removes nothing says so beside the brush.
 
 The **depth slab** limits every tool along the view's depth axis. Set by hand, it is kept from
 frame to frame until reset.
@@ -412,7 +441,7 @@ until someone reviews one there.
 
 ### Authoring in the window
 
-Physical references are authored in the annotation window, in the **Physical reference** mode at
+Physical references are authored in the annotation window, in the **Physical** mode chosen at
 the top of the right-hand column. The window never writes `physical-references.json` itself: it
 sends each edit to the local server, which applies the rules below, and shows what the server
 answers. The server must hold the same pack folder the window opened, under its
@@ -439,30 +468,39 @@ report bytes. Their bounds remain absent: state conservative bounds and assumpti
 then save and review. The original estimate is a dashed pink outline in Top while you edit.
 It is a source sketch, not another independent reference. Discard removes that session's ghost.
 
-1. Choose the object in the list. Membership and identity come first, in Points mode.
-2. **1 · Object size · all frames** holds one length, width and height for the whole episode. A new body
-   is unknown in every dimension; nothing is prefilled. Each dimension has a status (observed,
-   inferred, prior only, unknown), a full or partial span, bounds in metres, and the frames or
-   external reference it rests on. Enter a whole span as **value ± tolerance**: the tolerance
-   states how far either way it could be wrong. **Exact min/max (advanced)** preserves
-   asymmetric bounds. A partial span uses **at least**, a lower bound only. A value without
-   bounds can draw an incomplete sketch; it is not supported geometry for scoring.
-3. **2 · Pose at this frame** holds this frame's pose. Click in the Top view to place its
-   position, or type X and Y. Then state the horizontal bound yourself: placing a point does not
-   say how well it is known. Set the axis state, then the yaw and its bound in degrees. A named
-   face or bumper needs a resolved axis. A click in an elevation sets only the optional height,
-   and only after the position exists.
-   A named face position is its **face centre**, not an arbitrary point on the face or a patch's
-   changing visible centre. Its offset is only along the inward normal. If the along-face centre
-   is unseen, the position bound must include that uncertainty; use Facets for a repeatable edge
-   or mirror point with a separate body relation.
-4. Give each record its method and uncertainty assumptions. The server checks the draft as you
-   edit and says what it would refuse, and which reviews a save would reset.
-5. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
-   and steps to the next frame. A save never reviews anything. A changed
-   body dimension is a new body under a new ID, and every keyframe of that object returns to
-   proposed.
-6. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
+1. Choose the object in the list. Membership and identity come first, in Points mode: the fit
+   reads only a reviewed object whose every frame is reviewed, from the saved masks.
+2. **Fit to reviewed points** is first in the column. **Fit object** measures the size from the
+   frames that show it end to end and places a pose at each of them; **Fit pose here** places the
+   pose at this frame and keeps the draft's size if it has one. The fit fills the draft as one
+   undo step and stores nothing. Below the buttons it shows the fitted size, any notes (returns
+   apart from the body usually mean a mask holding something else), and what this frame shows of
+   each face: seen or not, why, and its bound with the terms it adds up. See
+   [Fitting to reviewed points](#fitting-to-reviewed-points) for what a fitted box means.
+3. **1 · Object size · all frames** holds one length, width and height for the whole episode.
+   Each dimension is **Full**, **At least** or **Unknown**; there is no evidence picker. A fitted
+   dimension says how it is known beneath it. Set by hand, a full value is inferred from the
+   frame it was read at and a lower bound is an observation of that frame. Enter a whole span as
+   **value ± tolerance**; **Exact min/max** keeps asymmetric bounds. A value without `±` is
+   flagged beside the field.
+4. **2 · Pose at this frame** shows the pose at a glance: its anchor, position and heading with
+   their bounds, and what is still missing. The one judgement per end is a checkbox, **Front is a
+   real end in this frame** and the same for the rear: tick it when this frame's returns reach
+   the vehicle's real end, not the edge of something in front of it. Unticked, an end is placed
+   by the body's length when that is known end to end. Everything else is under **Adjust by
+   hand**: the axis, heading and its bound, the anchor and its offset, the position (click in Top
+   to place it; a typed position is an observation of this frame), **Anchor height (optional)**,
+   which is the anchor's height and not the body's, shared errors, and the method and
+   assumptions. A named face position is its **face centre**; its offset is only along the
+   inward normal.
+5. Method and assumptions fill themselves: a fitted record states the fit's, and a record whose
+   bounds are set by hand states that they were read off the returns with the tolerance beside
+   them. The server checks the draft as you edit and says what it would refuse, and which
+   reviews a save would reset.
+6. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
+   and steps to the next frame. A save never reviews anything. A changed body dimension is a new
+   body under a new ID, and every keyframe of that object returns to proposed.
+7. Inspect the saved record in both views, then **Review body** and **Review saved pose**,
    separately. Review is refused while the draft has unsaved changes, because it confirms the
    saved record.
 
@@ -477,6 +515,13 @@ resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
+The elevations and the 3D view draw the same box whole, in the same three colours: orange
+unsaved, yellow proposed, green reviewed. A reference has a footprint and at most a height, and
+no floor, so the box is stood on the object's lowest return in that frame (the column grid's
+ground where it has none) and is as tall as the body's height, or its returns when the height is
+not known or is less. The height drawn is for looking; nothing reads it back. In an elevation a
+turned box shows its near and far vertical edges inside the outline.
+
 Unsaved physical work guards stepping, switching objects, opening another pack and closing the
 window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
 **Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
@@ -488,8 +533,10 @@ unsaved object membership.
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis),
-  and the diamond at the far end of the body to revise its length with the anchor held. The
+  the dot to turn the pose about the body's centre (the first turn creates a front/rear-ambiguous
+  axis), and the diamond at the far end of the body to revise its length with the anchor held.
+  A pose anchored on a face, as a fit that saw only one end leaves it, keeps its centre when
+  turned: the face swings round it, and a typed heading does the same. The
   outlined square labelled **width** revises width about the supported centre, keeping position,
   heading and length fixed. A side-face anchor has no width handle: its inward offset would need
   an explicit coupled edit. Resizing carries the dimension's stated interval with its value and
@@ -632,6 +679,46 @@ imported with: without `--reviewed` it is a proposal, which scoring counts as un
 review a proposal, draft it again with `--reviewed` and the same `--id`, and import that with
 `--replace`. `--tracker-source` names tracker output the decision was made against; the record is
 then tracker-assisted, and a later draft under its ID cannot make it independent.
+
+### Fitting to reviewed points
+
+Once an object and every one of its masks are reviewed, `fit` measures its body from those
+returns instead of asking you to type it: its length and width from the frames that show them
+end to end, its height as a lower bound, and a pose at each frame that measured them and at any
+`--sample` you add. It writes the result as an import file of proposals
+([plan](../../plans/lidar-physical-fit-to-points-plan.md)):
+
+```bash
+velocity lidar annotation-reference fit --pack "$PACK" --object "$OBJECT" --sample 504 \
+  --author "$NAME" --out fit.json --diagnostics fit-frames.json
+velocity lidar annotation-reference import --pack "$PACK" --file fit.json --author "$NAME"
+```
+
+What a fitted box means:
+
+- **The plan-view envelope of the reviewed returns**, mirrors included. A face sits at the
+  outermost return along its normal, ignoring at most five stragglers.
+- **The front is the direction of travel.** An object that does not move gets a
+  front/rear-ambiguous axis and no named ends.
+- **Every bound is a conservative half-width** that adds named terms: the azimuth step where a
+  face is seen edge-on, range accuracy where it is seen face-on, the stragglers ignored, and the
+  chord the heading bound sweeps. The command prints each term for every pose's ends and sides;
+  `--diagnostics` writes them for every frame.
+- **An end is seen** when it faces the sensor, or when the side facing the sensor runs to it, and
+  nothing nearer lies just beyond it. An end that a nearer return borders is reported as cut.
+- **A length or width is stated end to end** from at least three frames that measure it, as the
+  90th percentile of their spans: one frame's span is a lower bound, because a frame sees at most
+  the whole body. With fewer frames it is a lower bound.
+- **Returns apart from the body** along its axis are reported in runs of frames, with the worst
+  frame named. They usually mean a mask that holds something else.
+
+Every record is a proposal with method `fit:mask_v1`, independent of the tracker, with its
+uncertainty assumptions written out. Import it, check each pose in the window, and review the body
+and each pose as you would anything typed by hand. Fitting over a body or keyframes already stored
+needs `--replace`, as the import would. The file is checked as an import before it is written, an
+existing file is never overwritten, and nothing is stored until you import. The fit refuses an
+object with proposed masks, and a pack with a site transform, whose sensor position it cannot
+know.
 
 ### Scoring against physical references
 

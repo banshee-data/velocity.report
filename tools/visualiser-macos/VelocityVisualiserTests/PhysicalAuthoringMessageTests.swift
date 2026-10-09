@@ -13,8 +13,7 @@ struct PhysicalAuthoringMessageTests {
         ]
     }
     private func describe(_ raw: String) -> String {
-        PhysicalAuthoringMessage.describe(
-            raw, objects: objects, name: { _ in "car 5" }, frameNumber: { $0 == 295 ? 297 : nil })
+        PhysicalAuthoringMessage.describe(raw, objects: objects, name: { _ in "car 5" })
     }
     @Test func objectSizeErrorsNameTheFieldAndKeepTheOriginalUntouched() {
         let raw =
@@ -26,20 +25,17 @@ struct PhysicalAuthoringMessageTests {
         #expect(raw.contains("lower_m"))
         #expect(describe("body/body_1") == "car 5 · object size")
     }
-    @Test func poseLabelsKeepFrameAndSampleDistinctAndNeverGuessUnknownRecords() {
+    @Test func poseLabelsNameTheSampleAndNeverGuessUnknownRecords() {
         let raw =
             "object \"obj_car\": keyframe \"pose_1\": position: a known position needs a finite, non-negative bound_m"
         #expect(
             describe(raw)
-                == "car 5: pose at frame 297 (sample 295): position: enter a finite position uncertainty of at least 0 m"
+                == "car 5: pose at sample 295: position: enter a finite position uncertainty of at least 0 m"
         )
-        #expect(describe("keyframe/pose_1") == "car 5 · pose at frame 297 (sample 295)")
+        #expect(describe("keyframe/pose_1") == "car 5 · pose at sample 295")
         let unknown = "object \"obj_other\": keyframe \"pose_other\": future constraint failed"
         #expect(describe(unknown) == unknown)
         #expect(describe("body/body_10") == "body/body_10", "matched an ID prefix")
-        let fallback = PhysicalAuthoringMessage.describe(
-            "keyframe/pose_1", objects: objects, name: { _ in "car 5" }, frameNumber: { _ in nil })
-        #expect(fallback == "car 5 · pose at sample 295")
     }
     @Test func partialSpansAndObservedSupportOfferOnlyKnownRecoveryInstructions() {
         #expect(

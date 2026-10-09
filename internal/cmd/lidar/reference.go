@@ -8,12 +8,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
-const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following> --pack DIR [flags]
+const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following|fit> --pack DIR [flags]
 
 Import or validate the physical references of an annotation pack: body
 dimensions, keyframe poses and following gaps, each with bounds, evidence
@@ -27,6 +28,10 @@ status and its own review, stored beside the pack's membership sidecar.
                    or ambiguous decision over an interval, with gaps derived from
                    the stored keyframes; it is checked as an import before it is
                    written, and nothing is stored
+  fit              Write an import file of proposals fitted to an object's reviewed
+                   returns: its size and a pose at the frames that measured it and
+                   at any --sample, with every bound's terms printed; it is checked
+                   as an import before it is written, and nothing is stored
 
 Run 'velocity lidar annotation-reference <command> -h' for flags.`
 
@@ -48,6 +53,8 @@ func annotationReferenceMain(args []string, stdout, stderr io.Writer) int {
 		return referenceValidate(args[1:], stdout, stderr)
 	case "draft-following":
 		return referenceDraftFollowing(args[1:], stdout, stderr)
+	case "fit":
+		return referenceFit(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		fmt.Fprintln(stdout, annotationReferenceUsage)
 		return 0
@@ -294,6 +301,145 @@ func printDraftedFollowing(stdout io.Writer, f annotation.FollowingReference, sk
 		fmt.Fprintln(stdout, "  proposed: scoring counts it as unreviewed; once reviewed, draft it again with "+
 			"--reviewed and the same --id, and import it with --replace")
 	}
+}
+
+// sampleList collects repeated --sample flags.
+type sampleList []int
+
+func (l *sampleList) String() string { return fmt.Sprint([]int(*l)) }
+func (l *sampleList) Set(v string) error {
+	var n int
+	if _, err := fmt.Sscan(v, &n); err != nil || n < 0 {
+		return fmt.Errorf("sample %q: want a non-negative integer", v)
+	}
+	*l = append(*l, n)
+	return nil
+}
+
+func referenceFit(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("velocity-lidar-annotation-reference-fit", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	packDir := fs.String("pack", "", "Annotation pack directory (required)")
+	object := fs.String("object", "", "The object to fit; it and every one of its masks must be reviewed (required)")
+	var samples sampleList
+	fs.Var(&samples, "sample", "A sample to place a pose at, beside the frames the size is measured at; repeat for more")
+	author := fs.String("author", "", "Who is fitting; recorded as the proposals' author (required)")
+	session := fs.String("session", "", "Optional session identifier recorded with the proposals")
+	replace := fs.Bool("replace", false, "Check the file as import --replace would: the object's stored body and any keyframe at a fitted sample are replaced")
+	out := fs.String("out", "", "Import file to write; an existing file is not overwritten (required)")
+	diagnostics := fs.String("diagnostics", "", "Optional file for every frame's diagnostics as JSON; an existing file is not overwritten")
+	if code, ok := parseReferenceFlags(fs, args); !ok {
+		return code
+	}
+	for _, required := range []struct{ name, value string }{
+		{"--pack", *packDir}, {"--object", *object}, {"--author", *author}, {"--out", *out},
+	} {
+		if required.value == "" {
+			fmt.Fprintln(stderr, "error: "+required.name+" is required")
+			fs.Usage()
+			return 2
+		}
+	}
+	pack, err := annotation.OpenPack(*packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	sidecar, err := annotation.LoadSidecar(pack)
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	res, err := annotation.FitPhysicalObject(pack, sidecar, annotation.FitRequest{
+		ObjectID: *object, Samples: samples, Author: *author, Session: *session,
+	}, annotation.DefaultFitOptions())
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	printFit(stdout, res)
+	if *diagnostics != "" {
+		b, err := json.MarshalIndent(res, "", "  ")
+		if err == nil {
+			err = writeNewFile(*diagnostics, append(b, '\n'))
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+			return 1
+		}
+	}
+	// The file is written only if the import would accept it.
+	merged, err := annotation.PreparePhysicalImport(pack, res.Import, *replace)
+	var content string
+	if err == nil {
+		content, err = merged.ContentDigest()
+	}
+	var b []byte
+	if err == nil {
+		b, err = json.MarshalIndent(res.Import, "", "  ")
+	}
+	if err == nil {
+		err = writeNewFile(*out, append(b, '\n'))
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	printReferenceSummary(stdout, importValidHeader(merged), "", content, merged)
+	fmt.Fprintf(stdout, "wrote %s: proposals only; import it, then review the body and each pose in the window\n", *out)
+	return 0
+}
+
+// printFit reports what was fitted, from which frames, and what each pose
+// frame showed, with the terms of every bound.
+func printFit(stdout io.Writer, res *annotation.FitResult) {
+	o := res.Import.Objects[0]
+	fmt.Fprintf(stdout, "fitted %s from membership revision %d (%s)\n", res.ObjectID, res.MembershipRevision, res.MembershipDigest)
+	for _, d := range []struct {
+		name string
+		d    annotation.DimensionBound
+	}{{"length", o.Body.Length}, {"width", o.Body.Width}, {"height", o.Body.Height}} {
+		switch {
+		case d.d.Status == annotation.EvidenceUnknown:
+			fmt.Fprintf(stdout, "  %-6s unknown\n", d.name)
+		case d.d.Span == annotation.SpanPartial:
+			fmt.Fprintf(stdout, "  %-6s at least %.2f m (%s), frames %v\n", d.name, *d.d.LowerM, d.d.Status, d.d.Support.Frames)
+		default:
+			v, hw, _ := d.d.Best()
+			fmt.Fprintf(stdout, "  %-6s %.2f ± %.2f m (%s), frames %v\n", d.name, v, hw, d.d.Status, d.d.Support.Frames)
+		}
+	}
+	byID := map[int]annotation.FitFrame{}
+	for _, f := range res.Frames {
+		byID[f.SampleID] = f
+	}
+	for _, k := range o.Keyframes {
+		f := byID[k.SampleID]
+		fmt.Fprintf(stdout, "  pose at sample %d: %s at (%.2f, %.2f) ± %.2f m, %s; heading %.1f° ± %.1f° from %s; front %s, rear %s\n",
+			k.SampleID, k.Anchor.Kind, *k.Position.XM, *k.Position.YM, *k.Position.BoundM, k.Position.Status,
+			*k.Yaw.YawRad*180/math.Pi, *k.Yaw.BoundRad*180/math.Pi, f.YawSource, k.Front.Status, k.Rear.Status)
+		fmt.Fprintf(stdout, "    %d returns at %.1f m, aspect %.0f°\n", f.Returns, f.RangeM, f.AspectDeg)
+		for _, face := range []struct {
+			name string
+			f    annotation.FitFace
+		}{{"front", f.Front}, {"rear", f.Rear}, {"left", f.Left}, {"right", f.Right}} {
+			fmt.Fprintf(stdout, "    %-5s %s; ± %.3f m (%s)\n", face.name, face.f.Reason, face.f.BoundM, fitTerms(face.f.Terms))
+		}
+	}
+	for _, n := range res.Notes {
+		fmt.Fprintf(stdout, "  note: %s\n", n)
+	}
+}
+
+func fitTerms(ts []annotation.FitBoundTerm) string {
+	s := ""
+	for i, t := range ts {
+		if i > 0 {
+			s += ", "
+		}
+		s += fmt.Sprintf("%s %.3f", t.Name, t.M)
+	}
+	return s
 }
 
 // writeNewFile writes a file that must not already exist.

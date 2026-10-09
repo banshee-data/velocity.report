@@ -109,7 +109,7 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 	if code, _, stderr := runReference("export"); code != 2 || !strings.Contains(stderr, "unknown annotation-reference command") {
 		t.Errorf("unknown command exited %d: %s", code, stderr)
 	}
-	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}} {
+	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}} {
 		if code, _, _ := runReference(args...); code != 0 {
 			t.Errorf("%v exited %d", args, code)
 		}
@@ -431,5 +431,106 @@ func TestAnnotationReferenceDraftFollowingUsage(t *testing.T) {
 	if code, _, _ := runReference("draft-following", "--pack", "missing", "--follower", "a", "--leader", "b",
 		"--first", "0", "--last", "1", "--author", "op", "--out", filepath.Join(t.TempDir(), "o.json")); code != 1 {
 		t.Errorf("a missing pack exited %d, want 1", code)
+	}
+}
+
+// fitPack writes ten samples of a stationary 4.5 by 1.8 m box side-on to the
+// sensor, 8 m away below its height: the near side and the roof return.
+func fitPack(t *testing.T) *annotation.Pack {
+	t.Helper()
+	var pts annotation.Points
+	add := func(x, y, z float32) {
+		pts.X, pts.Y, pts.Z = append(pts.X, x), append(pts.Y, y), append(pts.Z, z)
+	}
+	for x := float32(-2.25); x <= 2.2501; x += 0.05 {
+		for _, z := range []float32{-2.0, -1.5, -1.0} {
+			add(x, 7.1, z)
+		}
+		for y := float32(7.1); y <= 8.9001; y += 0.2 {
+			add(x, y, -0.8)
+		}
+	}
+	block, err := annotation.EncodePoints(pts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var samples []annotation.Sample
+	var blocks [][]byte
+	for i := 0; i < 10; i++ {
+		samples = append(samples, annotation.Sample{SourceOrdinal: i, TimestampNs: 1_000_000_000 + int64(i)*100_000_000,
+			SensorID: "s", PointCount: len(pts.X)})
+		blocks = append(blocks, block)
+	}
+	dir := filepath.Join(t.TempDir(), "pack")
+	m := annotation.Manifest{
+		Coverage:   annotation.CoverageForegroundOnly,
+		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
+		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
+	}
+	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := annotation.OpenPack(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := make([]int, len(pts.X))
+	for i := range all {
+		all[i] = i
+	}
+	s := annotation.NewSidecar(pack)
+	s.Change = annotation.Provenance{Author: "op"}
+	s.Objects = []annotation.Object{{ObjectID: "car", Class: "car", Confidence: 1, Status: annotation.StatusReviewed}}
+	for i := 0; i < 10; i++ {
+		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: all,
+			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
+	}
+	if err := annotation.SaveSidecar(pack, s); err != nil {
+		t.Fatal(err)
+	}
+	return pack
+}
+
+func TestAnnotationReferenceFit(t *testing.T) {
+	pack := fitPack(t)
+	out := filepath.Join(t.TempDir(), "fit.json")
+	diag := filepath.Join(t.TempDir(), "diag.json")
+	fit := []string{"fit", "--pack", pack.Dir, "--object", "car", "--sample", "4", "--author", "op", "--out", out, "--diagnostics", diag}
+	code, stdout, stderr := runReference(fit...)
+	if code != 0 {
+		t.Fatalf("fit exited %d: %s", code, stderr)
+	}
+	for _, want := range []string{"fitted car", "length", "pose at sample 4", "import valid", "proposals only"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("output lacks %q:\n%s", want, stdout)
+		}
+	}
+	if _, err := os.Stat(diag); err != nil {
+		t.Errorf("no diagnostics written: %v", err)
+	}
+	// The file imports as it stands, and is never overwritten.
+	if code, _, stderr := runReference("import", "--pack", pack.Dir, "--file", out, "--author", "op"); code != 0 {
+		t.Fatalf("importing the fitted file exited %d: %s", code, stderr)
+	}
+	if code, _, _ := runReference(fit...); code != 1 {
+		t.Errorf("a second fit over an existing file exited %d, want 1", code)
+	}
+	// Fitting again over stored references needs --replace to check as an import would.
+	again := filepath.Join(t.TempDir(), "again.json")
+	if code, _, stderr := runReference("fit", "--pack", pack.Dir, "--object", "car", "--author", "op", "--out", again); code != 1 ||
+		!strings.Contains(stderr, "replace") {
+		t.Errorf("fitting over stored records without --replace exited %d: %s", code, stderr)
+	}
+	for _, args := range [][]string{
+		{"fit", "--pack", pack.Dir, "--author", "op", "--out", again},
+		{"fit", "--pack", pack.Dir, "--object", "car", "--out", again},
+		{"fit", "--pack", pack.Dir, "--object", "car", "--author", "op", "--sample", "-1", "--out", again},
+	} {
+		if code, _, _ := runReference(args...); code != 2 {
+			t.Errorf("%v exited %d, want 2", args, code)
+		}
+	}
+	if code, _, _ := runReference("fit", "--pack", pack.Dir, "--object", "ghost", "--author", "op", "--out", again); code != 1 {
+		t.Errorf("an unknown object exited %d, want 1", code)
 	}
 }

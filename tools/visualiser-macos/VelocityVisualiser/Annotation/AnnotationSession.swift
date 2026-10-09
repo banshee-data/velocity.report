@@ -419,6 +419,20 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published private(set) var viewStates: [OrthoViewBasis.Standard: OrthoViewState] = [:]
     /// The region the 3D view was last asked to look at.
     @Published private(set) var sceneFocus: AnnotationSceneFocus?
+    /// True when the reference extents frame one object, which every view
+    /// then fits whole, elevations included, with room to move.
+    @Published private(set) var referenceFramesObject = false
+    /// The object the views keep in frame as the frames change, set by
+    /// clicking it. Following stops when another object is made active or a
+    /// fit asks for something else.
+    @Published private(set) var focusedObjectID: String?
+    /// Whether stepping keeps the focused object in view. On by default:
+    /// clicking an object is asking to watch it.
+    @Published var followsFocusedObject = true
+    private var followFraming = ObjectFollowFraming()
+    /// The saved masks' footprints for the focused object, by sample, for the
+    /// revision and grid they were measured under.
+    private var footprintCache: (key: String, footprints: [Int: ObjectFootprint]) = ("", [:])
 
     /// Bumped whenever what the 3D view draws has changed, so that view can
     /// tell a change of content from one of the many publishes that are not.
@@ -803,6 +817,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         secondViewChecked = false
         carried = nil
         carriedIndices = []
+        // Not followed on the way: the step below is to where it starts, and
+        // the fit after it frames it there.
+        focusedObjectID = nil
         if let first = firstLabelledFrame(objectID: objectID), first != sampleIndex {
             // The guard above has already passed, so this cannot be refused
             // for unsaved changes; it loads the frame's mask on the way.
@@ -810,6 +827,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         } else {
             loadSelectionForCurrentSample()
         }
+        // Choosing an object is asking to be shown it: every view frames it,
+        // and follows it from here.
+        focusActiveObject()
         return nil
     }
 
@@ -990,6 +1010,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         secondViewChecked = false
         carry(leaving, from: fromSampleID, direction: direction)
         refreshBackground(previousSampleIndex: previousIndex)
+        followFocusedObject()
         return nil
     }
 
@@ -1084,12 +1105,22 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// rides the surface being painted; where there is none, the depth it last
     /// had, so that crossing a gap does not drop it to the ground. The
     /// operator moves it off that depth with `adjustBrushDepth`.
-    func brushSphere(atViewPoint viewPoint: simd_float2, pickDistance: Float) -> SelectionSphere {
+    ///
+    /// A brush that subtracts takes its depth from the nearest return in the
+    /// membership instead. In the Top view a car's returns lie over the road's,
+    /// and a depth taken from the road left the sphere a metre below the
+    /// return the operator clicked to remove: the click changed nothing.
+    func brushSphere(
+        atViewPoint viewPoint: simd_float2, pickDistance: Float, subtracting: Bool = false
+    ) -> SelectionSphere {
         let basis = editingBasis
         let reach = max(pickDistance, sphereRadius)
-        if let index = nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: reach),
-            let p = currentPoints.point(at: index)
-        {
+        let members = history.current
+        let picked =
+            (subtracting && !members.isEmpty
+                ? nearestMemberIndex(toViewPoint: viewPoint, maxViewDistance: reach) : nil)
+            ?? nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: reach)
+        if let index = picked, let p = currentPoints.point(at: index) {
             lastBrushDepth = basis.depth(p)
         }
         let depth =
@@ -1102,13 +1133,69 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// Shows where the sphere brush would mark at this position, or clears it.
-    func hover(atViewPoint viewPoint: simd_float2?, pickDistance: Float) {
+    func hover(atViewPoint viewPoint: simd_float2?, pickDistance: Float, subtracting: Bool = false)
+    {
         guard tool == .sphere, !strokeInProgress, let viewPoint else {
             hover.clear()
             return
         }
-        let sphere = brushSphere(atViewPoint: viewPoint, pickDistance: pickDistance)
+        let sphere = brushSphere(
+            atViewPoint: viewPoint, pickDistance: pickDistance, subtracting: subtracting)
         hover.show(sphere, indices: sphereCandidates(sphere).indices)
+    }
+
+    /// Applies a click with the lasso, which encloses nothing: shift adds the
+    /// return nearest the cursor, option removes the nearest one in the
+    /// membership. A plain click still names nothing, so that a stray click
+    /// cannot replace a selection with one point.
+    ///
+    /// Returns what the click did, for the note under the cursor.
+    @discardableResult func clickSelect(
+        atViewPoint viewPoint: simd_float2, pickDistance: Float, mode: SelectionMode
+    ) -> String? {
+        let picked: Int?
+        switch mode {
+        case .replace:
+            cancelStroke()
+            return nil
+        case .add: picked = nearestPointIndex(toViewPoint: viewPoint, maxViewDistance: pickDistance)
+        case .subtract:
+            picked = nearestMemberIndex(toViewPoint: viewPoint, maxViewDistance: pickDistance)
+        }
+        guard let picked else {
+            cancelStroke()
+            return mode == .subtract ? nothingRemovedNote : "No return under the cursor"
+        }
+        selectionMode = mode
+        beginStroke()
+        pendingCandidates = SelectionCandidates(indices: [picked], excludedBySlab: 0)
+        return commitSelection() ? nil : "Already in \(activeObjectName ?? "the selection")"
+    }
+
+    /// Why a subtracting gesture changed nothing, in the operator's terms.
+    var nothingRemovedNote: String {
+        "Nothing removed: no return of \(activeObjectName ?? "the selection") under the cursor"
+    }
+
+    /// The membership return nearest a position in the editing view, within
+    /// the slab. Members are drawn whatever their class, so the class filter
+    /// does not apply.
+    func nearestMemberIndex(toViewPoint viewPoint: simd_float2, maxViewDistance: Float) -> Int? {
+        let members = history.current
+        guard !members.isEmpty else { return nil }
+        return PointSelectionEngine.nearestPoint(
+            points: currentPoints, basis: editingBasis, viewPoint: viewPoint, slab: slab,
+            maxViewDistance: maxViewDistance, where: { members.contains($0) })
+    }
+
+    /// True when there is work that would be lost: membership, or a physical
+    /// or feature draft. A stroke still in progress is not unsaved work, and
+    /// counting it made every click flash "unsaved".
+    var hasUnsavedWork: Bool {
+        switch navigationGuard() {
+        case nil, .strokeInProgress?, .propagating?: return false
+        default: return true
+        }
     }
 
     /// Moves the brush along the depth axis by whole steps of a tenth of a
@@ -1309,7 +1396,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
         return OrthoViewport(
             halfHeight: annotationFramingHalfHeight(
-                extent: extent, size: size, fitsWidth: standard == .top), size: size,
+                extent: extent, size: size, margin: referenceFramesObject ? 1.35 : 1.15,
+                fitsWidth: standard == .top || referenceFramesObject), size: size,
             centre: extent.centre)
     }
 
@@ -1376,6 +1464,91 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         fitViews(to: .foreground) || fitViews(to: .sample)
     }
 
+    // MARK: Following an object
+
+    /// Frames the active object whole in every view that sees it, looks at it
+    /// in 3D along the sensor's line of sight, and keeps it in view as the
+    /// frames change. Returns false when it is nowhere this frame.
+    @discardableResult func focusActiveObject() -> Bool {
+        focusedObjectID = activeObjectID
+        guard let footprint = activeObjectFootprint() else { return false }
+        var extents = referenceExtents
+        var states = viewStates
+        followFraming.fit(footprint, extents: &extents, states: &states)
+        referenceFramesObject = true
+        referenceExtents = extents
+        viewStates = states
+        look(at: footprint)
+        return true
+    }
+
+    /// After a step: moves every view that sees the focused object to where
+    /// it is now, keeping each view's scale.
+    private func followFocusedObject() {
+        guard followsFocusedObject, let focused = focusedObjectID, focused == activeObjectID,
+            let footprint = activeObjectFootprint()
+        else { return }
+        var extents = referenceExtents
+        var states = viewStates
+        followFraming.follow(footprint, extents: &extents, states: &states)
+        referenceExtents = extents
+        viewStates = states
+        look(at: footprint)
+    }
+
+    private func look(at footprint: ObjectFootprint) {
+        sceneFocus = AnnotationSceneFocus(
+            centre: footprint.centre, radius: followFraming.radius,
+            revision: (sceneFocus?.revision ?? 0) + 1, fromSensor: true, animated: true)
+    }
+
+    /// Where the active object is in this frame: its membership here, or,
+    /// in a frame it is not labelled in, between the labelled frames either
+    /// side. Nil before its first labelled frame and after its last.
+    func activeObjectFootprint() -> ObjectFootprint? {
+        guard let objectID = activeObjectID else { return nil }
+        let bases = OrthoViewBasis.Standard.allCases.map { ($0, basis($0)) }
+        if !history.current.isEmpty {
+            return ObjectFootprint.of(
+                history.current.compactMap { currentPoints.point(at: $0) }, bases: bases)
+        }
+        let labelled = labelledFrames(objectID: objectID)
+        guard let around = ObjectLifecycle.bracket(sampleIndex, labelled: labelled),
+            let before = savedFootprint(objectID: objectID, frame: around.before, bases: bases),
+            let after = savedFootprint(objectID: objectID, frame: around.after, bases: bases)
+        else { return nil }
+        return before.interpolated(to: after, fraction: around.fraction)
+    }
+
+    /// Positions in the frame order where the object has a saved mask.
+    func labelledFrames(objectID: String) -> [Int] {
+        let sampleIDs = Set(
+            sidecar.masks.filter { $0.objectID == objectID && !$0.pointIndices.isEmpty }.map(
+                \.sampleID))
+        return orderedSamples.indices.filter { sampleIDs.contains(orderedSamples[$0].sampleID) }
+    }
+
+    private func savedFootprint(
+        objectID: String, frame index: Int, bases: [(OrthoViewBasis.Standard, OrthoViewBasis)]
+    ) -> ObjectFootprint? {
+        let sample = orderedSamples[index]
+        let key = "\(objectID)|\(sidecar.revision)|\(gridAzimuthDeg)"
+        if footprintCache.key != key { footprintCache = (key, [:]) }
+        if let cached = footprintCache.footprints[sample.sampleID] { return cached }
+        guard let mask = sidecar.mask(objectID: objectID, sampleID: sample.sampleID) else {
+            return nil
+        }
+        let points =
+            index == sampleIndex
+            ? currentPoints : ((try? pack.points(sampleID: sample.sampleID)) ?? PackPoints())
+        guard
+            let footprint = ObjectFootprint.of(
+                mask.pointIndices.compactMap { points.point(at: $0) }, bases: bases)
+        else { return nil }
+        footprintCache.footprints[sample.sampleID] = footprint
+        return footprint
+    }
+
     private func fitViews(trim: Float, where include: (Int) -> Bool) -> Bool {
         var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
         for standard in OrthoViewBasis.Standard.allCases {
@@ -1387,6 +1560,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         // view sees everything, so it is the one that decides whether there
         // was anything to frame at all.
         guard extents[.top] != nil else { return false }
+        // Asking for anything else to be framed is asking to stop following.
+        focusedObjectID = nil
+        referenceFramesObject = false
         referenceExtents = extents
         viewStates = [:]
 

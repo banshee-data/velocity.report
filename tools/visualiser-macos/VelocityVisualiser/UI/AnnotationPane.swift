@@ -10,6 +10,23 @@ import AppKit
 import SwiftUI
 import simd
 
+/// What a gesture authors: object points, physical poses, facets, or the
+/// read-only comparison. Switching keeps the object, the frame and every
+/// draft; only a stroke in progress holds it.
+struct AnnotationModePicker: View {
+    @ObservedObject var session: AnnotationSession
+
+    var body: some View {
+        Picker("Mode", selection: $session.workMode) {
+            ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
+        }.pickerStyle(.menu).labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(session.strokeInProgress).help(
+                "Object Points labels the whole object. Physical fits its size and pose. Facets "
+                    + "labels small persistent parts in separate proposal records. Compare is "
+                    + "read-only.")
+    }
+}
+
 /// The annotation controls: object identity, view, slab, review and save.
 struct AnnotationPane: View {
     /// The controls are two columns either side of the views, not one.
@@ -57,8 +74,6 @@ struct AnnotationPane: View {
                     Divider()
                     objectSection
                 case .editing:
-                    modePicker
-                    Divider()
                     displaySection
                     Divider()
                     IntensityInspectorSection(session: session)
@@ -84,16 +99,6 @@ struct AnnotationPane: View {
                 "There are unsaved changes: this frame's membership or the physical-reference "
                     + "or feature draft. Save them, or discard them, before moving on.")
         }
-    }
-
-    // What a gesture authors. Switching keeps the object, the frame and both
-    // drafts; only a stroke in progress holds it.
-    private var modePicker: some View {
-        Picker("Mode", selection: $session.workMode) {
-            ForEach(AnnotationWorkMode.allCases, id: \.self) { Text($0.label).tag($0) }
-        }.pickerStyle(.menu).labelsHidden().disabled(session.strokeInProgress).help(
-            "Object Points labels the whole object. Facets labels small persistent parts in separate proposal records."
-        )
     }
 
     @ViewBuilder private var pointsEditingSections: some View {
@@ -172,21 +177,25 @@ struct AnnotationPane: View {
                 horizontal: false, vertical: true)
             pointClaimBanner
 
-            if let sample = session.currentSample {
-                // The run's own frame number first: it is the one the main
-                // view's timeline shows.
-                Text(
-                    "Frame \(sample.sourceOrdinal) · \(session.sampleIndex + 1) of "
-                        + "\(session.samples.count) in this pack · \(session.currentPoints.count) points"
-                ).font(.caption)
-            }
-            backgroundLine
+            // The buttons above the lines that change with the frame, and
+            // those lines one line each: text that grew and shrank as the
+            // frame changed moved the buttons out from under the pointer.
             HStack {
                 Button("Previous frame") { handleStep { session.stepBackward() } }.disabled(
                     session.sampleIndex == 0)
                 Button("Next frame") { handleStep { session.stepForward() } }.disabled(
                     session.sampleIndex >= session.samples.count - 1)
-            }.controlSize(.small)
+            }.controlSize(.small).padding(.top, 2)
+            if let sample = session.currentSample {
+                // The sample, as every tool and record names it; the
+                // recording's frame number second, for finding it in the
+                // main view.
+                Text(
+                    "\(sample.label.capitalized) · \(sample.recordingLabel) · "
+                        + "\(session.currentPoints.count) points"
+                ).font(.caption.monospacedDigit()).lineLimit(1)
+            }
+            backgroundLine
 
             Text("Labelled by").font(.caption).padding(.top, 4)
             TextField("Your name", text: $session.operatorName).textFieldStyle(.roundedBorder).font(
@@ -205,11 +214,12 @@ struct AnnotationPane: View {
                 HStack(spacing: 4) {
                     Image(systemName: "square.stack.3d.down.forward")
                     Text(
-                        "Settled background \(background.backgroundID + 1) of "
-                            + "\(session.pack.backgrounds.count) · \(background.pointCount) points · "
-                            + (age == 0 ? "this frame" : "\(age) frames old"))
-                }.font(.caption2).foregroundStyle(
-                    session.backgroundUpdatedHere ? Color.yellow : Color.secondary)
+                        "Background \(background.backgroundID + 1) of "
+                            + "\(session.pack.backgrounds.count) · "
+                            + (age == 0 ? "updated this frame" : "\(age) frames old"))
+                }.font(.caption2.monospacedDigit()).lineLimit(1).foregroundStyle(
+                    session.backgroundUpdatedHere ? Color.yellow : Color.secondary
+                ).help("The settled background behind this frame: \(background.pointCount) points")
             } else {
                 Text("No settled background in this pack. Generate it again to carry one.").font(
                     .caption2
@@ -312,20 +322,30 @@ struct AnnotationPane: View {
         }
     }
 
+    /// The sample ID at a position in the frame order, for a label.
+    private func sampleID(atPosition index: Int) -> Int {
+        session.samples.indices.contains(index) ? session.samples[index].sampleID : index
+    }
+
+    private func proposalLabel(_ proposal: ObjectProposal) -> String {
+        let kind = proposal.kind == .fixed ? "fixed" : "≈ " + proposal.classGuess
+        let first = sampleID(atPosition: proposal.firstFrame)
+        let last = sampleID(atPosition: proposal.lastFrame)
+        var label = "\(kind) · samples \(first)–\(last) · ~\(proposal.meanPoints) pts"
+        if proposal.kind == .moving { label += String(format: " · %.0f m", proposal.travelled) }
+        if proposalSort == .steadiest {
+            label += String(format: " · ±%.0f%%", proposal.unsteadiness * 100)
+        }
+        return label
+    }
+
     private func proposalRow(_ proposal: ObjectProposal) -> some View {
         let isSelected = session.selectedProposalID == proposal.id
         return HStack(spacing: 5) {
             RoundedRectangle(cornerRadius: 2).fill(
                 AnnotationPalette.colour(forClass: proposal.classGuess)
             ).frame(width: 8, height: 8)
-            Text(
-                "\(proposal.kind == .fixed ? "fixed" : "≈ " + proposal.classGuess) · frames "
-                    + "\(proposal.firstFrame + 1)–\(proposal.lastFrame + 1) · ~\(proposal.meanPoints) pts"
-                    + (proposal.kind == .moving
-                        ? String(format: " · %.0f m", proposal.travelled) : "")
-                    + (proposalSort == .steadiest
-                        ? String(format: " · ±%.0f%%", proposal.unsteadiness * 100) : "")
-            ).font(.caption2.monospacedDigit()).lineLimit(1)
+            Text(proposalLabel(proposal)).font(.caption2.monospacedDigit()).lineLimit(1)
             Spacer(minLength: 0)
         }.padding(.vertical, 2).padding(.horizontal, 4).background(
             isSelected ? Color.accentColor.opacity(0.25) : Color.clear,
@@ -427,14 +447,18 @@ struct AnnotationPane: View {
 
             // The views hold their framing from one sample to the next. These
             // are the only things that move them, other than the operator.
+            // Two rows: four buttons do not fit the column's width in one.
+            Text("Fit the views to").font(.caption)
             HStack(spacing: 4) {
-                Text("Fit").font(.caption)
-                Button("Sample") { session.fitViews(to: .sample) }
-                Button("Foreground") { session.fitViews(to: .foreground) }.disabled(
-                    !session.pack.manifest.hasClassification)
+                Button("Object") { session.focusActiveObject() }.disabled(
+                    session.activeObjectID == nil
+                ).help("Frame the object under edit in every view, and follow it")
                 Button("Selection") { session.fitViews(to: .selection) }.disabled(
                     session.selectionCount == 0)
+                Button("Foreground") { session.fitViews(to: .foreground) }.disabled(
+                    !session.pack.manifest.hasClassification)
             }.controlSize(.small)
+            Button("Whole frame") { session.fitViews(to: .sample) }.controlSize(.small)
             Text(
                 "Scroll or pinch to zoom. Drag with the right button, or with control held, to pan."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
@@ -468,6 +492,12 @@ struct AnnotationPane: View {
                     + "track cannot split one. Click an object to edit it."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+            Toggle("Keep the chosen object in view", isOn: $session.followsFocusedObject).font(
+                .caption
+            ).help(
+                "Clicking an object frames it in all six views. With this on, each step moves the "
+                    + "views with it, keeping the scale you have, and the 3D view looks at it from "
+                    + "the sensor.")
 
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 2).fill(
@@ -641,8 +671,11 @@ struct AnnotationPane: View {
             if let frame = session.propagationProgress {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Frame \(frame + 1) of \(session.samples.count)").font(
-                        .caption.monospacedDigit())
+                    Text(
+                        session.samples.indices.contains(frame)
+                            ? "\(session.samples[frame].label.capitalized) of \(session.samples.count)"
+                            : "Done"
+                    ).font(.caption.monospacedDigit())
                     Spacer()
                     Button("Stop") { session.cancelPropagation() }.controlSize(.small)
                 }

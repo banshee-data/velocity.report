@@ -76,6 +76,97 @@ enum ViewportKey: Equatable {
     }
 }
 
+extension AnnotationSession {
+    /// Does what a view key means here, and returns false for a key that is
+    /// not this window's. What each one does is ViewportKey.meaning, so that
+    /// the order — a carried proposal claims all four arrows, and without one
+    /// they step frames and move the ground — is one readable function rather
+    /// than a switch inside a view.
+    @discardableResult func perform(_ key: ViewportKey) -> Bool {
+        if workMode == .features {
+            if case .stepFrame(let forward) = key.meaning(carrying: false) {
+                if (forward ? stepForward() : stepBackward()) != nil { NSSound.beep() }
+                return true
+            }
+            return false
+        }
+        switch key.meaning(carrying: carried != nil) {
+        case .nudgeCarried(let right, let up, let coarse):
+            let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep
+            nudgeCarried(right: Float(right) * step, up: Float(up) * step)
+        case .acceptCarried: acceptCarried()
+        case .dismissCarried: dismissCarried()
+        case .stepFrame(let forward):
+            // Refused when the sample has unsaved changes; the status line
+            // says so, and a beep is what says the key was heard at all.
+            if (forward ? stepForward() : stepBackward()) != nil { NSSound.beep() }
+        case .moveGround(let steps, let coarse): adjustGroundZ(steps: steps, coarse: coarse)
+        case .toggleVoxel(let k): toggleVoxel(k)
+        case .pass: return false
+        }
+        return true
+    }
+}
+
+/// Gives the arrow keys to the annotation session wherever the focus is in
+/// its window, except in a text field.
+///
+/// They used to go to whichever view had the focus. After orbiting the 3D
+/// view that was the 3D view, whose arrows pan its camera, so the same key
+/// stepped a frame or slid the scene depending on where the last click had
+/// been. One meaning for the window is the fix; the 3D view keeps the mouse.
+struct AnnotationArrowKeys: NSViewRepresentable {
+    let session: AnnotationSession
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.view = view
+        context.coordinator.install()
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) { context.coordinator.session = session }
+
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) { coordinator.remove() }
+
+    func makeCoordinator() -> Coordinator { Coordinator(session: session) }
+
+    /// Whether this window takes a key event: an arrow, with no command or
+    /// control held, and no text being edited.
+    static func takes(_ event: NSEvent, textHasFocus: Bool) -> ViewportKey? {
+        guard !textHasFocus, (123...126).contains(Int(event.keyCode)),
+            event.modifierFlags.intersection([.command, .control]).isEmpty
+        else { return nil }
+        return ViewportInputView.viewportKey(for: event)
+    }
+
+    @MainActor final class Coordinator {
+        var session: AnnotationSession
+        weak var view: NSView?
+        private var monitor: Any?
+
+        init(session: AnnotationSession) { self.session = session }
+
+        func install() {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                MainActor.assumeIsolated {
+                    guard let self, let window = self.view?.window, event.window === window,
+                        let key = AnnotationArrowKeys.takes(
+                            event, textHasFocus: window.firstResponder is NSTextView),
+                        self.session.perform(key)
+                    else { return event }
+                    return nil
+                }
+            }
+        }
+
+        func remove() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+    }
+}
+
 /// Mouse and trackpad input for an orthographic view.
 ///
 /// An AppKit view rather than SwiftUI gestures, because SwiftUI on macOS has
@@ -322,6 +413,9 @@ struct AnnotationSceneView: NSViewRepresentable {
             metalView.renderer = renderer
             model.renderer = renderer
         }
+        // The operator's own orbit wins over a glide still under way.
+        let coordinator = context.coordinator
+        metalView.onCameraChanged = { coordinator.stopGlide() }
         return metalView
     }
 
@@ -375,20 +469,80 @@ struct AnnotationSceneView: NSViewRepresentable {
                     marks: marks, sample: session.currentSample, backdrop: backdrop))
         }
         if let focus = session.sceneFocus, focus.revision != coordinator.focusRevision {
-            changed = true
             coordinator.focusRevision = focus.revision
-            renderer.camera.lookAt(focus)
+            var goal = renderer.camera
+            if focus.fromSensor { goal.lookFromSensor(at: focus) } else { goal.lookAt(focus) }
+            if focus.animated {
+                coordinator.glide(to: goal, in: view)
+            } else {
+                coordinator.stopGlide()
+                renderer.camera = goal
+                changed = true
+            }
         }
+        // The physical references at this frame, as the orthographic views
+        // draw them. A no-op when nothing about them changed.
+        renderer.setOverlayBoxes(session.physicalSceneBoxes)
         if changed { view.needsDisplay = true }
+    }
+
+    static func dismantleNSView(_ view: MTKView, coordinator: Coordinator) {
+        coordinator.stopGlide()
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    final class Coordinator {
+    @MainActor final class Coordinator {
         var renderer: MetalRenderer?
         var sceneRevision: Int?
         var focusRevision: Int?
         var backgroundID: Int?
+
+        private var timer: Timer?
+        private var glideFrom: Camera?
+        private var glideTo: Camera?
+        private var glideStart: TimeInterval = 0
+        /// Long enough to read as movement, short enough that the camera does
+        /// not trail a moving object by more than a couple of frames.
+        static let glideSeconds: TimeInterval = 0.25
+
+        /// Moves the camera to `goal` over a moment, from wherever it is now:
+        /// a glide already under way is redirected, not restarted from where
+        /// it began.
+        func glide(to goal: Camera, in view: MTKView) {
+            guard let renderer else { return }
+            glideFrom = renderer.camera
+            glideTo = goal
+            glideStart = ProcessInfo.processInfo.systemUptime
+            guard timer == nil else { return }
+            let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self, weak view] _ in
+                MainActor.assumeIsolated { self?.tick(view) }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            self.timer = timer
+        }
+
+        func stopGlide() {
+            timer?.invalidate()
+            timer = nil
+            glideFrom = nil
+            glideTo = nil
+        }
+
+        private func tick(_ view: MTKView?) {
+            guard let renderer, let from = glideFrom, let to = glideTo, let view else {
+                stopGlide()
+                return
+            }
+            let progress = Float(
+                (ProcessInfo.processInfo.systemUptime - glideStart) / Coordinator.glideSeconds)
+            var next = Camera.glide(from: from, to: to, progress: progress)
+            // The view's shape now, not when the glide began.
+            next.aspectRatio = renderer.camera.aspectRatio
+            renderer.camera = next
+            view.needsDisplay = true
+            if progress >= 1 { stopGlide() }
+        }
     }
 }
 
@@ -429,9 +583,11 @@ struct MainViewLink: View {
                     .help(
                         "While the main view plays, send it back to this pack's first frame when "
                             + "it runs past the last. Space plays and pauses the main view.")
+                // Two lines' room whatever it says, so a status that changes
+                // as frames step does not move the column below it.
                 Text(session.syncStatus.label).font(.caption2).foregroundStyle(
                     session.syncStatus == .inSync ? Color.green : Color.secondary
-                ).fixedSize(horizontal: false, vertical: true)
+                ).lineLimit(2).frame(height: 26, alignment: .topLeading)
             }
             Button("Match the main view's camera") {
                 if let camera = appState.mainCamera { scene.adopt(camera) }

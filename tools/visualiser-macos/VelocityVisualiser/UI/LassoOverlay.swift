@@ -96,7 +96,8 @@ struct LassoOverlay: View {
                         guard editable, session.workMode == .points else { return }
                         session.hover(
                             atViewPoint: location.map { viewport.worldPoint(from: $0) },
-                            pickDistance: metresPerPoint * 12)
+                            pickDistance: metresPerPoint * 12,
+                            subtracting: NSEvent.modifierFlags.contains(.option))
                     },
                     onDepthStep: {
                         if editable, session.workMode == .points {
@@ -129,15 +130,21 @@ struct LassoOverlay: View {
                 {
                     sphereOutline
                 }
-                if let candidates = session.pendingCandidates, editable, session.workMode == .points
-                {
-                    candidateBadge(candidates)
-                } else if session.carried != nil, editable, session.workMode == .points {
-                    carriedBadge
-                } else if let sphere = hover.sphere, editable {
-                    hoverBadge(sphere)
-                } else if let strokeNote, editable {
-                    noteBadge(strokeNote)
+                VStack(alignment: .leading, spacing: 0) {
+                    if let candidates = session.pendingCandidates, editable,
+                        session.workMode == .points
+                    {
+                        candidateBadge(candidates)
+                    } else if session.carried != nil, editable, session.workMode == .points {
+                        carriedBadge
+                    } else if let sphere = hover.sphere, editable {
+                        hoverBadge(sphere)
+                    }
+                    // Beside the brush's badge, not instead of it: the brush
+                    // is under the cursor whenever the note matters.
+                    if let strokeNote, editable, session.pendingCandidates == nil {
+                        noteBadge(strokeNote)
+                    }
                 }
             }
         }
@@ -426,9 +433,8 @@ struct LassoOverlay: View {
     }
 
     // Keys the editing view takes while it has the focus. What each one does
-    // is ViewportKey.meaning, so that the order — a carried proposal claims
-    // all four arrows, and without one they step frames and move the ground —
-    // is one readable function rather than a switch inside a view.
+    // is the session's: the arrows reach it from anywhere in the window (see
+    // AnnotationArrowKeys), so the order is kept in one place.
     private func handleKey(_ key: ViewportKey) -> Bool {
         if session.inspectIntensity {
             switch key {
@@ -442,30 +448,7 @@ struct LassoOverlay: View {
             }
         }
         guard editable else { return false }
-        if session.workMode == .features {
-            if case .stepFrame(let forward) = key.meaning(carrying: false) {
-                if (forward ? session.stepForward() : session.stepBackward()) != nil {
-                    NSSound.beep()
-                }
-                return true
-            }
-            return false
-        }
-        switch key.meaning(carrying: session.carried != nil) {
-        case .nudgeCarried(let right, let up, let coarse):
-            let step = coarse ? AnnotationSession.coarseNudgeStep : AnnotationSession.nudgeStep
-            session.nudgeCarried(right: Float(right) * step, up: Float(up) * step)
-        case .acceptCarried: session.acceptCarried()
-        case .dismissCarried: session.dismissCarried()
-        case .stepFrame(let forward):
-            // Refused when the sample has unsaved changes; the status line
-            // says so, and a beep is what says the key was heard at all.
-            if (forward ? session.stepForward() : session.stepBackward()) != nil { NSSound.beep() }
-        case .moveGround(let steps, let coarse): session.adjustGroundZ(steps: steps, coarse: coarse)
-        case .toggleVoxel(let k): session.toggleVoxel(k)
-        case .pass: return false
-        }
-        return true
+        return session.perform(key)
     }
 
     private func noteBadge(_ note: String) -> some View {
@@ -522,21 +505,33 @@ struct LassoOverlay: View {
                     optionHeld: NSEvent.modifierFlags.contains(.option)))
             return
         }
-        session.selectionMode = SelectionMode.from(
+        let mode = SelectionMode.from(
             tool: session.tool, shiftHeld: NSEvent.modifierFlags.contains(.shift),
             optionHeld: NSEvent.modifierFlags.contains(.option))
+        // A click with the lasso encloses nothing. With shift or option held
+        // it takes or removes the one return under the cursor, as the brushes
+        // do; a plain click still names nothing.
+        if session.tool == .lasso, strokePoints.count < 3 {
+            strokeNote = session.clickSelect(
+                atViewPoint: viewport.worldPoint(from: value.location),
+                pickDistance: metresPerPoint * 12, mode: mode)
+            return
+        }
+        session.selectionMode = mode
         switch session.tool {
         case .lasso: previewCurrentStroke()
         case .sphere, .column: break
         }
-        // A gesture that named nothing (a click with the lasso, a sphere
-        // with no return under it, a column brush outside the top view)
-        // must not leave a stroke open: navigation is guarded on it.
+        // A gesture that named nothing (a sphere with no return under it, a
+        // column brush outside the top view) must not leave a stroke open:
+        // navigation is guarded on it.
         guard session.pendingCandidates != nil else {
             session.cancelStroke()
             return
         }
-        _ = session.commitSelection()
+        // Said, not left to be noticed: a subtraction that missed used to
+        // flash "unsaved" and leave the return where it was.
+        if !session.commitSelection(), mode == .subtract { strokeNote = session.nothingRemovedNote }
     }
 
     private func resetStroke() {
@@ -568,11 +563,13 @@ struct LassoOverlay: View {
             session.beginStroke()
             strokeNote = nil
         }
+        let subtracting = NSEvent.modifierFlags.contains(.option)
         for step in BrushStroke.path(
             from: lastBrushPosition ?? position, to: position, radius: session.sphereRadius)
         {
             session.paint(
-                sphere: session.brushSphere(atViewPoint: step, pickDistance: metresPerPoint * 12))
+                sphere: session.brushSphere(
+                    atViewPoint: step, pickDistance: metresPerPoint * 12, subtracting: subtracting))
         }
         lastBrushPosition = position
     }

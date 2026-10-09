@@ -99,7 +99,7 @@ struct FeatureAuthoringPane: View {
                         active.observations.sorted { $0.sampleID < $1.sampleID }, id: \.sampleID
                     ) { observation in
                         Button(
-                            "Frame \(session.pack.samples.first(where: { $0.sampleID == Int(observation.sampleID) })?.sourceOrdinal ?? Int(observation.sampleID)) · \(decisionLabel(observation.decision)) · \(observation.pointIndices.count) returns"
+                            "Sample \(observation.sampleID) · \(decisionLabel(observation.decision)) · \(observation.pointIndices.count) returns"
                         ) { session.goToFacetObservation(sampleID: observation.sampleID) }
                     }
                 }.disabled(features.isDirty || features.busy)

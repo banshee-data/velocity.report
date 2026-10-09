@@ -3,11 +3,13 @@
 // this keyframe's pose, the evidence behind each, and save and review as two
 // separate steps.
 //
-// Metres and degrees on screen; radians only at the model boundary. Nothing
-// is prefilled as observed or inferred: a new body is all unknown, and a
-// placed position has no bound until the operator states one. Every control
-// is a plain field, picker or button, so the whole record can be authored from
-// the keyboard without dragging anything.
+// Fitting comes first: the size and poses are measured from the reviewed
+// returns, with every bound's terms shown, and the operator's judgement is
+// whether each end the returns reach is real. Nothing asks which evidence
+// status a field has: the fit states it, and a value set by hand takes the
+// status its action implies. The manual controls stay, under Adjust, for what
+// a fit cannot do. Metres and degrees on screen; radians only at the model
+// boundary.
 
 import AppKit
 import SwiftUI
@@ -29,6 +31,9 @@ struct PhysicalReferencePane: View {
             statusSection
             if physical.availability == .ready || isReadOnly {
                 if let object = session.activeObject {
+                    PhysicalFitSection(
+                        session: session, physical: physical, objectID: object.objectID)
+                    Divider()
                     if session.comparisonAllowed { trackerSeedSection }
                     Divider()
                     bodySection(object.objectID)
@@ -57,10 +62,7 @@ struct PhysicalReferencePane: View {
         // labels affect presentation only; repairs still receive raw records.
         let saved = physical.state?.document.objects ?? []
         return PhysicalAuthoringMessage.describe(
-            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) },
-            frameNumber: { id in
-                session.pack.samples.first(where: { $0.sampleID == id })?.sourceOrdinal
-            })
+            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) })
     }
 
     private func diagnostic(_ raw: String, colour: Color) -> some View {
@@ -222,19 +224,20 @@ struct PhysicalReferencePane: View {
                 if let saved { reviewBadge(saved.review.status) }
             }
             Text(
-                "Length is front to rear; width is side to side. Set the real object's size once, "
-                    + "rather than fitting each visible patch. Enter a value and explicit tolerance; "
-                    + "Changing size resets pose reviews across the object."
+                "One size for the whole episode: length front to rear, width side to side. "
+                    + "Fit it above, or set it here. Changing the size returns every pose to proposed."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
             if body != nil {
                 dimensionEditor("Length", objectID: objectID, \.length)
                 dimensionEditor("Width", objectID: objectID, \.width)
                 dimensionEditor("Height", objectID: objectID, \.height)
-                recordReviewFields(
-                    method: bodyBinding(objectID, \.review.method, ""),
-                    assumptions: bodyBinding(objectID, \.review.uncertaintyAssumptions, nil),
-                    needsAssumptions: body?.declaresBounds ?? false)
+                DisclosureGroup("Method and assumptions") {
+                    recordReviewFields(
+                        method: bodyBinding(objectID, \.review.method, ""),
+                        assumptions: bodyBinding(objectID, \.review.uncertaintyAssumptions, nil),
+                        needsAssumptions: body?.declaresBounds ?? false)
+                }.font(.caption2)
                 HStack {
                     Button("Review body") {
                         guard let saved else { return }
@@ -255,7 +258,7 @@ struct PhysicalReferencePane: View {
                     }.disabled(!physical.canEdit)
                 }.controlSize(.small)
             } else {
-                Button("Add shared object size") {
+                Button("Add size by hand") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -271,6 +274,7 @@ struct PhysicalReferencePane: View {
         _ name: String, objectID: String, _ path: WritableKeyPath<PhysicalBody, PhysicalDimension>
     ) -> some View {
         let d = physical.object(objectID)?.body?[keyPath: path] ?? PhysicalDimension()
+        let current = session.currentSample?.sampleID
         func update(_ change: @escaping (inout PhysicalDimension) -> Void) {
             physical.edit { objects in
                 PhysicalDraft.updateBody(objectID: objectID, in: &objects) {
@@ -285,67 +289,50 @@ struct PhysicalReferencePane: View {
         return VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(name).font(.caption.bold()).frame(width: 48, alignment: .leading)
-                evidencePicker(
-                    Binding(
-                        get: { d.status },
-                        set: { s in update { PhysicalDraft.setStatus(s, of: &$0) } }))
-                if d.status == .observed {
-                    Picker(
-                        "",
-                        selection: Binding(
-                            get: { d.span ?? .full },
-                            set: { span in update { PhysicalDraft.setSpan(span, of: &$0) } })
-                    ) {
-                        Text("Full").tag(PhysicalSpan.full)
-                        Text("Partial").tag(PhysicalSpan.partial)
-                    }.labelsHidden().frame(width: 76).help(
-                        "Partial: the evidence covers only part of the body, so it is a lower bound."
-                    )
-                }
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { d.choice },
+                        set: { c in update { PhysicalDraft.setChoice(c, of: &$0, citing: current) }
+                        })
+                ) {
+                    ForEach(PhysicalDimensionChoice.allCases, id: \.self) { Text($0.label).tag($0) }
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 200).help(
+                    "Full: measured end to end. At least: only part of it was seen, so it is a lower bound. Unknown: not stated."
+                )
             }
-            if d.status != .unknown {
-                if d.span == .partial {
-                    metres("at least", number(\.lowerM))
-                    Text("Only the visible extent; this does not give the full object size.").font(
-                        .caption2
-                    ).foregroundStyle(.secondary)
-                } else {
+            switch d.choice {
+            case .unknown: EmptyView()
+            case .atLeast: metres("at least", number(\.lowerM))
+            case .full:
+                HStack(spacing: 4) {
+                    metres(
+                        "value",
+                        Binding(
+                            get: { d.valueM },
+                            set: { value in
+                                update { PhysicalDraft.setDimensionValue(value, of: &$0) }
+                            }))
+                    metres(
+                        "±",
+                        Binding(
+                            get: { d.best?.halfWidth },
+                            set: { tolerance in
+                                update {
+                                    _ = PhysicalDraft.setDimensionTolerance(tolerance, of: &$0)
+                                }
+                            })
+                    ).disabled(d.valueM == nil && !d.bounded)
+                }
+                if !d.bounded { hint("Enter ±: how far either way the value could be wrong.") }
+                DisclosureGroup("Exact min/max") {
                     HStack(spacing: 4) {
-                        metres(
-                            "value",
-                            Binding(
-                                get: { d.valueM },
-                                set: { value in
-                                    update { PhysicalDraft.setDimensionValue(value, of: &$0) }
-                                }))
-                        metres(
-                            "±",
-                            Binding(
-                                get: { d.best?.halfWidth },
-                                set: { tolerance in
-                                    update {
-                                        _ = PhysicalDraft.setDimensionTolerance(tolerance, of: &$0)
-                                    }
-                                })
-                        ).disabled(d.valueM == nil && !d.bounded)
+                        metres("min", number(\.lowerM))
+                        metres("max", number(\.upperM))
                     }
-                    Text(
-                        "Enter the whole span, then how far either way it could be wrong. The sketch appears before bounds are complete."
-                    ).font(.caption2).foregroundStyle(.secondary)
-                    DisclosureGroup("Exact min/max (advanced)") {
-                        HStack(spacing: 4) {
-                            metres("min", number(\.lowerM))
-                            metres("max", number(\.upperM))
-                        }
-                        Text(
-                            "Use this for an asymmetric interval. The optional value must stay inside it."
-                        ).font(.caption2).foregroundStyle(.secondary)
-                    }.font(.caption2)
-                }
-                supportEditor(
-                    Binding(get: { d.support }, set: { s in update { $0.support = s } }),
-                    status: d.status)
+                }.font(.caption2)
             }
+            if d.status != .unknown { evidenceCaption(d.status, d.support) }
         }
     }
 
@@ -364,11 +351,11 @@ struct PhysicalReferencePane: View {
                 if let saved { reviewBadge(saved.review.status) }
             }
             Text(
-                "A pose (keyframe) records position and direction at one instant. It keeps the shared object size; it does not interpolate or follow the tracker."
+                "Where the body is and which way it faces at this one frame. Fit it above, or place it by hand."
             ).font(.caption2).foregroundStyle(.secondary)
             if let sample {
                 Text(
-                    "Frame \(sample.sourceOrdinal) · sample \(sample.sampleID) · \(sample.timestampNs) ns"
+                    "\(sample.label.capitalized) · \(sample.recordingLabel) · \(sample.timestampNs) ns"
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).textSelection(
                     .enabled)
             }
@@ -376,9 +363,7 @@ struct PhysicalReferencePane: View {
                 Menu("Poses: \(object.keyframes.count) marked frames") {
                     ForEach(object.keyframes.sorted { $0.sampleID < $1.sampleID }, id: \.keyframeID)
                     { pose in
-                        Button(
-                            "Frame \(session.pack.samples.first(where: { $0.sampleID == pose.sampleID })?.sourceOrdinal ?? pose.sampleID) · \(pose.review.status.rawValue)"
-                        ) {
+                        Button("Sample \(pose.sampleID) · \(pose.review.status.rawValue)") {
                             guard
                                 let index = session.samples.firstIndex(where: {
                                     $0.sampleID == pose.sampleID
@@ -417,9 +402,8 @@ struct PhysicalReferencePane: View {
                     }.disabled(!physical.canEdit)
                 }.controlSize(.small)
             } else if let sample {
-                Text("Click in the Top view to place this frame's position, or add it empty.").font(
-                    .caption2
-                ).foregroundStyle(.secondary)
+                Text("Fit the pose above, click in the Top view to place it, or add it by hand.")
+                    .font(.caption2).foregroundStyle(.secondary)
                 if let object = physical.object(objectID),
                     let source = PhysicalDraft.nearestKeyframe(of: object, to: sample)
                 {
@@ -436,7 +420,7 @@ struct PhysicalReferencePane: View {
                             + "Check it against this frame's returns before claiming anything observed."
                     )
                 }
-                Button("Add pose at this frame") {
+                Button("Add pose by hand") {
                     let author = session.operatorName
                     let id = session.sessionID
                     physical.edit {
@@ -462,119 +446,43 @@ struct PhysicalReferencePane: View {
             Binding(
                 get: { k[keyPath: field] }, set: { value in update { $0[keyPath: field] = value } })
         }
+        func position(_ field: WritableKeyPath<PhysicalPosition, Double?>) -> Binding<Double?> {
+            Binding(
+                get: { k.position[keyPath: field] },
+                set: { value in update { PhysicalDraft.setPosition(field, value, of: &$0) } })
+        }
         let resolved = k.yaw.axis == .resolved
+        let body = physical.object(objectID)?.body
         return VStack(alignment: .leading, spacing: 5) {
-            // Orientation first: which faces and ends can be named depends on it.
-            Text("Axis").font(.caption.bold())
-            Picker(
-                "",
-                selection: Binding(
-                    get: { k.yaw.axis }, set: { a in update { PhysicalDraft.setAxis(a, of: &$0) } })
-            ) { ForEach(PhysicalAxisState.allCases, id: \.self) { Text($0.label).tag($0) } }
-            .labelsHidden()
-            if k.yaw.axis != .unknown {
-                HStack(spacing: 4) {
-                    evidencePicker(
-                        Binding(
-                            get: { k.yaw.status },
-                            set: { s in update { $0.yaw.status = s == .unknown ? .observed : s } }),
-                        allowUnknown: false)
-                    degrees(
-                        "yaw",
-                        Binding(
-                            get: { k.yaw.yawRad.map(PhysicalUnits.degrees) },
-                            set: { d in
-                                update {
-                                    $0.yaw.yawRad = d.map {
-                                        PhysicalUnits.radians(PhysicalUnits.wrappedDegrees($0))
-                                    }
-                                }
-                            })
-                    ).help("Direction of the body's front, anticlockwise from the pack's +X")
-                    degrees(
-                        "±",
-                        Binding(
-                            get: { k.yaw.boundRad.map(PhysicalUnits.degrees) },
-                            set: { d in update { $0.yaw.boundRad = d.map(PhysicalUnits.radians) } })
-                    )
-                }
-                supportEditor(
-                    Binding(get: { k.yaw.support }, set: { s in update { $0.yaw.support = s } }),
-                    status: k.yaw.status, ownSample: sample.sampleID)
-            }
-
-            Text("Point fixed to the body").font(.caption.bold()).padding(.top, 4)
-            Picker(
-                "",
-                selection: Binding(
-                    get: { k.anchor.kind },
-                    set: { a in update { PhysicalDraft.setAnchor(a, of: &$0) } })
-            ) {
-                ForEach(PhysicalAnchorKind.allCases, id: \.self) { kind in
-                    Text(kind.label).tag(kind).disabled(kind.isFace && !resolved)
-                }
-            }.labelsHidden().help(
-                resolved
-                    ? "The point the position names. A face without an offset locates the face only."
-                    : "A face can be named only when the axis is resolved.")
-            if k.anchor.kind.isFace && !resolved {
-                Text("A face needs a resolved axis.").font(.caption2).foregroundStyle(.orange)
-            }
-            if k.anchor.kind.isFace {
-                Text(
-                    "Position names this face's centre, not an arbitrary return or the changing centre of its visible patch. Include uncertainty about the unseen face centre in the position bound. Use Facets to register a repeatable mirror tip or edge; this offset is only inward, normal to the face."
-                ).font(.caption2).foregroundStyle(.secondary)
-                HStack(spacing: 4) {
-                    metres("to centre", number(\.anchor.offsetM))
-                    metres("±", number(\.anchor.offsetBoundM))
-                }.help(
-                    "Optional. Without both, the anchor locates the face and not the body centre.")
-            }
-
-            Text("Position of the fixed point").font(.caption.bold()).padding(.top, 4)
-            Text(
-                "Click in Top to place ■; drag ■ to move and ● to turn. The body size stays fixed. Fill ± to state uncertainty before saving a known pose."
-            ).font(.caption2).foregroundStyle(.secondary)
-            evidencePicker(
-                Binding(
-                    get: { k.position.status },
-                    set: { s in update { PhysicalDraft.setStatus(s, of: &$0.position) } }))
-            if k.position.status != .unknown {
-                HStack(spacing: 4) {
-                    metres("x", number(\.position.xM))
-                    metres("y", number(\.position.yM))
-                    metres("±", number(\.position.boundM)).help(
-                        "Horizontal radius that bounds the anchor")
-                }
-                HStack(spacing: 4) {
-                    Toggle(
-                        "Height",
-                        isOn: Binding(
-                            get: { k.position.zM != nil },
-                            set: { on in
-                                update { $0.position.zM = on ? ($0.position.zM ?? 0) : nil }
-                            })
-                    ).font(.caption).help(
-                        "Optional and unbounded: version 1 records no vertical uncertainty.")
-                    if k.position.zM != nil { metres("z", number(\.position.zM)) }
-                }
-                supportEditor(
-                    Binding(
-                        get: { k.position.support },
-                        set: { s in update { $0.position.support = s } }),
-                    status: k.position.status, ownSample: sample.sampleID)
-            }
+            poseSummary(k)
 
             Text("Ends").font(.caption.bold()).padding(.top, 4)
             if resolved {
-                endpointEditor(
-                    "Front", Binding(get: { k.front }, set: { e in update { $0.front = e } }),
-                    ownSample: sample.sampleID)
-                endpointEditor(
-                    "Rear", Binding(get: { k.rear }, set: { e in update { $0.rear = e } }),
-                    ownSample: sample.sampleID)
+                ForEach(
+                    [("Front", \PhysicalKeyframe.front), ("Rear", \PhysicalKeyframe.rear)], id: \.0
+                ) { name, end in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Toggle(
+                            "\(name) is a real end in this frame",
+                            isOn: Binding(
+                                get: { k[keyPath: end].status == .observed },
+                                set: { on in
+                                    update {
+                                        PhysicalDraft.setEnd(seen: on, end, of: &$0, body: body)
+                                    }
+                                })
+                        ).toggleStyle(.checkbox).font(.caption)
+                        if k[keyPath: end].status != .observed {
+                            Text(
+                                k[keyPath: end].status == .inferred
+                                    ? "Not seen here: placed by the body's length."
+                                    : "Not seen here, and not placed."
+                            ).font(.caption2).foregroundStyle(.secondary).padding(.leading, 18)
+                        }
+                    }
+                }
                 Text(
-                    "End positions follow from the anchor, yaw and body length; only their evidence is set here."
+                    "Tick an end when this frame's returns reach the vehicle's real end, not the edge of something in front of it."
                 ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
             } else {
@@ -582,17 +490,136 @@ struct PhysicalReferencePane: View {
                     .foregroundStyle(.secondary)
             }
 
-            sharedErrorEditor(objectID: objectID, k: k, sample: sample)
-
             derivedSummary(objectID: objectID, k: k)
 
-            recordReviewFields(
-                method: Binding(
-                    get: { k.review.method }, set: { m in update { $0.review.method = m } }),
-                assumptions: Binding(
-                    get: { k.review.uncertaintyAssumptions },
-                    set: { a in update { $0.review.uncertaintyAssumptions = a } }),
-                needsAssumptions: k.declaresBounds)
+            DisclosureGroup("Adjust by hand") {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Axis").font(.caption.bold())
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { k.yaw.axis },
+                            set: { a in update { PhysicalDraft.setAxis(a, of: &$0) } })
+                    ) { ForEach(PhysicalAxisState.allCases, id: \.self) { Text($0.label).tag($0) } }
+                    .labelsHidden()
+                    if k.yaw.axis != .unknown {
+                        HStack(spacing: 4) {
+                            degrees(
+                                "heading",
+                                Binding(
+                                    get: { k.yaw.yawRad.map(PhysicalUnits.degrees) },
+                                    set: { d in
+                                        update {
+                                            // About the centre, as the ● handle turns.
+                                            if let d {
+                                                PhysicalDraft.turn(
+                                                    &$0, toRad: PhysicalUnits.radians(d))
+                                            } else {
+                                                $0.yaw.yawRad = nil
+                                            }
+                                        }
+                                    })
+                            ).help(
+                                "Direction of the body's front, anticlockwise from the pack's +X")
+                            degrees(
+                                "±",
+                                Binding(
+                                    get: { k.yaw.boundRad.map(PhysicalUnits.degrees) },
+                                    set: { d in
+                                        update { $0.yaw.boundRad = d.map(PhysicalUnits.radians) }
+                                    }))
+                        }
+                    }
+
+                    Text("Point fixed to the body").font(.caption.bold()).padding(.top, 4)
+                    Picker(
+                        "",
+                        selection: Binding(
+                            get: { k.anchor.kind },
+                            set: { a in update { PhysicalDraft.setAnchor(a, of: &$0) } })
+                    ) {
+                        ForEach(PhysicalAnchorKind.allCases, id: \.self) { kind in
+                            Text(kind.label).tag(kind).disabled(kind.isFace && !resolved)
+                        }
+                    }.labelsHidden().help(
+                        resolved
+                            ? "The point the position names. A face without an offset locates the face only."
+                            : "A face can be named only when the axis is resolved.")
+                    if k.anchor.kind.isFace {
+                        HStack(spacing: 4) {
+                            metres("to centre", number(\.anchor.offsetM))
+                            metres("±", number(\.anchor.offsetBoundM))
+                        }.help(
+                            "Optional. Without both, the anchor locates the face and not the body centre."
+                        )
+                    }
+
+                    Text("Position").font(.caption.bold()).padding(.top, 4)
+                    Text("Click in Top to place ■; drag ■ to move and ● to turn.").font(.caption2)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        metres("x", position(\.xM))
+                        metres("y", position(\.yM))
+                        metres("±", number(\.position.boundM)).help(
+                            "Horizontal radius that bounds the anchor")
+                    }
+                    HStack(spacing: 4) {
+                        Toggle(
+                            "Anchor height (optional)",
+                            isOn: Binding(
+                                get: { k.position.zM != nil },
+                                set: { on in
+                                    update { $0.position.zM = on ? ($0.position.zM ?? 0) : nil }
+                                })
+                        ).font(.caption).help(
+                            "The anchor's height in the pack's frame. Optional and unbounded; it is not the body's height."
+                        )
+                        if k.position.zM != nil { metres("z", number(\.position.zM)) }
+                    }
+
+                    sharedErrorEditor(objectID: objectID, k: k, sample: sample)
+
+                    recordReviewFields(
+                        method: Binding(
+                            get: { k.review.method }, set: { m in update { $0.review.method = m } }),
+                        assumptions: Binding(
+                            get: { k.review.uncertaintyAssumptions },
+                            set: { a in update { $0.review.uncertaintyAssumptions = a } }),
+                        needsAssumptions: k.declaresBounds)
+                }
+            }.font(.caption)
+        }
+    }
+
+    /// The pose at a glance: where, which way, and what is still missing.
+    private func poseSummary(_ k: PhysicalKeyframe) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let x = k.position.xM, let y = k.position.yM {
+                Text(
+                    String(
+                        format: "%@ at %.2f, %.2f%@", k.anchor.kind.label, x, y,
+                        k.position.boundM.map { String(format: " ± %.2f m", $0) } ?? "")
+                ).font(.caption.monospacedDigit())
+                if k.position.boundM == nil {
+                    hint("No ± on the position yet: state it under Adjust by hand.")
+                }
+            } else {
+                Text("No position yet.").font(.caption2).foregroundStyle(.secondary)
+            }
+            if let yaw = k.yaw.yawRad {
+                Text(
+                    String(
+                        format: "heading %.1f°%@ · %@", PhysicalUnits.degrees(yaw),
+                        k.yaw.boundRad.map { String(format: " ± %.1f°", PhysicalUnits.degrees($0)) }
+                            ?? "", k.yaw.axis.label)
+                ).font(.caption.monospacedDigit())
+                if k.yaw.boundRad == nil {
+                    hint("No ± on the heading yet: state it under Adjust by hand.")
+                }
+            }
+            if k.position.status != .unknown {
+                evidenceCaption(k.position.status, k.position.support)
+            }
         }
     }
 
@@ -834,15 +861,28 @@ struct PhysicalReferencePane: View {
             (status == .reviewed ? Color.green : Color.secondary).opacity(0.25), in: Capsule())
     }
 
-    private func evidencePicker(
-        _ binding: Binding<PhysicalEvidence>, allowUnknown: Bool = true
+    private func hint(_ text: String) -> some View {
+        Text(text).font(.caption2).foregroundStyle(.orange).fixedSize(
+            horizontal: false, vertical: true)
+    }
+
+    /// How a component is known, in words: what the fit or the action stated.
+    private func evidenceCaption(
+        _ status: PhysicalEvidence, _ support: PhysicalSupport
     ) -> some View {
-        Picker("", selection: binding) {
-            ForEach(PhysicalEvidence.allCases.filter { allowUnknown || $0 != .unknown }, id: \.self)
-            { Text($0.label).tag($0) }
-        }.labelsHidden().frame(width: 104).help(
-            "Observed: seen in cited frames. Inferred: follows from named frames or an external "
-                + "reference. Prior only: a named class prior, never scored. Unknown: no value.")
+        let frames = support.frameList.map(String.init).joined(separator: ", ")
+        let text: String
+        switch status {
+        case .observed: text = "seen in sample\(support.frameList.count == 1 ? "" : "s") \(frames)"
+        case .inferred:
+            text =
+                frames.isEmpty
+                ? "inferred from \(support.external ?? "an external reference")"
+                : "inferred from sample\(support.frameList.count == 1 ? "" : "s") \(frames)"
+        case .priorOnly: text = "class prior: \(support.external ?? "unnamed")"
+        case .unknown: text = "not stated"
+        }
+        return Text(text).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
     }
 
     private func metres(_ label: String, _ value: Binding<Double?>) -> some View {
@@ -859,79 +899,6 @@ struct PhysicalReferencePane: View {
             TextField("°", value: value, format: .number.precision(.fractionLength(0...2)))
                 .textFieldStyle(.roundedBorder).font(.caption.monospacedDigit()).frame(width: 52)
             Text("°").font(.caption2).foregroundStyle(.secondary)
-        }
-    }
-
-    /// Frames and an external reference, as the status needs them: an
-    /// observation cites frames, an inference frames or a reference, a prior
-    /// names itself, and unknown names nothing.
-    private func supportEditor(
-        _ support: Binding<PhysicalSupport>, status: PhysicalEvidence, ownSample: Int? = nil
-    ) -> some View {
-        let current = session.currentSample?.sampleID
-        let frames = support.wrappedValue.frameList
-        return VStack(alignment: .leading, spacing: 2) {
-            if status == .observed || status == .inferred {
-                HStack(spacing: 4) {
-                    Text(
-                        frames.isEmpty
-                            ? "cites no frame"
-                            : "cites \(frames.map(String.init).joined(separator: ", "))"
-                    ).font(.caption2.monospacedDigit()).foregroundStyle(
-                        frames.isEmpty ? .orange : .secondary)
-                    if let current {
-                        Button(frames.contains(current) ? "Uncite this frame" : "Cite this frame") {
-                            var s = support.wrappedValue
-                            s.toggle(frame: current)
-                            support.wrappedValue = s
-                        }.controlSize(.mini)
-                    }
-                }
-                if status == .observed, let ownSample, !frames.contains(ownSample) {
-                    Text("An observation at a keyframe must cite its own frame (\(ownSample)).")
-                        .font(.caption2).foregroundStyle(.orange)
-                }
-            }
-            if status == .inferred || status == .priorOnly {
-                TextField(
-                    status == .priorOnly ? "Name the prior" : "External reference (optional)",
-                    text: Binding(
-                        get: { support.wrappedValue.external ?? "" },
-                        set: { text in
-                            var s = support.wrappedValue
-                            s.external = text.isEmpty ? nil : text
-                            support.wrappedValue = s
-                        })
-                ).textFieldStyle(.roundedBorder).font(.caption2)
-            }
-        }
-    }
-
-    private func endpointEditor(
-        _ name: String, _ endpoint: Binding<PhysicalEndpoint>, ownSample: Int
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(name).font(.caption).frame(width: 40, alignment: .leading)
-                evidencePicker(
-                    Binding(
-                        get: { endpoint.wrappedValue.status },
-                        set: { s in
-                            var e = endpoint.wrappedValue
-                            PhysicalDraft.setStatus(s, of: &e)
-                            endpoint.wrappedValue = e
-                        }))
-            }
-            if endpoint.wrappedValue.status != .unknown {
-                supportEditor(
-                    Binding(
-                        get: { endpoint.wrappedValue.support },
-                        set: { s in
-                            var e = endpoint.wrappedValue
-                            e.support = s
-                            endpoint.wrappedValue = e
-                        }), status: endpoint.wrappedValue.status, ownSample: ownSample)
-            }
         }
     }
 

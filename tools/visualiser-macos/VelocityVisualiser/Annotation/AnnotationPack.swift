@@ -173,6 +173,18 @@ struct BackgroundPoints: Equatable {
     var count: Int { x.count }
 }
 
+extension AnnotationSample {
+    /// What the window calls a frame: its sample ID, as every tool, record
+    /// and report names it. The window once showed a 1-based position in one
+    /// place and the recording's frame number in another, and sample 500 read
+    /// as "frame 501" beside "frame 504": an off-by-one that was not one.
+    var label: String { "sample \(sampleID)" }
+
+    /// The recording's own frame number, second, for finding the frame in the
+    /// main view's timeline.
+    var recordingLabel: String { "recording frame \(sourceOrdinal)" }
+}
+
 /// One frame's point domain inside the pack.
 ///
 /// `sampleID` is pack-local and dense; it is deliberately not the tracker's
