@@ -214,6 +214,17 @@ type SolidBodyOptions struct {
 	// as a diagnostic: the geometry convergence plan's W1a. Nothing reads it
 	// yet; W1b makes it the heading observation. Default false.
 	RectangleFit bool
+	// RectangleHeading makes the rectangle fit the solid body's heading
+	// observation, the geometry convergence plan's W1b (solidBodyAxis): the
+	// body axis is filtered modulo 90 degrees from each frame's fit, with
+	// process noise, and labelled into a heading by the course at
+	// CourseAlignmentMinSpeedMps or more and by continuity with the last
+	// heading below it. The faces are found along that heading rather than
+	// along the course, and its extents are admitted along it. Until the
+	// axis has been observed, or when the fit keeps abstaining, the heading
+	// is what it would be without this option. It records the fit on the row
+	// as RectangleFit does. Default false.
+	RectangleHeading bool
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still
@@ -426,6 +437,11 @@ type solidBodyTrack struct {
 	// dimensions at; zero on a frame without points.
 	floorAlong, floorAcross float32
 
+	// axis is the filtered body axis under RectangleHeading, and fit the
+	// frame's rectangle fit it read, kept so the row records the same fit.
+	axis solidBodyAxis
+	fit  frameRectangleFit
+
 	lastObservedNanos int64
 	support           SupportState
 
@@ -467,7 +483,9 @@ type nearEdgeFrame struct {
 	fallback string
 	edges    EdgeMeasurementSet
 	// axis is the body axis the faces and spans are taken along, and
-	// axisIsCourse says it is the solid body's course (faceAxis).
+	// axisIsCourse says it is believed without the course check: the solid
+	// body's course, or under RectangleHeading an observed axis within
+	// axisBelievedSigmaRad (faceAxis).
 	axis         float32
 	axisIsCourse bool
 	// length and width are the beliefs the half-extents came from.
@@ -683,6 +701,7 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	class := solidBodyClass(track)
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
+	t.observeAxis(track, sb, cluster)
 	sb.orientation = t.solidBodyOrientation(track, sb)
 
 	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount, track.MergeCandidate)
@@ -1055,8 +1074,8 @@ func (t *Tracker) measureContainment(track *TrackedObject, class MotionClassBeli
 		floored := t.assembleSolidBody(track, class)
 		m.ExtentFloor = extentFloorName(floored.Length.Metres > belief.Length.Metres, floored.Width.Metres > belief.Width.Metres)
 	}
-	if t.Config.SolidBody.RectangleFit {
-		fit := l4perception.FitRectangle(points)
+	if t.Config.SolidBody.RectangleFit || t.Config.SolidBody.RectangleHeading {
+		fit := sb.rectangleFitFor(track.LastMeasurementUnixNanos, cluster)
 		m.RectangleKnown = fit.Points >= l4perception.RectangleFitMinPoints
 		m.RectangleAxisRad, m.RectangleSigmaRad, m.RectanglePlateauRad = float32(fit.AxisRad), float32(fit.SigmaRad), float32(fit.PlateauRad)
 		m.RectangleSpan1, m.RectangleSpan2, m.RectangleAbstain = float32(fit.Span1), float32(fit.Span2), fit.Abstain
@@ -1427,6 +1446,12 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 // heading that points the other way.
 func (t *Tracker) faceAxis(sb *solidBodyTrack) (float32, bool) {
 	psi := sb.orientation.PsiRad
+	if t.Config.SolidBody.RectangleHeading && sb.axis.known {
+		// The faces along the observed axis, not the course: the axis is
+		// what the body's own returns say, and the course is what they
+		// were meant to stand in for.
+		return psi, t.axisBelieved(sb)
+	}
 	if t.Config.SolidBody.CourseAlignedFaces {
 		vx, vy := float64(sb.state[2]), float64(sb.state[3])
 		if math.Hypot(vx, vy) >= CourseAlignmentMinSpeedMps {
@@ -1869,7 +1894,9 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 }
 
 // solidBodyOrientation is this frame's orientation belief: the tracked
-// heading's, or under CourseHeading, a blend toward the body's course.
+// heading's, or under CourseHeading, a blend toward the body's course; under
+// RectangleHeading, once the axis has been observed, the labelled axis
+// (axisOrientation) in place of both.
 //
 // The tracked axis is kept, pointed the way the body travels, while it agrees
 // with the course to within the span window (10 degrees), the window the
@@ -1882,6 +1909,9 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 // whole window in one frame, and moved the centre sideways by half a length
 // times that angle.
 func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
+	if o, ok := t.axisOrientation(track, sb); ok {
+		return o
+	}
 	tracked := orientationFromTrack(track, sb.orientation)
 	if !t.Config.SolidBody.CourseHeading {
 		return tracked

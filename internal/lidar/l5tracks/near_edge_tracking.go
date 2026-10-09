@@ -164,6 +164,7 @@ func (t *Tracker) completeTrackedSolidBody(track *TrackedObject, cluster WorldCl
 	pending := sb.pending
 	sb.pending = nearEdgePending{}
 	sb.syncFromTrack(track)
+	t.observeAxis(track, sb, cluster)
 	sb.orientation = t.solidBodyOrientation(track, sb)
 	class := solidBodyClass(track)
 	m, measured := pending.m, pending.valid && pending.outcome != nearEdgeCoast

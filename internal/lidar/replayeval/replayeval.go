@@ -1219,6 +1219,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	}
 	containment := hasExperiment(experiments, ExperimentSolidBodyContainment)
 	rectangle := hasExperiment(experiments, ExperimentSolidBodyRectangleFit)
+	rectangleHeading := hasExperiment(experiments, ExperimentSolidBodyRectangleHeading)
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
@@ -1228,12 +1229,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
 			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
 			EndFaceCentring: centring, EndFaceCentringOpenPrior: openPrior,
-			Containment: containment, RectangleFit: rectangle,
+			Containment: containment, RectangleFit: rectangle, RectangleHeading: rectangleHeading,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
-		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle ||
+		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",

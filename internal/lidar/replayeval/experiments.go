@@ -149,6 +149,13 @@ const (
 	// orientation fit on the solid-body row as a diagnostic
 	// (SolidBodyOptions.RectangleFit); nothing reads it.
 	ExperimentSolidBodyRectangleFit = "solid_body_rectangle_fit"
+	// ExperimentSolidBodyRectangleHeading makes the rectangle fit the solid
+	// body's heading observation, the geometry convergence plan's W1b: a
+	// filtered axis modulo 90 degrees, labelled by the course at speed and
+	// by continuity below it, with the faces found along it
+	// (SolidBodyOptions.RectangleHeading). It records the fit on the row as
+	// solid_body_rectangle_fit does.
+	ExperimentSolidBodyRectangleHeading = "solid_body_rectangle_heading"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -199,6 +206,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyEndFaceCentringOpenPrior: true,
 	ExperimentSolidBodyContainment:              true,
 	ExperimentSolidBodyRectangleFit:             true,
+	ExperimentSolidBodyRectangleHeading:         true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 }
