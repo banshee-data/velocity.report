@@ -1,0 +1,160 @@
+# Geometry convergence: predeclared levels (W0)
+
+<!-- ignore-style-length -->
+
+The levels the tracker's heading, box and identity must reach before the geometry convergence
+candidates can be read as an improvement, pinned on the tuning references before any candidate
+is scored; the measures every arm now reports so the levels can be read; and the values today.
+This is the record the physical scorer's held-out acceptance is meant to cite; the scorer does
+not cite it yet, and nothing here is a held-out result.
+
+- **Status:** Predeclared, 2026-10-09, on kirk0's tuning references and the 23-site corpus. The three label-free measures are implemented and reported by every solid-body arm; the scorer-side citation and the held-out segment are outstanding
+- **Layers:** L5 Tracks (solid body), L8 Analytics, offline replay and per-frame evaluation
+- **Related:** [geometry convergence plan §3](../../plans/lidar-tracker-geometry-convergence-plan.md#3-what-acceptable-looks-like), [physical-reference review plan](../../plans/lidar-physical-reference-review-plan.md#scoring-and-inspection), [scoring against physical references](point-annotation-tool.md#scoring-against-physical-references), [alignment report](solid-body-physical-alignment-kirk0-2026-10.md), [W7 spike](end-on-truck-window-spike-2026-10.md), [G-UNC-1 criteria](adaptive-uncertainty-criteria.md) (the format this follows)
+- **Code:** [containment and spans on the row](../../../internal/lidar/l5tracks/solid_body_nearedge.go), [summary guards](../../../internal/lidar/replayeval/solid_body_summary.go), [scorecard block](../../../cmd/tools/lidar-track-scorecard/main.go), [migration 000059](../../../internal/db/migrations/000059_lidar_solid_body_containment.up.sql)
+
+## Declaration
+
+These levels were fixed before W1 (`solid_body_rectangle_heading`) or W2
+(`solid_body_containment`) existed. A level is amended only in writing, dated, with its reason,
+under Amendments, and before the next held-out run; a result read against a level amended after
+the run is not a result. The references' own bounds are the resolution of every physical row: a
+level tighter than a bound cannot be read, and an error inside the bound is zero.
+
+Two words are used exactly. The **axis** is the body's orientation modulo 90°, which no length
+label touches. The **directed heading** is the yaw modulo 360°, which includes which axis is the
+length and which end is the front. A right axis with the wrong label is a 90° directed error and
+a 0° axis error, and the two are scored separately so that is seen as what it is.
+
+## Arms
+
+| Arm       | Experiments                                                                                                  | Role                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Shadow    | `solid_body`, `solid_body_face_hysteresis`, `solid_body_course_faces`, `solid_body_full_members`             | Baseline where identity cannot move; the first arm each candidate is read on |
+| A2        | The shadow's set and `near_edge_track`                                                                       | Baseline for the tracked state; identity is its own row                      |
+| Candidate | A2 or the shadow with `solid_body_rectangle_heading`, `solid_body_containment`, each alone and both together | What the levels are read against                                             |
+| Alignment | A2 or the shadow with the four alignment experiments (open-prior centring)                                   | The comparison the candidate must beat to replace it                         |
+
+Every arm is replayed from one stamped build of `lidar-state-estimation-baseline`; the A2
+control's summary must be identical, timing aside, to the previous build's before any candidate
+is read.
+
+## Population
+
+- **Tuning, physical.** kirk0, pack `ad8b9438-c1d4-40f0-bd0a-f1852c984569`, frozen split
+  `kirk0-ad8b9438-tuning-r1`, episode `following-472-530`: 22 reviewed poses and 11 following gaps
+  over three vehicles. Truck 2 is scored separately: its cab never reaches the tracker (W3), so
+  no L5 change can place it, and a level over all poses would be decided by it.
+- **Tuning, identity.** The same split, episode `whole-pack`.
+- **Label-free.** The 23 tuning and screen sites of the D2 first-segment corpus, 200 s scored
+  after a 70 s warm-up, as the alignment run's passes ran them; `embarcadero-folsom` stays held
+  out of it.
+- **Held out.** One segment the corpus did not use, drawn by lot as the W7 spike sets out and
+  reviewed with operator-keyframed yaw and extents. No level below is read held out until that
+  segment is frozen and the scorer cites this record.
+
+## Evidence sets
+
+| Set                   | Produced by                                                                      | Rows read here                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `physical.json`       | `lidar-ground-truth-eval perframe -physical-reference` on the frozen split       | Per-pose centre, yaw, length, width, box IoU and their reference bounds; per-gap error and bound                   |
+| `identity.json`       | The same, episode `whole-pack`                                                   | HOTA, IDF1, ID switches                                                                                            |
+| `phase0-summary.json` | `lidar-state-estimation-baseline` with `solid_body` named                        | The `solid_body` block: `containment`, `extent_shortfall`, `axis_by_age`, `anchor_solid_bodies_body_centre_frames` |
+| `scorecard.json`      | `lidar-track-scorecard -observations <evidence.db>`                              | The `solid_body` block, the same guards without the strata, one per corpus site                                    |
+| `tracker_timing.json` | The baseline tool with `-campaign-metrics`, balanced order, nothing else running | `Tracker.Update` p50 and p99                                                                                       |
+
+The three guards are read from the persisted solid-body row, which since migration 000059
+carries `containment_share` (the share of the frame's cluster points inside the reported box
+widened by the 0.15 m face tolerance), `contained_points`, and the cluster's trimmed spans along
+and across the reported orientation. A row written before the migration has no share and is left
+out, never read as zero. Under `solid_body_full_members` the tracker measures the cluster's
+members, so the share is against what the tracker saw, not the persisted sample.
+
+## Criteria
+
+| Id  | Measure                                 | Operational test                                                                                                                                                                                   | Level                                                                  |
+| --- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| G1  | Axis, established rows at 2 m/s or more | `physical.json` yaw error per scored pose, folded to [0°, 90°], less the pose's yaw bound, floored at zero; truck 2 separately                                                                     | Median 0°; p90 ≤ 10°                                                   |
+| G2  | Directed heading                        | The same yaw error unfolded, less the bound                                                                                                                                                        | ≤ 10° on at least 90 % of poses                                        |
+| G3  | Heading convergence, label-free         | `axis_by_age` rows `2-4s` and `4s+`, `axis_over_30_share`, per corpus site; the median over sites                                                                                                  | ≤ 0.05                                                                 |
+| G4  | Heading ambiguity                       | A row whose label is unresolved is marked and reports its observed spans (a W1 field)                                                                                                              | No unresolved row reported as a labelled body                          |
+| G5  | Containment                             | `containment.by_reference[body_centre].held_share`: rows holding at least 98 % of their points, kirk0 and the corpus median                                                                        | ≥ 0.95                                                                 |
+| G6  | Reported extent                         | `extent_shortfall.length_short_share` and `width_short_share` of the reported box (observed span over the reported dimension by more than 0.25 m)                                                  | 0 for the reported box; the belief's shortfall reported beside it      |
+| G7  | Centre                                  | `physical.json` centre error against the pose's centre bound; truck 2 separately                                                                                                                   | ≥ 80 % of scored poses within the bound                                |
+| G8  | Length                                  | `physical.json` length against the reference, established poses; cars and trucks separately, truck 2 separately                                                                                    | Cars within 15 %, trucks within 20 %, on ≥ 80 % of poses               |
+| G9  | Following gap                           | `physical.json` gap error against the gap's bound, both bodies established                                                                                                                         | Within the bound on every scored gap                                   |
+| G10 | Lateral, G-GEO-1                        | Criteria 1 to 4 as the [state plan §9.3](../../plans/lidar-state-estimation-plan.md#93-decision-gate-g-geo-1) writes them; and `anchor_solid_bodies_body_centre_frames.p99_m` at the corpus median | Criterion 3 within 5 %; the candidate's p99 not above the baseline's   |
+| G11 | Identity, A2 only                       | `identity.json` ID switches on `whole-pack` against the A2 baseline's; HOTA and IDF1 reported                                                                                                      | Within the larger of 10 % of the baseline and the measured no-op floor |
+| G12 | Cost                                    | `tracker_timing.json` p99 against the arm's baseline, median of four balanced runs; the orientation fit's time stated per cluster on the Mac and on a Pi                                           | Within 10 %; the fit measured, not estimated                           |
+
+**The no-op floor of G11.** On the frozen split, A2's identity moves with any change to the
+solid body whether or not a scored pose changes. The one arm of the alignment run that changed
+no scored pose, `solid_body_vehicle_extent_floor` alone, moved the switches from 100 to 81, so
+the measured floor is 19 switches, 19 % of the baseline, from a single no-op. A second arm tried
+for the floor, `solid_body_face_plane_spans`, moves scored poses at the current build and does
+not qualify. The band is therefore the larger of 10 % and 19 switches until a second no-op is
+measured; a candidate inside the band has not changed identity, one outside it has, and either
+way HOTA and IDF1 are printed beside the count.
+
+**What a level is not.** G5 and G6 are met by construction once W2 ships, since the constraint
+makes the reported box hold its points; they then check that it ran, and the belief's shortfall
+beside G6 is what still measures the estimator. G3 under a course-fed heading agrees with the
+course by construction; the axis column of `axis_by_age`, which no label touches, is the
+convergence row, and the directed column is a labelling check. G1 against kirk0's references
+compares a fit with a fit, since the references were fitted to the returns the tracker reads;
+W7's operator-keyframed references break that, and until then G1 is necessary, not sufficient.
+
+## Running it
+
+```bash
+# One arm on kirk0, with the solid-body summary and an evidence database.
+./baseline -corpus cmd/tools/lidar-state-estimation-baseline/testdata/kirk0-corpus.json \
+  -index cmd/tools/lidar-state-estimation-baseline/testdata/kirk0-index.json \
+  -pcap-root internal/lidar/perf -pcap-subdir pcap -warmup 20 -case kirk0 \
+  -experiment solid_body,solid_body_face_hysteresis,solid_body_course_faces,solid_body_full_members,near_edge_track \
+  -sample-points 256 -out ./out -evidence-dir ./evidence -evidence-per-case
+```
+
+```bash
+# The physical and identity scores against the frozen split.
+./gt-eval perframe -pack "$PACK" -split-manifest "$SPLITS/kirk0-ad8b9438-tuning-r1.json" -split kirk0-tuning \
+  -episodes following-472-530 -allow-tuning-split -physical-reference \
+  -a-label a2 -a-db ./evidence/kirk0.db -a-stage online -a-declared-baseline -a-solid-body \
+  -b-label candidate -b-db ./candidate/kirk0.db -b-stage online -b-declared-baseline -b-solid-body -json physical.json
+```
+
+```bash
+# The label-free guards for one corpus site.
+./scorecard -observations ./site/evidence/observations.db -scoring-start-seconds 70 -json scorecard.json
+```
+
+The `solid_body` block of the scorecard and of `phase0-summary.json` carries `containment`
+(rows, `held_share`, `median_share`, by reference), `extent_shortfall` (rows, the length and
+width short rows, shares and median excess) and `axis_by_age` (per bucket: rows, the axis
+median, p90 and share over 30°, and the directed figures beside them).
+
+## Evidence so far
+
+kirk0 at `be79fbd53` with this build's measures; the corpus figures are the alignment run's
+passes, read from the same rows by hand before the measures existed.
+
+| Id  | A2                                                                     | Alignment candidate (A2, four experiments)                                    |
+| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| G1  | Directed 7.5° median, 89° p90; axis not yet printed by the scorer      | 12° mean directed                                                             |
+| G3  | kirk0 `2-4s` 0.56, `4s+` 0.41; corpus 0.23 to 0.27 (directed, by hand) | kirk0 0.06, 0.20; corpus 0.04 to 0.06, self-measured under the course heading |
+| G5  | Body centre 0.18 (928 rows); medoid 0.66                               | 0.29 (940 rows); medoid 0.67                                                  |
+| G6  | Length 0.45 (median excess 1.22 m), width 0.20                         | Length 0.24 (0.61 m), width 0.21                                              |
+| G7  | 5 of 19 within the bound                                               | 11 of 21                                                                      |
+| G8  | Car 3.88 of 4.26 m; truck 1 5.88 of 10.63; truck 2 0.62 of 9.63        | Car unchanged; truck 1 8.62; truck 2 unchanged                                |
+| G9  | 3 of 7 gaps within the bound                                           | 3 of 7                                                                        |
+| G10 | Corpus lateral p99 0.107 to 0.684 m by site                            | −0.024 m at the corpus median against A2                                      |
+| G11 | 100 switches, HOTA 0.310, IDF1 0.285                                   | 89, 0.310, 0.297                                                              |
+| G12 | `Tracker.Update` p99 4.07 ms, p50 0.109 ms                             | 3.07 ms (−25 %), 0.130 ms (+19 %)                                             |
+
+None of these is a pass or a fail: they are where the baseline and the candidate the convergence
+plan replaces stand against levels written after them, which is the one direction the record
+allows.
+
+## Amendments
+
+None.

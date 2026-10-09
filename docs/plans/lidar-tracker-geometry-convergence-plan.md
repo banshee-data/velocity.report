@@ -172,10 +172,11 @@ box) whose axis is wrong by 10°.
 
 ## 3. What acceptable looks like
 
-No numeric physical-heading threshold exists in any plan today, and G-GEO-1 has no heading or
-containment row. These are proposed levels, to be frozen as part of the predeclared physical
-scoring criteria (Sprint 0.5.2.0) before any held-out score, and amended only in writing before
-that score. "Established" is the lifecycle state of state plan §5.6; "reference bound" is the
+No numeric physical-heading threshold existed in any plan before this one, and G-GEO-1 has no
+heading or containment row. These levels are now frozen in the
+[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0), with
+the operational test for each, the measured identity floor and the values today; they are
+amended only there, in writing, before any held-out score. "Established" is the lifecycle state of state plan §5.6; "reference bound" is the
 pilot's per-pose bound, which is the resolution of the score: a level tighter than it cannot be
 read. Axis error is modulo 90° and no labelling touches it; directed error is modulo 360° and
 includes the label and the front.
@@ -428,7 +429,7 @@ W2's result as the facet plan itself asks.
 
 ## Checklist
 
-- [ ] W0 levels predeclared, the identity noise floor measured, the band committed to main; containment share, axis-by-age table and reported-against-believed extent in the summary and scorecard
+- [x] W0 levels predeclared ([criteria](../lidar/operations/geometry-convergence-criteria.md)), the identity noise floor measured from the one no-op arm, containment share, axis-by-age table and reported-against-believed extent on the row, in the summary and in the scorecard; the band reaches main with this branch
 - [x] W7 spike: end-on truck windows counted across the corpus and archive ([spike](../lidar/operations/end-on-truck-window-spike-2026-10.md)); the capture request is its selection rule, to be raised with the operator
 - [ ] W2 `solid_body_containment` built, unit-tested, scored alone on the frozen split and the corpus
 - [ ] W1a fit, variance and abstention built and unit-tested; cost measured on the Mac and a Pi

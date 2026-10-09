@@ -772,7 +772,9 @@ Consecutive scored centres also report how far each layer moved: a step at a fac
 reference does not make shows up there.
 
 Physical scoring refuses a held-out split. Its error limits, reference precision and coverage have
-to be pinned on tuning data first, and no record of them exists yet. Leader choice is not scored,
+to be pinned on tuning data first. The geometry levels are pinned in the
+[geometry convergence criteria](geometry-convergence-criteria.md); the scorer does not cite that
+record yet, and the following limits are still unpinned. Leader choice is not scored,
 and the along-path gap waits for persisted paths.
 
 ## Feature candidates
