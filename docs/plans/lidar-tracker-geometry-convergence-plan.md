@@ -432,7 +432,7 @@ W2's result as the facet plan itself asks.
 - [x] W0 levels predeclared ([criteria](../lidar/operations/geometry-convergence-criteria.md)), the identity noise floor measured from the one no-op arm, containment share, axis-by-age table and reported-against-believed extent on the row, in the summary and in the scorecard; the band reaches main with this branch
 - [x] W7 spike: end-on truck windows counted across the corpus and archive ([spike](../lidar/operations/end-on-truck-window-spike-2026-10.md)); the capture request is its selection rule, to be raised with the operator
 - [x] W2 `solid_body_containment` built and unit-tested; scored alone on the frozen split (A2's lateral p99 0.291 to 0.156 m, excursions 0.20 to 0, lapses 49 to 26, held share 0.18 to 0.41, 93 switches against 100); the corpus pass is queued
-- [ ] W1a fit, variance and abstention built and unit-tested; cost measured on the Mac and a Pi
+- [x] W1a fit, variance and abstention built and unit-tested (`l4perception.FitRectangle`), recorded on every row as a diagnostic under `solid_body_rectangle_fit` and compared with the course by age in the summary; on kirk0 the axis is 2.6° off the reviewed yaw at the median and 4.7° at p90 with no abstention among the 21 poses, and 4 to 6° off the course at the median at every track age where the believed heading is 14 to 35° off; about 0.6 to 1.1 ms per 256-point fit on a Mac running a replay beside it, the Pi unmeasured
 - [ ] W1b `solid_body_rectangle_heading` built, scored alone and with W2; car 8's slow poses re-scored
 - [ ] W3 retention and fragmentation scored per reviewed mask; truck 2's cab attributed
 - [ ] W5 shadow-first physical score; A2 against the switch band; G-UNC-1's table refrozen
