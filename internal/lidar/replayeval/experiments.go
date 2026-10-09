@@ -112,6 +112,21 @@ const (
 	// They are two settings of one option, so a replay may name only one.
 	ExperimentSolidBodyRankOneMedoid      = "solid_body_rank_one_medoid"
 	ExperimentSolidBodyRankOneMedoidTight = "solid_body_rank_one_medoid_tight"
+	// The solid body's extent and heading from one face
+	// (lidar-solid-body-physical-alignment-plan.md), each qualifying
+	// solid_body like the remedies:
+	//   - ExperimentSolidBodyCourseHeading: the orientation is the course
+	//     while the body moves (SolidBodyOptions.CourseHeading);
+	//   - ExperimentSolidBodyExtentPriorFloor: a dimension shorter than the
+	//     class prior keeps the prior (ExtentPriorFloor);
+	//   - ExperimentSolidBodyFacePlaneSpans: a face gives the span along its
+	//     own plane, not its depth (FacePlaneSpans);
+	//   - ExperimentSolidBodyExtentGrowth: a merge candidate no wider than the
+	//     body still gives extents (ExtentGrowthAdmission).
+	ExperimentSolidBodyCourseHeading    = "solid_body_course_heading"
+	ExperimentSolidBodyExtentPriorFloor = "solid_body_extent_prior_floor"
+	ExperimentSolidBodyFacePlaneSpans   = "solid_body_face_plane_spans"
+	ExperimentSolidBodyExtentGrowth     = "solid_body_extent_growth"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -153,6 +168,10 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyReferenceTranslation: true,
 	ExperimentSolidBodyRankOneMedoid:        true,
 	ExperimentSolidBodyRankOneMedoidTight:   true,
+	ExperimentSolidBodyCourseHeading:        true,
+	ExperimentSolidBodyExtentPriorFloor:     true,
+	ExperimentSolidBodyFacePlaneSpans:       true,
+	ExperimentSolidBodyExtentGrowth:         true,
 	ExperimentNearEdgeTrack:                 true,
 	ExperimentNearEdgeTrackA1:               true,
 }
