@@ -323,11 +323,11 @@ transit worker keeps direction, the radar pace follows the same definition and t
 
 ### Limit-relative shares
 
-For the period and for each of the crash-data plan's four strata, the share of transits at or
-below the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph,
+For the period and for each of the crash-data plan's four strata, the share of transits at or below
+the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph,
 matching the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in
-the project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on a
-LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N
+the project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on
+a LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N
 and is masked under 50 transits, the stratum table's rule, and the identifiability analysis's
 small-cell rule applies to the complement. The boundary-hour filter applies to every cell exactly
 as it does to the headline numbers, the crash-data plan's Item 2a rule. The pace and the shares use
