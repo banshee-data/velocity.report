@@ -3,6 +3,7 @@ package l5tracks
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
@@ -192,5 +193,56 @@ func TestVehicleExtentFloorRaisesAPartialViewToTheSmallestCar(t *testing.T) {
 	}
 	if p := dimensionPriorFor(MotionPedestrian); p.minLengthMetres != 0 || p.minWidthMetres != 0 {
 		t.Error("a class whose smallest member is not known has a floor")
+	}
+}
+
+// endOnTruckPass is a 9.6 by 2.5 m truck coming straight at the sensor from
+// 50 m along +X, 4 m to one side, at 7 m/s: kirk0's truck 2. From the
+// sensor's 2.3 m it is seen almost end on for the whole pass.
+func endOnTruckPass() l4perception.SyntheticPass {
+	sensor := l4perception.DefaultSyntheticSensor()
+	sensor.HeightMetres = 2.3
+	return l4perception.SyntheticPass{
+		Sensor: sensor,
+		Vehicle: l4perception.SyntheticVehicle{
+			Length: 9.6, Width: 2.5, Height: 3.2, LateralOffsetMetres: 4,
+			SpeedMps: 7, StartXMetres: -50,
+		},
+		Frames: 60, Interval: 100 * time.Millisecond, SensorID: "synthetic-pandar40p",
+	}
+}
+
+func runEndOnTruck(t *testing.T, cfg TrackerConfig) SolidBodyReading {
+	t.Helper()
+	tracker := NewTracker(cfg)
+	for _, f := range syntheticPassFrames(t, endOnTruckPass()) {
+		tracker.Update(f.clusters, f.at)
+	}
+	r, ok := mainTrack(t, tracker).SolidBody()
+	if !ok {
+		t.Fatal("the truck has no solid body")
+	}
+	return r
+}
+
+func TestAnEndOnTruckIsHeadedAlongItsCourse(t *testing.T) {
+	cfg := solidBodyConfig()
+	cfg.SolidBody.CourseAlignedFaces = true
+	plain := runEndOnTruck(t, cfg)
+	cfg.SolidBody.CourseHeading = true
+	cfg.SolidBody.ExtentGrowthAdmission = true
+	course := runEndOnTruck(t, cfg)
+	headingOff := func(r SolidBodyReading) float64 {
+		return FoldAxisAngleDeg(float64(r.Estimate.Orientation.PsiRad))
+	}
+	t.Logf("tracked heading %.1f deg off the course, length %.2f m; with the course heading %.1f deg, %.2f m",
+		headingOff(plain), plain.Estimate.Length.Metres, headingOff(course), course.Estimate.Length.Metres)
+	if off := headingOff(course); off > spanSearchHalfWindowDeg {
+		t.Errorf("with the course heading the truck is %.1f degrees off its course", off)
+	}
+	// Lower-bound evidence: no more than a bin over the true 9.6 m, and once
+	// the side has been seen, most of it.
+	if l := course.Estimate.Length.Metres; l < 7.5 || l > 9.6+extentBeliefBinMetres {
+		t.Errorf("with growth admission the 9.6 m truck is %.2f m long", l)
 	}
 }
