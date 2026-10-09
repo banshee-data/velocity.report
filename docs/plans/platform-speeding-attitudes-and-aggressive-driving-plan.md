@@ -7,9 +7,11 @@ cannot observe, and where the two vocabularies collide. The studies measure what
 believe; the sensor measures what passes. The plan keeps the two apart on every page and uses each
 to explain the other in the docs.
 
-Both report summaries were read in full. The technical reports, the AAA Foundation site and the
-AAA newsroom were not reachable from the review environment, so every figure that is not in a
-summary comes from press coverage and is marked **Confirm**.
+Both report summaries were read in full, and the technical reports were read from text extractions
+the owner supplied: the attitudes report through the start of its attitudinal-group profiles (its
+methods, every focus-group result, the questionnaire's design, and Tables 9 to 12 and Figures 4 to
+15 of the national results), and the aggressive-driving report's front matter, definitions and
+frameworks only. A figure that neither a summary nor an extraction carries is marked **Confirm**.
 
 - **Status:** Proposed; no code written
 - **Layers:** Cross-cutting (PDF report copy and `data.json`, wording guard, safety-reference edition, L8 behaviour benchmarks, documentation)
@@ -88,104 +90,186 @@ drives with the flow, stays uncited while the flow itself goes unprinted.
 
 ### The two studies
 
-| Study                                                                                                                                                     | Method                                                                                                                                                                                                     | What it measures                                                                                           | What it is not                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Steinbach, McDonough, Hungund, Kasha and Bai, _Attitudes Towards Speeding: Insights from Focus Groups and a National Survey of U.S. Drivers_, August 2026 | A literature review; eight focus groups with 58 people who drive; a questionnaire to a nationally representative sample of over 16,000; latent class analysis of the attitude items; state-level estimates | How people define speeding, which speeds they accept, why they speed, and what they support doing about it | A measurement of any speed. Part 4, a driving-simulator study, is a separate forthcoming report  |
-| Steinbach, Kasha, Svancara and Parker, _Aggressive Driving and Road Rage_, September 2025                                                                 | A literature review and expert discussions; eight focus groups with 53 people who admitted to aggressive driving or road rage; a questionnaire to a probability-based panel of 3,020 aged 16 and over      | Which behaviours people call aggressive, how often they report doing them, and what predicts doing them    | An observation of any behaviour. Every prevalence figure is self-reported over the previous year |
+| Study                                                                                                                                                     | Method                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | What it measures                                                                                                                                                                                                        | What it is not                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Steinbach, McDonough, Hungund, Kasha and Bai, _Attitudes Towards Speeding: Insights from Focus Groups and a National Survey of U.S. Drivers_, August 2026 | A literature review of 102 papers; eight online focus groups with 58 people from 30 states, February to March 2025, judging point-of-view video vignettes; a questionnaire to 16,598 people aged 16 and over who had driven in the past 30 days, 11,560 from NORC's probability-based AmeriSpeak panel and 5,038 from a non-probability panel for state estimates, fielded December 8, 2025 to January 12, 2026, weighted by NORC's TrueNorth method to a margin of error of ±1.08% with a design effect of 2.0; latent class analysis over seven attitude dimensions | How people define speeding by road type, which limits they expect and would set, how they rank its risk against other behaviours, why they speed and refrain, how they justify it, and what they support doing about it | A measurement of any speed. Part 4, a driving-simulator study, is a separate forthcoming report  |
+| Steinbach, Kasha, Svancara and Parker, _Aggressive Driving and Road Rage_, September 2025                                                                 | A literature review of 620 articles from 2013 to 2023 and a five-member expert panel; eight focus groups with 53 people who admitted to aggressive driving or road rage; a questionnaire to a probability-based panel of 3,020 aged 16 and over, per the summary (the extraction lacks the method section)                                                                                                                                                                                                                                                            | Which behaviours people call aggressive, how often they report doing them, and what predicts doing them                                                                                                                 | An observation of any behaviour. Every prevalence figure is self-reported over the previous year |
 
-### Attitudes toward speeding: what the summary states
+### Attitudes towards speeding: what the report states
 
-Read from the report summary, pages 1 to 3.
+From the summary and the technical report's text; figure and table numbers are the report's own.
 
-- Speed limits were generally viewed as appropriate, but strict compliance was not viewed as
-  necessary. Most would choose limits only slightly above current expectations; about one in five
-  favoured limits at least 10% above expected levels.
-- Without a posted limit to refer to, people judge whether another vehicle is speeding by two
-  criteria: whether it keeps pace with surrounding traffic, and whether its operator appears able
-  to handle it safely in the conditions.
-- A common social threshold for speeding emerged around 10 mph over the posted limit, seen as
-  acceptable and unlikely to be enforced. Depending on the roadway, speeds up to 25 mph over the
-  limit were acceptable in some circumstances.
-- The flow of traffic acts as a social norm. Driving slower than surrounding traffic was often
-  seen as the problem. 49% agreed with "It's safer for me to drive with the flow of traffic than
-  obey the speed limit".
-- Perceived enforcement strongly shaped speed choice, with enforcement expected to begin 10 to
-  12 mph over the limit, depending on roadway type.
-- Speeding was linked to autonomy and personal freedom, to the satisfaction of controlling a
-  vehicle and feeling competent, and to relieving the monotony of modern vehicles and roads.
-- Speed choice was described as a continual negotiation between the moral, the socially
-  acceptable and the personally satisfying, justified by forms of moral disengagement: minimising
-  consequences, arguing that speeding is safer than the limit, shifting responsibility to
-  conditions or other road users, and distinguishing safe from dangerous speeding.
-- Less than half supported infrastructure-based countermeasures, although these were broadly seen
-  as effective. Nearly three in four supported automated enforcement in areas with a high
-  potential for speed-related crashes. 88% supported increased police presence in such areas, the
-  highest of any measure.
-- Acceptance of intelligent speed assistance in one's own vehicle ranged from nearly a quarter to
-  more than half, falling with invasiveness from an alert through an overridable limiter to a
-  non-overridable one; acceptance for other people's vehicles was higher for younger, older,
-  professional and previously offending groups.
-- Latent class analysis found five mindsets: Strict Compliance Advocates (21%), Safety Focused
-  Realists (14%), Principled Pragmatists (26%), Tolerant but Non-Compliant (23%) and
-  Autonomy-First (16%). The study concludes that one-size-fits-all speed management is unlikely
-  to be optimal.
-- The summary cites NHTSA's estimate that almost 30% of motor-vehicle fatalities in 2023 were
-  speeding-related, and the AAA Foundation's Traffic Safety Culture Index finding that speeding is
-  the most commonly reported risky behaviour and, for many, the only one.
+**How speeding is defined.** Shown a road with its limit and asked how fast a vehicle must go to be
+speeding, respondents' means were 33 mph on a 25 mph residential street, 45 on a 35 mph arterial,
+80 on a 70 mph rural highway and 78 on a 70 mph urban highway (Figure 4). The means at which they
+expected police to act were 35, 47, 81 and 80, and the means they called dangerous were 44, 56,
+88 and 85. The cumulative curve matters more than the means (Figure 5): on the residential street,
+40% call 30 mph speeding, 85% call 35 mph speeding, and nearly all call 45 mph speeding; on the
+arterial, about a quarter call 40 speeding and 72% call 45 speeding; on the highways, 34% call 75
+speeding and 94% call 85 (rural) or 80 (urban) speeding. The report notes that 35 in a 25 "is often
+used by road safety professionals as a reference threshold". For its own classification of
+respondents it defines speeding as 10 mph over the expected limit on residential roads and
+arterials and 15 mph over on highways (Figure 8's method).
 
-### Aggressive driving and road rage: what the summary states
+**Speed limit credibility.** Before seeing a limit, respondents expected 25.8 mph on the
+residential street and would set 26.2; on the arterial, 45.8 and 47.9; the gap was largest on
+rural highways, 4 mph (Figure 6). Those who would set a limit at least 10% above what they expected
+were 24% on residential roads, 33% on arterials, 28% on rural and 21% on urban highways. The focus
+groups found limits generally credible, with "25 means 30" as the shared reading and 5 over "like
+nothing".
 
-Read from the report summary, pages 1 and 2.
+**Technical and acceptable speeding.** Every focus group separated technical speeding, any speed
+above the posted limit even by 1 mph, from acceptable speeding, set by situation and company. The
+most common upper bound of acceptable was 10 mph over, read as an unofficial margin of tolerance
+that police themselves drive within; up to 25 over was acceptable to some on open roads, in
+emergencies, or "when there's nobody watching". Judging the vignettes without a sign, participants
+used the flow of traffic first, then external markers, following distance, lane keeping,
+curvature, grade and visibility, weather, and the presence of pedestrians, cyclists and crosswalks.
 
+**Risk.** 74% said they often or always see vehicles much faster than the flow on highways and 45%
+see residential speeding that often (Table 9). 55% were very or extremely concerned by residential
+speeding, below impaired, distracted and drowsy driving; 56% thought a residential speeder unlikely
+to be stopped. By the report's risk score, 16% rated residential speeding more dangerous than the
+other behaviours and 9% less; for highway speeding the figures were 6% and 24% (Figure 7).
+
+**Behaviour and situations.** 21% reported never speeding on any road type, 34% rarely, 30%
+sometimes and 15% frequently (Figure 8). People were more likely to speed with no traffic (52%),
+on a long trip (45%) and on a familiar road (45%), and less likely in rain (84%), on an unfamiliar
+road (76%) and in the dark (73%) (Figure 9).
+
+**Motivations.** To speed, often or always: getting around slow vehicles (31%), reaching the
+destination faster (25%), not holding up traffic (21%), not annoying others (15%), the way the
+road is built (13%), the car's design (6%) (Figure 10). To refrain: a ticket (79%), a crash (72%),
+bad weather (60%), too much traffic (46%), insurance premiums (35%), travel cost (8%) (Figure 11).
+13% always stop themselves exceeding the limit, 34% often, 39% sometimes, 10% rarely, 4% never.
+
+**Moral disengagement** (Table 10, a bespoke scale from the focus groups). Agreement: "if people
+want to drive the speed limit, they shouldn't be in the left lane" 59%; "it's safer for me to
+drive with the flow of traffic than obey the speed limit" 49%, mean 3.3 of 5; "going a little bit
+over the speed limit isn't really speeding" 49%; "no one actually drives the speed limit" 30%;
+"roads were designed with the expectation that people will drive faster" 11%, with 56%
+disagreeing. 10% scored low on the scale, 47% moderate and 43% high.
+
+**Countermeasures** (Table 11, affect own speed, affect others, support in own neighbourhood,
+where crashes have happened, where they could): increased police presence 85, 86, 79, 87, 88;
+automated cameras 80, 73, 59, 71, 73; electronic warning signs 74, 63, 41, 43, 44; speed humps 91,
+86, 37, 43, 43; rumble strips 62, 54, 35, 40, 40; roundabouts 82, 78, 35, 39, 40. 62% thought
+police presence exists to make roads safer and 33% to raise revenue; for cameras 48% and 46%.
+87% take some action to avoid enforcement and 42% warn others; the most common action is
+adjusting speed to match the surrounding vehicles (58%), then cruise control (43%), apps (27%) and
+routes that avoid cameras (16%) (Figures 12 and 13). In the focus groups, feedback signs drew
+apathy, doubts about the displayed speed, and the sense of being "on the record".
+
+**Intelligent speed assistance** (Table 12): an advisory alert would affect 58% of respondents'
+own speed and 51% want one in their next car; an overridable limiter 62% and 35%; a
+non-overridable limiter 61% and 23%. 40% want an overridable limiter in other people's cars but
+not their own (Figure 15), most of all for people with a record of impaired driving or serious
+speeding offences (Figure 14).
+
+**Mindsets.** Five latent classes over seven dimensions, each with its own speeding threshold:
+Strict Compliance Advocates (21%, low thresholds), Safety-Focused Realists (14%, high thresholds),
+Principled Pragmatists (26%, moderate or high), Tolerant but Non-Compliant (23%, high) and
+Autonomy-First (16%, high). The report concludes that one-size-fits-all speed management is
+unlikely to be optimal. The group profiles, the Discussion and the appendices are not in the
+extraction.
+
+**Literature the report cites.** NHTSA's 2022 to 2023 national survey: only about a third think
+limits should always be enforced by police, 63% think more cameras a good idea; Peterson and
+Gaugler 2021: up to about 10 mph over is seen as typical and safe; NHTSA's 2013 latent classes:
+non-speeders 39%, sometimes 44%, speeders 17%. The report observes that definitions of speeding in
+the literature are "threshold based or derived from sensor-based driving data" and that virtually
+no study asks what people themselves count as speeding.
+
+**Limitations the report states.** A non-probability supplement for state estimates; self-report,
+with likely under-reporting; no coverage of people who read neither English nor Spanish; and
+highway images that may have pulled the expected and preferred highway limits below the real ones.
+
+### Aggressive driving and road rage: what the report states
+
+From the summary and the extracted parts of the technical report: its front matter, Part 1 and a
+few figure captions. Parts 2 and 3 are not in the extraction.
+
+- The definition the study adopts, from Finley et al. 2023 and the AAA Foundation's own 2022
+  wording: any unsafe driving behaviour performed deliberately, with ill intention or disregard
+  for safety, that impacts others. The expert panel debated speeding under it and
+  concluded that speeding on an empty open road is not aggressive, while deliberately speeding
+  around others with disregard for their safety is.
+- Road rage is behaviour intended to cause physical, psychological or emotional harm; the panel
+  proposed "violent driving" for the hostile end of the continuum, because the public and road
+  safety practitioners do not separate it from aggressive driving.
+- The literature review placed contributing factors at three levels of a socio-ecological model:
+  individual, relational and community, the last including the built environment. The frameworks
+  it surveyed are about aggression, emotion, and goal attainment or control.
 - Previous AAA Foundation work found that in 2014 more than 78% reported at least one aggressive
   behaviour in the past year.
-- The literature review places the contributing factors at three levels: individual (knowledge,
-  skills, attitudes), relational (family, friends, social networks) and community (the built and
-  social environment).
-- Focus groups produced seven themes of behaviour considered aggressive: putting others at risk,
-  getting ahead, stealing space, controlling other road users' behaviour, expressions of
-  displeasure, provoking reactions, and violence.
-- Anger and frustration dominate the literature; participants also described anxiety, fear and
-  pleasure. Most felt able to cope with anger unless "triggered".
-- Reported motivations: reaching a destination faster, perceived threats to safety, claiming
-  control over a chaotic environment, educating others, retaliating, and punishing.
-- The questionnaire measured 21 behaviours. 96% reported at least one in the previous year. Trying
+- Focus groups produced seven themes: putting others at risk, getting ahead, stealing space,
+  controlling other road users' behaviour, expressions of displeasure, provoking reactions, and
+  violence. Participants described anxiety, fear and pleasure as well as anger.
+- Reported emotions while driving: annoyed or frustrated 72%, anxious 49%, angry 48%, calm 37%,
+  empowered 17% (Figure 5). 80% drive less aggressively in rain; 18% more in rush hour and 16% more
+  in unexpected traffic (Figure 8). 56% see sports cars drive aggressively always or often
+  (Figure 9).
+- The questionnaire measured 21 behaviours. 96% reported at least one in the previous year; trying
   to get ahead (92%) and putting others at risk (92%) were the most prevalent themes; 11% reported
-  violent behaviours.
-- Higher engagement among younger and male respondents; many associations with how people feel
-  about their vehicle; valuing road etiquette and manners was protective.
-- The most salient predictor of high engagement was "aggressive driving culture": the extent to
-  which other people in one's area drive aggressively.
+  violent behaviours. Higher engagement among younger and male respondents; valuing road etiquette
+  was protective; the most salient predictor was "aggressive driving culture", how much other
+  people in one's area drive aggressively.
+- Both reports carry the same rights statement: free to copy in whole or part and distribute at no
+  charge with credit to the Foundation; not to be resold or used for commercial purposes without
+  its permission.
 
-### Figures from press coverage
+### Figures still to confirm
 
-Every row is **Confirm** against the technical report. Where a press figure disagrees with a
-summary, the summary stands.
+What neither summary nor extraction carries. The press figures the plan first relied on are kept
+only where nothing better exists.
 
-| Figure                                                                                                                                                                                                                                              | Reported by                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Three in ten agreed that no one actually drives the speed limit                                                                                                                                                                                     | [AAA newsroom release][aaa-speed-release]                                     |
-| Most common reasons for speeding: getting around slower vehicles (31%), reaching a destination faster (25%)                                                                                                                                         | AAA newsroom release                                                          |
-| Reasons to slow down: avoiding a ticket (79%), avoiding a crash (72%), bad weather (60%)                                                                                                                                                            | Press summaries of the release                                                |
-| More than nine in ten believed speed humps effective; fewer than half wanted them in their own neighbourhood                                                                                                                                        | AAA newsroom release                                                          |
-| 87% supported increased police presence where crashes have happened; 88% where they could                                                                                                                                                           | AAA newsroom release                                                          |
-| About half (51%) wanted an advisory alert in their own vehicle; 82% supported requiring a limiter for people with serious speeding records                                                                                                          | Press summaries; consistent with the summary's "more than half" for the alert |
-| Speeding was not considered to begin until about 10 mph over on residential roads, arterials and rural highways; danger not until 44 mph on residential roads, 85 mph on urban highways, 88 mph on rural highways                                   | [CBS Detroit][cbs-detroit]                                                    |
-| California: 54% agreed keeping up with traffic is safer, against 49% nationally; Nevada 51%                                                                                                                                                         | AAA regional releases                                                         |
-| The technical report runs to 196 pages and links a separate state-level estimates document                                                                                                                                                          | [AAA Foundation research page][aaafts-speed]                                  |
-| Top five reported behaviours: speeding up as a light turns from yellow to red (82%); using the right lane to pass (68%); honking at another road user's behaviour (66%); glaring (65%); driving 15 mph faster than the normal flow of traffic (58%) | [AAA Northeast][aaa-ne]                                                       |
-| Since 2016: cutting off up 67%, honking in anger up 47%, tailgating down 24%, yelling down 17%                                                                                                                                                      | [ConsumerAffairs][consumeraffairs]                                            |
-| Sample reported as 3,045 (Forbes) against the summary's 3,020                                                                                                                                                                                       | The summary stands                                                            |
-| A separate 2025 AAA Foundation telephone survey: 37% reported exceeding the limit by 10 mph on a residential street                                                                                                                                 | [IIHS speed page][iihs]                                                       |
+| Figure                                                                                                               | Where it is                                                  | Reported by                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The 21 behaviours with their prevalence and theme, and the sample and weighting                                      | Aggressive-driving report, Part 3 and Figure 3               | Press: top five as speeding up at a yellow light (82%), using the right lane to pass (68%), honking at another road user (66%), glaring (65%), driving 15 mph faster than the normal flow (58%) ([AAA Northeast][aaa-ne]) |
+| Changes since 2016: cutting off up 67%, honking up 47%, tailgating down 24%, yelling down 17%                        | Aggressive-driving report, Part 3                            | [ConsumerAffairs][consumeraffairs]                                                                                                                                                                                        |
+| The attitudinal-group profiles, the Discussion's countermeasure synthesis (Figure 16) and the state-level estimates  | Attitudes report, Appendix D and the separate state document | Not read                                                                                                                                                                                                                  |
+| A 2025 AAA Foundation telephone survey: 37% exceeded the limit by 10 mph on a residential street in the past 30 days | A different study                                            | [IIHS speed page][iihs]                                                                                                                                                                                                   |
+
+### What the technical reports add
+
+Seven things the summaries did not carry, each with a consequence for the design.
+
+1. **A curve, not an edge.** The public's threshold is a distribution by road type (Figure 5). On
+   a 25 mph residential street, 5 over is speeding to 40% and 10 over to 85%; on a 35 mph arterial,
+   5 over to a quarter and 10 over to 72%. The edition holds the curve's points per road type, and
+   the shares table's bands gain a cited reading: the share of respondents who would call each band
+   speeding.
+2. **The report's own edge matches the plan's.** It counts a self-reported speed as speeding at
+   10 mph over on residential roads and arterials and 15 over on highways. The plan's 5, 10 and 15
+   edges were chosen to match the behaviour plan; they now also match the source.
+3. **Road type is an input.** The curve, the mean threshold and the edge all depend on it, and
+   the site has no road class. The operator states it beside the limit.
+4. **Three thresholds, one printable.** The means for speeding, for police action and for danger
+   (33, 35 and 44 on a 25 mph street) are a finding worth the docs; only the first reaches a page,
+   because the second is enforcement and the third fails the guard.
+5. **The public's instrument is the pace.** 58% avoid enforcement by matching the vehicles around
+   them, and matching the flow was the first criterion in every vignette. The pace line prints the
+   quantity the public already uses.
+6. **The sensor is read as a feedback sign.** 74% say an electronic sign would change their own
+   speed, 41% want one on their street, and the focus groups doubted the displayed speed and felt
+   watched. A radar on a pole invites the same reading, so the guide says what this one is not: no
+   display, no record of any vehicle, and the calibration printed on the report.
+7. **"Aggressive" is defined by intent.** Deliberately, with ill intention or disregard, and
+   impacting others: three of the four clauses are mental states. That is the whole case for never
+   printing the word, stated in the source's own terms.
+
+Two hypotheses for the research notes also arrive: 73% say they speed less in the dark and 52%
+more when there is no traffic, which the night stratum and the opportunity denominator observe
+directly.
 
 ### What the evidence establishes and does not
 
-| Question a report reader asks                                | What the studies establish                                                                                                                                                     | What they do not establish                                                                                                                                             |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Where does the public draw the line for speeding?            | A social threshold near 10 mph over the posted limit in the US, roadway-dependent, with enforcement expected from 10 to 12 mph over: a cited bin edge for a report             | Any harm at that speed. The harm curves in the crash-data plan answer that, and a bin edge is never a safety threshold                                                 |
-| Why is this report's p85 read as normal?                     | 49% hold that the flow is safer than the limit, and keeping pace is the public's first criterion for judging a speed: the reason to print the pace of traffic beside the limit | Anything about the people who passed this site. The finding is about a national population's beliefs                                                                   |
-| Which "aggressive" behaviours can a roadside sensor observe? | A public vocabulary for two measurable behaviours: driving well above the flow, and following too closely. The rest are gestures, sounds and confrontations                    | A classification of any passage. Prevalence is self-reported per person per year; the sensor counts passages per period                                                |
-| What do people support doing about speeding?                 | Support figures for infrastructure, cameras, police presence and in-vehicle assistance, with the gap between believed effectiveness and support for one's own street           | What any community should ask for. The report takes no position on countermeasures, and the before-and-after comparison is the product's contribution to that question |
+| Question a report reader asks                                | What the studies establish                                                                                                                                                                                                                                                     | What they do not establish                                                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where does the public draw the line for speeding?            | A curve by road type: on a 25 mph residential street, 40% of respondents call 30 mph speeding and 85% call 35 mph speeding; the report's own measure is 10 mph over on residential streets and arterials and 15 on highways: cited bin edges, and a cited reading of each band | Any harm at those speeds. The harm curves in the crash-data plan answer that, and a bin edge is never a safety threshold                                               |
+| Why is this report's p85 read as normal?                     | 49% hold that the flow is safer than the limit, 49% that a little over is not really speeding, and matching the flow is the first criterion for judging a speed and the most common way to avoid enforcement: the reason to print the pace of traffic beside the limit         | Anything about the people who passed this site. The findings are about a national population's beliefs                                                                 |
+| Which "aggressive" behaviours can a roadside sensor observe? | A public vocabulary for two measurable behaviours, driving well above the flow and following too closely, and a definition whose load-bearing clauses are intent                                                                                                               | A classification of any passage. Prevalence is self-reported per person per year; the sensor counts passages per period                                                |
+| What do people support doing about speeding?                 | Support by countermeasure and by place, the gap between believed effect and support on one's own street, and the split on whether cameras exist for safety or revenue                                                                                                          | What any community should ask for. The report takes no position on countermeasures, and the before-and-after comparison is the product's contribution to that question |
 
 ### What the sensor can observe of the public's vocabulary
 
@@ -221,24 +305,36 @@ Three consequences follow.
    vehicle, age and sex are properties of people. The sensor has none of them and, by Tenet 1, no
    means of acquiring them.
 
+The attitudes report's vignettes add how people judge a speed when there is no sign to read: the
+flow and external markers first, then following distance (one participant counting seconds as
+driver's education taught), lane keeping (swerving read as speeding), curvature, grade and
+visibility, weather, and the presence of pedestrians, cyclists and crosswalks. Three of those are
+the sensor's: the pace (8.1), the following gap (8.3) and, once lane geometry exists, lane keeping
+(8.7); the vulnerable-road-user criteria are the 8.9 and 8.10 interactions. Weather and visibility
+are context the site does not record.
+
 ### Terminology: what transfers and what does not
 
-| Term in the studies                                                                                         | In docs and plans                                                                                 | On a report page or in `data.json`                                                    | Reason                                                                                                                               |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Speeding                                                                                                    | Yes, as the public's word                                                                         | "Above the posted limit", with the limit, its unit and its provenance                 | "Speeding" alone is a judgement without a limit. The TDL token `speeding` keeps its definition, maximum speed above the posted limit |
-| Social threshold, 10 mph over                                                                               | Yes                                                                                               | A bin edge, "10 mph or more above the limit", with the citation in prose              | A questionnaire finding about acceptance, not a safety threshold                                                                     |
-| Flow of traffic, keeping pace                                                                               | Yes                                                                                               | "Pace of traffic", a measured median                                                  | The one term that names a quantity the sensor measures directly                                                                      |
-| Enforcement threshold, 10 to 12 mph over                                                                    | Yes                                                                                               | Never                                                                                 | The report takes no position on enforcement                                                                                          |
-| Driver mindsets; the five class names                                                                       | Yes, as the study's classes of respondents                                                        | Never                                                                                 | Classes of people from attitude items; the sensor has no people, and `driver` fails the guard                                        |
-| Aggressive driving, road rage                                                                               | Yes, attributed to the studies                                                                    | Never                                                                                 | Verdict words; `aggress` fails the guard and `rage` should                                                                           |
-| Aggressive driving culture                                                                                  | Yes, as above                                                                                     | Never                                                                                 | A community variable measured by asking; the observed distribution is reported as a distribution                                     |
-| Putting others at risk, and the other six themes                                                            | Yes, attributed                                                                                   | Never                                                                                 | `risk` fails the guard; a theme is a label                                                                                           |
-| Safe speeding, dangerous speeding                                                                           | Only as the study's description of moral disengagement                                            | Never                                                                                 | `danger` and `unsafe` fail the guard; the distinction is the one the study identifies as a justification                             |
-| Countermeasures: infrastructure-based, automated enforcement, police presence, intelligent speed assistance | Yes, in a guide, neutrally, with the project's stance stated                                      | Never                                                                                 | Editorial stance; the before-and-after comparison is the product's answer to "did it work"                                           |
-| Survey                                                                                                      | "Questionnaire" or "attitudes questionnaire" for theirs; "speed survey" for ours when both appear | "Survey" keeps the V12 meaning                                                        | V12 defines a survey as a deployment's measurement                                                                                   |
-| Violation, offender, non-compliant                                                                          | Only when quoting                                                                                 | Never                                                                                 | `violat` and `offend` fail the guard; "non-compliant" labels a person                                                                |
-| Compliance                                                                                                  | Yes                                                                                               | As the behaviour plan's `legal` kind prints it: the speed and the limit, not the word | The measurement is the two numbers                                                                                                   |
-| Top speeders, high-risk driving patterns (ours, today)                                                      | Remove                                                                                            | Remove                                                                                | Labels on people; `speeder` joins the guard                                                                                          |
+| Term in the studies                                                                                         | In docs and plans                                                                                 | On a report page or in `data.json`                                                                                      | Reason                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Speeding                                                                                                    | Yes, as the public's word                                                                         | "Above the posted limit", with the limit, its unit and its provenance                                                   | "Speeding" alone is a judgement without a limit. The TDL token `speeding` keeps its definition, maximum speed above the posted limit |
+| Social threshold, 10 mph over                                                                               | Yes                                                                                               | A bin edge, "10 mph or more above the limit", with the citation in prose                                                | A questionnaire finding about acceptance, not a safety threshold                                                                     |
+| Flow of traffic, keeping pace                                                                               | Yes                                                                                               | "Pace of traffic", a measured median                                                                                    | The one term that names a quantity the sensor measures directly                                                                      |
+| Enforcement threshold, 10 to 12 mph over                                                                    | Yes                                                                                               | Never                                                                                                                   | The report takes no position on enforcement                                                                                          |
+| Driver mindsets; the five class names                                                                       | Yes, as the study's classes of respondents                                                        | Never                                                                                                                   | Classes of people from attitude items; the sensor has no people, and `driver` fails the guard                                        |
+| Aggressive driving, road rage                                                                               | Yes, attributed to the studies                                                                    | Never                                                                                                                   | Verdict words; `aggress` fails the guard and `rage` should                                                                           |
+| Aggressive driving culture                                                                                  | Yes, as above                                                                                     | Never                                                                                                                   | A community variable measured by asking; the observed distribution is reported as a distribution                                     |
+| Putting others at risk, and the other six themes                                                            | Yes, attributed                                                                                   | Never                                                                                                                   | `risk` fails the guard; a theme is a label                                                                                           |
+| Safe speeding, dangerous speeding                                                                           | Only as the study's description of moral disengagement                                            | Never                                                                                                                   | `danger` and `unsafe` fail the guard; the distinction is the one the study identifies as a justification                             |
+| Countermeasures: infrastructure-based, automated enforcement, police presence, intelligent speed assistance | Yes, in a guide, neutrally, with the project's stance stated                                      | Never                                                                                                                   | Editorial stance; the before-and-after comparison is the product's answer to "did it work"                                           |
+| Survey                                                                                                      | "Questionnaire" or "attitudes questionnaire" for theirs; "speed survey" for ours when both appear | "Survey" keeps the V12 meaning                                                                                          | V12 defines a survey as a deployment's measurement                                                                                   |
+| Violation, offender, non-compliant                                                                          | Only when quoting                                                                                 | Never                                                                                                                   | `violat` and `offend` fail the guard; "non-compliant" labels a person                                                                |
+| Compliance                                                                                                  | Yes                                                                                               | As the behaviour plan's `legal` kind prints it: the speed and the limit, not the word                                   | The measurement is the two numbers                                                                                                   |
+| Top speeders, high-risk driving patterns (ours, today)                                                      | Remove                                                                                            | Remove                                                                                                                  | Labels on people; `speeder` joins the guard                                                                                          |
+| Technical speeding, acceptable speeding                                                                     | Yes: the focus groups' own pair                                                                   | "Above the posted limit" for the first; the bands, with the share of respondents who call each speeding, for the second | The report's distinction between the law and the norm; the page prints both without a verdict on either                              |
+| Speed limit credibility; expected and preferred limits                                                      | Yes                                                                                               | Never                                                                                                                   | A property of respondents' beliefs about limits, not of a street                                                                     |
+| Non-speeder, rare, sometimes and frequent speeder                                                           | Only as the report's classes                                                                      | Never                                                                                                                   | Classes of people; `speeder` joins the guard                                                                                         |
+| Speed feedback sign, electronic warning sign                                                                | Yes, in the guide, to say what the sensor is not                                                  | Never                                                                                                                   | A feedback sign shows each vehicle its speed; this sensor shows nothing and records no vehicle                                       |
 
 ### The wording guard and the sources' own titles
 
@@ -324,16 +420,25 @@ transit worker keeps direction, the radar pace follows the same definition and t
 ### Limit-relative shares
 
 For the period and for each of the crash-data plan's four strata, the share of transits at or below
-the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph,
-matching the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in
-the project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on
-a LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N
-and is masked under 50 transits, the stratum table's rule, and the identifiability analysis's
+the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph. The
+edges are the report's own: it counts a self-reported speed as speeding at 10 mph over on
+residential streets and arterials and 15 over on highways, and on a 25 mph residential street 40%
+of its respondents call 5 over speeding and 85% call 10 over speeding (Figures 5 and 8). They also
+match the behaviour plan's `speeding_exposure_{5,10,15}` edges, so there is one set of edges in the
+project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on a
+LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N and
+is masked under 50 transits, the stratum table's rule, and the identifiability analysis's
 small-cell rule applies to the complement. The boundary-hour filter applies to every cell exactly
 as it does to the headline numbers, the crash-data plan's Item 2a rule. The pace and the shares use
 the same speed expression as the headline percentiles, cosine correction included: a mount angle of
 20° understates an uncorrected speed by 6%, and a share against a limit is the figure whose reading
 that understatement changes.
+
+The curve the paragraph cites and the edge it names depend on the site's road type, residential,
+arterial or highway, which the site does not record. The operator states it beside the limit, in
+the report configuration today and on the site after the vocabulary plan's sites merge, and the
+report prints it as operator-stated. Without one, the table prints its bands and the paragraph
+cites the flow finding alone.
 
 The comparison is with the limit, so the benchmark kind is `legal`, with the limit's jurisdiction
 and effective date once the posted limits plan supplies them. The 10 mph edge is a reporting
@@ -341,39 +446,55 @@ choice, and the edition records why it was chosen and what it cites. A bin edge 
 `research_threshold`; the behaviour plan's `no_established_threshold` carries no citation, so the
 provenance of the edge lives in the edition entry and the prose, not on the benchmark.
 
-Edges are in the sign's unit. The 10 mph figure is a finding about the United States. A site whose
-limit is signed in km/h, or in a jurisdiction with no cited edges, prints the share above the limit
-and nothing finer until the edition carries an entry for it.
+Edges are in the sign's unit. The curve and the edges are findings about the United States. A site
+whose limit is signed in km/h, or in a jurisdiction with no cited edges, prints the share above the
+limit and nothing finer until the edition carries an entry for it.
 
 ### Attitudes entries in the safety-reference edition
 
 The crash-data plan's pinned edition gains a `surveys` group, one edition rather than two, with the
 same provenance fields: each entry carries the figure, the population and its size, the instrument
-year, a paraphrase of the item, the citation with its full title in the field the guard skips, and
-the date the source was read. The entries printed are the ones the pace line and the shares need:
+and fieldwork dates, a paraphrase of the item, the report's figure or table number, the citation
+with its full title in the field the guard skips, and the date the source was read. The entries
+the pace line and the shares need:
 
-- 49% agreed that driving with the flow of traffic is safer than obeying the limit.
-- A common social threshold for speeding of about 10 mph over the posted limit.
-- Enforcement expected to begin at 10 to 12 mph over, kept in the edition and not printed.
-- About one in five favoured limits at least 10% above expected levels.
+- 49% agreed that it is safer to drive with the flow of traffic than obey the speed limit
+  (Table 10; mean 3.3 on a five-point scale).
+- The curve of respondents who call a speed speeding, by road type (Figure 5): residential
+  25 mph, 40% at 30, 85% at 35, nearly all at 45; arterial 35 mph, about 25% at 40, 72% at 45,
+  nearly all at 60; rural highway 70 mph, 34% at 75, 94% at 85; urban highway 70 mph, 34% at 75,
+  94% at 80.
+- The mean speeds respondents called speeding by road type (Figure 4): 33, 45, 80 and 78 mph
+  against limits of 25, 35, 70 and 70.
+- The report's own definition of speeding for classifying respondents: 10 mph over the expected
+  limit on residential roads and arterials, 15 on highways, which is the provenance of the shares'
+  edges.
+- Expected and preferred residential limits, 25.8 and 26.2 mph, and the 24% who would set a
+  residential limit at least 10% above what they expected (Figure 6).
+- Kept in the edition and never printed, for the docs: the mean speeds at which respondents
+  expected police to act (35, 47, 81 and 80) and the speeds they called dangerous (44, 56, 88 and
+  85).
 
-The mindsets, the countermeasure support figures and every aggressive-driving prevalence figure
-stay out of the edition. They have no report surface.
+The mindsets, the countermeasure and ISA support figures, the moral-disengagement items beyond the
+flow item, and every aggressive-driving figure stay out of the edition. They have no report
+surface.
 
 ### The cited attitudes paragraph
 
-It replaces the "top speeders" paragraph and passes the guard. A draft:
+It replaces the "top speeders" paragraph and passes the guard. A draft for a residential site:
 
 > Half the public reads a speed against the traffic around it rather than the sign. In a national
-> questionnaire of more than 16,000 U.S. motorists, 49% agreed that keeping pace with traffic is
-> safer than obeying the limit, and the common social threshold for calling a speed excessive sat
-> about 10 mph over the posted limit (Steinbach et al. 2026). This report prints the pace of
-> traffic beside the limit, and the share of passages 10 mph or more above the limit, so a reader
-> can see where this street's pace sits against both. The threshold is where acceptance ends,
-> not where harm begins; the harm figures are in the section above, with their sources.
+> questionnaire of 16,598 people who had driven in the previous month, 49% agreed that keeping
+> pace with traffic is safer than obeying the limit (Steinbach et al. 2026). Asked where speeding
+> begins on a 25 mph residential street, 40% said 30 mph and 85% said 35 mph, and the report's
+> own measure of speeding on such a street is 10 mph over. This report prints the pace of traffic
+> beside the limit, and the share of passages 5, 10 and 15 mph above it, so a reader can see where
+> this street's pace sits against both. Those thresholds are where acceptance ends, not where harm
+> begins; the harm figures are in the section above, with their sources.
 
-The paragraph is driven from `data.json` and the edition, so the figures and the edition identifier
-render from data rather than template text.
+The third sentence is chosen by the stated road type and omitted without one. The paragraph is
+driven from `data.json` and the edition, so the figures and the edition identifier render from data
+rather than template text.
 
 ### One wording guard
 
@@ -390,12 +511,15 @@ words: they are not scanned, and the report prints them marked as operator-suppl
 
 ### Documentation surfaces
 
-- A guide section for people reading a report: why half of readers will call the pace normal,
-  what the 10 mph band means and does not mean, and what the public says it supports, printed
-  neutrally with the project's stance. Target `public_html/src/guides/reports.md`, a guide the
-  index does not yet have.
+- A guide section for people reading a report: why half of readers will call the pace normal;
+  what the bands mean and do not mean, with the curve; what the public says it supports, printed
+  neutrally with the project's stance; and what the sensor is not. It is not a speed feedback
+  sign, which 74% say would change their own speed and 41% want on their street, and whose
+  displayed speeds the focus groups doubted and felt put them "on the record"; and it is not a
+  camera. The sensor shows nothing, records no vehicle, and prints its calibration provenance on
+  the report. Target `public_html/src/guides/reports.md`, a guide the index does not yet have.
 - A one-line entry in the behaviour plan's Section 8.1 pointing at the shares and the pace, and in
-  the vocabulary plan's next round for **pace** and **questionnaire**.
+  the vocabulary plan's next round for **pace**, **questionnaire** and **road type**.
 - `references.bib` entries `Steinbach2025` and `Steinbach2026`.
 
 ### Boundaries
@@ -408,21 +532,23 @@ above the social threshold is a share above a harm threshold.
 
 ## Scope
 
-### Item 1: read the technical reports and record what they say
+### Item 1: read the rest of the technical reports and record the rights
 
-**Summary:** Replace every **Confirm** figure with the report's own, and record the rights.
+**Summary:** Replace the remaining **Confirm** figures from the parts of the reports the
+extractions did not carry, and settle the rights.
 
 **Steps:**
 
-1. The attitudes report: the questionnaire's wording for the flow-of-traffic item, the
-   speed-limit preference items and how "expected levels" was elicited, the social threshold by
-   roadway type with the figures CBS Detroit attributes to it, the countermeasure and ISA support
-   figures by configuration, the latent class method and the items that define each class, the
-   state-level estimates method, and the stated limitations.
-2. The aggressive-driving report: the 21 behaviours with their prevalence and theme assignment,
-   the aggressive driving culture items, the 2014 and 2016 comparison method, and the sample size
-   the report states.
-3. The AAA Foundation's terms for citing and reproducing figures from its reports.
+1. The aggressive-driving report's Parts 2 and 3: the 21 behaviours with their prevalence and
+   theme, the sample and weighting, the 2014 and 2016 comparison method, and the aggressive
+   driving culture items; the wording of the "15 mph faster than the normal flow" item, which
+   decides the pace-above edge.
+2. The attitudes report's attitudinal-group profiles (Appendix Tables D3 to D7), the LCA
+   variables (Appendix E), the Discussion's countermeasure synthesis (Figure 16), and the
+   state-level document.
+3. Rights: both reports permit copying with credit and bar resale or commercial use without the
+   Foundation's permission. Settle whether this project's use is non-commercial, the same question
+   the crash-data plan asks of CC BY-NC-ND 4.0, and record the answer in both plans.
 4. Add both sources to `data/maths/references.bib` and a dated verified-sources table to this
    plan.
 
@@ -460,9 +586,11 @@ against the operator-supplied limit, with no external data.
 2. The shares table per period and per stratum, edges from the edition for the sign's unit, masked
    under 50, the boundary-hour filter applied as to the headline numbers, the limit's provenance
    printed as operator-supplied, and the direction caveat for radar.
-3. The same speed expression as the headline percentiles, cosine correction included, proved by a
+3. An operator-stated road type, residential, arterial or highway, in the report configuration
+   beside the limit, printed with it and absent by default.
+4. The same speed expression as the headline percentiles, cosine correction included, proved by a
    test on a site with a mount angle.
-4. Tests: the Friday 18:00 stratum boundary shared with the crash-data plan's Item 2a; an hour
+5. Tests: the Friday 18:00 stratum boundary shared with the crash-data plan's Item 2a; an hour
    under 50 transits, whose passages leave the pace share; a limit in km/h, which prints the share
    above the limit only; a site with no limit, which prints no shares and no pace-against-limit
    line; the guard over the table.
@@ -479,12 +607,16 @@ crash-data plan's Item 2a
 
 **Steps:**
 
-1. The `surveys` group with the four entries, validated like the edition's other groups:
-   citation, population, year, the item's paraphrase, and the title in the skipped field.
-2. The paragraph, driven from `data.json` and the edition, with the sample described as the
-   report describes it: Item 1 confirms the population definition behind "motorists".
+1. The `surveys` group with the entries the design lists, the flow item, the curve and the mean
+   thresholds by road type, the self-report edges and the credibility figures, each validated like
+   the edition's other groups: citation, population, fieldwork dates, figure or table, the item's
+   paraphrase, and the title in the skipped field.
+2. The paragraph, driven from `data.json` and the edition, its road-type sentence chosen by the
+   stated road type and omitted without one, and its population described as the report describes
+   it: people who had driven in the previous month.
 3. Tests: the guard over the paragraph; both source titles refused and the author-year citation
-   rendered; the "acceptance ends, not where harm begins" sentence printed.
+   rendered; the "acceptance ends, not where harm begins" sentence printed; the police and danger
+   thresholds present in the edition and absent from every rendered page.
 
 **Acceptance:** the paragraph renders from the edition with its identifier, and no figure in it
 exists outside the edition.
@@ -493,11 +625,12 @@ exists outside the edition.
 
 ### Item 4: guide and plan cross-references
 
-**Summary:** The guide section, the behaviour and vocabulary plan entries.
+**Summary:** The guide section, including what the sensor is not, and the behaviour and vocabulary
+plan entries.
 
 **Acceptance:** the guide section is linked from the guide index; the behaviour plan's Section 8.1
-and the vocabulary plan's next round name the pace and the questionnaire; `references.bib` carries
-both entries.
+and the vocabulary plan's next round name the pace, the questionnaire and the road type;
+`references.bib` carries both entries.
 
 **Milestone:** v0.5.10, after Item 1
 
@@ -516,32 +649,37 @@ goes; a school-zone schedule gives the shares during active hours.
 - The [posted speed limits plan](posted-speed-limits-plan.md) for any share that is more than
   operator-supplied, and the [schedules design](../radar/architecture/speed-limit-schedules.md)
   for school-zone hours.
+- A stated road type, residential, arterial or highway, for the curve the paragraph cites and the
+  edge it names: in the report configuration until the vocabulary plan's sites merge gives it a
+  home on the site.
 - The transit source's cosine correction. The PDF's transit statistics are queried without the
   cosine join while the page prints the corrected note, an open task; a share against a limit does
   not print until the pace and the shares use the corrected speed.
 - The transit worker keeping direction, for a same-direction pace on radar.
 - The behaviour plan's owner for the guard stems beyond `speeder` and `rage`, and for the LiDAR
   `speed_relative_to_stream`, which this plan does not build.
-- Item 1's reading of the technical reports before Item 3b prints a figure.
+- Item 1's reading of the reports' remaining parts before Item 3b prints a figure.
 
 ## Risks
 
-| Risk                                                                                   | Likelihood | Impact | Mitigation                                                                                                                                                              |
-| -------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The 10 mph band is read as a harm threshold                                            | High       | High   | The paragraph says where acceptance ends is not where harm begins; a test checks the sentence; the harm paragraph in the crash-data plan sits above it with its sources |
-| A self-reported prevalence is printed beside an observed share                         | Medium     | High   | No prevalence figure enters the edition; the terminology contract's rule 2; review of every `surveys` entry against it                                                  |
-| The guard refuses the citation                                                         | High       | Low    | Author and year on the page, the title in the skipped field, and a test that both titles are refused and the citation renders                                           |
-| A reviewer wants the mindsets as a segmentation of a street's traffic                  | Medium     | Medium | The sensor has no people; the boundary is stated; `driver` and `mindset` in the guard make the label unprintable                                                        |
-| The radar pace mixes directions and is read as one stream                              | High       | Low    | The caveat prints until the worker keeps direction; the LiDAR definition is same-direction                                                                              |
-| Press figures are wrong                                                                | Medium     | Medium | Item 1 first; nothing from the press table reaches the edition                                                                                                          |
-| The report is read as recommending cameras or police presence                          | Low        | High   | Nothing about countermeasures on a page; the guide states the project's stance beside any support figure                                                                |
-| A km/h site gets US bin edges                                                          | Medium     | Medium | Edges are an edition entry per unit and jurisdiction; without one, only the share above the limit prints                                                                |
-| "Survey" is read as the questionnaire in a plan, or as the deployment in a citation    | Medium     | Low    | The contract's rule 4; the style pass can flag "national survey" without "questionnaire" nearby                                                                         |
-| One site's shares are quoted as the national figure's local value                      | Medium     | Medium | The pace line and the shares carry the site and period; the paragraph names the population the 49% describes                                                            |
-| The bare stem `rage` refuses "average", "coverage" and "storage"                       | High       | Medium | A word-bounded `\brage\b`, and a test that those words pass                                                                                                             |
-| Uncorrected transit speeds at an angled mount understate every share against the limit | High       | High   | The shares use the headline speed expression; the cosine task is a dependency; a test on an angled site                                                                 |
-| The pace window follows the chart grouping and loses contemporaneity                   | Medium     | Medium | A fixed one-hour window independent of the grouping; passages in thin hours leave the share                                                                             |
-| The guard refuses an operator's own note                                               | Medium     | Low    | Operator-entered fields are not scanned; the report marks them operator-supplied                                                                                        |
+| Risk                                                                                            | Likelihood | Impact | Mitigation                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The 10 mph band is read as a harm threshold                                                     | High       | High   | The paragraph says where acceptance ends is not where harm begins; a test checks the sentence; the harm paragraph in the crash-data plan sits above it with its sources |
+| A self-reported prevalence is printed beside an observed share                                  | Medium     | High   | No prevalence figure enters the edition; the terminology contract's rule 2; review of every `surveys` entry against it                                                  |
+| The guard refuses the citation                                                                  | High       | Low    | Author and year on the page, the title in the skipped field, and a test that both titles are refused and the citation renders                                           |
+| A reviewer wants the mindsets as a segmentation of a street's traffic                           | Medium     | Medium | The sensor has no people; the boundary is stated; `driver` and `mindset` in the guard make the label unprintable                                                        |
+| The radar pace mixes directions and is read as one stream                                       | High       | Low    | The caveat prints until the worker keeps direction; the LiDAR definition is same-direction                                                                              |
+| Press figures are wrong                                                                         | Medium     | Medium | Item 1 first; nothing from the press table reaches the edition                                                                                                          |
+| The report is read as recommending cameras or police presence                                   | Low        | High   | Nothing about countermeasures on a page; the guide states the project's stance beside any support figure                                                                |
+| A km/h site gets US bin edges                                                                   | Medium     | Medium | Edges are an edition entry per unit and jurisdiction; without one, only the share above the limit prints                                                                |
+| "Survey" is read as the questionnaire in a plan, or as the deployment in a citation             | Medium     | Low    | The contract's rule 4; the style pass can flag "national survey" without "questionnaire" nearby                                                                         |
+| One site's shares are quoted as the national figure's local value                               | Medium     | Medium | The pace line and the shares carry the site and period; the paragraph names the population the 49% describes                                                            |
+| The bare stem `rage` refuses "average", "coverage" and "storage"                                | High       | Medium | A word-bounded `\brage\b`, and a test that those words pass                                                                                                             |
+| Uncorrected transit speeds at an angled mount understate every share against the limit          | High       | High   | The shares use the headline speed expression; the cosine task is a dependency; a test on an angled site                                                                 |
+| The pace window follows the chart grouping and loses contemporaneity                            | Medium     | Medium | A fixed one-hour window independent of the grouping; passages in thin hours leave the share                                                                             |
+| The guard refuses an operator's own note                                                        | Medium     | Low    | Operator-entered fields are not scanned; the report marks them operator-supplied                                                                                        |
+| The site's road type is stated wrong, and an arterial's curve is cited for a residential street | Medium     | Medium | The road type prints beside the limit as operator-stated; without one the paragraph cites the flow finding only                                                         |
+| The curve is read as the share of passages that are speeding                                    | Medium     | Medium | The paragraph says the curve is the share of respondents who would call that speed speeding, in a sentence apart from the passages' shares                              |
 
 ## Open questions
 
@@ -551,43 +689,60 @@ goes; a school-zone schedule gives the shares during active hours.
 - Which edges for km/h jurisdictions, and is an enforcement guideline such as the UK's "10% plus
   2 mph" a legitimate cited edge when the report takes no position on enforcement? The alternative
   is the share above the limit only until an attitudes source for that jurisdiction exists.
+- Where does road type live, and which of the report's four types does a site take? The report's
+  residential image is a 25 mph street; a 30 or 35 mph collector sits between its residential and
+  arterial curves, and the report has no curve for it.
+- Does the share above the pace use 10 mph or 15? The aggressive-driving item is "15 mph faster
+  than the normal flow of traffic" (press; **Confirm**), the only pace-relative threshold either
+  study names. The plan prints 10 until the item's wording is read.
+- The report's definition of speeding is measured from the limit respondents expected, not the
+  posted one; a site uses the posted limit. Does the paragraph say so, or is the difference small
+  enough on a 25 mph street (expected 25.8) to leave to the docs?
 - Is 50 the right floor for an hour's pace? A median of 20 values is steadier than an 85th
   percentile of 20, so the hour floor may sit lower than the chart's;
   [Q24](../../data/QUESTIONS.md) asks the same of p85, and the floor follows its answer.
-- Decision to record on acceptance, in `DECISIONS.md`: the report takes no position on
-  enforcement or countermeasures. The guide and every later surface inherit it, so it belongs in
-  the register rather than in one plan.
 - Should the radar pace line wait for direction, or print mixed-direction with the caveat? The
   plan prints with the caveat.
 - Does the `surveys` group sit in `internal/report/safetyref` with the harm and rate entries, or
   does the package take a wider name? One edition either way.
-- Can a percentage from an AAA Foundation report be reproduced with citation under its terms?
-  Item 1 reads them.
+- Does the guide show the danger and police thresholds (44 and 35 on a 25 mph street) at all,
+  given that the guard keeps both off every page? The docs are not a page, so the plan says yes,
+  labelled as what respondents said.
+- 84% say they speed less in rain and 73% less in the dark; the site records no weather. Does a
+  report ever take a weather record, or does the stratum table say only that the site cannot tell
+  a wet night from a dry one? Out of this plan's scope; logged for the crash-data plan's strata.
+- Reproduction is settled in part: both reports permit copying with credit and bar commercial use
+  without permission. Whether this project's use is commercial is the open half, shared with the
+  crash-data plan's CC BY-NC-ND question, and Item 1 records one answer in both plans.
 - The behaviour plan's 8.3 bands were chosen without the aggressive-driving study; its
   self-reported tailgating decline since 2016 is not evidence about a band. Should 8.3's prose
   say so, to stop the comparison being made later?
+- Decision to record on acceptance, in `DECISIONS.md`: the report takes no position on
+  enforcement or countermeasures. The guide and every later surface inherit it, so it belongs in
+  the register rather than in one plan.
 
 ## Sources checked
 
-Checked on October 9, 2026. Both summaries were read in full from the uploaded PDFs. The technical
-reports could not be fetched: `aaafoundation.org`, `newsroom.aaa.com` and `content.presspage.com`
-were unreachable from the review environment, and the proxy refused the direct downloads.
-**Confirm** marks a claim whose primary document was not read.
+Checked on October 9, 2026. Both summaries were read in full from the uploaded PDFs; the technical
+reports were read from text extractions the owner supplied, in which figures are placeholders and
+the numbers in a figure come from its extracted axis labels. The AAA Foundation site, the AAA
+newsroom and their mirrors were unreachable from the review environment. **Confirm** marks a claim
+whose primary text was not read.
 
-| Source                                                                | What was read or found                                                                                                                                    | Status                   |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Attitudes Towards Speeding, report summary, August 2026               | Three pages: introduction, method, every key finding and the five-mindset table                                                                           | Read                     |
-| [Attitudes Towards Speeding, technical report][aaafts-speed-pdf]      | 196 pages per the research page; state-level estimates in a separate document; Part 4 simulator report forthcoming                                        | **Confirm**; not fetched |
-| Aggressive Driving and Road Rage, report summary, September 2025      | Two pages: introduction, methodology, every key finding                                                                                                   | Read                     |
-| [Aggressive Driving and Road Rage, technical report][aaafts-aggr-pdf] | The 21 behaviours, their prevalence and the 2016 comparison are in it and not in the summary                                                              | **Confirm**; not fetched |
-| [AAA newsroom release, August 18, 2026][aaa-speed-release]            | Three in ten on "no one drives the limit"; reasons for speeding; speed humps believed effective by more than nine in ten; 87% and 88% for police presence | **Confirm**; via search  |
-| [AAA newsroom release, September 2025][aaa-aggr-release]              | 96% any behaviour; 11% violent; behaviours contagious                                                                                                     | **Confirm**; via search  |
-| [AAA Northeast][aaa-ne]                                               | The top five behaviours with percentages                                                                                                                  | **Confirm**; via search  |
-| [ConsumerAffairs][consumeraffairs]                                    | The four changes since 2016                                                                                                                               | **Confirm**; via search  |
-| [CBS Detroit][cbs-detroit]                                            | The 10 mph threshold by roadway type and the 44, 85 and 88 mph danger thresholds                                                                          | **Confirm**; via search  |
-| [IIHS speed topic page][iihs]                                         | A 2025 AAA Foundation telephone survey: 37% exceeded the limit by 10 mph on a residential street                                                          | **Confirm**; via search  |
-| [AAA Foundation research page, attitudes][aaafts-speed]               | Lists the report, the summary and the state-level estimates                                                                                               | **Confirm**; via search  |
-| [AAA Foundation research page, aggressive driving][aaafts-aggr]       | Lists the report and the summary                                                                                                                          | **Confirm**; via search  |
+| Source                                                                | What was read or found                                                                                                                                                                                                                                                           | Status                         |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Attitudes Towards Speeding, report summary, August 2026               | Three pages: introduction, method, every key finding and the five-mindset table                                                                                                                                                                                                  | Read                           |
+| [Attitudes Towards Speeding, technical report][aaafts-speed-pdf]      | Front matter, Part 1, all of Part 2, Part 3's questionnaire design, method, weighting, limitations and results through the start of the attitudinal-group profiles: Tables 9 to 12 and Figures 4 to 15; the group profiles, Discussion, Conclusions and appendices not extracted | Read in part                   |
+| Aggressive Driving and Road Rage, report summary, September 2025      | Two pages: introduction, methodology, every key finding                                                                                                                                                                                                                          | Read                           |
+| [Aggressive Driving and Road Rage, technical report][aaafts-aggr-pdf] | Front matter, the rights statement, Part 1's definitions and frameworks, and figure captions for Figures 5, 8 and 9; Parts 2 and 3 not extracted                                                                                                                                 | Read in part                   |
+| [AAA newsroom release, August 18, 2026][aaa-speed-release]            | Figures since confirmed against Tables 10 and 11 and Figures 10 and 11                                                                                                                                                                                                           | Superseded                     |
+| [AAA newsroom release, September 2025][aaa-aggr-release]              | 96% any behaviour; 11% violent; behaviours contagious; matches the summary                                                                                                                                                                                                       | Superseded                     |
+| [AAA Northeast][aaa-ne]                                               | The top five behaviours with percentages                                                                                                                                                                                                                                         | **Confirm**; via search        |
+| [ConsumerAffairs][consumeraffairs]                                    | The four changes since 2016                                                                                                                                                                                                                                                      | **Confirm**; via search        |
+| [CBS Detroit][cbs-detroit]                                            | The 44, 85 and 88 mph danger thresholds; confirmed against Figure 4                                                                                                                                                                                                              | Superseded                     |
+| [IIHS speed topic page][iihs]                                         | A 2025 AAA Foundation telephone survey: 37% exceeded the limit by 10 mph on a residential street                                                                                                                                                                                 | **Confirm**; a different study |
+| [AAA Foundation research page, attitudes][aaafts-speed]               | Lists the report, the summary and the state-level estimates                                                                                                                                                                                                                      | **Confirm**; via search        |
+| [AAA Foundation research page, aggressive driving][aaafts-aggr]       | Lists the report and the summary                                                                                                                                                                                                                                                 | **Confirm**; via search        |
 
 [aaafts-speed-pdf]: https://aaafoundation.org/wp-content/uploads/2026/08/202608_AAAFTS-Attitudes-towards-Speeding.pdf
 [aaafts-aggr-pdf]: https://aaafoundation.org/wp-content/uploads/2026/01/202509-AAAFTS-Aggressive-Driving.pdf
@@ -605,14 +760,15 @@ were unreachable from the review environment, and the proxy refused the direct d
 ### Complete
 
 - [x] Both report summaries read and recorded; press figures tabled with their status
-- [x] The 21-behaviour vocabulary mapped to the behaviour plan's feature matrix and to what the sensor cannot see
+- [x] Technical reports read from the owner's extractions: the attitudes report's methods and results through its attitudinal groups, the aggressive-driving report's definitions; press figures replaced where the text carries the number
+- [x] The behaviour vocabulary mapped to the behaviour plan's feature matrix and to what the sensor cannot see
 - [x] Terminology contract: what transfers to docs, what reaches a page, and the V12 collision
 
 ### Outstanding
 
-- [ ] Item 1: technical reports read, every **Confirm** replaced, rights recorded, `references.bib` entries (`S`)
+- [ ] Item 1: the reports' unextracted parts read, every **Confirm** replaced, rights settled, `references.bib` entries (`S`)
 - [ ] Item 2: one wording guard with `speeder` and a word-bounded `rage`, the percentile copy rewritten, a guard test over the speed report (`S`)
-- [ ] Item 3a: pace line and limit-relative shares per period and stratum, with the cosine-corrected speed expression, tests (`M`)
+- [ ] Item 3a: pace line and limit-relative shares per period and stratum, the operator-stated road type, the cosine-corrected speed expression, tests (`M`)
 - [ ] Item 3b: `surveys` group in the edition and the cited attitudes paragraph, tests (`S`)
 - [ ] Item 4: guide section and plan cross-references (`S`)
 
