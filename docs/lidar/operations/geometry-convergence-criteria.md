@@ -155,6 +155,46 @@ None of these is a pass or a fail: they are where the baseline and the candidate
 plan replaces stand against levels written after them, which is the one direction the record
 allows.
 
+**W2, `solid_body_containment`**, the first arm scored against the levels as written: kirk0 at
+`a91db3862` with the Go measures, the corpus medians from pass 4 of the alignment run's harness,
+all in the [containment corpus report](solid-body-containment-corpus-2026-10.md).
+
+| Id  | A2 with containment                                                                             | Alignment candidate with containment                   | Against the level                                                      |
+| --- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| G1  | Unchanged: yaw is not W2's to move                                                              | Unchanged                                              | Not read                                                               |
+| G3  | kirk0 `2-4s` 0.58, `4s+` 0.45; corpus 0.23, 0.26 (axis, from the rows)                          | kirk0 0.05, 0.19; corpus 0.04, 0.05                    | Not W2's; the candidate's course heading meets it by construction      |
+| G5  | Body centre 0.41 (1,108 rows); corpus median 0.60 (0.45 to 0.80 by site)                        | 0.40 (1,103 rows); corpus 0.66 (0.50 to 0.81)          | Not met, and not met by construction (amendment 2)                     |
+| G6  | Length 0.036, width 0.068; corpus 0.025, 0.058                                                  | 0.037, 0.048; corpus 0.018, 0.040                      | Not met: the frame's span against a window-minimum floor (amendment 2) |
+| G7  | 5 of 19                                                                                         | 11 of 20                                               | Unchanged by W2                                                        |
+| G8  | Car 4.05 of 4.26 m (7 of 7 within 15 %); truck 1 6.38; truck 2 1.96 reported                    | Car 3.91; truck 1 8.88; truck 2 0.75                   | Unchanged in substance: the floor, not the belief, moved               |
+| G9  | 3 of 7                                                                                          | 3 of 7                                                 | Unchanged                                                              |
+| G10 | kirk0 p99 0.291 to 0.156 m; corpus body centre +0.007 m (13 / 8), all windows −0.070 m (2 / 19) | 0.152 to 0.156 m; +0.017 m (17 / 4), −0.074 m (5 / 16) | Not met as written; met on the same windows (amendment 1)              |
+| G11 | 93, 0.306, 0.275                                                                                | 118, 0.310, 0.272                                      | Met, both inside the 19-switch band                                    |
+| G12 | p99 7.30 ms (+71 %), p50 0.416 ms (3.0×); shadow p99 +102 %                                     | Not timed                                              | Not met                                                                |
+
 ## Amendments
 
-None.
+Proposed 2026-10-09 from the W2 score, neither adopted: each changes a level or its test, which
+is a decision this record only reports. Until one is adopted the levels above stand as written
+and W2 is scored against them.
+
+1. **G10's population.** The body-centre p99 is read over windows of five consecutive
+   body-centre rows, and a change that keeps a claim where it used to lapse moves rows into
+   that population: under W2 it grew at 21 to 23 of 23 sites while the lateral on the windows
+   both arms score was unchanged (2,976 matched windows, median paired difference 0.000 m).
+   Proposed test: the p99 over every scored window (`anchor_point_estimates_all`) beside the
+   body-centre figure, and the matched-window comparison as the operational form, with the
+   windows an arm adds and loses reported apart. The level, not above the baseline's, would
+   apply to the all-window figure and to the matched windows.
+2. **G5 and G6's floor.** "Met by construction once W2 ships" was wrong as W2 is built: the
+   reported box is floored at the window-minimum span (the smallest 1 %-trimmed extent over axes
+   within 10° of the believed one), which understates a cluster growing or turning past the
+   window and leaves the outermost 1 % of returns outside by design, and the position is held
+   only on the axes a fix left open. The held share is 0.60 to 0.66 at the corpus median and
+   rows that took a floor hold fewer of their points (0.88 to 0.93 at hyde-ofarrell) than rows
+   that did not (0.99). Proposed: state the floor's definition in G6's test and read its
+   shortfall against the window minimum, not the frame's span, which makes the reported box's
+   shortfall zero by construction as intended; set G5's level on the share the trimmed floor can
+   reach (0.98 of points within 0.15 m is above the trim), or change the floor to the frame's
+   untrimmed span and re-score. Which of the three mechanisms accounts for most of the gap is
+   not attributed; the per-row record distinguishes floored rows for that.
