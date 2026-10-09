@@ -56,6 +56,7 @@ package l5tracks
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -1098,9 +1099,65 @@ func extentFloorName(length, width bool) string {
 // psi and across it (minimumAxisSpan, which understates along a wrong axis
 // and cannot overstate), zero for too few points.
 func windowMinimumSpans(points []l4perception.WorldPoint, psi float64) (along, across float32) {
-	along, _ = minimumAxisSpan(points, float32(psi))
-	across, _ = minimumAxisSpan(points, float32(psi+math.Pi/2))
+	sub := floorPoints(points)
+	along = floorSpan(points, sub, float32(psi))
+	across = floorSpan(points, sub, float32(psi+math.Pi/2))
 	return along, across
+}
+
+// floorSpan is the window-minimum span of points along the axis: the angle
+// is searched on sub, and the trimmed span read on every point at the angle
+// found. The span at any angle in the window is at least the window's
+// minimum, so the floor is never below the whole cloud's window minimum,
+// and it overstates it by at most the span's change over the one-degree
+// step the search takes.
+func floorSpan(points, sub []l4perception.WorldPoint, axisRad float32) float32 {
+	span, angle, ok := minimumAxisSpanAngle(sub, axisRad)
+	if !ok {
+		return 0
+	}
+	if len(sub) == len(points) {
+		return span
+	}
+	full, ok := trimmedSpan(points, make([]float64, len(points)), math.Cos(angle), math.Sin(angle))
+	if !ok {
+		return span
+	}
+	return float32(full)
+}
+
+// containmentFloorMaxPoints caps the returns the floor's angle search reads.
+// minimumAxisSpan selects two order statistics at each of 21 angles, so the
+// floor was 42 selections over the cluster per frame; on a near body's full
+// membership, a thousand returns and more, that tripled the median
+// Tracker.Update on kirk0 and raised its p99 by 71 % against a level of
+// 10 %. Searching the angle on a fixed-size subset and reading the span on
+// every point at that angle bounds the cost at two full selections per
+// axis; the containment share and the observed spans still read every
+// return.
+const containmentFloorMaxPoints = 256
+
+// floorPoints is points, or containmentFloorMaxPoints of them drawn at
+// random with the count as the seed, so a frame's floor is reproducible and
+// no ring or azimuth order can leave a face out, as a stride did for the
+// rectangle fit.
+func floorPoints(points []l4perception.WorldPoint) []l4perception.WorldPoint {
+	n := len(points)
+	if n <= containmentFloorMaxPoints {
+		return points
+	}
+	idx := make([]int, n)
+	for i := range idx {
+		idx[i] = i
+	}
+	rng := rand.New(rand.NewSource(int64(n)))
+	out := make([]l4perception.WorldPoint, containmentFloorMaxPoints)
+	for i := range out {
+		j := i + rng.Intn(n-i)
+		idx[i], idx[j] = idx[j], idx[i]
+		out[i] = points[idx[i]]
+	}
+	return out
 }
 
 // Containment's bound noise: the trimmed extreme's sampling spread, and the
@@ -1637,22 +1694,29 @@ const (
 // the minimum over a window containing it is at most that span, so the result
 // can understate the dimension but cannot overstate it.
 func minimumAxisSpan(points []l4perception.WorldPoint, axisRad float32) (float32, bool) {
+	span, _, ok := minimumAxisSpanAngle(points, axisRad)
+	return span, ok
+}
+
+// minimumAxisSpanAngle is minimumAxisSpan with the angle the minimum was
+// found at.
+func minimumAxisSpanAngle(points []l4perception.WorldPoint, axisRad float32) (float32, float64, bool) {
 	if len(points) < DefaultMinFaceSupport {
-		return 0, false
+		return 0, 0, false
 	}
 	projections := make([]float64, len(points))
-	best := math.Inf(1)
+	best, bestAngle := math.Inf(1), float64(axisRad)
 	for deg := -spanSearchHalfWindowDeg; deg <= spanSearchHalfWindowDeg; deg += spanSearchStepDeg {
 		angle := float64(axisRad) + float64(deg)*math.Pi/180
 		span, ok := trimmedSpan(points, projections, math.Cos(angle), math.Sin(angle))
 		if ok && span < best {
-			best = span
+			best, bestAngle = span, angle
 		}
 	}
 	if math.IsInf(best, 0) {
-		return 0, false
+		return 0, 0, false
 	}
-	return float32(best), true
+	return float32(best), bestAngle, true
 }
 
 // trimmedSpan is the extent of the points along a unit direction between the

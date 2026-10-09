@@ -50,6 +50,41 @@ func TestObservedSpansFollowTheReportedAxis(t *testing.T) {
 	}
 }
 
+// The floor's angle search reads at most containmentFloorMaxPoints of a
+// frame's returns, the same ones each time, and the floor it gives on a
+// dense cloud is never below the whole cloud's window minimum and within
+// two returns' spacing above it; a cloud under the cap is read whole.
+func TestFloorPointsCapTheSearchAndKeepTheSpan(t *testing.T) {
+	psi := 0.3
+	c, s := math.Cos(psi), math.Sin(psi)
+	var points []l4perception.WorldPoint
+	for i := 0; i < 3000; i++ {
+		along, across := -2.25+float64(i%60)*(4.5/59), -0.95+float64(i/60)*(1.9/49)
+		points = append(points, l4perception.WorldPoint{X: 20 + along*c - across*s, Y: 4 + along*s + across*c})
+	}
+	sub := floorPoints(points)
+	if len(sub) != containmentFloorMaxPoints {
+		t.Fatalf("the floor read %d of %d points", len(sub), len(points))
+	}
+	for i, p := range floorPoints(points) {
+		if p != sub[i] {
+			t.Fatalf("the subset is not reproducible at %d", i)
+		}
+	}
+	fullAlong, _ := minimumAxisSpan(points, float32(psi))
+	fullAcross, _ := minimumAxisSpan(points, float32(psi+math.Pi/2))
+	capAlong, capAcross := windowMinimumSpans(points, psi)
+	if capAlong < fullAlong-1e-6 || capAcross < fullAcross-1e-6 {
+		t.Fatalf("capped floor %.3f x %.3f is below the whole cloud's window minimum %.3f x %.3f", capAlong, capAcross, fullAlong, fullAcross)
+	}
+	if capAlong > fullAlong+0.15 || capAcross > fullAcross+0.15 {
+		t.Fatalf("capped floor %.3f x %.3f overstates the whole cloud's window minimum %.3f x %.3f", capAlong, capAcross, fullAlong, fullAcross)
+	}
+	if small := floorPoints(points[:100]); len(small) != 100 || &small[0] != &points[0] {
+		t.Fatalf("a cloud under the cap was copied or cut")
+	}
+}
+
 // Through the whole tracker, every associated frame carries its containment
 // and spans, and the spans read the frame against the belief: an end-on truck
 // whose length stays the face depth has a box 8 m shorter than the points it
