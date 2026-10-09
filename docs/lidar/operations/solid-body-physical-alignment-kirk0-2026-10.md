@@ -436,6 +436,11 @@ Pooled over the corpus:
 6. **Leave the low-speed heading alone** until a course from a velocity under 2 m/s has its own
    evidence. Car 8's two poses are the only case here.
 
+The [geometry convergence plan](../../plans/lidar-tracker-geometry-convergence-plan.md) carries
+these forward. It measures the two gaps the experiments patched, a heading nothing observes and
+a box nothing ties to its points, sets the levels the tracker must reach, and schedules the two
+observation models that replace the candidate.
+
 ## Provenance
 
 - **Code.** Branch `claude/physical-align`, stacked on `dd/lidar/annotate-108` (#716). kirk0 tables

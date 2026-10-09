@@ -757,7 +757,7 @@ Classic algorithm for estimating vehicle bounding boxes from corner observations
 - [ ] Implement AdaptiveDBSCAN with range-dependent epsilon
 - [ ] Implement cluster merging for over-segmented objects
 - [ ] Build octree spatial index for efficient 3D queries
-- [ ] L-shape fitting for vehicle bounding boxes
+- [ ] L-shape fitting for vehicle bounding boxes (brought forward as the per-frame orientation observation of the [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md#41-an-orientation-observation-from-the-cluster), not as a box method)
 - [ ] Unit tests for clustering algorithms
 
 ### Phase 7: occlusion handling (week 7-8)
