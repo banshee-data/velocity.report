@@ -85,7 +85,9 @@ Three pilot findings bear on the references themselves:
   front, which the fit does not take as seen there.
 - **The window labels one frame three ways.** Sample 500 is "Frame 501 of 832" at the top,
   "Frame 504 · 501 of 832" in the left column (the recording's frame), and sample 500 in every
-  tool and record. It reads as an off-by-one and is not one; the fit plan's F4 owns the fix.
+  tool and record. It read as an off-by-one and was not one. Fixed on the same branch: every
+  label now names the sample, with the recording's frame second ("Sample 500 · recording frame
+  504"), which closes the fit plan's F4.
 
 ## Method
 
@@ -234,8 +236,8 @@ What this does not establish:
    [fit-to-points F5](../../plans/lidar-physical-fit-to-points-plan.md) is meant to suggest.
 3. Freeze revision 2 of the split with non-overlapping episodes, or always score physical
    references with `-episodes`: the pooled table counts an overlapped pose once per episode.
-4. Give the window one frame label (fit plan F4): the three labels for one sample cost the
-   operator a question during this pilot.
+4. Done on the same branch: the window names every frame by its sample (fit plan F4). The three
+   labels for one sample cost the operator a question during this pilot.
 
 ## Provenance
 
