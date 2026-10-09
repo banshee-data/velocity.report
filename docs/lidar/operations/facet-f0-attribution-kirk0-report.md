@@ -9,7 +9,8 @@ shadow work was developed on.
 
 - **Status:** Complete, 2026-10-08; Section 4.5 revised the same day for the recorded 2.3 m
   mount. Tuning split only; Step 6 not run (the pack has no physical
-  references), so the attribution gate is bounded, not closed
+  references), so the attribution gate is bounded, not closed. Step 6 ran on 2026-10-09 against
+  the first reviewed references: [physical-reference pilot](physical-reference-pilot-kirk0-2026-10.md)
 - **Layers:** L4 geometric evidence, L5 estimation, L8 analytics, offline evaluation
 - **Related:** [F0 protocol](facet-f0-attribution-kirk0.md), [facet registration plan](../../plans/lidar-facet-registration-experiment-plan.md), [near-edge tracked state](../../plans/lidar-near-edge-tracked-state-plan.md) (F9), [near-face evaluation](near-face-evaluation.md), [per-frame evaluation](per-frame-evaluation.md), [October campaign](near-edge-campaign-2026-10.md)
 - **Code:** [lidar-near-face-eval](../../../cmd/tools/lidar-near-face-eval/main.go), [lidar-ground-truth-eval](../../../cmd/tools/lidar-ground-truth-eval/main.go), [lidar-annotation-split-draft](../../../cmd/tools/lidar-annotation-split-draft/main.go), [lidar-state-estimation-baseline](../../../cmd/tools/lidar-state-estimation-baseline/main.go)

@@ -10,7 +10,7 @@ proposals that go through the same validation and review as anything typed by ha
 - **Target:** v0.5.2, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
-- **Related:** [physical reference review](lidar-physical-reference-review-plan.md), [authoring comprehension design](lidar-physical-authoring-comprehension-design.md) (its authoring flow is replaced by this one), [F0 report](../lidar/operations/facet-f0-attribution-kirk0-report.md), [mounting](../../.github/knowledge/hardware.md#mounting)
+- **Related:** [physical reference review](lidar-physical-reference-review-plan.md), [authoring comprehension design](lidar-physical-authoring-comprehension-design.md) (its authoring flow is replaced by this one), [F0 report](../lidar/operations/facet-f0-attribution-kirk0-report.md), [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md), [mounting](../../.github/knowledge/hardware.md#mounting)
 
 ## Why
 
