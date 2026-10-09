@@ -325,8 +325,8 @@ transit worker keeps direction, the radar pace follows the same definition and t
 
 For the period and for each of the crash-data plan's four strata, the share of transits at or
 below the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph,
-matching the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in the
-project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on a
+matching the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in
+the project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on a
 LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N
 and is masked under 50 transits, the stratum table's rule, and the identifiability analysis's
 small-cell rule applies to the complement. The boundary-hour filter applies to every cell exactly
@@ -552,8 +552,8 @@ goes; a school-zone schedule gives the shares during active hours.
   2 mph" a legitimate cited edge when the report takes no position on enforcement? The alternative
   is the share above the limit only until an attitudes source for that jurisdiction exists.
 - Is 50 the right floor for an hour's pace? A median of 20 values is steadier than an 85th
-  percentile of 20, so the hour floor may sit lower than the chart's; [Q24](../../data/QUESTIONS.md)
-  asks the same of p85, and the floor follows its answer.
+  percentile of 20, so the hour floor may sit lower than the chart's;
+  [Q24](../../data/QUESTIONS.md) asks the same of p85, and the floor follows its answer.
 - Decision to record on acceptance, in `DECISIONS.md`: the report takes no position on
   enforcement or countermeasures. The guide and every later surface inherit it, so it belongs in
   the register rather than in one plan.
