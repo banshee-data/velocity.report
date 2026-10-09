@@ -143,6 +143,42 @@ func TestFitRectangleCapsThePointsItReads(t *testing.T) {
 	}
 }
 
+// The closeness loop compares in place of math.Min and math.Max; on finite
+// projections the two are the same function, so the score is the same to
+// the bit, at every angle, as the form the criterion was calibrated with.
+func TestRectangleClosenessMatchesTheMinMaxForm(t *testing.T) {
+	reference := func(pts [][2]float64, theta float64) float64 {
+		ct, st := math.Cos(theta), math.Sin(theta)
+		c1, c2 := make([]float64, len(pts)), make([]float64, len(pts))
+		min1, max1 := math.Inf(1), math.Inf(-1)
+		min2, max2 := math.Inf(1), math.Inf(-1)
+		for i, p := range pts {
+			a, b := p[0]*ct+p[1]*st, -p[0]*st+p[1]*ct
+			c1[i], c2[i] = a, b
+			min1, max1 = math.Min(min1, a), math.Max(max1, a)
+			min2, max2 = math.Min(min2, b), math.Max(max2, b)
+		}
+		score := 0.0
+		for i := range pts {
+			d1 := math.Min(max1-c1[i], c1[i]-min1)
+			d2 := math.Min(max2-c2[i], c2[i]-min2)
+			score += 1 / math.Max(math.Min(d1, d2), rectangleClosenessFloorMetres)
+		}
+		return score
+	}
+	rng := rand.New(rand.NewSource(13))
+	for trial := 0; trial < 20; trial++ {
+		pts := rectanglePoints(rectangleCloud(rng, 2+rng.Float64()*8, 1+rng.Float64()*1.5, rng.Float64()*math.Pi, 30*rng.Float64(), -10, trial%2 == 0, 20+rng.Intn(200), 0.03))
+		c1, c2 := make([]float64, len(pts)), make([]float64, len(pts))
+		for deg := 0.0; deg < 90; deg += 0.25 {
+			theta := deg * math.Pi / 180
+			if got, want := rectangleCloseness(pts, c1, c2, theta), reference(pts, theta); got != want {
+				t.Fatalf("trial %d at %.2f degrees: %v against %v", trial, deg, got, want)
+			}
+		}
+	}
+}
+
 func TestFoldAxisRad(t *testing.T) {
 	for _, c := range []struct{ a, b, want float64 }{
 		{0.1, 0.1, 0}, {0.1, 0.1 + math.Pi/2, 0}, {0.1, 0.1 + math.Pi, 0}, {0, math.Pi / 4, math.Pi / 4},

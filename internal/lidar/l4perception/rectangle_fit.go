@@ -250,20 +250,43 @@ func rectanglePoints(points []WorldPoint) [][2]float64 {
 // points of the reciprocal of each point's distance to the nearer of its two
 // candidate edges, floored. c1 and c2 are scratch.
 func rectangleCloseness(pts [][2]float64, c1, c2 []float64, theta float64) float64 {
+	// Plain comparisons rather than math.Min and math.Max: the projections
+	// are finite, where the two agree, and this loop is the fit's whole cost.
 	ct, st := math.Cos(theta), math.Sin(theta)
 	min1, max1 := math.Inf(1), math.Inf(-1)
 	min2, max2 := math.Inf(1), math.Inf(-1)
 	for i, p := range pts {
 		a, b := p[0]*ct+p[1]*st, -p[0]*st+p[1]*ct
 		c1[i], c2[i] = a, b
-		min1, max1 = math.Min(min1, a), math.Max(max1, a)
-		min2, max2 = math.Min(min2, b), math.Max(max2, b)
+		if a < min1 {
+			min1 = a
+		}
+		if a > max1 {
+			max1 = a
+		}
+		if b < min2 {
+			min2 = b
+		}
+		if b > max2 {
+			max2 = b
+		}
 	}
 	score := 0.0
 	for i := range pts {
-		d1 := math.Min(max1-c1[i], c1[i]-min1)
-		d2 := math.Min(max2-c2[i], c2[i]-min2)
-		score += 1 / math.Max(math.Min(d1, d2), rectangleClosenessFloorMetres)
+		d := max1 - c1[i]
+		if x := c1[i] - min1; x < d {
+			d = x
+		}
+		if x := max2 - c2[i]; x < d {
+			d = x
+		}
+		if x := c2[i] - min2; x < d {
+			d = x
+		}
+		if d < rectangleClosenessFloorMetres {
+			d = rectangleClosenessFloorMetres
+		}
+		score += 1 / d
 	}
 	return score
 }
