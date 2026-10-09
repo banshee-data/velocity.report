@@ -236,8 +236,8 @@ func (t *Tracker) faceResidualDistanceSquared(track *TrackedObject, cluster Worl
 func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) float32 {
 	length, width := f.length, f.width
 	if f.fallback != "" {
-		length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
-		width = t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
+		length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
+		width = t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, prior.minWidthMetres)
 	}
 	halfLength, halfWidth := float64(length.Metres)/2, float64(width.Metres)/2
 	axisX, axisY := math.Cos(float64(f.axis)), math.Sin(float64(f.axis))

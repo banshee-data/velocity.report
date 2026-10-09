@@ -127,6 +127,10 @@ const (
 	ExperimentSolidBodyExtentPriorFloor = "solid_body_extent_prior_floor"
 	ExperimentSolidBodyFacePlaneSpans   = "solid_body_face_plane_spans"
 	ExperimentSolidBodyExtentGrowth     = "solid_body_extent_growth"
+	// ExperimentSolidBodyVehicleExtentFloor: a rigid vehicle's accumulated
+	// length and width are at least the smallest road car's
+	// (SolidBodyOptions.VehicleExtentFloor).
+	ExperimentSolidBodyVehicleExtentFloor = "solid_body_vehicle_extent_floor"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -172,6 +176,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyExtentPriorFloor:     true,
 	ExperimentSolidBodyFacePlaneSpans:       true,
 	ExperimentSolidBodyExtentGrowth:         true,
+	ExperimentSolidBodyVehicleExtentFloor:   true,
 	ExperimentNearEdgeTrack:                 true,
 	ExperimentNearEdgeTrackA1:               true,
 }

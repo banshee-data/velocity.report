@@ -1205,6 +1205,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	priorFloor := hasExperiment(experiments, ExperimentSolidBodyExtentPriorFloor)
 	planeSpans := hasExperiment(experiments, ExperimentSolidBodyFacePlaneSpans)
 	growth := hasExperiment(experiments, ExperimentSolidBodyExtentGrowth)
+	vehicleFloor := hasExperiment(experiments, ExperimentSolidBodyVehicleExtentFloor)
 	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
@@ -1219,12 +1220,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
 			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
 			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
-			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth,
+			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
-		courseHeading || priorFloor || planeSpans || growth ||
+		courseHeading || priorFloor || planeSpans || growth || vehicleFloor ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",

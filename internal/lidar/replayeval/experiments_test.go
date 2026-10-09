@@ -78,7 +78,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyExtentGrowth, ExperimentSolidBodyExtentPriorFloor,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation}
+		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation,
+		ExperimentSolidBodyVehicleExtentFloor}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -144,6 +145,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyExtentPriorFloor:   func(o *l5tracks.SolidBodyOptions) { o.ExtentPriorFloor = true },
 		ExperimentSolidBodyFacePlaneSpans:     func(o *l5tracks.SolidBodyOptions) { o.FacePlaneSpans = true },
 		ExperimentSolidBodyExtentGrowth:       func(o *l5tracks.SolidBodyOptions) { o.ExtentGrowthAdmission = true },
+		ExperimentSolidBodyVehicleExtentFloor: func(o *l5tracks.SolidBodyOptions) { o.VehicleExtentFloor = true },
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}

@@ -27,13 +27,23 @@ type classDimensionPrior struct {
 	// sigmaMetres is the spread within the class, not a measurement precision.
 	// It is wide on purpose.
 	sigmaMetres float32
+	// minLengthMetres and minWidthMetres are the smallest the class comes,
+	// zero where that is not known. A lower bound below them says nothing a
+	// member of the class does not already satisfy.
+	minLengthMetres, minWidthMetres float32
 }
 
 func dimensionPriorFor(class MotionClass) classDimensionPrior {
 	switch class {
 	case MotionRigidVehicle:
 		// Spans a small hatchback to a bus, which is why the sigma is large.
-		return classDimensionPrior{lengthMetres: 4.5, widthMetres: 1.9, heightMetres: 1.6, sigmaMetres: 1.5}
+		// The smallest road cars sold are the Microlino, 2.4 m long, and the
+		// Smart Fortwo, 2.5 m, both about 1.5 m wide; the width floor keeps
+		// a tenth of a metre below that for a mirror-less span.
+		return classDimensionPrior{
+			lengthMetres: 4.5, widthMetres: 1.9, heightMetres: 1.6, sigmaMetres: 1.5,
+			minLengthMetres: 2.4, minWidthMetres: 1.4,
+		}
 	case MotionTwoWheeler:
 		return classDimensionPrior{lengthMetres: 1.8, widthMetres: 0.7, heightMetres: 1.7, sigmaMetres: 0.4}
 	case MotionPedestrian:

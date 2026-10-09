@@ -67,6 +67,17 @@ func TestCourseHeadingFollowsTravelAboveTheCourseSpeed(t *testing.T) {
 	if o := plain.solidBodyOrientation(track, &track.solidBody); o.PsiRad != 0 {
 		t.Errorf("without the option the orientation is %v, want the tracked heading", o.PsiRad)
 	}
+
+	// A tracked axis within the span window of the course is kept, pointed
+	// the way the body travels: 5 degrees off a +Y course, given backwards.
+	near := movingBody(0, 6)
+	near.ObservationCount = 5
+	near.OBBHeadingRad = float32(-math.Pi/2 + 5*math.Pi/180)
+	near.HeadingSource = HeadingSourcePCA
+	o = tracker.solidBodyOrientation(near, &near.solidBody)
+	if want := math.Pi/2 + 5*math.Pi/180; math.Abs(float64(o.PsiRad)-want) > 1e-5 || !o.IsResolved() {
+		t.Errorf("an axis 5 degrees off the course gave %v rad (resolved %v), want %v resolved", o.PsiRad, o.IsResolved(), want)
+	}
 }
 
 func TestFacePlaneSpansTakeTheDimensionAFaceLiesAcross(t *testing.T) {
@@ -113,16 +124,16 @@ func TestExtentPriorFloorKeepsThePriorAboveAShortSpan(t *testing.T) {
 		long.Observe(9)
 	}
 	plain := NewTracker(solidBodyConfig())
-	if d := plain.dimensionOf(short, 4.5, 1.5); math.Abs(float64(d.Metres)-0.6) > 0.15 {
+	if d := plain.dimensionOf(short, 4.5, 1.5, 2.4); math.Abs(float64(d.Metres)-0.6) > 0.15 {
 		t.Fatalf("by default a short span replaces the prior; got %v", d.Metres)
 	}
 	cfg := solidBodyConfig()
 	cfg.SolidBody.ExtentPriorFloor = true
 	floor := NewTracker(cfg)
-	if d := floor.dimensionOf(short, 4.5, 1.5); d.Metres != 4.5 || d.SigmaMetres != 1.5 || d.Provenance != ProvenanceClassPrior {
+	if d := floor.dimensionOf(short, 4.5, 1.5, 2.4); d.Metres != 4.5 || d.SigmaMetres != 1.5 || d.Provenance != ProvenanceClassPrior {
 		t.Errorf("a span shorter than the prior gave %+v, want the prior", d)
 	}
-	if d := floor.dimensionOf(long, 4.5, 1.5); d.Provenance != ProvenanceAccumulated || d.Metres < 8.5 {
+	if d := floor.dimensionOf(long, 4.5, 1.5, 2.4); d.Provenance != ProvenanceAccumulated || d.Metres < 8.5 {
 		t.Errorf("a span longer than the prior gave %+v, want it", d)
 	}
 }
@@ -151,10 +162,35 @@ func TestExtentGrowthAdmitsALengtheningViewButNotAWideningOne(t *testing.T) {
 	if l := track.solidBody.lengthBelief.Estimate(); l < 8.5 {
 		t.Errorf("a lengthening view gave length %v, want about 9 m", l)
 	}
+	if track.solidBody.widthBelief.Support != 0 {
+		t.Errorf("a merge candidate gave a width, %v: a merge widens a body", track.solidBody.widthBelief.Estimate())
+	}
 	track = movingBody(6, 0)
 	track.MergeCandidate = true
 	growth.admitSolidBodyExtents(track, wider, set, 0, true)
 	if track.solidBody.lengthBelief.Support != 0 || track.solidBody.widthBelief.Support != 0 {
 		t.Error("a cluster wider than a body plus the margin still gave extents")
+	}
+}
+
+func TestVehicleExtentFloorRaisesAPartialViewToTheSmallestCar(t *testing.T) {
+	var short, small extentBelief
+	for range 3 {
+		short.Observe(1.1)
+		small.Observe(3.6)
+	}
+	cfg := solidBodyConfig()
+	cfg.SolidBody.VehicleExtentFloor = true
+	floor := NewTracker(cfg)
+	vehicle := dimensionPriorFor(MotionRigidVehicle)
+	d := floor.dimensionOf(short, vehicle.widthMetres, vehicle.sigmaMetres, vehicle.minWidthMetres)
+	if d.Metres != vehicle.minWidthMetres || d.Provenance != ProvenanceAccumulated {
+		t.Errorf("a 1.1 m width gave %+v, want the smallest car's %v, still accumulated", d, vehicle.minWidthMetres)
+	}
+	if d := floor.dimensionOf(small, vehicle.lengthMetres, vehicle.sigmaMetres, vehicle.minLengthMetres); math.Abs(float64(d.Metres)-3.6) > 0.15 {
+		t.Errorf("a small car seen whole at 3.6 m became %v", d.Metres)
+	}
+	if p := dimensionPriorFor(MotionPedestrian); p.minLengthMetres != 0 || p.minWidthMetres != 0 {
+		t.Error("a class whose smallest member is not known has a floor")
 	}
 }

@@ -162,9 +162,19 @@ type SolidBodyOptions struct {
 	// on. In a corner view the two rules admit the same two spans, since
 	// each face's normal is the other face's plane. Default false.
 	FacePlaneSpans bool
-	// ExtentGrowthAdmission keeps extent evidence flowing while the track is
+	// VehicleExtentFloor holds a rigid vehicle's accumulated length and width
+	// at no less than the smallest road car's, 2.4 by 1.4 m. Every span is a
+	// lower bound, and one below that is a partial view, not a small vehicle;
+	// without the floor it replaces the prior, so a truck seen across its
+	// rear is a metre wide. Unlike ExtentPriorFloor it keeps the dimension
+	// accumulated, so the faces it places stay in the fix, and it does not
+	// lengthen a small car seen whole. Other classes, whose smallest size is
+	// not known, are unchanged. Default false.
+	VehicleExtentFloor bool
+	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
-	// believed width plus extentGrowthLateralMarginMetres. The merge test
+	// believed width plus extentGrowthLateralMarginMetres. Width is still
+	// refused then. The merge test
 	// compares this frame's box with the mean of every earlier one, so a
 	// vehicle whose side comes into view after a run of end-on frames is a
 	// "merge" for as long as that mean takes to catch up, which refuses its
@@ -627,8 +637,8 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 	case sb.orientation.Provenance == ProvenanceNone:
 		f.fallback = "missing_heading"
 	default:
-		f.length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres)
-		f.width = t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres)
+		f.length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
+		f.width = t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, prior.minWidthMetres)
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
 		f.edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
@@ -1125,7 +1135,11 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	if len(set.Edges) == 0 || sb.estimation == EstimationInitialising {
 		return
 	}
-	if track.MergeCandidate && !t.growingNotMerging(track, cluster, axis) {
+	// A merge candidate that is only growing gives its length and nothing
+	// else: a view filling in lengthens a body, while a second body beside it
+	// widens it, and the corroborated maximum would keep a merged width.
+	growing := track.MergeCandidate
+	if growing && !t.growingNotMerging(track, cluster, axis) {
 		return
 	}
 	// Section 9.2: a span is lower-bound evidence only along believed axes.
@@ -1156,6 +1170,8 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis); ok {
 				sb.lengthBelief.Observe(span)
 			}
+		} else if growing {
+			continue
 		} else if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis+math.Pi/2); ok {
 			sb.widthBelief.Observe(span)
 		}
@@ -1317,8 +1333,8 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 			sb.p[1*4+0], sb.p[1*4+1],
 		},
 		Orientation: sb.orientation,
-		Length:      t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres),
-		Width:       t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres),
+		Length:      t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres),
+		Width:       t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, prior.minWidthMetres),
 		// Height stays the class prior, as in SolidBodyFromTrack: vertical
 		// extent is corrupted by the P11 grade artefact on any slope.
 		Height: DimensionBelief{
@@ -1366,14 +1382,29 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 
 // solidBodyOrientation is this frame's orientation belief: the tracked
 // heading's, or under CourseHeading, while the body moves fast enough for its
-// course to mean something, the course.
+// course to mean something and the tracked axis is further from it than the
+// span search covers, the course. An axis within that window is kept, turned
+// to point the way the body travels: it does not lag an acceleration as the
+// course does, and the window is the one the extent admission already uses to
+// decide whether an axis is believed.
 func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
-	if t.Config.SolidBody.CourseHeading {
-		if o, ok := courseOrientation(sb.state, sb.p); ok {
-			return o
-		}
+	tracked := orientationFromTrack(track, sb.orientation)
+	if !t.Config.SolidBody.CourseHeading {
+		return tracked
 	}
-	return orientationFromTrack(track, sb.orientation)
+	course, ok := courseOrientation(sb.state, sb.p)
+	if !ok {
+		return tracked
+	}
+	if tracked.Provenance == ProvenanceNone ||
+		FoldAxisAngleDeg(float64(tracked.PsiRad)-float64(course.PsiRad)) > spanSearchHalfWindowDeg {
+		return course
+	}
+	if math.Cos(float64(tracked.PsiRad)-float64(course.PsiRad)) < 0 {
+		tracked.PsiRad = float32(math.Remainder(float64(tracked.PsiRad)+math.Pi, 2*math.Pi))
+	}
+	tracked.AmbiguousModeWeight = 0
+	return tracked
 }
 
 // courseOrientation is the direction of travel as an orientation belief, and
@@ -1401,12 +1432,18 @@ func courseOrientation(state [4]float32, p [16]float32) (OrientationBelief, bool
 
 // dimensionOf is dimensionFromBelief under the tracker's options: with
 // ExtentPriorFloor, an accumulated extent shorter than the class prior leaves
-// the prior standing.
-func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma float32) DimensionBelief {
+// the prior standing; with VehicleExtentFloor, one shorter than the class's
+// smallest member is raised to it.
+func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma, minimumMetres float32) DimensionBelief {
 	d := dimensionFromBelief(b, priorMetres, priorSigma)
-	if t.Config.SolidBody.ExtentPriorFloor && d.Provenance == ProvenanceAccumulated &&
-		d.Metres < priorMetres {
+	if d.Provenance != ProvenanceAccumulated {
+		return d
+	}
+	if t.Config.SolidBody.ExtentPriorFloor && d.Metres < priorMetres {
 		return DimensionBelief{Metres: priorMetres, SigmaMetres: priorSigma, Provenance: ProvenanceClassPrior}
+	}
+	if t.Config.SolidBody.VehicleExtentFloor && d.Metres < minimumMetres {
+		d.Metres = minimumMetres
 	}
 	return d
 }
