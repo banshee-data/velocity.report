@@ -46,10 +46,12 @@ func guardRowsFixture() []observationsqlite.TrackSolidBody {
 			m.ExtentFloor, m.ContainmentShiftAcrossMetres = "length", 0.2
 		}
 		// The rectangle fit reads the axis 3 degrees off the course from frame
-		// 20, and abstains before that.
+		// 20, and abstains before that. It reports the axis in [0, 90)
+		// degrees, so 3 degrees below a course along +X is 87: one rectangle,
+		// whose error is folded modulo 90 degrees, not modulo 180 as a heading's.
 		m.RectangleKnown = true
 		if f >= 20 {
-			m.RectangleAxisRad = float32(3 * math.Pi / 180)
+			m.RectangleAxisRad = float32(87 * math.Pi / 180)
 		} else {
 			m.RectangleAbstain = "wide_plateau"
 		}

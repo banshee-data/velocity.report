@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -163,7 +164,9 @@ type AxisAgeRow struct {
 	DirectedP90Deg      float64 `json:"directed_p90_deg"`
 	DirectedOver30Share float64 `json:"directed_over_30_share"`
 	// The rectangle fit's axis against the course on the same rows, where
-	// the fit was recorded and did not abstain (solid_body_rectangle_fit).
+	// the fit was recorded and did not abstain (solid_body_rectangle_fit),
+	// folded modulo 90 degrees to [0, 45]: the fit names the sides, not
+	// which is the length.
 	RectangleRows        int     `json:"rectangle_rows,omitempty"`
 	RectangleMedianDeg   float64 `json:"rectangle_median_deg,omitempty"`
 	RectangleP90Deg      float64 `json:"rectangle_p90_deg,omitempty"`
@@ -232,7 +235,11 @@ func (g *guardRows) add(sb observationsqlite.TrackSolidBody, firstFrame int64) {
 			if m.RectangleAbstain != "" {
 				g.abstained[bucket]++
 			} else {
-				g.rectangle[bucket] = append(g.rectangle[bucket], l5tracks.FoldAxisAngleDeg(float64(m.RectangleAxisRad)-course))
+				// The fit's axis is defined modulo 90 degrees, so its error
+				// is folded to [0, 45]; FoldAxisAngleDeg's modulo-180 fold
+				// would read a rectangle whose course lies in (90, 180)
+				// modulo 180 as 90 degrees off.
+				g.rectangle[bucket] = append(g.rectangle[bucket], l4perception.FoldAxisRad(float64(m.RectangleAxisRad), course)*180/math.Pi)
 			}
 		}
 	}
