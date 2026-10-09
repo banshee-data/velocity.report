@@ -1,6 +1,6 @@
 # PDF reporting: Go + Typst pipeline
 
-- **Plans:** [crash data and published risk models](../../plans/platform-crash-data-integration-plan.md)
+- **Plans:** [crash data and published risk models](../../plans/platform-crash-data-integration-plan.md), [public attitudes to speeding and aggressive driving](../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md)
 - **Analyses:** [sober driving and human crash baselines](human-crash-baselines-analysis-2026-10.md)
 
 This pipeline arrived in two migrations: report data loading and chart
