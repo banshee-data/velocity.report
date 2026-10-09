@@ -303,6 +303,12 @@ Membership and identity review can begin now; the operator cannot supply physica
 the current Annotation window. Missing reference tooling is engineering work, and missing physical
 truth remains insufficient evidence after the tool is built.
 
+The [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md) (2026-10-09)
+carries the W0 to W8 chain that G-GEO-1, and so exit B, now waits on: an orientation
+observation, a containment constraint, and the retention and fragmentation measure behind
+criterion 3. Exit A does not wait on it. Its heading and containment rows are proposed for
+predeclaration beside the thresholds below, not as substitutes for them.
+
 Do not change the established G-GEO-1, G-UNC-1 or G-SMO-1 thresholds to accommodate this sprint's
 result. Historic `0.316 m` and `11.3 %` figures remain provenance, not a substitute for a current
 paired baseline using the corrected solver. Define the evaluation population before running.

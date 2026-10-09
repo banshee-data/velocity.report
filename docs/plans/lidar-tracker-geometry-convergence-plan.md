@@ -14,7 +14,8 @@ planned onto them, and schedules what remains.
 - **Status:** Proposed, 2026-10-09. Measurements from the alignment run's evidence; no code
 - **Target:** v0.5.2, Sprint 0.5.2.1 for the two observation models and the gates; v0.5.6 and v0.5.7 for the upstream and estimator work they expose
 - **Layers:** L5 tracker (heading, solid body), L3 foreground and L4 clustering (as inputs), offline evaluation
-- **Canonical:** [state estimation plan](lidar-state-estimation-plan.md) §5.6, §9.2, §9.3; [visibility-aware review](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md) §3.2, §4.1, §5.2, §7.1
+- **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
+- **Design basis:** [state estimation plan](lidar-state-estimation-plan.md) §5.6, §9.2, §9.3; [visibility-aware review](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md) §3.2, §4.1, §5.2, §7.1
 - **Related:** [alignment report](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md), [alignment plan](lidar-solid-body-physical-alignment-plan.md), [near-edge tracked state](lidar-near-edge-tracked-state-plan.md), [heading coherence sprint](lidar-heading-coherence-sprint-plan.md), [D2 implementation report](lidar-heading-d2-implementation-report.md), [facet registration experiment](lidar-facet-registration-experiment-plan.md), [physical-reference review](lidar-physical-reference-review-plan.md), [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md)
 
 ## 1. What occurred
@@ -48,9 +49,12 @@ run's other raw outputs, outside the repository.
 ### 2.1 Heading error does not fall with evidence
 
 Axis error against the body's own course, folded to [0°, 90°], for rows moving at 2 m/s or more,
-by track age. The course is not truth (§3.2 of the visibility-aware review) but it is
-independent of the PCA heading, and on kirk0 it agrees with the reviewed yaw within 6° for the
-car and truck 1.
+by track age. The course is not truth (§3.2 of the visibility-aware review). It is independent of the PCA
+computation, not of the clusters: velocity and PCA come from the same associated clusters, and
+under A2 the rows a wrong heading lost to association are absent from the table. Its own noise
+floor is about 8.6° at 2 m/s (σ_v ≈ 0.3 m/s across the course), so a 5° median against it is an
+upper bound on the fit's error, not a measurement of it. On kirk0 it agrees with the reviewed
+yaw within 6° for the car and truck 1.
 
 | Age      | Corpus A2 median / share over 30° | Corpus candidate | kirk0 A2 median: believed / raw PCA | kirk0 rectangle fit (§4.1), mod 90 |
 | -------- | --------------------------------: | ---------------: | ----------------------------------: | ---------------------------------: |
@@ -133,15 +137,20 @@ What a containment constraint would do on A2's body-centre rows (points trimmed 
 | Along, end face alone  |                5 % |                  20 % (0.14, 0.64 m) |                          75 % (1.11, 2.08 m) |
 | Along, side face alone |               19 % |                  26 % (0.59, 0.82 m) |                          55 % (1.41, 1.57 m) |
 
-It would act on nearly every row. That is the measure of the gap, and also the warning: a
+It would act on nearly every row. That is the measure of the gap, and also two warnings. A
 constraint that fires every frame is an observation model, not a clamp, and must enter the
-filter as one or it will fight the prediction and show up as lateral jitter.
+filter as one or it will fight the prediction and show up as lateral jitter. And a span measured
+along a wrong axis overstates: across an axis θ off, the observed width is W cos θ + L sin θ,
+0.87 m extra for 5° on a 10 m truck, so part of the corner rows' "grow" is the heading error of
+§2.1 read as an extent, and the floor in §4.2 must use the window-minimum span, which understates
+but cannot overstate.
 
 ### 2.3 The orientation is in the data every frame
 
 A rectangle fitted to each frame's retained points, searching the axis over [0°, 90°) in 1°
 steps for the orientation that puts the most points nearest an edge (the closeness criterion of
-Zhang, Lu and Wang, 2017; facet maths review §7, item 6), gives the body axis modulo 90°:
+`Zhang2017` §III, the L-shape fit the facet maths review §7 item 6 proposes for corners), gives
+the body axis modulo 90°:
 
 | Against                               | Rectangle fit, axis | Raw PCA, axis | Believed heading, directed |
 | ------------------------------------- | ------------------: | ------------: | -------------------------: |
@@ -150,7 +159,13 @@ Zhang, Lu and Wang, 2017; facet maths review §7, item 6), gives the body axis m
 
 It holds on truck 2's end-on strips (0.4 to 0.8 m deep, 27 to 121 points: axis within 0.4° to
 4.8°) and on car 8 at 2 m/s. It fails where it should abstain: car 8 at 0.8 m/s, a 1.6 × 1.4 m
-view, 31° off. What the fit does not give is which of the two axes is the length. For truck 2's
+view, 31° off. Four caveats belong beside the 2.6°. The effective sample is three vehicles, one
+of them end on throughout, not 21 independent poses; the p90 is the 19th of 21 values (19 of 21
+under 4.1°). The references' own yaw bound is 3.7° at the mean, so the fit is within the
+references' resolution rather than measurably better than it. The references are fits to the
+same reviewed returns the tracker reads, so this compares a fit with a fit; W7's references must
+be operator-keyframed to break that. And §4.1 calibrates the fit's variance on these poses, so
+nothing here is held out. What the fit does not give is which of the two axes is the length. For truck 2's
 strip the longer span runs across the truck. That labelling is the one ambiguity, and it is the
 job the D2.1 axial selector already does with the extent belief's aspect, on an input (the PCA
 box) whose axis is wrong by 10°.
@@ -161,25 +176,31 @@ No numeric physical-heading threshold exists in any plan today, and G-GEO-1 has 
 containment row. These are proposed levels, to be frozen as part of the predeclared physical
 scoring criteria (Sprint 0.5.2.0) before any held-out score, and amended only in writing before
 that score. "Established" is the lifecycle state of state plan §5.6; "reference bound" is the
-pilot's per-pose bound.
+pilot's per-pose bound, which is the resolution of the score: a level tighter than it cannot be
+read. Axis error is modulo 90° and no labelling touches it; directed error is modulo 360° and
+includes the label and the front.
 
-| Measure                                    | Level                                                                                                   | Today (A2 / candidate, kirk0)                         |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Heading, established rows at 2 m/s or more | Axis error against reviewed yaw: median ≤ 5°, p90 ≤ 15°; directed error ≤ 10° on at least 90 % of poses | 7.5° / 89°; 33° / 12° mean                            |
-| Heading convergence, label-free            | Rows older than 2 s more than 30° off their course: ≤ 5 %, ambiguous rows excluded and counted          | 23 to 27 % corpus (candidate 4 to 6 %, self-measured) |
-| Heading ambiguity                          | A row whose axis label is unresolved says so and reports the observed spans, never a labelled body      | Reported resolved with weight 0                       |
-| Containment                                | ≥ 95 % of body-centre rows hold ≥ 98 % of their retained points within 0.15 m; the rest are flagged     | 46 % / 58 %                                           |
-| Reported extent                            | Never below the frame's observed span along the reported axis                                           | Below it in 34 to 66 % of fixes                       |
-| Centre                                     | ≥ 80 % of scored poses within the reference's own centre bound                                          | 26 % / 52 %                                           |
-| Length, established cars; trucks           | Within 15 %; within 20 % of the reference on ≥ 80 % of poses                                            | Car 3.88 of 4.26 m; trucks 8.6 of 10.6, 0.6 of 9.6 m  |
-| Following gap, both bodies established     | p95 absolute error ≤ 0.5 m (joins the following gate's predeclaration)                                  | 1.15 / 1.60 m mean                                    |
-| Lateral, G-GEO-1                           | Criteria 1, 2 and 4 unchanged: no new jitter from the constraint, manoeuvres ≥ 90 % of magnitude        | Not scored on a held-out split                        |
-| Identity on the frozen split               | HOTA and IDF1 within 0.01, ID switches within 10 % of the arm's baseline                                | HOTA within 0.005; switches 78 to 117                 |
-| Cost                                       | `Tracker.Update` p99 within 10 % of the arm's baseline; the fit itself budgeted and measured on the Pi  | Candidate −25 % p99, +19 % median on a Mac            |
+| Measure                                 | Level                                                                                                                                                                                                                                                            | Today (A2 / candidate, kirk0)                             |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Axis, established rows at 2 m/s or more | Error beyond the reference's yaw bound: zero at the median, ≤ 10° at p90; the bound (3.7° mean) printed beside it. The course candidate already meets this on kirk0's straight passes, so the discriminating cases are under 2 m/s, in turns and at rest         | 7.5° / 89° directed; axis not scored today                |
+| Directed heading, the label and front   | ≤ 10° on at least 90 % of poses, scored separately from the axis so a label error (a right axis with the wrong length) is seen as one                                                                                                                            | Truck 2 76° on A2                                         |
+| Heading convergence, label-free         | Axis error against the course, rows older than 2 s: more than 30° off ≤ 5 %, with the course's noise floor stated; the directed error reported beside it as a labelling check only                                                                               | 23 to 27 % corpus (directed); axis not reported           |
+| Heading ambiguity                       | A row whose label is unresolved says so and reports the observed spans, never a labelled body                                                                                                                                                                    | Reported resolved with weight 0                           |
+| Containment, invariant check            | Every body-centre row holds ≥ 98 % of its retained points within 0.15 m, stratified by range (ring spacing exceeds 0.15 m beyond about 40 m); rows that cannot are flagged. The constraint meets this by construction, so it is a check that it ran, not a score | 46 % / 58 %                                               |
+| Reported extent                         | Never below the frame's window-minimum observed span along the reported axes; the belief's extent scored separately against the reference, not the floored value                                                                                                 | Below the span in 34 to 66 % of fixes                     |
+| Centre                                  | ≥ 80 % of scored poses within the reference's own centre bound, truck 2 scored separately until its cab reaches the tracker (W3)                                                                                                                                 | 26 % / 52 %                                               |
+| Length, established cars; trucks        | Belief within 15 %; within 20 % of the reference on ≥ 80 % of poses, truck 2 separately                                                                                                                                                                          | Car 3.88 of 4.26 m; trucks 8.6 of 10.6, 0.6 of 9.6 m      |
+| Following gap, both bodies established  | Within the reference's own gap bound (about 1.2 m on kirk0) on every scored gap; p95 cannot be read from six gaps                                                                                                                                                | 1.15 / 1.60 m mean                                        |
+| Lateral, G-GEO-1                        | Criteria 1 to 4 scored as written; W1 and W2 are not expected to pass criterion 1 (a 50 % p99 cut) on their own and must not raise p99; criterion 3 (fragmentation) is what W3's fix moves                                                                       | Candidate −10 % p99 at the corpus median                  |
+| Identity on the frozen split, A2 only   | ID switches within 10 % of the arm's baseline above a measured no-op noise floor, predeclared in W0; HOTA and IDF1 reported but not the gate, since 39 switches moved HOTA under 0.005                                                                           | Switches 78 to 117                                        |
+| Cost                                    | `Tracker.Update` p99 within 10 % of the arm's baseline; the fit's operation count stated and its time measured on the Mac and on a Pi, per candidate pair under A2                                                                                               | Candidate −25 % p99, +19 % median on a Mac; Pi unmeasured |
 
-Two levels are deliberately not here. A rate for the deployed system needs the held-out split
-that physical scoring still refuses, and a second capture with an end-on truck. And nothing
-above is a promotion gate on its own: the chain G-GEO-1, G-UNC-1, G-SMO-1 stands.
+Three things are deliberately not here. A rate for the deployed system needs the held-out split
+that physical scoring still refuses, and a second capture with an end-on truck (W7). The
+slope-aware ground surface (P11) and any later L3 or L4 change move G-GEO-1's inputs, so the
+final W1 and W2 score comes after P11 and is reopened by W3's fix. And nothing above is a
+promotion gate on its own: the chain G-GEO-1, G-UNC-1, G-SMO-1 stands, and G-UNC-1's
+calibration table is refrozen after W5, since W1 and W2 change its residuals.
 
 ## 4. What is needed
 
@@ -192,70 +213,112 @@ experiments were. Then the estimator and upstream work they expose.
 Every frame, fit the rectangle orientation to the associated cluster's retained points and
 treat it as an observation of the body axis.
 
-- **The fit.** Search θ over [0°, 90°) at 1° (coarse) then 0.25° (around the best) for the
-  closeness criterion; report θ, the two edge spans, the support on each edge, and the margin of
-  the best score over the best score more than 10° away. Abstain when the margin is small or
-  both spans are under 2 m with aspect under 1.25 (the near-square case). Cost: 90 orientations
-  by at most 256 points, about 23,000 projections, under 0.1 ms in Go; measure it.
-- **Variance.** σ_θ from the fit, not a constant: the edge support and spans bound it (a 0.4 m
-  deep strip 2 m wide fixes its axis to about 2°; two short edges do not). Calibrate on the 21
-  reviewed poses and the corpus courses before the experiment is scored; report it as a bounded
-  scale, not a posterior, per the D2 report's own caveat.
-- **Labelling.** The fit gives two axes. Which is the length is decided as D2.1 decides it: by the
-  extent belief's aspect when it is evidence, then by the course at 2 m/s or more, else held as
-  two hypotheses per state plan §5.6 and review §4.1. An unresolved row reports the observed
-  spans and is marked ambiguous. This is what car 8 at 0.8 m/s should have been: a box on the
-  right axis with no claim about its front.
-- **The state.** Heading becomes a filtered quantity with its own variance, updated by θ each
-  frame (mod π, with the π direction from the course or an asymmetric cue, as now). For the solid
-  body the EMA and the three guards retire under the experiment; the near-edge faces are found
-  along the observed axis of the frame, not the previous belief, so their normals agree with the
-  points they are fitted to. Heading error then decays at the filter's rate, which is the
-  convergence the first table lacks.
-- **Low speed.** The axis is observable at any speed; only the label waits. Extent admission
-  below 2 m/s then has an axis it can trust, which removes the reason the lifecycle holds a slow
-  body in `initialising`.
+- **The fit.** Search θ over [0°, 90°) at 1° then 0.25° around the best, for the closeness
+  criterion of `Zhang2017` §III; report θ, the two edge spans s₁ and s₂ with the support n₁ and n₂
+  on each, and the plateau: the set of θ within a stated fraction of the best score. The score is
+  a clamped sum of reciprocals with a non-smooth maximum, so its curvature is not a variance; the
+  plateau is the per-frame spread. Cost: two passes over at most 256 points at each of about 100
+  orientations, some 50,000 point operations plus the refinement, nearer 0.3 ms on a Mac and
+  several milliseconds on a Pi, per candidate pair under A2; measured, not assumed.
+- **Variance.** σ_θ² = max(σ_floor², c · 12σ_r² / Σ_k n_k s_k²): the noise-only line-fit floor
+  summed over the edges (for a 2 m edge of 27 points at σ_r = 0.05 m, about 1°), under a shape
+  floor of 2° to 3° for what a vehicle is not (bumpers, mirrors, a bonnet seen from 2.3 m up, the
+  across-face band from ring spacing), with c calibrated on the 21 poses and the corpus courses
+  and stated as a bounded scale, not a posterior. Consecutive frames see the same vehicle at
+  nearly the same aspect, so the heading filter carries a variance floor or process noise, or N
+  correlated frames would claim σ/√N.
+- **The state is the axis.** What is observed is the axis modulo 90°, so that is what is
+  filtered: one continuous state θ with the residual r = ¼ · atan2(sin 4Δ, cos 4Δ), updated every
+  frame the fit does not abstain. The label (which of θ and θ + 90° is the length) and the front
+  (± 180°) are two discrete weights beside it, and the reported yaw is ψ = θ + k · 90° + m · 180°.
+  That is state plan §5.6's bimodal belief with one more bit, and the D2.1 selector's structure
+  on a measured axis. A modulo-180° Gaussian fed a modulo-90° observation would need the label
+  chosen first, and a wrong choice gives a 90° residual that is either gated (the jump guard
+  reborn) or drags the belief toward 45°, which review §4.1 forbids. Two hypotheses are two
+  weights on one filter, not two filters: fed the same θ they could never diverge.
+- **Labelling.** The label weight moves on the extent belief's aspect when it is evidence, then
+  on the course at 2 m/s or more; the front on the course or an asymmetric cue, as now. W1 owns
+  this rule and D2.1 consumes it, not the reverse: D2.1 is v0.5.7 work that failed a four-site
+  A/B on its PCA input. Below 2 m/s the course from displacement and the class prior's aspect
+  are the only cues, and a near-square view has none: the weights stay split, the row is marked
+  ambiguous, and it reports the observed spans. This is what car 8 at 0.8 m/s should have been.
+- **The position update under ambiguity.** The two labels put the implied centre (L − W) / 2
+  apart along the near face's normal, about 4 m for a truck. While the label is unresolved the
+  face update uses the span-floored, label-free half-extents of §4.2, and the row says so. Without
+  that rule an ambiguous frame has no position update at all.
+- **Abstention, two decisions.** The axis abstains when σ_θ exceeds about 10° or the plateau is
+  wider than about 15°, after the score is normalised by n and the clamp; the label abstains
+  when the aspect is under 1.25 whatever the spans, since a 2.5 × 2.2 m view is as square as
+  1.6 × 1.4. A partial corner (1.8 m of front, 2 m of side) has a sharp axis from two edges and
+  no label; it must not abstain on the axis.
+- **Faces along the observed axis.** The near-edge faces are found along this frame's θ, not the
+  previous belief, so their normals agree with the points they are fitted to. For the solid body
+  the EMA and the three guards retire under the experiment. Heading error then decays at the
+  filter's rate, which is the convergence the first table lacks, and extent admission below 2 m/s
+  has an axis it can trust.
 
 ### 4.2 A containment constraint: the box holds the points
 
 The frame's points are known to lie on the body. The reported box must contain them, and the
-estimate should be pulled toward boxes that do.
+estimate should be pulled toward boxes that do. The two are separate rules, and keeping them
+separate is what makes the second one sound.
 
-- **Reported extent floor.** The reported length and width are never below this frame's trimmed
-  observed span along the reported axes. The belief keeps its corroboration rule; what is drawn
-  and persisted honours the lower bound the frame has just measured (state plan §9.2.1, "admit
-  as uncertain lower bound"). This alone removes the 24 to 75 % of rows whose box is shorter
-  than their cluster.
-- **Position interval.** For each body axis, the points' trimmed span [lo, hi] and the reported
-  half-extent h give the feasible interval for the centre, [hi − h, lo + h]. A predicted centre
-  outside it is updated toward the nearer bound by one scalar update with variance R plus the
-  square of half the extent's uncertainty, recorded as a constraint application with its own
-  provenance. It is the end-face centring term generalised: that term used one face's own span
-  at one fix type; this uses every axis the fix left open, at every fix type, including the
-  side-face-only fix that T5 excluded by design. A side face still observes nothing along
-  itself; the points do.
+- **The reported box is floored along the hull, and the state is not.** The persisted and drawn
+  length and width are never below this frame's window-minimum observed span (`minimumAxisSpan`,
+  which cannot overstate along a wrong axis); the belief keeps its corroboration rule and never
+  reads the floor, since a floor that fed the belief would corroborate a merge. This alone
+  removes the rows whose box is shorter than their cluster, and it changes no estimate.
+- **The interval is a one-sided bound with the belief's upper tail.** For a body axis with
+  belief D and upper tail D_upper, the points' trimmed span [lo, hi] bounds the centre to
+  [hi − D_upper / 2, lo + D_upper / 2]. Where D is below the span the frame is extent evidence,
+  not a centre measurement: an interval built from a floored half-extent collapses to the
+  cluster midpoint with a confident variance, which is the biased seed §5.6 calls unrecoverable
+  and the reconstructed centre invariant 2 forbids. The bound's variance is the trimmed extreme's
+  sampling spread (point spacing at range, 0.1 m across azimuth at 30 m, more across rings) plus
+  projected range noise plus ((D_upper − span) / 2)², the censoring term of review §7.1 and the
+  shape `endFaceCentringTerm` already uses; `measurement_noise` (0.05 m² default, 0.15 m²
+  optimised) is the medoid's variance and not a stand-in for it.
+- **The update is a truncation, not a gain.** Treating an inequality as a one-sided scalar
+  measurement toward the nearer bound is the pseudo-measurement form of a constrained filter:
+  information only when violated, covariance shrunk as if measured, an innovation that is
+  one-signed and not chi-square (the code already keeps loose terms out of NIS). The better
+  founded form is density truncation (`Simon2010`): truncate the Gaussian marginal along the
+  axis to the interval widened by the bound's σ, and take its mean and variance. It has no gain
+  to tune, moves the state by at most its own σ, and is a no-op well inside the interval; the
+  censored likelihood of review §7.1 is the matching form for the extent (`Xia2021` is the
+  truncated-Gaussian precedent in the references).
+- **Position only.** `scalarPositionUpdate` reaches velocity through P's cross terms, so a
+  repeated one-sided pull would turn the across velocity and, under course labelling, the
+  heading. The truncation applies to position with the velocity rows zeroed, on invariant 3's
+  "translation, not innovation" pattern, and records the across-velocity change it did not make.
+  The five-point residual registers a per-frame move above about 0.1 m, and §2.2's median shift
+  is 0.13 m: the bound by the state's own σ is what keeps the constraint off that residual.
 - **Lapse within the hull.** A body-centre claim no longer lapses to the medoid while the box
   can be held on the points; it lapses when there are no points. When it must re-seed, it seeds
-  inside the feasible interval, not at the biased medoid.
+  inside the interval, not at the biased medoid.
 - **The invariant and its metric.** Every persisted solid-body row carries its containment
   share; the solid-body summary reports the share of rows under 98 %, and the scorecard carries
-  it as a label-free guard beside the lateral fit. A row that cannot be made consistent is
-  flagged, never silently reported.
+  it as a check that the constraint ran, stratified by range. A large box satisfies it
+  trivially, so it is a guard beside the extent level, never a score. The near-edge plan's
+  invariant 2 should read: a plane observes nothing along itself, and a one-sided containment
+  bound with its own provenance is admitted, under admitted membership and a resolved axis only.
 
 The two models are one change in practice: containment along a wrongly oriented axis would pull
 the box the wrong way, and an orientation observation without containment leaves the box off
-the points along the open direction. Score them together and each alone, as the alignment run
-did.
+the points along the open direction. Score W2 alone first, then with W1, as the alignment run
+scored its pairs.
 
 ### 4.3 What they expose
 
 - **Extents per §9.2.** With the reported box floored at the observed span, the belief's job is
-  the unseen remainder. The corroborated maximum stays as a guard against a one-frame merge,
-  but the merge test itself should become containment-consistent: a cluster whose across-span
-  fits the believed width plus a margin is one body, however large its area ratio against the
-  running mean. Growth admission is the first version of that rule. The censored likelihood and
-  the revisable admitted-frame record of §9.2.2 and §9.2.3 are the estimator; they are not
-  changed here.
+  the unseen remainder. The corroborated maximum stays as the guard against a one-frame merge,
+  and the merge test reads the belief before the floor, never after it: otherwise a merge that
+  persists three frames corroborates the width, the floored width admits the merge, and the
+  interval pulls to the merged midpoint. Beyond that, the test should become
+  containment-consistent: a cluster whose window-minimum across-span fits the belief's upper tail
+  is one body, however large its area ratio against the running mean; growth admission is the
+  first version of that rule. The censored likelihood and the revisable admitted-frame record of
+  §9.2.2 and §9.2.3 are the estimator; they are not changed here.
 - **Upstream retention and fragmentation.** Truck 2's cab never reached the tracker and truck
   1's cab was two separate clusters. No observation model can place a body on points it was not
   given. The reviewed pack can score this today: for each reviewed mask, the share of its
@@ -263,7 +326,8 @@ did.
   numbers are an L3 and an L4 gate, and the cases they find are the levers' evidence: the
   region-override window (at 20 m about 5 m, so returns within a fifth of the background range
   are background), the deadlock breaker that absorbs a slow body, and DBSCAN's single `eps`
-  with no gap tolerance across a dropped band of returns.
+  with no gap tolerance across a dropped band of returns. D3's near-merge cases are the same
+  measure read the other way, and belong in it.
 - **Identity under A2.** A2 gates association on the body's prediction, so every geometry change
   moves identity. Deliver both models on the shadow first, where identity cannot move, and score
   the physical gain there; then A2, with the identity level above as its own gate. The
@@ -276,58 +340,80 @@ did.
 
 ## 5. Upcoming work that addresses these
 
-| Planned item                                                                            | Where                                                                                                                              | What it covers                                                                            | What it leaves                                                                                    |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Heading candidate acceptance: D2.1 axial selector, D2.4 run panel                       | [BACKLOG v0.5.7](../BACKLOG.md#v057---tracker-correctness--robustness-057), [D2 report](lidar-heading-d2-implementation-report.md) | Labelling the axis by aspect against the extent belief, abstention, the observed envelope | Its input is the PCA box, 10° off at the axis; it does not observe heading. §4.1 feeds it the fit |
-| Solid-body extent accumulation                                                          | [BACKLOG 0.5.2.1](../BACKLOG.md#sprint-0521-physical-body-and-corrected-geometry)                                                  | Growth admission and the vehicle floor as the opt-in candidate                            | The reported box still falls below the observed span; §4.2's floor                                |
-| Phase 2 corrected measurement, G-GEO-1                                                  | BACKLOG 0.5.2.1, [state plan §9.3](lidar-state-estimation-plan.md#93-decision-gate-g-geo-1)                                        | The lateral criteria the constraint must not break                                        | No heading or containment row; §3 proposes them                                                   |
-| Face-transition remedy, S2.1 (gap 1.9 against 1.25, unchosen)                           | [near-edge plan](lidar-near-edge-tracked-state-plan.md#face-transitions)                                                           | The 1.5 m jump at side-face entry                                                         | §4.2's interval is a candidate remedy: the jump is the across position returning late             |
-| Physical scoring criteria and held-out acceptance                                       | BACKLOG 0.5.2.0                                                                                                                    | Predeclared limits on the tuning references                                               | Takes §3's heading and containment rows                                                           |
-| Facet registration E1 to E3, arm B (17 to 29 days)                                      | [facet plan](lidar-facet-registration-experiment-plan.md), BACKLOG 0.5.2.1                                                         | Pose from point registration: the structural successor to faces                           | The F0 report asked for the cheaper step first; §4.1 and §4.2 are it                              |
-| Geometry-coherent tracking, D-04 (#391)                                                 | BACKLOG v0.5.7                                                                                                                     | Persistent geometry state in association; targets drift under 0.5°/s, 90° jumps under 1 % | Waits for a corrected-body baseline; §4.1 is what would reach its targets                         |
-| Live cluster point retention                                                            | BACKLOG v0.5.6                                                                                                                     | Points on the live path                                                                   | Critical path for live parity of everything here                                                  |
-| Long-range foreground sensitivity; D3 near-merge and adaptive `eps`; slope-aware ground | BACKLOG v0.5.7, 0.5.2.1                                                                                                            | The L3 window and the L4 split, each from its own evidence                                | No measure against reviewed masks; §4.3's gates supply one and truck 2 is its case                |
-| Association cost S3; reacquisition and identity acceptance                              | BACKLOG 0.5.2.2                                                                                                                    | Like-with-like association under A2                                                       | Take the containment share as an input                                                            |
-| Option A to B: heading into the state (deferred gate)                                   | [state plan §7.3](lidar-state-estimation-plan.md#73-recommendation-and-gate)                                                       | Waits for orientation variance to be shown as the limiting term                           | §2 shows it: an end-on truck at 76° has a box IoU of 0.05 whatever its position                   |
-| L-shape fitting                                                                         | [AV integration plan](lidar-av-lidar-integration-plan.md) Phase 6, deferred                                                        | Listed as a future bounding-box method                                                    | Brought forward as the orientation observation, not a box method                                  |
+| Planned item                                                                            | Where                                                                                                                              | What it covers                                                                                       | What it leaves                                                                                                       |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Heading candidate acceptance: D2.1 axial selector, D2.4 run panel                       | [BACKLOG v0.5.7](../BACKLOG.md#v057---tracker-correctness--robustness-057), [D2 report](lidar-heading-d2-implementation-report.md) | Labelling the axis by aspect against the extent belief, abstention, the observed envelope            | Its input is the PCA box, 10° off at the axis, and it failed a four-site A/B; W1 owns the rule and it consumes W1    |
+| Solid-body extent accumulation                                                          | [BACKLOG 0.5.2.1](../BACKLOG.md#sprint-0521-physical-body-and-corrected-geometry)                                                  | Growth admission and the vehicle floor as the opt-in candidate                                       | Superseded: the reported box is W2's floor, the belief is W4                                                         |
+| Phase 2 corrected measurement, G-GEO-1                                                  | BACKLOG 0.5.2.1, [state plan §9.3](lidar-state-estimation-plan.md#93-decision-gate-g-geo-1)                                        | The lateral criteria the constraint must not break; criterion 3 is what W3's fix moves               | No heading or containment row; §3 proposes them. Criterion 1 is not reached by anything here                         |
+| Face-transition remedy, S2.1 (gap 1.9 against 1.25, unchosen)                           | [near-edge plan](lidar-near-edge-tracked-state-plan.md#face-transitions)                                                           | The 1.5 m jump at side-face entry                                                                    | §4.2's interval is a candidate remedy: the jump is the across position returning late                                |
+| Physical scoring criteria and held-out acceptance                                       | BACKLOG 0.5.2.0                                                                                                                    | Predeclared limits on the tuning references                                                          | Takes §3's rows (W0)                                                                                                 |
+| Facet registration E1 to E3, arm B (17 to 29 days)                                      | [facet plan](lidar-facet-registration-experiment-plan.md), BACKLOG 0.5.2.1                                                         | Pose from point registration: the structural successor to faces, and the road to G-GEO-1 criterion 1 | The F0 report asked for the cheaper step first; W1 and W2 are it, and the facet gate reads W2's floored extent       |
+| Geometry-coherent tracking, D-04 (#391)                                                 | BACKLOG v0.5.7                                                                                                                     | Persistent geometry state in association; targets drift under 0.5°/s, 90° jumps under 1 %            | Waits for a corrected-body baseline; W1 is what would reach its targets                                              |
+| Live cluster point retention                                                            | BACKLOG v0.5.6                                                                                                                     | Points on the live path                                                                              | Critical path for live parity of everything here                                                                     |
+| Long-range foreground sensitivity; D3 near-merge and adaptive `eps`; slope-aware ground | BACKLOG v0.5.7, 0.5.2.1                                                                                                            | The L3 window and the L4 split, each from its own evidence; P11 before the final score               | No measure against reviewed masks; §4.3's gates supply one, D3 folds into it, and truck 2 is its case                |
+| Association cost S3; reacquisition and identity acceptance                              | BACKLOG 0.5.2.2                                                                                                                    | Like-with-like association under A2                                                                  | Take the containment share as an input (W5)                                                                          |
+| Option A to B: heading into the state (deferred gate)                                   | [state plan §7.3](lidar-state-estimation-plan.md#73-recommendation-and-gate)                                                       | Waits for orientation variance to be shown as the limiting term                                      | §2 shows it: an end-on truck at 76° has a box IoU of 0.05 whatever its position; W1 keeps the axis a separate belief |
+| L-shape fitting                                                                         | [AV integration plan](lidar-av-lidar-integration-plan.md) Phase 6, deferred                                                        | Listed as a future bounding-box method                                                               | Brought forward as the orientation observation, not a box method                                                     |
+| 0.5.2 MVP exit B                                                                        | [MVP sprint plan](lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger)                                                      | Qualified 0.5.2 result through G-GEO-1, G-UNC-1, G-SMO-1                                             | Exit A does not wait on this chain; exit B does, and the MVP plan now says so                                        |
 
 ## 6. Work to scope and schedule
 
-| Item | Work                                                                                                                                                                                                                                                                                                       | Size              | Sprint                      | Depends on                     |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------- | ------------------------------ |
-| W0   | Predeclare the geometry levels of §3 with the physical scoring criteria; add the containment share and the heading-by-age table to the solid-body summary and the scorecard, so every arm reports them                                                                                                     | S                 | 0.5.2.0                     | Nothing                        |
-| W1   | Orientation observation (§4.1): the fit, its variance, labelling and hypotheses, the filtered heading, faces along the observed axis; experiment `solid_body_rectangle_heading`; unit tests on strip, corner, square, sparse and reversing passes; scored on the frozen split and the corpus               | M {math}          | 0.5.2.1                     | W0 for the score               |
-| W2   | Containment (§4.2): the reported-extent floor, the position interval as a scalar update with provenance, lapse within the hull; experiment `solid_body_containment`; the same scoring                                                                                                                      | M {math}          | 0.5.2.1                     | W0; scored with and without W1 |
-| W3   | Retention and fragmentation gates (§4.3): per reviewed mask, the retained share and cluster count per frame in `lidar-ground-truth-eval`; the kirk0 cases listed; truck 2's cab traced to the L3 rule or the L4 split that lost it                                                                         | M                 | 0.5.2.1 measure, v0.5.6 fix | The frozen pack                |
-| W4   | Extents per §9.2 on the floored box: containment-consistent merge admission replacing the area-ratio refusal, the censored likelihood and the revisable record                                                                                                                                             | M {math}          | v0.5.7                      | W1, W2 scored                  |
-| W5   | Shadow-first delivery and the identity gate: W1 and W2 on the shadow, physical score, then A2 against the §3 identity level; the containment share into the S3 and reacquisition decisions                                                                                                                 | S                 | 0.5.2.1 / 0.5.2.2           | W1, W2                         |
-| W6   | Low-speed labelling: the course from displacement under 2 m/s and the class prior's aspect as the label below it; car 8's two poses as the case                                                                                                                                                            | S                 | 0.5.2.1, after W1           | W1                             |
-| W7   | A second capture with an end-on truck, reviewed and frozen, and the held-out physical score the chain needs                                                                                                                                                                                                | M (operator time) | 0.5.2.1                     | The review window              |
-| W8   | Retire `solid_body_course_heading`, `solid_body_extent_growth`, `solid_body_end_face_centring` (both settings) and `solid_body_vehicle_extent_floor` once W1 and W2 meet their levels, and `solid_body_extent_prior_floor` and `solid_body_face_plane_spans` now; the D2.4 panel shows the new diagnostics | S                 | v0.5.7                      | W1, W2 promoted                |
+| Item | Work                                                                                                                                                                                                                                                                                                                                                                                                  | Size              | Sprint                          | Depends on        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------- | ----------------- |
+| W0   | Predeclare the §3 levels with the physical scoring criteria, including the identity band above a measured no-op noise floor; add the containment share, the axis-versus-course table by age and the reported-against-believed extent to the solid-body summary and the scorecard, so every arm reports them; committed to main before any W1 or W2 score                                              | S                 | 0.5.2.0                         | Nothing           |
+| W1a  | The fit and its variance (§4.1): the closeness search, plateau, σ_θ with its floor and calibration, axis abstention; unit tests on strip, corner, square, sparse and reversing passes; the fit's cost measured on the Mac and a Pi                                                                                                                                                                    | M {math}          | 0.5.2.1                         | W0 for the score  |
+| W1b  | The axis state and labelling (§4.1): the modulo-90° filtered axis with its process noise, the label and front weights with their rules at and below 2 m/s, the ambiguous row and its span-floored face update, faces along the observed axis, the guards retired; experiment `solid_body_rectangle_heading`; scored on the frozen split and the corpus; car 8's two slow poses are the low-speed case | L {math}          | 0.5.2.1                         | W1a, W2's floor   |
+| W2   | Containment (§4.2): the floored reported box, the truncation update with the belief's upper tail and position-only rows, lapse within the hull, the per-row share; experiment `solid_body_containment`; scored alone first, then with W1b                                                                                                                                                             | M {math}          | 0.5.2.1                         | W0                |
+| W3   | Retention and fragmentation (§4.3), measurement: per reviewed mask, the retained share and cluster count per frame in `lidar-ground-truth-eval`, D3's near-merge cases included; kirk0's cases listed; truck 2's cab attributed to the L3 rule or the L4 split that lost it                                                                                                                           | M                 | 0.5.2.1 measure, v0.5.6 fix (L) | The frozen pack   |
+| W4   | Extents per §9.2 on the floored box: the merge test reading the belief before the floor and admitting by containment, the censored likelihood, the revisable record                                                                                                                                                                                                                                   | M {math}          | v0.5.7                          | W1b, W2 scored    |
+| W5   | Shadow-first delivery and the identity gate: W1 and W2 on the shadow, physical score, then A2 against the §3 switch band; the containment share into the S3 and reacquisition decisions; G-UNC-1's table refrozen after                                                                                                                                                                               | S                 | 0.5.2.1, then 0.5.2.2           | W1b, W2           |
+| W7   | The second capture: a week-one spike counting end-on truck windows across the corpus and the archive, then one capture request covering an end-on truck, cars beyond 50 m and a side-to-end facet episode, selected by traffic or at random so the window is not chosen for failure, reviewed with operator-keyframed yaw and extents, frozen; tuning-only if it cannot be selected that way          | M (operator time) | 0.5.2.1                         | The review window |
+| W8   | Retire `solid_body_course_heading`, `solid_body_extent_growth`, `solid_body_end_face_centring` (both settings) and `solid_body_vehicle_extent_floor` once W1b and W2 meet their levels, and `solid_body_extent_prior_floor` and `solid_body_face_plane_spans` now; the D2.4 panel shows the heading source, the axis-by-age table and the containment share                                           | S                 | v0.5.7                          | W1b, W2 promoted  |
 
-Sequence: W0, then W1 and W2 in parallel with W3's measurement, each about three to four days to
-a scored result; W5 as the scoring is read; W6 and W4 after; W7 whenever the review window has
-an operator, since it gates every promotion. About three weeks to a scored shadow candidate, two
-more to A2 with the identity gate, not counting W7.
+Sequence: W0 first, and the W7 spike in the same week, since every promotion waits on the
+capture it finds. Then W2 alone and W1a in parallel with W3's measurement; W1b on both; W5 as
+the scoring is read; W4 after. Each of W1a, W1b and W2 is one to two weeks to a scored result,
+not days: the near-edge S2 line took the October campaign's fortnight for a smaller change, and
+a corpus screen is about 1.7 hours per arm. About three to five weeks to a scored shadow
+candidate, two more to A2 with the identity gate, not counting W7's review or the Pi
+measurement, which no sprint holds today. W6's low-speed labelling is inside W1b. Sprint
+0.5.2.1 then carries sixteen items; read it as two lanes, body geometry (W1, W2, W5, the extent
+item they supersede) and measurement and capture (W3, P11, W7), with the facet items waiting on
+W2's result as the facet plan itself asks.
 
 ## 7. Risks
 
 - **The fit is a new jitter source.** A rectangle on sparse far points can swing between frames.
-  The variance must carry that, and G-GEO-1's criterion 1 is the check: if the five-point
-  lateral residual rises with W1 on, the fit is being trusted too far.
+  σ_θ must carry that, the axis state has process noise, and G-GEO-1's criterion 1 is the check:
+  if the five-point lateral residual rises with W1 on, the fit is being trusted too far.
 - **Containment pulls toward merged clusters.** A box made to hold two cars' points is a box on
-  neither. The constraint applies only to clusters the merge test admits; W4 is where the two
-  rules are reconciled, and the corpus's merge-heavy sites (lombard-laguna, 1st-mission) are the
-  screen.
+  neither. The floor never feeds the belief, the merge test reads the belief before the floor,
+  the truncation applies only to clusters the merge test admits, and the corpus's merge-heavy
+  sites (lombard-laguna, 1st-mission) are the screen. W4 is where the two rules are reconciled.
+- **The constraint fights the filter.** Bounded by the state's own σ and applied to position
+  only, it cannot move more than the prediction's uncertainty allows; the across-velocity change
+  it would have made is recorded, and the five-point residual is the alarm.
 - **Labelling errors look like heading errors.** A right axis with the wrong length label is a
-  90° directed error in every score. The ambiguity must be reported, and the directed and axis
-  errors scored separately, as §3 does.
+  90° directed error in every score. The axis and directed errors are scored separately, and
+  the ambiguous state is reported, not resolved by a guard.
+- **The references are fits to the same returns.** kirk0's yaw and extents came from
+  `fit:mask_v1` on the reviewed returns the tracker reads, within 3.7° of resolution. W7's
+  references are operator-keyframed, and W1a's variance is calibrated on kirk0 and scored on W7.
 - **Identity under A2 moves anyway.** Shadow-first measures the geometry without it; the A2
-  decision then rests on the identity level alone.
+  decision then rests on the switch band above a measured noise floor.
+- **Criterion 1 is not in reach of this plan.** The candidate cut the corpus's lateral p99 by
+  10 % at the median; the gate asks 50 %. W1 and W2 make the box right, not tighter across the
+  course; the next remedy is the face-transition remedy the near-edge plan left unchosen, then
+  point-to-model residuals, and the exit-B date should be read with that.
 - **Upstream bounds the result.** Truck 2's length and gap cannot be right until its cab is in
-  the foreground. W3 is measurement; the fix is v0.5.6 work and may move the L3 fingerprint.
+  the foreground. W3 is measurement; the fix is v0.5.6 work (L) that moves the L3 or L4
+  fingerprint and reopens G-GEO-1, so the 0.5.2 envelope excludes partially retained trucks
+  until it lands.
 - **Live has no points.** None of this reaches a device until live retention ships; the Pi cost
-  of the fit is unmeasured.
+  of the fit is unmeasured, and under A2 it runs per candidate pair.
+- **Operator time.** W7 competes with the P3 pilot, the facet operator pilot (20 to 40 hours)
+  and the facet capture for the one review window; one capture request serving all three, and a
+  capped operator queue per sprint, is the mitigation.
 
 ## 8. What this does not change
 
@@ -337,15 +423,18 @@ more to A2 with the identity gate, not counting W7.
   the cheaper step the F0 report recommended before either; if they meet the levels, arm D's
   case weakens; if they do not, the residual error is the attribution arm D needs.
 - The pilot's references or the frozen split.
+- The G-GEO-1, G-UNC-1 and G-SMO-1 thresholds. §3 adds rows for predeclaration; it substitutes
+  for none of them.
 
 ## Checklist
 
-- [ ] W0 levels predeclared in the physical scoring criteria; containment share and heading-by-age in the summary and scorecard
-- [ ] W1 `solid_body_rectangle_heading` built, unit-tested, scored on the frozen split and the corpus
-- [ ] W2 `solid_body_containment` built, unit-tested, scored alone and with W1
+- [ ] W0 levels predeclared, the identity noise floor measured, the band committed to main; containment share, axis-by-age table and reported-against-believed extent in the summary and scorecard
+- [ ] W7 spike: end-on truck windows counted across the corpus and archive; one capture request raised
+- [ ] W2 `solid_body_containment` built, unit-tested, scored alone on the frozen split and the corpus
+- [ ] W1a fit, variance and abstention built and unit-tested; cost measured on the Mac and a Pi
+- [ ] W1b `solid_body_rectangle_heading` built, scored alone and with W2; car 8's slow poses re-scored
 - [ ] W3 retention and fragmentation scored per reviewed mask; truck 2's cab attributed
-- [ ] W5 shadow-first physical score; A2 against the identity level
-- [ ] W6 low-speed labelling; car 8's two poses re-scored
-- [ ] W7 second end-on truck reviewed and frozen; held-out score
+- [ ] W5 shadow-first physical score; A2 against the switch band; G-UNC-1's table refrozen
+- [ ] W7 second capture reviewed with operator-keyframed references and frozen; held-out score
 - [ ] W4 extents per §9.2 on the floored box
 - [ ] W8 superseded experiments retired; D2.4 panel shows the new diagnostics

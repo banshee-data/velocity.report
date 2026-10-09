@@ -172,8 +172,10 @@ across direction left to the prediction at an end-face-only fix, the body drifte
 across a lane on the corpus, and on kirk0 54 % of A2's body-centre rows hold under nine tenths
 of their own retained points. The
 [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md#42-a-containment-constraint-the-box-holds-the-points)
-proposes the exception the invariant should carry: a face observes nothing across itself, but
-the points do, and the box must contain them.
+proposes the exception the invariant should carry: a plane observes nothing along itself, and
+a one-sided containment bound with its own provenance, that the body cannot be where the points
+are not, is admitted under admitted membership and a resolved axis only, as a density truncation
+bounded by the state's own uncertainty rather than a reconstructed centre.
 
 ### One state machine for shadow and tracked
 
