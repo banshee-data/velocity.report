@@ -168,8 +168,9 @@ type SolidBodyOptions struct {
 	// without the floor it replaces the prior, so a truck seen across its
 	// rear is a metre wide. Unlike ExtentPriorFloor it keeps the dimension
 	// accumulated, so the faces it places stay in the fix, and it does not
-	// lengthen a small car seen whole. Other classes, whose smallest size is
-	// not known, are unchanged. Default false.
+	// lengthen a small car seen whole. A body of unknown class already seen
+	// as long as that car is held at its width (see widthOf); other classes,
+	// whose smallest size is not known, are unchanged. Default false.
 	VehicleExtentFloor bool
 	// EndFaceCentring is a rank-one remedy like T5, from the end face itself
 	// rather than the medoid: at a fix by a front or rear face alone, the
@@ -651,7 +652,7 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 		f.fallback = "missing_heading"
 	default:
 		f.length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
-		f.width = t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, prior.minWidthMetres)
+		f.width = t.widthOf(sb, prior)
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
 		f.edges = MeasureNearEdge(NearEdgeInput{
 			Cluster:          cluster,
@@ -1408,7 +1409,7 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 		},
 		Orientation: sb.orientation,
 		Length:      t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres),
-		Width:       t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, prior.minWidthMetres),
+		Width:       t.widthOf(sb, prior),
 		// Height stays the class prior, as in SolidBodyFromTrack: vertical
 		// extent is corrupted by the P11 grade artefact on any slope.
 		Height: DimensionBelief{
@@ -1541,4 +1542,19 @@ func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma, minimumMe
 		d.Metres = minimumMetres
 	}
 	return d
+}
+
+// widthOf is the body's width under the tracker's options. Under
+// VehicleExtentFloor a body of no known smallest size that has already been
+// seen as long as the smallest road car is held at that car's width too: by
+// then it is a vehicle whatever its class says, and a ten-metre truck seen
+// across a sliver of its rear is not 0.4 m wide. A cyclist, at under 2 m,
+// is not reached.
+func (t *Tracker) widthOf(sb *solidBodyTrack, prior classDimensionPrior) DimensionBelief {
+	minimum := prior.minWidthMetres
+	if vehicle := dimensionPriorFor(MotionRigidVehicle); minimum == 0 &&
+		t.Config.SolidBody.VehicleExtentFloor && sb.lengthBelief.Estimate() >= vehicle.minLengthMetres {
+		minimum = vehicle.minWidthMetres
+	}
+	return t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, minimum)
 }

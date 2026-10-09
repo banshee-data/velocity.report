@@ -205,6 +205,23 @@ func TestVehicleExtentFloorRaisesAPartialViewToTheSmallestCar(t *testing.T) {
 	if p := dimensionPriorFor(MotionPedestrian); p.minLengthMetres != 0 || p.minWidthMetres != 0 {
 		t.Error("a class whose smallest member is not known has a floor")
 	}
+	// A body of unknown class already as long as a car is held at a car's
+	// width; one shorter than a car is not.
+	unknown := dimensionPriorFor(MotionUnknown)
+	long := &solidBodyTrack{widthBelief: short}
+	for range 3 {
+		long.lengthBelief.Observe(8)
+	}
+	if w := floor.widthOf(long, unknown); w.Metres != vehicle.minWidthMetres {
+		t.Errorf("an 8 m body of unknown class seen 1.1 m wide is %v m wide, want %v", w.Metres, vehicle.minWidthMetres)
+	}
+	cyclist := &solidBodyTrack{widthBelief: short}
+	for range 3 {
+		cyclist.lengthBelief.Observe(1.8)
+	}
+	if w := floor.widthOf(cyclist, unknown); math.Abs(float64(w.Metres)-1.1) > 0.15 {
+		t.Errorf("a 1.8 m body of unknown class was widened to %v m", w.Metres)
+	}
 }
 
 // endOnTruckPass is a 9.6 by 2.5 m truck coming straight at the sensor from
