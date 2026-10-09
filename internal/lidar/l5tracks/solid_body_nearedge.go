@@ -225,6 +225,17 @@ type SolidBodyOptions struct {
 	// is what it would be without this option. It records the fit on the row
 	// as RectangleFit does. Default false.
 	RectangleHeading bool
+	// RectangleCourseFusion, with RectangleHeading, takes the course as a
+	// second observation of the axis at CourseAlignmentMinSpeedMps or more,
+	// with the course's own variance plus a sideslip allowance
+	// (axisCourseSlipRad), refused like a fit beyond the gate: a moving
+	// vehicle's velocity runs along its axis, and the filtered velocity is
+	// steadier frame to frame than a fit on the frame's returns, whose jitter
+	// otherwise reaches the centre through the faces. It also holds the
+	// label through a turn: a resolved body keeps its quadrant while the
+	// course is more than axisLabelCourseMarginRad from the nearest candidate,
+	// taking only the front from the course. Default false.
+	RectangleCourseFusion bool
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still

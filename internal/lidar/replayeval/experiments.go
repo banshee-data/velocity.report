@@ -156,6 +156,10 @@ const (
 	// (SolidBodyOptions.RectangleHeading). It records the fit on the row as
 	// solid_body_rectangle_fit does.
 	ExperimentSolidBodyRectangleHeading = "solid_body_rectangle_heading"
+	// ExperimentSolidBodyRectangleCourseFusion, with the rectangle heading,
+	// takes the course as a second observation of the axis at speed and
+	// holds the label through turns (SolidBodyOptions.RectangleCourseFusion).
+	ExperimentSolidBodyRectangleCourseFusion = "solid_body_rectangle_course_fusion"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -207,6 +211,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyContainment:              true,
 	ExperimentSolidBodyRectangleFit:             true,
 	ExperimentSolidBodyRectangleHeading:         true,
+	ExperimentSolidBodyRectangleCourseFusion:    true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 }

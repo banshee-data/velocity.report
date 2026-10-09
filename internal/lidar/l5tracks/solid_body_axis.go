@@ -87,6 +87,40 @@ func (t *Tracker) observeAxis(track *TrackedObject, sb *solidBodyTrack, cluster 
 	now := track.LastMeasurementUnixNanos
 	fit := sb.rectangleFitFor(now, cluster)
 	sb.axis.observe(fit, now)
+	if t.Config.SolidBody.RectangleCourseFusion {
+		if course, ok := courseOrientation(sb.state, sb.p); ok {
+			sb.axis.observeCourse(float64(course.PsiRad), float64(course.VarianceRad2)+axisCourseSlipRad*axisCourseSlipRad)
+		}
+	}
+}
+
+// axisCourseSlipRad is the sideslip allowed between a moving body's course
+// and its axis under RectangleCourseFusion: 3 degrees, the fit's own floor,
+// so at speed the course and a well-supported fit weigh about alike.
+const axisCourseSlipRad = 3 * math.Pi / 180
+
+// axisLabelCourseMarginRad is how near the course a candidate heading must
+// be for the course to relabel a resolved body under RectangleCourseFusion:
+// 35 degrees, so a course lagging a turn by close to 45 degrees, between two
+// candidates, leaves the label where it was.
+const axisLabelCourseMarginRad = 35 * math.Pi / 180
+
+// observeCourse updates a known axis with the course as an observation of
+// it, modulo 90 degrees, with variance r. A course beyond the gate is a turn
+// or a manoeuvre, not the axis, and is left out; it neither moves the axis
+// nor counts toward a restart, which only fits can force.
+func (a *solidBodyAxis) observeCourse(course, r float64) {
+	if !a.known {
+		return
+	}
+	innovation := math.Remainder(course-a.rad, math.Pi/2)
+	s := a.varRad2 + r
+	if innovation*innovation > axisGateSigmas*axisGateSigmas*s {
+		return
+	}
+	k := a.varRad2 / s
+	a.rad = foldQuarterTurn(a.rad + k*innovation)
+	a.varRad2 = (1 - k) * a.varRad2
 }
 
 // observe is one frame of the axis filter: the prediction to nanos, then the
@@ -151,6 +185,17 @@ func (t *Tracker) axisOrientation(track *TrackedObject, sb *solidBodyTrack) (Ori
 	switch course, ok := courseOrientation(sb.state, sb.p); {
 	case ok:
 		reference, o.AmbiguousModeWeight = float64(course.PsiRad), 0
+		if t.Config.SolidBody.RectangleCourseFusion && sb.orientation.IsResolved() {
+			byCourse := labelAxis(a.rad, reference)
+			if math.Abs(math.Remainder(byCourse-reference, 2*math.Pi)) > axisLabelCourseMarginRad {
+				// Between two candidates: keep the quadrant, take the front.
+				held := labelAxis(a.rad, float64(sb.orientation.PsiRad))
+				if math.Cos(held-reference) < 0 {
+					held += math.Pi
+				}
+				reference = held
+			}
+		}
 	case sb.orientation.Provenance != ProvenanceNone:
 		reference, o.AmbiguousModeWeight = float64(sb.orientation.PsiRad), sb.orientation.AmbiguousModeWeight
 	default:

@@ -150,3 +150,59 @@ func TestRectangleHeadingHeadsAnEndOnTruckAlongItsAxis(t *testing.T) {
 		t.Fatalf("the rectangle heading is over 5 degrees off on %d of %d frames", over5, len(with))
 	}
 }
+
+// The course is a second observation of a known axis: it pulls the axis
+// toward itself by the weight its variance gives, is ignored beyond the gate
+// without counting toward a restart, and cannot start an axis on its own.
+func TestAxisObserveCourseFusesWithinTheGate(t *testing.T) {
+	var none solidBodyAxis
+	none.observeCourse(0.3, 0.001)
+	if none.known {
+		t.Fatal("the course started an axis no fit had observed")
+	}
+	a := solidBodyAxis{known: true, rad: 10 * math.Pi / 180, varRad2: 0.001}
+	a.observeCourse(12*math.Pi/180, 0.001)
+	if d := axisDeg(a); math.Abs(d-11) > 1e-6 || a.varRad2 >= 0.001 {
+		t.Fatalf("equal weights gave %.3f degrees and variance %.5f", d, a.varRad2)
+	}
+	before := a
+	a.observeCourse(40*math.Pi/180, 0.0001)
+	if a.rad != before.rad || a.varRad2 != before.varRad2 || a.refused != 0 {
+		t.Fatalf("a course 29 degrees off moved the axis or counted as a refusal: %+v", a)
+	}
+}
+
+// Under RectangleCourseFusion a resolved body keeps its quadrant while the
+// course sits between two candidates, as a lagging velocity does in a turn,
+// and takes the front from the course; a course near one candidate relabels
+// it as before.
+func TestRectangleCourseFusionHoldsTheLabelThroughATurn(t *testing.T) {
+	label := func(fusion bool, courseDeg float64) float64 {
+		cfg := solidBodyConfig()
+		cfg.SolidBody.RectangleHeading, cfg.SolidBody.RectangleCourseFusion = true, fusion
+		sb := &solidBodyTrack{
+			axis:        solidBodyAxis{known: true, rad: 0, varRad2: 0.001},
+			orientation: OrientationBelief{PsiRad: 0, Provenance: ProvenanceObserved},
+		}
+		c := courseDeg * math.Pi / 180
+		sb.state = [4]float32{0, 0, float32(8 * math.Cos(c)), float32(8 * math.Sin(c))}
+		sb.p[2*4+2], sb.p[3*4+3] = 0.01, 0.01
+		o, ok := NewTracker(cfg).axisOrientation(&TrackedObject{}, sb)
+		if !ok {
+			t.Fatal("no orientation from a known axis")
+		}
+		return math.Remainder(float64(o.PsiRad), 2*math.Pi) * 180 / math.Pi
+	}
+	if got := label(false, 50); math.Abs(got-90) > 1e-3 {
+		t.Fatalf("without fusion a course at 50 degrees labelled %.1f, want the nearest candidate 90", got)
+	}
+	if got := label(true, 50); math.Abs(got) > 1e-3 {
+		t.Fatalf("a course at 50 degrees, between candidates, relabelled a body headed 0 to %.1f", got)
+	}
+	if got := label(true, 80); math.Abs(got-90) > 1e-3 {
+		t.Fatalf("a course at 80 degrees, near the 90 candidate, gave %.1f", got)
+	}
+	if got := label(true, 170); math.Abs(math.Abs(got)-180) > 1e-3 {
+		t.Fatalf("a course at 170 degrees gave %.1f, want the front turned to 180", got)
+	}
+}

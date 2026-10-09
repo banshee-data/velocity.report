@@ -81,8 +81,9 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyExtentPriorFloor,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleFit,
-		ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyReferenceTranslation,
+		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
+		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading,
+		ExperimentSolidBodyReferenceTranslation,
 		ExperimentSolidBodyVehicleExtentFloor}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -154,6 +155,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyContainment:        func(o *l5tracks.SolidBodyOptions) { o.Containment = true },
 		ExperimentSolidBodyRectangleFit:       func(o *l5tracks.SolidBodyOptions) { o.RectangleFit = true },
 		ExperimentSolidBodyRectangleHeading:   func(o *l5tracks.SolidBodyOptions) { o.RectangleHeading = true },
+		ExperimentSolidBodyRectangleCourseFusion: func(o *l5tracks.SolidBodyOptions) {
+			o.RectangleCourseFusion = true
+		},
 		ExperimentSolidBodyEndFaceCentringOpenPrior: func(o *l5tracks.SolidBodyOptions) {
 			o.EndFaceCentring, o.EndFaceCentringOpenPrior = true, true
 		},
