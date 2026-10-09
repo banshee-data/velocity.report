@@ -164,6 +164,17 @@ private func around(_ p: simd_float2, _ r: Float = 0.3) -> SelectionPolygon {
         let window = try source("UI/AnnotationWindow.swift")
         #expect(window.contains("AnnotationArrowKeys(session:session)"))
     }
+
+    @Test func theModeMenuHeadsTheRightColumnOutsideItsScroll() throws {
+        let window = try source("UI/AnnotationWindow.swift")
+        let picker = try #require(window.range(of: "AnnotationModePicker(session:session)"))
+        let editing = try #require(
+            window.range(of: "AnnotationPane(session:session,column:.editing)"))
+        let objects = try #require(
+            window.range(of: "AnnotationPane(session:session,column:.objects)"))
+        #expect(picker.lowerBound > objects.lowerBound && picker.lowerBound < editing.lowerBound)
+        #expect(!(try source("UI/AnnotationPane.swift")).contains("modePicker"))
+    }
 }
 
 // MARK: - Turning a pose
@@ -295,10 +306,34 @@ struct ObjectFollowGeometryTests {
         let outward = simd_normalize(simd_float2(20, 10))
         #expect(
             simd_dot(back, outward) < -0.999, "the camera is on the sensor's side of the object")
+        let distance = simd_distance(camera.position, focus.centre)
+        let halfFov = camera.fov * .pi / 360
+        #expect(distance >= focus.radius / sin(halfFov), "the object's sphere is inside the view")
+        var near = camera
+        near.lookFromSensor(
+            at: AnnotationSceneFocus(centre: focus.centre, radius: 0.5, revision: 2))
+        #expect(simd_distance(near.position, focus.centre) >= 10 - 1e-4, "never nearer than 10 m")
         let rise = camera.position.z - focus.centre.z
         let run = simd_distance(
             simd_float2(camera.position.x, camera.position.y), simd_float2(20, 10))
         #expect(atan2(rise, run) >= 0.21 - 1e-4, "looks down on the object at least that steeply")
+    }
+
+    @Test func theCameraDistanceOnlyGrowsWhileFollowing() {
+        var framing = ObjectFollowFraming()
+        var extents: [OrthoViewBasis.Standard: AnnotationExtent] = [:]
+        var states: [OrthoViewBasis.Standard: OrthoViewState] = [:]
+        func sphere(_ r: Float) -> ObjectFootprint {
+            ObjectFootprint(extents: [:], lower: simd_float3(-r, 0, 0), upper: simd_float3(r, 0, 0))
+        }
+        framing.fit(sphere(2), extents: &extents, states: &states)
+        #expect(framing.radius == 2)
+        framing.follow(sphere(1), extents: &extents, states: &states)
+        #expect(framing.radius == 2, "a car showing only its front shrank the 3D view onto it")
+        framing.follow(sphere(3), extents: &extents, states: &states)
+        #expect(framing.radius == 3)
+        framing.fit(sphere(1), extents: &extents, states: &states)
+        #expect(framing.radius == 1, "clicking again starts over")
     }
 
     @Test func aGlideEasesFromOneCameraToTheNext() {
@@ -426,6 +461,21 @@ struct ObjectFollowGeometryTests {
         #expect(abs(box.length - 4.5) < 1e-5 && abs(box.width - 1.8) < 1e-5)
         #expect(abs(box.yawRad - 0.3) < 1e-5)
         #expect(box.colour.x == PhysicalReferenceOverlay.Style.unsaved.rgb.x)
+        // The elevations stand the box on the same span.
+        let span = session.physicalBoxSpan(
+            objectID: object.objectID, body: session.physical.object(object.objectID)?.body)
+        #expect(
+            span.lowerBound == box.base.z
+                && abs(span.upperBound - span.lowerBound - box.height) < 1e-5)
+        session.physical.edit { objects in
+            PhysicalDraft.updateBody(objectID: object.objectID, in: &objects) {
+                $0.height = PhysicalDimension(
+                    status: .observed, span: .full, lowerM: 1.4, upperM: 1.6, valueM: 1.5,
+                    support: .init(frames: [sampleID]))
+            }
+        }
+        let tall = try #require(session.physicalSceneBoxes.first)
+        #expect(abs(tall.height - 1.5) < 1e-5, "a stated height is drawn")
         session.workMode = .points
         #expect(session.physicalSceneBoxes.isEmpty, "drawn in physical mode only")
     }

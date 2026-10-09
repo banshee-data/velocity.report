@@ -376,10 +376,7 @@ extension AnnotationSession {
     /// as the orthographic views style them. Only a keyframe that establishes
     /// a whole footprint is drawn, as in the views.
     ///
-    /// A reference has a footprint and, at most, a height; it has no floor.
-    /// The box stands on the lowest of the object's returns in this frame,
-    /// or on the column grid's ground when it has none here, and is as tall
-    /// as the body's height, or its returns when that is not known.
+    /// How tall each is drawn is `physicalBoxSpan`.
     var physicalSceneBoxes: [MetalRenderer.OverlayBox] {
         guard workMode == .physical, let sample = currentSample else { return [] }
         var boxes: [MetalRenderer.OverlayBox] = []
@@ -391,30 +388,43 @@ extension AnnotationSession {
                 draft: k,
                 saved: physical.savedKeyframe(objectID: object.objectID, sampleID: sample.sampleID),
                 body: object.body, savedBody: physical.savedBody(objectID: object.objectID))
-            let indices =
-                object.objectID == activeObjectID
-                ? history.current
-                : Set(
-                    sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID)?.pointIndices
-                        ?? [])
-            let span = AnnotationSession.heightSpan(of: indices, in: currentPoints)
-            let base = span?.lowerBound ?? columnGrid.groundZ
-            let stated: Float? = object.body.flatMap { body in
-                switch body.height.choice {
-                case .full: return body.height.best.map { Float($0.value) }
-                case .atLeast: return body.height.lowerM.map(Float.init)
-                case .unknown: return nil
-                }
-            }
-            let top = max(base + (stated ?? 0), span?.upperBound ?? base + (stated ?? 1.5))
+            let span = physicalBoxSpan(objectID: object.objectID, body: object.body)
             let active = object.objectID == activeObjectID
             boxes.append(
                 MetalRenderer.OverlayBox(
-                    base: simd_float3(Float(box.centreX), Float(box.centreY), base),
+                    base: simd_float3(Float(box.centreX), Float(box.centreY), span.lowerBound),
                     yawRad: Float(box.yawRad), length: Float(box.length), width: Float(box.width),
-                    height: max(top - base, 0.1), colour: simd_float4(style.rgb, active ? 1 : 0.6)))
+                    height: span.upperBound - span.lowerBound,
+                    colour: simd_float4(style.rgb, active ? 1 : 0.6)))
         }
         return boxes
+    }
+
+    /// The heights a physical box is drawn between at this frame, in the 3D
+    /// view and the elevations alike.
+    ///
+    /// A reference has a footprint and at most a height; it has no floor. The
+    /// box stands on the lowest of the object's returns in this frame, or on
+    /// the column grid's ground when it has none here, and is as tall as the
+    /// body's height, or its returns when that is not known or is less.
+    func physicalBoxSpan(objectID: String, body: PhysicalBody?) -> ClosedRange<Float> {
+        let indices =
+            objectID == activeObjectID
+            ? history.current
+            : Set(
+                currentSample.flatMap { sidecar.mask(objectID: objectID, sampleID: $0.sampleID) }?
+                    .pointIndices ?? [])
+        let span = AnnotationSession.heightSpan(of: indices, in: currentPoints)
+        let base = span?.lowerBound ?? columnGrid.groundZ
+        let stated: Float? = body.flatMap { body in
+            switch body.height.choice {
+            case .full: return body.height.best.map { Float($0.value) }
+            case .atLeast: return body.height.lowerM.map(Float.init)
+            case .unknown: return nil
+            }
+        }
+        let top = max(base + (stated ?? 0), span?.upperBound ?? base + (stated ?? 1.5))
+        return base...max(top, base + 0.1)
     }
 
     /// The lowest and highest of these returns, or nil when there are none.

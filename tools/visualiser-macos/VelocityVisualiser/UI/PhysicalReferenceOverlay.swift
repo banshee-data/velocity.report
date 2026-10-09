@@ -5,8 +5,9 @@
 // marker and its bound, not a plausible rectangle; a box appears only when
 // centre, yaw, length and width are all known; an ambiguous axis shows an
 // unsigned line and unsigned ends, never a front. In the elevations a
-// position with no height is a vertical line, because there is no ground
-// plane to stand it on.
+// position is a vertical line, because it has no height of its own, and a
+// box stands where the 3D view stands it (`physicalBoxSpan`): the reference
+// has a footprint and no floor.
 //
 // Proposed, reviewed and unsaved references are told apart by line style and
 // a text label, not by colour alone.
@@ -78,7 +79,7 @@ struct PhysicalReferenceOverlay: View {
         let items:
             [(
                 name: String, geometry: PhysicalGeometry, keyframe: PhysicalKeyframe, style: Style,
-                active: Bool
+                active: Bool, heights: ClosedRange<Float>
             )] = physical.draft.compactMap { object in
                 guard let sampleID, let k = object.keyframe(sampleID: sampleID) else { return nil }
                 let style = Self.style(
@@ -88,7 +89,8 @@ struct PhysicalReferenceOverlay: View {
                 return (
                     session.displayName(objectID: object.objectID),
                     PhysicalGeometry.derive(object: object, keyframe: k, gate: .authoring), k,
-                    style, object.objectID == active
+                    style, object.objectID == active,
+                    session.physicalBoxSpan(objectID: object.objectID, body: object.body)
                 )
             }
         let metresPerPoint: Double =
@@ -167,8 +169,8 @@ struct PhysicalReferenceOverlay: View {
                     }
                 } else {
                     drawElevation(
-                        g, item.keyframe, basis: basis, in: &context, size: size, screen: screen,
-                        colour: colour, stroke: stroke, label: label)
+                        g, item.keyframe, heights: item.heights, basis: basis, in: &context,
+                        size: size, screen: screen, colour: colour, stroke: stroke, label: label)
                 }
             }
         }.allowsHitTesting(false)
@@ -273,8 +275,8 @@ struct PhysicalReferenceOverlay: View {
     }
 
     private func drawElevation(
-        _ g: PhysicalGeometry, _ k: PhysicalKeyframe, basis: OrthoViewBasis,
-        in context: inout GraphicsContext, size: CGSize,
+        _ g: PhysicalGeometry, _ k: PhysicalKeyframe, heights: ClosedRange<Float>,
+        basis: OrthoViewBasis, in context: inout GraphicsContext, size: CGSize,
         screen: (Double, Double, Double) -> CGPoint, colour: Color, stroke: StrokeStyle,
         label: String
     ) {
@@ -295,14 +297,22 @@ struct PhysicalReferenceOverlay: View {
                 Path(ellipseIn: CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)),
                 with: .color(colour))
         }
-        // The footprint's extent along this view, as two verticals: the box
-        // has no height here unless its body says so, and no floor at all.
+        // The whole box, as the 3D view stands it: the footprint's four
+        // corners at the bottom and the top, and the edges between them. A
+        // turned box shows its near and far vertical edges inside the outline.
         if let box = g.box {
-            let xs = box.corners.map { screen($0.x, $0.y, 0).x }
-            if let lo = xs.min(), let hi = xs.max() {
-                vertical(at: lo, style: stroke)
-                vertical(at: hi, style: stroke)
+            let bottom = box.corners.map { screen($0.x, $0.y, Double(heights.lowerBound)) }
+            let top = box.corners.map { screen($0.x, $0.y, Double(heights.upperBound)) }
+            var edges = Path()
+            for ring in [bottom, top] {
+                edges.addLines(ring)
+                edges.closeSubpath()
             }
+            for (b, t) in zip(bottom, top) {
+                edges.move(to: b)
+                edges.addLine(to: t)
+            }
+            context.stroke(edges, with: .color(colour), style: stroke)
         }
         context.draw(
             Text(label).font(.system(size: 9)).foregroundColor(colour), at: CGPoint(x: a.x, y: 14))

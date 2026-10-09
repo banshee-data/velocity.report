@@ -338,11 +338,6 @@ struct AnnotationWorkspace: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
-                // What a gesture authors, pinned where it cannot scroll away:
-                // everything else in both columns depends on it.
-                AnnotationModePicker(session: session).padding(.horizontal, 12).padding(
-                    .vertical, 8)
-                Divider()
                 MainViewLink(session: session, appState: appState, scene: scene)
                 Divider()
                 AnnotationPane(session: session, column: .objects)
@@ -425,6 +420,10 @@ struct AnnotationWorkspace: View {
     // The editing column and the window's own actions beneath it.
     private var editingColumn: some View {
         VStack(spacing: 0) {
+            // What a gesture authors, above the controls it chooses between
+            // and pinned where it cannot scroll away.
+            AnnotationModePicker(session: session).padding(.horizontal, 12).padding(.vertical, 8)
+            Divider()
             AnnotationPane(session: session, column: .editing)
             Divider()
             HStack {

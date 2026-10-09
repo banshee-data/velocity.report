@@ -6,7 +6,7 @@ belong to the object, and whether an end the returns reach is the vehicle's real
 of something hiding it. The fit does the arithmetic, states every bound it uses, and writes
 proposals that go through the same validation and review as anything typed by hand.
 
-- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 in part: the box is drawn in the 3D view, and a fitted pose turns about its centre; the elevations still draw a footprint's extent, and the frame label is open. F3 (errors at the field) and F5 open
+- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 in part: the whole box is drawn in the 3D view and the elevations, and a fitted pose turns about its centre; the one frame label is open. F3 (errors at the field) and F5 open
 - **Target:** v0.5.2, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)

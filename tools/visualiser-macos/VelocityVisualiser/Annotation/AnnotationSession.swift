@@ -1498,7 +1498,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
 
     private func look(at footprint: ObjectFootprint) {
         sceneFocus = AnnotationSceneFocus(
-            centre: footprint.centre, radius: footprint.radius,
+            centre: footprint.centre, radius: followFraming.radius,
             revision: (sceneFocus?.revision ?? 0) + 1, fromSensor: true, animated: true)
     }
 

@@ -130,14 +130,14 @@ truth; only reviewed objects and masks count as such.
 
 ## The window
 
-| Area                  | What it is                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| Left sidebar          | The mode, pinned at the top; then run and frame, this frame's progress, proposals, objects |
-| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes   |
-| Top view (below left) | Large, because this is where a selection is usually made                                   |
-| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                    |
-| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update   |
-| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                               |
+| Area                  | What it is                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
+| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes |
+| Top view (below left) | Large, because this is where a selection is usually made                                 |
+| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
+| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
+| Right sidebar         | The mode, pinned at the top; then how: display, tools, depth slab, saving and review     |
 
 Each elevation is the sensor looking outward and **shows only the half of the scene in front of
 it**: 180° of azimuth each, the pairs opposed. Without that the half behind the sensor lands on
@@ -152,7 +152,8 @@ because a street is a hundred metres wide and four high and fitting its width wo
 too small to see.
 
 The mode — **Object Points**, **Physical**, **Facets** or **Compare** — is the menu at the top of
-the left sidebar. It stays there however far either sidebar is scrolled.
+the right sidebar, above the controls it chooses between. It stays there however far the sidebar
+is scrolled.
 
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
@@ -180,7 +181,9 @@ object being followed moves them.
 
 **Clicking an object** in the list frames it whole in all six views, the elevations included,
 and the 3D view glides round to look at it along the sensor's own line of sight, a little from
-above. With **Keep the chosen object in view** on, the default, every step after that moves the
+above and at least 10 m back. Its distance only grows while it follows, so a car driving at the
+sensor, which shows little more than its front, does not draw the camera in until it drives past
+it. With **Keep the chosen object in view** on, the default, every step after that moves the
 views with it: a view you have not touched keeps the object centred and grows, never shrinks, to
 keep it whole; a view you have panned or zoomed keeps your offset and scale and moves with the
 object. In a frame the object is not labelled in, it is placed between the labelled frames
@@ -434,7 +437,7 @@ until someone reviews one there.
 ### Authoring in the window
 
 Physical references are authored in the annotation window, in the **Physical** mode chosen at
-the top of the left-hand column. The window never writes `physical-references.json` itself: it
+the top of the right-hand column. The window never writes `physical-references.json` itself: it
 sends each edit to the local server, which applies the rules below, and shows what the server
 answers. The server must hold the same pack folder the window opened, under its
 `--lidar-annotation-dir`. A pack opened from anywhere else can be viewed, but not saved.
@@ -507,11 +510,12 @@ resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
-The 3D view draws the same boxes, in the same three colours: orange unsaved, yellow proposed,
-green reviewed. A reference has a footprint and at most a height, and no floor, so the 3D box is
-stood on the object's lowest return in that frame (the column grid's ground where it has none)
-and is as tall as the body's height, or its returns when the height is not known. The height
-drawn is for looking; nothing reads it back.
+The elevations and the 3D view draw the same box whole, in the same three colours: orange
+unsaved, yellow proposed, green reviewed. A reference has a footprint and at most a height, and
+no floor, so the box is stood on the object's lowest return in that frame (the column grid's
+ground where it has none) and is as tall as the body's height, or its returns when the height is
+not known or is less. The height drawn is for looking; nothing reads it back. In an elevation a
+turned box shows its near and far vertical edges inside the outline.
 
 Unsaved physical work guards stepping, switching objects, opening another pack and closing the
 window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,

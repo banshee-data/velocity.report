@@ -502,9 +502,9 @@ struct AnnotationSceneView: NSViewRepresentable {
         private var glideFrom: Camera?
         private var glideTo: Camera?
         private var glideStart: TimeInterval = 0
-        /// Long enough to read as movement, short enough that one step of a
-        /// playing replay has finished before the next begins.
-        static let glideSeconds: TimeInterval = 0.35
+        /// Long enough to read as movement, short enough that the camera does
+        /// not trail a moving object by more than a couple of frames.
+        static let glideSeconds: TimeInterval = 0.25
 
         /// Moves the camera to `goal` over a moment, from wherever it is now:
         /// a glide already under way is redirected, not restarted from where

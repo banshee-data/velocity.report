@@ -90,6 +90,11 @@ struct ObjectFollowFraming: Equatable {
     var halfSizes: [OrthoViewBasis.Standard: simd_float2] = [:]
     /// Where the object was in each view at the last step.
     var centres: [OrthoViewBasis.Standard: simd_float2] = [:]
+    /// The radius the 3D view frames, which likewise only grows. A car
+    /// coming straight at the sensor shows little more than its front, and
+    /// a camera fitted to that, frame by frame, sat so close that the car
+    /// drove past it.
+    var radius: Float = 0
 
     /// Frames the object tightly in every view that sees it, discarding what
     /// the operator did by hand: what clicking an object asks for.
@@ -99,6 +104,7 @@ struct ObjectFollowFraming: Equatable {
     ) {
         halfSizes = [:]
         centres = [:]
+        radius = footprint.radius
         for (standard, e) in footprint.extents {
             halfSizes[standard] = simd_float2(e.halfWidth, e.halfHeight)
             centres[standard] = e.centre
@@ -112,6 +118,7 @@ struct ObjectFollowFraming: Equatable {
         _ footprint: ObjectFootprint, extents: inout [OrthoViewBasis.Standard: AnnotationExtent],
         states: inout [OrthoViewBasis.Standard: OrthoViewState]
     ) {
+        radius = max(radius, footprint.radius)
         for (standard, e) in footprint.extents {
             if var state = states[standard] {
                 // Where the operator put it, carried along with the object.
@@ -161,10 +168,17 @@ extension Camera {
     /// The line is steepened to at least `minimumPitch` below the horizontal.
     /// From the sensor's 2.3 m a car fifty metres off is seen almost edge on,
     /// and from there a roof and the road around it are both a line.
-    mutating func lookFromSensor(at focus: AnnotationSceneFocus, minimumPitch: Float = 0.21) {
+    ///
+    /// Far enough back that the region's bounding sphere fills a little over
+    /// half the view's height, and never nearer than `minimumDistance`: an
+    /// object driving towards the camera closes on it between one step and
+    /// the next, and framed tightly its near end left the view.
+    mutating func lookFromSensor(
+        at focus: AnnotationSceneFocus, minimumPitch: Float = 0.21, minimumDistance: Float = 10
+    ) {
         let radius = max(focus.radius, 1)
         let halfFov = fov * .pi / 360
-        let distance = min(max(radius / tan(halfFov) * 1.25, 2), 500)
+        let distance = min(max(radius / sin(halfFov) * 1.6, minimumDistance), 500)
         let ray = focus.centre
         let horizontal = simd_length(simd_float2(ray.x, ray.y))
         guard horizontal > 0.5 else {
