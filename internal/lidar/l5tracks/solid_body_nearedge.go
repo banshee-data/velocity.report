@@ -185,6 +185,14 @@ type SolidBodyOptions struct {
 	// as wide as the believed width is taken as cut off and gives nothing.
 	// Default false.
 	EndFaceCentring bool
+	// EndFaceCentringOpenPrior, with EndFaceCentring, refuses a narrow face
+	// only against a width measured on this body. Reading a narrow face as
+	// cut off needs a width for it to be cut off from, and a class prior is
+	// the class's, not this body's; against one the face is used, at its
+	// shortfall's variance. Without it a body still at the prior width has
+	// nothing across it at an end-face fix until a width is measured, and
+	// then the term arrives in one step. Default false.
+	EndFaceCentringOpenPrior bool
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still
@@ -858,7 +866,11 @@ func (t *Tracker) endFaceCentringTerm(faces []EdgeMeasurement, f nearEdgeFrame, 
 	hi := l4perception.NthFloat64(across, last-k)
 	lo := l4perception.NthFloat64(across[:last-k], k)
 	seen, width := hi-lo, float64(f.width.Metres)
-	if !(seen > 0) || seen < width/2 {
+	cutOff := seen < width/2
+	if t.Config.SolidBody.EndFaceCentringOpenPrior && !f.width.Provenance.IsEvidence() {
+		cutOff = false
+	}
+	if !(seen > 0) || cutOff {
 		return looseMedoidTerm{}, false
 	}
 	short := math.Max(width-seen, 0) / 2

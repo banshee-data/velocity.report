@@ -75,7 +75,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
-		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyExtentGrowth,
+		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
+		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
 		ExperimentSolidBodyExtentPriorFloor,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFullMembers,
@@ -148,6 +149,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyExtentGrowth:       func(o *l5tracks.SolidBodyOptions) { o.ExtentGrowthAdmission = true },
 		ExperimentSolidBodyVehicleExtentFloor: func(o *l5tracks.SolidBodyOptions) { o.VehicleExtentFloor = true },
 		ExperimentSolidBodyEndFaceCentring:    func(o *l5tracks.SolidBodyOptions) { o.EndFaceCentring = true },
+		ExperimentSolidBodyEndFaceCentringOpenPrior: func(o *l5tracks.SolidBodyOptions) {
+			o.EndFaceCentring, o.EndFaceCentringOpenPrior = true, true
+		},
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
@@ -168,6 +172,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyRankOneMedoid,
 		ExperimentSolidBodyRankOneMedoidTight}, nil); err == nil {
 		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight)
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyEndFaceCentring,
+		ExperimentSolidBodyEndFaceCentringOpenPrior}, nil); err == nil {
+		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
 	}
 	// Full members change what L4 hands over, not the tracker's options, and
 	// are refused without a solid body to read them.

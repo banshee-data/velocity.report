@@ -1206,11 +1206,14 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	planeSpans := hasExperiment(experiments, ExperimentSolidBodyFacePlaneSpans)
 	growth := hasExperiment(experiments, ExperimentSolidBodyExtentGrowth)
 	vehicleFloor := hasExperiment(experiments, ExperimentSolidBodyVehicleExtentFloor)
-	centring := hasExperiment(experiments, ExperimentSolidBodyEndFaceCentring)
 	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
 	rankOne, err := rankOneMedoidScaleFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
+	centring, openPrior, err := endFaceCentringFor(experiments)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
@@ -1222,7 +1225,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
 			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
 			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
-			EndFaceCentring: centring,
+			EndFaceCentring: centring, EndFaceCentringOpenPrior: openPrior,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
@@ -1234,6 +1237,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// endFaceCentringFor is end-face centring's two settings: on, and on with
+// its narrow-face refusal kept for measured widths. Naming both is refused,
+// as T5's two settings are.
+func endFaceCentringFor(experiments []string) (centring, openPrior bool, err error) {
+	plain := hasExperiment(experiments, ExperimentSolidBodyEndFaceCentring)
+	open := hasExperiment(experiments, ExperimentSolidBodyEndFaceCentringOpenPrior)
+	if plain && open {
+		return false, false, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
+	}
+	return plain || open, open, nil
 }
 
 // rankOneMedoidScaleFor is remedy T5's half-extent scale: one for

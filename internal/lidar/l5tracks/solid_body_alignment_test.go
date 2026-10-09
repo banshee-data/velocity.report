@@ -326,6 +326,23 @@ func TestEndFaceCentringTakesTheFacesOwnMidpoint(t *testing.T) {
 	if _, ok := tracker.endFaceCentringTerm([]EdgeMeasurement{front}, frame, narrow); ok {
 		t.Error("a face seen 1 m across against a 2.5 m body gave a term")
 	}
+	// The open-prior setting refuses it only against a measured width.
+	open := solidBodyConfig()
+	open.SolidBody.EndFaceCentring = true
+	open.SolidBody.EndFaceCentringOpenPrior = true
+	openTracker := NewTracker(open)
+	measured := nearEdgeFrame{width: DimensionBelief{Metres: 2.5, Provenance: ProvenanceAccumulated}}
+	if _, ok := openTracker.endFaceCentringTerm([]EdgeMeasurement{front}, measured, narrow); ok {
+		t.Error("open prior: a face seen 1 m across against a measured 2.5 m width gave a term")
+	}
+	prior := nearEdgeFrame{width: DimensionBelief{Metres: 2.5, Provenance: ProvenanceClassPrior}}
+	term, ok = openTracker.endFaceCentringTerm([]EdgeMeasurement{front}, prior, narrow)
+	if !ok {
+		t.Fatal("open prior: a face seen 1 m across against a prior 2.5 m width gave no term")
+	}
+	if want := float64(open.MeasurementNoise) + 0.75*0.75; math.Abs(term.z-1.0) > 0.05 || math.Abs(term.variance-want) > 0.02 {
+		t.Errorf("open prior term %+v, want the face's midpoint 1.0 m across at variance %.3f", term, want)
+	}
 	// A fix with a side face in it already constrains the width direction.
 	side := EdgeMeasurement{Face: FaceLeft, NormalY: 1, PlaneOffsetMetres: 2.1}
 	if _, ok := tracker.endFaceCentringTerm([]EdgeMeasurement{front, side}, frame, cluster); ok {

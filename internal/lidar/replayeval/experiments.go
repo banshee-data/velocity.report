@@ -135,6 +135,11 @@ const (
 	// position across the body is also updated from the face's own midpoint
 	// (SolidBodyOptions.EndFaceCentring).
 	ExperimentSolidBodyEndFaceCentring = "solid_body_end_face_centring"
+	// ExperimentSolidBodyEndFaceCentringOpenPrior is end-face centring that
+	// refuses a narrow face only against a measured width, not a class
+	// prior (SolidBodyOptions.EndFaceCentringOpenPrior). It is a second
+	// setting of the same option, so naming both is refused.
+	ExperimentSolidBodyEndFaceCentringOpenPrior = "solid_body_end_face_centring_open_prior"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -173,17 +178,18 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyCourseFaces:    true,
 	ExperimentSolidBodyFullMembers:    true,
 
-	ExperimentSolidBodyReferenceTranslation: true,
-	ExperimentSolidBodyRankOneMedoid:        true,
-	ExperimentSolidBodyRankOneMedoidTight:   true,
-	ExperimentSolidBodyCourseHeading:        true,
-	ExperimentSolidBodyExtentPriorFloor:     true,
-	ExperimentSolidBodyFacePlaneSpans:       true,
-	ExperimentSolidBodyExtentGrowth:         true,
-	ExperimentSolidBodyVehicleExtentFloor:   true,
-	ExperimentSolidBodyEndFaceCentring:      true,
-	ExperimentNearEdgeTrack:                 true,
-	ExperimentNearEdgeTrackA1:               true,
+	ExperimentSolidBodyReferenceTranslation:     true,
+	ExperimentSolidBodyRankOneMedoid:            true,
+	ExperimentSolidBodyRankOneMedoidTight:       true,
+	ExperimentSolidBodyCourseHeading:            true,
+	ExperimentSolidBodyExtentPriorFloor:         true,
+	ExperimentSolidBodyFacePlaneSpans:           true,
+	ExperimentSolidBodyExtentGrowth:             true,
+	ExperimentSolidBodyVehicleExtentFloor:       true,
+	ExperimentSolidBodyEndFaceCentring:          true,
+	ExperimentSolidBodyEndFaceCentringOpenPrior: true,
+	ExperimentNearEdgeTrack:                     true,
+	ExperimentNearEdgeTrackA1:                   true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.
