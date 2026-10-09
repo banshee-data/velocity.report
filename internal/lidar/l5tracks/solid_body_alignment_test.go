@@ -246,3 +246,28 @@ func TestAnEndOnTruckIsHeadedAlongItsCourse(t *testing.T) {
 		t.Errorf("with growth admission the 9.6 m truck is %.2f m long", l)
 	}
 }
+
+// BenchmarkSolidBodyEndOnTruck times the tracker over the end-on truck pass,
+// with and without the course heading and growth admission: growth admission
+// adds a span search on merge-candidate frames, and extent admission is
+// already most of a solid body's update cost.
+func BenchmarkSolidBodyEndOnTruck(b *testing.B) {
+	frames := syntheticPassFrames(&testing.T{}, endOnTruckPass())
+	for _, c := range []struct {
+		name          string
+		heading, grow bool
+	}{{"tracked", false, false}, {"course_heading", true, false}, {"extent_growth", false, true}, {"both", true, true}} {
+		b.Run(c.name, func(b *testing.B) {
+			cfg := solidBodyConfig()
+			cfg.SolidBody.CourseAlignedFaces = true
+			cfg.SolidBody.CourseHeading = c.heading
+			cfg.SolidBody.ExtentGrowthAdmission = c.grow
+			for range b.N {
+				tracker := NewTracker(cfg)
+				for _, f := range frames {
+					tracker.Update(f.clusters, f.at)
+				}
+			}
+		})
+	}
+}

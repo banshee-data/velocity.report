@@ -1167,6 +1167,13 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 		// end face the width, a side face the length.
 		alongAxis := e.Face.IsLongitudinal() != t.Config.SolidBody.FacePlaneSpans
 		if alongAxis {
+			// On a merge candidate a span matters only if it can raise the
+			// length: the span straight along the axis bounds the search's
+			// minimum from above, so when it does not exceed the belief the
+			// search is skipped, at a twenty-first of its cost.
+			if growing && !spanCouldExceed(nearEdgePoints(cluster), axis, sb.lengthBelief.Estimate()) {
+				continue
+			}
 			if span, ok := minimumAxisSpan(nearEdgePoints(cluster), axis); ok {
 				sb.lengthBelief.Observe(span)
 			}
@@ -1178,6 +1185,16 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	}
 }
 
+// spanCouldExceed says whether the points' trimmed span straight along axisRad
+// is longer than belief: an upper bound on what minimumAxisSpan would admit.
+func spanCouldExceed(points []l4perception.WorldPoint, axisRad, belief float32) bool {
+	if len(points) < DefaultMinFaceSupport {
+		return false
+	}
+	span, ok := trimmedSpan(points, make([]float64, len(points)), math.Cos(float64(axisRad)), math.Sin(float64(axisRad)))
+	return ok && span > float64(belief)
+}
+
 // growingNotMerging says whether a merge-candidate cluster may still give
 // extent evidence under ExtentGrowthAdmission: when it is no wider across the
 // body than the believed width, or the class prior's if wider, plus
@@ -1186,7 +1203,14 @@ func (t *Tracker) growingNotMerging(track *TrackedObject, cluster WorldCluster, 
 	if !t.Config.SolidBody.ExtentGrowthAdmission {
 		return false
 	}
-	across, ok := minimumAxisSpan(nearEdgePoints(cluster), axis+math.Pi/2)
+	// One trimmed span straight across the axis, not the minimum over the
+	// span window: this only has to tell a body from two side by side, and a
+	// second search would double the cost of every merge-candidate frame.
+	points := nearEdgePoints(cluster)
+	if len(points) < DefaultMinFaceSupport {
+		return false
+	}
+	across, ok := trimmedSpan(points, make([]float64, len(points)), -math.Sin(float64(axis)), math.Cos(float64(axis)))
 	if !ok {
 		return false
 	}
@@ -1195,7 +1219,7 @@ func (t *Tracker) growingNotMerging(track *TrackedObject, cluster WorldCluster, 
 	if w := track.solidBody.widthBelief.Estimate(); w > width {
 		width = w
 	}
-	return across <= width+extentGrowthLateralMarginMetres
+	return across <= float64(width)+extentGrowthLateralMarginMetres
 }
 
 // spanTrimPercent trims each end of a span measurement. It is smaller than the
