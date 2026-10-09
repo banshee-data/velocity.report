@@ -140,6 +140,11 @@ const (
 	// prior (SolidBodyOptions.EndFaceCentringOpenPrior). It is a second
 	// setting of the same option, so naming both is refused.
 	ExperimentSolidBodyEndFaceCentringOpenPrior = "solid_body_end_face_centring_open_prior"
+	// ExperimentSolidBodyContainment holds the reported box on the frame's
+	// points: the reported extents floored at the window-minimum observed
+	// spans, and the position held to the interval the points allow by a
+	// density truncation (SolidBodyOptions.Containment).
+	ExperimentSolidBodyContainment = "solid_body_containment"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -188,6 +193,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyVehicleExtentFloor:       true,
 	ExperimentSolidBodyEndFaceCentring:          true,
 	ExperimentSolidBodyEndFaceCentringOpenPrior: true,
+	ExperimentSolidBodyContainment:              true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 }

@@ -706,6 +706,9 @@
         , contained_points INTEGER NOT NULL DEFAULT 0
         , observed_span_along_m REAL NOT NULL DEFAULT 0
         , observed_span_across_m REAL NOT NULL DEFAULT 0
+        , extent_floor TEXT NOT NULL DEFAULT ''
+        , containment_shift_along_m REAL NOT NULL DEFAULT 0
+        , containment_shift_across_m REAL NOT NULL DEFAULT 0
         , UNIQUE (
           track_id
         , estimator_id

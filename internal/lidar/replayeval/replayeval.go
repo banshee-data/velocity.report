@@ -1217,6 +1217,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
+	containment := hasExperiment(experiments, ExperimentSolidBodyContainment)
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
 		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
@@ -1226,11 +1227,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
 			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
 			EndFaceCentring: centring, EndFaceCentringOpenPrior: openPrior,
+			Containment: containment,
 		}
 		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
-		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring ||
+		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",

@@ -114,6 +114,12 @@ type ContainmentSummary struct {
 	HeldShare   float64                `json:"held_share"`
 	MedianShare float64                `json:"median_share"`
 	ByReference []ContainmentReference `json:"by_reference"`
+	// FlooredRows counts rows whose reported extent the containment floor
+	// raised, ShiftedRows those the truncation moved, and ShiftMedianMetres
+	// the median of their larger move; all zero without the experiment.
+	FlooredRows       int     `json:"floored_rows"`
+	ShiftedRows       int     `json:"shifted_rows"`
+	ShiftMedianMetres float64 `json:"shift_median_m"`
 }
 
 // ContainmentReference is ContainmentSummary for one reference point.
@@ -175,6 +181,8 @@ func axisAgeBucket(ageSecs float64) string {
 
 // guardRows accumulates the per-row inputs of the three W0 guards.
 type guardRows struct {
+	floored    int
+	shifts     []float64            // the larger absolute truncation move, rows it acted on
 	shares     map[string][]float64 // containment share by reference
 	lengthOver []float64            // observed along-span minus reported length, body-centre rows with a span
 	widthOver  []float64            // observed across-span minus reported width
@@ -192,6 +200,12 @@ func (g *guardRows) add(sb observationsqlite.TrackSolidBody, firstFrame int64) {
 	e, m := sb.Reading.Estimate, sb.Reading.Measurement
 	if m.ContainmentKnown {
 		g.shares[e.Reference.String()] = append(g.shares[e.Reference.String()], float64(m.ContainmentShare))
+	}
+	if m.ExtentFloor != "" {
+		g.floored++
+	}
+	if shift := math.Max(math.Abs(float64(m.ContainmentShiftAlongMetres)), math.Abs(float64(m.ContainmentShiftAcrossMetres))); shift > 0 {
+		g.shifts = append(g.shifts, shift)
 	}
 	if e.Reference == l5tracks.ReferenceBodyCentre && m.ObservedSpanAlongMetres > 0 && m.ObservedSpanAcrossMetres > 0 {
 		g.lengthOver = append(g.lengthOver, float64(m.ObservedSpanAlongMetres-e.Length.Metres))
@@ -227,7 +241,8 @@ func (g *guardRows) containment() *ContainmentSummary {
 		}
 		return float64(n) / float64(len(v))
 	}
-	c := &ContainmentSummary{Rows: len(all), HeldShare: held(all), MedianShare: median(all)}
+	c := &ContainmentSummary{Rows: len(all), HeldShare: held(all), MedianShare: median(all),
+		FlooredRows: g.floored, ShiftedRows: len(g.shifts), ShiftMedianMetres: median(g.shifts)}
 	for _, ref := range refs {
 		v := g.shares[ref]
 		c.ByReference = append(c.ByReference, ContainmentReference{Reference: ref, Rows: len(v), HeldShare: held(v), MedianShare: median(v)})

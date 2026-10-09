@@ -688,7 +688,7 @@ func TestTheShadowDropsABodyWhoseUpdateIsNotFinite(t *testing.T) {
 func TestAFrameWithoutAHeadingMeasuresNothing(t *testing.T) {
 	tracker := NewTracker(solidBodyConfig())
 	sb := &solidBodyTrack{}
-	f := tracker.measureNearEdgeFrame(sb, WorldCluster{}, dimensionPriorFor(MotionUnknown), tracker.Config.HitsToConfirm+1)
+	f := tracker.measureNearEdgeFrame(sb, WorldCluster{}, dimensionPriorFor(MotionUnknown), tracker.Config.HitsToConfirm+1, false)
 	if f.fallback != "missing_heading" || len(f.edges.Edges) != 0 {
 		t.Fatalf("frame %+v without a heading", f)
 	}

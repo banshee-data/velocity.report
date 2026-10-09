@@ -42,6 +42,9 @@ func guardRowsFixture() []observationsqlite.TrackSolidBody {
 		if f%2 == 0 {
 			m.ObservedSpanAlongMetres = 5.0
 		}
+		if f >= 30 {
+			m.ExtentFloor, m.ContainmentShiftAcrossMetres = "length", 0.2
+		}
 		bodies = append(bodies, observationsqlite.TrackSolidBody{
 			CreationSequence: 1, FrameUnixNanos: base + f*period, EstimatorID: "cv_kf_v1", ParamHash: "p", Stage: "online",
 			Reading: l5tracks.SolidBodyReading{Estimate: e, VX: 8, Measurement: m},
@@ -85,6 +88,9 @@ func TestSummaryGuardsReadContainmentShortfallAndAxisByAge(t *testing.T) {
 	}
 	if md := c.ByReference[1]; md.Rows != 4 || md.HeldShare != 0 {
 		t.Errorf("medoid containment %+v, want 4 rows with none held", md)
+	}
+	if c.FlooredRows != 10 || c.ShiftedRows != 10 || !near(c.ShiftMedianMetres, 0.2, 1e-6) {
+		t.Errorf("floor and shift counts %+v, want 10 floored, 10 shifted by 0.2 m", c)
 	}
 
 	x := s.ExtentShortfall

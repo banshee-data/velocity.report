@@ -60,7 +60,7 @@ func nearEdgePriorFor(track *TrackedObject) classDimensionPrior {
 func (t *Tracker) measureTrackedPair(track *TrackedObject, cluster WorldCluster) nearEdgeFrame {
 	sb := &track.solidBody
 	sb.syncFromTrack(track)
-	return t.measureNearEdgeFrame(sb, cluster, nearEdgePriorFor(track), track.ObservationCount+1)
+	return t.measureNearEdgeFrame(sb, cluster, nearEdgePriorFor(track), track.ObservationCount+1, track.MergeCandidate)
 }
 
 // stepTrackedNearEdge takes the state machine's step on the tracked filter.

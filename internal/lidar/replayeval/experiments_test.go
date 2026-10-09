@@ -74,7 +74,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
+		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
 		ExperimentSolidBodyExtentPriorFloor,
@@ -149,6 +150,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyExtentGrowth:       func(o *l5tracks.SolidBodyOptions) { o.ExtentGrowthAdmission = true },
 		ExperimentSolidBodyVehicleExtentFloor: func(o *l5tracks.SolidBodyOptions) { o.VehicleExtentFloor = true },
 		ExperimentSolidBodyEndFaceCentring:    func(o *l5tracks.SolidBodyOptions) { o.EndFaceCentring = true },
+		ExperimentSolidBodyContainment:        func(o *l5tracks.SolidBodyOptions) { o.Containment = true },
 		ExperimentSolidBodyEndFaceCentringOpenPrior: func(o *l5tracks.SolidBodyOptions) {
 			o.EndFaceCentring, o.EndFaceCentringOpenPrior = true, true
 		},
