@@ -709,6 +709,12 @@
         , extent_floor TEXT NOT NULL DEFAULT ''
         , containment_shift_along_m REAL NOT NULL DEFAULT 0
         , containment_shift_across_m REAL NOT NULL DEFAULT 0
+        , rectangle_axis_rad REAL
+        , rectangle_sigma_rad REAL NOT NULL DEFAULT 0
+        , rectangle_plateau_rad REAL NOT NULL DEFAULT 0
+        , rectangle_span_1_m REAL NOT NULL DEFAULT 0
+        , rectangle_span_2_m REAL NOT NULL DEFAULT 0
+        , rectangle_abstain TEXT NOT NULL DEFAULT ''
         , UNIQUE (
           track_id
         , estimator_id

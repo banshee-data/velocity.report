@@ -45,6 +45,14 @@ func guardRowsFixture() []observationsqlite.TrackSolidBody {
 		if f >= 30 {
 			m.ExtentFloor, m.ContainmentShiftAcrossMetres = "length", 0.2
 		}
+		// The rectangle fit reads the axis 3 degrees off the course from frame
+		// 20, and abstains before that.
+		m.RectangleKnown = true
+		if f >= 20 {
+			m.RectangleAxisRad = float32(3 * math.Pi / 180)
+		} else {
+			m.RectangleAbstain = "wide_plateau"
+		}
 		bodies = append(bodies, observationsqlite.TrackSolidBody{
 			CreationSequence: 1, FrameUnixNanos: base + f*period, EstimatorID: "cv_kf_v1", ParamHash: "p", Stage: "online",
 			Reading: l5tracks.SolidBodyReading{Estimate: e, VX: 8, Measurement: m},
@@ -121,6 +129,10 @@ func TestSummaryGuardsReadContainmentShortfallAndAxisByAge(t *testing.T) {
 			!near(got.AxisOver30Share, want.over, 1e-9) || !near(got.DirectedMedianDeg, want.axis, 1e-3) {
 			t.Errorf("bucket %d %+v, want %+v", i, got, want)
 		}
+	}
+	if a, b, c := s.AxisByAge[0], s.AxisByAge[1], s.AxisByAge[2]; a.RectangleRows != 0 || a.RectangleAbstained != 10 ||
+		b.RectangleRows != 0 || b.RectangleAbstained != 10 || c.RectangleRows != 20 || !near(c.RectangleMedianDeg, 3, 1e-3) || c.RectangleOver30Share != 0 {
+		t.Errorf("rectangle columns %+v %+v %+v, want 10 abstained in each of the first two buckets and 20 rows 3 degrees off in the third", a, b, c)
 	}
 }
 

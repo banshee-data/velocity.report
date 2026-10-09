@@ -117,6 +117,9 @@ func TestSolidBodyContainmentDetailRoundTrips(t *testing.T) {
 	held.Reading.Measurement.ObservedSpanAlongMetres, held.Reading.Measurement.ObservedSpanAcrossMetres = 4.25, 1.75
 	held.Reading.Measurement.ExtentFloor = "length"
 	held.Reading.Measurement.ContainmentShiftAlongMetres, held.Reading.Measurement.ContainmentShiftAcrossMetres = 0.12, -0.3
+	held.Reading.Measurement.RectangleKnown, held.Reading.Measurement.RectangleAxisRad = true, 0.42
+	held.Reading.Measurement.RectangleSigmaRad, held.Reading.Measurement.RectanglePlateauRad = 0.044, 0.07
+	held.Reading.Measurement.RectangleSpan1, held.Reading.Measurement.RectangleSpan2, held.Reading.Measurement.RectangleAbstain = 4.3, 1.8, "wide_plateau"
 	unknown := testSolidBody("observation/v1/b", 200)
 	for _, sb := range []TrackSolidBody{held, unknown} {
 		if err := store.InsertSolidBody(sb); err != nil {
@@ -130,12 +133,12 @@ func TestSolidBodyContainmentDetailRoundTrips(t *testing.T) {
 	if want := []TrackSolidBody{held, unknown}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("containment detail did not round-trip:\n got %+v\nwant %+v", got[0].Reading.Measurement, want[0].Reading.Measurement)
 	}
-	var share any
-	if err := database.QueryRow(`SELECT containment_share FROM lidar_track_solid_bodies WHERE estimate_id = ?`, unknown.EstimateID).Scan(&share); err != nil {
+	var share, axis any
+	if err := database.QueryRow(`SELECT containment_share, rectangle_axis_rad FROM lidar_track_solid_bodies WHERE estimate_id = ?`, unknown.EstimateID).Scan(&share, &axis); err != nil {
 		t.Fatal(err)
 	}
-	if share != nil {
-		t.Fatalf("an unknown containment share was stored as %v rather than NULL", share)
+	if share != nil || axis != nil {
+		t.Fatalf("an unknown containment share or rectangle axis was stored as %v, %v rather than NULL", share, axis)
 	}
 }
 

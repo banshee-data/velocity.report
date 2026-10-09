@@ -162,6 +162,13 @@ type AxisAgeRow struct {
 	DirectedMedianDeg   float64 `json:"directed_median_deg"`
 	DirectedP90Deg      float64 `json:"directed_p90_deg"`
 	DirectedOver30Share float64 `json:"directed_over_30_share"`
+	// The rectangle fit's axis against the course on the same rows, where
+	// the fit was recorded and did not abstain (solid_body_rectangle_fit).
+	RectangleRows        int     `json:"rectangle_rows,omitempty"`
+	RectangleMedianDeg   float64 `json:"rectangle_median_deg,omitempty"`
+	RectangleP90Deg      float64 `json:"rectangle_p90_deg,omitempty"`
+	RectangleOver30Share float64 `json:"rectangle_over_30_share,omitempty"`
+	RectangleAbstained   int     `json:"rectangle_abstained,omitempty"`
 }
 
 // axisAgeBuckets are the track-age buckets of AxisByAge, in order.
@@ -188,10 +195,13 @@ type guardRows struct {
 	widthOver  []float64            // observed across-span minus reported width
 	axis       map[string][]float64 // axis error, degrees, by age bucket
 	directed   map[string][]float64 // directed error, degrees, by age bucket
+	rectangle  map[string][]float64 // the rectangle fit's axis error, degrees, by age bucket
+	abstained  map[string]int       // rectangle fits that abstained, by age bucket
 }
 
 func newGuardRows() *guardRows {
-	return &guardRows{shares: map[string][]float64{}, axis: map[string][]float64{}, directed: map[string][]float64{}}
+	return &guardRows{shares: map[string][]float64{}, axis: map[string][]float64{}, directed: map[string][]float64{},
+		rectangle: map[string][]float64{}, abstained: map[string]int{}}
 }
 
 // add reads one row's guard inputs. firstFrame is the first frame of the
@@ -218,6 +228,13 @@ func (g *guardRows) add(sb observationsqlite.TrackSolidBody, firstFrame int64) {
 		bucket := axisAgeBucket(float64(sb.FrameUnixNanos-firstFrame) / 1e9)
 		g.axis[bucket] = append(g.axis[bucket], l5tracks.FoldAxisAngleDeg(diff))
 		g.directed[bucket] = append(g.directed[bucket], math.Abs(math.Atan2(math.Sin(diff), math.Cos(diff)))*180/math.Pi)
+		if m.RectangleKnown {
+			if m.RectangleAbstain != "" {
+				g.abstained[bucket]++
+			} else {
+				g.rectangle[bucket] = append(g.rectangle[bucket], l5tracks.FoldAxisAngleDeg(float64(m.RectangleAxisRad)-course))
+			}
+		}
 	}
 }
 
@@ -287,11 +304,16 @@ func (g *guardRows) axisByAge() []AxisAgeRow {
 		if len(axis) == 0 {
 			continue
 		}
-		rows = append(rows, AxisAgeRow{
+		row := AxisAgeRow{
 			Bucket: b.name, Rows: len(axis),
 			AxisMedianDeg: median(axis), AxisP90Deg: percentile(axis, 0.9), AxisOver30Share: over30(axis),
 			DirectedMedianDeg: median(directed), DirectedP90Deg: percentile(directed, 0.9), DirectedOver30Share: over30(directed),
-		})
+			RectangleAbstained: g.abstained[b.name],
+		}
+		if rect := g.rectangle[b.name]; len(rect) > 0 {
+			row.RectangleRows, row.RectangleMedianDeg, row.RectangleP90Deg, row.RectangleOver30Share = len(rect), median(rect), percentile(rect, 0.9), over30(rect)
+		}
+		rows = append(rows, row)
 	}
 	return rows
 }

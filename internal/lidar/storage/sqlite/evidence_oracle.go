@@ -302,6 +302,7 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason
 		     , containment_share, contained_points, observed_span_along_m, observed_span_across_m
 		     , extent_floor, containment_shift_along_m, containment_shift_across_m
+		     , rectangle_axis_rad, rectangle_sigma_rad, rectangle_plateau_rad, rectangle_span_1_m, rectangle_span_2_m, rectangle_abstain
 		FROM lidar_track_solid_bodies
 		ORDER BY source_id, frame_unix_nanos, observation_id, estimator_id, observation_model_id, param_hash, stage, creation_sequence`)
 	if err != nil {
@@ -322,7 +323,8 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 			&row.LastObservedUnixNanos, &row.SupportPoints, &row.CoastedFrames, &row.SupportInstant, &row.SupportFragmented, &row.SupportTruncated,
 			&row.MeasurementSource, &row.MeasurementRank, &row.VisibleFaces, &row.InferredExtent, &row.AspectRad, &row.NIS, &row.FallbackReason,
 			&row.ContainmentShare, &row.ContainedPoints, &row.ObservedSpanAlongM, &row.ObservedSpanAcrossM,
-			&row.ExtentFloor, &row.ContainmentShiftAlongM, &row.ContainmentShiftAcrossM); err != nil {
+			&row.ExtentFloor, &row.ContainmentShiftAlongM, &row.ContainmentShiftAcrossM,
+			&row.RectangleAxisRad, &row.RectangleSigmaRad, &row.RectanglePlateauRad, &row.RectangleSpan1M, &row.RectangleSpan2M, &row.RectangleAbstain); err != nil {
 			return fmt.Errorf("scan solid body: %w", err)
 		}
 		observation, ok := b.observations[row.ObservationID]
@@ -507,4 +509,10 @@ type oracleSolidBodyRow struct {
 	ExtentFloor             string   `json:"extent_floor"`
 	ContainmentShiftAlongM  float64  `json:"containment_shift_along_m"`
 	ContainmentShiftAcrossM float64  `json:"containment_shift_across_m"`
+	RectangleAxisRad        *float64 `json:"rectangle_axis_rad"`
+	RectangleSigmaRad       float64  `json:"rectangle_sigma_rad"`
+	RectanglePlateauRad     float64  `json:"rectangle_plateau_rad"`
+	RectangleSpan1M         float64  `json:"rectangle_span_1_m"`
+	RectangleSpan2M         float64  `json:"rectangle_span_2_m"`
+	RectangleAbstain        string   `json:"rectangle_abstain"`
 }

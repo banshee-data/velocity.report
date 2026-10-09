@@ -208,6 +208,11 @@ type SolidBodyOptions struct {
 	// interval, and that frame is extent evidence rather than a position
 	// measurement; a merge candidate's frame is left alone. Default false.
 	Containment bool
+	// RectangleFit fits the rectangle orientation to each associated
+	// frame's points (l4perception.FitRectangle) and records it on the row
+	// as a diagnostic: the geometry convergence plan's W1a. Nothing reads it
+	// yet; W1b makes it the heading observation. Default false.
+	RectangleFit bool
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still
@@ -375,6 +380,17 @@ type SolidBodyMeasurement struct {
 	// left normal this instant, signed; zero when it did not act.
 	ContainmentShiftAlongMetres  float32
 	ContainmentShiftAcrossMetres float32
+	// Rectangle is the frame's rectangle orientation fit under RectangleFit:
+	// the axis modulo 90 degrees with its sigma and plateau, the spans along
+	// and across it, and why it abstained, if it did. RectangleKnown is
+	// false when no fit was made.
+	RectangleKnown      bool
+	RectangleAxisRad    float32
+	RectangleSigmaRad   float32
+	RectanglePlateauRad float32
+	RectangleSpan1      float32
+	RectangleSpan2      float32
+	RectangleAbstain    string
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -1037,6 +1053,12 @@ func (t *Tracker) measureContainment(track *TrackedObject, class MotionClassBeli
 		sb.floorAlong, sb.floorAcross = windowMinimumSpans(points, float64(sb.orientation.PsiRad))
 		floored := t.assembleSolidBody(track, class)
 		m.ExtentFloor = extentFloorName(floored.Length.Metres > belief.Length.Metres, floored.Width.Metres > belief.Width.Metres)
+	}
+	if t.Config.SolidBody.RectangleFit {
+		fit := l4perception.FitRectangle(points)
+		m.RectangleKnown = fit.Points >= l4perception.RectangleFitMinPoints
+		m.RectangleAxisRad, m.RectangleSigmaRad, m.RectanglePlateauRad = float32(fit.AxisRad), float32(fit.SigmaRad), float32(fit.PlateauRad)
+		m.RectangleSpan1, m.RectangleSpan2, m.RectangleAbstain = float32(fit.Span1), float32(fit.Span2), fit.Abstain
 	}
 	e := t.assembleSolidBody(track, class)
 	inside := boxContainment(points, float64(e.X), float64(e.Y), float64(e.Orientation.PsiRad),
