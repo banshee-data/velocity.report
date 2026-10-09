@@ -31,6 +31,9 @@ the [criteria record](geometry-convergence-criteria.md) predeclared.
   rectangle heading raises the body-centre p99 by 0.029 m at the corpus median (17 sites worse),
   and on the windows both arms score the p99 rises while p95 and the median do not. Fusing the
   course as a second axis observation at speed, built during this run, cuts that to 0.008 m.
+- **Weighing each fit at twice its σ removes most of the tail that remains.** On the matched
+  windows the rise against A2 with containment falls from 0.023 to 0.005 m at p99, and G3 goes
+  to 0.025 and 0.031; on kirk0 the axis lags more (G1 p90 5.0° against 2.7°), inside its level.
 - **The full arm with fusion is level with the alignment candidate on lateral** (the same
   matched-window p99, 0.171 m; all-window p99 0.015 m lower at 15 of 23 sites) and ahead of it
   on held share at 21 sites; on kirk0 ahead on heading (G1 p90 1.2° against 5.4°) and box.
@@ -293,6 +296,37 @@ Re-read with the fixed scorecard from the same evidence, with `-scoring-start-se
 The fit's own axis is the independent G3 reading the third proposed amendment asks for; on the
 corpus it sits just above the level, as the unfused filtered axis does.
 
+## The fit's σ scale, the first recommendation tried
+
+`solid_body_rectangle_sigma_wide` (`RectangleSigmaScale` = 2, at `266d7edee`) weighs each fit at
+twice its own σ in the axis filter, the plan's scale c, on the rectangle heading with fusion and
+containment. The row keeps the fit's own σ.
+
+- **kirk0.** The axis lags more: G1 0.7° median and 5.0° p90 beyond the bound against 0° and 2.7°
+  at c = 1, truck 1's yaw 6.4° against 3.2°, truck 2 still within 0.1°. The body-centre p99 is
+  0.175 m against 0.178 on the same 255 windows; mean box IoU 0.508 against 0.511; 87 switches
+  against 90; 15 of 16 lengths within tolerance against 14.
+- **Corpus**, pass 7 at `266d7edee`, against the same arm at c = 1 and against A2 with
+  containment (median per-site change, sites worse / better):
+
+  | Measure                  | c = 2 vs c = 1                                   | c = 2 vs A2 + containment | c = 1 vs A2 + containment |
+  | ------------------------ | ------------------------------------------------ | ------------------------- | ------------------------- |
+  | G3, 2 to 4 s / after 4 s | 0.025 / 0.031, 14 sites at or under 0.05 at both | from 0.231 / 0.262        | 0.037 / 0.051, 7 sites    |
+  | Body-centre p99          | −0.007 m (9 / 14)                                | +0.016 (16 / 7)           | +0.008 (16 / 7)           |
+  | All-window p95           | −0.004 (8 / 15)                                  | +0.006 (17 / 6)           | +0.017 (17 / 6)           |
+  | Matched-window p99       |                                                  | 0.173 to 0.178 m (14,628) | 0.174 to 0.197 m (14,359) |
+  | Held share               | +0.003 (7 / 16)                                  | +0.073 (1 / 22)           | +0.068 (2 / 21)           |
+
+  On the windows both arms score, the scale takes the tail the rectangle heading added from
+  +0.023 m to +0.005 m at p99, with p95 unchanged; the per-site body-centre median differs from
+  c = 1 by less than the sites differ among themselves, and stays above A2's at two thirds of
+  them. G3 improves too, though with the fit weighed less the fused course carries more of the
+  axis, so the third amendment's reading applies. The price is kirk0's lag above.
+
+- **Reading.** A scale of two is worth carrying: it removes most of the matched-window tail the
+  fit added and keeps G1 within its level on kirk0 (5.0° at p90 against 10°). Whether 1.5 keeps
+  the tail down with less lag, and what it does to the full arm, is the next run.
+
 ## Cost
 
 `Tracker.Update` on kirk0, balanced order (each arm forward then reverse, twice), median of
@@ -378,10 +412,10 @@ Read for the candidate this report recommends carrying, the full arm with fusion
 - **Carry the rectangle heading with course fusion forward as W1b's heading source**, under
   both names until W1b's remaining pieces are built: it meets G1 and G3 on kirk0 and the corpus,
   and fusion halves the lateral tail the fit alone adds.
-- **Calibrate the fit's σ scale before more is built on it.** The plan's c, left at one here,
-  is the lever on the tail: score c of 1.5 and 2 on the corpus's matched windows, with G1 on
-  kirk0 as the guard against lag. A turn-rate state is the alternative if a larger c lags the
-  intersection sites.
+- **Carry the fit's σ scale at two, and score 1.5.** The plan's c is the lever on the tail: at
+  two it removes most of the matched-window rise with G1 inside its level on kirk0. Score 1.5
+  and the full arm with the scale next, with G1 as the guard against lag; a turn-rate state is
+  the alternative if a larger c lags the intersection sites.
 - **Build the low-speed label and the ambiguous row**, the parts of §4.1 not built here; car
   8's pose at 491 is their test, and a course rule cannot reach it on a track that young.
 - **Score the full arm with fusion as the candidate that replaces the alignment candidate's
@@ -409,6 +443,10 @@ Read for the candidate this report recommends carrying, the full arm with fusion
 - **Timing** `timing4.sh` at `d5ff96fb6`, under `timing-d5ff96fb6`; the profile under
   `prof-d5ff96fb6`. The corrected diagnostic re-read with `bin/scorecard-cc28d59c6` into
   `rect-fix/`.
+- **Corpus pass 7.** 2026-10-09 22:49 to 23:20 UTC, `a2-rh-cf-cont-wide` at `266d7edee`, all 23
+  sites replayed with their summaries and evidence; each site logged `ok=0` because no scorecard
+  tool was built for that commit, so pass 7 has no `scorecard.json`, which nothing here reads.
+  kirk0 arm `d5-a2-rh-cf-cont-wide`, scored with `bin/gt-eval-266d7edee`.
 - **Corpus pass 5.** 2026-10-09 20:30 to 22:16 UTC, `a2-rh`, `a2-rh-cont` and `a2-new` at
   `be8ace881`, all 23 sites `ok`; pass 6, 20:51 to 22:05 UTC, `a2-rh-cf-cont` and `a2-new-cf` at
   `d5ff96fb6`, all 23 `ok`, the two passes run side by side. Evidence under
