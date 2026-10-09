@@ -204,6 +204,11 @@ struct AnnotationSceneFocus: Equatable {
     /// Distinguishes a repeated request for the same region, so asking to fit
     /// twice moves the camera back twice.
     var revision: Int
+    /// Look along the sensor's line of sight to the region, rather than from
+    /// the main view's default bearing.
+    var fromSensor = false
+    /// Glide there rather than jump: set while following a moving object.
+    var animated = false
 }
 
 /// The view-plane extent of the chosen points, with the outermost `trim`

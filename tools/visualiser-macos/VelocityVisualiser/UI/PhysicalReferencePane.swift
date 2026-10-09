@@ -515,9 +515,12 @@ struct PhysicalReferencePane: View {
                                     get: { k.yaw.yawRad.map(PhysicalUnits.degrees) },
                                     set: { d in
                                         update {
-                                            $0.yaw.yawRad = d.map {
-                                                PhysicalUnits.radians(
-                                                    PhysicalUnits.wrappedDegrees($0))
+                                            // About the centre, as the ● handle turns.
+                                            if let d {
+                                                PhysicalDraft.turn(
+                                                    &$0, toRad: PhysicalUnits.radians(d))
+                                            } else {
+                                                $0.yaw.yawRad = nil
                                             }
                                         }
                                     })

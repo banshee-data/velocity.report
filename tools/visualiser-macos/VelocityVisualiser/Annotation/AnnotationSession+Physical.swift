@@ -275,7 +275,6 @@ extension AnnotationSession {
         else { return }
         let world = worldPoint(in: .top, viewPoint: viewPoint)
         let from = worldPoint(in: .top, viewPoint: startPoint)
-        let origin = g.centre ?? g.anchorPoint
         // A value-only size is drawn as a sketch with its handles, so the
         // handles revise it as well; its missing bounds stay missing.
         if handle == .width {
@@ -318,11 +317,15 @@ extension AnnotationSession {
                     k.position.xM = x + Double(world.x - from.x)
                     k.position.yM = y + Double(world.y - from.y)
                 case .turn:
-                    guard let origin else { return }
+                    // About where the body's centre was when the drag began,
+                    // which every update starts from. Turning about the live
+                    // centre chased a point that the turn itself moved, and a
+                    // fitted pose anchored on its front face swung about that
+                    // face instead of its middle.
+                    guard let pivot = PhysicalDraft.turnPivot(of: k) else { return }
                     if k.yaw.axis == .unknown { PhysicalDraft.setAxis(.frontRearAmbiguous, of: &k) }
-                    let rad = atan2(Double(world.y) - origin.y, Double(world.x) - origin.x)
-                    k.yaw.yawRad = PhysicalUnits.radians(
-                        PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))
+                    PhysicalDraft.turn(
+                        &k, toRad: atan2(Double(world.y) - pivot.y, Double(world.x) - pivot.x))
                 case .length, .width: break
                 }
             }
@@ -330,4 +333,99 @@ extension AnnotationSession {
     }
 
     func endPhysicalDrag() { physical.endGesture() }
+}
+
+extension PhysicalDraft {
+    /// What a turn pivots about: the body centre when the keyframe places it,
+    /// otherwise the anchor itself. A face anchor places the centre when the
+    /// axis is resolved and its offset is known; the offset's bound is not
+    /// needed to know where the middle is.
+    static func turnPivot(of k: PhysicalKeyframe) -> (x: Double, y: Double)? {
+        guard let x = k.position.xM, let y = k.position.yM, x.isFinite, y.isFinite else {
+            return nil
+        }
+        guard k.anchor.kind.isFace, k.yaw.axis == .resolved, let yaw = k.yaw.yawRad,
+            let offset = k.anchor.offsetM, offset.isFinite, offset > 0
+        else { return (x, y) }
+        let n = PhysicalGeometry.inwardNormal(k.anchor.kind, yaw: yaw)
+        return (x + offset * n.x, y + offset * n.y)
+    }
+
+    /// Sets the heading, keeping the body's centre where it is. A face anchor
+    /// is a point on the body, so it moves round the centre with the turn; a
+    /// centre anchor stays put. The anchor's bound and status are unchanged:
+    /// a turn says where the face is, as a drag of the anchor would.
+    static func turn(_ k: inout PhysicalKeyframe, toRad rad: Double) {
+        let pivot = turnPivot(of: k)
+        let wrapped = PhysicalUnits.radians(
+            PhysicalUnits.wrappedDegrees(PhysicalUnits.degrees(rad)))
+        k.yaw.yawRad = wrapped
+        guard let pivot, k.anchor.kind.isFace, k.yaw.axis == .resolved,
+            let offset = k.anchor.offsetM, offset.isFinite, offset > 0
+        else { return }
+        let n = PhysicalGeometry.inwardNormal(k.anchor.kind, yaw: wrapped)
+        k.position.xM = pivot.x - offset * n.x
+        k.position.yM = pivot.y - offset * n.y
+    }
+}
+
+// MARK: - The 3D view
+
+extension AnnotationSession {
+    /// The physical references at this frame as boxes in the 3D view, styled
+    /// as the orthographic views style them. Only a keyframe that establishes
+    /// a whole footprint is drawn, as in the views.
+    ///
+    /// A reference has a footprint and, at most, a height; it has no floor.
+    /// The box stands on the lowest of the object's returns in this frame,
+    /// or on the column grid's ground when it has none here, and is as tall
+    /// as the body's height, or its returns when that is not known.
+    var physicalSceneBoxes: [MetalRenderer.OverlayBox] {
+        guard workMode == .physical, let sample = currentSample else { return [] }
+        var boxes: [MetalRenderer.OverlayBox] = []
+        for object in physical.draft {
+            guard let k = object.keyframe(sampleID: sample.sampleID),
+                let box = PhysicalGeometry.derive(object: object, keyframe: k, gate: .authoring).box
+            else { continue }
+            let style = PhysicalReferenceOverlay.style(
+                draft: k,
+                saved: physical.savedKeyframe(objectID: object.objectID, sampleID: sample.sampleID),
+                body: object.body, savedBody: physical.savedBody(objectID: object.objectID))
+            let indices =
+                object.objectID == activeObjectID
+                ? history.current
+                : Set(
+                    sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID)?.pointIndices
+                        ?? [])
+            let span = AnnotationSession.heightSpan(of: indices, in: currentPoints)
+            let base = span?.lowerBound ?? columnGrid.groundZ
+            let stated: Float? = object.body.flatMap { body in
+                switch body.height.choice {
+                case .full: return body.height.best.map { Float($0.value) }
+                case .atLeast: return body.height.lowerM.map(Float.init)
+                case .unknown: return nil
+                }
+            }
+            let top = max(base + (stated ?? 0), span?.upperBound ?? base + (stated ?? 1.5))
+            let active = object.objectID == activeObjectID
+            boxes.append(
+                MetalRenderer.OverlayBox(
+                    base: simd_float3(Float(box.centreX), Float(box.centreY), base),
+                    yawRad: Float(box.yawRad), length: Float(box.length), width: Float(box.width),
+                    height: max(top - base, 0.1), colour: simd_float4(style.rgb, active ? 1 : 0.6)))
+        }
+        return boxes
+    }
+
+    /// The lowest and highest of these returns, or nil when there are none.
+    static func heightSpan(of indices: Set<Int>, in points: PackPoints) -> ClosedRange<Float>? {
+        var lo = Float.greatestFiniteMagnitude
+        var hi = -Float.greatestFiniteMagnitude
+        for index in indices {
+            guard let p = points.point(at: index), p.z.isFinite else { continue }
+            lo = min(lo, p.z)
+            hi = max(hi, p.z)
+        }
+        return lo <= hi ? lo...hi : nil
+    }
 }

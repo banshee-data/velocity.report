@@ -8,6 +8,11 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 9, 2026 - The annotation window follows the chosen object and draws physical boxes in 3D
+
+- {dd/lidar/annotate-108} Made clicking an object in the annotation window frame it in all six views and follow it as the frames step: an untouched view keeps it centred and only grows, a view the operator moved keeps their offset, a frame it is not labelled in is placed between the labelled frames either side, and the 3D view glides to look at it along the sensor's line of sight. The 3D view now draws each physical reference's box, stood on the object's lowest return, in the overlay's unsaved, proposed and reviewed colours.
+- {dd/lidar/annotate-108} Fixed four things an operator hit on kirk0's truck 1. Option-clicking a stray return left it in the mask, because the brush took its depth from the road beneath it; a subtracting brush now rides the object's own returns, and option-click with the lasso removes the one under the cursor. Turning a fitted pose swung it about its front face and stuttered as the pivot moved with each update; it now turns about the centre held at the start of the drag. The arrow keys now step frames wherever the focus is, not pan the 3D camera. The mode menu is pinned at the top of the left column, and the frame buttons no longer jump as the background line changes length.
+
 ## October 8, 2026 - Motion passes report progress, replays read each capture once, facet F0 on kirk0, and human crash baselines in the crash-data plan
 
 - {dd/lidar/annotate-108} Put fitting into the macOS annotation window: **Fit object** and **Fit pose here** fill the draft from `POST /api/annotations/physical/fit` as one undo step, showing the fitted size, notes and each face's bound terms, and the evidence pickers are gone: a dimension is Full, At least or Unknown, each end is one real-end checkbox, the manual controls sit under Adjust by hand, and bounds set by hand state their own assumptions.

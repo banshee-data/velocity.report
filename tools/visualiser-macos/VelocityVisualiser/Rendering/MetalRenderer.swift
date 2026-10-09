@@ -95,6 +95,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var boxInstances: MTLBuffer?
     var boxInstanceCount: Int = 0
 
+    /// Boxes a caller other than the tracker draws: the annotation window's
+    /// physical references. Their own buffer, so that a frame of tracks does
+    /// not replace them and `showBoxes`, which is about tracks, does not hide
+    /// them.
+    private(set) var overlayBoxes: [OverlayBox] = []
+    private var overlayBoxInstances: MTLBuffer?
+
     // M4: Cluster rendering
     var clusterInstances: MTLBuffer?
     var clusterInstanceCount: Int = 0
@@ -350,6 +357,42 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         boxVertices = device.makeBuffer(
             bytes: vertices, length: bufferSize, options: .storageModeShared)
         boxVertexCount = vertices.count / 3  // Each vertex is 3 floats (x, y, z)
+    }
+
+    /// A wireframe box over the scene, standing on its base.
+    struct OverlayBox: Equatable {
+        /// The centre of the box's base.
+        var base: simd_float3
+        var yawRad: Float
+        var length: Float
+        var width: Float
+        var height: Float
+        var colour: simd_float4
+    }
+
+    /// Replaces the overlay boxes. Nothing is uploaded when they have not
+    /// changed, so a caller can set them on every update.
+    func setOverlayBoxes(_ boxes: [OverlayBox]) {
+        guard boxes != overlayBoxes else { return }
+        overlayBoxes = boxes
+        var instances = [Float]()
+        instances.reserveCapacity(boxes.count * 20)
+        for box in boxes {
+            let scale = simd_float4x4(
+                diagonal: simd_float4(
+                    max(box.length, 0.01), max(box.width, 0.01), max(box.height, 0.01), 1))
+            let transform =
+                simd_float4x4(translation: box.base) * simd_float4x4(rotationZ: box.yawRad) * scale
+            for col in 0..<4 { for row in 0..<4 { instances.append(transform[col][row]) } }
+            instances.append(contentsOf: [box.colour.x, box.colour.y, box.colour.z, box.colour.w])
+        }
+        overlayBoxInstances =
+            instances.isEmpty
+            ? nil
+            : device.makeBuffer(
+                bytes: instances, length: instances.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared)
+        view?.needsDisplay = true
     }
 
     // MARK: - Frame Update
@@ -960,6 +1003,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.drawPrimitives(
                 type: .line, vertexStart: 0, vertexCount: boxVertexCount,
                 instanceCount: boxInstanceCount)
+        }
+
+        if let pipeline = boxPipeline, let boxVerts = boxVertices,
+            let instances = overlayBoxInstances, !overlayBoxes.isEmpty
+        {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(boxVerts, offset: 0, index: 0)
+            encoder.setVertexBuffer(instances, offset: 0, index: 1)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 2)
+            encoder.drawPrimitives(
+                type: .line, vertexStart: 0, vertexCount: boxVertexCount,
+                instanceCount: overlayBoxes.count)
         }
 
         // Draw trails (each trail as a separate lineStrip)

@@ -130,14 +130,14 @@ truth; only reviewed objects and masks count as such.
 
 ## The window
 
-| Area                  | What it is                                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------- |
-| Left sidebar          | What is being labelled: run and frame, this frame's progress, proposals, objects         |
-| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting                       |
-| Top view (below left) | Large, because this is where a selection is usually made                                 |
-| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                  |
-| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update |
-| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                             |
+| Area                  | What it is                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| Left sidebar          | The mode, pinned at the top; then run and frame, this frame's progress, proposals, objects |
+| 3D view (top, large)  | The main view's renderer on this frame. For looking, not selecting. Draws physical boxes   |
+| Top view (below left) | Large, because this is where a selection is usually made                                   |
+| Four elevations       | Stacked to its right: Front and Back along Y, Side and Far side along X                    |
+| Frame strip (bottom)  | One bar a frame: green agreed, amber in question. A yellow marker is a background update   |
+| Right sidebar         | How: display, tools, depth slab, carrying, saving and review                               |
 
 Each elevation is the sensor looking outward and **shows only the half of the scene in front of
 it**: 180° of azimuth each, the pairs opposed. Without that the half behind the sensor lands on
@@ -151,6 +151,9 @@ The top view frames the whole sample. An elevation frames its **height** and is 
 because a street is a hundred metres wide and four high and fitting its width would leave a car
 too small to see.
 
+The mode — **Object Points**, **Physical**, **Facets** or **Compare** — is the menu at the top of
+the left sidebar. It stays there however far either sidebar is scrolled.
+
 Only the editing view takes strokes, so there is always another view to check a selection in.
 Changing the editing view drops a depth slab that was set along the old view's depth axis.
 
@@ -158,21 +161,34 @@ The status line across the top of the views always says what went wrong or what 
 
 ### Moving about
 
-| Action                       | How                                                       |
-| ---------------------------- | --------------------------------------------------------- |
-| Zoom a selection view        | Scroll or pinch, about the cursor                         |
-| Pan a selection view         | Right-drag, middle-drag, or control-drag                  |
-| Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                  |
-| Frame the views              | **Fit**: Sample, Foreground, Selection; or click a sector |
-| Step a frame                 | `←` and `→`, `,` and `.`, or the frame strip              |
-| Follow the main view         | **Follow the main view**, on by default                   |
+| Action                       | How                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| Zoom a selection view        | Scroll or pinch, about the cursor                                                       |
+| Pan a selection view         | Right-drag, middle-drag, or control-drag                                                |
+| Orbit, pan, zoom the 3D view | Drag, shift-drag, scroll                                                                |
+| Frame one object             | Click it in the object list, or **Fit the views to** · **Object**                       |
+| Frame the views              | **Fit the views to**: Selection, Foreground, Whole frame; or click a sector             |
+| Step a frame                 | `←` and `→` wherever the focus is, except in a text field; `,` and `.`; the frame strip |
+| Follow the main view         | **Follow the main view**, on by default                                                 |
 
 The two bars across the top say how far through you are: this frame, and every frame in the
 pack, as labelled, agreed and in question. The ring in the left sidebar says where in the frame
 what is left is.
 
-The views hold their framing from frame to frame. Only a fit or your own pan and zoom moves
-them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
+The views hold their framing from frame to frame. Only a fit, your own pan and zoom, or an
+object being followed moves them.
+
+**Clicking an object** in the list frames it whole in all six views, the elevations included,
+and the 3D view glides round to look at it along the sensor's own line of sight, a little from
+above. With **Keep the chosen object in view** on, the default, every step after that moves the
+views with it: a view you have not touched keeps the object centred and grows, never shrinks, to
+keep it whole; a view you have panned or zoomed keeps your offset and scale and moves with the
+object. In a frame the object is not labelled in, it is placed between the labelled frames
+either side; before its first and after its last, the views stay where they are. An elevation the
+object is behind is left alone. Any other fit stops following, until an object is clicked again.
+
+The arrow keys belong to the window: `←` and `→` step a frame whichever view was clicked last,
+the 3D view included, and only a text field being typed in keeps them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
 moving the main view steps here; the main view has to be replaying the same run.
 
 **Loop this pack's frames**, on by default, keeps a playing main view inside the pack: when it
@@ -248,11 +264,16 @@ mostly the speckle of every frame, are behind a toggle.
 
 ### Tools
 
-| Tool   | Use                                                                                                                                                                     |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts                                                                                             |
-| Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view |
-| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                              |
+| Tool   | Use                                                                                                                                                                                                       |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lasso  | Drag an outline. Command-drag for a rectangle. Shift adds, option subtracts. Shift-click takes the one return under the cursor; option-click removes the object's nearest one; a plain click does nothing |
+| Sphere | A paint brush. Click or drag. `[` `]` size it, shift-scroll moves it in depth, option subtracts. Before the button goes down it shows where it would mark in every view                                   |
+| Column | Paints 0.5 m columns in the Top view, from the voxels switched on. Option subtracts. `0`–`7` toggle a voxel, `↑` `↓` move the ground plane                                                                |
+
+A brush takes its depth from the return nearest the cursor. Holding option, it takes it from
+the nearest return **of the object** instead: in the Top view a car's returns lie over the
+road's, and a brush riding the road passed a metre under the return it was meant to remove. A
+stroke that removes nothing says so beside the brush.
 
 The **depth slab** limits every tool along the view's depth axis. Set by hand, it is kept from
 frame to frame until reset.
@@ -412,8 +433,8 @@ until someone reviews one there.
 
 ### Authoring in the window
 
-Physical references are authored in the annotation window, in the **Physical reference** mode at
-the top of the right-hand column. The window never writes `physical-references.json` itself: it
+Physical references are authored in the annotation window, in the **Physical** mode chosen at
+the top of the left-hand column. The window never writes `physical-references.json` itself: it
 sends each edit to the local server, which applies the rules below, and shows what the server
 answers. The server must hold the same pack folder the window opened, under its
 `--lidar-annotation-dir`. A pack opened from anywhere else can be viewed, but not saved.
@@ -486,6 +507,12 @@ resolved axis, an unsigned line for an ambiguous one, and a
 box only when centre, yaw, length and width are all known. It labels each reference as unsaved,
 proposed or reviewed, and uses a different line style for each.
 
+The 3D view draws the same boxes, in the same three colours: orange unsaved, yellow proposed,
+green reviewed. A reference has a footprint and at most a height, and no floor, so the 3D box is
+stood on the object's lowest return in that frame (the column grid's ground where it has none)
+and is as tall as the body's height, or its returns when the height is not known. The height
+drawn is for looking; nothing reads it back.
+
 Unsaved physical work guards stepping, switching objects, opening another pack and closing the
 window, as unsaved membership does. Undo and redo apply to the draft only. After a conflict,
 **Reload, keep draft** rereads the stored references and keeps your draft to reconcile against
@@ -497,8 +524,10 @@ unsaved object membership.
 More in the Physical column:
 
 - **Drag handles** in the Top view: drag the square to move the anchor with the size and yaw held,
-  the dot to turn it with the position held (the first turn creates a front/rear-ambiguous axis),
-  and the diamond at the far end of the body to revise its length with the anchor held. The
+  the dot to turn the pose about the body's centre (the first turn creates a front/rear-ambiguous
+  axis), and the diamond at the far end of the body to revise its length with the anchor held.
+  A pose anchored on a face, as a fit that saw only one end leaves it, keeps its centre when
+  turned: the face swings round it, and a typed heading does the same. The
   outlined square labelled **width** revises width about the supported centre, keeping position,
   heading and length fixed. A side-face anchor has no width handle: its inward offset would need
   an explicit coupled edit. Resizing carries the dimension's stated interval with its value and

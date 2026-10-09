@@ -40,13 +40,16 @@ struct PhysicalReferenceOverlay: View {
             }
         }
 
-        var colour: Color {
+        /// The same colour in the 3D view, which takes components.
+        var rgb: SIMD3<Float> {
             switch self {
-            case .unsaved: return Color(red: 1.0, green: 0.55, blue: 0.1)
-            case .proposed: return Color(red: 0.95, green: 0.85, blue: 0.3)
-            case .reviewed: return Color(red: 0.3, green: 0.95, blue: 0.5)
+            case .unsaved: return SIMD3(1.0, 0.55, 0.1)
+            case .proposed: return SIMD3(0.95, 0.85, 0.3)
+            case .reviewed: return SIMD3(0.3, 0.95, 0.5)
             }
         }
+
+        var colour: Color { Color(red: Double(rgb.x), green: Double(rgb.y), blue: Double(rgb.z)) }
 
         var dash: [CGFloat] {
             switch self {

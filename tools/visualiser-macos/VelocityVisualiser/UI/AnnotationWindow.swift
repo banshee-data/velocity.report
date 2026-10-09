@@ -338,6 +338,11 @@ struct AnnotationWorkspace: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
+                // What a gesture authors, pinned where it cannot scroll away:
+                // everything else in both columns depends on it.
+                AnnotationModePicker(session: session).padding(.horizontal, 12).padding(
+                    .vertical, 8)
+                Divider()
                 MainViewLink(session: session, appState: appState, scene: scene)
                 Divider()
                 AnnotationPane(session: session, column: .objects)
@@ -396,22 +401,23 @@ struct AnnotationWorkspace: View {
 
             editingColumn
         }.background { brushSizeKeys }.background { saveKeys }.background {
-            WindowCloseGuard(blocked: session.navigationGuard() != nil)
-        }.focusedSceneValue(\.annotationSession, session).alert(
-            "Unsaved changes", isPresented: showDiscardPrompt
-        ) {
-            Button("Keep Editing", role: .cancel) { pendingAction = nil }
-            Button("Discard and Continue", role: .destructive) {
-                let action = pendingAction
-                pendingAction = nil
-                session.discardAllUnsaved()
-                action?()
+            AnnotationArrowKeys(session: session)
+        }.background { WindowCloseGuard(blocked: session.navigationGuard() != nil) }
+            .focusedSceneValue(\.annotationSession, session).alert(
+                "Unsaved changes", isPresented: showDiscardPrompt
+            ) {
+                Button("Keep Editing", role: .cancel) { pendingAction = nil }
+                Button("Discard and Continue", role: .destructive) {
+                    let action = pendingAction
+                    pendingAction = nil
+                    session.discardAllUnsaved()
+                    action?()
+                }
+            } message: {
+                Text(
+                    "There are unsaved changes: this sample's membership or the physical-reference "
+                        + "draft. Save them, or discard them, before continuing.")
             }
-        } message: {
-            Text(
-                "There are unsaved changes: this sample's membership or the physical-reference "
-                    + "draft. Save them, or discard them, before continuing.")
-        }
     }
 
     @State private var showFreezeSheet = false
@@ -573,7 +579,7 @@ struct AnnotationViewportHeader: View {
                         width: 9, height: 9)
                     Text("Editing \(session.displayName(objectID: object.objectID))").bold()
                     Text("· \(session.selectionCount) points")
-                    if session.navigationGuard() != nil {
+                    if session.hasUnsavedWork {
                         Text("· unsaved").foregroundStyle(
                             AnnotationPalette.colour(AnnotationPalette.unsavedIndex))
                     }
