@@ -6,7 +6,7 @@ within 0.25 m; neither truck is. This plan fixes the two mechanisms behind that,
 experiments, and measures them against the same frozen split, with guards that keep three
 vehicles on one capture from becoming the thing the tracker is fitted to.
 
-- **Status:** Run 2026-10-09 on branch `claude/physical-align`: the [report](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md) keeps the course heading and growth admission as opt-in experiments, records the other three as null or harmful, and finds the rest of the trucks' error upstream of the solid body
+- **Status:** Run 2026-10-09 on branch `claude/physical-align`: the [report](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md) keeps the course heading, growth admission, end-face centring (open prior) and the vehicle floor as one opt-in candidate, which aligns the trucks' heading and truck 1's length and holds the corpus's lateral tail; it records the prior floor as harmful and face-plane spans as null, and finds the rest of the trucks' error upstream of the solid body
 - **Target:** v0.5.2, Sprint 0.5.2.1, the backlog's "Solid-body extent accumulation" item
 - **Layers:** L5 tracker (solid body), offline evaluation
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
@@ -52,12 +52,18 @@ production B0, the shadow or A2 unless named.
 Constants are the existing ones (the class priors, `CourseAlignmentMinSpeedMps`, the 10° span
 window). None is fitted to the pilot's poses.
 
-The run added a fourth mechanism and a fifth experiment, both found by reading the rows:
+The run added a fourth mechanism and four experiments, found by reading the rows and the corpus:
 `solid_body_extent_growth` (a merge candidate no wider than the body still gives its length,
 since the merge test refused an approaching truck's length for 22 frames as its side came into
-view) and `solid_body_vehicle_extent_floor` (a rigid vehicle is at least the smallest road car).
-The course heading as built keeps an axis within the window rather than taking the course
-outright, after the first version cost an accelerating car two degrees.
+view), `solid_body_vehicle_extent_floor` (a rigid vehicle, or a body of unknown class already a
+car's length, is at least the smallest road car) and `solid_body_end_face_centring` (at a fix by
+an end face alone, the position across the body comes from that face's own returns, since the
+corpus showed earlier lengths starting end-face-only fixes that drift across the body), with
+`solid_body_end_face_centring_open_prior` as its second setting (a narrow face is refused only
+against a measured width, not the class prior). The
+course heading as built turns from the axis toward the course as their disagreement and the
+speed grow, after taking the course outright cost an accelerating car two degrees and switching
+at the window edge turned the box by the whole window in one frame.
 
 ## Method
 

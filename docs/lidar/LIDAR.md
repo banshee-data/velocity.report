@@ -42,7 +42,10 @@ refreshes the medoid against OBB-centre comparison on the current solver. The
 [span selection timing](operations/near-edge-span-selection-timing-2026-10.md) measures the
 solid body's update cost after its percentiles are selected rather than sorted. The
 [physical-reference pilot](operations/physical-reference-pilot-kirk0-2026-10.md) is the first
-frozen score against reviewed body-centre, size and following-gap references, on kirk0.
+frozen score against reviewed body-centre, size and following-gap references, on kirk0. The
+[solid-body alignment](operations/solid-body-physical-alignment-kirk0-2026-10.md) follows it:
+why the solid body misses both trucks, and opt-in experiments that correct their heading and
+length, guarded on the 23-site corpus.
 
 ## Terminology
 
