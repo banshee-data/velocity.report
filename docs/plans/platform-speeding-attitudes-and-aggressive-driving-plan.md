@@ -306,10 +306,16 @@ Five rules, applied to every page, API payload, guide and plan this work touches
 The pace is p50 over per-transit maximum speeds, the statistic the report already computes per
 rollup bucket and over the period. The line prints the period pace beside the limit, in the sign's
 unit, with the limit's provenance: "Pace of traffic 31 mph; posted limit 25 mph
-(operator-supplied)". A passage's distance above the pace is its maximum speed less the p50 of the
-rollup bucket that
-contains its start time, the bucket the report already groups by, so "contemporaneous" means
-within the same bucket. The share of transits 10 mph or more above the pace is printed with its N.
+(operator-supplied)".
+
+A passage's distance above the pace is its maximum speed less the p50 of the transits that started
+in the same clock hour, in the site's zone. The window is fixed at one hour and is independent of
+the chart grouping, which the operator chooses from 15 minutes to 28 days: a 28-day bucket holds
+no contemporaneous traffic. An hour with fewer transits than the chart's `LowSampleThreshold` (50)
+gives its passages no distance, and they leave both the numerator and the denominator of the
+share. The share of transits 10 mph or more above the pace is printed with its N. The per-transit
+distance is computed for the share and never stored, served or exported: a passage's position
+against its neighbours is one step from a label on it.
 
 Radar transits have no direction, so the radar pace mixes both directions and the line says so.
 The behaviour plan's `speed_relative_to_stream` is the same-direction LiDAR quantity; when the
@@ -318,12 +324,16 @@ transit worker keeps direction, the radar pace follows the same definition and t
 ### Limit-relative shares
 
 For the period and for each of the crash-data plan's four strata, the share of transits at or
-below the limit, and the cumulative shares above it by 5, 10 and 15 units of the sign, matching
-the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in the
+below the limit, and the cumulative shares above it by 5, 10 and 15 mph where the sign is in mph,
+matching the behaviour plan's `speeding_exposure_{5,10,15}` edges so there is one set of edges in the
 project. The quantities differ and are named apart: `speeding_exposure_*` is free-flow time on a
 LiDAR passage; a share here is a fraction of transits by maximum speed. Each cell carries its N
 and is masked under 50 transits, the stratum table's rule, and the identifiability analysis's
-small-cell rule applies to the complement.
+small-cell rule applies to the complement. The boundary-hour filter applies to every cell exactly
+as it does to the headline numbers, the crash-data plan's Item 2a rule. The pace and the shares use
+the same speed expression as the headline percentiles, cosine correction included: a mount angle of
+20° understates an uncorrected speed by 6%, and a share against a limit is the figure whose reading
+that understatement changes.
 
 The comparison is with the limit, so the benchmark kind is `legal`, with the limit's jurisdiction
 and effective date once the posted limits plan supplies them. The 10 mph edge is a reporting
@@ -368,10 +378,15 @@ render from data rather than template text.
 ### One wording guard
 
 `internal/api`'s `verdictWords` becomes `headway.VerdictPattern`, so the headway report, its field
-run, the charts and the API scan one list. The list gains `speeder` and `rage`. `reckless`,
-`careless` and `mindset` are candidates for the behaviour plan's owner. `compliant` is an open
-question below. The citation test from the crash-data plan covers the new paragraph and the
-shares table.
+run, the charts and the API scan one list. The list gains `speeder` and a word-bounded `\brage\b`:
+the bare stem would refuse "average", "coverage" and "storage", words a served payload can
+legitimately hold. `reckless`, `careless` and `mindset` are candidates for the behaviour plan's
+owner. `compliant` is an open question below. The citation test from the crash-data plan covers the
+new paragraph and the shares table.
+
+The guard is a test over template-driven text, `data.json` and the edition's strings. Operator-
+entered fields, the site description, the surveyor and the speed-limit note, are the operator's
+words: they are not scanned, and the report prints them marked as operator-supplied.
 
 ### Documentation surfaces
 
@@ -411,17 +426,21 @@ above the social threshold is a share above a harm threshold.
 4. Add both sources to `data/maths/references.bib` and a dated verified-sources table to this
    plan.
 
-**Milestone:** v0.5.10, before Item 3
+**Acceptance:** no **Confirm** mark remains in this plan, and the rights row states what may be
+reproduced.
+
+**Milestone:** v0.5.10, before Item 3b
 
 ### Item 2: one wording guard and the percentile copy
 
-**Summary:** One stem list across the headway report and the API, with `speeder` and `rage`, and
-the percentile paragraph rewritten without labels on people.
+**Summary:** One stem list across the headway report and the API, with `speeder` and a
+word-bounded `rage`, and the percentile paragraph rewritten without labels on people.
 
 **Steps:**
 
 1. `verdictWords` in `internal/api` replaced by `headway.VerdictPattern`; the catch-the-words test
-   extended to the new stems and to both source titles, which must be refused.
+   extended to the new stems and to both source titles, which must be refused, and to "average"
+   and "coverage", which must pass.
 2. The percentile paragraph in `sections.typ` rewritten to describe what p98 measures, with the
    cited attitudes paragraph of Item 3 taking the explanatory role.
 3. A guard test over the full rendered report's `data.json` and text, as the headway report's
@@ -429,32 +448,58 @@ the percentile paragraph rewritten without labels on people.
 
 **Milestone:** v0.5.10
 
-### Item 3: the pace line, the shares table and the cited attitudes paragraph
+### Item 3a: the pace line and the limit-relative shares
 
-**Summary:** Print the pace of traffic, the limit-relative shares per period and stratum, and the
-paragraph that cites why, against the operator-supplied limit.
+**Summary:** Print the pace of traffic and the limit-relative shares per period and stratum
+against the operator-supplied limit, with no external data.
 
 **Steps:**
 
-1. The pace per rollup bucket and per period in `data.json`, and each transit's distance above its
-   bucket's pace, with the share 10 mph or more above the pace and its N.
-2. The shares table per period and per stratum, edges in the sign's unit, masked under 50, with
-   the limit's provenance printed as operator-supplied and the direction caveat for radar.
-3. The `surveys` group in the safety-reference edition with the four entries, validated like the
-   edition's other groups: citation, population, year, and the title in the skipped field.
-4. The paragraph, driven from `data.json` and the edition.
-5. Tests: the Friday 18:00 stratum boundary shared with the crash-data plan's Item 2a; a limit in
-   km/h, which prints the share above the limit only; a site with no limit, which prints no shares
-   and no pace-against-limit line; the guard over the table and the paragraph; a test that the
-   "acceptance ends, not where harm begins" sentence is printed.
+1. The pace per hour and per period in `data.json`, each transit's distance above its hour's pace
+   computed and not stored, and the share 10 mph or more above the pace with its N.
+2. The shares table per period and per stratum, edges from the edition for the sign's unit, masked
+   under 50, the boundary-hour filter applied as to the headline numbers, the limit's provenance
+   printed as operator-supplied, and the direction caveat for radar.
+3. The same speed expression as the headline percentiles, cosine correction included, proved by a
+   test on a site with a mount angle.
+4. Tests: the Friday 18:00 stratum boundary shared with the crash-data plan's Item 2a; an hour
+   under 50 transits, whose passages leave the pace share; a limit in km/h, which prints the share
+   above the limit only; a site with no limit, which prints no shares and no pace-against-limit
+   line; the guard over the table.
 
-**Milestone:** v0.5.10, after the crash-data plan's Item 2 ships the edition and Item 2a the strata
+**Acceptance:** a report at a site with a limit prints the pace line and the shares table, a report
+without one prints neither, and the headline numbers do not change.
+
+**Milestone:** v0.5.10; the period-level table depends on nothing, the stratum rows on the
+crash-data plan's Item 2a
+
+### Item 3b: the attitudes entries and the cited paragraph
+
+**Summary:** The `surveys` group in the safety-reference edition and the paragraph that cites it.
+
+**Steps:**
+
+1. The `surveys` group with the four entries, validated like the edition's other groups:
+   citation, population, year, the item's paraphrase, and the title in the skipped field.
+2. The paragraph, driven from `data.json` and the edition, with the sample described as the
+   report describes it: Item 1 confirms the population definition behind "motorists".
+3. Tests: the guard over the paragraph; both source titles refused and the author-year citation
+   rendered; the "acceptance ends, not where harm begins" sentence printed.
+
+**Acceptance:** the paragraph renders from the edition with its identifier, and no figure in it
+exists outside the edition.
+
+**Milestone:** v0.5.10, after Item 1 and after the crash-data plan's Item 2 ships the edition
 
 ### Item 4: guide and plan cross-references
 
 **Summary:** The guide section, the behaviour and vocabulary plan entries.
 
-**Milestone:** v0.5.10
+**Acceptance:** the guide section is linked from the guide index; the behaviour plan's Section 8.1
+and the vocabulary plan's next round name the pace and the questionnaire; `references.bib` carries
+both entries.
+
+**Milestone:** v0.5.10, after Item 1
 
 ### Item 5: shares per limit segment and schedule
 
@@ -471,25 +516,32 @@ goes; a school-zone schedule gives the shares during active hours.
 - The [posted speed limits plan](posted-speed-limits-plan.md) for any share that is more than
   operator-supplied, and the [schedules design](../radar/architecture/speed-limit-schedules.md)
   for school-zone hours.
+- The transit source's cosine correction. The PDF's transit statistics are queried without the
+  cosine join while the page prints the corrected note, an open task; a share against a limit does
+  not print until the pace and the shares use the corrected speed.
 - The transit worker keeping direction, for a same-direction pace on radar.
 - The behaviour plan's owner for the guard stems beyond `speeder` and `rage`, and for the LiDAR
   `speed_relative_to_stream`, which this plan does not build.
-- Item 1's reading of the technical reports before Item 3 prints a figure.
+- Item 1's reading of the technical reports before Item 3b prints a figure.
 
 ## Risks
 
-| Risk                                                                                | Likelihood | Impact | Mitigation                                                                                                                                                              |
-| ----------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The 10 mph band is read as a harm threshold                                         | High       | High   | The paragraph says where acceptance ends is not where harm begins; a test checks the sentence; the harm paragraph in the crash-data plan sits above it with its sources |
-| A self-reported prevalence is printed beside an observed share                      | Medium     | High   | No prevalence figure enters the edition; the terminology contract's rule 2; review of every `surveys` entry against it                                                  |
-| The guard refuses the citation                                                      | High       | Low    | Author and year on the page, the title in the skipped field, and a test that both titles are refused and the citation renders                                           |
-| A reviewer wants the mindsets as a segmentation of a street's traffic               | Medium     | Medium | The sensor has no people; the boundary is stated; `driver` and `mindset` in the guard make the label unprintable                                                        |
-| The radar pace mixes directions and is read as one stream                           | High       | Low    | The caveat prints until the worker keeps direction; the LiDAR definition is same-direction                                                                              |
-| Press figures are wrong                                                             | Medium     | Medium | Item 1 first; nothing from the press table reaches the edition                                                                                                          |
-| The report is read as recommending cameras or police presence                       | Low        | High   | Nothing about countermeasures on a page; the guide states the project's stance beside any support figure                                                                |
-| A km/h site gets US bin edges                                                       | Medium     | Medium | Edges are an edition entry per unit and jurisdiction; without one, only the share above the limit prints                                                                |
-| "Survey" is read as the questionnaire in a plan, or as the deployment in a citation | Medium     | Low    | The contract's rule 4; the style pass can flag "national survey" without "questionnaire" nearby                                                                         |
-| One site's shares are quoted as the national figure's local value                   | Medium     | Medium | The pace line and the shares carry the site and period; the paragraph names the population the 49% describes                                                            |
+| Risk                                                                                   | Likelihood | Impact | Mitigation                                                                                                                                                              |
+| -------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The 10 mph band is read as a harm threshold                                            | High       | High   | The paragraph says where acceptance ends is not where harm begins; a test checks the sentence; the harm paragraph in the crash-data plan sits above it with its sources |
+| A self-reported prevalence is printed beside an observed share                         | Medium     | High   | No prevalence figure enters the edition; the terminology contract's rule 2; review of every `surveys` entry against it                                                  |
+| The guard refuses the citation                                                         | High       | Low    | Author and year on the page, the title in the skipped field, and a test that both titles are refused and the citation renders                                           |
+| A reviewer wants the mindsets as a segmentation of a street's traffic                  | Medium     | Medium | The sensor has no people; the boundary is stated; `driver` and `mindset` in the guard make the label unprintable                                                        |
+| The radar pace mixes directions and is read as one stream                              | High       | Low    | The caveat prints until the worker keeps direction; the LiDAR definition is same-direction                                                                              |
+| Press figures are wrong                                                                | Medium     | Medium | Item 1 first; nothing from the press table reaches the edition                                                                                                          |
+| The report is read as recommending cameras or police presence                          | Low        | High   | Nothing about countermeasures on a page; the guide states the project's stance beside any support figure                                                                |
+| A km/h site gets US bin edges                                                          | Medium     | Medium | Edges are an edition entry per unit and jurisdiction; without one, only the share above the limit prints                                                                |
+| "Survey" is read as the questionnaire in a plan, or as the deployment in a citation    | Medium     | Low    | The contract's rule 4; the style pass can flag "national survey" without "questionnaire" nearby                                                                         |
+| One site's shares are quoted as the national figure's local value                      | Medium     | Medium | The pace line and the shares carry the site and period; the paragraph names the population the 49% describes                                                            |
+| The bare stem `rage` refuses "average", "coverage" and "storage"                       | High       | Medium | A word-bounded `\brage\b`, and a test that those words pass                                                                                                             |
+| Uncorrected transit speeds at an angled mount understate every share against the limit | High       | High   | The shares use the headline speed expression; the cosine task is a dependency; a test on an angled site                                                                 |
+| The pace window follows the chart grouping and loses contemporaneity                   | Medium     | Medium | A fixed one-hour window independent of the grouping; passages in thin hours leave the share                                                                             |
+| The guard refuses an operator's own note                                               | Medium     | Low    | Operator-entered fields are not scanned; the report marks them operator-supplied                                                                                        |
 
 ## Open questions
 
@@ -499,9 +551,12 @@ goes; a school-zone schedule gives the shares during active hours.
 - Which edges for km/h jurisdictions, and is an enforcement guideline such as the UK's "10% plus
   2 mph" a legitimate cited edge when the report takes no position on enforcement? The alternative
   is the share above the limit only until an attitudes source for that jurisdiction exists.
-- Does the pace use the report's rollup bucket, which the operator chooses from 15 minutes to 28
-  days, or a fixed window? A 28-day bucket makes "contemporaneous" meaningless, so the pace may
-  need its own window independent of the chart grouping.
+- Is 50 the right floor for an hour's pace? A median of 20 values is steadier than an 85th
+  percentile of 20, so the hour floor may sit lower than the chart's; [Q24](../../data/QUESTIONS.md)
+  asks the same of p85, and the floor follows its answer.
+- Decision to record on acceptance, in `DECISIONS.md`: the report takes no position on
+  enforcement or countermeasures. The guide and every later surface inherit it, so it belongs in
+  the register rather than in one plan.
 - Should the radar pace line wait for direction, or print mixed-direction with the caveat? The
   plan prints with the caveat.
 - Does the `surveys` group sit in `internal/report/safetyref` with the harm and rate entries, or
@@ -556,8 +611,9 @@ were unreachable from the review environment, and the proxy refused the direct d
 ### Outstanding
 
 - [ ] Item 1: technical reports read, every **Confirm** replaced, rights recorded, `references.bib` entries (`S`)
-- [ ] Item 2: one wording guard with `speeder` and `rage`, the percentile copy rewritten, a guard test over the speed report (`S`)
-- [ ] Item 3: pace line, limit-relative shares per period and stratum, `surveys` group in the edition, cited attitudes paragraph, tests (`M`)
+- [ ] Item 2: one wording guard with `speeder` and a word-bounded `rage`, the percentile copy rewritten, a guard test over the speed report (`S`)
+- [ ] Item 3a: pace line and limit-relative shares per period and stratum, with the cosine-corrected speed expression, tests (`M`)
+- [ ] Item 3b: `surveys` group in the edition and the cited attitudes paragraph, tests (`S`)
 - [ ] Item 4: guide section and plan cross-references (`S`)
 
 ### Deferred
