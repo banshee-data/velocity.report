@@ -6,7 +6,7 @@ belong to the object, and whether an end the returns reach is the vehicle's real
 of something hiding it. The fit does the arithmetic, states every bound it uses, and writes
 proposals that go through the same validation and review as anything typed by hand.
 
-- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 in part: the whole box is drawn in the 3D view and the elevations, and a fitted pose turns about its centre; the one frame label is open. F3 (errors at the field) and F5 open
+- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 built: the whole box is drawn in the 3D view and the elevations, a fitted pose turns about its centre, and the window names every frame by its sample. F3 (errors at the field) and F5 open
 - **Target:** v0.5.2, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
@@ -201,8 +201,9 @@ that causes them, rather than at the top and bottom of the column.
 - The pose "Height" control renamed "Anchor height (optional)" and moved under Adjust.
 - The box drawn in the 3D view and every elevation, from the lowest to the highest return when
   the height is a lower bound.
-- One frame label everywhere, "Frame 475 · sample 471", and `--frame` accepted where tools take
-  `--sample`.
+- One frame label everywhere: the sample, "Sample 471 · recording frame 475", the recording's
+  number second for the main view's timeline. Built so; since the window leads with the sample the
+  tools already take, no tool needs a `--frame`.
 
 ## Increments
 

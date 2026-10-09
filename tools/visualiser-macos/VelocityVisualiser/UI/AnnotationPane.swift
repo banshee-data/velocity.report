@@ -187,11 +187,12 @@ struct AnnotationPane: View {
                     session.sampleIndex >= session.samples.count - 1)
             }.controlSize(.small).padding(.top, 2)
             if let sample = session.currentSample {
-                // The run's own frame number first: it is the one the main
-                // view's timeline shows.
+                // The sample, as every tool and record names it; the
+                // recording's frame number second, for finding it in the
+                // main view.
                 Text(
-                    "Frame \(sample.sourceOrdinal) · \(session.sampleIndex + 1) of "
-                        + "\(session.samples.count) · \(session.currentPoints.count) points"
+                    "\(sample.label.capitalized) · \(sample.recordingLabel) · "
+                        + "\(session.currentPoints.count) points"
                 ).font(.caption.monospacedDigit()).lineLimit(1)
             }
             backgroundLine
@@ -321,20 +322,30 @@ struct AnnotationPane: View {
         }
     }
 
+    /// The sample ID at a position in the frame order, for a label.
+    private func sampleID(atPosition index: Int) -> Int {
+        session.samples.indices.contains(index) ? session.samples[index].sampleID : index
+    }
+
+    private func proposalLabel(_ proposal: ObjectProposal) -> String {
+        let kind = proposal.kind == .fixed ? "fixed" : "≈ " + proposal.classGuess
+        let first = sampleID(atPosition: proposal.firstFrame)
+        let last = sampleID(atPosition: proposal.lastFrame)
+        var label = "\(kind) · samples \(first)–\(last) · ~\(proposal.meanPoints) pts"
+        if proposal.kind == .moving { label += String(format: " · %.0f m", proposal.travelled) }
+        if proposalSort == .steadiest {
+            label += String(format: " · ±%.0f%%", proposal.unsteadiness * 100)
+        }
+        return label
+    }
+
     private func proposalRow(_ proposal: ObjectProposal) -> some View {
         let isSelected = session.selectedProposalID == proposal.id
         return HStack(spacing: 5) {
             RoundedRectangle(cornerRadius: 2).fill(
                 AnnotationPalette.colour(forClass: proposal.classGuess)
             ).frame(width: 8, height: 8)
-            Text(
-                "\(proposal.kind == .fixed ? "fixed" : "≈ " + proposal.classGuess) · frames "
-                    + "\(proposal.firstFrame + 1)–\(proposal.lastFrame + 1) · ~\(proposal.meanPoints) pts"
-                    + (proposal.kind == .moving
-                        ? String(format: " · %.0f m", proposal.travelled) : "")
-                    + (proposalSort == .steadiest
-                        ? String(format: " · ±%.0f%%", proposal.unsteadiness * 100) : "")
-            ).font(.caption2.monospacedDigit()).lineLimit(1)
+            Text(proposalLabel(proposal)).font(.caption2.monospacedDigit()).lineLimit(1)
             Spacer(minLength: 0)
         }.padding(.vertical, 2).padding(.horizontal, 4).background(
             isSelected ? Color.accentColor.opacity(0.25) : Color.clear,
@@ -660,8 +671,11 @@ struct AnnotationPane: View {
             if let frame = session.propagationProgress {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Frame \(frame + 1) of \(session.samples.count)").font(
-                        .caption.monospacedDigit())
+                    Text(
+                        session.samples.indices.contains(frame)
+                            ? "\(session.samples[frame].label.capitalized) of \(session.samples.count)"
+                            : "Done"
+                    ).font(.caption.monospacedDigit())
                     Spacer()
                     Button("Stop") { session.cancelPropagation() }.controlSize(.small)
                 }

@@ -13,8 +13,8 @@ struct AnnotationProgressHeader: View {
     var body: some View {
         HStack(spacing: 16) {
             bar(
-                "Frame \(session.sampleIndex + 1) of \(session.samples.count)",
-                session.completeness.whole)
+                session.currentSample.map { "\($0.label.capitalized) of \(session.samples.count)" }
+                    ?? "No sample", session.completeness.whole)
             bar("All \(session.samples.count) frames", session.packTally)
         }.padding(.horizontal, 12).padding(.vertical, 6)
     }

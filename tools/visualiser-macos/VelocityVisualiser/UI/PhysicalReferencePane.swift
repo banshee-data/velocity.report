@@ -62,10 +62,7 @@ struct PhysicalReferencePane: View {
         // labels affect presentation only; repairs still receive raw records.
         let saved = physical.state?.document.objects ?? []
         return PhysicalAuthoringMessage.describe(
-            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) },
-            frameNumber: { id in
-                session.pack.samples.first(where: { $0.sampleID == id })?.sourceOrdinal
-            })
+            raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) })
     }
 
     private func diagnostic(_ raw: String, colour: Color) -> some View {
@@ -358,7 +355,7 @@ struct PhysicalReferencePane: View {
             ).font(.caption2).foregroundStyle(.secondary)
             if let sample {
                 Text(
-                    "Frame \(sample.sourceOrdinal) · sample \(sample.sampleID) · \(sample.timestampNs) ns"
+                    "\(sample.label.capitalized) · \(sample.recordingLabel) · \(sample.timestampNs) ns"
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).textSelection(
                     .enabled)
             }
@@ -366,9 +363,7 @@ struct PhysicalReferencePane: View {
                 Menu("Poses: \(object.keyframes.count) marked frames") {
                     ForEach(object.keyframes.sorted { $0.sampleID < $1.sampleID }, id: \.keyframeID)
                     { pose in
-                        Button(
-                            "Frame \(session.pack.samples.first(where: { $0.sampleID == pose.sampleID })?.sourceOrdinal ?? pose.sampleID) · \(pose.review.status.rawValue)"
-                        ) {
+                        Button("Sample \(pose.sampleID) · \(pose.review.status.rawValue)") {
                             guard
                                 let index = session.samples.firstIndex(where: {
                                     $0.sampleID == pose.sampleID

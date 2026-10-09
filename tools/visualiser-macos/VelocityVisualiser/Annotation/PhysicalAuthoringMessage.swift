@@ -4,8 +4,7 @@ import Foundation
 /// identify a repair target, or change the service's original diagnostic.
 enum PhysicalAuthoringMessage {
     static func describe(
-        _ raw: String, objects: [PhysicalObject], name: (String) -> String,
-        frameNumber: (Int) -> Int?
+        _ raw: String, objects: [PhysicalObject], name: (String) -> String
     ) -> String {
         var result = raw
         for object in objects {
@@ -19,9 +18,9 @@ enum PhysicalAuthoringMessage {
                 }
             }
             for pose in object.keyframes {
-                let location =
-                    frameNumber(pose.sampleID).map { "frame \($0) (sample \(pose.sampleID))" }
-                    ?? "sample \(pose.sampleID)"
+                // The sample, as every other label in the window and every tool
+                // names it: see AnnotationSample.label.
+                let location = "sample \(pose.sampleID)"
                 result = result.replacingOccurrences(
                     of: "keyframe \"\(pose.keyframeID)\"", with: "pose at " + location)
                 if result == "keyframe/" + pose.keyframeID {

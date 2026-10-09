@@ -43,15 +43,15 @@ unseen bumper remains unknown unless independent evidence supports it.
 
 The window uses the main view's words where it means the same thing.
 
-| Word        | Meaning                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| Run         | The recording the pack was cut from                                                           |
-| Frame       | One scan. Shown by the run's own frame number, which is the one the main view's timeline uses |
-| Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                 |
-| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame      |
-| Labelled by | Your name. Saved with every label. Not the name of an object or a track                       |
-| Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                              |
-| Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth            |
+| Word        | Meaning                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Run         | The recording the pack was cut from                                                                                                                                                                    |
+| Frame       | One scan. Named by its sample, as every tool and record names it: "Sample 500". The recording's own frame number, the one the main view's timeline uses, follows it where shown: "recording frame 504" |
+| Pack        | An immutable excerpt of a run: the points a label can cite, fixed by a digest                                                                                                                          |
+| Object      | One real thing, named by class and number: "car 2". Clicking one goes to its first frame                                                                                                               |
+| Labelled by | Your name. Saved with every label. Not the name of an object or a track                                                                                                                                |
+| Proposed    | Made or suggested by an algorithm, or saved and not yet reviewed                                                                                                                                       |
+| Reviewed    | You have checked it. Only a reviewed frame of a reviewed object is reference truth                                                                                                                     |
 
 ## Getting a pack
 

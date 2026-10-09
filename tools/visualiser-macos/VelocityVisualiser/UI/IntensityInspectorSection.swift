@@ -356,9 +356,9 @@ struct IntensityInspectorSection: View {
             Text(title).font(.caption2.bold())
             Text(r.raw.map { "intensity \($0) (raw)" } ?? "intensity unavailable").font(
                 .caption.monospacedDigit())
-            Text("point \(r.pointIndex) · sample \(r.sampleID) · frame \(r.sourceOrdinal)").font(
-                .caption2.monospacedDigit()
-            ).foregroundStyle(.secondary)
+            Text(
+                "point \(r.pointIndex) · sample \(r.sampleID) · recording frame \(r.sourceOrdinal)"
+            ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             Text(
                 String(format: "x %.2f  y %.2f  z %.2f m", r.position.x, r.position.y, r.position.z)
             ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)

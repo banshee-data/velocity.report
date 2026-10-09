@@ -869,7 +869,7 @@ extension AnnotationSession {
             return false
         }
         features.message =
-            "Facet observation at frame \(samples[index].sourceOrdinal). Its support is a proposal, not a pose review."
+            "Facet observation at \(samples[index].label). Its support is a proposal, not a pose review."
         return true
     }
 
