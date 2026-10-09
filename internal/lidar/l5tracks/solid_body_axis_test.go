@@ -206,3 +206,29 @@ func TestRectangleCourseFusionHoldsTheLabelThroughATurn(t *testing.T) {
 		t.Fatalf("a course at 170 degrees gave %.1f, want the front turned to 180", got)
 	}
 }
+
+// RectangleSigmaScale weighs each fit at a multiple of its own standard
+// deviation: a fit two degrees from a settled axis moves it about half as
+// far at twice the sigma, and the fit itself, recorded on the row, is
+// unchanged.
+func TestRectangleSigmaScaleWeighsTheFitLess(t *testing.T) {
+	step := func(scale float32) (moved, recorded float64) {
+		cfg := solidBodyConfig()
+		cfg.SolidBody.RectangleHeading, cfg.SolidBody.RectangleSigmaScale = true, scale
+		tracker := NewTracker(cfg)
+		track := &TrackedObject{LastMeasurementUnixNanos: 100e6}
+		sb := &track.solidBody
+		sb.axis = solidBodyAxis{known: true, rad: 0, varRad2: 0.001, lastNanos: 100e6}
+		sb.fit = frameRectangleFit{nanos: 100e6, done: true, fit: axisFit(2, 3)}
+		tracker.observeAxis(track, sb, WorldCluster{})
+		return axisDeg(sb.axis), sb.fit.fit.SigmaRad * 180 / math.Pi
+	}
+	one, rec1 := step(0)
+	two, rec2 := step(2)
+	if !(two > 0 && two < 0.6*one) {
+		t.Fatalf("a 2-degree fit moved the axis %.3f degrees at scale 2 and %.3f at one", two, one)
+	}
+	if rec1 != 3 || math.Abs(rec2-3) > 1e-9 {
+		t.Fatalf("the recorded fit's sigma changed with the scale: %.3f and %.3f", rec1, rec2)
+	}
+}

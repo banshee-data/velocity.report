@@ -86,6 +86,9 @@ func (t *Tracker) observeAxis(track *TrackedObject, sb *solidBodyTrack, cluster 
 	}
 	now := track.LastMeasurementUnixNanos
 	fit := sb.rectangleFitFor(now, cluster)
+	if c := float64(t.Config.SolidBody.RectangleSigmaScale); c > 0 {
+		fit.SigmaRad *= c
+	}
 	sb.axis.observe(fit, now)
 	if t.Config.SolidBody.RectangleCourseFusion {
 		if course, ok := courseOrientation(sb.state, sb.p); ok {

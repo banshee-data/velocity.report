@@ -236,6 +236,11 @@ type SolidBodyOptions struct {
 	// course is more than axisLabelCourseMarginRad from the nearest candidate,
 	// taking only the front from the course. Default false.
 	RectangleCourseFusion bool
+	// RectangleSigmaScale, with RectangleHeading, multiplies the fit's
+	// standard deviation where the axis filter weighs it: the plan's scale
+	// c, which consecutive frames of one vehicle at one aspect make
+	// necessary, since their fits are not independent. Zero means one.
+	RectangleSigmaScale float32
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still

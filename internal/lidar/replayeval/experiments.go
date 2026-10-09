@@ -156,6 +156,10 @@ const (
 	// (SolidBodyOptions.RectangleHeading). It records the fit on the row as
 	// solid_body_rectangle_fit does.
 	ExperimentSolidBodyRectangleHeading = "solid_body_rectangle_heading"
+	// ExperimentSolidBodyRectangleSigmaWide, with the rectangle heading,
+	// weighs each fit at twice its standard deviation in the axis filter
+	// (SolidBodyOptions.RectangleSigmaScale = 2).
+	ExperimentSolidBodyRectangleSigmaWide = "solid_body_rectangle_sigma_wide"
 	// ExperimentSolidBodyRectangleCourseFusion, with the rectangle heading,
 	// takes the course as a second observation of the axis at speed and
 	// holds the label through turns (SolidBodyOptions.RectangleCourseFusion).
@@ -211,6 +215,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyContainment:              true,
 	ExperimentSolidBodyRectangleFit:             true,
 	ExperimentSolidBodyRectangleHeading:         true,
+	ExperimentSolidBodyRectangleSigmaWide:       true,
 	ExperimentSolidBodyRectangleCourseFusion:    true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
