@@ -112,18 +112,19 @@ their separate roles. Root guidance must not rely on a Markdown link being expan
 
 ## Workflow skills
 
-Eight slash-command skills live in [.claude/skills/](../../../.claude/skills). They are the canonical workflow layer: single-source, invocable from both Claude Code and VS Code.
+The slash-command skills live in [.claude/skills/](../../../.claude/skills). They are the canonical workflow layer: single-source, invocable from both Claude Code and VS Code.
 
-| Skill           | Command                      | Purpose                                                  |
-| --------------- | ---------------------------- | -------------------------------------------------------- |
-| plan-review     | `/plan-review [plan]`        | Scope, technical, and risk review of a design plan       |
-| review-pr       | `/review-pr [PR/branch]`     | Security, correctness, and maintainability review        |
-| ship-change     | `/ship-change`               | Format → lint → test → build → commit                    |
-| weekly-retro    | `/weekly-retro`              | Backlog health, plan consistency, and drift check        |
-| standup         | `/standup`                   | Daily repo and worktree standup with priorities          |
-| security-review | `/security-review [path]`    | Security audit: static analysis, fuzz targets, checklist |
-| trace-matrix    | `/trace-matrix [task-group]` | Trace backend surfaces against MATRIX.md                 |
-| fix-links       | `/fix-links [path]`          | Fix dead links and stale backtick paths in Markdown      |
+| Skill             | Command                        | Purpose                                                          |
+| ----------------- | ------------------------------ | ---------------------------------------------------------------- |
+| plan-review       | `/plan-review [plan]`          | Scope, technical, and risk review of a design plan               |
+| review-pr         | `/review-pr [PR/branch]`       | Security, correctness, and maintainability review                |
+| ship-change       | `/ship-change`                 | Format → lint → test → build → commit                            |
+| weekly-retro      | `/weekly-retro`                | Backlog health, plan consistency, and drift check                |
+| standup           | `/standup`                     | Daily repo and worktree standup with priorities                  |
+| security-review   | `/security-review [path]`      | Security audit: static analysis, fuzz targets, checklist         |
+| trace-matrix      | `/trace-matrix [task-group]`   | Trace backend surfaces against MATRIX.md                         |
+| fix-links         | `/fix-links [path]`            | Fix dead links and stale backtick paths in Markdown              |
+| research-briefing | `/research-briefing [--since]` | Weekly LiDAR and safety literature review against the repository |
 
 Rule: if a procedure is reusable and user-invocable, it belongs in a `SKILL.md`, not in an agent body.
 
