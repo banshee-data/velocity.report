@@ -1221,9 +1221,9 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	rectangle := hasExperiment(experiments, ExperimentSolidBodyRectangleFit)
 	rectangleHeading := hasExperiment(experiments, ExperimentSolidBodyRectangleHeading)
 	courseFusion := hasExperiment(experiments, ExperimentSolidBodyRectangleCourseFusion)
-	var sigmaScale float32
-	if hasExperiment(experiments, ExperimentSolidBodyRectangleSigmaWide) {
-		sigmaScale = 2
+	sigmaScale, err := rectangleSigmaScaleFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
 	}
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(coverage)
@@ -1277,6 +1277,23 @@ func rankOneMedoidScaleFor(experiments []string) (float32, error) {
 		return 1, nil
 	case tight:
 		return 0.25, nil
+	}
+	return 0, nil
+}
+
+// rectangleSigmaScaleFor reads the rectangle fit's sigma scale from its two
+// settings, refusing both together; zero when neither is named.
+func rectangleSigmaScaleFor(experiments []string) (float32, error) {
+	wide := hasExperiment(experiments, ExperimentSolidBodyRectangleSigmaWide)
+	mid := hasExperiment(experiments, ExperimentSolidBodyRectangleSigmaMid)
+	switch {
+	case wide && mid:
+		return 0, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentSolidBodyRectangleSigmaWide, ExperimentSolidBodyRectangleSigmaMid)
+	case wide:
+		return 2, nil
+	case mid:
+		return 1.5, nil
 	}
 	return 0, nil
 }

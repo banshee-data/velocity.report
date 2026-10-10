@@ -160,6 +160,9 @@ const (
 	// weighs each fit at twice its standard deviation in the axis filter
 	// (SolidBodyOptions.RectangleSigmaScale = 2).
 	ExperimentSolidBodyRectangleSigmaWide = "solid_body_rectangle_sigma_wide"
+	// ExperimentSolidBodyRectangleSigmaMid is the same option at one and a
+	// half times the fit's standard deviation (RectangleSigmaScale = 1.5).
+	ExperimentSolidBodyRectangleSigmaMid = "solid_body_rectangle_sigma_mid"
 	// ExperimentSolidBodyRectangleCourseFusion, with the rectangle heading,
 	// takes the course as a second observation of the axis at speed and
 	// holds the label through turns (SolidBodyOptions.RectangleCourseFusion).
@@ -216,6 +219,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyRectangleFit:             true,
 	ExperimentSolidBodyRectangleHeading:         true,
 	ExperimentSolidBodyRectangleSigmaWide:       true,
+	ExperimentSolidBodyRectangleSigmaMid:        true,
 	ExperimentSolidBodyRectangleCourseFusion:    true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
