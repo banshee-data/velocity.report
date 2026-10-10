@@ -10,7 +10,7 @@ what becomes of HINT.
 - **Status:** Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
   unbuilt too, and the only proposer that exists is the macOS `ObjectProposer`
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L10 Clients (macOS visualiser), sweep, offline analysis
-- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md)
+- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line)
 - **Tenets touched:** 1 (privacy, local data), 3 (evidence over opinion), 4 (local-first)
 
 ## Assumptions
@@ -179,22 +179,27 @@ piece of the whole design and the one that most directly puts eyes on the border
 The model needs a **dossier**: per subject, one image with the whole trail over the
 region-coloured background, and keyframes of the subject's returns in top and side view at one
 fixed scale, with the occluders drawn and the samples labelled. The operator needs the same
-pictures as review cards. Two ways to make them:
+pictures as review cards. One renderer of stills already exists, and two more could be built:
 
-| Property         | macOS visualiser render endpoint                                              | Headless Go renderer from the pack                                  |
-| ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| What it draws    | Exactly what the operator sees: the four elevations, the 3D view              | Orthographic top and side projections of `points.bin`               |
-| Determinism      | GPU and window-size dependent; not byte-stable                                | Same pack, same bytes; the digest goes in the proposal's provenance |
-| Where it runs    | A Mac with the app open                                                       | Anywhere `velocity` runs, including CI and the Pi                   |
-| Fit to the model | Perspective and shading the model does not need                               | Fixed-scale orthographic, which is what the plan asks for           |
-| Cost to build    | A local HTTP listener or URL scheme in the app, plus an offscreen render path | New package: projection, colouring, legends, `image/png`            |
-| Today            | No screenshot, snapshot or automation surface exists in the app               | No PNG writer exists in Go; charts are SVG                          |
+| Property         | `tools/scene-capture` (exists)                                                                   | macOS visualiser render endpoint                                              | Headless Go renderer from the pack                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| What it draws    | The web scene player over a scene export: clip points, tracks, boxes, trails; recipe-named views | Exactly what the operator sees: the four elevations, the 3D view              | Orthographic top and side projections of `points.bin`               |
+| Determinism      | Checks the render is stable before trusting the pixels; repeatable, not byte-pinned              | GPU and window-size dependent; not byte-stable                                | Same pack, same bytes; the digest goes in the proposal's provenance |
+| Where it runs    | Anywhere with Node and Chromium: the operator's Mac, CI                                          | A Mac with the app open                                                       | Anywhere `velocity` runs, including CI and the Pi                   |
+| Fit to the model | Perspective cameras today; needs fixed-scale orthographic recipes and mask colouring             | Perspective and shading the model does not need                               | Fixed-scale orthographic, which the review workflow plan asks for   |
+| Cost to build    | A pack-to-clip export, two orthographic recipes, mask colouring, a per-subject contact sheet     | A local HTTP listener or URL scheme in the app, plus an offscreen render path | New package: projection, colouring, legends, `image/png`            |
+| Today            | Milestones 1 and 2 of the [scene capture plan](lidar-deterministic-scene-capture-plan.md) done   | No screenshot, snapshot or automation surface exists in the app               | No PNG writer exists in Go; charts are SVG                          |
 
-The Go renderer is the right source of truth for the dossier: `velocity lidar propose --pass llm`
-has to run where there is no display, and calibration (the shown-and-hidden anchoring run) needs
-identical input twice. The macOS endpoint is still worth having for one reason: the grader should
-see **what the model saw**, and the window can draw the dossier image beside its own views. If the
-app renders the dossier from the same Go code through the server, the two are one picture.
+The scene capture plan's rule, "do not build a second renderer", settles the order. The dossier
+should come from `scene-capture` first: it already has recipes, a stability check, a contact
+sheet and provenance, and the model runs where Chromium runs, on the operator's machine or in
+CI, never on the Pi. What it lacks is a way in from a pack (a `KindClip` export of the pack's
+samples with mask membership as colour), two orthographic fixed-scale recipes for top and side,
+and the occluder and trail layers. The Go renderer is the fallback if byte-level determinism
+turns out to matter for the anchoring run, or if the Chromium dependency is refused where
+`velocity lidar propose` must run. The macOS endpoint is worth having for one reason only: the
+grader should see **what the model saw**, and the window can show the dossier image beside its
+own views. One picture, served to both, whichever renderer makes it.
 
 What the renderer records, per image: pack digest, subject, samples, view, scale in pixels per
 metre, layers drawn (points, background regions, trail, occluders, tracker context or not),
@@ -413,6 +418,13 @@ becomes the model's run time plus a short pass over the queue. Proposer agreemen
 shown on the round card, so an operator can see when a class is being trusted that has not
 earned it.
 
+**One seam must close first.** The HINT gate counts only manual labels, but
+`EvaluateGroundTruth` takes any positive `user_label` as reference truth, carried-over labels
+included. Today that is a mild inconsistency. Once graded and proposed objects project onto
+run-track labels as `human_manual` and `auto_suggested`, as the review workflow specifies, the
+evaluator would score sweeps against the model's proposals unless it applies the same manual
+predicate the gate does. That change is small and goes in before any projection.
+
 **Can the model replace the person in the loop?** Not as truth. A sweep tuned against the
 model's labels is a tracker tuned to what the model finds plausible, which is the stale-reference
 problem in a new coat, and the review workflow's rule that a proposal is never an input to the
@@ -505,14 +517,18 @@ Each step is useful without the next, and the model enters at step 3.
    class on the round card.
 4. **The queue**: carry stops, disagreement, margin, rarity and audit as items; cards with
    single-key grades; one action to the window and back; HINT counting grades and carrying by
-   observation.
+   observation, with the evaluator's truth predicate aligned to the gate's before any proposal
+   projects onto a run-track label.
 5. **Physical pass**: endpoint status and stray-return proposals from a tracker-free dossier;
    F5's suggested frames for pairs.
 6. **Proxy round** in HINT, only after step 3 has shown where the model may be leaned on.
 
 ## What this cannot establish
 
-- Recall. A subject nothing proposed is found only by a person, from scratch.
+- Recall. A subject nothing proposed is found only by a person, from scratch. Today no UI can
+  even record one: the web's missed-region marking is read-only since #707 and the macOS app has
+  no missed-region client, so the review workflow's from-scratch subject is the first recall
+  writer this flow would have.
 - Whether a given model is good at these pictures. That is the calibration run's result, per
   class, and it is not known until it is run.
 - Whether a hosted model is within the tenets. That is a decision, recorded as one.
