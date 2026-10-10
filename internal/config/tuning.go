@@ -184,6 +184,67 @@ type L5Common struct {
 	SplitSizeRatio                   float64 `json:"split_size_ratio"`
 	DeletedTrackGracePeriod          string  `json:"deleted_track_grace_period"`
 	MinObservationsForClassification int     `json:"min_observations_for_classification"`
+	// SolidBody switches the solid-body estimator on and selects its
+	// options (the near-edge tracked-state plan's configuration surface).
+	// It is a pointer and omitted when nil so that every config written
+	// before it existed, the shipped defaults among them, keeps its
+	// fingerprint: the block is absent by default and the estimator off.
+	// The replay experiments of the same names set the same fields.
+	SolidBody *L5SolidBody `json:"solid_body,omitempty"`
+}
+
+// L5SolidBody is the solid-body estimator's options, one tuning value per
+// l5tracks.SolidBodyOptions field and per near-edge tracker switch. Every
+// key is required when the block is present; the shipped experiment
+// parameter sets under config/experiments/ carry them all.
+type L5SolidBody struct {
+	// Enabled runs the solid-body estimator beside the tracked filter
+	// (replay experiment solid_body). The others qualify it and are
+	// refused without it.
+	Enabled bool `json:"enabled"`
+	// FullMembers hands the tracker every cluster member each frame
+	// (solid_body_full_members). Enabled requires it: the live pipeline
+	// retains no point sample, so without the members the body finds no
+	// faces at all.
+	FullMembers bool `json:"full_members"`
+	// NearEdgeTracking runs the body's state machine on the tracked filter
+	// with the A2 association (near_edge_track); it changes the tracks.
+	NearEdgeTracking bool `json:"near_edge_tracking"`
+	// NearEdgeMedoidGate is A2's ablation A1 (near_edge_track_a1) and needs
+	// NearEdgeTracking.
+	NearEdgeMedoidGate       bool    `json:"near_edge_medoid_gate"`
+	FaceHysteresis           bool    `json:"face_hysteresis"`
+	FaceEntryConsider        bool    `json:"face_entry_consider"`
+	CourseAlignedFaces       bool    `json:"course_aligned_faces"`
+	ReferenceTranslation     bool    `json:"reference_translation"`
+	RankOneMedoidScale       float64 `json:"rank_one_medoid_scale"`
+	CourseHeading            bool    `json:"course_heading"`
+	ExtentPriorFloor         bool    `json:"extent_prior_floor"`
+	FacePlaneSpans           bool    `json:"face_plane_spans"`
+	ExtentGrowthAdmission    bool    `json:"extent_growth_admission"`
+	VehicleExtentFloor       bool    `json:"vehicle_extent_floor"`
+	EndFaceCentring          bool    `json:"end_face_centring"`
+	EndFaceCentringOpenPrior bool    `json:"end_face_centring_open_prior"`
+	Containment              bool    `json:"containment"`
+	RectangleFit             bool    `json:"rectangle_fit"`
+	RectangleHeading         bool    `json:"rectangle_heading"`
+	RectangleCourseFusion    bool    `json:"rectangle_course_fusion"`
+	// RectangleSigmaScale multiplies the rectangle fit's standard deviation
+	// where the axis filter weighs it; zero means one.
+	RectangleSigmaScale float64 `json:"rectangle_sigma_scale"`
+}
+
+// Qualified reports whether any option other than Enabled and FullMembers
+// is set: the ones that have no meaning without the estimator.
+func (s *L5SolidBody) Qualified() bool {
+	if s == nil {
+		return false
+	}
+	return s.NearEdgeTracking || s.NearEdgeMedoidGate || s.FaceHysteresis || s.FaceEntryConsider ||
+		s.CourseAlignedFaces || s.ReferenceTranslation || s.RankOneMedoidScale != 0 || s.CourseHeading ||
+		s.ExtentPriorFloor || s.FacePlaneSpans || s.ExtentGrowthAdmission || s.VehicleExtentFloor ||
+		s.EndFaceCentring || s.EndFaceCentringOpenPrior || s.Containment || s.RectangleFit ||
+		s.RectangleHeading || s.RectangleCourseFusion || s.RectangleSigmaScale != 0
 }
 
 // L5CvKfV1 is the current production L5 engine.

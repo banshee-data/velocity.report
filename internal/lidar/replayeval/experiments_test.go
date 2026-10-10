@@ -328,7 +328,7 @@ func TestEstimateRowsNameTheModelThatUpdatedThem(t *testing.T) {
 		{[]string{ExperimentSolidBody}, "", l5tracks.MeasurementMedoidV0},
 		{[]string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack}, "", l5tracks.MeasurementNearEdgeCandidateV1},
 	} {
-		if got := stateObservationModelFor(tc.experiments, tc.mode); got != string(tc.want) {
+		if got := stateObservationModelFor(tc.experiments, false, tc.mode); got != string(tc.want) {
 			t.Errorf("%v with mode %q: rows name %s, want %s", tc.experiments, tc.mode, got, tc.want)
 		}
 	}
