@@ -1,8 +1,9 @@
 # Research briefing, October 3 to 10, 2026
 
-- **Status:** Complete. No definition changed; nothing adopted. Three items are logged as open
-  questions (Q1 to Q3). Every figure is **Confirm**: no primary
-  document could be read from the review environment.
+- **Status:** Complete; owner decisions applied October 10. No definition changed. Adopted: the
+  Monfort and Mueller 2025 curve as a cited source in the crash-data plan. Parked: CAN-bus speed,
+  noted in the motion-capture plan. Proposed: scoring L3 against point-wise static and dynamic
+  labels. Every figure is **Confirm**: no primary could be read from the review environment.
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 3 to 10, 2026. No third-party
   briefing was supplied.
@@ -19,9 +20,9 @@ older work that this week's searches newly returned: a statistical background-su
 benchmark for static roadside LiDAR, an infrastructure-LiDAR risk framework that scores time to
 collision and predicted post-encroachment time, and a rectangle-fitting speed paper. Each lands on
 something the repository already holds. The one candidate for new work is a published cross-sensor
-protocol for L3 background evaluation, logged as a question. Every host that carries a primary
-(arxiv.org, waymo.com, aaafoundation.org, iihs.org, doi.org, mdpi.com) was unreachable, so
-nothing below was read in full.
+protocol for L3 background evaluation, written up below as a proposal. Every host that carries
+a primary (arxiv.org, waymo.com, aaafoundation.org, iihs.org, doi.org, mdpi.com) was unreachable,
+so nothing below was read in full.
 
 ## Answer
 
@@ -74,13 +75,71 @@ study, which the percentile aggregation semantics already say.
 4. **Lands.** `grep` finds no mention of the paper or its datasets. L3b is documented in
    [background-grid-settling-maths.md](../../../data/maths/background-grid-settling-maths.md) and
    the architecture table. The nearest repository document on scoring is the annotation-scored
-   tuning note. Logged as Q1.
-5. **Verdict.** Not adopted. New and logged as an open question.
+   tuning note.
+5. **Verdict.** New; the owner asked for the proposal to be explored. See
+   [Proposal: score L3 against point-wise labels](#proposal-score-l3-against-point-wise-labels).
 6. **Rights.** HighwayScene is listed as CC BY-NC-SA 4.0 on Voxel51 (**Confirm**). The project is
    non-commercial in the sense the licence asks only for research notes; any use beyond reading
    needs the licence read first, and share-alike would bind a derived label set.
 7. **Give back.** A site can contribute nothing to a cross-sensor benchmark: it has one sensor
-   model per deployment.
+   model per deployment. It can label its own capture the same way, which is step 3 of the
+   proposal.
+
+## Proposal: score L3 against point-wise labels
+
+**Why.** Nothing in the repository measures what L3 throws away. Annotation packs are exported
+foreground only, with periodic settled-background snapshots
+([point annotation tool](point-annotation-tool.md)), and the
+[annotation-scored tuning](annotation-scored-tuning.md) sweep scores L4 clusters against the
+labelled foreground. A return from a moving car that L3 absorbs into the background never reaches
+a pack, so L3's dynamic recall is unmeasured, and its precision is seen only through what L4 does
+with the speckle. A full-scene, point-wise static or dynamic label measures both directly.
+
+**What L3 already shares with the method.** The grid keeps a per-cell range mean and spread at
+(ring, azimuth bin), which is a per-beam model, and same-ring neighbour confirmation is a spatial
+consistency step ([background-grid maths](../../../data/maths/background-grid-settling-maths.md),
+Sections 2 to 5). Section 11 of that note lists the known limits the benchmark would probe: a
+unimodal cell, a heuristic confidence count, and neighbour votes along the ring only, never across
+elevation. Whether the paper's filter is the same operation, and in which direction it moves the
+decision, is unknown until the paper is read.
+
+**Fit to the datasets.** The entry point is `ProcessFramePolarWithMask`, which takes points as
+channel, azimuth and distance, so an adapter needs only per-point ring, azimuth and range.
+
+| Sensor                    | Fit to L3                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| Ouster OS0 (HighwayScene) | Rotating with fixed beams; maps to (ring, azimuth bin) once its beam count is set in the grid |
+| Aeva Aeries II            | FMCW; L3 would ignore per-point velocity. Scan pattern unread (**Confirm**)                   |
+| Blickfeld QB2             | Non-rotating; no ring and azimuth structure, so out of scope for the polar grid               |
+| CoopScenes, added labels  | Sensors unread (**Confirm**)                                                                  |
+
+**Steps.**
+
+0. Read the paper, the HighwayScene card and licence, and the CoopScenes label format (`S`). This
+   is gated on the "To fetch" list.
+1. An offline Go tool beside `settling-eval` in `cmd/tools/` that reads a labelled sequence, maps
+   each point to polar form, runs a local background manager with the shipped defaults, and reports
+   per-point precision, recall and F1 for dynamic returns, after warm-up, per sensor and per range
+   band (`M`). Outputs stay local; the written report goes in `docs/`.
+2. A report beside the annotation-scored tuning note with the numbers, and the paper's own figures
+   quoted only where the protocol matches.
+3. Separately, and the evidence that matters for this product: label one Pandar40P capture full
+   scene rather than foreground only, starting with kirk0, so that L3 is scored on the sensor and
+   street the product ships on (`M`, the labelling is the cost).
+
+**What it would not establish.** An Ouster OS0 at a highway construction site is not a Pandar40P
+on a residential street: different beam count, range noise and traffic. A good or bad score there
+says how the method behaves, not how the product does. Step 1 must not change the shipped
+defaults; a tuning change moves the config fingerprint and needs the perf baselines recaptured in
+the same change.
+
+**Rights and tenets.** CC BY-NC-SA 4.0 (**Confirm**) permits non-commercial research use with
+credit; derived labels or results would carry the share-alike terms. The dataset is never vendored
+into the repository. Only the LiDAR streams are used; any camera stream in a dataset is left
+unread, and nothing runs on the device or needs a network call at runtime.
+
+**Decision needed.** Whether to run steps 0 and 1 as an experiment, and whether step 3 joins the
+annotation backlog. No backlog item is added until then.
 
 ## Bang and co-authors: PRISA (arXiv 2607.16156)
 
@@ -114,8 +173,9 @@ study, which the percentile aggregation semantics already say.
 4. **Lands.** The rectangle-fit lineage is in the
    [physical fit to points plan](../../plans/lidar-physical-fit-to-points-plan.md) and the heading
    coherence plan. The paper is not cited in either.
-5. **Verdict.** Already holds in method; the CAN-bus reference is a candidate external check on
-   speed accuracy. Logged as Q2.
+5. **Verdict.** Already holds in method. The CAN-bus reference is parked: it suits moving-platform
+   work (ego speed for ego-motion and SLAM), not the static work, which keeps the radar as its
+   speed reference. Noted under the motion-capture plan's pose sources.
 6. **Rights.** Open-access journal (**Confirm**).
 7. **Give back.** None without CAN-bus ground truth.
 
@@ -129,22 +189,31 @@ share, and the plan's `no_established_threshold` kind is the right place for it.
 
 The IIHS/Journal of Safety Research pedestrian curve (1% fatality at 20 mph, 19% at 35 mph, above
 80% at 50 mph for a 202-crash sample, **Confirm**) differs sharply from the Tefft 2013 curve the
-crash-data plan cites (50% at about 42 mph). The plan already says a curve applied to measured
-speeds is an upper bound and that front-end geometry is absent. No curve is adopted; a recent
-US curve with vehicle height is a candidate second citation, logged as Q3.
+crash-data plan cites (50% at about 42 mph). It is Monfort and Mueller, "A modern injury risk
+curve for pedestrian injury in the United States: the combined effects of impact speed and vehicle
+front-end height", _Journal of Safety Research_ 94, 235 to 241, September 2025 (IIHS preprint,
+December 2024), with MAIS 2+F, MAIS 3+F and fatal curves and formulas by hood leading-edge height
+(**Confirm**). Adopted as a cited source: the crash-data plan now lists it beside Tefft 2013, adds
+it to Item 1's reading, records it in its sources table as **Confirm from paper**, and notes it
+under the deferred front-end geometry item, since hood height is the parameter the vehicle
+encyclopedia would supply. The plan's rule stands: curves are stated side by side, never averaged,
+and a curve applied to travel speeds is an upper bound.
 
 ## What changes
 
 Nothing in code, registry, benchmark kinds or definitions. The edits in this change are this
-briefing, a link from the behaviour plan's references, and a devlog bullet.
+briefing; a link from the behaviour plan's references; the Monfort and Mueller curve in the
+crash-data plan (Section "What the evidence can and cannot establish", Item 1, sources checked and
+the deferred geometry item); a parked CAN-bus note in the motion-capture plan; and a devlog
+bullet.
 
 ## Open questions
 
-| ID  | Question                                                                                                                                                             |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q1  | Should L3 background quality be scored against the beam-wise benchmark protocol and its point-wise static/dynamic labels, and does the CC BY-NC-SA licence allow it? |
-| Q2  | Is CAN-bus-referenced speed (rectangle-fit papers) a usable external check for the fitted-extent speed, beside the radar reference?                                  |
-| Q3  | Should the crash-data plan's harm-curve citations add the recent US curve with front-end height beside Tefft 2013 and Rosen and Sander 2009?                         |
+| ID  | Question                                                                                         | Decision                                   |
+| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Q1  | Should L3 be scored against point-wise static and dynamic labels?                                | Explore: proposal above, awaiting go-ahead |
+| Q2  | Is CAN-bus-referenced speed a usable external check for fitted-extent speed?                     | Parked for motion and SLAM work            |
+| Q3  | Should the harm-curve citations add the recent US curve with front-end height beside Tefft 2013? | Yes: added to the crash-data plan          |
 
 ## Sources checked
 

@@ -518,6 +518,14 @@ pose source. These switches are proposed, not a supported current invocation.
    - No external sensors needed
    - Most computationally expensive
 
+**Parked: CAN-bus speed as a reference.** Infrastructure-LiDAR speed papers validate against a
+test vehicle's CAN-bus speed (for example rectangle edge matching, _Applied Sciences_ 16(5) 2513,
+2026, mean absolute error 0.76 to 1.37 km/h, **Confirm**). For a moving platform the capture
+vehicle's own CAN-bus speed is an ego-speed reference for ego-motion compensation and SLAM, and an
+instrumented target's log is a speed reference for tracked objects. Not used by the static work,
+which keeps the radar as its speed reference. Recorded by the
+[October 10, 2026 research briefing](../lidar/operations/research-briefing-2026-10-10.md).
+
 **Integration Points:**
 
 // Pose provider interface type PoseProvider interface { GetCurrentPose() (*Pose7DOF, error)
