@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 10, 2026 - A weekly research briefing skill and its routine
+## October 10, 2026 - A weekly research briefing skill, its routine, and citation coverage
+
+- {codex/lidar-paper-bibliography-audit} Audited the paper and research-report references in the LiDAR briefings and `data/`, added 62 missing BibTeX entries, corrected the L-shape and Patchwork titles and the full AB3DMOT paper's key, and linked a [reference audit](lidar/operations/brief/reference-audit.md) that maps the additions and records two unidentified PET-study mentions. Bibliographic identity was checked against primary metadata; this did not validate the papers' numerical claims or change the briefings' Confirm statuses.
 
 - {claude/research-briefing-2026-10-10} Added the first weekly research briefing, October 3 to 10: no definition changed, the Monfort and Mueller 2025 pedestrian curve added to the crash-data plan, a CAN-bus speed reference parked in the motion-capture plan, and a proposal to score L3 against point-wise static and dynamic labels, every figure marked Confirm because the primaries were unreachable.
 - {claude/research-briefing-skill} Added the `/research-briefing` skill, the weekly review method that found and judged this week's sources: organisation and journal watchlists plus topic queries for discovery, then a repository-first evaluation that separates what the registry, the plans and the wording guard already hold from what is new, with Confirm marks for unread primaries and a "To fetch" list for the owner. A Monday routine invokes it in a fresh session and stops if the skill is absent from `main`.
