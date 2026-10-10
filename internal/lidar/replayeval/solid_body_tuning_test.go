@@ -1,6 +1,8 @@
 package replayeval
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -104,5 +106,40 @@ func TestSolidBodyBlockNearEdgeRefusals(t *testing.T) {
 	plain := config.MustLoadDefaultConfig()
 	if solidBodyFullMembers(plain.L5.CvKfV1, nil) || tuningNearEdge(plain) || tuningNearEdge(nil) {
 		t.Fatal("the defaults read as carrying the body")
+	}
+}
+
+// The shipped candidate set is the candidate the W1b report scored, named
+// as experiments: loading config/experiments/geometry-convergence-candidate.json
+// gives the tracker configuration those names give.
+func TestShippedCandidateConfigIsTheScoredCandidate(t *testing.T) {
+	var path string
+	for _, prefix := range []string{"", "../../../", "../../../../"} {
+		p := filepath.Join(prefix, "config/experiments/geometry-convergence-candidate.json")
+		if _, err := os.Stat(p); err == nil {
+			path = p
+			break
+		}
+	}
+	if path == "" {
+		t.Skip("config/experiments not reachable from this package directory")
+	}
+	cfg, err := config.LoadTuningConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromFile, err := trackerConfigFor(cfg.L5.CvKfV1, "", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromNames, err := trackerConfigFor(config.MustLoadDefaultConfig().L5.CvKfV1, "", candidateExperiments, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromFile != fromNames {
+		t.Fatalf("the shipped candidate is not the scored candidate:\n file  %+v\n names %+v", fromFile.SolidBody, fromNames.SolidBody)
+	}
+	if !solidBodyFullMembers(cfg.L5.CvKfV1, nil) || !tuningNearEdge(cfg) {
+		t.Fatal("the shipped candidate does not run on the tracked filter with the members")
 	}
 }
