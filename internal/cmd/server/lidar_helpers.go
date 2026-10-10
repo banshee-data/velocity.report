@@ -43,6 +43,25 @@ func resolveLidarDir(dir, kind string, logf logfFunc) string {
 	return abs
 }
 
+// resolveTuningConfigDir is the directory the replay form lists configs
+// from: the flag when given, and otherwise the directory the --config file
+// came from, so the shipped tree's config/ is the default.
+func resolveTuningConfigDir(flagDir, configFile string) string {
+	if flagDir != "" {
+		return flagDir
+	}
+	return filepath.Dir(configFile)
+}
+
+// tuningSolidBodyFullMembers is the tuning config's solid_body.full_members:
+// whether the pipeline hands the tracker every cluster member from the start.
+func tuningSolidBodyFullMembers(cfg *config.TuningConfig) bool {
+	if cfg == nil || cfg.L5.CvKfV1 == nil || cfg.L5.CvKfV1.SolidBody == nil {
+		return false
+	}
+	return cfg.L5.CvKfV1.SolidBody.Enabled && cfg.L5.CvKfV1.SolidBody.FullMembers
+}
+
 type ringElevationsSetter interface {
 	SetRingElevations([]float64) error
 }

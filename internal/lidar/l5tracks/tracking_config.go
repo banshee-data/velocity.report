@@ -353,6 +353,29 @@ func SolidBodyOptionsFromTuning(sb *config.L5SolidBody) SolidBodyOptions {
 	}
 }
 
+// SolidBodyTuningFromTracker is the tracker's solid-body configuration as
+// the tuning file's block, the inverse of SolidBodyOptionsFromTuning for the
+// runtime config read-back; nil when the estimator is off. fullMembers is the
+// pipeline's members switch, which the tracker does not hold.
+func SolidBodyTuningFromTracker(cfg TrackerConfig, fullMembers bool) *config.L5SolidBody {
+	o := cfg.SolidBody
+	if !o.Enabled {
+		return nil
+	}
+	return &config.L5SolidBody{
+		Enabled: true, FullMembers: fullMembers,
+		NearEdgeTracking: cfg.NearEdgeTracking, NearEdgeMedoidGate: cfg.NearEdgeMedoidGate,
+		FaceHysteresis: o.FaceHysteresis, FaceEntryConsider: o.FaceEntryConsider,
+		CourseAlignedFaces: o.CourseAlignedFaces, ReferenceTranslation: o.ReferenceTranslation,
+		RankOneMedoidScale: float64(o.RankOneMedoidScale), CourseHeading: o.CourseHeading,
+		ExtentPriorFloor: o.ExtentPriorFloor, FacePlaneSpans: o.FacePlaneSpans,
+		ExtentGrowthAdmission: o.ExtentGrowthAdmission, VehicleExtentFloor: o.VehicleExtentFloor,
+		EndFaceCentring: o.EndFaceCentring, EndFaceCentringOpenPrior: o.EndFaceCentringOpenPrior,
+		Containment: o.Containment, RectangleFit: o.RectangleFit, RectangleHeading: o.RectangleHeading,
+		RectangleCourseFusion: o.RectangleCourseFusion, RectangleSigmaScale: float64(o.RectangleSigmaScale),
+	}
+}
+
 // TrackerConfigFromTuning builds a TrackerConfig from the active L5 engine
 // block. Callers are expected to pass the validated selected engine struct for
 // the current pipeline on this branch. The solid-body block, when present,

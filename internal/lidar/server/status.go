@@ -252,6 +252,7 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"recording":                state.Recording,
 		"recording_path":           state.RecordingPath,
 	}
+	response["tuning_config"], response["tuning_fingerprint"] = ws.activeTuning()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -279,20 +280,22 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := struct {
-		Status           string         `json:"status"`
-		SensorID         string         `json:"sensor_id"`
-		UDPPort          int            `json:"udp_port"`
-		Forwarding       bool           `json:"forwarding_enabled"`
-		ForwardAddr      string         `json:"forward_addr,omitempty"`
-		ForwardPort      int            `json:"forward_port,omitempty"`
-		ParsingEnabled   bool           `json:"parsing_enabled"`
-		DataSource       string         `json:"data_source"`
-		PCAPFile         string         `json:"pcap_file,omitempty"`
-		PCAPInProgress   bool           `json:"pcap_in_progress"`
-		Uptime           string         `json:"uptime"`
-		Stats            *StatsSnapshot `json:"stats,omitempty"`
-		PCAPSafeDir      string         `json:"pcap_safe_dir,omitempty"`
-		BackgroundSensor string         `json:"background_sensor_id,omitempty"`
+		Status            string         `json:"status"`
+		SensorID          string         `json:"sensor_id"`
+		UDPPort           int            `json:"udp_port"`
+		Forwarding        bool           `json:"forwarding_enabled"`
+		ForwardAddr       string         `json:"forward_addr,omitempty"`
+		ForwardPort       int            `json:"forward_port,omitempty"`
+		ParsingEnabled    bool           `json:"parsing_enabled"`
+		DataSource        string         `json:"data_source"`
+		PCAPFile          string         `json:"pcap_file,omitempty"`
+		PCAPInProgress    bool           `json:"pcap_in_progress"`
+		Uptime            string         `json:"uptime"`
+		Stats             *StatsSnapshot `json:"stats,omitempty"`
+		PCAPSafeDir       string         `json:"pcap_safe_dir,omitempty"`
+		BackgroundSensor  string         `json:"background_sensor_id,omitempty"`
+		TuningConfig      string         `json:"tuning_config,omitempty"`
+		TuningFingerprint string         `json:"tuning_fingerprint,omitempty"`
 	}{
 		Status:           "ok",
 		SensorID:         ws.sensorID,
@@ -309,6 +312,7 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPSafeDir:      ws.pcapSafeDir,
 		BackgroundSensor: ws.sensorID,
 	}
+	response.TuningConfig, response.TuningFingerprint = ws.activeTuning()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -394,6 +398,9 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		RecordingPath     string
 		GridPreserved     bool
 		LiveListener      bool
+		TuningConfigDir   string
+		TuningConfigPath  string
+		TuningFingerprint string
 	}{
 		Version:           version.Version,
 		GitSHA:            version.GitSHA,
@@ -421,7 +428,9 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		GridPreserved:     state.GridPreserved,
 		LiveListener:      state.LiveListenerRunning,
 		FgSnapshotCounts:  ws.getLatestFgCounts(),
+		TuningConfigDir:   ws.tuningConfigDir,
 	}
+	data.TuningConfigPath, data.TuningFingerprint = ws.activeTuning()
 
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "could not render status page: "+err.Error(), http.StatusInternalServerError)

@@ -38,3 +38,24 @@ func TestTrackerConfigFromTuningReadsTheSolidBodyBlock(t *testing.T) {
 		t.Fatalf("a disabled block changed the tracker: %+v", got)
 	}
 }
+
+// The read-back is the inverse of the mapping: a block put on the tracker
+// comes back as itself, with the members switch the caller holds, and an
+// estimator that is off comes back as no block.
+func TestSolidBodyTuningFromTrackerRoundTrips(t *testing.T) {
+	block := &config.L5SolidBody{
+		Enabled: true, FullMembers: true, NearEdgeTracking: true, FaceHysteresis: true,
+		RankOneMedoidScale: 0.25, EndFaceCentring: true, EndFaceCentringOpenPrior: true,
+		Containment: true, RectangleHeading: true, RectangleCourseFusion: true, RectangleSigmaScale: 2,
+	}
+	l5 := *config.MustLoadDefaultConfig().L5.CvKfV1
+	l5.SolidBody = block
+	cfg := TrackerConfigFromTuning(&l5)
+	back := SolidBodyTuningFromTracker(cfg, true)
+	if back == nil || *back != *block {
+		t.Fatalf("round trip:\n got %+v\nwant %+v", back, block)
+	}
+	if SolidBodyTuningFromTracker(TrackerConfig{}, true) != nil {
+		t.Fatal("an estimator that is off read back as a block")
+	}
+}

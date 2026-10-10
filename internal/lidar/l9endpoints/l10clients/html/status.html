@@ -47,6 +47,14 @@
           <td>{{.PCAPSafeDir}}</td>
         </tr>
         {{end}}
+        {{if .TuningFingerprint}}
+        <tr>
+          <td>
+            <strong>Tuning Config:</strong>
+          </td>
+          <td>{{if .TuningConfigPath}}{{.TuningConfigPath}}{{else}}(startup config){{end}} <code>{{.TuningFingerprint}}</code></td>
+        </tr>
+        {{end}}
         {{if .PCAPFile}}
         <tr>
           <td>
@@ -328,6 +336,16 @@
 
             <div class="form-row">
               <div class="form-group" style="flex: 2;">
+                <label>Tuning Config{{if .TuningConfigDir}} (from {{.TuningConfigDir}}){{end}}:</label>
+                <select name="tuning_config" id="tuning-config-{{.SensorID}}" style="margin-bottom: 8px;">
+                  <option value="">(keep the server's current parameters)</option>
+                </select>
+                <div id="tuning-config-note-{{.SensorID}}" style="font-size: 11px; color: #666;"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
                 <label>Replay File
                   {{if .PCAPSafeDir}}(from {{.PCAPSafeDir}}){{end}}:
                 </label>
@@ -484,6 +502,54 @@
                   if (durationSecs && scene.pcap_duration_secs != null) {
                     durationSecs.value = scene.pcap_duration_secs;
                   }
+                });
+              } catch (e) {
+                // no-op
+              }
+            })();
+          </script>
+        </li>
+          <script>
+            (function () {
+              try {
+                var configSelect = document.getElementById('tuning-config-{{.SensorID}}');
+                var note = document.getElementById('tuning-config-note-{{.SensorID}}');
+                if (!configSelect) return;
+
+                var configsData = [];
+
+                // Every .json under the config directory, listed on page
+                // load: a file the strict loader refuses, or one that changes
+                // startup-only settings, is shown but cannot be chosen.
+                fetch('/api/lidar/configs')
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    configsData = data.configs || [];
+                    configsData.forEach(function (c) {
+                      var opt = document.createElement('option');
+                      opt.value = c.path;
+                      var label = c.path;
+                      if (c.kind === 'tuning') {
+                        label += ' [' + c.solid_body + ']';
+                        if (c.fingerprint) label += ' ' + c.fingerprint;
+                      }
+                      if (c.active) label += ' (active)';
+                      if (!c.applicable) {
+                        label += ' \u2014 ' + (c.reason || 'cannot be applied');
+                        opt.disabled = true;
+                      }
+                      opt.textContent = label;
+                      configSelect.appendChild(opt);
+                    });
+                  })
+                  .catch(function () { /* ignore fetch errors */ });
+
+                configSelect.addEventListener('change', function () {
+                  if (!note) return;
+                  var chosen = configsData.find(function (c) { return c.path === configSelect.value; });
+                  if (!chosen) { note.textContent = ''; return; }
+                  note.textContent = 'Applies ' + chosen.path + ' (' + chosen.engines + ', solid body ' + chosen.solid_body +
+                    ') to the running pipeline before the replay starts; the run records fingerprint ' + chosen.fingerprint + '.';
                 });
               } catch (e) {
                 // no-op

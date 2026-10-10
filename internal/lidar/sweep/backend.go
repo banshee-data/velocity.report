@@ -78,6 +78,10 @@ type PCAPReplayConfig struct {
 	SpeedMode        string  // "analysis", "realtime", or "scaled"
 	SpeedRatio       float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
 	DisableRecording bool    // When true, skip VRLOG recording for this replay
+	// TuningConfigPath names a tuning config file under the server's config
+	// directory to apply before the replay; empty keeps the parameters the
+	// server has.
+	TuningConfigPath string
 }
 
 // WaitForPCAPDone blocks on a channel until it is closed or ctx is cancelled.
