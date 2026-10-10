@@ -386,9 +386,11 @@ belong in a follow-on plan after these contracts are agreed.
 
 ## References
 
-- **R1:** [NVIDIA MinkowskiEngine](https://github.com/NVIDIA/MinkowskiEngine), sparse tensor library and installation requirements.
-- **R2:** [SemanticKITTI label mappings](https://github.com/PRBonn/semantic-kitti-api/blob/master/config/semantic-kitti.yaml), source taxonomy and learning mappings.
-- **R3:** [Point Transformer V3](https://github.com/Pointcept/PointTransformerV3), official model repository. Verify checkpoint/configuration compatibility before experiments; the project page carries weight availability caveats.
-- **R4:** [4DMOS](https://github.com/PRBonn/4DMOS), receding moving-object segmentation from LiDAR sequences.
-- **R5:** [Guo et al., On Calibration of Modern Neural Networks, ICML 2017](https://proceedings.mlr.press/v70/guo17a.html), calibration and temperature scaling; local applicability requires measurement.
-- **R6:** [Kreutz et al., Unsupervised 4D LiDAR Moving Object Segmentation in Stationary Settings With Multivariate Occupancy Time Series, WACV 2023](https://openaccess.thecvf.com/content/WACV2023/html/Kreutz_Unsupervised_4D_LiDAR_Moving_Object_Segmentation_in_Stationary_Settings_With_WACV_2023_paper.html), occupancy changes over spatial neighbourhoods and time.
+- **R1:** [NVIDIA MinkowskiEngine](https://github.com/NVIDIA/MinkowskiEngine), sparse tensor library and installation requirements. Paper: `Choy2019`.
+- **R2:** [SemanticKITTI label mappings](https://github.com/PRBonn/semantic-kitti-api/blob/master/config/semantic-kitti.yaml), source taxonomy and learning mappings. Dataset paper: `Behley2019`.
+- **R3:** [Point Transformer V3](https://github.com/Pointcept/PointTransformerV3), official model repository. Paper: `Wu2024`. Verify checkpoint/configuration compatibility before experiments; the project page carries weight availability caveats.
+- **R4:** [4DMOS](https://github.com/PRBonn/4DMOS), receding moving-object segmentation from LiDAR sequences. Paper: `Mersch2022`.
+- **R5:** [Guo et al., On Calibration of Modern Neural Networks, ICML 2017](https://proceedings.mlr.press/v70/guo17a.html), calibration and temperature scaling; local applicability requires measurement. BibTeX: `Guo2017`.
+- **R6:** [Kreutz et al., Unsupervised 4D LiDAR Moving Object Segmentation in Stationary Settings With Multivariate Occupancy Time Series, WACV 2023](https://openaccess.thecvf.com/content/WACV2023/html/Kreutz_Unsupervised_4D_LiDAR_Moving_Object_Segmentation_in_Stationary_Settings_With_WACV_2023_paper.html), occupancy changes over spatial neighbourhoods and time. BibTeX: `Kreutz2023`.
+
+Full BibTeX entries: [references.bib](../references.bib).

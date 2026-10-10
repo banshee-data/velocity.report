@@ -24,7 +24,8 @@ sweeps rings across surfaces that a level sensor only strikes at fixed elevation
 2. Split the capture; confirm each walk is detected as a `survey` segment by the ground-normal
    tilt test and the stand as static.
 3. Export each walk with per-point timestamps and reconstruct it with the LiDAR-only odometry
-   baseline the priors review names (KISS-ICP class), producing one submap per walk.
+   baseline the priors review names (KISS-ICP class; `Vizzo2023` in
+   [references.bib](../../maths/references.bib)), producing one submap per walk.
 4. Accumulate the stand's stabilised background into a comparable point set.
 5. Measure, at a fixed voxel size: occupied voxels by height band, façade completeness against the
    building footprints from the SF bootstrap sources, kerb edge sharpness, road surface point

@@ -14,6 +14,9 @@
   [LiDAR architecture, L3](../../architecture/LIDAR_ARCHITECTURE.md),
   [previous briefing](fixed-sensor-research-briefing-2026-10-09.md)
 
+Paper and research-report citation keys are mapped in the [reference audit](reference-audit.md);
+full entries are in [references.bib](../../../../data/maths/references.bib).
+
 The week was searched along all three routes: organisation watchlists, venue watchlists and the
 fourteen topic queries. Little primary work appeared in the window itself. Most of what surfaced is
 older work that this week's searches newly returned: a statistical background-subtraction

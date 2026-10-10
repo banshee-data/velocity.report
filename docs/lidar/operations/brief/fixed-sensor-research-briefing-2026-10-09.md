@@ -4,6 +4,9 @@
 - **Scope:** Primary studies published October 3 to 9, 2026 on headway, following distance, post-encroachment time, stop compliance and percentile scorecards; the FMCSA Mississippi LiDAR headway-enforcement evaluation, newly surfaced; and a research briefing on both, supplied for review, whose seven recommendations are assessed against what the repository holds.
 - **Related:** [Behaviour analytics plan, Sections 8.3, 10.4 and 11](../../../plans/lidar-behaviour-analytics-plan.md#83-following-behaviour), [following metrics](../../../platform/architecture/metrics-registry.md#following-metrics), [headway report oracle](../headway-report-oracle.md), [0.5.2 sprint review](../0.5.2-sprint-review.md)
 
+Paper and research-report citation keys are mapped in the [reference audit](reference-audit.md);
+full entries are in [references.bib](../../../../data/maths/references.bib).
+
 A weekly briefing on fixed-sensor safety research was supplied for review. It found no primary
 study in the week that changes a definition, surfaced one ongoing programme, and made seven
 recommendations for the following metrics. This record checks the programme against what can be
