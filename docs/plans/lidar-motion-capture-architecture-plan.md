@@ -524,7 +524,7 @@ test vehicle's CAN-bus speed (for example rectangle edge matching, _Applied Scie
 vehicle's own CAN-bus speed is an ego-speed reference for ego-motion compensation and SLAM, and an
 instrumented target's log is a speed reference for tracked objects. Not used by the static work,
 which keeps the radar as its speed reference. Recorded by the
-[October 10, 2026 research briefing](../lidar/operations/research-briefing-2026-10-10.md).
+[October 10, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-10-10.md).
 
 **Integration Points:**
 
