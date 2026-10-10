@@ -106,7 +106,11 @@ Definitions that every surface must keep:
   extreme less the follower's leading one. It is never centre to centre, and a non-positive value
   is suppressed for geometry review rather than reported as zero headway or contact.
 - **Net time gap** is spatial gap over the follower's along-path speed. It is not front-to-front
-  passage headway at a fixed detector, and it is suppressed below the speed floor.
+  passage headway at a fixed detector, and it is suppressed below the speed floor. Other literature
+  calls the same quantity a clearance time gap or a net headway; prose may use either, and the id
+  does not change. Passage headway, the time between two fronts crossing one line, exceeds the net
+  time gap by the leader's occupancy time. It is a detector quantity this registry does not have,
+  and the name is reserved for one, so that no following metric is ever read as it.
 - **Valid following time** counts supported opportunity only: observed instants where net time gap
   is supported. Coasted, standstill and otherwise suppressed time is excluded, and a rate over too
   little of it is suppressed with `insufficient_observation`, never reported as zero.
