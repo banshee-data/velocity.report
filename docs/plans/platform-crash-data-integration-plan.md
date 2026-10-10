@@ -345,7 +345,9 @@ copy.
    citation, population and unit, and a test that the embedded edition validates.
 2. The `published_model` benchmark kind, or the recorded decision not to add one.
 3. The cited harm paragraph in `sections.typ`, driven from `data.json`, in the sign's unit, with
-   the impact-versus-travel caveat and the edition identifier.
+   the impact-versus-travel caveat and the edition identifier. Both curves, Tefft 2013 and
+   Monfort and Mueller 2025, enter the edition with their fleet years and samples, and the
+   paragraph uses the all-vehicle curves only ([D-28][d28]).
 4. The wording-guard test over the new section.
 5. Answer Q30 to the extent the curves allow and record the decision in `data/QUESTIONS.md`.
 6. The area-rate table from the fatal-rate paper's supplement: per-area rows with the fields in
@@ -382,7 +384,10 @@ crashes by severity from the pinned model, with its interval.
 
 1. Mean speed per period from the same transit population, with sample sizes and intervals.
 2. The model evaluated on the mean-speed change only; refuse when the periods differ in site
-   configuration period, cosine correction or sensor.
+   configuration period, cosine correction or sensor. The relative change prints with its
+   interval as a model trend, with a one-sentence caveat citing Ambros and Kieć 2025 that at low
+   speed and small reductions the model overpredicts; never a count, and never suppressed by
+   posted limit ([D-28][d28]).
 3. The report section and its guard test; a synthetic oracle in the style of the headway report.
 
 **Milestone:** v0.6.8
@@ -473,12 +478,18 @@ area-rate table
 - Which pedestrian harm curve the edition prints: Tefft 2013, standardised to the 2007 to 2009
   fleet, Monfort and Mueller 2025, from 2015 to 2022 crashes with the vehicle-height covariate, or
   both with their years; and whether a report may use the per-class curves, since a class is what
-  the sensor can tell. Raised by the [October 2026 briefing][rb-2026-10].
+  the sensor can tell. Raised by the [October 2026 briefing][rb-2026-10]. **Answered** by
+  [D-28][d28]: both curves, each with its fleet years and sample; the paragraph uses the
+  all-vehicle curves; per-class curves stay in the docs until L6 class recall is accepted.
 - Whether the before-and-after section prints a predicted number on streets under 50 km/h at all,
   or only the model's direction with its interval and Ambros and Kieć's finding that the
   exponential model overpredicts crash change at the micro scale; and whether the 2026 pooled
   30 km/h effect enters the edition as an intervention effect, a kind distinct from a speed-change
-  model. Raised by the same briefing.
+  model. Raised by the same briefing. **Answered** by [D-28][d28]: the section prints the
+  relative change and its interval as a model trend with a low-speed caveat citing Ambros and
+  Kieć 2025, never a count and never suppressed; the pooled effect is a reference now and an
+  intervention-effect entry only after the paper is read, off every page until the
+  `published_model` kind is decided.
 
 ## Sources checked
 
@@ -583,3 +594,4 @@ document was not read.
 - [ ] Per-passage crash or near-crash classification: out of scope here and in the state-estimation plan's Section 12
 - [ ] Surrogate-measure-to-crash calibration at a single site: not establishable from one site
 - [ ] A site crash rate: not computable at one site, by the arithmetic in the [report][hcb-f6]
+      [d28]: ../DECISIONS.md#d-28--research-briefing-decisions-october-2026

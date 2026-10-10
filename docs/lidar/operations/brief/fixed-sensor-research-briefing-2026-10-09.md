@@ -124,6 +124,17 @@ Nothing is renamed, and no code changes.
   alone on a surface a reader meets first? The contents name it; the names are stable; a rename
   is not worth its churn today.
 
+## Decisions
+
+Decided by the owner on October 10, 2026 and recorded as [D-28][d28].
+
+| Question                              | Decision                                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| B10, the encounter-weighted view      | Deferred until B1 measures how often both parties of an interaction are observed at a real site; the backlog item says so                                    |
+| What the handheld instrument measures | Open until NHTSA's DOT HS 809 811 is read; the vendor page's wording, a distance between two vehicles in the same lane along the beam, is noted, not adopted |
+| A heavy-vehicle following band        | Deferred; the trigger is a field run whose L6 class recall meets the classifier plan's acceptance, logged as B11 in the behaviour plan                       |
+| Surface names carrying the quantity   | Renamed through the vocabulary plan's P2-F, aliases first, retired under P2-G; not now                                                                       |
+
 ## Provenance
 
 - The supplied briefing, pasted in full, author unstated; its claims about the project page's
@@ -138,3 +149,4 @@ Nothing is renamed, and no code changes.
 [fmcsa-active]: https://www.fmcsa.dot.gov/safety/research-and-analysis/active-research-projects
 [lti]: https://lasertech.com/mississipppi-tailgating-detection-lidar/
 [officer]: https://www.officer.com/sponsored/article/55390832/from-observation-to-evidence-modernizing-tailgating-enforcement
+[d28]: ../../../DECISIONS.md#d-28--research-briefing-decisions-october-2026

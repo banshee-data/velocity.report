@@ -209,11 +209,11 @@ bullet.
 
 ## Open questions
 
-| ID  | Question                                                                                         | Decision                                   |
-| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Q1  | Should L3 be scored against point-wise static and dynamic labels?                                | Explore: proposal above, awaiting go-ahead |
-| Q2  | Is CAN-bus-referenced speed a usable external check for fitted-extent speed?                     | Parked for motion and SLAM work            |
-| Q3  | Should the harm-curve citations add the recent US curve with front-end height beside Tefft 2013? | Yes: added to the crash-data plan          |
+| ID  | Question                                                                                         | Decision                                                                                                |
+| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Q1  | Should L3 be scored against point-wise static and dynamic labels?                                | Go ahead: an `S` backlog item gated on the data release, no production change ([D-28][d28], October 10) |
+| Q2  | Is CAN-bus-referenced speed a usable external check for fitted-extent speed?                     | Parked for motion and SLAM work                                                                         |
+| Q3  | Should the harm-curve citations add the recent US curve with front-end height beside Tefft 2013? | Yes: added to the crash-data plan                                                                       |
 
 ## Sources checked
 
@@ -258,3 +258,4 @@ primary in the window.
 - https://aaafoundation.org/wp-content/uploads/2026/08/202608_AAAFTS-Attitudes-towards-Speeding.pdf
 - https://www.iihs.org/news/detail/vehicle-height-compounds-dangers-of-speed-for-pedestrians
 - https://huggingface.co/datasets/iis-esslingen/HighwayScene (licence text)
+  [d28]: ../../../DECISIONS.md#d-28--research-briefing-decisions-october-2026

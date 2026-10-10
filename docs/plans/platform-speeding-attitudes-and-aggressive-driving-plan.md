@@ -568,7 +568,9 @@ word-bounded `rage`, and the percentile paragraph rewritten without labels on pe
    extended to the new stems and to both source titles, which must be refused, and to "average"
    and "coverage", which must pass.
 2. The percentile paragraph in `sections.typ` rewritten to describe what p98 measures, with the
-   cited attitudes paragraph of Item 3 taking the explanatory role.
+   cited attitudes paragraph of Item 3 taking the explanatory role, and one clause saying that p85
+   is a statistic of operating speeds and not a rule for setting limits; the operator guide carries
+   the ITE and MUTCD citations ([D-28][d28]).
 3. A guard test over the full rendered report's `data.json` and text, as the headway report's
    `TestNoVerdictLanguage` does, since the speed report has none today.
 
@@ -610,7 +612,10 @@ crash-data plan's Item 2a
 1. The `surveys` group with the entries the design lists, the flow item, the curve and the mean
    thresholds by road type, the self-report edges and the credibility figures, each validated like
    the edition's other groups: citation, population, fieldwork dates, figure or table, the item's
-   paraphrase, and the title in the skipped field.
+   paraphrase, and the title in the skipped field. The Traffic Safety Culture Index is the series
+   source for the speeding items, one entry per edition year, with the one-off study as the
+   explanatory source; the observed shares of Campolettano et al. 2025 are cited in the guide
+   only ([D-28][d28]).
 2. The paragraph, driven from `data.json` and the edition, its road-type sentence chosen by the
    stated road type and omitted without one, and its population described as the report describes
    it: people who had driven in the previous month.
@@ -723,13 +728,17 @@ goes; a school-zone schedule gives the shares during active hours.
 - Does the annual Traffic Safety Culture Index, on a constant questionnaire since 2008, enter the
   edition's attitudes entries beside the one-off attitudes study? A series is what any
   before-and-after reading of attitudes would need, and the one-off study has no before. Raised by
-  the [October 2026 briefing][rb-2026-10].
+  the [October 2026 briefing][rb-2026-10]. **Answered** by [D-28][d28]: yes, as the series
+  source for the speeding items, one entry per edition year, with the one-off study as the
+  explanatory source.
 - Do Campolettano, Kusano and Victor's observed shares above the limit in San Francisco and
   Phoenix enter the pace line as an `external_distribution` comparator, with the mobile population
   and the two cities stated, or only as context in the guide? Raised by the same briefing.
+  **Answered** by [D-28][d28]: guide only; nothing on the report page.
 - Does the percentile paragraph cite ITE's position and the MUTCD edition on what the 85th
   percentile is used for, so that a printed p85 is never read as the limit-setting rule? Raised
-  by the same briefing.
+  by the same briefing. **Answered** by [D-28][d28]: one clause on the page, that p85 is
+  a statistic of operating speeds and not a rule for setting limits; the citations in the guide.
 
 ## Sources checked
 
@@ -806,3 +815,4 @@ whose primary text was not read.
 - [ ] Honking, gestures, confrontation and the other unobservable behaviours: not observable by design
 - [ ] Countermeasure recommendations in a report: outside the product's stance
 - [ ] Self-reported prevalence as a calibration target for observed shares: different populations and units
+      [d28]: ../DECISIONS.md#d-28--research-briefing-decisions-october-2026

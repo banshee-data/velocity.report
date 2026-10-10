@@ -759,6 +759,22 @@ against Inrix for a site's link class.
 - Whether a range-adaptive eps is worth a sweep arm scored by W3. For the sweep's owner.
 - The prior briefing's B10 and its instrument question stand; the instrument half is now a specification document to read.
 
+## Decisions
+
+Decided by the owner on October 10, 2026 and recorded as [D-28][d28].
+
+| Question                                        | Decision                                                                                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Which harm curve the edition prints             | Both, Tefft 2013 and Monfort and Mueller 2025, each with its fleet years and sample; the report's paragraph uses the all-vehicle curves; per-class curves stay in the docs until L6 class recall is accepted |
+| The before-and-after model under 50 km/h        | Print the relative change with its interval as a model trend, with a one-sentence low-speed caveat citing Ambros and Kieć 2025; never a count, never suppressed                                              |
+| The 2026 pooled 30 km/h effect                  | A reference now; an intervention-effect entry in the edition only after the paper is read, and off every page until the `published_model` kind is decided                                                    |
+| The Traffic Safety Culture Index in the edition | Yes, as the series source for the speeding items, one entry per edition year, with the one-off attitudes study as the explanatory source                                                                     |
+| Campolettano et al.'s observed shares           | Operator guide only, as context with the mobile population and the two cities stated; nothing on the report page                                                                                             |
+| The percentile paragraph                        | One clause on the page, that p85 is a statistic of operating speeds and not a rule for setting limits; the ITE and MUTCD citations in the guide                                                              |
+| The convergence plan comparison                 | Two `S` items: the centre-versus-extent error decomposition on kirk0's references, and a grid-map extent estimator as a shadow arm; the rectangle fit waits on reading                                       |
+| A range-adaptive eps                            | One sweep arm scored by the W3 gate once it exists, kirk0's two trucks as the merging test; defaults unchanged; `S`                                                                                          |
+| The prior briefing's questions                  | B10 deferred until B1 is measured; the instrument question open until the specification is read                                                                                                              |
+
 ## Sources checked
 
 Status is one of Read, Read in part, Superseded or **Confirm**. A **Confirm** row's figures come
@@ -903,3 +919,4 @@ An attached PDF or Markdown extraction is read in full.
 [fhwa25]: https://highways.dot.gov/sites/fhwa.dot.gov/files/FHWA-HRT-25-007.pdf
 [fhwa24]: https://highways.dot.gov/media/58566
 [yannis24]: https://www.nrso.ntua.gr/geyannis/pub/pj251-review-of-city-wide-30-km-h-speed-limit-benefits-in-europe/
+[d28]: ../../../DECISIONS.md#d-28--research-briefing-decisions-october-2026
