@@ -2,7 +2,7 @@
 
 - **Status:** Complete. No definition changed and no threshold adopted. Edits applied: two evaluation-source rows and a reference group in the behaviour plan; ten source rows, one row correction and two open questions in the crash-data plan; five source rows, one row correction and three open questions in the attitudes plan; one backlog item's reading list extended.
 - **Scope:** Primary work published from January 1, 2025 to October 10, 2026 on roadside and infrastructure LiDAR perception and on the safety and behaviour literature the analytics cite, plus older work newly surfaced in that window. The October 2026 sources already judged by the repository (the Waymo sober-baseline and fatal-rate papers, Valgo's client README, the two AAA Foundation studies and FMCSA's handheld programme) are taken as read and only their new neighbours are evaluated. The weekly briefing of the same date, written by the Monday routine from search summaries alone, judged Baumann, PRISA, the rectangle-fitting paper, Schäfer and Monfort and Mueller as newly surfaced and adopted the last as a cited source; this briefing reads those primaries where they could be reached and extends the window. No third-party briefing was supplied.
-- **Related:** [Behaviour analytics plan, Sections 5, 11 and 16](../../plans/lidar-behaviour-analytics-plan.md#5-benchmark-taxonomy), [crash-data plan](../../plans/platform-crash-data-integration-plan.md), [attitudes plan](../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md), [human crash baselines analysis](../../platform/operations/human-crash-baselines-analysis-2026-10.md), [geometry convergence plan](../../plans/lidar-tracker-geometry-convergence-plan.md), [the weekly briefing of October 3 to 10](research-briefing-2026-10-10.md), [the October 9 fixed-sensor briefing](fixed-sensor-research-briefing-2026-10-09.md)
+- **Related:** [Behaviour analytics plan, Sections 5, 11 and 16](../../../plans/lidar-behaviour-analytics-plan.md#5-benchmark-taxonomy), [crash-data plan](../../../plans/platform-crash-data-integration-plan.md), [attitudes plan](../../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md), [human crash baselines analysis](../../../platform/operations/human-crash-baselines-analysis-2026-10.md), [geometry convergence plan](../../../plans/lidar-tracker-geometry-convergence-plan.md), [the weekly briefing of October 3 to 10](research-briefing-2026-10-10.md), [the October 9 fixed-sensor briefing](fixed-sensor-research-briefing-2026-10-09.md)
 
 A twenty-one month window was searched through the organisation and journal watchlists and the
 topic queries of the `/research-briefing` skill, and every source worth more than a line was read
@@ -537,7 +537,7 @@ _Spatial geometry analysis of roadside LiDAR for improved vehicle clustering acc
 3. **What the sensor can observe.** The Pandar40P's non-uniform vertical spacing makes the same
    range-dependent gap the paper models.
 4. **Where it lands.** L4's DBSCAN takes one eps for the whole field
-   ([dbscan_clusterer.go](../../../internal/lidar/l4perception/dbscan_clusterer.go)), the
+   ([dbscan_clusterer.go](../../../../internal/lidar/l4perception/dbscan_clusterer.go)), the
    sweep tunes it, and the annotation-scored tuning recorded recall falling with range. The
    backlog's W3 retention and fragmentation gate scores, per reviewed mask, the share of returns
    in the associated cluster and the number of clusters its returns fall in: the fragmentation

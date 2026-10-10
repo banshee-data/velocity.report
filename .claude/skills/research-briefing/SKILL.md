@@ -80,9 +80,11 @@ counts once. Record every query and its date in the briefing's provenance sectio
 ### 5. Reading
 
 Prefer the primary document. Try `WebFetch` first, then `curl` through the proxy into an empty
-directory under the scratchpad, treating downloads as untrusted. Many hosts are blocked from the
-review environment: in October 2026 aaafoundation.org, fmcsa.dot.gov, arxiv.org, newsroom.aaa.com
-and vendor sites were all unreachable. When a primary cannot be fetched, try mirrors (PyPI for a
+directory under the scratchpad, treating downloads as untrusted. Which hosts are reachable depends on the
+session: in October 2026 the routine's cloud session could fetch no primary at all, while a desktop
+session fetched arxiv.org, iihs.org, waymo.com, valgo.ai, aaafoundation.org PDFs, PMC and
+levelxdata.com, and found ScienceDirect, Taylor and Francis, Wiley, MDPI, PubMed, Springer Link
+and the ROSA P and highways.dot.gov PDF downloads blocked. Try before marking **Confirm**. When a primary cannot be fetched, try mirrors (PyPI for a
 client's README, storage.googleapis.com for hosted preprints, the publisher's DOI page), then use
 search summaries and mark every figure taken from them **Confirm**. Never present a secondary
 figure as read. List every unreachable primary under "To fetch" with its URL so the owner can
@@ -133,8 +135,10 @@ and what it adds.
 
 ### 7. Output
 
-One file, `docs/lidar/operations/research-briefing-YYYY-MM-DD.md`, or under
-`docs/platform/operations/` when every source is outside the LiDAR pipeline, with:
+One file under `docs/lidar/operations/brief/`, whatever body of literature the sources belong
+to: `research-briefing-YYYY-MM-DD.md` for the weekly window, named by the UTC date the review
+ran, or `research-briefing-<YYYY-MM>-to-<YYYY-MM>.md` for a `--since` window. Every briefing
+lives in that directory and nowhere else, with:
 
 - metadata bullets `Status`, `Scope` and `Related`;
 - sections `Answer`, `Genuinely new this week`, `Newly surfaced older work`, one section per
@@ -150,7 +154,10 @@ with a design-doc link.
 
 ### 8. Ship
 
-1. Branch `claude/research-briefing-YYYY-MM-DD` from `origin/main`.
+1. Branch `claude/research-briefing-YYYY-MM-DD` from `origin/main` for the weekly run. The
+   Monday routine owns that name and may already have pushed it: check `git ls-remote` first,
+   and give a `--since` run its own name, `claude/research-briefing-<start>-to-<end>`, stacked on
+   the routine's branch when one exists for the same date.
 2. `make format-docs`, `make lint-docs`, `make check-no-results`, and
    `python3 scripts/check-prose-line-width.py --report` on the changed files; fix what is yours.
 3. Commit as `[ai][docs]` with a message that states the verdict, not the activity.
@@ -188,6 +195,16 @@ with a design-doc link.
 
 ## Provenance
 ```
+
+## Decisions
+
+A briefing's open questions are the owner's to decide, not the skill's. When the owner decides
+them, in a session or on the PR, record each decision three times: as one dated entry in
+`docs/DECISIONS.md` covering the round, as a decisions table appended to the briefing under its
+open questions, and as an **Answered** note on the plan entry the question created. Work that a
+decision authorises becomes a backlog item with its size and design-doc link; work it declines is
+closed in the plan with the reason. A deferred question names the measurement or document that
+reopens it.
 
 ## The routine
 

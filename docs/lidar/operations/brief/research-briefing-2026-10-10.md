@@ -7,11 +7,11 @@
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 3 to 10, 2026. No third-party
   briefing was supplied.
-- **Related:** [Behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md),
-  [crash-data integration plan](../../plans/platform-crash-data-integration-plan.md),
-  [attitudes and aggressive-driving plan](../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md),
-  [human crash baselines analysis](../../platform/operations/human-crash-baselines-analysis-2026-10.md),
-  [LiDAR architecture, L3](../architecture/LIDAR_ARCHITECTURE.md),
+- **Related:** [Behaviour analytics plan](../../../plans/lidar-behaviour-analytics-plan.md),
+  [crash-data integration plan](../../../plans/platform-crash-data-integration-plan.md),
+  [attitudes and aggressive-driving plan](../../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md),
+  [human crash baselines analysis](../../../platform/operations/human-crash-baselines-analysis-2026-10.md),
+  [LiDAR architecture, L3](../../architecture/LIDAR_ARCHITECTURE.md),
   [previous briefing](fixed-sensor-research-briefing-2026-10-09.md)
 
 The week was searched along all three routes: organisation watchlists, venue watchlists and the
@@ -28,7 +28,7 @@ so nothing below was read in full.
 
 Nothing published in the window changes a definition, a benchmark kind or a registered metric.
 The Waymo sober-baseline material and the Traffic Injury Prevention fatal-rate paper are already
-analysed in the [human crash baselines analysis](../../platform/operations/human-crash-baselines-analysis-2026-10.md)
+analysed in the [human crash baselines analysis](../../../platform/operations/human-crash-baselines-analysis-2026-10.md)
 and folded into the crash-data plan. The AAA Foundation attitudes report (August 2026) is already
 cited by the attitudes plan. The post-encroachment thresholds that surfaced (about 1 to 1.5 s for
 serious proximity, 5 to 6 s for candidacy screening) match the rows the behaviour plan already
@@ -73,7 +73,7 @@ study, which the percentile aggregation semantics already say.
    idea is new to the repository but whether its protocol and labels could score L3. None of this
    needs identity or a network call.
 4. **Lands.** `grep` finds no mention of the paper or its datasets. L3b is documented in
-   [background-grid-settling-maths.md](../../../data/maths/background-grid-settling-maths.md) and
+   [background-grid-settling-maths.md](../../../../data/maths/background-grid-settling-maths.md) and
    the architecture table. The nearest repository document on scoring is the annotation-scored
    tuning note.
 5. **Verdict.** New; the owner asked for the proposal to be explored. See
@@ -89,15 +89,15 @@ study, which the percentile aggregation semantics already say.
 
 **Why.** Nothing in the repository measures what L3 throws away. Annotation packs are exported
 foreground only, with periodic settled-background snapshots
-([point annotation tool](point-annotation-tool.md)), and the
-[annotation-scored tuning](annotation-scored-tuning.md) sweep scores L4 clusters against the
+([point annotation tool](../point-annotation-tool.md)), and the
+[annotation-scored tuning](../annotation-scored-tuning.md) sweep scores L4 clusters against the
 labelled foreground. A return from a moving car that L3 absorbs into the background never reaches
 a pack, so L3's dynamic recall is unmeasured, and its precision is seen only through what L4 does
 with the speckle. A full-scene, point-wise static or dynamic label measures both directly.
 
 **What L3 already shares with the method.** The grid keeps a per-cell range mean and spread at
 (ring, azimuth bin), which is a per-beam model, and same-ring neighbour confirmation is a spatial
-consistency step ([background-grid maths](../../../data/maths/background-grid-settling-maths.md),
+consistency step ([background-grid maths](../../../../data/maths/background-grid-settling-maths.md),
 Sections 2 to 5). Section 11 of that note lists the known limits the benchmark would probe: a
 unimodal cell, a heuristic confidence count, and neighbour votes along the ring only, never across
 elevation. Whether the paper's filter is the same operation, and in which direction it moves the
@@ -171,7 +171,7 @@ annotation backlog. No backlog item is added until then.
 3. **Sensor.** Fully within what the sensor sees. Extent estimation from fitted rectangles is what
    the solid-body work already attempts.
 4. **Lands.** The rectangle-fit lineage is in the
-   [physical fit to points plan](../../plans/lidar-physical-fit-to-points-plan.md) and the heading
+   [physical fit to points plan](../../../plans/lidar-physical-fit-to-points-plan.md) and the heading
    coherence plan. The paper is not cited in either.
 5. **Verdict.** Already holds in method. The CAN-bus reference is parked: it suits moving-platform
    work (ego speed for ego-motion and SLAM), not the static work, which keeps the radar as its

@@ -17,7 +17,7 @@ frameworks only. A figure that neither a summary nor an extraction carries is ma
 - **Layers:** Cross-cutting (PDF report copy and `data.json`, wording guard, safety-reference edition, L8 behaviour benchmarks, documentation)
 - **Target:** v0.5.10 for the shared wording guard, the percentile copy, the pace-of-traffic line, the limit-relative shares against the operator-supplied limit, and the attitudes entries in the safety-reference edition; v1.0 for shares per limit segment and schedule; research notes deferred
 - **Companion plans:** [crash data and published risk models](platform-crash-data-integration-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [traffic description language](data-traffic-description-language-plan.md), [platform vocabulary](platform-vocabulary-and-data-model-plan.md)
-- **Related:** [human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [percentile aggregation semantics](../radar/architecture/percentile-aggregation-semantics.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [editorial role](../../.github/knowledge/role-editorial.md), [research briefing, January 2025 to October 2026](../lidar/operations/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
+- **Related:** [human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [percentile aggregation semantics](../radar/architecture/percentile-aggregation-semantics.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [editorial role](../../.github/knowledge/role-editorial.md), [research briefing, January 2025 to October 2026](../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
 
 ## Motivation
@@ -774,7 +774,7 @@ whose primary text was not read.
 [nhtsa-813823]: https://crashstats.nhtsa.dot.gov/Api/Public/ViewPublication/813823
 [campolettano-tip]: https://waymo.com/research/potential-safety-benefits-associated-with-speed-limit-compliance-in-san/
 [ite-ssl]: https://www.ite.org/technical-resources/topics/speed-management-for-safety/setting-speed-limits/
-[rb-2026-10]: ../lidar/operations/research-briefing-2025-01-to-2026-10.md
+[rb-2026-10]: ../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md
 
 ## Checklist
 

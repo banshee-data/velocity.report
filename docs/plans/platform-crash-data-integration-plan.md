@@ -14,7 +14,7 @@ figure below is marked for confirmation against the primary document.
 - **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
 - **Target:** v0.5.10 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md), [public attitudes to speeding and aggressive driving](platform-speeding-attitudes-and-aggressive-driving-plan.md)
-- **Related:** [sober driving and human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [research briefing, January 2025 to October 2026](../lidar/operations/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
+- **Related:** [sober driving and human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [research briefing, January 2025 to October 2026](../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
 
 ## Motivation
@@ -541,7 +541,7 @@ document was not read.
 [chen-trr]: https://arxiv.org/abs/2410.08903
 [erso]: https://road-safety.transport.ec.europa.eu/document/download/9826c063-bc55-423e-84a3-24200dca3547_en?filename=ERSO-TR-speed_2026.pdf
 [lee-kim]: https://pmc.ncbi.nlm.nih.gov/articles/PMC12157059/
-[rb-2026-10]: ../lidar/operations/research-briefing-2025-01-to-2026-10.md
+[rb-2026-10]: ../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md
 [hcb]: ../platform/operations/human-crash-baselines-analysis-2026-10.md
 [hcb-f2]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#2-the-exposure-reconstruction-algebra-is-correct
 [hcb-f3]: ../platform/operations/human-crash-baselines-analysis-2026-10.md#3-where-the-uncertainty-lives
