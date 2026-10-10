@@ -192,6 +192,11 @@ vehicle floor: the alignment candidate with the rectangle heading in the course 
 | G11 | 108                                                                                          | 110                                                                                                           | Met, both                                                             |
 | G12 | +10.9 % at p99 (rectangle heading alone, without containment), p50 2.8×; shadow +10.3 %      | −1.5 % at p99, p50 4.9×                                                                                       | Met by `a2-new-cf`; the heading alone just outside                    |
 
+With the fit's σ at 1.5 (`solid_body_rectangle_sigma_mid`), the full arm reads G1 0° / 1.0°, G3
+0.026 / 0.029 at the corpus median (the fit's own axis 0.061 / 0.093), G7 10 of 13, G8 13 of 15,
+G10 a matched-window p99 of 0.162 m against the alignment candidate's 0.175 and the body-centre
+p99 0.004 m below it at 15 of 23 sites, and G11 124 switches, five outside the band.
+
 ## Amendments
 
 Proposed 2026-10-09 from the W2 and W1b scores, none adopted: each changes a level or its test,
