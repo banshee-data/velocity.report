@@ -1700,6 +1700,11 @@ document, that is stated at the point of use.
   [October 2026 briefing](../lidar/operations/fixed-sensor-research-briefing-2026-10-09.md).
   <https://www.fmcsa.dot.gov/research-and-analysis/use-lidar-based-measurements-headway-gap-detecting-enforcing-and-preventing>
 
+**Weekly literature review**
+
+- [October 10, 2026 research briefing](../lidar/operations/research-briefing-2026-10-10.md):
+  post-encroachment forecasting (PRISA) against the PET rows above; nothing adopted.
+
 **Citation hygiene.** Every link above was returned by a literature search during drafting and
 points at a real record; none has been read in full. Where a DOI was not directly observed,
 the publisher URL is given instead of a constructed DOI, deliberately. Before this plan
