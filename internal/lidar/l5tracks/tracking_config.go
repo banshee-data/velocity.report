@@ -326,14 +326,73 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfigFromTuning(cfg.L5.CvKfV1)
 }
 
+// OriginTrackingTransformIdentity names the solid body's sensor origin when
+// the tracker runs in the sensor frame: the pipeline tracks there
+// (l4perception.TransformToWorld with no pose), so the transform is the
+// identity and the origin is exactly (0, 0), derived rather than assumed. A
+// caller that tracks in a posed site frame declares its own origin instead.
+const OriginTrackingTransformIdentity = "tracking_transform:identity"
+
+// SolidBodyOptionsFromTuning is the tuning config's solid-body block as the
+// tracker's options, with the sensor-frame origin: nil, or disabled, is the
+// zero options, the estimator off.
+func SolidBodyOptionsFromTuning(sb *config.L5SolidBody) SolidBodyOptions {
+	if sb == nil || !sb.Enabled {
+		return SolidBodyOptions{}
+	}
+	return SolidBodyOptions{
+		Enabled: true, SensorX: 0, SensorY: 0, OriginSource: OriginTrackingTransformIdentity,
+		FaceHysteresis: sb.FaceHysteresis, FaceEntryConsider: sb.FaceEntryConsider,
+		CourseAlignedFaces: sb.CourseAlignedFaces, ReferenceTranslation: sb.ReferenceTranslation,
+		RankOneMedoidScale: float32(sb.RankOneMedoidScale), CourseHeading: sb.CourseHeading,
+		ExtentPriorFloor: sb.ExtentPriorFloor, FacePlaneSpans: sb.FacePlaneSpans,
+		ExtentGrowthAdmission: sb.ExtentGrowthAdmission, VehicleExtentFloor: sb.VehicleExtentFloor,
+		EndFaceCentring: sb.EndFaceCentring, EndFaceCentringOpenPrior: sb.EndFaceCentringOpenPrior,
+		Containment: sb.Containment, RectangleFit: sb.RectangleFit, RectangleHeading: sb.RectangleHeading,
+		RectangleCourseFusion: sb.RectangleCourseFusion, RectangleSigmaScale: float32(sb.RectangleSigmaScale),
+	}
+}
+
+// SolidBodyTuningFromTracker is the tracker's solid-body configuration as
+// the tuning file's block, the inverse of SolidBodyOptionsFromTuning for the
+// runtime config read-back; nil when the estimator is off. fullMembers is the
+// pipeline's members switch, which the tracker does not hold.
+func SolidBodyTuningFromTracker(cfg TrackerConfig, fullMembers bool) *config.L5SolidBody {
+	o := cfg.SolidBody
+	if !o.Enabled {
+		return nil
+	}
+	return &config.L5SolidBody{
+		Enabled: true, FullMembers: fullMembers,
+		NearEdgeTracking: cfg.NearEdgeTracking, NearEdgeMedoidGate: cfg.NearEdgeMedoidGate,
+		FaceHysteresis: o.FaceHysteresis, FaceEntryConsider: o.FaceEntryConsider,
+		CourseAlignedFaces: o.CourseAlignedFaces, ReferenceTranslation: o.ReferenceTranslation,
+		RankOneMedoidScale: float64(o.RankOneMedoidScale), CourseHeading: o.CourseHeading,
+		ExtentPriorFloor: o.ExtentPriorFloor, FacePlaneSpans: o.FacePlaneSpans,
+		ExtentGrowthAdmission: o.ExtentGrowthAdmission, VehicleExtentFloor: o.VehicleExtentFloor,
+		EndFaceCentring: o.EndFaceCentring, EndFaceCentringOpenPrior: o.EndFaceCentringOpenPrior,
+		Containment: o.Containment, RectangleFit: o.RectangleFit, RectangleHeading: o.RectangleHeading,
+		RectangleCourseFusion: o.RectangleCourseFusion, RectangleSigmaScale: float64(o.RectangleSigmaScale),
+	}
+}
+
 // TrackerConfigFromTuning builds a TrackerConfig from the active L5 engine
 // block. Callers are expected to pass the validated selected engine struct for
-// the current pipeline on this branch.
+// the current pipeline on this branch. The solid-body block, when present,
+// sets the estimator's options and the near-edge switches; absent, the
+// tracker is exactly the one the block's absence has always meant.
 func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 	if l5cfg == nil {
 		return TrackerConfig{}
 	}
+	nearEdge, medoidGate := false, false
+	if sb := l5cfg.SolidBody; sb != nil && sb.Enabled {
+		nearEdge, medoidGate = sb.NearEdgeTracking, sb.NearEdgeMedoidGate
+	}
 	return TrackerConfig{
+		SolidBody:                        SolidBodyOptionsFromTuning(l5cfg.SolidBody),
+		NearEdgeTracking:                 nearEdge,
+		NearEdgeMedoidGate:               medoidGate,
 		MaxTracks:                        l5cfg.MaxTracks,
 		MaxMisses:                        l5cfg.MaxMisses,
 		MaxMissesConfirmed:               l5cfg.MaxMissesConfirmed,

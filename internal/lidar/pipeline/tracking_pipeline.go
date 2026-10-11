@@ -243,6 +243,12 @@ type TrackingPipelineConfig struct {
 	// (l4perception.DBSCANParams.KeepMembers), for the near-edge measurement.
 	// Nothing records them. Default false.
 	KeepClusterMembers bool
+	// KeepClusterMembersRuntime, when set, is read beside KeepClusterMembers
+	// on every frame: the server stores the tuning config's
+	// solid_body.full_members in it, so a config applied at runtime hands
+	// the members over without rebuilding the pipeline. Nil means the
+	// static value alone.
+	KeepClusterMembersRuntime *atomic.Bool
 
 	// MaxFrameRate caps the rate at which frames are fully processed through
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
@@ -798,6 +804,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("cluster")
 		}
 		dbscanParams := defaultDBSCANParams
+		if cfg.KeepClusterMembersRuntime != nil {
+			dbscanParams.KeepMembers = cfg.KeepClusterMembers || cfg.KeepClusterMembersRuntime.Load()
+		}
 		params := cfg.BackgroundManager.GetParams()
 		if params.ForegroundMinClusterPoints > 0 {
 			dbscanParams.MinPts = params.ForegroundMinClusterPoints

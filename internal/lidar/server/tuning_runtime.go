@@ -166,10 +166,40 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			l5.SplitSizeRatio = roundTo6(float64(trackerCfg.SplitSizeRatio))
 			l5.DeletedTrackGracePeriod = compactDuration(trackerCfg.DeletedTrackGracePeriod)
 			l5.MinObservationsForClassification = trackerCfg.MinObservationsForClassification
+			// The block reads back from the tracker as it was applied; off,
+			// it is absent, as a disabled block and no block are one thing.
+			l5.SolidBody = l5tracks.SolidBodyTuningFromTracker(trackerCfg, ws.clusterMembers.Load())
 		}
 	}
 
 	return cfg
+}
+
+// tuningFullMembers is the tuning config's solid_body.full_members, false
+// without a block or with the estimator off.
+func tuningFullMembers(cfg *cfgpkg.TuningConfig) bool {
+	if cfg == nil || cfg.L5.CvKfV1 == nil || cfg.L5.CvKfV1.SolidBody == nil {
+		return false
+	}
+	sb := cfg.L5.CvKfV1.SolidBody
+	return sb.Enabled && sb.FullMembers
+}
+
+// applySolidBodyTuning puts the config's whole solid-body block on the
+// tracker and the pipeline's members switch: one block, one apply, however
+// many of its keys the patch named, so the tracker never sees half of it.
+func applySolidBodyTuning(ws *Server, l5 *cfgpkg.L5Common) error {
+	sb := l5.SolidBody
+	nearEdge, gate := false, false
+	if sb != nil && sb.Enabled {
+		nearEdge, gate = sb.NearEdgeTracking, sb.NearEdgeMedoidGate
+	}
+	ws.tracker.UpdateConfig(func(c *l5tracks.TrackerConfig) {
+		c.SolidBody = l5tracks.SolidBodyOptionsFromTuning(sb)
+		c.NearEdgeTracking, c.NearEdgeMedoidGate = nearEdge, gate
+	})
+	ws.clusterMembers.Store(sb != nil && sb.Enabled && sb.FullMembers)
+	return nil
 }
 
 func normaliseTuningPatch(raw map[string]interface{}) (map[string]interface{}, error) {
@@ -427,6 +457,9 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 			return fmt.Errorf("%s requires an active tracker", path)
 		}
 		l5 := cfg.L5.ActiveCommon()
+		if strings.HasPrefix(path, "l5.cv_kf_v1.solid_body.") {
+			return applySolidBodyTuning(ws, l5)
+		}
 		var gracePeriodErr error
 		gracePeriod := cfg.GetDeletedTrackGracePeriod()
 		ws.tracker.UpdateConfig(func(trackerCfg *l5tracks.TrackerConfig) {

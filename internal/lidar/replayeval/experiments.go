@@ -140,6 +140,33 @@ const (
 	// prior (SolidBodyOptions.EndFaceCentringOpenPrior). It is a second
 	// setting of the same option, so naming both is refused.
 	ExperimentSolidBodyEndFaceCentringOpenPrior = "solid_body_end_face_centring_open_prior"
+	// ExperimentSolidBodyContainment holds the reported box on the frame's
+	// points: the reported extents floored at the window-minimum observed
+	// spans, and the position held to the interval the points allow by a
+	// density truncation (SolidBodyOptions.Containment).
+	ExperimentSolidBodyContainment = "solid_body_containment"
+	// ExperimentSolidBodyRectangleFit records each frame's rectangle
+	// orientation fit on the solid-body row as a diagnostic
+	// (SolidBodyOptions.RectangleFit); nothing reads it.
+	ExperimentSolidBodyRectangleFit = "solid_body_rectangle_fit"
+	// ExperimentSolidBodyRectangleHeading makes the rectangle fit the solid
+	// body's heading observation, the geometry convergence plan's W1b: a
+	// filtered axis modulo 90 degrees, labelled by the course at speed and
+	// by continuity below it, with the faces found along it
+	// (SolidBodyOptions.RectangleHeading). It records the fit on the row as
+	// solid_body_rectangle_fit does.
+	ExperimentSolidBodyRectangleHeading = "solid_body_rectangle_heading"
+	// ExperimentSolidBodyRectangleSigmaWide, with the rectangle heading,
+	// weighs each fit at twice its standard deviation in the axis filter
+	// (SolidBodyOptions.RectangleSigmaScale = 2).
+	ExperimentSolidBodyRectangleSigmaWide = "solid_body_rectangle_sigma_wide"
+	// ExperimentSolidBodyRectangleSigmaMid is the same option at one and a
+	// half times the fit's standard deviation (RectangleSigmaScale = 1.5).
+	ExperimentSolidBodyRectangleSigmaMid = "solid_body_rectangle_sigma_mid"
+	// ExperimentSolidBodyRectangleCourseFusion, with the rectangle heading,
+	// takes the course as a second observation of the axis at speed and
+	// holds the label through turns (SolidBodyOptions.RectangleCourseFusion).
+	ExperimentSolidBodyRectangleCourseFusion = "solid_body_rectangle_course_fusion"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -188,6 +215,12 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyVehicleExtentFloor:       true,
 	ExperimentSolidBodyEndFaceCentring:          true,
 	ExperimentSolidBodyEndFaceCentringOpenPrior: true,
+	ExperimentSolidBodyContainment:              true,
+	ExperimentSolidBodyRectangleFit:             true,
+	ExperimentSolidBodyRectangleHeading:         true,
+	ExperimentSolidBodyRectangleSigmaWide:       true,
+	ExperimentSolidBodyRectangleSigmaMid:        true,
+	ExperimentSolidBodyRectangleCourseFusion:    true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 }

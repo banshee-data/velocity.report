@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/security"
@@ -42,6 +43,10 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var enablePlots bool
 	var benchmarkMode bool
 	var settleBeforeRecording bool
+	// A tuning config file under the server's config directory, applied to
+	// the running pipeline before the replay starts; empty keeps the
+	// parameters the server has.
+	var tuningConfig string
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
@@ -69,6 +74,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			EnablePlots           bool    `json:"enable_plots"`
 			BenchmarkMode         bool    `json:"benchmark_mode"`
 			SettleBeforeRecording bool    `json:"settle_before_recording"`
+			TuningConfig          string  `json:"tuning_config"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -99,6 +105,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = req.EnablePlots
 		benchmarkMode = req.BenchmarkMode
 		settleBeforeRecording = req.SettleBeforeRecording
+		tuningConfig = req.TuningConfig
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -155,6 +162,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
 		settleBeforeRecording = r.FormValue("settle_before_recording") == "true" || r.FormValue("settle_before_recording") == "1"
+		tuningConfig = r.FormValue("tuning_config")
 	}
 
 	if settleBeforeRecording && !analysisMode {
@@ -189,6 +197,15 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if ws.PipelineState().PCAPInProgress() {
 		ws.writeJSONError(w, http.StatusConflict, "a replay is already running: stop it first via POST /api/lidar/replay/stop")
 		return
+	}
+
+	// The config is applied before anything is stopped or reset, so a
+	// refused file leaves the pipeline exactly as it was.
+	if strings.TrimSpace(tuningConfig) != "" {
+		if _, err := ws.applyTuningConfigFile(tuningConfig); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	ws.stopLiveListenerLocked()
@@ -248,6 +265,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		ws.onPCAPStarted()
 	}
 
+	activePath, activeFingerprint := ws.activeTuning()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":                  "started",
@@ -256,6 +274,8 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		"pcap_file":               currentFile,
 		"analysis_mode":           analysisMode,
 		"settle_before_recording": settleBeforeRecording,
+		"tuning_config":           activePath,
+		"tuning_fingerprint":      activeFingerprint,
 	})
 }
 

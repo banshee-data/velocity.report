@@ -799,13 +799,47 @@ func TestDecodeAndReflectionHelpers(t *testing.T) {
 		// The exported form is the same rule, for other config-as-code files.
 		requireErrorContains(t, StrictDecode([]byte(`{"shared":1,"name":"ok","Plain":2}`), &out, "other"), "other: missing required keys: DefaultName")
 
-		keys := expectedJSONKeys(reflect.TypeOf(&out))
+		keys, optional, nested := expectedJSONKeys(reflect.TypeOf(&out))
 		want := []string{"shared", "name", "DefaultName", "Plain"}
 		if !reflect.DeepEqual(keys, want) {
 			t.Fatalf("expectedJSONKeys = %v, want %v", keys, want)
 		}
-		if keys := expectedJSONKeys(reflect.TypeOf(0)); keys != nil {
+		if len(optional) != 0 || len(nested) != 0 {
+			t.Fatalf("expectedJSONKeys optional = %v nested = %v, want none: a scalar omitempty is still required", optional, nested)
+		}
+		if keys, _, _ := expectedJSONKeys(reflect.TypeOf(0)); keys != nil {
 			t.Fatalf("expectedJSONKeys(non-struct) = %v, want nil", keys)
+		}
+
+		// An omitempty pointer to a struct is an optional block: known, so
+		// not an unknown key; absent without being missing; and, when
+		// present, held to the same rule inside. A plain nested object is
+		// left to the decoder, as it always was.
+		type inner struct {
+			A int `json:"a"`
+			B int `json:"b"`
+		}
+		type withOptional struct {
+			Plain int    `json:"plain"`
+			Block *inner `json:"block,omitempty"`
+			Fixed inner  `json:"fixed"`
+		}
+		var opt withOptional
+		if err := strictDecodeObject([]byte(`{"plain":1,"fixed":{"a":1,"b":2}}`), &opt, "target"); err != nil {
+			t.Fatalf("an absent optional block was refused: %v", err)
+		}
+		if err := strictDecodeObject([]byte(`{"plain":1,"fixed":{"a":1,"b":2},"block":{"a":3,"b":4}}`), &opt, "target"); err != nil || opt.Block == nil || opt.Block.B != 4 {
+			t.Fatalf("a present optional block did not decode: %v %+v", err, opt.Block)
+		}
+		requireErrorContains(t, strictDecodeObject([]byte(`{"fixed":{"a":1,"b":2}}`), &opt, "target"), "target: missing required keys: plain")
+		requireErrorContains(t, strictDecodeObject([]byte(`{"plain":1,"fixed":{"a":1,"b":2},"block":{"a":3}}`), &opt, "target"), "target.block: missing required keys: b")
+		requireErrorContains(t, strictDecodeObject([]byte(`{"plain":1,"fixed":{"a":1,"b":2},"block":{"a":3,"b":4,"c":5}}`), &opt, "target"), "target.block: unknown keys: c")
+		if err := strictDecodeObject([]byte(`{"plain":1,"fixed":{"a":1}}`), &opt, "target"); err != nil {
+			t.Fatalf("a plain nested object missing a key was refused, which the decoder never did: %v", err)
+		}
+		requireErrorContains(t, strictDecodeObject([]byte(`{"plain":1}`), &opt, "target"), "target: missing required keys: fixed")
+		if keys, optional, nested := expectedJSONKeys(reflect.TypeOf(&opt)); !reflect.DeepEqual(keys, []string{"plain", "block", "fixed"}) || len(optional) != 1 || len(nested) != 2 {
+			t.Fatalf("expectedJSONKeys(withOptional) = %v optional %v nested %v", keys, optional, nested)
 		}
 
 		var fieldTests = []struct {
@@ -831,7 +865,7 @@ func TestDecodeAndReflectionHelpers(t *testing.T) {
 			Public int `json:"public"`
 			hidden int
 		}
-		if keys := expectedJSONKeys(reflect.TypeOf(privateField{})); !reflect.DeepEqual(keys, []string{"public"}) {
+		if keys, _, _ := expectedJSONKeys(reflect.TypeOf(privateField{})); !reflect.DeepEqual(keys, []string{"public"}) {
 			t.Fatalf("expectedJSONKeys(privateField) = %v, want [public]", keys)
 		}
 	})

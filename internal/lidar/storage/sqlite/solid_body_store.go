@@ -88,16 +88,26 @@ const solidBodyInsertSQL = `INSERT OR REPLACE INTO lidar_track_solid_bodies
 		 height_m, height_sigma_m, height_frames, height_provenance,
 		 ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state,
 		 last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated,
-		 measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason, inserted_at_ns)
+		 measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason, inserted_at_ns,
+		 containment_share, contained_points, observed_span_along_m, observed_span_across_m,
+		 extent_floor, containment_shift_along_m, containment_shift_across_m,
+		 rectangle_axis_rad, rectangle_sigma_rad, rectangle_plateau_rad, rectangle_span_1_m, rectangle_span_2_m, rectangle_abstain)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func solidBodyInsertArgs(sb TrackSolidBody, covariance []byte, insertedAtNanos int64) []any {
 	e := sb.Reading.Estimate
 	m := sb.Reading.Measurement
-	var aspect any
+	var aspect, containment any
 	if m.AspectKnown {
 		aspect = m.AspectRad
+	}
+	if m.ContainmentKnown {
+		containment = m.ContainmentShare
+	}
+	var rectangleAxis any
+	if m.RectangleKnown {
+		rectangleAxis = m.RectangleAxisRad
 	}
 	return []any{
 		sb.EstimateID, sb.TrackID, sb.CreationSequence, sb.ObservationID, sb.SourceID, sb.CalibrationID,
@@ -111,6 +121,9 @@ func solidBodyInsertArgs(sb TrackSolidBody, covariance []byte, insertedAtNanos i
 		e.LastObservedUnixNanos, e.Support.PointCount, e.Support.CoastedFrames,
 		e.Support.Instant.String(), e.Support.Fragmented, e.Support.Truncated,
 		string(m.Source), m.Rank, m.Faces.String(), m.InferredExtent, aspect, m.NIS, m.FallbackReason, insertedAtNanos,
+		containment, m.ContainedPoints, m.ObservedSpanAlongMetres, m.ObservedSpanAcrossMetres,
+		m.ExtentFloor, m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres,
+		rectangleAxis, m.RectangleSigmaRad, m.RectanglePlateauRad, m.RectangleSpan1, m.RectangleSpan2, m.RectangleAbstain,
 	}
 }
 
@@ -178,7 +191,10 @@ const solidBodyColumns = `estimate_id, track_id, creation_sequence, observation_
 		     , height_m, height_sigma_m, height_frames, height_provenance
 		     , ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state
 		     , last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated
-		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason`
+		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason
+		     , containment_share, contained_points, observed_span_along_m, observed_span_across_m
+		     , extent_floor, containment_shift_along_m, containment_shift_across_m
+		     , rectangle_axis_rad, rectangle_sigma_rad, rectangle_plateau_rad, rectangle_span_1_m, rectangle_span_2_m, rectangle_abstain`
 
 func scanSolidBodies(rows *sql.Rows) ([]TrackSolidBody, error) {
 	defer rows.Close()
@@ -214,6 +230,12 @@ func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 		x, y, vx, vy, psi, psiVar, ambiguity, groundZ, posterior   float64
 		lengthM, lengthSigma, widthM, widthSigma, heightM, heightS float64
 		nis                                                        float64
+		containment                                                sql.NullFloat64
+		contained                                                  int
+		spanAlong, spanAcross                                      float64
+		shiftAlong, shiftAcross                                    float64
+		rectangleAxis                                              sql.NullFloat64
+		rectSigma, rectPlateau, rectSpan1, rectSpan2               float64
 	)
 	dest := []any{
 		&sb.EstimateID, &sb.TrackID, &sb.CreationSequence, &sb.ObservationID, &sb.SourceID, &sb.CalibrationID,
@@ -226,6 +248,9 @@ func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 		&groundZ, &e.GroundSurfaceModel, &motionClass, &posterior, &estimation,
 		&e.LastObservedUnixNanos, &supportPoints, &coasted, &supportInstant, &fragmented, &truncated,
 		&measurementSource, &rank, &faces, &inferred, &aspect, &nis, &m.FallbackReason,
+		&containment, &contained, &spanAlong, &spanAcross,
+		&m.ExtentFloor, &shiftAlong, &shiftAcross,
+		&rectangleAxis, &rectSigma, &rectPlateau, &rectSpan1, &rectSpan2, &m.RectangleAbstain,
 	}
 	if err := rows.Scan(append(dest, extra...)...); err != nil {
 		return sb, fmt.Errorf("scan solid-body estimate: %w", err)
@@ -288,6 +313,17 @@ func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 	e.GroundZ = float32(groundZ)
 	e.Motion.Posterior = float32(posterior)
 	e.Support = l5tracks.SupportState{PointCount: supportPoints, CoastedFrames: coasted, Fragmented: fragmented, Truncated: truncated}
+	if containment.Valid {
+		m.ContainmentShare, m.ContainmentKnown = float32(containment.Float64), true
+	}
+	m.ContainedPoints = contained
+	m.ObservedSpanAlongMetres, m.ObservedSpanAcrossMetres = float32(spanAlong), float32(spanAcross)
+	m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = float32(shiftAlong), float32(shiftAcross)
+	if rectangleAxis.Valid {
+		m.RectangleKnown, m.RectangleAxisRad = true, float32(rectangleAxis.Float64)
+	}
+	m.RectangleSigmaRad, m.RectanglePlateauRad = float32(rectSigma), float32(rectPlateau)
+	m.RectangleSpan1, m.RectangleSpan2 = float32(rectSpan1), float32(rectSpan2)
 	// A row written before migration 000053 recorded no token; it reads back
 	// unrecorded rather than as whatever its coasted count suggests.
 	if supportInstant != "" {

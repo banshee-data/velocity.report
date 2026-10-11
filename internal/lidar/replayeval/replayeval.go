@@ -801,7 +801,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// change under test. Determinism matters more than throughput offline.
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
-	stateObservationModelID := stateObservationModelFor(experiments, cfg.MeasurementSourceMode)
+	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -820,7 +820,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
 		MaxSamplePoints:           maxSamplePoints,
-		KeepClusterMembers:        hasExperiment(experiments, ExperimentSolidBodyFullMembers),
+		KeepClusterMembers:        solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
 		StateEstimatorID:          "cv_kf_v1",
@@ -1206,7 +1206,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	planeSpans := hasExperiment(experiments, ExperimentSolidBodyFacePlaneSpans)
 	growth := hasExperiment(experiments, ExperimentSolidBodyExtentGrowth)
 	vehicleFloor := hasExperiment(experiments, ExperimentSolidBodyVehicleExtentFloor)
-	if err := nearEdgeTrackRefusal(experiments, mode); err != nil {
+	if err := nearEdgeTrackRefusal(experiments, trackerConfig.NearEdgeTracking, mode); err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
 	rankOne, err := rankOneMedoidScaleFor(experiments)
@@ -1217,26 +1217,77 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
+	containment := hasExperiment(experiments, ExperimentSolidBodyContainment)
+	rectangle := hasExperiment(experiments, ExperimentSolidBodyRectangleFit)
+	rectangleHeading := hasExperiment(experiments, ExperimentSolidBodyRectangleHeading)
+	courseFusion := hasExperiment(experiments, ExperimentSolidBodyRectangleCourseFusion)
+	sigmaScale, err := rectangleSigmaScaleFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
+	// The experiments are aliases for the tuning file's solid_body block:
+	// each switches its option on over whatever the block set, so a block
+	// and a name that agree are one configuration, and a name adds to a
+	// block it does not contradict. A scale named by experiment replaces the
+	// block's. The origin is the coverage declaration's when there is one,
+	// and the sensor frame's otherwise, whichever way the body was enabled.
+	opts := trackerConfig.SolidBody
 	if hasExperiment(experiments, ExperimentSolidBody) {
+		opts.Enabled = true
+	}
+	if opts.Enabled {
 		x, y, source := solidBodyOrigin(coverage)
-		trackerConfig.SolidBody = l5tracks.SolidBodyOptions{
-			Enabled: true, SensorX: x, SensorY: y, OriginSource: source,
-			FaceHysteresis: hysteresis, FaceEntryConsider: consider, CourseAlignedFaces: course,
-			ReferenceTranslation: translation, RankOneMedoidScale: rankOne,
-			CourseHeading: courseHeading, ExtentPriorFloor: priorFloor,
-			FacePlaneSpans: planeSpans, ExtentGrowthAdmission: growth, VehicleExtentFloor: vehicleFloor,
-			EndFaceCentring: centring, EndFaceCentringOpenPrior: openPrior,
+		opts.SensorX, opts.SensorY, opts.OriginSource = x, y, source
+		opts.FaceHysteresis = opts.FaceHysteresis || hysteresis
+		opts.FaceEntryConsider = opts.FaceEntryConsider || consider
+		opts.CourseAlignedFaces = opts.CourseAlignedFaces || course
+		opts.ReferenceTranslation = opts.ReferenceTranslation || translation
+		if rankOne > 0 {
+			opts.RankOneMedoidScale = rankOne
 		}
-		trackerConfig.NearEdgeTracking = hasExperiment(experiments, ExperimentNearEdgeTrack)
-		trackerConfig.NearEdgeMedoidGate = hasExperiment(experiments, ExperimentNearEdgeTrackA1)
+		opts.CourseHeading = opts.CourseHeading || courseHeading
+		opts.ExtentPriorFloor = opts.ExtentPriorFloor || priorFloor
+		opts.FacePlaneSpans = opts.FacePlaneSpans || planeSpans
+		opts.ExtentGrowthAdmission = opts.ExtentGrowthAdmission || growth
+		opts.VehicleExtentFloor = opts.VehicleExtentFloor || vehicleFloor
+		opts.EndFaceCentring = opts.EndFaceCentring || centring
+		opts.EndFaceCentringOpenPrior = opts.EndFaceCentringOpenPrior || openPrior
+		opts.Containment = opts.Containment || containment
+		opts.RectangleFit = opts.RectangleFit || rectangle
+		opts.RectangleHeading = opts.RectangleHeading || rectangleHeading
+		opts.RectangleCourseFusion = opts.RectangleCourseFusion || courseFusion
+		if sigmaScale > 0 {
+			opts.RectangleSigmaScale = sigmaScale
+		}
+		trackerConfig.SolidBody = opts
+		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
+		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
-		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring ||
+		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
 	return trackerConfig, nil
+}
+
+// tuningNearEdge says the tuning file's block runs the body on the tracked
+// filter.
+func tuningNearEdge(cfg *config.TuningConfig) bool {
+	if cfg == nil || cfg.L5.CvKfV1 == nil || cfg.L5.CvKfV1.SolidBody == nil {
+		return false
+	}
+	return cfg.L5.CvKfV1.SolidBody.Enabled && cfg.L5.CvKfV1.SolidBody.NearEdgeTracking
+}
+
+// solidBodyFullMembers says the tracker is handed every cluster member: the
+// tuning file's solid_body.full_members, or the experiment of that name.
+func solidBodyFullMembers(l5 *config.L5CvKfV1, experiments []string) bool {
+	if l5 != nil && l5.SolidBody != nil && l5.SolidBody.Enabled && l5.SolidBody.FullMembers {
+		return true
+	}
+	return hasExperiment(experiments, ExperimentSolidBodyFullMembers)
 }
 
 // endFaceCentringFor is end-face centring's two settings: on, and on with
@@ -1271,13 +1322,30 @@ func rankOneMedoidScaleFor(experiments []string) (float32, error) {
 	return 0, nil
 }
 
+// rectangleSigmaScaleFor reads the rectangle fit's sigma scale from its two
+// settings, refusing both together; zero when neither is named.
+func rectangleSigmaScaleFor(experiments []string) (float32, error) {
+	wide := hasExperiment(experiments, ExperimentSolidBodyRectangleSigmaWide)
+	mid := hasExperiment(experiments, ExperimentSolidBodyRectangleSigmaMid)
+	switch {
+	case wide && mid:
+		return 0, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentSolidBodyRectangleSigmaWide, ExperimentSolidBodyRectangleSigmaMid)
+	case wide:
+		return 2, nil
+	case mid:
+		return 1.5, nil
+	}
+	return 0, nil
+}
+
 // stateObservationModelFor names the observation model the online estimate
 // rows record: the near-edge faces under near_edge_track, which update the
 // tracked state once a track is re-referenced, and otherwise the position
 // model the replay runs.
-func stateObservationModelFor(experiments []string, mode l5tracks.MeasurementSource) string {
+func stateObservationModelFor(experiments []string, tuningNearEdge bool, mode l5tracks.MeasurementSource) string {
 	switch {
-	case hasExperiment(experiments, ExperimentNearEdgeTrack):
+	case tuningNearEdge || hasExperiment(experiments, ExperimentNearEdgeTrack):
 		return string(l5tracks.MeasurementNearEdgeCandidateV1)
 	case mode == l5tracks.MeasurementOBBCentreV1:
 		return string(l5tracks.MeasurementOBBCentreV1)
@@ -1296,18 +1364,23 @@ func stateObservationModelFor(experiments []string, mode l5tracks.MeasurementSou
 // fixed_lag_rts: the smoother ends a chain at each reference change rather
 // than smooth across the translation, and files a refined solid body beside
 // each refined estimate.
-func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource) error {
-	if !hasExperiment(experiments, ExperimentNearEdgeTrack) {
+func nearEdgeTrackRefusal(experiments []string, tuningNearEdge bool, mode l5tracks.MeasurementSource) error {
+	named := hasExperiment(experiments, ExperimentNearEdgeTrack)
+	if !named && !tuningNearEdge {
 		if hasExperiment(experiments, ExperimentNearEdgeTrackA1) {
 			return fmt.Errorf("replay experiment %s is an ablation of %s and is refused without it",
 				ExperimentNearEdgeTrackA1, ExperimentNearEdgeTrack)
 		}
 		return nil
 	}
-	for _, needed := range []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers} {
-		if !hasExperiment(experiments, needed) {
-			return fmt.Errorf("replay experiment %s needs %s and %s, and %q lacks %s",
-				ExperimentNearEdgeTrack, ExperimentSolidBody, ExperimentSolidBodyFullMembers, experiments, needed)
+	if named {
+		// The tuning file's block validated its own needs; a named
+		// experiment must bring its own.
+		for _, needed := range []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers} {
+			if !hasExperiment(experiments, needed) {
+				return fmt.Errorf("replay experiment %s needs %s and %s, and %q lacks %s",
+					ExperimentNearEdgeTrack, ExperimentSolidBody, ExperimentSolidBodyFullMembers, experiments, needed)
+			}
 		}
 	}
 	for _, refused := range []string{ExperimentAdaptiveUncertainty, ExperimentLikelihoodCost} {
@@ -1322,10 +1395,10 @@ func nearEdgeTrackRefusal(experiments []string, mode l5tracks.MeasurementSource)
 }
 
 // OriginTrackingTransformIdentity names the solid body's sensor origin when
-// no declaration gives one: the replay tracks in the sensor frame
-// (TransformToWorld with no pose), so the transform is the identity and the
-// origin is exactly (0, 0), derived rather than assumed.
-const OriginTrackingTransformIdentity = "tracking_transform:identity"
+// no declaration gives one: the replay tracks in the sensor frame, as the
+// pipeline does, so the origin is the identity transform's (0, 0), derived
+// rather than assumed (l5tracks.OriginTrackingTransformIdentity).
+const OriginTrackingTransformIdentity = l5tracks.OriginTrackingTransformIdentity
 
 // solidBodyOrigin is the solid body's sensor origin and where it came from:
 // a coverage declaration's, which the continuity experiments use too, or the

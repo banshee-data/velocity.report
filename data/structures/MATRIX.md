@@ -854,6 +854,19 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_track_solid_bodies`       | `support_instant`                   | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_solid_bodies`       | `support_fragmented`                | INTEGER       | ✅  | ?   | ?   |
 | `lidar_track_solid_bodies`       | `support_truncated`                 | INTEGER       | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `containment_share`                 | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `contained_points`                  | INTEGER       | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `observed_span_along_m`             | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `observed_span_across_m`            | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `extent_floor`                      | TEXT          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `containment_shift_along_m`         | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `containment_shift_across_m`        | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_axis_rad`                | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_sigma_rad`               | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_plateau_rad`             | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_span_1_m`                | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_span_2_m`                | REAL          | ✅  | ?   | ?   |
+| `lidar_track_solid_bodies`       | `rectangle_abstain`                 | TEXT          | ✅  | ?   | ?   |
 | `radar_serial_config`            | `id`                                | INTEGER PK    | ✅  | ?   | ?   |
 | `radar_serial_config`            | `port_path`                         | TEXT          | ✅  | ?   | ?   |
 | `radar_serial_config`            | `baud_rate`                         | INTEGER       | ✅  | ?   | ?   |
