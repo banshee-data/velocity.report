@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 11, 2026 - The second weekly research briefing
+
+- {claude/research-briefing-2026-10-11} Added the October 4 to 11 [research briefing](lidar/operations/brief/research-briefing-2026-10-11.md): nothing in scope was first published in the window and no definition changed. The beam-wise background-subtraction benchmark and PRISA, unreachable on October 10, were read in full and their figures reproduce; the benchmark trains and then freezes where L3 runs online, which the L3 scoring item must decide first, and PRISA's time to collision as printed uses the absolute speed difference, so the behaviour plan's signed closing speed stands. The AAA Foundation's 2025 American Driving Survey is self-reported driver mileage, not a vehicle-miles denominator, and was not adopted.
+
 ## October 10, 2026 - A weekly research briefing skill, its routine, and citation coverage
 
 - {codex/lidar-paper-bibliography-audit} Audited the paper and research-report references in the LiDAR briefings and `data/`, added 62 missing BibTeX entries, corrected the L-shape and Patchwork titles and the full AB3DMOT paper's key, and linked a [reference audit](lidar/operations/brief/reference-audit.md) that maps the additions and records two unidentified PET-study mentions. Bibliographic identity was checked against primary metadata; this did not validate the papers' numerical claims or change the briefings' Confirm statuses.

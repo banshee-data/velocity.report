@@ -1713,6 +1713,8 @@ document, that is stated at the point of use.
 
 - [October 10, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-10-10.md):
   post-encroachment forecasting (PRISA) against the PET rows above; nothing adopted.
+- [October 11, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-10-11.md):
+  the background-subtraction benchmark and PRISA read in full; nothing adopted.
 
 **Roadside LiDAR perception**
 
@@ -1738,7 +1740,8 @@ which records what was read of each and why none changes a definition or a thres
 - Bang, T. et al., _PRISA: proactive infrastructure LiDAR framework for intersection safety
   assessment_, IEEE ITSC 2026. <https://arxiv.org/abs/2607.16156>. Its 1.5 s predicted
   post-encroachment time is an operating point from a sensitivity sweep, not a severity finding,
-  and does not enter Section 5.1.
+  and does not enter Section 5.1. Its time to collision divides by the absolute speed difference,
+  so as printed an opening gap also gets a finite value; Section 8.4 keeps closing above zero.
 - Shang, B. and Li, Y., _Roadside LiDAR for cooperative safety auditing at urban intersections_,
   CVPR DriveX workshop 2026. <https://arxiv.org/abs/2604.10419>
 - Laureshyn, A., Svensson, Å. and Hydén, C., Accident Analysis and Prevention, 2010: the following
