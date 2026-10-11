@@ -15,7 +15,11 @@ offline harness on the two labelled captures, and scored with the review's Stage
   positives by 12, and creates stationary tracks where there were none. The narrower base
   windows add no recall over that and only more speckle. No arm passes the review's Stage A
   rule; every one trips its M3 kill criterion. The next arm needs code: a range-adaptive support
-  filter beside the override switch, and the dwell policy
+  filter beside the override switch, and the dwell policy. **Follow-up, same day (Section 8):**
+  that filter, E4, run as the replay experiment `support_filter`, removes about a fifth of the
+  unlabelled clusters (the single-cell speckle) at under one point of recall and improves HOTA
+  and IDF1, but most of the flood is coherent patches it cannot tell from small objects, so it is
+  necessary and not sufficient
 
 ## 1. Arms
 
@@ -185,7 +189,8 @@ give: narrowing alone is not shippable, and it says which code to write next.
    also suppresses recurring flicker); A1 plus region overrides restricted to beams beyond a
    range or above the horizon, which keeps their flicker suppression and drops their near-field
    cost; and either with an L4 ground test at road height, since the recovered band brings
-   road returns with it.
+   road returns with it. _E4 was built and run the same day; Section 8 has the result and the
+   revised next arm._
 3. **The dwell policy** (review Section 6) is a prerequisite for any arm with the overrides off:
    the stationary-track counts show the arrival regime on an 83 s capture.
 4. **Re-score with a held-out split and a full-scene kirk0 label** before any adoption decision;
@@ -211,3 +216,99 @@ give: narrowing alone is not shippable, and it says which code to write next.
   and the per-arm score rows are in the session's scratch directory, not the repository; the
   evidence databases (0.1 to 0.9 GB each) were deleted after scoring. The method above is
   complete enough to rewrite them.
+
+## 8. Follow-up: E4 as a replay experiment
+
+The range-image support filter was implemented the same day as the replay experiment
+`support_filter` (`l3grid.SupportFilterParams`, applied after the per-point decision and before
+the mask is returned; it only turns foreground into background and never touches a cell's
+model) and run in three arms on both captures with the same harness, flags and scoring as
+above.
+
+| Arm | Keys                             | Experiments                             |
+| --- | -------------------------------- | --------------------------------------- |
+| F   | shipped                          | `no_region_overrides`, `support_filter` |
+| G   | `neighbour_confirmation_count` 0 | `no_region_overrides`, `support_filter` |
+| H   | shipped                          | `support_filter`                        |
+
+The filter's first setting, not a tuned one: a window of ±2 rings (channel order, which is
+elevation order on the Pandar40P) by ±10 azimuth bins (±2°), at least 4 neighbouring cells
+holding foreground whose nearest range is within $0.65 + 0.005\,r$ metres of the cell's.
+
+### 8.1 kirk0
+
+| Arm | Object-frame recall |    Car / ped / bus | Unlabelled clusters/frame | of which under 8 points | of which recurring | Bottom in footprint median (m) | M3 stationary >20 s / >60 s | Candidate tracks |
+| --- | ------------------: | -----------------: | ------------------------: | ----------------------: | -----------------: | -----------------------------: | --------------------------: | ---------------: |
+| A0  |               0.587 | 0.63 / 0.28 / 0.53 |                      0.31 |                    0.17 |               0.00 |                          +0.26 |                       0 / 0 |               59 |
+| A1  |               0.938 | 0.95 / 0.91 / 0.37 |                     12.05 |                    4.71 |               1.19 |                          −0.32 |                       5 / 3 |              224 |
+| F   |               0.930 | 0.94 / 0.91 / 0.35 |                      9.87 |                    3.00 |               0.83 |                          −0.29 |                       4 / 2 |              204 |
+| G   |               0.945 | 0.96 / 0.91 / 0.31 |                     14.77 |                    5.73 |               0.83 |                          −0.45 |                       7 / 3 |              263 |
+| H   |               0.576 | 0.62 / 0.24 / 0.47 |                      0.23 |                    0.08 |               0.00 |                          +0.27 |                       0 / 0 |               54 |
+
+Per-frame evaluator, reviewed pack, all episodes, against a regenerated shipped baseline that
+reproduced A0 exactly:
+
+| Arm |   MOTA |  HOTA |  DetA |  AssA |  IDF1 |   IDR |   IDP |    FN |     FP | IDSW |  FM |
+| --- | -----: | ----: | ----: | ----: | ----: | ----: | ----: | ----: | -----: | ---: | --: |
+| A0  |  0.148 | 0.376 | 0.234 | 0.679 | 0.350 | 0.275 | 0.482 | 2,315 |    722 |  124 |  48 |
+| A1  | −1.623 | 0.309 | 0.148 | 0.720 | 0.317 | 0.656 | 0.209 |   690 |  8,609 |  430 |  66 |
+| F   | −1.229 | 0.336 | 0.166 | 0.759 | 0.376 | 0.710 | 0.256 |   675 |  7,253 |  338 |  45 |
+| G   | −2.090 | 0.279 | 0.128 | 0.691 | 0.283 | 0.658 | 0.180 |   588 | 10,410 |  463 |  56 |
+| H   |  0.156 | 0.368 | 0.237 | 0.651 | 0.343 | 0.267 | 0.480 | 2,309 |    665 |  157 |  44 |
+
+F's unlabelled clusters by range: 0.09 within 10 m, 2.71 at 10 to 20 m, 4.34 at 20 to 40 m,
+2.72 beyond 40 m; 1.52 of them road surface.
+
+### 8.2 kirk1
+
+| Arm | M1 covered | Candidate tracks | Clusters/frame | FG points/frame | Road-surface clusters/frame | M3 stationary >20 s / >60 s |
+| --- | ---------: | ---------------: | -------------: | --------------: | --------------------------: | --------------------------: |
+| A0  |   38 of 49 |               88 |           2.33 |             372 |                        0.31 |                       1 / 0 |
+| A1  |   49 of 49 |              227 |          12.76 |           1,373 |                        1.81 |                      10 / 1 |
+| F   |   49 of 49 |              206 |          11.25 |           1,351 |                        2.26 |                       7 / 2 |
+| G   |   49 of 49 |              243 |          16.04 |           1,694 |                        3.33 |                       9 / 3 |
+| H   |   38 of 49 |               84 |           2.28 |             372 |                        0.33 |                       1 / 0 |
+
+### 8.3 Reading
+
+1. **E4 removes the speckle and little else.** Against A1 on kirk0 it takes out 18% of the
+   unlabelled clusters, and what it takes is the single-cell kind: clusters under 8 points fall
+   from 4.71 to 3.00 a frame, recurring positions from 1.19 to 0.83. Per-frame false positives
+   fall 16%, identity switches from 430 to 338, HOTA rises from 0.309 to 0.336 and IDF1 from
+   0.317 to 0.376, for 0.8 points of object-frame recall, none of it pedestrian. On kirk1 it
+   drops 12% of the clusters and keeps every labelled road user covered. It is a cleaner, and
+   it does what the paper's grid filter does.
+2. **What survives it is coherent.** The 9.9 unlabelled clusters a frame that remain are
+   multi-cell patches at 10 to 40 m whose neighbours agree in range: vegetation, façades and
+   oblique surfaces whose returns wander more than the narrowed window allows. An index-space
+   support test cannot tell a 20-cell patch of hedge from a 20-cell pedestrian at 40 m, and a
+   stricter support threshold would remove both. The paper's flood was speckle because its
+   models carry no per-cell spread at all; ours is structure, because the ×8 override on the
+   volatile tercile was the mechanism that absorbed it. E4 is necessary and not sufficient.
+3. **E4 does not replace neighbour confirmation.** G against F: 1.5 points more recall, half as
+   many more unlabelled clusters again (9.87 to 14.77), false positives 7,253 to 10,410, HOTA
+   0.336 to 0.279. The rescue role of the same-ring test (review Section 5.2) is not something
+   the support filter performs.
+4. **On the shipped grid E4 costs pedestrians.** H against A0: recall 0.587 to 0.576, pedestrian
+   frames 0.28 to 0.24, for 57 fewer false positives. The shipped grid already starves small
+   objects of returns; the filter removes the survivors. It belongs beside the override
+   switch, not on its own.
+5. **Timing** is not readable from these runs: they overlapped the other capture's chain. The
+   filter's own work is about 100 neighbour lookups per foreground cell, and it reduces what L4
+   and L5 are given.
+
+**Revised next arm.** The flood needs the per-cell widening the volatile override provided,
+without the ×3 and ×4 widening on the quiet terciles that cost the near-field band. Two ways to
+get that, both as replay experiments with E4 on: region overrides restricted to the volatile
+tercile (a switch on the existing mechanism), or the review's E1 with a learned per-cell term,
+$z\,\sigma_{cell}$ with a floor, which widens where a cell's own history is wide. Either still
+needs the L4 ground test at road height and the dwell policy before it is shippable.
+
+### 8.4 Provenance
+
+Filter and experiment: commit `3d789eb3f` (tests in `support_filter_test.go`). The harness was
+built from that tree before the commit, with the version stamp marked `-sf-uncommitted`; the
+committed source is identical. The shipped baseline database for the per-frame comparison was
+regenerated from the same binary and matched A0's first run (recall 0.5871, 3.43 clusters a
+frame, 59 tracks). Captures, labels, packs, flags and scoring as in Sections 2 and 7; evidence
+databases and recordings deleted after scoring.

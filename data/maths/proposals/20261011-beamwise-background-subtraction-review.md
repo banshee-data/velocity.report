@@ -19,7 +19,10 @@ decision rule for Section 7. No code and no tuning default was changed.
 - **Measured:** the zero-code arms of Section 6 were run the same day on kirk0 and kirk1:
   [report](../../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md). The region
   overrides are the lever (recall 59% to 94% on kirk0), the base window's shape is not, and no
-  arm passes Stage A: every one trips M3
+  arm passes Stage A: every one trips M3. E4 was then built as the replay experiment
+  `support_filter` and run on A1 (the report's Section 8): it removes the single-cell speckle at
+  under a point of recall and lifts HOTA and IDF1, but most of the flood is coherent patches it
+  cannot separate from small objects, so the next arm keeps the volatile cells' widening
 
 ## 1. Verdict
 
