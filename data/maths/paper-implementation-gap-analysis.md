@@ -55,7 +55,7 @@ New rows: D6, K9, K10, B7, M5, B8. Reclassified: S3 (edge case → mathematical 
 "In hand" means the text was read for this revision. Cached copies live outside the repository in citation-needed's corpus cache (`eval/corpus/cache/{pdf,markdown}`); copies obtained for this pass are in [data/maths/papers/](papers/), which is gitignored.
 
 The inventory records reading status for the September review. The HD-map survey's author
-was subsequently corrected to Bao et al. (2022); its compatibility key remains `Liu2020HDMap`.
+was subsequently corrected to Bao et al. (2022); its citation key is `Bao2022HDMap`.
 
 | Paper                                                                           | Key                                                       | In hand      | Source                                                                                                                                                    |
 | ------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,7 +71,7 @@ was subsequently corrected to Bao et al. (2022); its compatibility key remains `
 | CLEAR MOT                                                                       | `Bernardin2008`                                           | No           | Open access, but the publisher's consent wall defeated a scripted fetch. MOT16 §4.1 and HOTA restate the definitions in full, so M1 is not blocked on it. |
 | DBSCAN revisited                                                                | `Schubert2017DBSCANR`                                     | No           | Author copy did not resolve                                                                                                                               |
 | Welford, Kuhn, Munkres, Blom, Julier, Campello, Jolliffe, Mahalanobis, Fischler | —                                                         | No           | Paywalled or print-only                                                                                                                                   |
-| PointPillars, PointNet++, CenterPoint, Bao HD-map survey                        | `Lang2019`, `Qi2017PointNetPP`, `Yin2021`, `Liu2020HDMap` | No           | No DOI in the bib entry at the September review, so citation-needed never attempted them; all on arXiv                                                    |
+| PointPillars, PointNet++, CenterPoint, Bao HD-map survey                        | `Lang2019`, `Qi2017PointNetPP`, `Yin2021`, `Bao2022HDMap` | No           | No DOI in the bib entry at the September review, so citation-needed never attempted them; all on arXiv                                                    |
 
 One finding about the tooling rather than the maths: citation-needed skips any bib entry without a `doi` field before it creates a database row, so `Ester1996`, `Weng2020`, `Lang2019`, `Yin2021` and four others were never attempted despite being freely available. Adding `eprint`/`url` handling there would recover most of the remaining open-access gaps in one run.
 
@@ -272,7 +272,7 @@ In all six frames the two solvers used the same number of pairs; the padded one 
 
 ### Implementation status
 
-`l3grid/background.go`, `foreground.go`: Single-component EMA per cell; not Welford's exact algorithm, not a multi-modal GMM. $\mu \leftarrow (1-\alpha)\mu + \alpha x$, spread: $(1-\alpha)s + \alpha |x - \mu_{old}|$. See [background-grid-settling-maths.md](background-grid-settling-maths.md) for the full model and [proposals/20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md) for the related settling proposal.
+`l3grid/background.go`, `foreground.go`: Single-component EMA per cell; not Welford's exact algorithm, not a multi-modal GMM. $\mu \leftarrow (1-\alpha)\mu + \alpha x$, spread: $(1-\alpha)s + \alpha |x - \mu_{old}|$. See [background-grid-settling-maths.md](background-grid-settling-maths.md) for the full model and [proposals/20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md) for the related settling proposal. Baumann et al.'s (2026) beam-wise models are compared with this one in [proposals/20261011-beamwise-background-subtraction-comparison.md](proposals/20261011-beamwise-background-subtraction-comparison.md): their learned per-beam window bears on B3, B7, B8 and HW1, and on road-backed beams the window absorbs a fixed height band above the road.
 
 ### Gaps
 
@@ -678,7 +678,7 @@ These papers are in [references.bib](references.bib). The implementation either 
 | PointRCNN (Shi 2019)         | `Shi2019PointRCNN`                          | Yes                                          | Deep learning reference. Correctly excluded.                                                        |
 | Trajectron++ (Salzmann 2020) | `Salzmann2020`                              | Yes                                          | Not implemented; future L7 work. No current gap.                                                    |
 | Lefèvre (2014) survey        | `Lefevre2014`                               | Yes                                          | Survey paper; no specific algorithm to implement.                                                   |
-| HD Map papers                | `Pannen2020`, `Liu2020HDMap`, `Li2022HDMap` | Pannen and Li yes, Bao no (September review) | Future L7 context: Bao is a survey, Li is an online map-learning framework. No current runtime gap. |
+| HD Map papers                | `Pannen2020`, `Bao2022HDMap`, `Li2022HDMap` | Pannen and Li yes, Bao no (September review) | Future L7 context: Bao is a survey, Li is an online map-learning framework. No current runtime gap. |
 | CenterPoint (Yin 2021)       | `Yin2021`                                   | No                                           | Deep learning detector/tracker. Correctly excluded.                                                 |
 | PolarStream (Chiu 2021)      | `Chiu2021PolarStream`                       | Yes                                          | Multi-modal fusion. Future work.                                                                    |
 | Waymo (Sun 2020)             | `Sun2020Waymo`                              | Yes                                          | Dataset paper; used for context only.                                                               |

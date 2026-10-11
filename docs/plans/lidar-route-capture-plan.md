@@ -61,7 +61,7 @@ promote a mobile following result.
 - **Sensor geometry.** The Pandar40P covers +15.2° to -24.6° vertically, with a dense band from +2.4° to -5.7° at about 0.34° ring spacing and gaps of 1° to 6° outside it, per the embedded angle correction table in `internal/lidar/l1packets/parse/sensor_configs/`.
 - **Compute evidence.** The committed perf baselines under `internal/lidar/perf/baseline/` were captured on an M1; there is no Raspberry Pi baseline, and the per-frame budget is 98 ms.
 - **Priors review.** [spatial-priors-service-review.md](spatial-priors-service-review.md) §8 and §9 conclude that moving captures must be reconstructed as metric submaps outside the live pipeline, name KISS-ICP as the LiDAR-only odometry baseline and LIO-SAM class tools once a synchronised IMU exists, and rank that IMU as the highest-value hardware addition.
-- **Hardware supply.** The [LiDAR market watch](../platform/hardware/lidar-market-watch.md) holds the selection rule and a first snapshot. On vendor figures the only unit seen under the budget that also meets 100 m at 10% reflectivity is a used Pandar40P.
+- **Hardware supply.** The [LiDAR market watch](../platform/hardware/lidar-market-watch.md) holds the selection rule, current model comparison, and observed offers; its annual archives preserve the research. Used Pandar40P offers are under-budget investigation leads, but the inherited snippet evidence does not establish a verified active offer.
 
 ## Findings
 
@@ -505,14 +505,15 @@ deskew merely by attaching an IMU.
 
 ### Item 9: LiDAR market watch
 
-**Summary:** A fortnightly scheduled review of listed new and used prices against the range rule
-and the budget rule, kept in the market watch page's Latest table with a dated change log.
+**Summary:** A fortnightly scheduled review of models and observed new and used offers against the
+range and budget rules. The market watch page keeps one current assessment; bounded annual
+archives preserve dated findings, source identities, and evidence limits.
 
 **Steps:**
 
-1. Keep the page's rules current; the first snapshot is in.
-2. Run the fortnightly routine (the `lidar-market-review` skill), which pushes each entry to the `claude/lidar-market-watch` branch.
-3. Review monthly; a unit that meets both rules becomes a purchase decision.
+1. Keep the page's versioned selection rules, model comparison, offer table, and coverage gaps current. Preserve published reviews in annual files, with corrections linked from later entries.
+2. Run the fortnightly routine (the `lidar-market-review` skill), which replaces the current assessment and adds that review's annual entry on `claude/lidar-market-watch`. Offers expire after 28 elapsed UTC days from their last observation; blocked checks do not refresh them.
+3. Review monthly. Shortlist only identifiable active offers verified on opened pages, with primary hardware evidence and a complete LiDAR-plus-IMU budget; snippets remain investigation leads. Check parser compatibility separately before a purchase decision.
 
 **Milestone:** Continuous
 

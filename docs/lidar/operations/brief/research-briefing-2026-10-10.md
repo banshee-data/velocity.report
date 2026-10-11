@@ -119,7 +119,8 @@ channel, azimuth and distance, so an adapter needs only per-point ring, azimuth 
 **Steps.**
 
 0. Read the paper, the HighwayScene card and licence, and the CoopScenes label format (`S`). This
-   is gated on the "To fetch" list.
+   is gated on the "To fetch" list. Done for the paper, code and dataset cards on October 11,
+   2026: [beam-wise comparison](../../../../data/maths/proposals/20261011-beamwise-background-subtraction-comparison.md).
 1. An offline Go tool beside `settling-eval` in `cmd/tools/` that reads a labelled sequence, maps
    each point to polar form, runs a local background manager with the shipped defaults, and reports
    per-point precision, recall and F1 for dynamic returns, after warm-up, per sensor and per range

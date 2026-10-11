@@ -335,7 +335,7 @@ Use the references above as the fast visual index:
 
 The full bibliography in BibTeX format is at [data/maths/references.bib](../../../data/maths/references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
 
-Citation keys are stable identifiers: `Liu2020HDMap` names Bao et al. (2022), and
+The HD-map survey uses `Bao2022HDMap` for Bao et al. (2022). The retained legacy key
 `Kim2017Cooperative` names Parker and Emmons (1997). Use the corrected authors and years
 in prose. The [source-context audit](../operations/brief/reference-audit.md#corrected-source-context)
 records the six corrected sources and their implementation limits.
@@ -682,7 +682,7 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 | Hornung2013    | OctoMap probabilistic 3D mapping                                     | L7     |
 | Pomerleau2014  | Long-term 3D map maintenance                                         | L7     |
 | Pannen2020     | Keeping HD maps up to date                                           | L7     |
-| Liu2020HDMap   | Bao et al. (2022): HD-map generation survey, planned mapping context | L7     |
+| Bao2022HDMap   | Bao et al. (2022): HD-map generation survey, planned mapping context | L7     |
 | Li2022HDMap    | HDMapNet online HD map framework                                     | L7     |
 | Caesar2020     | nuScenes multimodal driving dataset                                  | L6, L7 |
 | Geiger2012     | KITTI autonomous driving benchmark                                   | L5, L6 |

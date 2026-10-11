@@ -322,7 +322,7 @@ L7 Scene
 
 | Reference                                                                                                | Relevance                                                                                                                                   |
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bao et al. (2022): HD-map generation survey (`Liu2020HDMap`); Li et al. (2022): HDMapNet (`Li2022HDMap`) | Survey and online map-learning framework, respectively; background for proposed L7 geometry, not validation of our stationary-sensor design |
+| Bao et al. (2022): HD-map generation survey (`Bao2022HDMap`); Li et al. (2022): HDMapNet (`Li2022HDMap`) | Survey and online map-learning framework, respectively; background for proposed L7 geometry, not validation of our stationary-sensor design |
 | OpenStreetMap Simple 3D Buildings (S3DB), revision `3071724` (`OSMSimple3DBuildings`)                    | Proposed prior schema for building outlines, parts, and relative heights; ingestion remains planned                                         |
 | Pannen et al. (2020): How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020)                   | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                                         |
 | CityJSON specification (v1.1)                                                                            | 3D city model interchange format; our L7 export target for building geometry                                                                |
@@ -342,7 +342,8 @@ L7 Scene
 The two mobile-robot papers do not establish our proposed canonical-object identity or
 cross-sensor handoff scheme. The current L5 code uses a constant-velocity Kalman filter and
 Hungarian assignment; neither a distributed PHD filter nor cooperative robot control is
-implemented. The legacy BibTeX keys remain stable despite the corrected authors and years.
+implemented. The cooperative-observation paper retains the legacy key `Kim2017Cooperative`;
+the HD-map survey uses `Bao2022HDMap` to match its corrected author and year.
 
 ### Physics-constrained prediction and scene graphs
 

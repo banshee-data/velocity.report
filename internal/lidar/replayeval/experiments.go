@@ -33,6 +33,12 @@ const (
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
 	ExperimentNoRegionOverrides = "no_region_overrides"
+	// ExperimentSupportFilter: l3grid.BackgroundParams.SupportFilter at
+	// l3grid.DefaultSupportFilterParams, the range-image support filter of
+	// the beam-wise review (E4): a cell's foreground survives only with
+	// enough similar-range foreground neighbours in the ring-by-azimuth
+	// index. Output only; the background model is untouched.
+	ExperimentSupportFilter = "support_filter"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -190,6 +196,7 @@ var knownExperiments = map[string]bool{
 	ExperimentDensityCap:          true,
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
+	ExperimentSupportFilter:       true,
 	ExperimentMeasurementTime:     true,
 	ExperimentCaptureGapPredict:   true,
 	ExperimentCoastSupport:        true,

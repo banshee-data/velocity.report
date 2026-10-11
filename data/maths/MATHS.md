@@ -130,6 +130,16 @@ The production pipeline uses four math-heavy layers:
   tail, negative information from the L3 baseline, prior work from Petrovskaya to X-ICP, expected
   shortcomings, side effects, and the revisions made to the plan. Arithmetic checks recorded; no
   implementation or measured result.
+- [Beam-wise background subtraction against L3](proposals/20261011-beamwise-background-subtraction-comparison.md):
+  Baumann et al.'s (2026) per-beam CFTA, quantile Gaussian, mixture and MOG2 models and spatial
+  filters read against the L3 grid: differences, the learned-versus-imposed window and the
+  height band it absorbs above the road, priced evolution steps, an experiment design, and
+  claims set out for challenge. Code and paper read; no experiment run.
+- [Beam-wise background subtraction: adversarial review](proposals/20261011-beamwise-background-subtraction-review.md):
+  Claim-by-claim verdicts on the comparison, the absorbed-height derivation re-derived, two
+  simulations on the shipped L3 (parked-car ghosts and sky cells), the finding that absorption of
+  a newly stationary object waits for the age of the background, corrected step costs, and a
+  pre-registrable decision rule.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md):
   Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence,
   low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol.
