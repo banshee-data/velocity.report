@@ -300,6 +300,9 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 		     , ground_z, ground_surface_model, motion_class, motion_posterior, estimation_state
 		     , last_observed_unix_nanos, support_points, coasted_frames, support_instant, support_fragmented, support_truncated
 		     , measurement_source, measurement_rank, visible_faces, inferred_extent, aspect_rad, nis, fallback_reason
+		     , containment_share, contained_points, observed_span_along_m, observed_span_across_m
+		     , extent_floor, containment_shift_along_m, containment_shift_across_m
+		     , rectangle_axis_rad, rectangle_sigma_rad, rectangle_plateau_rad, rectangle_span_1_m, rectangle_span_2_m, rectangle_abstain
 		FROM lidar_track_solid_bodies
 		ORDER BY source_id, frame_unix_nanos, observation_id, estimator_id, observation_model_id, param_hash, stage, creation_sequence`)
 	if err != nil {
@@ -318,7 +321,10 @@ func (b *oracleBuilder) readSolidBodies(db *sql.DB) error {
 			&row.HeightM, &row.HeightSigmaM, &row.HeightFrames, &row.HeightProvenance,
 			&row.GroundZ, &row.GroundSurfaceModel, &row.MotionClass, &row.MotionPosterior, &row.EstimationState,
 			&row.LastObservedUnixNanos, &row.SupportPoints, &row.CoastedFrames, &row.SupportInstant, &row.SupportFragmented, &row.SupportTruncated,
-			&row.MeasurementSource, &row.MeasurementRank, &row.VisibleFaces, &row.InferredExtent, &row.AspectRad, &row.NIS, &row.FallbackReason); err != nil {
+			&row.MeasurementSource, &row.MeasurementRank, &row.VisibleFaces, &row.InferredExtent, &row.AspectRad, &row.NIS, &row.FallbackReason,
+			&row.ContainmentShare, &row.ContainedPoints, &row.ObservedSpanAlongM, &row.ObservedSpanAcrossM,
+			&row.ExtentFloor, &row.ContainmentShiftAlongM, &row.ContainmentShiftAcrossM,
+			&row.RectangleAxisRad, &row.RectangleSigmaRad, &row.RectanglePlateauRad, &row.RectangleSpan1M, &row.RectangleSpan2M, &row.RectangleAbstain); err != nil {
 			return fmt.Errorf("scan solid body: %w", err)
 		}
 		observation, ok := b.observations[row.ObservationID]
@@ -445,55 +451,68 @@ type oracleResidualRow struct {
 // oracle compares what two runs wrote rather than what a reader would make of
 // it.
 type oracleSolidBodyRow struct {
-	ObservationID          string   `json:"observation_id"`
-	SourceID               string   `json:"source_id"`
-	CalibrationID          string   `json:"calibration_id"`
-	FrameUnixNanos         int64    `json:"frame_unix_nanos"`
-	MeasurementUnixNanos   int64    `json:"measurement_unix_nanos"`
-	EstimatorID            string   `json:"estimator_id"`
-	ObservationModelID     string   `json:"observation_model_id"`
-	ParamHash              string   `json:"param_hash"`
-	Stage                  string   `json:"stage"`
-	CreationSequence       int64    `json:"creation_sequence"`
-	StateModel             string   `json:"state_model"`
-	ReferencePoint         string   `json:"reference_point"`
-	X                      float64  `json:"x"`
-	Y                      float64  `json:"y"`
-	VX                     float64  `json:"vx"`
-	VY                     float64  `json:"vy"`
-	CovarianceJSON         []byte   `json:"covariance_json"`
-	HeadingRad             float64  `json:"heading_rad"`
-	HeadingVarianceRad2    float64  `json:"heading_variance_rad2"`
-	HeadingAmbiguousWeight float64  `json:"heading_ambiguous_weight"`
-	HeadingProvenance      string   `json:"heading_provenance"`
-	LengthM                float64  `json:"length_m"`
-	LengthSigmaM           float64  `json:"length_sigma_m"`
-	LengthFrames           int64    `json:"length_frames"`
-	LengthProvenance       string   `json:"length_provenance"`
-	WidthM                 float64  `json:"width_m"`
-	WidthSigmaM            float64  `json:"width_sigma_m"`
-	WidthFrames            int64    `json:"width_frames"`
-	WidthProvenance        string   `json:"width_provenance"`
-	HeightM                float64  `json:"height_m"`
-	HeightSigmaM           float64  `json:"height_sigma_m"`
-	HeightFrames           int64    `json:"height_frames"`
-	HeightProvenance       string   `json:"height_provenance"`
-	GroundZ                float64  `json:"ground_z"`
-	GroundSurfaceModel     string   `json:"ground_surface_model"`
-	MotionClass            string   `json:"motion_class"`
-	MotionPosterior        float64  `json:"motion_posterior"`
-	EstimationState        string   `json:"estimation_state"`
-	LastObservedUnixNanos  int64    `json:"last_observed_unix_nanos"`
-	SupportPoints          int64    `json:"support_points"`
-	CoastedFrames          int64    `json:"coasted_frames"`
-	SupportInstant         string   `json:"support_instant"`
-	SupportFragmented      int64    `json:"support_fragmented"`
-	SupportTruncated       int64    `json:"support_truncated"`
-	MeasurementSource      string   `json:"measurement_source"`
-	MeasurementRank        int64    `json:"measurement_rank"`
-	VisibleFaces           string   `json:"visible_faces"`
-	InferredExtent         int64    `json:"inferred_extent"`
-	AspectRad              *float64 `json:"aspect_rad"`
-	NIS                    float64  `json:"nis"`
-	FallbackReason         string   `json:"fallback_reason"`
+	ObservationID           string   `json:"observation_id"`
+	SourceID                string   `json:"source_id"`
+	CalibrationID           string   `json:"calibration_id"`
+	FrameUnixNanos          int64    `json:"frame_unix_nanos"`
+	MeasurementUnixNanos    int64    `json:"measurement_unix_nanos"`
+	EstimatorID             string   `json:"estimator_id"`
+	ObservationModelID      string   `json:"observation_model_id"`
+	ParamHash               string   `json:"param_hash"`
+	Stage                   string   `json:"stage"`
+	CreationSequence        int64    `json:"creation_sequence"`
+	StateModel              string   `json:"state_model"`
+	ReferencePoint          string   `json:"reference_point"`
+	X                       float64  `json:"x"`
+	Y                       float64  `json:"y"`
+	VX                      float64  `json:"vx"`
+	VY                      float64  `json:"vy"`
+	CovarianceJSON          []byte   `json:"covariance_json"`
+	HeadingRad              float64  `json:"heading_rad"`
+	HeadingVarianceRad2     float64  `json:"heading_variance_rad2"`
+	HeadingAmbiguousWeight  float64  `json:"heading_ambiguous_weight"`
+	HeadingProvenance       string   `json:"heading_provenance"`
+	LengthM                 float64  `json:"length_m"`
+	LengthSigmaM            float64  `json:"length_sigma_m"`
+	LengthFrames            int64    `json:"length_frames"`
+	LengthProvenance        string   `json:"length_provenance"`
+	WidthM                  float64  `json:"width_m"`
+	WidthSigmaM             float64  `json:"width_sigma_m"`
+	WidthFrames             int64    `json:"width_frames"`
+	WidthProvenance         string   `json:"width_provenance"`
+	HeightM                 float64  `json:"height_m"`
+	HeightSigmaM            float64  `json:"height_sigma_m"`
+	HeightFrames            int64    `json:"height_frames"`
+	HeightProvenance        string   `json:"height_provenance"`
+	GroundZ                 float64  `json:"ground_z"`
+	GroundSurfaceModel      string   `json:"ground_surface_model"`
+	MotionClass             string   `json:"motion_class"`
+	MotionPosterior         float64  `json:"motion_posterior"`
+	EstimationState         string   `json:"estimation_state"`
+	LastObservedUnixNanos   int64    `json:"last_observed_unix_nanos"`
+	SupportPoints           int64    `json:"support_points"`
+	CoastedFrames           int64    `json:"coasted_frames"`
+	SupportInstant          string   `json:"support_instant"`
+	SupportFragmented       int64    `json:"support_fragmented"`
+	SupportTruncated        int64    `json:"support_truncated"`
+	MeasurementSource       string   `json:"measurement_source"`
+	MeasurementRank         int64    `json:"measurement_rank"`
+	VisibleFaces            string   `json:"visible_faces"`
+	InferredExtent          int64    `json:"inferred_extent"`
+	AspectRad               *float64 `json:"aspect_rad"`
+	NIS                     float64  `json:"nis"`
+	FallbackReason          string   `json:"fallback_reason"`
+	ContainmentShare        *float64 `json:"containment_share"`
+	ContainedPoints         int64    `json:"contained_points"`
+	ObservedSpanAlongM      float64  `json:"observed_span_along_m"`
+	ObservedSpanAcrossM     float64  `json:"observed_span_across_m"`
+	ExtentFloor             string   `json:"extent_floor"`
+	ContainmentShiftAlongM  float64  `json:"containment_shift_along_m"`
+	ContainmentShiftAcrossM float64  `json:"containment_shift_across_m"`
+	RectangleAxisRad        *float64 `json:"rectangle_axis_rad"`
+	RectangleSigmaRad       float64  `json:"rectangle_sigma_rad"`
+	RectanglePlateauRad     float64  `json:"rectangle_plateau_rad"`
+	RectangleSpan1M         float64  `json:"rectangle_span_1_m"`
+	RectangleSpan2M         float64  `json:"rectangle_span_2_m"`
+	RectangleAbstain        string   `json:"rectangle_abstain"`
 }

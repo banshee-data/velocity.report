@@ -249,8 +249,26 @@ func strictDecodeObject(data []byte, dst interface{}, path string) error {
 	if err != nil {
 		return err
 	}
+	if err := checkStrictKeys(raw, reflect.TypeOf(dst), path); err != nil {
+		return err
+	}
 
-	expected := expectedJSONKeys(reflect.TypeOf(dst))
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+// checkStrictKeys applies the tuning file's rule to one object: an unknown
+// key and a missing key are both errors. An optional block (an omitempty
+// pointer to a struct) may be absent; when it is present its own keys are
+// checked by the same rule, so a block cannot be half written. Other nested
+// objects are left to the decoder, as they always were: a field added to
+// one with a fallback (pipeline.frame_budget_ms) stays omittable.
+func checkStrictKeys(raw map[string]json.RawMessage, t reflect.Type, path string) error {
+	expected, optional, nested := expectedJSONKeys(t)
 	expectedSet := make(map[string]struct{}, len(expected))
 	for _, key := range expected {
 		expectedSet[key] = struct{}{}
@@ -270,7 +288,9 @@ func strictDecodeObject(data []byte, dst interface{}, path string) error {
 	var missing []string
 	for _, key := range expected {
 		if _, ok := raw[key]; !ok {
-			missing = append(missing, key)
+			if _, opt := optional[key]; !opt {
+				missing = append(missing, key)
+			}
 		}
 	}
 	if len(missing) > 0 {
@@ -278,23 +298,42 @@ func strictDecodeObject(data []byte, dst interface{}, path string) error {
 		return fmt.Errorf("%s: missing required keys: %s", path, strings.Join(missing, ", "))
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(dst); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	for key, sub := range nested {
+		if _, opt := optional[key]; !opt {
+			continue
+		}
+		value, ok := raw[key]
+		if !ok || len(bytes.TrimSpace(value)) == 0 || bytes.TrimSpace(value)[0] != '{' {
+			// Absent, null, or not an object: the decoder reports those.
+			continue
+		}
+		subRaw, err := parseObject(value, path+"."+key)
+		if err != nil {
+			return err
+		}
+		if err := checkStrictKeys(subRaw, sub, path+"."+key); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func expectedJSONKeys(t reflect.Type) []string {
+// expectedJSONKeys is every JSON key a struct decodes; the subset that may
+// be absent, the optional blocks (an omitempty pointer to a struct, written
+// only when set); and the struct types behind the nested keys. A scalar
+// tagged omitempty is still required: the tag says how it is written, not
+// whether it may be left out. A type with its own UnmarshalJSON reads its
+// object itself and is not listed as nested.
+func expectedJSONKeys(t reflect.Type) (keys []string, optional map[string]struct{}, nested map[string]reflect.Type) {
+	optional = map[string]struct{}{}
+	nested = map[string]reflect.Type{}
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
-		return nil
+		return nil, optional, nested
 	}
 
-	var keys []string
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.PkgPath != "" && !field.Anonymous {
@@ -305,12 +344,46 @@ func expectedJSONKeys(t reflect.Type) []string {
 			continue
 		}
 		if field.Anonymous && !tagged {
-			keys = append(keys, expectedJSONKeys(field.Type)...)
+			subKeys, subOptional, subNested := expectedJSONKeys(field.Type)
+			keys = append(keys, subKeys...)
+			for k := range subOptional {
+				optional[k] = struct{}{}
+			}
+			for k, v := range subNested {
+				nested[k] = v
+			}
 			continue
 		}
 		keys = append(keys, name)
+		elem := field.Type
+		pointer := elem.Kind() == reflect.Ptr
+		if pointer {
+			elem = elem.Elem()
+		}
+		if elem.Kind() == reflect.Struct && !reflect.PointerTo(elem).Implements(jsonUnmarshalerType) {
+			nested[name] = elem
+			if pointer && jsonOmitEmpty(field) {
+				optional[name] = struct{}{}
+			}
+		}
 	}
-	return keys
+	return keys, optional, nested
+}
+
+var jsonUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+
+// jsonOmitEmpty reports whether the field's json tag carries omitempty.
+func jsonOmitEmpty(field reflect.StructField) bool {
+	tag, ok := field.Tag.Lookup("json")
+	if !ok {
+		return false
+	}
+	for _, part := range strings.Split(tag, ",")[1:] {
+		if part == "omitempty" {
+			return true
+		}
+	}
+	return false
 }
 
 func jsonFieldName(field reflect.StructField) (string, bool) {

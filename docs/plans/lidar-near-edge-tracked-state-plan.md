@@ -1041,5 +1041,8 @@ revisable association (S4 and later); a new default, which waits for labelled G-
       ended chains at each reference change, `fixed_lag_rts` combined with `near_edge_track`, and
       the oracle covered solid bodies without moving the digest of a run that has none
 - [ ] Label-free gates 1 to 5 on the held-out case; screen report
-- [ ] Configuration surface: `l5.cv_kf_v1.solid_body`, experiments as aliases, runtime keys,
-      live parity or refusal ([design](#configuration-surface))
+- [x] Configuration surface: `l5.cv_kf_v1.solid_body`, experiments as aliases, runtime keys,
+      live parity or refusal ([design](#configuration-surface)): delivered with the :8081
+      replay's config dropdown and the `config/experiments/` sets (#720). Live parity holds:
+      the pipeline hands over full members while the block asks for them, and the origin is
+      the tracking transform's identity, as in replay

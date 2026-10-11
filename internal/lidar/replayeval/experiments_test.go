@@ -74,13 +74,17 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyCourseFaces,
+		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
 		ExperimentSolidBodyExtentPriorFloor,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation,
+		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
+		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
+		ExperimentSolidBodyRectangleSigmaWide,
+		ExperimentSolidBodyReferenceTranslation,
 		ExperimentSolidBodyVehicleExtentFloor}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -149,6 +153,14 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyExtentGrowth:       func(o *l5tracks.SolidBodyOptions) { o.ExtentGrowthAdmission = true },
 		ExperimentSolidBodyVehicleExtentFloor: func(o *l5tracks.SolidBodyOptions) { o.VehicleExtentFloor = true },
 		ExperimentSolidBodyEndFaceCentring:    func(o *l5tracks.SolidBodyOptions) { o.EndFaceCentring = true },
+		ExperimentSolidBodyContainment:        func(o *l5tracks.SolidBodyOptions) { o.Containment = true },
+		ExperimentSolidBodyRectangleFit:       func(o *l5tracks.SolidBodyOptions) { o.RectangleFit = true },
+		ExperimentSolidBodyRectangleHeading:   func(o *l5tracks.SolidBodyOptions) { o.RectangleHeading = true },
+		ExperimentSolidBodyRectangleSigmaWide: func(o *l5tracks.SolidBodyOptions) { o.RectangleSigmaScale = 2 },
+		ExperimentSolidBodyRectangleSigmaMid:  func(o *l5tracks.SolidBodyOptions) { o.RectangleSigmaScale = 1.5 },
+		ExperimentSolidBodyRectangleCourseFusion: func(o *l5tracks.SolidBodyOptions) {
+			o.RectangleCourseFusion = true
+		},
 		ExperimentSolidBodyEndFaceCentringOpenPrior: func(o *l5tracks.SolidBodyOptions) {
 			o.EndFaceCentring, o.EndFaceCentringOpenPrior = true, true
 		},
@@ -172,6 +184,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyRankOneMedoid,
 		ExperimentSolidBodyRankOneMedoidTight}, nil); err == nil {
 		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight)
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyRectangleSigmaWide,
+		ExperimentSolidBodyRectangleSigmaMid}, nil); err == nil {
+		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyRectangleSigmaWide, ExperimentSolidBodyRectangleSigmaMid)
 	}
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior}, nil); err == nil {
@@ -312,7 +328,7 @@ func TestEstimateRowsNameTheModelThatUpdatedThem(t *testing.T) {
 		{[]string{ExperimentSolidBody}, "", l5tracks.MeasurementMedoidV0},
 		{[]string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack}, "", l5tracks.MeasurementNearEdgeCandidateV1},
 	} {
-		if got := stateObservationModelFor(tc.experiments, tc.mode); got != string(tc.want) {
+		if got := stateObservationModelFor(tc.experiments, false, tc.mode); got != string(tc.want) {
 			t.Errorf("%v with mode %q: rows name %s, want %s", tc.experiments, tc.mode, got, tc.want)
 		}
 	}

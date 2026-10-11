@@ -86,9 +86,37 @@ run instead of trimming it from the beginning. The request fails without startin
 the recorded pass if the selected window is too short to settle or its settled
 snapshot cannot be restored.
 
+`tuning_config` is optional: a tuning config file, as a path relative to the
+server's config directory (`--lidar-config-dir`, by default the directory of
+`--config`), for example `experiments/geometry-convergence-candidate.json`.
+The server applies the whole file before it stops the current source, so
+the replay runs on exactly those parameters. A file that fails to load or
+changes a startup-only key refuses the start before any parameter changes.
+The startup-only keys are the engine selectors, the `pipeline` block and L4
+keys other than DBSCAN's three. Without the field, the replay runs on the
+server's current parameters. See
+[Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
+
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
 `pcap_file` (resolved path), `analysis_mode: true`, and the requested
-`settle_before_recording` value.
+`settle_before_recording` value. With `tuning_config`, it also returns
+`tuning_config` and `tuning_fingerprint`, the applied file's fingerprint.
+
+### List tuning configs
+
+```bash
+GET /api/lidar/configs
+```
+
+**Response:** returns `config_dir`, `count`, `active` (the `path` and
+`fingerprint` of the last applied file; the path is empty before any), and
+`configs`, one entry for each `.json` file under the config directory. Each
+entry has `path`, `kind` (`tuning`, or `other` for JSON the strict loader
+refuses, with `error`), and for a tuning config its `fingerprint`, `profile`,
+`engines` and a `solid_body` summary. `applicable` says whether the file can
+be applied to the running server, with `reason` when it cannot. `active`
+marks the file the last replay start applied. Returns 503 when the server
+has no config directory.
 
 ### Check data source status
 
@@ -111,7 +139,8 @@ finished replay, and a retained grid. See
 
 The response also carries `source_path`, `replay_active`, `replay_pass`,
 `replay_total_passes`, `grid_preserved`, `live_listener_running`, `recording`,
-and `recording_path`.
+`recording_path`, and `tuning_config` and `tuning_fingerprint` (the last
+applied config file, if any, and the running parameters' fingerprint).
 
 ### Resume live data (preserve grid)
 
@@ -180,12 +209,16 @@ The LiDAR status page (`http://localhost:8081/`) includes:
 - **PCAP Start Form** with "Analyse & record VRLOG" and optional "Settle grid,
   reload & record from start" checkboxes. Selecting settling also selects analysis
   mode because the warm first pass is specifically a VRLOG capture workflow.
+- **Tuning Config dropdown** on the start form, filled on page load from
+  `GET /api/lidar/configs`. Each option shows the file, its solid-body summary
+  and fingerprint. A file that cannot be applied is disabled, with the reason.
+  The default keeps the server's current parameters.
 - **Resume Live** link (appears when in analysis mode)
 - **Stop PCAP** link (resets grid)
 - **Grid Status** shows current mode and statistics
 - **Configuration table** shows the replay pass, whether a VRLOG is being
-  recorded and where, whether the grid is preserved, and whether the live
-  listener is running
+  recorded and where, whether the grid is preserved, whether the live
+  listener is running, and the tuning config and fingerprint in use
 
 ## Logging
 

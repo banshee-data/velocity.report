@@ -163,6 +163,7 @@ var (
 	lidarFGFwdPort   = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr   = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir     = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	lidarConfigDir   = serveFlags.String("lidar-config-dir", "", "Directory of tuning config files the :8081 replay form and GET /api/lidar/configs list and a replay may start from (default: the directory of --config)")
 	// Write paths are set independently of --lidar-pcap-dir rather than derived
 	// from it.
 	//
@@ -696,6 +697,7 @@ func Main(args []string) int {
 				FgForwarder:         foregroundForwarder,
 				Tracker:             tracker,
 				Classifier:          classifier,
+				KeepClusterMembers:  tuningSolidBodyFullMembers(tuningCfg),
 				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
 				SensorID:            lidarSensorID,
 				VisualiserPublisher: visualiserPublisher,
@@ -807,6 +809,7 @@ func Main(args []string) int {
 			Parser:             parser,
 			FrameBuilder:       frameBuilder,
 			PCAPSafeDir:        *lidarPCAPDir,
+			TuningConfigDir:    resolveTuningConfigDir(*lidarConfigDir, *configFile),
 			CaptureRoots:       lidarCaptureRoots,
 			VRLogSafeDir:       resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
 			PacketForwarder:    packetForwarder,
@@ -986,6 +989,7 @@ func Main(args []string) int {
 		// Wire benchmark mode toggle from webserver to pipeline so the
 		// dashboard checkbox can enable/disable trace logging at runtime.
 		if pipelineConfig != nil {
+			pipelineConfig.KeepClusterMembersRuntime = lidarServer.ClusterMembersFlag()
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
 			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()

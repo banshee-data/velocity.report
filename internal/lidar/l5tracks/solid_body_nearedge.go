@@ -56,6 +56,7 @@ package l5tracks
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -193,6 +194,53 @@ type SolidBodyOptions struct {
 	// nothing across it at an end-face fix until a width is measured, and
 	// then the term arrives in one step. Default false.
 	EndFaceCentringOpenPrior bool
+	// Containment holds the reported box on the frame's points, the geometry
+	// convergence plan's W2, by two rules kept apart. The reported length and
+	// width are never below the frame's window-minimum observed spans along
+	// and across the orientation: that is the persisted and drawn box, and
+	// the extent beliefs never read the floor, since a floor that fed the
+	// belief would corroborate a merge. And at a fix, or on a faceless frame
+	// that would otherwise lapse, the position along each body axis is held
+	// to the interval the points allow given the belief's upper tail, by
+	// truncating the position's marginal to that interval (Simon 2010, the
+	// density-truncation form): no gain to tune, a move bounded by the
+	// state's own uncertainty, a no-op well inside the interval, applied to
+	// the position block alone. A belief shorter than the span gives no
+	// interval, and that frame is extent evidence rather than a position
+	// measurement; a merge candidate's frame is left alone. Default false.
+	Containment bool
+	// RectangleFit fits the rectangle orientation to each associated
+	// frame's points (l4perception.FitRectangle) and records it on the row
+	// as a diagnostic: the geometry convergence plan's W1a. Nothing reads it
+	// yet; W1b makes it the heading observation. Default false.
+	RectangleFit bool
+	// RectangleHeading makes the rectangle fit the solid body's heading
+	// observation, the geometry convergence plan's W1b (solidBodyAxis): the
+	// body axis is filtered modulo 90 degrees from each frame's fit, with
+	// process noise, and labelled into a heading by the course at
+	// CourseAlignmentMinSpeedMps or more and by continuity with the last
+	// heading below it. The faces are found along that heading rather than
+	// along the course, and its extents are admitted along it. Until the
+	// axis has been observed, or when the fit keeps abstaining, the heading
+	// is what it would be without this option. It records the fit on the row
+	// as RectangleFit does. Default false.
+	RectangleHeading bool
+	// RectangleCourseFusion, with RectangleHeading, takes the course as a
+	// second observation of the axis at CourseAlignmentMinSpeedMps or more,
+	// with the course's own variance plus a sideslip allowance
+	// (axisCourseSlipRad), refused like a fit beyond the gate: a moving
+	// vehicle's velocity runs along its axis, and the filtered velocity is
+	// steadier frame to frame than a fit on the frame's returns, whose jitter
+	// otherwise reaches the centre through the faces. It also holds the
+	// label through a turn: a resolved body keeps its quadrant while the
+	// course is more than axisLabelCourseMarginRad from the nearest candidate,
+	// taking only the front from the course. Default false.
+	RectangleCourseFusion bool
+	// RectangleSigmaScale, with RectangleHeading, multiplies the fit's
+	// standard deviation where the axis filter weighs it: the plan's scale
+	// c, which consecutive frames of one vehicle at one aspect make
+	// necessary, since their fits are not independent. Zero means one.
+	RectangleSigmaScale float32
 	// ExtentGrowthAdmission keeps length evidence flowing while the track is
 	// a merge candidate, if the cluster is no wider across the body than the
 	// believed width plus extentGrowthLateralMarginMetres. Width is still
@@ -334,6 +382,43 @@ type SolidBodyMeasurement struct {
 	FallbackReason string
 	// ReferenceChange is the reference change this instant made, if any.
 	ReferenceChange ReferenceChange
+	// ContainmentShare is the share of the frame's cluster points inside the
+	// box the estimate reports (its position, orientation and dimensions,
+	// widened by DefaultFaceToleranceMetres), and ContainedPoints is how many
+	// points were counted. It measures the box against the points it was
+	// measured from, since the body cannot be where its returns are not. It
+	// is meaningful only when ContainmentKnown: a seed, a coast or a frame
+	// with no orientation carries none.
+	ContainmentShare float32
+	ContainedPoints  int
+	ContainmentKnown bool
+	// ObservedSpanAlongMetres and ObservedSpanAcrossMetres are the cluster's
+	// trimmed spans along and across the reported orientation, zero when
+	// unknown. A span is a lower bound on the dimension (state plan 9.2.1),
+	// and along a wrong axis it overstates, so this is the reported extent
+	// measured against the frame, not a floor on it.
+	ObservedSpanAlongMetres  float32
+	ObservedSpanAcrossMetres float32
+	// ExtentFloor names the reported dimensions Containment floored at the
+	// frame's window-minimum span this instant: "", "length", "width" or
+	// "length,width". The beliefs are untouched.
+	ExtentFloor string
+	// ContainmentShiftAlongMetres and ContainmentShiftAcrossMetres are the
+	// moves Containment's truncation made along the body axis and along its
+	// left normal this instant, signed; zero when it did not act.
+	ContainmentShiftAlongMetres  float32
+	ContainmentShiftAcrossMetres float32
+	// Rectangle is the frame's rectangle orientation fit under RectangleFit:
+	// the axis modulo 90 degrees with its sigma and plateau, the spans along
+	// and across it, and why it abstained, if it did. RectangleKnown is
+	// false when no fit was made.
+	RectangleKnown      bool
+	RectangleAxisRad    float32
+	RectangleSigmaRad   float32
+	RectanglePlateauRad float32
+	RectangleSpan1      float32
+	RectangleSpan2      float32
+	RectangleAbstain    string
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -363,6 +448,15 @@ type solidBodyTrack struct {
 	// from near-edge frames, with the same corroborated-maximum semantics as
 	// the tracked extent beliefs.
 	lengthBelief, widthBelief extentBelief
+	// floorAlong and floorAcross are this frame's window-minimum observed
+	// spans under Containment, the floor assembleSolidBody reports the
+	// dimensions at; zero on a frame without points.
+	floorAlong, floorAcross float32
+
+	// axis is the filtered body axis under RectangleHeading, and fit the
+	// frame's rectangle fit it read, kept so the row records the same fit.
+	axis solidBodyAxis
+	fit  frameRectangleFit
 
 	lastObservedNanos int64
 	support           SupportState
@@ -405,11 +499,17 @@ type nearEdgeFrame struct {
 	fallback string
 	edges    EdgeMeasurementSet
 	// axis is the body axis the faces and spans are taken along, and
-	// axisIsCourse says it is the solid body's course (faceAxis).
+	// axisIsCourse says it is believed without the course check: the solid
+	// body's course, or under RectangleHeading an observed axis within
+	// axisBelievedSigmaRad (faceAxis).
 	axis         float32
 	axisIsCourse bool
 	// length and width are the beliefs the half-extents came from.
 	length, width DimensionBelief
+	// mergeCandidate is the track's merge flag as the step knows it: this
+	// frame's for the shadow, the previous frame's under NearEdgeTracking,
+	// where the flags follow the update.
+	mergeCandidate bool
 }
 
 // nearEdgeOutcome is what one step of the state machine did to the dynamic
@@ -617,9 +717,10 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	class := solidBodyClass(track)
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
+	t.observeAxis(track, sb, cluster)
 	sb.orientation = t.solidBodyOrientation(track, sb)
 
-	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount)
+	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount, track.MergeCandidate)
 	m, outcome, _ := t.stepNearEdge(sb, cluster, prior, frame)
 	measured := outcome != nearEdgeCoast
 	if outcome == nearEdgeMedoid {
@@ -649,8 +750,8 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 // mitigation: until HitsToConfirm observations have passed, the heading that
 // selects a face is itself unconverged, so the medoid is used and the body
 // stays referenced to it.
-func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, observations int) nearEdgeFrame {
-	f := nearEdgeFrame{axis: sb.orientation.PsiRad}
+func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, observations int, mergeCandidate bool) nearEdgeFrame {
+	f := nearEdgeFrame{axis: sb.orientation.PsiRad, mergeCandidate: mergeCandidate}
 	switch {
 	case t.Config.SolidBody.OriginSource == "":
 		f.fallback = "missing_calibrated_sensor_origin"
@@ -760,6 +861,22 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 				applied.addLooseTerm(loose)
 			}
 		}
+		if t.Config.SolidBody.Containment && !f.mergeCandidate {
+			// Only the directions the fix left open: a face has placed the
+			// box along its own normal, and a truncation there would only
+			// follow the far extreme's jitter.
+			alongOpen, acrossOpen := true, true
+			for _, e := range usable {
+				if e.Face.IsLongitudinal() {
+					alongOpen = false
+				} else {
+					acrossOpen = false
+				}
+			}
+			along, across := t.containmentTruncation(&state, &p, f, cluster, alongOpen, acrossOpen)
+			applied.addShift(f.axis, along, across)
+			m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
+		}
 		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
 		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
@@ -775,7 +892,15 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		sb.admitFaces(nil)
 	}
 
-	if outcome == nearEdgeCoast && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
+	if outcome == nearEdgeCoast && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() &&
+		t.Config.SolidBody.Containment && !f.mergeCandidate && f.fallback == "" && len(nearEdgePoints(cluster)) >= DefaultMinFaceSupport {
+		// Under Containment the points can still hold the box: the claim
+		// stands, held to them, and lapses only when there are no points.
+		along, across := t.containmentTruncation(&sb.state, &sb.p, f, cluster, true, true)
+		m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
+		applied.startX, applied.startY = sb.state[0], sb.state[1]
+		applied.measuredX, applied.measuredY = sb.state[0], sb.state[1]
+	} else if outcome == nearEdgeCoast && sb.reference == ReferenceBodyCentre && sb.support.CoastedFrames+1 >= t.solidBodyFacelessLimit() {
 		// The object is being observed, but not in any way this measurement
 		// model can use, and has been for as long as the tracker lets an
 		// unconfirmed hypothesis go unmeasured. Coasting further would let the
@@ -889,6 +1014,15 @@ func (a *nearEdgeApplication) addLooseTerm(l looseMedoidTerm) {
 	a.measuredY += float32(along * l.hy)
 }
 
+// addShift records Containment's moves in a fix's application, along the
+// axis and its left normal, so the recorded measurement is where the
+// truncation left the position.
+func (a *nearEdgeApplication) addShift(axis float32, along, across float32) {
+	c, s := math.Cos(float64(axis)), math.Sin(float64(axis))
+	a.measuredX += float32(float64(along)*c - float64(across)*s)
+	a.measuredY += float32(float64(along)*s + float64(across)*c)
+}
+
 // translatesReference says whether a re-reference is a translation before it
 // is an update: always for the tracked filter, and for the shadow when asked.
 func (t *Tracker) translatesReference(sb *solidBodyTrack) bool {
@@ -915,6 +1049,7 @@ func translateToFaces(state [4]float32, faces []EdgeMeasurement, cluster WorldCl
 // its state is final: extent evidence, support, lifecycle and the reading.
 func (t *Tracker) completeSolidBodyFrame(track *TrackedObject, class MotionClassBelief, cluster WorldCluster, f nearEdgeFrame, m SolidBodyMeasurement, measured bool) {
 	sb := &track.solidBody
+	sb.floorAlong, sb.floorAcross = 0, 0
 	// Extent evidence comes from every face the model found, used or not.
 	t.admitSolidBodyExtents(track, cluster, f.edges, f.axis, f.axisIsCourse)
 	if measured {
@@ -933,7 +1068,290 @@ func (t *Tracker) completeSolidBodyFrame(track *TrackedObject, class MotionClass
 		t.solidBodyReferenceChanges.ToMedoid++
 	}
 	t.advanceSolidBodyLifecycle(track, class, !measured)
+	t.measureContainment(track, class, cluster, &m)
 	t.publishSolidBody(track, class, m)
+}
+
+// measureContainment records how the box the estimate reports sits on the
+// frame's points: the share inside it and the points' spans along and across
+// its orientation. It reads the state after the frame's update and extent
+// admission, so the box it tests is the one publishSolidBody reports.
+func (t *Tracker) measureContainment(track *TrackedObject, class MotionClassBelief, cluster WorldCluster, m *SolidBodyMeasurement) {
+	points := nearEdgePoints(cluster)
+	sb := &track.solidBody
+	if len(points) == 0 || sb.orientation.Provenance == ProvenanceNone {
+		return
+	}
+	if t.Config.SolidBody.Containment && len(points) >= DefaultMinFaceSupport {
+		// The floor is set after the belief is read, so the two can be told
+		// apart: the beliefs never see it.
+		belief := t.assembleSolidBody(track, class)
+		sb.floorAlong, sb.floorAcross = windowMinimumSpans(points, float64(sb.orientation.PsiRad))
+		floored := t.assembleSolidBody(track, class)
+		m.ExtentFloor = extentFloorName(floored.Length.Metres > belief.Length.Metres, floored.Width.Metres > belief.Width.Metres)
+	}
+	if t.Config.SolidBody.RectangleFit || t.Config.SolidBody.RectangleHeading {
+		fit := sb.rectangleFitFor(track.LastMeasurementUnixNanos, cluster)
+		m.RectangleKnown = fit.Points >= l4perception.RectangleFitMinPoints
+		m.RectangleAxisRad, m.RectangleSigmaRad, m.RectanglePlateauRad = float32(fit.AxisRad), float32(fit.SigmaRad), float32(fit.PlateauRad)
+		m.RectangleSpan1, m.RectangleSpan2, m.RectangleAbstain = float32(fit.Span1), float32(fit.Span2), fit.Abstain
+	}
+	e := t.assembleSolidBody(track, class)
+	inside := boxContainment(points, float64(e.X), float64(e.Y), float64(e.Orientation.PsiRad),
+		float64(e.Length.Metres)/2+DefaultFaceToleranceMetres, float64(e.Width.Metres)/2+DefaultFaceToleranceMetres)
+	m.ContainmentShare, m.ContainedPoints, m.ContainmentKnown = float32(inside)/float32(len(points)), len(points), true
+	m.ObservedSpanAlongMetres, m.ObservedSpanAcrossMetres = observedSpans(points, float64(e.Orientation.PsiRad))
+}
+
+// boxContainment counts the points inside a box of half-extents halfL along
+// the axis at psi and halfW across it, centred at (x, y).
+func boxContainment(points []l4perception.WorldPoint, x, y, psi, halfL, halfW float64) int {
+	c, s := math.Cos(psi), math.Sin(psi)
+	inside := 0
+	for _, p := range points {
+		dx, dy := p.X-x, p.Y-y
+		if math.Abs(dx*c+dy*s) <= halfL && math.Abs(-dx*s+dy*c) <= halfW {
+			inside++
+		}
+	}
+	return inside
+}
+
+// extentFloorName names the dimensions a frame's floor raised.
+func extentFloorName(length, width bool) string {
+	switch {
+	case length && width:
+		return "length,width"
+	case length:
+		return "length"
+	case width:
+		return "width"
+	}
+	return ""
+}
+
+// windowMinimumSpans is the points' window-minimum spans along the axis at
+// psi and across it (minimumAxisSpan, which understates along a wrong axis
+// and cannot overstate), zero for too few points.
+func windowMinimumSpans(points []l4perception.WorldPoint, psi float64) (along, across float32) {
+	sub := floorPoints(points)
+	along = floorSpan(points, sub, float32(psi))
+	across = floorSpan(points, sub, float32(psi+math.Pi/2))
+	return along, across
+}
+
+// floorSpan is the window-minimum span of points along the axis: the angle
+// is searched on sub, and the trimmed span read on every point at the angle
+// found. The span at any angle in the window is at least the window's
+// minimum, so the floor is never below the whole cloud's window minimum,
+// and it overstates it by at most the span's change over the one-degree
+// step the search takes.
+func floorSpan(points, sub []l4perception.WorldPoint, axisRad float32) float32 {
+	span, angle, ok := minimumAxisSpanAngle(sub, axisRad)
+	if !ok {
+		return 0
+	}
+	if len(sub) == len(points) {
+		return span
+	}
+	full, ok := trimmedSpan(points, make([]float64, len(points)), math.Cos(angle), math.Sin(angle))
+	if !ok {
+		return span
+	}
+	return float32(full)
+}
+
+// containmentFloorMaxPoints caps the returns the floor's angle search reads.
+// minimumAxisSpan selects two order statistics at each of 21 angles, so the
+// floor was 42 selections over the cluster per frame; on a near body's full
+// membership, a thousand returns and more, that tripled the median
+// Tracker.Update on kirk0 and raised its p99 by 71 % against a level of
+// 10 %. Searching the angle on a fixed-size subset and reading the span on
+// every point at that angle bounds the cost at two full selections per
+// axis; the containment share and the observed spans still read every
+// return.
+const containmentFloorMaxPoints = 256
+
+// floorPoints is points, or containmentFloorMaxPoints of them drawn at
+// random with the count as the seed, so a frame's floor is reproducible and
+// no ring or azimuth order can leave a face out, as a stride did for the
+// rectangle fit.
+func floorPoints(points []l4perception.WorldPoint) []l4perception.WorldPoint {
+	n := len(points)
+	if n <= containmentFloorMaxPoints {
+		return points
+	}
+	idx := make([]int, n)
+	for i := range idx {
+		idx[i] = i
+	}
+	rng := rand.New(rand.NewSource(int64(n)))
+	out := make([]l4perception.WorldPoint, containmentFloorMaxPoints)
+	for i := range out {
+		j := i + rng.Intn(n-i)
+		idx[i], idx[j] = idx[j], idx[i]
+		out[i] = points[idx[i]]
+	}
+	return out
+}
+
+// Containment's bound noise: the trimmed extreme's sampling spread, and the
+// Pandar40P's azimuth step as a range-proportional spacing between returns.
+const (
+	containmentExtremeNoiseMetres = 0.1
+	containmentAngularSpacingRad  = 0.0035
+	// containmentVarianceFloor is the least variance a truncation leaves
+	// along its direction, (0.01 m)^2.
+	containmentVarianceFloor = 1e-4
+)
+
+// containmentTruncation holds the position to the interval the frame's
+// points allow along and across the body axis, on the directions asked for:
+// a box with the belief's upper tail as its dimension must contain the
+// points' trimmed extremes. It returns the moves it made along the axis and
+// its left normal.
+func (t *Tracker) containmentTruncation(state *[4]float32, p *[16]float32, f nearEdgeFrame, cluster WorldCluster, alongOpen, acrossOpen bool) (along, across float32) {
+	points := nearEdgePoints(cluster)
+	if len(points) < DefaultMinFaceSupport || f.length.Metres <= 0 || f.width.Metres <= 0 {
+		return 0, 0
+	}
+	scratch := make([]float64, len(points))
+	c, s := math.Cos(float64(f.axis)), math.Sin(float64(f.axis))
+	rangeMetres := math.Hypot(float64(state[0]-t.Config.SolidBody.SensorX), float64(state[1]-t.Config.SolidBody.SensorY))
+	if alongOpen {
+		along = truncateAxis(state, p, points, scratch, c, s, f.length, rangeMetres)
+	}
+	if acrossOpen {
+		across = truncateAxis(state, p, points, scratch, -s, c, f.width, rangeMetres)
+	}
+	return along, across
+}
+
+// truncateAxis is containmentTruncation for one unit direction (ux, uy) and
+// the belief of the dimension along it. The points' trimmed extremes, taken
+// relative to the position, bound the centre's offset d to
+// [hi - h, lo + h] with h half the belief's upper tail; an empty interval
+// means the belief cannot hold the span and the frame is extent evidence.
+// The interval is widened by the bound's noise, the position's marginal
+// along the direction is truncated to it, and its mean and variance replace
+// the marginal's through the position block's regression on that direction
+// (the conditional form, which keeps the block positive semi-definite);
+// velocity rows are untouched. It returns the move along the direction.
+func truncateAxis(state *[4]float32, p *[16]float32, points []l4perception.WorldPoint, scratch []float64,
+	ux, uy float64, belief DimensionBelief, rangeMetres float64) float32 {
+	lo, hi, ok := trimmedExtremes(points, scratch, ux, uy)
+	if !ok {
+		return 0
+	}
+	centre := ux*float64(state[0]) + uy*float64(state[1])
+	lo, hi = lo-centre, hi-centre
+	upper := float64(belief.Metres + belief.SigmaMetres)
+	a, b := hi-upper/2, lo+upper/2
+	if a > b {
+		return 0
+	}
+	shortfall := (upper - (hi - lo)) / 2
+	spacing := rangeMetres * containmentAngularSpacingRad
+	boundSigma := math.Sqrt(containmentExtremeNoiseMetres*containmentExtremeNoiseMetres + spacing*spacing + shortfall*shortfall)
+	a, b = a-boundSigma, b+boundSigma
+	// The marginal along the direction, and the whole state's regression on
+	// it: k = P u / sigma^2, so u·k = 1. The truncated marginal replaces the
+	// prior one through that regression, the conditional form, which moves
+	// the velocity by its covariance with the position and keeps the
+	// covariance positive semi-definite; adjusting the position block alone
+	// leaves the cross terms inconsistent and the next update's velocity
+	// gain unbounded.
+	var k [4]float64
+	for i := 0; i < 4; i++ {
+		k[i] = float64(p[i*4+0])*ux + float64(p[i*4+1])*uy
+	}
+	sigma2 := ux*k[0] + uy*k[1]
+	if !(sigma2 > 0) || math.IsInf(sigma2, 0) {
+		return 0
+	}
+	mean, variance, ok := truncatedNormalMoments(0, math.Sqrt(sigma2), a, b)
+	if !ok {
+		return 0
+	}
+	// The truncation never claims the position to better than a
+	// centimetre, and in float32 a diagonal can round below zero.
+	variance = math.Max(variance, containmentVarianceFloor)
+	for i := range k {
+		k[i] /= sigma2
+		state[i] += float32(k[i] * mean)
+	}
+	d := variance - sigma2
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			v := float64(p[i*4+j]) + d*k[i]*k[j]
+			if i == j && v < 0 {
+				v = 0
+			}
+			p[i*4+j] = float32(v)
+		}
+	}
+	return float32(mean)
+}
+
+// truncatedNormalMoments is the mean and variance of N(mu, sigma^2)
+// truncated to [a, b]. It is false when the interval holds too little of
+// the density to condition on.
+func truncatedNormalMoments(mu, sigma, a, b float64) (mean, variance float64, ok bool) {
+	alpha, beta := (a-mu)/sigma, (b-mu)/sigma
+	phi := func(z float64) float64 { return math.Exp(-z*z/2) / math.Sqrt(2*math.Pi) }
+	cdf := func(z float64) float64 { return 0.5 * (1 + math.Erf(z/math.Sqrt2)) }
+	mass := cdf(beta) - cdf(alpha)
+	if !(mass > 1e-12) {
+		return 0, 0, false
+	}
+	pa, pb := phi(alpha), phi(beta)
+	lambda := (pa - pb) / mass
+	mean = mu + sigma*lambda
+	variance = sigma * sigma * (1 + (alpha*pa-beta*pb)/mass - lambda*lambda)
+	if !(variance > 0) {
+		variance = 0
+	}
+	return mean, variance, true
+}
+
+// trimmedExtremes is the lower and upper trimmed projections of the points
+// on a direction, by the selection trimmedSpan uses.
+func trimmedExtremes(points []l4perception.WorldPoint, scratch []float64, dirX, dirY float64) (lo, hi float64, ok bool) {
+	if len(points) == 0 {
+		return 0, 0, false
+	}
+	for i, p := range points {
+		scratch[i] = p.X*dirX + p.Y*dirY
+	}
+	last := len(points) - 1
+	l := int(spanTrimPercent / 100 * float64(last))
+	h := last - l
+	upper := l4perception.NthFloat64(scratch[:len(points)], h)
+	lower := upper
+	if l < h {
+		lower = l4perception.NthFloat64(scratch[:h], l)
+	}
+	if math.IsInf(upper-lower, 0) || math.IsNaN(upper-lower) {
+		return 0, 0, false
+	}
+	return lower, upper, true
+}
+
+// observedSpans is the points' trimmed spans along the axis at psi and across
+// it, zero for too few points to trim.
+func observedSpans(points []l4perception.WorldPoint, psi float64) (along, across float32) {
+	if len(points) < DefaultMinFaceSupport {
+		return 0, 0
+	}
+	c, s := math.Cos(psi), math.Sin(psi)
+	scratch := make([]float64, len(points))
+	if span, ok := trimmedSpan(points, scratch, c, s); ok {
+		along = float32(span)
+	}
+	if span, ok := trimmedSpan(points, scratch, -s, c); ok {
+		across = float32(span)
+	}
+	return along, across
 }
 
 // SolidBodyReferenceChanges returns the solid bodies' reference changes since
@@ -1044,6 +1462,12 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 // heading that points the other way.
 func (t *Tracker) faceAxis(sb *solidBodyTrack) (float32, bool) {
 	psi := sb.orientation.PsiRad
+	if t.Config.SolidBody.RectangleHeading && sb.axis.known {
+		// The faces along the observed axis, not the course: the axis is
+		// what the body's own returns say, and the course is what they
+		// were meant to stand in for.
+		return psi, t.axisBelieved(sb)
+	}
 	if t.Config.SolidBody.CourseAlignedFaces {
 		vx, vy := float64(sb.state[2]), float64(sb.state[3])
 		if math.Hypot(vx, vy) >= CourseAlignmentMinSpeedMps {
@@ -1311,22 +1735,29 @@ const (
 // the minimum over a window containing it is at most that span, so the result
 // can understate the dimension but cannot overstate it.
 func minimumAxisSpan(points []l4perception.WorldPoint, axisRad float32) (float32, bool) {
+	span, _, ok := minimumAxisSpanAngle(points, axisRad)
+	return span, ok
+}
+
+// minimumAxisSpanAngle is minimumAxisSpan with the angle the minimum was
+// found at.
+func minimumAxisSpanAngle(points []l4perception.WorldPoint, axisRad float32) (float32, float64, bool) {
 	if len(points) < DefaultMinFaceSupport {
-		return 0, false
+		return 0, 0, false
 	}
 	projections := make([]float64, len(points))
-	best := math.Inf(1)
+	best, bestAngle := math.Inf(1), float64(axisRad)
 	for deg := -spanSearchHalfWindowDeg; deg <= spanSearchHalfWindowDeg; deg += spanSearchStepDeg {
 		angle := float64(axisRad) + float64(deg)*math.Pi/180
 		span, ok := trimmedSpan(points, projections, math.Cos(angle), math.Sin(angle))
 		if ok && span < best {
-			best = span
+			best, bestAngle = span, angle
 		}
 	}
 	if math.IsInf(best, 0) {
-		return 0, false
+		return 0, 0, false
 	}
-	return float32(best), true
+	return float32(best), bestAngle, true
 }
 
 // trimmedSpan is the extent of the points along a unit direction between the
@@ -1388,6 +1819,7 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	}
 	class := solidBodyClass(track)
 	t.advanceSolidBodyLifecycle(track, class, true)
+	sb.floorAlong, sb.floorAcross = 0, 0
 	t.publishSolidBody(track, class, SolidBodyMeasurement{FallbackReason: "no_association"})
 }
 
@@ -1410,7 +1842,7 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 	sb := &track.solidBody
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
-	return SolidBodyEstimate{
+	e := SolidBodyEstimate{
 		StateModel: StateModelCVCartesianV1,
 		Reference:  sb.reference,
 		X:          sb.state[0],
@@ -1436,6 +1868,16 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 		LastObservedUnixNanos: sb.lastObservedNanos,
 		Support:               sb.support,
 	}
+	// Containment's floor: the reported box is never shorter than the points
+	// this frame measured along its axes. The beliefs are read above and
+	// never see it.
+	if sb.floorAlong > e.Length.Metres {
+		e.Length.Metres = sb.floorAlong
+	}
+	if sb.floorAcross > e.Width.Metres {
+		e.Width.Metres = sb.floorAcross
+	}
+	return e
 }
 
 // publishSolidBody stores the reading for this instant.
@@ -1468,7 +1910,9 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 }
 
 // solidBodyOrientation is this frame's orientation belief: the tracked
-// heading's, or under CourseHeading, a blend toward the body's course.
+// heading's, or under CourseHeading, a blend toward the body's course; under
+// RectangleHeading, once the axis has been observed, the labelled axis
+// (axisOrientation) in place of both.
 //
 // The tracked axis is kept, pointed the way the body travels, while it agrees
 // with the course to within the span window (10 degrees), the window the
@@ -1481,6 +1925,9 @@ func orientationFromTrack(t *TrackedObject, previous OrientationBelief) Orientat
 // whole window in one frame, and moved the centre sideways by half a length
 // times that angle.
 func (t *Tracker) solidBodyOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
+	if o, ok := t.axisOrientation(track, sb); ok {
+		return o
+	}
 	tracked := orientationFromTrack(track, sb.orientation)
 	if !t.Config.SolidBody.CourseHeading {
 		return tracked

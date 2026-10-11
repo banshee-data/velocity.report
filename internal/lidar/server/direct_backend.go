@@ -241,6 +241,11 @@ func (d *DirectBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) er
 	if speedRatio <= 0 {
 		speedRatio = 1.0
 	}
+	if cfg.TuningConfigPath != "" {
+		if _, err := d.ws.applyTuningConfigFile(cfg.TuningConfigPath); err != nil {
+			return err
+		}
+	}
 	return d.ws.StartPCAPForSweep(
 		cfg.PCAPFile, cfg.AnalysisMode, speedMode, speedRatio,
 		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries,
