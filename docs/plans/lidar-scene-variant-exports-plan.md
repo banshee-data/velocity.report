@@ -5,8 +5,8 @@ start that now takes `tuning_config`, and exports each run as a web scene the ex
 opens unchanged. The set of exports, with a manifest that says exactly which file, fingerprint and
 build made each one, is how an arm is shown rather than only scored.
 
-- **Status:** Planned. The tooling is built on the branch `ai/tools/scene-variant-exports`, which
-  starts from this plan; nothing here is on `main` yet
+- **Status:** Tooling built and unit-tested on the branch `ai/tools/scene-variant-exports`; not
+  yet run against a server, so the first set and its windows are unverified
 - **Canonical:** [config/CONFIG.md](../../config/CONFIG.md)
 - **Layers:** L9 Endpoints (replay start, configs API), offline tooling, the web scene player
   (read only)
@@ -63,9 +63,10 @@ and writes the result where the player can open it. It then writes one manifest 
    variant to the site is the existing swap rather than a conversion.
 4. **Configs are named as the dropdown names them**: a path relative to the server's config
    directory, such as `experiments/solid-body-a2.json`.
-5. **One environment.** The Makefile targets reuse `SCENE_ASSETS_ENV` and
-   `scene-assets-preflight`, so the replay speed, settle mode, corpus root, binary stamp and
-   database are the ones a published scene is made with.
+5. **One environment.** The Makefile targets reuse `SCENE_ASSETS_ENV` and the binary and server
+   half of `scene-assets-preflight`, split out as `scene-build-preflight`, so the replay speed,
+   settle mode, corpus root, binary stamp and database are the ones a published scene is made
+   with. The site half stays with `scene-assets`; a set resolves its own sites.
 
 ## The set file
 
@@ -155,9 +156,9 @@ minutes it took.
 | Check              | When           | What it refuses or reports                                                                                                                                                                                                                               |
 | ------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Configs applicable | Before any run | A variant whose file is missing, not `kind: tuning`, or not `applicable`, with the server's `reason`                                                                                                                                                     |
-| Build stamp        | Before any run | `./velocity` not built from `HEAD`, through `scene-assets-preflight`                                                                                                                                                                                     |
+| Build stamp        | Before any run | `./velocity` not built from `HEAD`, through `scene-build-preflight`                                                                                                                                                                                      |
 | Server and records | Before any run | The server not answering, or the run records unreadable, as for `make scene-assets`                                                                                                                                                                      |
-| Fingerprint echo   | After a start  | A start response whose `tuning_fingerprint` differs from the one listed: the file changed during the batch                                                                                                                                               |
+| Fingerprint echo   | After a replay | A start response whose `tuning_fingerprint` differs from the one listed: the file changed during the batch                                                                                                                                               |
 | The right run      | After a replay | A run record created before the start request. Today `newest_run()` takes the newest run of the file, which is ambiguous once one capture is replayed several times; the lookup gains a lower bound on `created_at`, and `make scene-assets` gets it too |
 | Distinct params    | After the set  | Two variants whose exports carry the same `tuning_hash`: one file's changes did not reach the pipeline, so the comparison is void                                                                                                                        |
 | One build          | After the set  | Variants exported by different builds                                                                                                                                                                                                                    |
@@ -212,21 +213,23 @@ for finding what to score, and for showing a result once it is scored.
 
 On the tooling branch, `ai/tools/scene-variant-exports`:
 
-- [ ] `replay_stretch()` takes an optional `tuning_config`; the run lookup takes a lower bound on
-      `created_at`; tests for both in `test_publish_scenes.py` (`S`)
-- [ ] `export-scene-variants.py`: set validation, preflight against `GET /api/lidar/configs`,
+- [x] `replay()` takes an optional `tuning_config` and `replay_stretch()` keeps its contract; the
+      run lookup takes a lower bound on `created_at`; the manifest write and the swap are shared
+      helpers; tests for each in `test_publish_scenes.py` (`S`)
+- [x] `export-scene-variants.py`: set validation, preflight against `GET /api/lidar/configs`,
       the window, replay and export per variant, `set.json`, resume markers, the distinct-params and
       one-build checks, `--status` (`M`)
-- [ ] `test_export_scene_variants.py` with no server: validation, window arithmetic, preflight
-      refusal, fingerprint echo, duplicate `tuning_hash`, resume, the manifest; wired into
-      `PYTHON_TEST_PATHS` and `tox.ini` (`M`)
-- [ ] Makefile: `scene-variants`, `scene-variants-status`, `scene-variants-recipes`,
-      `SCENE_VARIANTS_DIR`, reusing `SCENE_ASSETS_ENV` and `scene-assets-preflight` (`S`)
-- [ ] Per-variant scene-capture recipes from a base recipe (`S`)
-- [ ] The first set, `geometry-convergence.json`, on the W7 windows, its windows checked on the
-      first run (`S`)
-- [ ] The runbook in the S2 archive README beside Web scene assets, and a pointer from
+- [x] `test_export_scene_variants.py` with no server: validation, window arithmetic, preflight
+      refusal, fingerprint echo, duplicate `tuning_hash`, resume, the manifest, a whole batch with
+      the replay mocked; wired into `PYTHON_TEST_PATHS`, where the other S2 archive tests run (`M`)
+- [x] Makefile: `scene-variants`, `scene-variants-status`, `scene-variants-recipes`,
+      `SCENE_VARIANTS_DIR`, reusing `SCENE_ASSETS_ENV` and `scene-build-preflight` (`S`)
+- [x] Per-variant scene-capture recipes from a base recipe (`S`)
+- [x] The first set, `geometry-convergence.json`, on the W7 windows (`S`)
+- [x] The runbook in the S2 archive README beside Web scene assets, and a pointer from
       [CONFIG.md](../../config/CONFIG.md#experiment-parameter-sets) under Running a set (`S`)
+- [ ] The first run against a server: the set made end to end, its windows checked by eye
+      against the trucks the report names and corrected in the set file (`S`)
 
 ### Deferred
 

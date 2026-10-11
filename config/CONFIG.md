@@ -239,10 +239,12 @@ fails the test rather than running as something other than its arm.
   example `lidar-state-estimation-baseline -tuning <file>`.
 - **Startup.** `--config config/experiments/<file>.json` runs a set from the
   first frame. Use this for a set that changes a startup-only key.
-- **As web scenes.** Planned in
-  [scene variant exports](../docs/plans/lidar-scene-variant-exports-plan.md):
-  one window of a site replayed under each file of a set, every run
-  exported as a web scene the player opens unchanged.
+- **As web scenes.** `make scene-variants SET=<set>.json` replays one
+  window of a site under each file of a set and exports every run as a web
+  scene the player opens unchanged, with a manifest naming each file and
+  fingerprint. See
+  [Scene variant exports](../tools/s2-archive/README.md#scene-variant-exports)
+  and the [plan](../docs/plans/lidar-scene-variant-exports-plan.md).
 
 The config directory is `--lidar-config-dir`, by default the directory of
 `--config`. A file can be applied at a replay start when its engine
