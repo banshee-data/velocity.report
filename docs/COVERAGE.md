@@ -50,7 +50,7 @@ xdg-open web/coverage/lcov-report/index.html  # Linux
 
 Coverage is automatically generated and uploaded to Codecov on every pull request:
 
-- **Go CI** ([.github/workflows/go-ci.yml](../.github/workflows/go-ci.yml)): Runs tests with `-coverprofile=coverage.out`
+- **Go CI** ([.github/workflows/go-ci.yml](../.github/workflows/go-ci.yml)): Runs the suite as parallel shards ([scripts/go-test-shard.sh](../scripts/go-test-shard.sh)), each writing its own `-coverprofile`; a final job merges the profiles and uploads them
 - **Web CI** ([.github/workflows/web-ci.yml](../.github/workflows/web-ci.yml)): Uses Jest's built-in coverage to generate lcov reports
 
 ### Codecov configuration
