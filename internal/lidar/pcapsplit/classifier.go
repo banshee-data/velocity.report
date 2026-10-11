@@ -81,6 +81,9 @@ func NewMotionClassifier(sensorID, sourcePath string, tuningCfg *config.TuningCo
 		return nil, fmt.Errorf("sensor ID is required")
 	}
 	tuningCfg = tuningOrEmbedded(tuningCfg)
+	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
+		return nil, err
+	}
 	bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 	params := bgConfig.ToBackgroundParams()
 	bg := l3grid.NewBackgroundManagerDI(sensorID, gridRings, gridAzBins, params, nil)

@@ -56,6 +56,9 @@ func Run(cfg Config) (*l3grid.SettlingReport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
 	}
+	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
+		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
+	}
 	log.Printf("loaded tuning config (config=%s)", cfg.TuningFile)
 
 	bgConfig := backgroundConfigForEvaluation(tuningCfg)

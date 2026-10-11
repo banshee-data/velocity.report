@@ -346,6 +346,12 @@ func Run(cfg Config) int {
 // mutually consistent — a p95 from one run beside a heap figure from another
 // would describe a run that never happened.
 func runRepeated(cfg Config) (*result, *PerformanceMetrics, *RepeatSpread, error) {
+	// Once, before any replay: every repeat builds its pipeline from the same
+	// config, and a nil one resolves to the embedded defaults.
+	if err := tuningOrEmbedded(cfg.Tuning).ValidateImplementedEngines(); err != nil {
+		return nil, nil, nil, err
+	}
+
 	repeats := cfg.Repeats
 	if repeats < 1 {
 		repeats = 1

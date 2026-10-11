@@ -649,6 +649,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
 	}
+	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
+		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
+	}
 	sequence, err := configuredCaptureSequence(cfg, pcapFiles)
 	if err != nil {
 		return nil, err
