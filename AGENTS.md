@@ -315,6 +315,7 @@ The following repository workflow skills are available as Claude Code slash comm
 | docs-release-prep     | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep                        |
 | release-prep          | `/release-prep [--scope X]`       | Full release gate: format, lint, test, build, drift, style, docs, changelog           |
 | research-briefing     | `/research-briefing [--since]`    | Weekly LiDAR and safety literature review: discover, evaluate against the repo, brief |
+| lidar-market-review   | `/lidar-market-review [date]`     | Fortnightly LiDAR price review: update the market watch Latest table and log          |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 
