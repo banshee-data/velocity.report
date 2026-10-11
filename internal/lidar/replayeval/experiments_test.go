@@ -81,7 +81,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFullMembers,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyReferenceTranslation,
-		ExperimentSolidBodyVehicleExtentFloor}
+		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -190,7 +190,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)

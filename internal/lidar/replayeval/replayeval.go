@@ -688,6 +688,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, fmt.Errorf("apply %s: %w", ExperimentNoRegionOverrides, err)
 		}
 	}
+	if hasExperiment(experiments, ExperimentSupportFilter) {
+		params := l3grid.DefaultSupportFilterParams()
+		if err := bgMgr.SetSupportFilter(&params); err != nil {
+			return nil, fmt.Errorf("apply %s: %w", ExperimentSupportFilter, err)
+		}
+	}
 
 	// --- L5, L6 ---
 	trackerCfg, err := trackerConfigFor(tuningCfg.L5.CvKfV1, cfg.MeasurementSourceMode, experiments, cfg.ContinuityCoverage)

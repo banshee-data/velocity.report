@@ -57,6 +57,15 @@ type BackgroundParams struct {
 	// fingerprint does not move.
 	DisableRegionOverrides bool
 
+	// SupportFilter, when set, runs the range-image support filter on the
+	// per-point foreground mask after every cell has been updated (the
+	// beam-wise review's E4): a cell keeps its foreground only when enough
+	// neighbouring cells hold foreground at a similar range, so isolated
+	// speckle and flicker become background without touching the model.
+	// Go-level and default nil, so the config fingerprint does not move; the
+	// replay experiment support_filter sets it to DefaultSupportFilterParams.
+	SupportFilter *SupportFilterParams
+
 	// SeedFromFirstObservation, when true, will initialize empty background cells
 	// from the first observation seen for that cell. This is useful for PCAP
 	// replay mode where there is no prior live-warmup data; default: false.
