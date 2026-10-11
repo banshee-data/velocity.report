@@ -46,6 +46,9 @@ frozen score against reviewed body-centre, size and following-gap references, on
 [solid-body alignment](operations/solid-body-physical-alignment-kirk0-2026-10.md) follows it:
 why the solid body misses both trucks, and opt-in experiments that correct their heading and
 length, guarded on the 23-site corpus. The
+[zero-code L3 arms report](operations/l3-zero-code-arms-kirk-2026-10.md) measures what
+holding the region overrides off, and narrower base windows, do to labelled recall, false
+foreground and stationary tracks on kirk0 and kirk1. The
 [geometry convergence plan](../plans/lidar-tracker-geometry-convergence-plan.md) sets out what
 replaces those patches: a heading the tracker observes every frame, and a box that holds its
 points.

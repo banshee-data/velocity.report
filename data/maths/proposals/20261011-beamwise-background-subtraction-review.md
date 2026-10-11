@@ -16,6 +16,10 @@ decision rule for Section 7. No code and no tuning default was changed.
   [parameter campaign 2026-09, pass 7](../../../docs/lidar/operations/parameter-experiment-campaign-2026-09.md),
   [scene-change recovery sprint](../../../docs/plans/lidar-scene-change-recovery-sprint-plan.md),
   [replay experiments](../../../internal/lidar/replayeval/experiments.go)
+- **Measured:** the zero-code arms of Section 6 were run the same day on kirk0 and kirk1:
+  [report](../../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md). The region
+  overrides are the lever (recall 59% to 94% on kirk0), the base window's shape is not, and no
+  arm passes Stage A: every one trips M3
 
 ## 1. Verdict
 
