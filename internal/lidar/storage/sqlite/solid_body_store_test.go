@@ -105,6 +105,43 @@ func TestSolidBodyRoundTripsThroughItsOwnTable(t *testing.T) {
 	}
 }
 
+// The containment detail (migration 000059 and 000060) round-trips, and a
+// row without a share reads back unknown rather than zero.
+func TestSolidBodyContainmentDetailRoundTrips(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+
+	held := testSolidBody("observation/v1/a", 100)
+	held.Reading.Measurement.ContainmentKnown, held.Reading.Measurement.ContainmentShare, held.Reading.Measurement.ContainedPoints = true, 0.97, 212
+	held.Reading.Measurement.ObservedSpanAlongMetres, held.Reading.Measurement.ObservedSpanAcrossMetres = 4.25, 1.75
+	held.Reading.Measurement.ExtentFloor = "length"
+	held.Reading.Measurement.ContainmentShiftAlongMetres, held.Reading.Measurement.ContainmentShiftAcrossMetres = 0.12, -0.3
+	held.Reading.Measurement.RectangleKnown, held.Reading.Measurement.RectangleAxisRad = true, 0.42
+	held.Reading.Measurement.RectangleSigmaRad, held.Reading.Measurement.RectanglePlateauRad = 0.044, 0.07
+	held.Reading.Measurement.RectangleSpan1, held.Reading.Measurement.RectangleSpan2, held.Reading.Measurement.RectangleAbstain = 4.3, 1.8, "wide_plateau"
+	unknown := testSolidBody("observation/v1/b", 200)
+	for _, sb := range []TrackSolidBody{held, unknown} {
+		if err := store.InsertSolidBody(sb); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := store.ListSolidBodiesBySource("source/v1/frame")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []TrackSolidBody{held, unknown}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("containment detail did not round-trip:\n got %+v\nwant %+v", got[0].Reading.Measurement, want[0].Reading.Measurement)
+	}
+	var share, axis any
+	if err := database.QueryRow(`SELECT containment_share, rectangle_axis_rad FROM lidar_track_solid_bodies WHERE estimate_id = ?`, unknown.EstimateID).Scan(&share, &axis); err != nil {
+		t.Fatal(err)
+	}
+	if share != nil || axis != nil {
+		t.Fatalf("an unknown containment share or rectangle axis was stored as %v, %v rather than NULL", share, axis)
+	}
+}
+
 // TestSolidBodySupportDetailRoundTrips: an explained absence, a fragmented
 // or truncated cluster, and a row written before the support token was
 // stored (migration 000053), which reads back unrecorded rather than

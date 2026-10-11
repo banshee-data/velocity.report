@@ -35,6 +35,20 @@ mixed into an output directory, move and edit the report into `docs/` before rem
 from Git. For a branch that has already committed raw results, remove them from the proposed
 commits as well as its final tree before publishing the PR. Do not rewrite shared main history.
 
+## Run experiments from checked-in parameter sets
+
+Run each experiment arm from a tuning config file in `config/experiments/`, not from flags or
+patches typed at the time. If no file holds the arm's parameters, build one before the runs: copy
+`config/tuning.defaults.json`, change only the keys the arm changes, and add a row to
+`config/experiments/README.md` naming each changed key and the report. Run the arm from that file:
+the :8081 replay form's Tuning Config dropdown, `tuning_config` on `POST /api/lidar/pcap/start`,
+`--config` at startup, or a replay tool's `-tuning`. Record the file's path and fingerprint in the
+report's provenance, and commit the file with the report. A parameter set is hand-authored
+configuration, not raw output, so it belongs in Git. `go test ./internal/config -run Experiment`
+fails when a set changes a key its row does not name. Steps, the server's limits on applying a file,
+and the mapping from replay experiment names to keys are in
+[config/CONFIG.md](config/CONFIG.md#experiment-parameter-sets).
+
 ## Project
 
 **velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII: by architecture, not policy.
@@ -301,6 +315,7 @@ The following repository workflow skills are available as Claude Code slash comm
 | docs-release-prep     | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep                        |
 | release-prep          | `/release-prep [--scope X]`       | Full release gate: format, lint, test, build, drift, style, docs, changelog           |
 | research-briefing     | `/research-briefing [--since]`    | Weekly LiDAR and safety literature review: discover, evaluate against the repo, brief |
+| lidar-market-review   | `/lidar-market-review [date]`     | Fortnightly LiDAR price review: update the market watch Latest table and log          |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 

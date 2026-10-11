@@ -48,11 +48,26 @@ Read back:
 curl -s "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" | jq .
 ```
 
+To replay a capture on a whole parameter set rather than a patch, name a
+file under the config directory when the replay starts. The server applies
+it before the replay and echoes its fingerprint:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+  -H "Content-Type: application/json" \
+  -d '{"pcap_file": "kirk0.pcapng", "tuning_config": "experiments/geometry-convergence-candidate.json"}' | jq .
+```
+
+The :8081 replay form offers the same files in its Tuning Config dropdown.
+
 ## 4. Validate and compare
 
 1. Run a representative live session or replay golden PCAP.
 2. Check jitter, fragmentation, misalignment, and empty-box behaviour.
-3. Keep a changelog per parameter set and outcome.
+3. Keep each parameter set you compare as a file under `config/experiments/`
+   with a row naming what it changes, and record its fingerprint with the
+   outcome. See
+   [Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
 
 For structured sweeps:
 

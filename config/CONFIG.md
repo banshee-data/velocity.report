@@ -187,9 +187,142 @@ Hot-reloadable parameters:
 
 - L3 engine parameters (`l3.ema_baseline_v1.*`)
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
-- L5 tracker parameters (`l5.cv_kf_v1.*`)
+- L5 tracker parameters (`l5.cv_kf_v1.*`), including the optional
+  `l5.cv_kf_v1.solid_body` block. A block is applied whole: every key is
+  required, and the block's own rules are checked before any of it reaches
+  the tracker.
 
-`l1.*`, `pipeline.*`, and engine selectors are startup-only.
+`l1.*`, `pipeline.*`, the engine selectors, and every L4 key except the
+three DBSCAN keys above are startup-only.
+
+A whole config file can be applied the same way, from the server's config
+directory, when a PCAP replay starts: see
+[Experiment parameter sets](#experiment-parameter-sets).
+
+## Experiment parameter sets
+
+A run's parameters should be a file someone can open later.
+[experiments/](experiments/) holds a complete tuning config for each
+reported experiment arm. Each is [tuning.defaults.json](tuning.defaults.json)
+with that arm's changes, and its row in
+[experiments/README.md](experiments/README.md) names every key it changes
+and the report it serves. A test,
+[TestExperimentConfigsDeclareEveryChangeFromTheDefaults](../internal/config/experiments_test.go),
+loads each file under the strict loader and fails when a file changes a key
+its row does not name. A stale copy of an older defaults file therefore
+fails the test rather than running as something other than its arm.
+
+| File                                                                                   | Arm                                                  |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [solid-body-shadow.json](experiments/solid-body-shadow.json)                           | Solid body as a shadow, T1 + T3, full members        |
+| [solid-body-a2.json](experiments/solid-body-a2.json)                                   | The shadow plus `near_edge_tracking` (A2)            |
+| [alignment-candidate.json](experiments/alignment-candidate.json)                       | A2 with the alignment options and containment        |
+| [geometry-convergence-candidate.json](experiments/geometry-convergence-candidate.json) | The current candidate: A2 with the rectangle heading |
+
+### Running a set
+
+- **The :8081 status page.** The PCAP Replay form has a Tuning Config
+  dropdown, filled on page load from every `.json` file under the server's
+  config directory. A file that cannot be applied to the running server is
+  listed but disabled, with the reason. "(keep the server's current
+  parameters)" leaves the parameters alone.
+- **The API.** `POST /api/lidar/pcap/start` takes `tuning_config`, a path
+  relative to the config directory, as a JSON or form field. See
+  [pcap-analysis-mode.md](../docs/lidar/operations/pcap-analysis-mode.md#start-pcap-replay-analysis-mode).
+  The server applies the file before it stops the current source. A file
+  that fails to load or changes a startup-only key refuses the start before
+  any parameter changes. The
+  response and `GET /api/lidar/data_source` echo `tuning_config` and
+  `tuning_fingerprint`. `GET /api/lidar/configs` lists the files with their
+  fingerprints and whether each can be applied.
+- **Offline replay.** The replay tools take a set without a server, for
+  example `lidar-state-estimation-baseline -tuning <file>`.
+- **Startup.** `--config config/experiments/<file>.json` runs a set from the
+  first frame. Use this for a set that changes a startup-only key.
+- **As web scenes.** `make scene-variants SET=<set>.json` replays one
+  window of a site under each file of a set and exports every run as a web
+  scene the player opens unchanged, with a manifest naming each file and
+  fingerprint. See
+  [Scene variant exports](../tools/s2-archive/README.md#scene-variant-exports)
+  and the [plan](../docs/plans/lidar-scene-variant-exports-plan.md).
+
+The config directory is `--lidar-config-dir`, by default the directory of
+`--config`. A file can be applied at a replay start when its engine
+selectors, `pipeline` block and L4 keys other than DBSCAN's three match the
+running server's. `l1` is not compared, because the replay sets the source.
+Apply such a file and the server runs every key in it; any other file needs
+a restart with `--config`.
+
+### Building a new set
+
+When an experiment needs parameters that no file here holds, build its set
+before the runs, and commit it with the code and the report:
+
+1. Copy [tuning.defaults.json](tuning.defaults.json) to
+   `config/experiments/<arm>.json`. Start from the defaults even when the arm
+   builds on another set, so the file's changes are the arm's changes.
+2. Change only the keys the arm changes. For solid-body options, add the
+   `l5.cv_kf_v1.solid_body` block with every key present (see the field
+   reference below). Use the mapping below to translate replay experiment
+   names into keys.
+3. Add a row to [experiments/README.md](experiments/README.md) that names
+   each changed key, says what the arm is, and links the report.
+4. Validate it, and run the anti-drift test:
+
+   ```bash
+   make config-validate TUNING_CONFIG=config/experiments/<arm>.json
+   go test ./internal/config -run Experiment
+   ```
+
+5. Run the arm from the file, and record the file's path and fingerprint in
+   the report's provenance beside the commit.
+
+When the defaults move, the test fails for every set until each is
+regenerated from the new defaults. A regenerated set has a new fingerprint.
+The commit a report cites still holds the file as it ran.
+
+### Replay experiment names
+
+The offline replay tools name default-off options as experiments
+(`-experiment solid_body,near_edge_track,...`). Each solid-body name has a
+key in the `l5.cv_kf_v1.solid_body` block. A replay that names experiments
+combines them with the block it loaded: a name turns its option on, and a
+named scale replaces the block's.
+
+| Replay experiment                         | Block key                                              |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `solid_body`                              | `enabled`                                              |
+| `solid_body_full_members`                 | `full_members`                                         |
+| `near_edge_track`                         | `near_edge_tracking`                                   |
+| `near_edge_track_a1`                      | `near_edge_medoid_gate`                                |
+| `solid_body_face_hysteresis`              | `face_hysteresis`                                      |
+| `solid_body_face_consider`                | `face_entry_consider`                                  |
+| `solid_body_course_faces`                 | `course_aligned_faces`                                 |
+| `solid_body_reference_translation`        | `reference_translation`                                |
+| `solid_body_rank_one_medoid`              | `rank_one_medoid_scale`: `1`                           |
+| `solid_body_rank_one_medoid_tight`        | `rank_one_medoid_scale`: `0.25`                        |
+| `solid_body_course_heading`               | `course_heading`                                       |
+| `solid_body_extent_prior_floor`           | `extent_prior_floor`                                   |
+| `solid_body_face_plane_spans`             | `face_plane_spans`                                     |
+| `solid_body_extent_growth`                | `extent_growth_admission`                              |
+| `solid_body_vehicle_extent_floor`         | `vehicle_extent_floor`                                 |
+| `solid_body_end_face_centring`            | `end_face_centring`                                    |
+| `solid_body_end_face_centring_open_prior` | `end_face_centring` and `end_face_centring_open_prior` |
+| `solid_body_containment`                  | `containment`                                          |
+| `solid_body_rectangle_fit`                | `rectangle_fit`                                        |
+| `solid_body_rectangle_heading`            | `rectangle_heading`                                    |
+| `solid_body_rectangle_course_fusion`      | `rectangle_course_fusion`                              |
+| `solid_body_rectangle_sigma_mid`          | `rectangle_sigma_scale`: `1.5`                         |
+| `solid_body_rectangle_sigma_wide`         | `rectangle_sigma_scale`: `2`                           |
+
+The other replay experiments have no config key yet, so a set cannot carry
+them, and the server cannot run them: `adaptive_uncertainty`,
+`likelihood_cost`, `cascade`, `density_cap`, `flip_rule`,
+`no_region_overrides`, `measurement_time`, `capture_gap_predict`,
+`coast_support`, `coast_time_inflation`, `class_coast_bounds`,
+`reacquisition_guard`, `occlusion_continuity` and `fixed_lag_rts`. An arm
+that uses one runs through the offline replay tools, and its report names the
+experiment beside the set.
 
 ## Key order
 
@@ -318,6 +451,44 @@ The heading experiment's additional keys remain explicit, including disabled can
 | `l5.cv_kf_v1.split_size_ratio`                    | float64 | [GetSplitSizeRatio](../internal/config/tuning_accessors.go)                   | Split heuristic ratio.                                                                       |
 | `l5.cv_kf_v1.deleted_track_grace_period`          | string  | [GetDeletedTrackGracePeriod](../internal/config/tuning_accessors.go)          | Deleted-track reuse window.                                                                  |
 | `l5.cv_kf_v1.min_observations_for_classification` | int     | [GetMinObservationsForClassification](../internal/config/tuning_accessors.go) | Minimum observations before classification.                                                  |
+
+### L5 solid body
+
+Optional. The block is absent from the defaults, and a config without it
+runs with the solid body off. When the block is present, every key is
+required. Schema: [L5SolidBody](../internal/config/tuning.go). Mapping onto
+the tracker: [SolidBodyOptionsFromTuning](../internal/lidar/l5tracks/tracking_config.go).
+Plans: [near-edge tracked state](../docs/plans/lidar-near-edge-tracked-state-plan.md),
+[geometry convergence](../docs/plans/lidar-tracker-geometry-convergence-plan.md).
+
+Rules: no option may be set while `enabled` is false, `enabled` requires
+`full_members`, `near_edge_medoid_gate` requires `near_edge_tracking`,
+`end_face_centring_open_prior` requires `end_face_centring`, and scales are
+not negative.
+
+| Path (under `l5.cv_kf_v1.solid_body.`) | Type    | Notes                                                                                                                        |
+| -------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                              | bool    | Runs the solid-body estimator beside the tracked filter. Alone it is a shadow: the tracks are unchanged.                     |
+| `full_members`                         | bool    | Hands the tracker every cluster member each frame. Required by `enabled`: the live pipeline keeps no point sample otherwise. |
+| `near_edge_tracking`                   | bool    | Runs the body's state machine on the tracked filter with A2 face-residual association. Changes the tracks.                   |
+| `near_edge_medoid_gate`                | bool    | A2's ablation A1: body-centre tracks gated on the medoid against the predicted centre.                                       |
+| `face_hysteresis`                      | bool    | Face-transition remedy T1.                                                                                                   |
+| `face_entry_consider`                  | bool    | Face-transition remedy T2.                                                                                                   |
+| `course_aligned_faces`                 | bool    | Remedy T3: faces and spans along the body's own course while it moves.                                                       |
+| `reference_translation`                | bool    | The first fix translates the medoid-referenced position to the body centre.                                                  |
+| `rank_one_medoid_scale`                | float64 | Remedy T5's half-extent scale for a fix by an end face alone; `0` off, `1` loose, `0.25` tight.                              |
+| `course_heading`                       | bool    | The orientation is the course while the body moves.                                                                          |
+| `extent_prior_floor`                   | bool    | A dimension shorter than the class prior keeps the prior.                                                                    |
+| `face_plane_spans`                     | bool    | A face gives the span along its own plane, not its depth.                                                                    |
+| `extent_growth_admission`              | bool    | A merge candidate no wider than the body still gives extents.                                                                |
+| `vehicle_extent_floor`                 | bool    | A rigid vehicle's length and width are at least the smallest road car's.                                                     |
+| `end_face_centring`                    | bool    | At a fix by an end face alone, the position across the body also updates from the face's midpoint.                           |
+| `end_face_centring_open_prior`         | bool    | End-face centring that refuses a narrow face only against a measured width, not a class prior.                               |
+| `containment`                          | bool    | Holds the reported box on the frame's points: extents floored at observed spans, position held to what the points allow.     |
+| `rectangle_fit`                        | bool    | Records each frame's rectangle orientation fit as a diagnostic; nothing reads it.                                            |
+| `rectangle_heading`                    | bool    | The rectangle fit is the body's heading observation (W1b), filtered modulo 90° and labelled by the course.                   |
+| `rectangle_course_fusion`              | bool    | With the rectangle heading, the course is a second observation of the axis at speed.                                         |
+| `rectangle_sigma_scale`                | float64 | Multiplies the rectangle fit's standard deviation in the axis filter; `0` means one. The candidate uses `1.5`.               |
 
 ### Pipeline
 

@@ -343,7 +343,7 @@ cabling, protection, and power conversion, separately from the owned LiDAR, Pi, 
 A $450 LiDAR plus that kit exceeds a hard $500 complete-kit limit. No purchase is authorised.
 See the [dated BOM and estimates][timing-costs].
 The Livox Mid-360 class is excluded by range. The
-[LiDAR market watch](../platform/hardware/lidar-market-watch.md) tracks both rules weekly.
+[LiDAR market watch](../platform/hardware/lidar-market-watch.md) tracks both rules fortnightly.
 
 | Part          | Choice                                                                                                     | Why                                                                                                                           |
 | ------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -505,13 +505,13 @@ deskew merely by attaching an IMU.
 
 ### Item 9: LiDAR market watch
 
-**Summary:** A weekly scheduled check of vendor announcements and used listings against the range
-rule and the budget rule, appended to the market watch page.
+**Summary:** A fortnightly scheduled review of listed new and used prices against the range rule
+and the budget rule, kept in the market watch page's Latest table with a dated change log.
 
 **Steps:**
 
 1. Keep the page's rules current; the first snapshot is in.
-2. Run the weekly routine, which pushes each entry to the `claude/lidar-market-watch` branch.
+2. Run the fortnightly routine (the `lidar-market-review` skill), which pushes each entry to the `claude/lidar-market-watch` branch.
 3. Review monthly; a unit that meets both rules becomes a purchase decision.
 
 **Milestone:** Continuous

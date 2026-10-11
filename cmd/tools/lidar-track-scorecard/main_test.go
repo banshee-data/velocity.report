@@ -210,3 +210,24 @@ func TestReferenceSectionIsAbsentWithoutAReference(t *testing.T) {
 		t.Error("empty reference section was serialised; omitempty should drop it")
 	}
 }
+
+// A solid-body section only appears when the source persisted solid bodies,
+// so a scorecard of a run without them keeps its bytes.
+func TestSolidBodySectionIsAbsentWithoutSolidBodies(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.db")
+	writeEvidence(t, path, "trk_test")
+	doc, err := score(path, 0, "", 2.0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Sources[0].SolidBody != nil {
+		t.Fatal("solid-body section present for a run without solid bodies")
+	}
+	payload, err := marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(payload, []byte(`"solid_body"`)) {
+		t.Error("empty solid-body section was serialised; omitempty should drop it")
+	}
+}

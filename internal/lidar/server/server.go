@@ -81,6 +81,14 @@ type Server struct {
 	packetForwarder *network.PacketForwarder
 	tuningConfigMu  sync.RWMutex
 	tuningConfig    *cfgpkg.TuningConfig
+	// tuningConfigDir is Config.TuningConfigDir made absolute; empty means
+	// no listing. activeTuningPath and activeTuningFingerprint name the
+	// config file last applied by a replay start, relative to the
+	// directory, and its fingerprint; empty until one is. Guarded by
+	// tuningConfigMu with the config they describe.
+	tuningConfigDir         string
+	activeTuningPath        string
+	activeTuningFingerprint string
 
 	// UDP listener lifecycle (live data source)
 	udpListenerConfig network.UDPListenerConfig
@@ -120,6 +128,10 @@ type Server struct {
 	pcapDone                    chan struct{}
 	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
 	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
+	// clusterMembers is the tuning config's solid_body.full_members, read
+	// by the pipeline every frame (KeepClusterMembersRuntime) so a config
+	// applied at runtime hands the tracker the members it asks for.
+	clusterMembers atomic.Bool
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
@@ -279,6 +291,10 @@ type Config struct {
 	// either way it went.
 	AnnotationPacksDir string
 	TuningConfig       *cfgpkg.TuningConfig
+	// TuningConfigDir is the directory whose .json files GET /api/lidar/configs
+	// lists and a replay may start from, by the tuning_config field of
+	// POST /api/lidar/pcap/start. Empty disables both.
+	TuningConfigDir string
 	// SegmentSelectors is the catalogue the segments API ranks with, read
 	// once at startup. Nil reads the default one.
 	SegmentSelectors *segments.Catalogue
@@ -372,6 +388,13 @@ func NewServer(config Config) *Server {
 		listenerConfig.Address = fmt.Sprintf(":%d", config.UDPPort)
 	}
 
+	tuningConfigDir := config.TuningConfigDir
+	if tuningConfigDir != "" {
+		if absDir, err := filepath.Abs(tuningConfigDir); err == nil {
+			tuningConfigDir = absDir
+		}
+	}
+
 	ws := &Server{
 		address:            config.Address,
 		stats:              config.Stats,
@@ -390,6 +413,7 @@ func NewServer(config Config) *Server {
 		vrlogSafeDir:       vrlogSafeDir,
 		packetForwarder:    config.PacketForwarder,
 		tuningConfig:       cloneTuningConfig(config.TuningConfig),
+		tuningConfigDir:    tuningConfigDir,
 		udpListenerConfig:  listenerConfig,
 		state:              newPipelineState(),
 		latestFgCounts:     make(map[string]int),
@@ -411,6 +435,8 @@ func NewServer(config Config) *Server {
 		onVRLogStop:        config.OnVRLogStop,
 		playbackProbe:      config.PlaybackProbe,
 	}
+
+	ws.clusterMembers.Store(tuningFullMembers(config.TuningConfig))
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
 	if config.DataSourceManager != nil {

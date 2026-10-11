@@ -1,15 +1,18 @@
 # LiDAR market watch
 
 - **Status:** Active
-- **Cadence:** Weekly, by a scheduled Claude routine; entries by hand are welcome too
-- **Last surveyed:** 2026-09-19 — the Selection rule and Shortlist below are current as of that
-  entry in the Log; open its Coverage gaps before treating a figure as settled
+- **Cadence:** Fortnightly, by a scheduled Claude routine running the
+  [`lidar-market-review`](../../../.claude/skills/lidar-market-review/SKILL.md) skill; entries by
+  hand are welcome too
+- **Last reviewed:** 2026-10-05; the Latest table below is current as of that entry in the Log;
+  open its Coverage gaps before treating a figure as settled
 - **Related plan:** [lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md)
 
-A running log of spinning LiDAR units that could replace or supplement the Hesai Pandar40P for
-backpack and tripod survey capture. The Pandar40P is a legacy model with no published new-unit
-price, so supply is in practice the used market, and the project needs to know when a current unit
-meets the selection rule at an activist's price.
+A maintained table of listed prices for spinning LiDAR units that could replace or supplement the
+Hesai Pandar40P for backpack and tripod survey capture, with a dated log of what changed at each
+review. The Pandar40P is a legacy model with no published new-unit price, so supply is in practice
+the used market, and the project needs to know when a current unit meets the selection rule at an
+activist's price.
 Sensor facts for the unit in service live in the
 [hardware knowledge module](../../../.github/knowledge/hardware.md).
 
@@ -25,47 +28,107 @@ Sensor facts for the unit in service live in the
 | Price                     | New list price or used asking price, with a URL | Only prices a page actually states                                                   |
 | Budget                    | LiDAR plus IMU under US $500 in total           | A used LiDAR at or under about US $450 and an IMU under US $50; an activist's budget |
 
-## Shortlist
+## Latest
 
-Units that met both the range rule and the budget rule as of the survey dated above, with the
-used asking prices seen. A model appears here only with a listing URL in the log. The Snapshot
-column is per model, not a claim that the whole table was checked on one date: an entry added by
-hand between routine runs carries its own date.
+The one table each review maintains in place: one row per tracked model, holding the lowest new
+price and the lowest used asking price currently listed, each with its URL. A price leaves the
+table when its listing is gone or older than two reviews; the Log keeps the history. Figures marked
+"snippet" come from a search-engine result, not an opened page.
 
-| Model           | Range at 10% | Used asking prices seen                  | Snapshot   |
-| --------------- | ------------ | ---------------------------------------- | ---------- |
-| Hesai Pandar40P | 200 m        | US $149.50 each to US $575, snippet-only | 2026-09-19 |
+Status values: **Qualifies** (range rule met and a used asking price at or under US $450; this is
+the shortlist), **Over budget** (range rule met, no qualifying price), **Unverified** (no vendor
+figure at 10% reflectivity, or conflicting figures), **Below range** (vendor figure under 100 m at
+10%, kept for price reference).
 
-Meet the range rule but not the budget, watched for price drops: Hesai OT128 and Pandar128E3X,
-Ouster OS2 and OS1 Max, RoboSense Helios-32 and Ruby Plus, Velodyne VLP-32C. Not yet seen in a
-snapshot and added to the search list: Velodyne HDL-32E, RoboSense RS-LiDAR-16 and RS-LiDAR-32,
-Hesai Pandar64 and Pandar20.
+| Model                 | Range at 10%                | Lowest new price listed                                                                                                                | Lowest used asking price                                                            | Lifecycle                                     | Status        | Checked    |
+| --------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------- | ------------- | ---------- |
+| Hesai Pandar40P       | 200 m                       | not stated                                                                                                                             | US $149.50, snippet, pairing implied: [eBay](https://www.ebay.com/itm/226044651928) | Legacy; in SDK 2.0 table; no end-of-life seen | **Qualifies** | 2026-10-05 |
+| Hesai Pandar128E3X    | 200 m                       | not stated                                                                                                                             | none seen                                                                           | Current                                       | Over budget   | 2026-09-19 |
+| Hesai OT128           | 200 m                       | 7,200 EUR, listing title: [quadruped.de](https://www.quadruped.de/Hesai-OT128_1)                                                       | none seen                                                                           | Current                                       | Over budget   | 2026-09-19 |
+| Hesai Pandar64        | not yet checked             | not yet checked                                                                                                                        | none seen                                                                           | not yet checked                               | Unverified    | 2026-10-05 |
+| Hesai Pandar20        | not yet checked             | not yet checked                                                                                                                        | none seen                                                                           | not yet checked                               | Unverified    | 2026-10-05 |
+| Hesai XT32            | 80 m                        | US $2,138.07, snippet: [eBay](https://www.ebay.de/itm/388641059791)                                                                    | US $2,250, snippet, pairing implied: [eBay](https://www.ebay.com/itm/316843061791)  | Current                                       | Below range   | 2026-10-05 |
+| Hesai XT32M2X         | 80 m                        | US $6,900, snippet: [KartaView store](https://store.kartaview.org/products/hesai-xt32m2x)                                              | none seen                                                                           | Current                                       | Below range   | 2026-10-05 |
+| Ouster OS2 Rev 7      | 200 m                       | 5,850 EUR ex VAT, OS2-128: [Ghostysky](https://www.ghostysky.com/home/shop-ouster-lidars/)                                             | US $6,000, OS2-32-U, ended: [eBay](https://www.ebay.com/itm/156943834624)           | Current                                       | Over budget   | 2026-09-19 |
+| Ouster OS1 Max        | 200 m                       | not stated                                                                                                                             | none seen                                                                           | Current (Rev 8, May 2026)                     | Over budget   | 2026-09-19 |
+| Ouster OS1 Rev 7/8    | 90 m                        | not stated                                                                                                                             | US $2,199, OS1-32, sold: [eBay](https://www.ebay.com/itm/197711710449)              | Current                                       | Below range   | 2026-09-19 |
+| Velodyne VLP-32C      | not stated                  | discontinued                                                                                                                           | about US $399.99, snippet: [eBay.de](https://www.ebay.de/itm/176310211757)          | Support and repairs ended December 2024       | Unverified    | 2026-10-05 |
+| Velodyne VLP-16       | not stated                  | discontinued                                                                                                                           | about US $399, snippet: [eBay](https://www.ebay.com/itm/305167420502)               | Technical support to end of 2026              | Unverified    | 2026-10-05 |
+| Velodyne HDL-32E      | not yet checked             | not yet checked                                                                                                                        | none seen                                                                           | not yet checked                               | Unverified    | 2026-10-05 |
+| RoboSense Helios-32   | 110 m; 150 m max (conflict) | US $1,630, snippet, Alibaba: [Alibaba](https://www.alibaba.fr/product-detail/Helios-RS-Helios16-32-Robosense-LiDAR_1601757765596.html) | no price in snippet: [eBay](https://www.ebay.com/itm/157485526988)                  | End of life at one distributor                | Unverified    | 2026-10-05 |
+| RoboSense Helios-16P  | 110 m or 90 m (conflict)    | not stated                                                                                                                             | none seen                                                                           | As Helios-32                                  | Unverified    | 2026-09-19 |
+| RoboSense Ruby Plus   | 240 m                       | not stated                                                                                                                             | none seen                                                                           | Current                                       | Over budget   | 2026-09-19 |
+| RoboSense RS-LiDAR-16 | not yet checked             | not yet checked                                                                                                                        | none seen                                                                           | not yet checked                               | Unverified    | 2026-10-05 |
+| RoboSense RS-LiDAR-32 | not yet checked             | not yet checked                                                                                                                        | none seen                                                                           | not yet checked                               | Unverified    | 2026-10-05 |
+
+Excluded and not tracked: the Livox Mid-360 and Mid-360S, RoboSense Airy, LSLiDAR C32W and CH32R
+(all under 100 m at 10%), and Seyond (no 360° spinning unit); sources in the 2026-09-19 entry.
 
 ## Entry format
 
-Each weekly check adds one dated section at the top of the log, newest first, with:
+Each review edits the Latest table in place and adds one dated section at the top of the Log,
+newest first, recording only what moved:
 
-- **New units:** table of model, channels, range at 10%, vertical FOV, IMU, weight, power, price, source URL.
-- **Used listings:** table of model, asking price, condition claim, region, listing URL, date seen.
-- **Announcements:** discontinuations, price changes, new units, with URLs.
-- **Coverage gaps:** what could not be verified this week.
+- **Changes:** one bullet per Latest cell that changed, old value to new value, with the URL. A
+  model that newly reaches **Qualifies** leads the list.
+- **Listings seen:** table of model, asking price, condition claim, region, listing URL, date seen;
+  every URL now in the Latest table appears here or in an earlier entry.
+- **Announcements:** discontinuations, price changes, new units since the last review, with URLs.
+- **Coverage gaps:** what could not be verified this time.
 
-"Not stated" is a valid value. A figure without a URL is not an entry.
+If nothing moved, the section is one "No change" line plus the checks run. "Not stated" is a valid
+value. A figure without a URL is not an entry. Entries up to 2026-10-05 predate the Latest table
+and carry full snapshot tables instead.
 
-The weekly routine pushes its entry to the `claude/lidar-market-watch` branch and summarises it in
-its session. Merge the branch whenever the log is worth keeping; nothing else reads it.
+The routine pushes its entry to the `claude/lidar-market-watch` branch and summarises it in its
+session. Merge the branch whenever the log is worth keeping; nothing else reads it.
 
-**One file, not one per snapshot.** A dated filename (`lidar-market-watch-2026-09-19.md`) would
-mark each survey clearly too, but at a cost this doc doesn't need to pay: every link to it, here
-and in the hardware knowledge module, would point at a fixed date instead of the current state, or
-at an index that has to be kept in step with which file is newest. Git already keeps every past
-version — `git log -p` on this one file is the full history — so a second, file-per-week copy of
-that history would only duplicate what version control does for free, while losing the single URL
-a reader or another doc can rely on. Keeping one file with the date in the header and in each Log
-heading gives both: how current the Selection rule and Shortlist are, in the line where a reader
-looks for it, and the full evolution below for anyone who scrolls.
+**One file, not one per snapshot.** A dated filename would mark each review clearly too, but every
+link to it would then point at a fixed date instead of the current state. Git already keeps every
+past version (`git log -p` on this file is the full history), so the Latest table carries the
+current state and the Log carries the deltas, under one URL a reader or another doc can rely on.
 
 ## Log
+
+### 2026-10-05
+
+Provenance: the proxy returned search snippets only; no vendor, distributor, or resale page was opened,
+so every figure below is a snippet of the cited URL. Range figures are at 10% reflectivity. The
+spec rows of the 2026-09-19 entry are unchanged and were not re-verified.
+
+**New units:** no new 100 m-class spinning unit found since 2026-09-19. Prices newly seen:
+
+| Model              | Channels | Range at 10%                         | Vertical FOV | IMU        | Weight     | Power      | Price                                                   | Source                                                                                                                                                                    |
+| ------------------ | -------- | ------------------------------------ | ------------ | ---------- | ---------- | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hesai Pandar40P    | 40       | 200 m (earlier entry)                | 40°          | not stated | 1.52 kg    | 18 W       | not stated; no end-of-life notice found                 | https://www.hesaitech.com/tag/pandar                                                                                                                                      |
+| Hesai XT32 (below) | 32       | 120 m maximum, 80 m at 10%           | not stated   | not stated | not stated | not stated | US $2,138.07 new on eBay                                | https://www.ebay.de/itm/388641059791                                                                                                                                      |
+| Hesai XT32M2X      | 32       | 80 m (earlier entry)                 | not stated   | not stated | not stated | not stated | US $10,499 at a reseller (US $6,900 earlier)            | https://openelab.com/products/hesai-xt32m2x-32-channel-lidar                                                                                                              |
+| RoboSense Helios   | 16 or 32 | 150 m maximum, 10% figure not stated | not stated   | not stated | not stated | not stated | US $1,630 to US $2,590 (Alibaba), US $4,786 (RobotShop) | https://www.alibaba.fr/product-detail/Helios-RS-Helios16-32-Robosense-LiDAR_1601757765596.html and https://robotshop.com/products/robosense-lidar-rs-helios-1615-150-m-us |
+
+**Used listings** (snippet prices; qualifying means range rule met and at or under US $450):
+
+| Model                | Asking price                                                                              | Condition claim                | Region    | Listing                                                              | Seen       |
+| -------------------- | ----------------------------------------------------------------------------------------- | ------------------------------ | --------- | -------------------------------------------------------------------- | ---------- |
+| Hesai Pandar40P      | US $149.50 to US $299 (UNDER BUDGET, qualifies)                                           | warranty                       | not shown | https://www.ebay.com/usr/protechsupply                               | 2026-10-05 |
+| Hesai Pandar40P      | not in snippet                                                                            | used, sold unit with 700 hours | Germany   | https://www.ebay.de/itm/276528730135                                 | 2026-10-05 |
+| Hesai Pandar40P      | not in snippet                                                                            | used                           | Germany   | https://www.ebay.de/itm/365679803957                                 | 2026-10-05 |
+| Velodyne VLP-32C     | about US $399.99 (under budget, range rule unverified: no 10% figure, so not shortlisted) | used, no accessories           | Germany   | https://www.ebay.de/itm/176310211757                                 | 2026-10-05 |
+| Velodyne VLP-16      | about US $399 (under budget, range rule unverified: no 10% figure, so not shortlisted)    | used, 30-day returns           | not shown | https://www.ebay.com/itm/305167420502                                | 2026-10-05 |
+| Ouster OS1-128 Rev 6 | not in snippet                                                                            | demo unit, used                | Germany   | https://www.mybotshop.de/Ouster-OS1-128-Gen-2-Rev-6-Demo-Unit-Used_1 | 2026-10-05 |
+
+No used Pandar64, Pandar20, HDL-32E, RS-LiDAR-16, RS-LiDAR-32, or Ouster OS2 listing was found in the snippets.
+
+**Announcements:**
+
+- No Pandar40P end-of-life notice or SDK removal found; Hesai news page: https://www.hesaitech.com/news/
+- No discontinuation, price change, or new 100 m-class spinning unit announced in the past week found: https://www.cmcmarkets.com/en-gb/opto/lidar-sector-roundup-ousters-physical-ai-bet
+
+**Coverage gaps:**
+
+- All pages were blocked or not opened; every figure is a search snippet.
+- Used prices could not be tied to a single item; several snippets give no price and no region.
+- Helios 150 m maximum versus the earlier 110 m figure is unreconciled; no 10% figure seen.
+- Pandar40P lifecycle rests on the absence of a notice in search results.
 
 ### 2026-09-19
 

@@ -320,6 +320,9 @@ func (c *L4HdbscanAdaptiveV1) Validate() error {
 
 // Validate validates common L5 fields.
 func (c *L5Common) Validate() error {
+	if err := c.SolidBody.Validate(); err != nil {
+		return fmt.Errorf("solid_body: %w", err)
+	}
 	if c.GatingDistanceSquared <= 0 {
 		return fmt.Errorf("gating_distance_squared must be positive, got %f", c.GatingDistanceSquared)
 	}
@@ -433,6 +436,38 @@ func (c *L5ImmCvCaRtsEvalV2) Validate() error {
 	}
 	if c.RTSSmoothingWindow < 1 {
 		return fmt.Errorf("rts_smoothing_window must be >= 1, got %d", c.RTSSmoothingWindow)
+	}
+	return nil
+}
+
+// Validate checks the solid-body block's own rules: the qualifiers need the
+// estimator, the estimator needs the cluster members, A1 needs A2, the
+// open-prior centring needs centring, and the two scales are non-negative.
+// A nil block is the estimator off and valid.
+func (s *L5SolidBody) Validate() error {
+	if s == nil {
+		return nil
+	}
+	if s.RankOneMedoidScale < 0 {
+		return fmt.Errorf("rank_one_medoid_scale must be non-negative, got %f", s.RankOneMedoidScale)
+	}
+	if s.RectangleSigmaScale < 0 {
+		return fmt.Errorf("rectangle_sigma_scale must be non-negative, got %f", s.RectangleSigmaScale)
+	}
+	if !s.Enabled {
+		if s.FullMembers || s.Qualified() {
+			return fmt.Errorf("options are set but enabled is false: the solid body has nothing to apply them to")
+		}
+		return nil
+	}
+	if !s.FullMembers {
+		return fmt.Errorf("enabled requires full_members: without the cluster members the body finds no faces")
+	}
+	if s.NearEdgeMedoidGate && !s.NearEdgeTracking {
+		return fmt.Errorf("near_edge_medoid_gate is an ablation of near_edge_tracking and needs it")
+	}
+	if s.EndFaceCentringOpenPrior && !s.EndFaceCentring {
+		return fmt.Errorf("end_face_centring_open_prior is a setting of end_face_centring and needs it")
 	}
 	return nil
 }

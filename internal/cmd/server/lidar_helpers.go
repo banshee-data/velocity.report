@@ -43,6 +43,25 @@ func resolveLidarDir(dir, kind string, logf logfFunc) string {
 	return abs
 }
 
+// resolveTuningConfigDir is the directory the replay form lists configs
+// from: the flag when given, and otherwise the directory the --config file
+// came from, so the shipped tree's config/ is the default.
+func resolveTuningConfigDir(flagDir, configFile string) string {
+	if flagDir != "" {
+		return flagDir
+	}
+	return filepath.Dir(configFile)
+}
+
+// tuningSolidBodyFullMembers is the tuning config's solid_body.full_members:
+// whether the pipeline hands the tracker every cluster member from the start.
+func tuningSolidBodyFullMembers(cfg *config.TuningConfig) bool {
+	if cfg == nil || cfg.L5.CvKfV1 == nil || cfg.L5.CvKfV1.SolidBody == nil {
+		return false
+	}
+	return cfg.L5.CvKfV1.SolidBody.Enabled && cfg.L5.CvKfV1.SolidBody.FullMembers
+}
+
 type ringElevationsSetter interface {
 	SetRingElevations([]float64) error
 }
@@ -114,15 +133,19 @@ func closeLiveObservationBoundary(capture liveObservationEnder, drainer callback
 	capture.End(reason)
 }
 
+// validateSupportedTuning refuses an engine the pipeline does not run, by the
+// check the offline tools share, and also a layer switched off. The shared
+// check accepts "none" because lidar-bench and replay run the reduced
+// profiles; the server refuses it, as it did before the check moved to config.
 func validateSupportedTuning(tuningCfg *config.TuningConfig) error {
-	if tuningCfg.L3.Engine != "ema_baseline_v1" {
-		return fmt.Errorf("unsupported l3.engine %q: this branch only implements ema_baseline_v1 at runtime", tuningCfg.L3.Engine)
+	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
+		return err
 	}
-	if tuningCfg.L4.Engine != "dbscan_xy_v1" {
-		return fmt.Errorf("unsupported l4.engine %q: this branch only implements dbscan_xy_v1 at runtime", tuningCfg.L4.Engine)
+	if tuningCfg.L4.Engine == config.EngineNone {
+		return config.UnsupportedEngineError("l4", tuningCfg.L4.Engine, config.ImplementedL4Engine)
 	}
-	if tuningCfg.L5.Engine != "cv_kf_v1" {
-		return fmt.Errorf("unsupported l5.engine %q: this branch only implements cv_kf_v1 at runtime", tuningCfg.L5.Engine)
+	if tuningCfg.L5.Engine == config.EngineNone {
+		return config.UnsupportedEngineError("l5", tuningCfg.L5.Engine, config.ImplementedL5Engine)
 	}
 	return nil
 }

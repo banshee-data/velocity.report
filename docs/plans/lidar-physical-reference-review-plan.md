@@ -115,7 +115,10 @@ Account for every expected reference interval, including missing predictions, un
 and unmatched objects. Keyframes alone do not justify reference coverage of the intervening
 frames. Publish the scored and unscored populations by the required strata. Pin error limits,
 reference precision, nominal coverage, encounter counts, and missing-opportunity limits on tuning
-data before held-out scoring. Missing truth or a missing criterion is insufficient evidence.
+data before held-out scoring. Missing truth or a missing criterion is insufficient evidence. The
+heading, containment, centre, extent, gap, lateral, identity and cost levels are pinned in the
+[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0); the
+following limits and the scorer's citation of the record remain to pin.
 
 ## Delivery order and acceptance
 

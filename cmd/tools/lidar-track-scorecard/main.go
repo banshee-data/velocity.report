@@ -24,6 +24,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -35,6 +36,10 @@ type sourceScorecard struct {
 	// Reference is present only when -reference named another evidence
 	// database. Empty otherwise, so a scorecard without one is unchanged.
 	Reference []ReferenceComparison `json:"reference,omitempty"`
+	// SolidBody is present only when the source persisted solid bodies: the
+	// label-free guards the geometry convergence plan asks every arm to
+	// report. Absent otherwise, so a scorecard without them is unchanged.
+	SolidBody *replayeval.SolidBodyGuards `json:"solid_body,omitempty"`
 }
 
 type document struct {
@@ -154,6 +159,14 @@ func score(dbPath string, scoringStartSeconds float64, referenceDBPath string, m
 			if err != nil {
 				return doc, err
 			}
+		}
+		summary, err := replayeval.SummariseSolidBodyEvidence(database, sourceID)
+		if err != nil {
+			return doc, err
+		}
+		if summary.SolidBodies > 0 {
+			guards := summary.Guards()
+			entry.SolidBody = &guards
 		}
 		doc.Sources = append(doc.Sources, entry)
 	}
