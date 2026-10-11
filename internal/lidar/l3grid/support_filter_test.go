@@ -1,6 +1,7 @@
 package l3grid
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -95,6 +96,45 @@ func TestSupportFilter_AzimuthWrapsAroundAndNearestRangeRepresents(t *testing.T)
 	mask = allTrue(3)
 	if got := g.applySupportFilter(p, &s, pts, mask); got != 3 {
 		t.Fatalf("multi-point cell: flipped=%d mask=%v", got, mask)
+	}
+}
+
+func TestSupportFilter_GuardsAndEdges(t *testing.T) {
+	g := makeCoverageGrid(3, 64)
+	p := SupportFilterParams{VertNeighbours: 0, HorNeighbours: 1, MinSupport: 1, TauBaseMetres: 0.5}
+	var s supportFilterScratch
+	// Nothing to do: no points, or a mask that does not match the points.
+	if got := g.applySupportFilter(p, &s, nil, nil); got != 0 {
+		t.Fatalf("empty input flipped %d", got)
+	}
+	pts := []PointPolar{fgPoint(64, 1, 3, 5.0)}
+	if got := g.applySupportFilter(p, &s, pts, allTrue(2)); got != 0 {
+		t.Fatalf("mismatched mask flipped %d", got)
+	}
+	// A return with a channel off the grid is not the filter's to decide: the
+	// decision marked it foreground and it stays so.
+	pts = []PointPolar{{Channel: 0, Azimuth: 10, Distance: 5}, {Channel: 4, Azimuth: 10, Distance: 5}}
+	mask := allTrue(2)
+	if got := g.applySupportFilter(p, &s, pts, mask); got != 0 || !mask[0] || !mask[1] {
+		t.Fatalf("off-grid channels: flipped=%d mask=%v", got, mask)
+	}
+	// A negative azimuth wraps into the last bin and supports bin 0.
+	pts = []PointPolar{{Channel: 1, Azimuth: -0.5 * 360.0 / 64, Distance: 5.0}, fgPoint(64, 1, 0, 5.0)}
+	mask = allTrue(2)
+	if got := g.applySupportFilter(p, &s, pts, mask); got != 0 {
+		t.Fatalf("negative azimuth did not wrap: flipped=%d mask=%v", got, mask)
+	}
+	// The frame stamp wrapping around resets every stamp instead of reading
+	// stale ones: a supported pair, then after the wrap a lone point that must
+	// not be supported by the previous frame's neighbour.
+	s.frame = math.MaxUint32 - 1
+	pair := []PointPolar{fgPoint(64, 2, 20, 6.0), fgPoint(64, 2, 21, 6.0)}
+	if got := g.applySupportFilter(p, &s, pair, allTrue(2)); got != 0 {
+		t.Fatalf("pair before the wrap flipped %d", got)
+	}
+	mask = allTrue(1)
+	if got := g.applySupportFilter(p, &s, pair[:1], mask); got != 1 || s.frame != 1 {
+		t.Fatalf("after the stamp wrap: flipped=%d frame=%d", got, s.frame)
 	}
 }
 
