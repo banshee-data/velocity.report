@@ -350,6 +350,11 @@ func applyRuntimeTuningPatch(ws *Server, bm *l3grid.BackgroundManager, paths map
 	}
 
 	ws.storeTuningConfig(cfg)
+	// The running parameters are no longer a file's: a file apply records
+	// itself again after this returns.
+	ws.tuningConfigMu.Lock()
+	ws.activeTuningPath, ws.activeTuningFingerprint = "", ""
+	ws.tuningConfigMu.Unlock()
 	return nil
 }
 

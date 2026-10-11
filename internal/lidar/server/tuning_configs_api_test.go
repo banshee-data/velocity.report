@@ -243,6 +243,31 @@ func TestRuntimeParamsApplySolidBodyKeys(t *testing.T) {
 	}
 }
 
+// A runtime edit after a file apply means the server no longer runs that
+// file, so the file stops being reported as active, and the fingerprint
+// reported is the running config's again.
+func TestRuntimeEditClearsTheActiveConfigFile(t *testing.T) {
+	ws := newConfigTestServer(t, "sensor-edit-after-apply", writeConfigTree(t))
+	bm := l3grid.GetBackgroundManager("sensor-edit-after-apply")
+	info, err := ws.applyTuningConfigFile("experiments/candidate.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, fp := ws.activeTuning(); p != "experiments/candidate.json" || fp != info.Fingerprint {
+		t.Fatalf("active after apply %q %q", p, fp)
+	}
+	patch, err := normaliseTuningPatch(map[string]interface{}{"l5": map[string]interface{}{"cv_kf_v1": map[string]interface{}{"max_tracks": 50}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := applyRuntimeTuningPatch(ws, bm, patch); err != nil {
+		t.Fatal(err)
+	}
+	if p, fp := ws.activeTuning(); p != "" || fp == info.Fingerprint || fp == "" {
+		t.Fatalf("after an edit the file is still reported: %q %q", p, fp)
+	}
+}
+
 // A replay start names a config file, which is applied before the replay
 // and echoed with its fingerprint; a bad path is refused before anything
 // is stopped.
@@ -308,5 +333,48 @@ func TestStatusPageListsTuningConfigs(t *testing.T) {
 	ws.handleDataSource(rec, httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?sensor_id=sensor-status-configs", nil))
 	if !strings.Contains(rec.Body.String(), `"tuning_fingerprint":"`+cfgpkg.MustLoadDefaultConfig().Fingerprint()+`"`) {
 		t.Fatalf("data_source lacks the fingerprint: %s", rec.Body.String())
+	}
+}
+
+// A config the runtime path could apply only in part is refused whole: one
+// L4 key outside DBSCAN's three, or a pipeline key, names itself in the
+// reason, while a hot-reloadable difference and an l1 difference do not.
+func TestStartupIncompatibilityNamesEverySkippedKey(t *testing.T) {
+	running := cfgpkg.MustLoadDefaultConfig()
+
+	floor := cfgpkg.MustLoadDefaultConfig()
+	floor.L4.DbscanXyV1.HeightBandFloor -= 0.5
+	if got := startupIncompatibility(running, floor); !strings.Contains(got, "l4.dbscan_xy_v1.height_band_floor") {
+		t.Fatalf("a height band change was not refused: %q", got)
+	}
+
+	budget := cfgpkg.MustLoadDefaultConfig()
+	budget.Pipeline.FrameBudgetMs = 50
+	if got := startupIncompatibility(running, budget); !strings.Contains(got, "pipeline.frame_budget_ms") {
+		t.Fatalf("a frame budget change was not refused: %q", got)
+	}
+
+	hot := cfgpkg.MustLoadDefaultConfig()
+	hot.L4.DbscanXyV1.ForegroundDBSCANEps += 0.1
+	hot.L5.CvKfV1.MaxTracks = 50
+	hot.L1.DataSource = "pcap"
+	if got := startupIncompatibility(running, hot); got != "" {
+		t.Fatalf("a runtime-applicable config was refused: %q", got)
+	}
+
+	dir := writeConfigTree(t)
+	data, err := json.MarshalIndent(floor, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "experiments", "floor.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws := newConfigTestServer(t, "sensor-skipped-key", dir)
+	if _, err := ws.applyTuningConfigFile("experiments/floor.json"); err == nil || !strings.Contains(err.Error(), "height_band_floor") {
+		t.Fatalf("the height band file was applied in part: %v", err)
+	}
+	if p, _ := ws.activeTuning(); p != "" {
+		t.Fatalf("a refused file became active: %q", p)
 	}
 }

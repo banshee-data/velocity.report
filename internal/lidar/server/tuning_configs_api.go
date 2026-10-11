@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -153,9 +154,10 @@ func describeSolidBodyBlock(cfg *cfgpkg.TuningConfig) string {
 }
 
 // startupIncompatibility says what a config changes that only a restart
-// can: the engine selectors and the pipeline block. Empty means the file
-// can be applied to the running server through the runtime path. l1 is
-// not compared: the server sets the sensor and the data source itself.
+// can: an engine selector, or any other key the runtime path does not
+// apply (the pipeline block, and every L4 key but DBSCAN's three). Empty
+// means the file can be applied to the running server whole. l1 is not
+// compared: the server sets the sensor and the data source itself.
 func startupIncompatibility(running, candidate *cfgpkg.TuningConfig) string {
 	if running == nil {
 		return ""
@@ -170,13 +172,58 @@ func startupIncompatibility(running, candidate *cfgpkg.TuningConfig) string {
 			diffs = append(diffs, fmt.Sprintf("%s %q (running %q)", e.name, e.want, e.have))
 		}
 	}
-	if running.Pipeline != candidate.Pipeline {
-		diffs = append(diffs, "the pipeline block")
+	if len(diffs) == 0 {
+		// The same engines: compare the keys the runtime path would skip.
+		have, haveErr := flatTuningPaths(running)
+		want, wantErr := flatTuningPaths(candidate)
+		if haveErr != nil || wantErr != nil {
+			return "cannot be compared with the running config"
+		}
+		for _, path := range unionTuningPaths(have, want) {
+			if strings.HasPrefix(path, "l1.") || validateRuntimeTuningPath(path) == nil {
+				continue
+			}
+			if !reflect.DeepEqual(have[path], want[path]) {
+				diffs = append(diffs, path)
+			}
+		}
 	}
 	if len(diffs) == 0 {
 		return ""
 	}
+	const maxListed = 4
+	if len(diffs) > maxListed {
+		diffs = append(diffs[:maxListed], fmt.Sprintf("%d more", len(diffs)-maxListed))
+	}
 	return "changes startup-only settings: " + strings.Join(diffs, ", ")
+}
+
+// flatTuningPaths is a config as the runtime path sees a patch: dotted
+// paths to JSON values.
+func flatTuningPaths(cfg *cfgpkg.TuningConfig) (map[string]interface{}, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var nested map[string]interface{}
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return nil, err
+	}
+	return normaliseTuningPatch(nested)
+}
+
+func unionTuningPaths(a, b map[string]interface{}) []string {
+	paths := make([]string, 0, len(a)+len(b))
+	for path := range a {
+		paths = append(paths, path)
+	}
+	for path := range b {
+		if _, ok := a[path]; !ok {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 // resolveTuningConfigPath turns a request's relative path into the file
@@ -230,15 +277,7 @@ func (ws *Server) applyTuningConfigFile(rel string) (*TuningConfigInfo, error) {
 		return nil, fmt.Errorf("tuning_config %s %s; restart the server with --config to run it", clean, reason)
 	}
 
-	raw, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("tuning_config %s: %w", clean, err)
-	}
-	var nested map[string]interface{}
-	if err := json.Unmarshal(raw, &nested); err != nil {
-		return nil, fmt.Errorf("tuning_config %s: %w", clean, err)
-	}
-	patch, err := normaliseTuningPatch(nested)
+	patch, err := flatTuningPaths(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("tuning_config %s: %w", clean, err)
 	}
