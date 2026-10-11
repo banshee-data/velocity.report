@@ -332,18 +332,18 @@ L7 Scene
 
 ### Multi-sensor tracking and fusion
 
-| Reference                                                                                                       | Relevance                                                                                                                                                |
-| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bar-Shalom et al. (2011): Tracking and Data Fusion (Mathematics in Science and Engineering)                     | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering                                                        |
-| Reid (1979): An algorithm for tracking multiple targets (IEEE TAC)                                              | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association                                                               |
-| Parker and Emmons (1997): Cooperative Multi-Robot Observation of Multiple Moving Targets (`Kim2017Cooperative`) | Mobile-robot placement and observation coverage; context for coverage planning, not a decentralised track-fusion method                                  |
-| Dames (2017): Distributed Multi-Target Search and Tracking using the PHD Filter (`Dames2017`)                   | Distributed target-count/position estimation coupled to mobile-robot control; candidate estimator research for L7, requiring adaptation to fixed sensors |
+| Reference                                                                                                          | Relevance                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bar-Shalom et al. (2011): Tracking and Data Fusion (Mathematics in Science and Engineering)                        | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering                                                        |
+| Reid (1979): An algorithm for tracking multiple targets (IEEE TAC)                                                 | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association                                                               |
+| Parker and Emmons (1997): Cooperative Multi-Robot Observation of Multiple Moving Targets (`Parker1997Cooperative`) | Mobile-robot placement and observation coverage; context for coverage planning, not a decentralised track-fusion method                                  |
+| Dames (2017): Distributed Multi-Target Search and Tracking using the PHD Filter (`Dames2017`)                      | Distributed target-count/position estimation coupled to mobile-robot control; candidate estimator research for L7, requiring adaptation to fixed sensors |
 
 The two mobile-robot papers do not establish our proposed canonical-object identity or
 cross-sensor handoff scheme. The current L5 code uses a constant-velocity Kalman filter and
 Hungarian assignment; neither a distributed PHD filter nor cooperative robot control is
-implemented. The cooperative-observation paper retains the legacy key `Kim2017Cooperative`;
-the HD-map survey uses `Bao2022HDMap` to match its corrected author and year.
+implemented. The references use `Parker1997Cooperative` and `Bao2022HDMap` to match
+the corrected authors and publication years.
 
 ### Physics-constrained prediction and scene graphs
 

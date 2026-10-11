@@ -12,8 +12,10 @@
 % BarShalom1988a, BarShalom1988b).
 %
 % For standards, software, datasets, tooling, and vendor documentation, more
-% descriptive mnemonic keys may be used instead (e.g. CityJSON, ROSVelodyne,
+% descriptive mnemonic keys may be used instead (e.g. CityJSON, HesaiLidarROS20,
 % OSMSimple3DBuildings, HesaiPandar40P).
+% Keys identify the current source author, publication year, or software name;
+% obsolete source names are not retained as citation aliases.
 % Sections mirror the reference groupings in
 %   docs/lidar/architecture/lidar-data-layer-model.md
 %
@@ -660,7 +662,7 @@
               for proposed L7 fusion; not an implementation of canonical track identity.}
 }
 
-@inproceedings{Kim2017Cooperative,
+@inproceedings{Parker1997Cooperative,
   author    = {Parker, Lynne E. and Emmons, Brad A.},
   title     = {Cooperative Multi-Robot Observation of Multiple Moving Targets},
   booktitle = {Proceedings of the 1997 IEEE International Conference on Robotics and
@@ -669,8 +671,7 @@
   publisher = {IEEE},
   doi       = {10.1109/ROBOT.1997.619270},
   url       = {https://digital.library.unt.edu/ark:/67531/metadc679987/},
-  note      = {Parker and Emmons 1997; legacy key retained for citation compatibility.
-              Cooperative observation and distributed mobile-sensor placement, not
+  note      = {Cooperative observation and distributed mobile-sensor placement, not
               decentralised track fusion. Local copy is the
               complete DOE manuscript/report; publisher pagination remains to be
               verified.}
@@ -1070,14 +1071,14 @@
            only a redirect.}
 }
 
-@misc{HesaiROS2,
+@misc{HesaiLidarROS20,
   author = {{Hesai Technology}},
   title  = {{HesaiLidar\_ROS\_2.0}},
   year   = {2023},
   url    = {https://github.com/HesaiTechnology/HesaiLidar_ROS_2.0/tree/3ef8180ac836027012bd6553761dc96a827af6dd},
   note   = {Pinned commit 3ef8180ac836027012bd6553761dc96a827af6dd, 2023-12-07; last
-           commit in the first repository year. ROS 2 packet driver and point-cloud
-           assembly. SDK submodule pinned to 8ced419cd87286ddbf4bbeac9202da37bd21d9fa.}
+           commit in the first repository year. ROS 1 and ROS 2 packet driver and
+           point-cloud assembly. SDK submodule pinned to 8ced419cd87286ddbf4bbeac9202da37bd21d9fa.}
 }
 
 @manual{VelodyneHDL64E,
@@ -1309,11 +1310,11 @@
   year    = {2006},
   doi     = {10.1109/TSP.2006.881190},
   note    = {{GM-PHD} --- closed-form {Gaussian} mixture implementation of the
-             {PHD} filter ({Mahler2003}); tractable multi-target tracker for
+             {PHD} filter ({Mahler2003PHD}); tractable multi-target tracker for
              unknown target count}
 }
 
-@article{Li2003IMMSurvey,
+@article{Li2005IMMSurvey,
   author  = {Li, X. Rong and Jilkov, Vesselin P.},
   title   = {Survey of Maneuvering Target Tracking. {Part V}: Multiple-Model
              Methods},
@@ -1327,7 +1328,7 @@
              reference for motion-model selection in {L5h}}
 }
 
-@inproceedings{Chiu2021PolarStream,
+@inproceedings{Chiu2021ProbabilisticMOT,
   author        = {Chiu, Hsu-kuang and Li, Jie and Ambru{\c{s}}, Rare{\c{s}} and
                    Bohg, Jeannette},
   title         = {Probabilistic {3D} Multi-Modal Multi-Object Tracking for
@@ -1340,8 +1341,10 @@
   eprint        = {2012.13755},
   archiveprefix = {arXiv},
   doi           = {10.1109/ICRA48506.2021.9561754},
-  note          = {Probabilistic multi-modal {3D} {MOT} using {EKF} with {3D}
-                   bounding boxes; extends {AB3DMOT} with probabilistic association}
+  url           = {https://arxiv.org/abs/2012.13755},
+  note          = {Standard {Kalman} filtering with learned image/{LiDAR} feature
+                   fusion, association distances, and track initiation. Contextual
+                   tracking research, not our {CV}-{Kalman}/{Hungarian} implementation.}
 }
 
 @article{Mei2022Waymo,

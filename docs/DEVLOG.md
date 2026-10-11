@@ -44,6 +44,7 @@ older entries stay put, however tempting hindsight may be.
 - Updated LiquidJS from 10.27.1 to 10.30.0 in both documentation sites (#734, #735).
 - {codex/references-source-corrections} Traced the six corrected bibliography sources through their code and documentation contexts in the [reference audit](lidar/operations/brief/reference-audit.md#corrected-source-context); corrected author/year labels, removed the cooperative-observation paper's track-fusion claim and the Velodyne protocol-origin claim, and distinguished S3DB relative heights from absolute altitude. Retained all citation keys and historical reading statuses; L7 fusion and building-prior ingestion remain planned.
 - {codex/references-source-corrections} Renamed Bao’s 2022 HD-map survey citation to `Bao2022HDMap` in the bibliography and every citing document, updated the key-retention notes, and integrated current main while preserving the devlog’s recorded findings.
+- {codex/references-source-corrections} Audited citation names across all 156 bibliography entries and replaced misleading author/year, method and driver names with `Parker1997Cooperative`, `Li2005IMMSurvey`, `Chiu2021ProbabilisticMOT` and `HesaiLidarROS20`; corrected Chiu’s Kalman-filter description, resolved the Mahler note and abbreviated inventory keys, and removed obsolete citation-alias notes.
 
 ## October 10, 2026 - A weekly research briefing skill, its routine, and citation coverage; FMCSA headway and speeding-attitude research
 
