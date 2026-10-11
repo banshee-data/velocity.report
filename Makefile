@@ -1334,7 +1334,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-public-html test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
+.PHONY: test test-go test-go-shard test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-public-html test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
@@ -1370,16 +1370,27 @@ test-go-cov:
 	@env -u GOROOT go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
+# Run one shard of the PR Go suite exactly as go-ci.yml does, writing
+# coverage-$(SHARD).out. `scripts/go-test-shard.sh --help` lists the shards.
+#   make test-go-shard SHARD=replay-a
+test-go-shard:
+	@test -n "$(SHARD)" || { echo "usage: make test-go-shard SHARD=<shard>"; ./scripts/go-test-shard.sh --help; exit 2; }
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@env -u GOROOT ./scripts/go-test-shard.sh $(SHARD)
+
 # Go coverage profile used by the nightly LOC + coverage chart. Builds with
 # the pcap tag and excludes internal/api (whose tests need the heavy TeX tree;
-# go-ci.yml's integration job publishes API coverage separately). Emits a raw
-# coverage.out profile only — no HTML. Runnable locally for CI parity.
+# go-ci.yml's api shard publishes API coverage separately). Emits a raw
+# coverage.out profile only — no HTML. Runnable locally for CI parity. The
+# package list is taken with the pcap tag too: without it, pcap-only packages
+# such as internal/lidar/lidarbench drop out of the list before the tests run.
 test-go-cov-pcap:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests with coverage (pcap tag, excluding internal/api)..."
 	@env -u GOROOT go test -tags=pcap -coverprofile=coverage.out -covermode=atomic \
-		$$(go list ./... | grep -v '/internal/api')
+		$$(go list -tags=pcap ./... | grep -v '/internal/api')
 
 # Show coverage summary for cmd/ and internal/ packages
 test-go-coverage-summary:
