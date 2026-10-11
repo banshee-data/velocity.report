@@ -9,6 +9,7 @@ what becomes of HINT.
 
 - **Status:** Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
   unbuilt too, and the only proposer that exists is the macOS `ObjectProposer`
+- **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L10 Clients (macOS visualiser), sweep, offline analysis
 - **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line)
 - **Tenets touched:** 1 (privacy, local data), 3 (evidence over opinion), 4 (local-first)
