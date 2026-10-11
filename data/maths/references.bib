@@ -25,7 +25,7 @@
 %   - @inproceedings for conference papers, @article for journals, @book for
 %     monographs, @misc / @manual for standards and user manuals.
 %
-% Last updated: 2026-03-22
+% Citation coverage: docs/lidar/operations/brief/reference-audit.md
 % =============================================================================
 
 
@@ -215,14 +215,17 @@
 
 @article{Lim2021,
   author  = {Lim, Hyungtae and Oh, Minho and Myung, Hyun},
-  title   = {Patchwork: Concentric Zone-Based Region-Wise Ground Segmentation
-             with Tilted {LiDAR}},
+  title   = {{Patchwork}: Concentric Zone-Based Region-Wise Ground Segmentation
+             with Ground Likelihood Estimation Using a {3D LiDAR} Sensor},
   journal = {{IEEE} Robotics and Automation Letters ({RA-L})},
   volume  = {6},
   number  = {4},
   pages   = {6458--6465},
   year    = {2021},
   doi     = {10.1109/LRA.2021.3093009},
+  eprint  = {2108.05560},
+  archiveprefix = {arXiv},
+  url     = {https://arxiv.org/abs/2108.05560},
   note    = {Concentric zone model for ground estimation; more robust than
              height-band filter; future upgrade path for {L3}/{L4} ground removal}
 }
@@ -328,6 +331,22 @@
   archiveprefix = {arXiv},
   note          = {{3D} {Kalman} + {Hungarian} baseline for {LiDAR} {MOT} at 207 {Hz};
                    validates our architectural choice and provides benchmarking baseline}
+}
+
+@inproceedings{Weng2020b,
+  author        = {Weng, Xinshuo and Wang, Jianren and Held, David and Kitani, Kris},
+  title         = {{3D} Multi-Object Tracking: A Baseline and New Evaluation Metrics},
+  booktitle     = {Proceedings of the {IEEE/RSJ} International Conference on
+                   Intelligent Robots and Systems ({IROS} 2020)},
+  pages         = {10359--10366},
+  publisher     = {{IEEE}},
+  year          = {2020},
+  doi           = {10.1109/IROS45743.2020.9341164},
+  eprint        = {1907.03961},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/1907.03961},
+  note          = {Full {AB3DMOT} paper read in the implementation gap analysis;
+                   distinct from the {ECCV} workshop extended abstract {Weng2020}}
 }
 
 @inproceedings{Yin2021,
@@ -788,6 +807,9 @@
   booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
                Intelligent Robots and Systems ({IROS} 2021)},
   year      = {2021},
+  eprint    = {2103.06028},
+  archiveprefix = {arXiv},
+  url       = {https://arxiv.org/abs/2103.06028},
   note      = {SOTracker: registration, accumulated body shape, and motion
                prior from a supplied initial box; arXiv 2103.06028}
 }
@@ -800,6 +822,24 @@
   doi       = {10.15607/RSS.2009.V.021},
   note      = {Plane-to-plane registration with per-point covariance from local
                normals}
+}
+
+@article{Vizzo2023,
+  author        = {Vizzo, Ignacio and Guadagnino, Tiziano and Mersch, Benedikt and
+                   Wiesmann, Louis and Behley, Jens and Stachniss, Cyrill},
+  title         = {{KISS-ICP}: In Defense of Point-to-Point {ICP} --- Simple,
+                   Accurate, and Robust Registration If Done the Right Way},
+  journal       = {{IEEE} Robotics and Automation Letters ({RA-L})},
+  volume        = {8},
+  number        = {2},
+  pages         = {1029--1036},
+  year          = {2023},
+  doi           = {10.1109/LRA.2023.3236571},
+  eprint        = {2209.15397},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2209.15397},
+  note          = {{LiDAR}-only odometry baseline named in the survey walk
+                   geometry gain experiment}
 }
 
 @inproceedings{Zhang2014,
@@ -850,6 +890,9 @@
                Localization in Extreme Environments},
   journal   = {{IEEE} Transactions on Robotics},
   year      = {2024},
+  eprint    = {2211.16335},
+  archiveprefix = {arXiv},
+  url       = {https://arxiv.org/abs/2211.16335},
   note      = {Per-iteration localisability categories and constrained
                optimisation along weak directions; arXiv 2211.16335}
 }
@@ -860,6 +903,9 @@
   title     = {On the Covariance of {ICP}-Based Scan-Matching Techniques},
   booktitle = {Proceedings of the American Control Conference ({ACC} 2016)},
   year      = {2016},
+  eprint    = {1410.7632},
+  archiveprefix = {arXiv},
+  url       = {https://arxiv.org/abs/1410.7632},
   note      = {Point-to-point rematching manufactures apparent information;
                point-to-plane covariance under stated assumptions;
                arXiv 1410.7632}
@@ -871,6 +917,9 @@
                Minimization},
   year      = {2024},
   howpublished = {arXiv 2410.10784},
+  eprint    = {2410.10784},
+  archiveprefix = {arXiv},
+  url       = {https://arxiv.org/abs/2410.10784},
   note      = {Noise-aware degeneracy tests for point-to-plane registration}
 }
 
@@ -883,6 +932,9 @@
   number    = {2},
   pages     = {139--174},
   year      = {2017},
+  eprint    = {1604.00970},
+  archiveprefix = {arXiv},
+  url       = {https://arxiv.org/abs/1604.00970},
   note      = {Survey: random matrices, star-convex shapes, multi-object
                filters, lidar applications; arXiv 1604.00970}
 }
@@ -1353,4 +1405,750 @@
   note    = {Modern analysis of {DBSCAN} including index-accelerated variants
              and parameter sensitivity; practical guidance for our {L4}
              {DBSCAN} tuning}
+}
+
+
+% =============================================================================
+% Calibration, semantic segmentation, and static-map construction
+% =============================================================================
+
+@inproceedings{Choy2019,
+  author        = {Choy, Christopher and Gwak, JunYoung and Savarese, Silvio},
+  title         = {{4D} Spatio-Temporal ConvNets: Minkowski Convolutional Neural Networks},
+  year          = {2019},
+  eprint        = {1904.08755},
+  archiveprefix = {arXiv},
+  doi           = {10.1109/CVPR.2019.00319},
+  url           = {https://arxiv.org/abs/1904.08755},
+  booktitle     = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and Pattern
+                   Recognition ({CVPR} 2019)}
+}
+
+@inproceedings{Guo2017,
+  author        = {Guo, Chuan and Pleiss, Geoff and Sun, Yu and Weinberger, Kilian Q.},
+  title         = {On Calibration of Modern Neural Networks},
+  booktitle     = {Proceedings of the 34th International Conference on Machine Learning ({ICML}
+                   2017)},
+  series        = {Proceedings of Machine Learning Research},
+  volume        = {70},
+  pages         = {1321--1330},
+  publisher     = {PMLR},
+  year          = {2017},
+  url           = {https://proceedings.mlr.press/v70/guo17a.html}
+}
+
+@inproceedings{Kreutz2023,
+  author        = {Kreutz, Thomas and M{\"u}hlh{\"a}user, Max and Guinea, Alejandro Sanchez},
+  title         = {Unsupervised {4D} {LiDAR} Moving Object Segmentation in Stationary Settings With
+                   Multivariate Occupancy Time Series},
+  booktitle     = {Proceedings of the {IEEE/CVF} Winter Conference on Applications of Computer
+                   Vision ({WACV} 2023)},
+  pages         = {1644--1653},
+  year          = {2023},
+  url           = {https://openaccess.thecvf.com/content/WACV2023/html/Kreutz_Unsupervised_4D_LiDAR_Moving_Object_Segmentation_in_Stationary_Settings_With_WACV_2023_paper.html}
+}
+
+@article{Lim2021ERASOR,
+  author        = {Lim, Hyungtae and Hwang, Sungwon and Myung, Hyun},
+  title         = {{ERASOR}: Egocentric Ratio of Pseudo Occupancy-Based Dynamic Object Removal for
+                   Static {3D} Point Cloud Map Building},
+  journal       = {IEEE Robotics and Automation Letters},
+  year          = {2021},
+  doi           = {10.1109/lra.2021.3061363},
+  volume        = {6},
+  number        = {2},
+  pages         = {2272--2279},
+  eprint        = {2103.04316},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2103.04316}
+}
+
+@article{Mersch2022,
+  author        = {Mersch, Benedikt and Chen, Xieyuanli and Vizzo, Ignacio and Nunes, Lucas and
+                   Behley, Jens and Stachniss, Cyrill},
+  title         = {Receding Moving Object Segmentation in {3D} {LiDAR} Data Using Sparse {4D}
+                   Convolutions},
+  journal       = {IEEE Robotics and Automation Letters},
+  year          = {2022},
+  doi           = {10.1109/lra.2022.3183245},
+  volume        = {7},
+  number        = {3},
+  pages         = {7503--7510},
+  url           = {https://github.com/PRBonn/4DMOS}
+}
+
+@inproceedings{Wu2024,
+  author        = {Wu, Xiaoyang and Jiang, Li and Wang, Peng-Shuai and Liu, Zhijian and Liu, Xihui
+                   and Qiao, Yu and Ouyang, Wanli and He, Tong and Zhao, Hengshuang},
+  title         = {{Point Transformer V3}: Simpler, Faster, Stronger},
+  year          = {2024},
+  eprint        = {2312.10035},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2312.10035},
+  url           = {https://arxiv.org/abs/2312.10035},
+  booktitle     = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and Pattern
+                   Recognition ({CVPR} 2024)},
+  note          = {Point Transformer V3; official model repository cited by the unified scene
+                   semantics proposal. Preprint first listed in 2023}
+}
+
+
+
+% =============================================================================
+% Roadside perception, trajectory reconstruction, and datasets
+% =============================================================================
+
+@inproceedings{Bang2026a,
+  author        = {Bang, Tam and Nguyen, Hoang H. and Cheng, Lei and Guo, Lihao and Cao, Siyang and
+                   Abubakr, Hussam and Zhang, Tianya and Harris, Austin and Sartipi, Mina},
+  title         = {{CLIFE}: Camera-{LiDAR} Fusion Framework for Edge-Deployable Roadside VRU
+                   Perception},
+  year          = {2026},
+  eprint        = {2607.16154},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2607.16154},
+  url           = {https://arxiv.org/abs/2607.16154},
+  booktitle     = {Proceedings of the {IEEE} International Conference on Intelligent Transportation
+                   Systems ({ITSC} 2026)}
+}
+
+@inproceedings{Bang2026b,
+  author        = {Bang, Tam and Abubakr, Hussam and de la Garza Villarreal, Emiliano and Nguyen,
+                   Truc Phuong and Harris, Austin and Hirano, Toru and Sartipi, Mina and Xu, Yunfei
+                   and Nguyen, Hoang H.},
+  title         = {{PRISA}: Proactive Infrastructure {LiDAR} Framework for Intersection Safety
+                   Assessment},
+  year          = {2026},
+  eprint        = {2607.16156},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2607.16156},
+  url           = {https://arxiv.org/abs/2607.16156},
+  booktitle     = {Proceedings of the {IEEE} International Conference on Intelligent Transportation
+                   Systems ({ITSC} 2026)}
+}
+
+@inproceedings{Baumann2026,
+  author        = {Baumann, Alexander and Vosshans, Marcel and Dang, Thao},
+  title         = {Beam-Wise Statistical Background Subtraction for Static Roadside {LiDAR}: A
+                   Cross-Sensor Benchmark Study},
+  year          = {2026},
+  eprint        = {2608.14868},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2608.14868},
+  url           = {https://arxiv.org/abs/2608.14868},
+  booktitle     = {Proceedings of the {IEEE} International Conference on Intelligent Transportation
+                   Systems ({ITSC} 2026)}
+}
+
+@inproceedings{Chen2026,
+  author        = {Chen, Yu-Hsiang and Chang, Wei-Jer and Kotulla, Christian and Keutgens, Thomas
+                   and Runde, Steffen and Moers, Tobias and Klas, Christoph and Zhan, Wei and
+                   Tomizuka, Masayoshi and Chen, Yi-Ting},
+  title         = {{HetroD}: A High-Fidelity Drone Dataset and Benchmark for Autonomous Driving in
+                   Heterogeneous Traffic},
+  year          = {2026},
+  eprint        = {2602.03447},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2602.03447},
+  url           = {https://arxiv.org/abs/2602.03447},
+  booktitle     = {Proceedings of the {IEEE} International Conference on Robotics and Automation
+                   ({ICRA} 2026)}
+}
+
+@misc{Cui2026,
+  author        = {Cui, Shunlai and Cao, Peng and Zhu, Yuan and He, Yongjiang and Yin, Jiacheng and
+                   Huo, Xiao and Cao, Gang and Liu, Xiaobo},
+  title         = {MR-{LiDAR}: A Multi-Resolution Roadside {LiDAR} Benchmark for Perception
+                   Diagnostics and Deployment Guidance},
+  year          = {2026},
+  eprint        = {2605.24777},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2605.24777},
+  url           = {https://arxiv.org/abs/2605.24777}
+}
+
+@inproceedings{Ding2026,
+  author        = {Ding, Shaozu and Song, Linan and De Vincenzi, Marco and Suo, Dajiang},
+  title         = {{RESOLVE}: A Multi-Resolution and Multi-Modal Dataset for Roadside Cooperative
+                   Perception},
+  year          = {2026},
+  eprint        = {2606.31895},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2606.31895},
+  url           = {https://arxiv.org/abs/2606.31895},
+  booktitle     = {Proceedings of the European Conference on Computer Vision ({ECCV} 2026)}
+}
+
+@article{Dong2026,
+  author        = {Dong, Mingshu and Xu, Hao and Tian, Muchen and Guan, Fei and Wang, Ziru and Sun,
+                   Renjuan and Guan, Yanhua},
+  title         = {Occlusion-Aware Trajectory Discontinuity Correction for Roadside {LiDAR} Using
+                   Time--Space Analysis},
+  journal       = {Sensors},
+  year          = {2026},
+  doi           = {10.3390/s26123755},
+  volume        = {26},
+  number        = {12},
+  pages         = {3755}
+}
+
+@article{Fontalvo2026,
+  author        = {Fontalvo, Carolina and Luo, Qiyang and Lucero, Martin and Jimee, Keshav and
+                   Khadka, Rupak and Soltanirad, Mohammad and Bataineh, Tamer and Liu, Hongchao},
+  title         = {Spatial Geometry Analysis of Roadside {LiDAR} for Improved Vehicle Clustering
+                   Accuracy},
+  journal       = {Sensors},
+  year          = {2026},
+  doi           = {10.3390/s26134068},
+  volume        = {26},
+  number        = {13},
+  pages         = {4068}
+}
+
+@article{Gong2025,
+  author        = {Gong, Bowen and Zhao, Binwen and Wang, Yue and Lin, Ciyun and Liu, Hongchao},
+  title         = {Vehicle trajectory extraction with interacting multiple model for low-channel
+                   roadside {LiDAR}},
+  journal       = {Expert Systems with Applications},
+  year          = {2025},
+  doi           = {10.1016/j.eswa.2024.125662},
+  volume        = {262},
+  pages         = {125662}
+}
+
+@article{Hong2026,
+  author        = {Hong, Injun and Park, Manbok},
+  title         = {Vehicle Speed Estimation Using Infrastructure-Mounted {LiDAR} via Rectangle Edge
+                   Matching},
+  journal       = {Applied Sciences},
+  year          = {2026},
+  doi           = {10.3390/app16052513},
+  volume        = {16},
+  number        = {5},
+  pages         = {2513}
+}
+
+@inproceedings{Iglesias2025,
+  author        = {Iglesias, Aitor and Aranjuelo, Nerea and Javierre, Patricia and Menendez, Ainhoa
+                   and Arganda-Carreras, Ignacio and Nieto, Marcos},
+  title         = {A Fully Interpretable Statistical Approach for Roadside {LiDAR} Background
+                   Subtraction},
+  booktitle     = {2025 IEEE International Conference on Vehicular Electronics and Safety (ICVES)},
+  year          = {2025},
+  doi           = {10.1109/icves65691.2025.11376398},
+  pages         = {34--41},
+  eprint        = {2510.22390},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2510.22390}
+}
+
+@misc{Li2026a,
+  author        = {Li, Yiqiao and Shang, Bo and Wei, Jie},
+  title         = {Bridging the Modality Gap in Roadside {LiDAR}: A Training-Free Vision-Language
+                   Model Framework for Vehicle Classification},
+  year          = {2026},
+  eprint        = {2602.09425},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2602.09425},
+  url           = {https://arxiv.org/abs/2602.09425}
+}
+
+@article{Luo2025,
+  author        = {Luo, Qiyang and Xu, Zhenyu and Zhang, Yibin and Igene, Morris and Bataineh, Tamer
+                   and Soltanirad, Mohammad and Jimee, Keshav and Liu, Hongchao},
+  title         = {Vehicle Trajectory Repair Under Full Occlusion and Limited Datapoints with
+                   Roadside {LiDAR}},
+  journal       = {Sensors},
+  year          = {2025},
+  doi           = {10.3390/s25041114},
+  volume        = {25},
+  number        = {4},
+  pages         = {1114}
+}
+
+@inproceedings{Mirlach2025,
+  author        = {Mirlach, Jonas and Wan, Lei and Wiedholz, Andreas and Keen, Hannan Ejaz and Eich,
+                   Andreas},
+  title         = {{R-LiViT}: A {LiDAR}-Visual-Thermal Dataset Enabling Vulnerable Road User Focused
+                   Roadside Perception},
+  year          = {2025},
+  eprint        = {2503.17122},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2503.17122},
+  url           = {https://arxiv.org/abs/2503.17122},
+  booktitle     = {Proceedings of the {IEEE/CVF} International Conference on Computer Vision ({ICCV}
+                   2025)}
+}
+
+@article{Schafer2026,
+  author        = {Sch{\"a}fer, Simon and Alrifaee, Bassam and Hashemi, Ehsan},
+  title         = {{Lidar}-Based Object Tracking of Traffic Participants with Sensor Nodes in
+                   Existing Urban Infrastructure},
+  journal       = {Advanced Intelligent Systems},
+  year          = {2026},
+  doi           = {10.1002/aisy.202501102},
+  volume        = {8},
+  number        = {8},
+  pages         = {e202501102},
+  eprint        = {2509.20009},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2509.20009}
+}
+
+@article{Shahbaz2026,
+  author        = {Shahbaz, Muhammad and Agarwal, Shaurya},
+  title         = {{UrbanTwin}: Synthetic Roadside {LiDAR} Datasets},
+  journal       = {{IEEE} Open Journal of Intelligent Transportation Systems},
+  volume        = {7},
+  pages         = {353--364},
+  year          = {2026},
+  doi           = {10.1109/OJITS.2026.3655581},
+  eprint        = {2509.06781},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2509.06781}
+}
+
+@inproceedings{Shang2026,
+  author        = {Shang, Bo and Li, Yiqiao},
+  title         = {Roadside {LiDAR} for Cooperative Safety Auditing at Urban Intersections: Toward
+                   Auditable V2X Infrastructure Intelligence},
+  year          = {2026},
+  eprint        = {2604.10419},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2604.10419},
+  url           = {https://arxiv.org/abs/2604.10419},
+  booktitle     = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and Pattern
+                   Recognition Workshops ({CVPRW} 2026)},
+  pages         = {757--765}
+}
+
+@article{Shi2026,
+  author        = {Shi, Tao and Wang, Xuan and Jiang, Wei and Huang, Xiansheng and Cen, Ming and
+                   Cao, Shuai and Zhou, Hao},
+  title         = {Multi-Target Tracking with Collaborative Roadside Units Under Foggy Conditions},
+  journal       = {Sensors},
+  year          = {2026},
+  doi           = {10.3390/s26030998},
+  volume        = {26},
+  number        = {3},
+  pages         = {998}
+}
+
+@inproceedings{Xu2026,
+  author        = {Xu, Jianqiang and Pei, Gensheng and Liu, Huafeng and Yao, Yazhou},
+  title         = {{GSV2X}: Geometry-Aware Uncertainty Modeling and Orthogonal Fusion for Robust
+                   Roadside Perception},
+  booktitle     = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and Pattern
+                   Recognition ({CVPR} 2026)},
+  pages         = {21409--21419},
+  year          = {2026},
+  url           = {https://openaccess.thecvf.com/content/CVPR2026/html/Xu_GSV2X_Geometry-Aware_Uncertainty_Modeling_and_Orthogonal_Fusion_for_Robust_Roadside_CVPR_2026_paper.html}
+}
+
+@article{Zhang2026b,
+  author        = {Zhang, Jiaxing and Ge, Chengjun and Xiao, Wen and Tang, Miao and Mills, Jon and
+                   Coifman, Benjamin and Chen, Nengcheng},
+  title         = {Roadside lidar-based scene understanding toward intelligent traffic perception: A
+                   comprehensive review},
+  journal       = {ISPRS Journal of Photogrammetry and Remote Sensing},
+  year          = {2026},
+  doi           = {10.1016/j.isprsjprs.2026.01.012},
+  volume        = {233},
+  pages         = {69--88}
+}
+
+
+
+% =============================================================================
+% Speed, injury curves, conflict analysis, and crash-rate benchmarks
+% =============================================================================
+
+@article{Ambros2025,
+  author        = {Ambros, Ji{\v{r}}{\'i} and Kie{\'c}, Mariusz},
+  title         = {Are the speed-crash models applicable for low speeds?},
+  journal       = {European Transport Research Review},
+  year          = {2025},
+  doi           = {10.1186/s12544-025-00753-6},
+  volume        = {17},
+  number        = {1},
+  pages         = {59}
+}
+
+@article{Ambros2026,
+  author        = {Ambros, Ji{\v{r}}{\'i} and {\v{S}}{\'i}pek, Martin and K{\v{r}}iv{\'a}nek,
+                   V{\'i}t{\v{e}}zslav and Jurewicz, Chris and Turner, Blair and Elvik, Rune and
+                   Valentov{\'a}, Veronika},
+  title         = {Exploring the heterogeneity in impacts of 30 km/h speed interventions: A subgroup
+                   meta-analysis based on a systematic international review},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2026},
+  doi           = {10.1016/j.aap.2026.108547},
+  volume        = {232},
+  pages         = {108547}
+}
+
+@article{Campolettano2025,
+  author        = {Campolettano, Eamon T. and Kusano, Kristofer D. and Victor, Trent},
+  title         = {Potential safety benefits associated with speed limit compliance in {San
+                   Francisco} and phoenix},
+  journal       = {Traffic Injury Prevention},
+  year          = {2025},
+  doi           = {10.1080/15389588.2025.2538726},
+  volume        = {26},
+  number        = {sup1}
+}
+
+@article{Chen2025,
+  author        = {Chen, Yin-Hsiu and Scanlon, John M. and Kusano, Kristofer D. and McMurry, Timothy
+                   L. and Victor, Trent},
+  title         = {Dynamic Benchmarks: Spatial and Temporal Alignment for Automated Driving Systems
+                   Performance Evaluation},
+  journal       = {Transportation Research Record: Journal of the Transportation Research Board},
+  year          = {2025},
+  doi           = {10.1177/03611981251398744},
+  volume        = {2680},
+  number        = {8},
+  pages         = {572--586},
+  eprint        = {2410.08903},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2410.08903},
+  note          = {Published online in 2025; preprint first listed in 2024}
+}
+
+@article{Chun2026,
+  author        = {Chun, Uibeom and Abdel-Aty, Mohamed and Wang, Zijin},
+  title         = {Understanding driver visual distraction and its relationship with speeding:
+                   Insights from naturalistic driving data},
+  journal       = {Transportation Research Part F: Traffic Psychology and Behaviour},
+  year          = {2026},
+  doi           = {10.1016/j.trf.2026.103542},
+  volume        = {118},
+  pages         = {103542}
+}
+
+@article{Elvik2019,
+  author        = {Elvik, Rune and Vadeby, Anna and Hels, Tove and van Schagen, Ingrid},
+  title         = {Updated estimates of the relationship between speed and road safety at the
+                   aggregate and individual levels},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2019},
+  doi           = {10.1016/j.aap.2018.11.014},
+  volume        = {123},
+  pages         = {114--122}
+}
+
+@misc{Feng2026,
+  author        = {Feng, Shi and Park, B. Brian and Mondschein, Andrew},
+  title         = {Analyzing Residential Speeding Using Connected Vehicle Data: A Case Study in
+                   {Charlottesville}, {VA} Area},
+  year          = {2026},
+  eprint        = {2601.10974},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2601.10974},
+  url           = {https://arxiv.org/abs/2601.10974}
+}
+
+@article{Howell2026,
+  author        = {Howell, Fletcher J. and Logan, David B. and Newstead, Stuart and Arularasu,
+                   Azhaginiyal and Charlton, Judith L. and Molesworth, Brett and Eusebio, Jan and
+                   Senserrick, Teresa and Williamson, Ann and Olivier, Jake and McDonald, Hayley and
+                   Koppel, Sjaan},
+  title         = {Young novice driver speed and headway at signalised intersections: Exploratory
+                   insights from a naturalistic driving study in New South Wales, Australia},
+  journal       = {IATSS Research},
+  year          = {2026},
+  doi           = {10.1016/j.iatssr.2026.09.002},
+  volume        = {50},
+  number        = {4},
+  pages         = {1255--1273}
+}
+
+@article{Hu2026,
+  author        = {Hu, Jingwen and Lin, Yang-Shen and Narayanan, Vinayak Srinivas and Mueller, Becky
+                   and Olsson, Henning and Jermakian, Jessica},
+  title         = {Effect of medium and tall hood leading edge vehicle front-end characteristics on
+                   pedestrian torso injuries},
+  journal       = {Traffic Injury Prevention},
+  year          = {2026},
+  doi           = {10.1080/15389588.2026.2681106},
+  pages         = {1--8}
+}
+
+@article{Hussain2019,
+  author        = {Hussain, Qinaat and Feng, Hanqin and Grzebieta, Raphael and Brijs, Tom and
+                   Olivier, Jake},
+  title         = {The relationship between impact speed and the probability of pedestrian fatality
+                   during a vehicle-pedestrian crash: A systematic review and meta-analysis},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2019},
+  doi           = {10.1016/j.aap.2019.05.033},
+  volume        = {129},
+  pages         = {241--249}
+}
+
+@misc{Kusano2025,
+  author        = {Kusano, Kristofer D. and Scanlon, John M. and Chen, Yin-Hsiu and McMurry, Timothy
+                   L. and Gode, Tilia and Victor, Trent},
+  title         = {Comparison of {Waymo} Rider-Only Crash Rates by Crash Type to Human Benchmarks at
+                   56.7 Million Miles},
+  year          = {2025},
+  eprint        = {2505.01515},
+  archiveprefix = {arXiv},
+  doi           = {10.48550/arXiv.2505.01515},
+  url           = {https://arxiv.org/abs/2505.01515}
+}
+
+@article{Kusano2026,
+  author        = {Kusano, Kristofer D. and Scanlon, John M. and McMurry, Timothy L. and Victor,
+                   Trent},
+  title         = {Do time of day and day of week matter when comparing {Waymo}'s automated driving
+                   system and human crash involvement rates?},
+  journal       = {Traffic Injury Prevention},
+  year          = {2026},
+  doi           = {10.1080/15389588.2026.2695421},
+  pages         = {1--11},
+  url           = {https://storage.googleapis.com/waymo-uploads/files/documents/safety/Kusano%202026%20-%20Effects%20of%20Day%20of%20Week%20and%20Time%20of%20Day%20on%20Benchmark%20Crash%20Risk.pdf}
+}
+
+@article{Laureshyn2010,
+  author        = {Laureshyn, Aliaksei and Svensson, {\AA}se and Hyd{\'e}n, Christer},
+  title         = {Evaluation of traffic safety, based on micro-level behavioural data: Theoretical
+                   framework and first implementation},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2010},
+  doi           = {10.1016/j.aap.2010.03.021},
+  volume        = {42},
+  number        = {6},
+  pages         = {1637--1646}
+}
+
+@article{Lee2025,
+  author        = {Lee, Hun Gi and Kim, Jung Ho},
+  title         = {Impact of lowering the maximum speed limit of city roads on pedestrian traffic
+                   accident patients: A nationwide before-and-after study},
+  journal       = {PLOS One},
+  year          = {2025},
+  doi           = {10.1371/journal.pone.0325320},
+  volume        = {20},
+  number        = {6},
+  pages         = {e0325320}
+}
+
+@article{Monfort2025,
+  author        = {Monfort, Samuel S. and Mueller, Becky C.},
+  title         = {A modern injury risk curve for pedestrian injury in the {United States}: The
+                   combined effects of impact speed and vehicle front-end height},
+  journal       = {Journal of Safety Research},
+  year          = {2025},
+  doi           = {10.1016/j.jsr.2025.06.030},
+  volume        = {94},
+  pages         = {235--241}
+}
+
+@article{Rosen2009,
+  author        = {Ros{\'e}n, Erik and Sander, Ulrich},
+  title         = {Pedestrian fatality risk as a function of car impact speed},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2009},
+  doi           = {10.1016/j.aap.2009.02.002},
+  volume        = {41},
+  number        = {3},
+  pages         = {536--542}
+}
+
+@article{Scanlon2026a,
+  author        = {Scanlon, John M. and McMurry, Timothy L. and Chen, Yin-Hsiu and Kusano, Kristofer
+                   D. and Victor, Trent},
+  title         = {From Stoplights to On-Ramps: A Comprehensive Set of Crash Rate Benchmarks for
+                   Freeway and Surface Street {ADS} Evaluation},
+  journal       = {SAE International Journal of Transportation Safety},
+  year          = {2026},
+  doi           = {10.4271/09-14-02-0003},
+  volume        = {14},
+  number        = {2},
+  pages         = {09-14-02-0003},
+  eprint        = {2508.19425},
+  archiveprefix = {arXiv},
+  url           = {https://arxiv.org/abs/2508.19425}
+}
+
+@article{Scanlon2026b,
+  author        = {Scanlon, John M. and Kusano, Kristofer D. and McMurry, Timothy L. and
+                   Campolettano, Eamon T. and Victor, Trent},
+  title         = {High-resolution urban fatal crash rate benchmarks for automated driving system
+                   assessment},
+  journal       = {Traffic Injury Prevention},
+  year          = {2026},
+  doi           = {10.1080/15389588.2026.2684002},
+  pages         = {1--12}
+}
+
+@article{Tefft2013,
+  author        = {Tefft, Brian C.},
+  title         = {Impact speed and a pedestrian's risk of severe injury or death},
+  journal       = {Accident Analysis {\&} Prevention},
+  year          = {2013},
+  doi           = {10.1016/j.aap.2012.07.022},
+  volume        = {50},
+  pages         = {871--878}
+}
+
+@article{Yannis2024,
+  author        = {Yannis, George and Michelaraki, Eva},
+  title         = {Review of City-Wide 30 km/h Speed Limit Benefits in Europe},
+  journal       = {Sustainability},
+  year          = {2024},
+  doi           = {10.3390/su16114382},
+  volume        = {16},
+  number        = {11},
+  pages         = {4382}
+}
+
+
+
+% =============================================================================
+% Research reports and unpublished benchmark studies
+% =============================================================================
+
+@techreport{Blincoe2023,
+  author        = {Blincoe, Lawrence J. and Miller, Ted R. and Wang, Jing-Shiarn and Swedler, David
+                   and Coughlin, Tom and Lawrence, Bruce and Guo, Feng and Klauer, Sheila G. and
+                   Dingus, Thomas A.},
+  title         = {The Economic and Societal Impact of Motor Vehicle Crashes, 2019 (Revised)},
+  institution   = {National Highway Traffic Safety Administration},
+  number        = {DOT HS 813 403},
+  year          = {2023},
+  url           = {https://rosap.ntl.bts.gov/view/dot/78698}
+}
+
+@techreport{Calvo2024,
+  author        = {Calvo, Jose and Jannat, Mafruhatul and Chao, Szu-Fu and Salerno, Corrigan and
+                   Young, Destinee and Olko, Sarah and Beuse, Pascal A.},
+  title         = {Enhancing Vulnerable Road User Detection and Volumetric Data Quality With {Lidar}
+                   Sensors},
+  institution   = {Federal Highway Administration},
+  number        = {FHWA-HRT-25-007},
+  type          = {TechBrief},
+  year          = {2024},
+  doi           = {10.21949/1521523},
+  url           = {https://rosap.ntl.bts.gov/view/dot/79736},
+  note          = {Published December 2024; surfaced in the 2025--2026 research briefing}
+}
+
+@techreport{Calvo2025,
+  author        = {Calvo, Jose and Lee, Yi-Ching and Bowden, Evan and Jannat, Mafruhatul and Eisert,
+                   Jesse},
+  title         = {Enhancing Vulnerable Road User Detection and Volumetric Data Through Advanced
+                   Infrastructure Detection Technologies},
+  institution   = {Federal Highway Administration},
+  number        = {FHWA-HRT-24-175},
+  year          = {2025},
+  url           = {https://highways.dot.gov/media/58566}
+}
+
+@inproceedings{Campolettano2026,
+  author        = {Campolettano, Eamon T. and Scanlon, John M. and Kusano, Kristofer D. and Victor,
+                   Trent},
+  title         = {Zeroing in on Traffic Fatalities in the {United States}: Using a Safe System
+                   Attribution Schema to Determine Fatal Cases Eliminable by Automated Vehicle Fleet
+                   Conversion},
+  booktitle     = {Proceedings of the International Research Council on Biomechanics of Injury
+                   ({IRCOBI}) Conference},
+  year          = {2026},
+  note          = {Paper IRC-26-75},
+  url           = {https://www.ircobi.org/wordpress/downloads/irc26/pdf-files/2675.pdf}
+}
+
+@techreport{Cosby2024,
+  author        = {Cosby, Anne and Bailly, Kisha and Krugipudi, Debbie and ZuWallack, Randy},
+  title         = {2022--2023 National Survey of Speeding Attitudes and Behaviors},
+  institution   = {National Highway Traffic Safety Administration},
+  number        = {DOT HS 813 594},
+  year          = {2024},
+  url           = {https://rosap.ntl.bts.gov/view/dot/78928}
+}
+
+@techreport{ERSOSpeed2025,
+  author        = {{European Commission}},
+  title         = {Road Safety Thematic Report: Speed and Speeding},
+  institution   = {European Road Safety Observatory},
+  year          = {2025},
+  note          = {Version November 2025},
+  url           = {https://road-safety.transport.ec.europa.eu/document/download/9826c063-bc55-423e-84a3-24200dca3547_en?filename=ERSO-TR-speed_2026.pdf}
+}
+
+@techreport{Folla2025,
+  author        = {Folla, Katerina and Laiou, Alexandra and Yannis, George},
+  title         = {Trendline Project: Report on {KPI} Speed},
+  institution   = {National Technical University of Athens},
+  year          = {2025},
+  note          = {Version 2.0},
+  url           = {https://trendlineproject.eu/media/pages/trendline-results/0915328fd3-1764252486/kpi-speed-report.pdf}
+}
+
+@techreport{Katz2026,
+  author        = {Katz, Sydney and Delecki, Harrison and Qian, Jon and Moss, Robert},
+  title         = {Human Crash Baselines for Robotaxis and Robotrucks},
+  institution   = {Valgo},
+  type          = {White paper},
+  year          = {2026},
+  url           = {https://valgo.ai/pdf/valgo-humanbaselines-2026.pdf}
+}
+
+@techreport{Li2026b,
+  author        = {Li, Yiqiao and Shang, Bo and Feng, Weicong and Wei, Jie and Kamga, Camille},
+  title         = {Investigation of Emerging Sensing and {AI/ML} Technologies to Enhance the Safety
+                   of Vulnerable Roadway Users at Signalized Intersection},
+  institution   = {City College of New York},
+  year          = {2026},
+  url           = {https://rosap.ntl.bts.gov/view/dot/91974}
+}
+
+@techreport{NHTSASpeeding2026,
+  author        = {{National Center for Statistics and Analysis}},
+  title         = {Speeding: 2024 Data},
+  institution   = {National Highway Traffic Safety Administration},
+  number        = {DOT HS 813 823},
+  year          = {2026},
+  url           = {https://crashstats.nhtsa.dot.gov/Api/Public/ViewPublication/813823}
+}
+
+@misc{Scanlon2026c,
+  author        = {Scanlon, John M. and Kusano, Kristofer D. and McMurry, Timothy L. and
+                   Campolettano, Eamon T. and Victor, Trent},
+  title         = {Reconstructing Sober Driving Baselines: Strategy for Evaluating Automated Driving
+                   Systems Beyond the Status Quo},
+  year          = {2026},
+  howpublished  = {Preprint, accepted for publication in Journal of Safety Research},
+  url           = {https://storage.googleapis.com/waymo-uploads/files/documents/safety/Preprint_Reconstructing%20Sober%20Driving%20Baselines_%20Strategy%20for%20Evaluating%20Automated%20Driving%20Systems%20Beyond%20the%20Status%20Quo.pdf},
+  note          = {Cited as a preprint; no journal volume, pages, or DOI assigned in the source
+                   reviewed}
+}
+
+@techreport{Steinbach2026,
+  author        = {Steinbach, Rebecca and McDonough, Jessica and Hungund, Apoorva and Kasha, Ansley
+                   and Bai, Xiaolu},
+  title         = {Attitudes Toward Speeding: Insights from Focus Groups and a National Survey of
+                   {U.S.} Drivers},
+  institution   = {{AAA} Foundation for Traffic Safety},
+  year          = {2026},
+  url           = {https://aaafoundation.org/research/attitudes-toward-speeding-insights-from-focus-groups-and-a-national-survey-of-u-s-drivers/}
+}
+
+@techreport{Teoh2026,
+  author        = {Teoh, Eric R. and Kidd, David G. and Riexinger, Luke E.},
+  title         = {Rise of the Machines: Crash Experiences of Highly Automated Vehicles and Human
+                   Drivers},
+  institution   = {Insurance Institute for Highway Safety},
+  year          = {2026},
+  type          = {Preprint},
+  url           = {https://www.iihs.org/api/datastoredocument/bibliography/2374}
+}
+
+@techreport{Zhang2026a,
+  author        = {Zhang, Xi and Steinbach, Rebecca},
+  title         = {2025 Traffic Safety Culture Index},
+  institution   = {{AAA} Foundation for Traffic Safety},
+  year          = {2026},
+  url           = {https://aaafoundation.org/wp-content/uploads/2026/05/202606-AAAFTS-2025-TSCI.pdf}
 }

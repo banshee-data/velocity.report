@@ -86,6 +86,15 @@ func (ws *Server) BenchmarkMode() *atomic.Bool {
 	return &ws.pcapBenchmarkMode
 }
 
+// ClusterMembersFlag returns a pointer to the atomic.Bool that holds the
+// tuning config's solid_body.full_members. Wire it into
+// TrackingPipelineConfig.KeepClusterMembersRuntime so a config applied at
+// runtime, by /api/lidar/params or a replay start, hands the tracker every
+// cluster member from the next frame.
+func (ws *Server) ClusterMembersFlag() *atomic.Bool {
+	return &ws.clusterMembers
+}
+
 // DisableTrackPersistenceFlag returns a pointer to the atomic.Bool that
 // suppresses DB track/observation writes. Wire this into
 // TrackingPipelineConfig.DisableTrackPersistence so analysis replays

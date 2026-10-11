@@ -112,6 +112,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/pcap/stop", ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
+		{"GET /api/lidar/configs", ws.handleListTuningConfigs},
 	}
 
 	// Capture index routes: what is on the configured volumes, what changed,

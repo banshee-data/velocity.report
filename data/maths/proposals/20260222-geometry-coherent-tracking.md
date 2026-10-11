@@ -616,22 +616,24 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 
 ### 11.1 Theoretical foundation
 
-- **Kalman Filtering and Data Association:** Bar-Shalom, Y., Fortmann, T. E. (1988)
+- **Kalman Filtering and Data Association:** Bar-Shalom, Y., Fortmann, T. E. (1988), _Tracking and Data Association_ (`BarShalom1988a`).
   Foundation for Bayesian state estimation with uncertain observations.
 
-- **Principal Component Analysis Ambiguity:** Jolliffe, I. T. (2002), _Principal Component Analysis_
+- **Principal Component Analysis Ambiguity:** Jolliffe, I. T. (2002), _Principal Component Analysis_ (`Jolliffe2002`).
   Documents the inherent axis orientation ambiguity in PCA.
 
-- **RANSAC for Robust Estimation:** Fischler, M. A., Bolles, R. C. (1981)
+- **RANSAC for Robust Estimation:** Fischler, M. A., Bolles, R. C. (1981), "Random Sample Consensus: A Paradigm for Model Fitting with Applications to Image Analysis and Automated Cartography" (`Fischler1981`).
   Alternative approach to outlier rejection (considered but not adopted).
 
 ### 11.2 Related work in LiDAR tracking
 
-- **L-Shape Fitting for Vehicles:** Zhang, X., et al. (2017), "Real-Time Vehicle Detection and Tracking Using 3D LiDAR"
+- **L-Shape Fitting for Vehicles:** Zhang, X., Xu, W., Dong, C., and Dolan, J. M. (2017), "Efficient L-Shape Fitting for Vehicle Detection Using Laser Scanners" (`Zhang2017`).
   Alternative to PCA for elongated objects; assumes L-shaped returns.
 
-- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Colour, and Motion"
+- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Colour, and Motion" (`Held2016`).
   Uses shape consistency across frames; similar philosophy to this proposal.
+
+Full BibTeX entries: [references.bib](../references.bib).
 
 ### 11.3 Internal references
 

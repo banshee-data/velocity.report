@@ -803,7 +803,9 @@ After the terminology exit, deliver these separately scoped feature work package
    follows the adapter and verifies every converted recording before an original is removed.
 6. **P2-F, sites and surveys:** merge site identity, add deployments, then surveys and report
    relationships, then survey-backed publication and export/privacy checks. Surveys follow
-   sites/deployments; publication follows surveys.
+   sites/deployments; publication follows surveys. The following report's and API's names
+   (`headway_report_v2`, the `/headway` route) take names that carry the registered quantity
+   here, aliases first, retired under P2-G ([D-28][d28]).
 7. **P2-G, compatibility retirement:** remove old aliases, projections and redundant fields
    only after their replacements have shipped for at least one release.
 
@@ -1289,3 +1291,4 @@ dropped columns.
 - [ ] "Capture" has a time sense (capture time) beside the file sense; both are defined
 - [ ] "Scene" keeps its geometry sense in L3, L7 and the vector scene map, beside no product use
 - [ ] `lidar_tracks` and `lidar_run_tracks` stay two tables
+      [d28]: ../DECISIONS.md#d-28--research-briefing-decisions-october-2026

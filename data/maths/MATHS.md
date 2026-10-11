@@ -13,6 +13,11 @@
 
 This folder documents the mathematically significant parts of the pipeline.
 
+Academic citations live in [references.bib](references.bib). The
+[reference audit](../../docs/lidar/operations/brief/reference-audit.md) maps papers and research
+reports cited in `data/` and the LiDAR research briefings to their BibTeX keys, and records the
+mentions that still lack an identifiable source.
+
 Scope:
 
 - Covers estimation, filtering, optimisation, gating, and confidence math.
