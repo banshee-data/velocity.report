@@ -98,6 +98,12 @@ async function readSourceProvenance(sourceDir) {
   };
 }
 
+/** The first line of an error's message: Playwright's launch errors carry a banner below it. */
+function firstLine(err) {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.split("\n", 1)[0].trim();
+}
+
 function viewSpecFor(recipe, view) {
   return {
     camera: view.camera,
@@ -116,11 +122,16 @@ function viewSpecFor(recipe, view) {
 /**
  * Runs one capture: `recipePath` is a path to a recipe JSON file.
  * `overwrite` allows replacing an existing output directory; without it, an
- * existing output directory refuses the run outright.
+ * existing output directory refuses the run outright. `launchBrowser` is the
+ * pinned Chromium launcher, replaceable so the lifecycle can be tested without
+ * a browser.
  *
  * @returns {Promise<{manifest: object, allStable: boolean}>}
  */
-export async function runCapture(recipePath, { overwrite = false } = {}) {
+export async function runCapture(
+  recipePath,
+  { overwrite = false, launchBrowser = launchCaptureBrowser } = {},
+) {
   const recipe = await loadRecipe(recipePath);
 
   if (isInside(recipe.source, recipe.output.dir)) {
@@ -148,11 +159,21 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
     { prefix: "/", root: __dirname },
   ]);
 
-  const {
-    page,
-    version: chromiumVersion,
-    close: closeBrowser,
-  } = await launchCaptureBrowser(recipe.viewport);
+  // The server is listening from here on, and a listening server keeps the
+  // process alive: every way out of this function has to close it, a browser
+  // that never started included.
+  let browser;
+  try {
+    browser = await launchBrowser(recipe.viewport);
+  } catch (err) {
+    await server.close();
+    throw new CaptureError(
+      `the headless browser did not start: ${firstLine(err)}. ` +
+        "Install the pinned build with `make install-scene-capture-browser`.",
+      { cause: err },
+    );
+  }
+  const { page, version: chromiumVersion, close: closeBrowser } = browser;
 
   const viewManifests = [];
   let allStable = true;
@@ -282,8 +303,11 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
       );
     }
   } finally {
-    await closeBrowser();
-    await server.close();
+    try {
+      await closeBrowser();
+    } finally {
+      await server.close();
+    }
   }
 
   const revision = await codeRevision(REPO_ROOT);
