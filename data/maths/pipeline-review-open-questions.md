@@ -216,12 +216,13 @@ geometry and OSM priors is computed as a rigid transform:
 
 - **Translation vector** (dx, dy, dz) in metres: accounts for GPS offset,
   datum differences, systematic survey error, and altitude discrepancies.
-  The z-component is required because OSM Simple 3D Buildings include height
-  data (`height=*`, `min_height=*`, `roof:height=*`, `building:levels=*`)
-  and because LiDAR observes structures such as footbridges, elevated roads,
-  and building facades at their true elevation. The expected/predicted delta
-  between OSM map elevation and observed GPS altitude should be maintained
-  as a diagnostic metric.
+  The z-component is needed to place 3D priors in the LiDAR frame. OSM Simple 3D
+  Buildings (`OSMSimple3DBuildings`) supplies heights and level counts relative to
+  local ground (`height=*`, `min_height=*`, `roof:height=*`, `building:levels=*`),
+  not absolute altitude. Ground elevation and a shared vertical datum must come
+  from separate evidence before comparing a prior's world Z with sensor/GPS
+  altitude. Any resulting vertical residual should be maintained as a diagnostic
+  metric; the height tags alone cannot determine it.
 - **Rotation offset** dθ in radians: accounts for sensor heading
   misalignment relative to map north.
 - **Confidence**: derived from the number and spatial distribution of

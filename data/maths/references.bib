@@ -12,8 +12,10 @@
 % BarShalom1988a, BarShalom1988b).
 %
 % For standards, software, datasets, tooling, and vendor documentation, more
-% descriptive mnemonic keys may be used instead (e.g. CityJSON, ROSVelodyne,
+% descriptive mnemonic keys may be used instead (e.g. CityJSON, HesaiLidarROS20,
 % OSMSimple3DBuildings, HesaiPandar40P).
+% Keys identify the current source author, publication year, or software name;
+% obsolete source names are not retained as citation aliases.
 % Sections mirror the reference groupings in
 %   docs/lidar/architecture/lidar-data-layer-model.md
 %
@@ -502,18 +504,18 @@
                scene maintenance}
 }
 
-@article{Liu2020HDMap,
-  author        = {Liu, Yan and Yuan, Zhuoming and Liu, Ming},
-  title         = {High-Definition Map Generation Technologies For Autonomous Driving:
-                   A Review},
+@article{Bao2022HDMap,
+  author        = {Bao, Zhibin and Hossain, Sabir and Lang, Haoxiang and Lin, Xianke},
+  title         = {High-Definition Map Generation Technologies for Autonomous Driving},
   journal       = {arXiv preprint},
-  year          = {2020},
+  year          = {2022},
   eprint        = {2206.05400},
   archiveprefix = {arXiv},
-  note          = {Survey of {HD} map construction pipelines; our {L7} scene
-                   accumulation follows the neighbourhood-scale variant of this
-                   paradigm (one of a pair cited as Liu et al.\,2020 in the {L7}
-                   scene plan)}
+  url           = {https://arxiv.org/abs/2206.05400},
+  note          = {Bao et al. 2022 preprint. Survey of point-cloud registration
+                   and geometric/semantic HD-map generation; background for
+                   proposed L7 mapping, not a validated stationary-sensor
+                   implementation.}
 }
 
 @inproceedings{Li2022HDMap,
@@ -647,30 +649,32 @@
 }
 
 @inproceedings{Dames2017,
-  author    = {Dames, Philip and Kumar, Vijay},
-  title     = {Detecting, Localising, and Tracking an Unknown Number of Moving
-               Targets Using a Decentralised {PHD} Filter},
-  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
-               and Automation ({ICRA} 2017)},
-  pages     = {3729--3736},
-  publisher = {{IEEE}},
+  author    = {Dames, Philip},
+  title     = {Distributed Multi-Target Search and Tracking using the {PHD} Filter},
+  booktitle = {2017 International Symposium on Multi-Robot and Multi-Agent Systems (MRS)},
   year      = {2017},
-  doi       = {10.1109/ICRA.2017.7989429},
-  note      = {Multi-sensor {PHD} filter for unknown target count; advanced
-               alternative to our gating-based {L7} multi-sensor approach}
+  pages     = {1--8},
+  publisher = {IEEE},
+  doi       = {10.1109/MRS.2017.8250924},
+  url       = {https://sites.temple.edu/pdames/files/2017/10/DamesMRS2017.pdf},
+  note      = {Distributed PHD estimation for an unknown, varying target count; local
+              neighbourhood estimates and distributed robot control. Estimator research
+              for proposed L7 fusion; not an implementation of canonical track identity.}
 }
 
-@inproceedings{Kim2017Cooperative,
-  author    = {Kim, Jonghyuk and Liu, Shoudong},
+@inproceedings{Parker1997Cooperative,
+  author    = {Parker, Lynne E. and Emmons, Brad A.},
   title     = {Cooperative Multi-Robot Observation of Multiple Moving Targets},
-  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
-               Intelligent Robots and Systems ({IROS} 2017)},
-  pages     = {3773--3779},
-  publisher = {{IEEE}},
-  year      = {2017},
-  doi       = {10.1109/IROS.2017.8206225},
-  note      = {Decentralised track fusion across sensor nodes; relevant to
-               distributed edge architecture in {L7} multi-sensor design}
+  booktitle = {Proceedings of the 1997 IEEE International Conference on Robotics and
+              Automation},
+  year      = {1997},
+  publisher = {IEEE},
+  doi       = {10.1109/ROBOT.1997.619270},
+  url       = {https://digital.library.unt.edu/ark:/67531/metadc679987/},
+  note      = {Cooperative observation and distributed mobile-sensor placement, not
+              decentralised track fusion. Local copy is the
+              complete DOE manuscript/report; publisher pagination remains to be
+              verified.}
 }
 
 @article{Reid1979,
@@ -1058,31 +1062,33 @@
 }
 
 @misc{OSMSimple3DBuildings,
-  author       = {{OpenStreetMap Contributors}},
-  title        = {Simple {3D} Buildings ({S3DB}) Specification},
-  howpublished = {\url{https://wiki.openstreetmap.org/wiki/Simple_3D_buildings}},
-  year         = {2012},
-  note         = {{OSM} tagging schema for 3D building geometry; used as external
-                  prior source in {L7} scene ingestion}
+  author = {{OpenStreetMap contributors}},
+  title  = {Simple 3D Buildings},
+  year   = {2012},
+  url    = {https://wiki.openstreetmap.org/w/index.php?title=Simple_3D_Buildings&oldid=3071724},
+  note   = {2012 denotes the scheme origin, not this snapshot date. Actual specification
+           revision 3071724 archived 2026-10-11; previous saved revision 2098064 contained
+           only a redirect.}
 }
 
-@misc{HesaiROS2,
-  author       = {{Hesai Technology}},
-  title        = {{HesaiLidar\_ROS2\_Driver}},
-  howpublished = {\url{https://github.com/HesaiTechnology/HesaiLidar_ROS2_Driver}},
-  year         = {2022},
-  note         = {Official {ROS} 2 driver for {Hesai} sensors; canonical example of
-                  separating packet driver ({L1}) from pointcloud assembly ({L2});
-                  replaces generic velodyne driver in our reference stack}
+@misc{HesaiLidarROS20,
+  author = {{Hesai Technology}},
+  title  = {{HesaiLidar\_ROS\_2.0}},
+  year   = {2023},
+  url    = {https://github.com/HesaiTechnology/HesaiLidar_ROS_2.0/tree/3ef8180ac836027012bd6553761dc96a827af6dd},
+  note   = {Pinned commit 3ef8180ac836027012bd6553761dc96a827af6dd, 2023-12-07; last
+           commit in the first repository year. ROS 1 and ROS 2 packet driver and
+           point-cloud assembly. SDK submodule pinned to 8ced419cd87286ddbf4bbeac9202da37bd21d9fa.}
 }
 
 @manual{VelodyneHDL64E,
   author       = {{Velodyne Lidar, Inc.}},
-  title        = {{HDL-64E S2} User's Manual},
-  organization = {Velodyne {LiDAR}, Inc.},
-  year         = {2007},
-  note         = {Established the {UDP} point-return packet convention used by
-                  most spinning {LiDAR} manufacturers}
+  title        = {HDL-64E S2 and S2.1 User's Manual and Programming Guide},
+  organization = {Velodyne LiDAR, Inc.},
+  year         = {2012},
+  url          = {https://www.termocam.it/pdf/manuale-HDL-64E.pdf},
+  note         = {Firmware version 4.07; Rev H, NOV12. Supports this manual revision and
+                 its UDP packet layout, not a 2007 origin-date claim.}
 }
 
 @misc{AutowareNebula,
@@ -1304,11 +1310,11 @@
   year    = {2006},
   doi     = {10.1109/TSP.2006.881190},
   note    = {{GM-PHD} --- closed-form {Gaussian} mixture implementation of the
-             {PHD} filter ({Mahler2003}); tractable multi-target tracker for
+             {PHD} filter ({Mahler2003PHD}); tractable multi-target tracker for
              unknown target count}
 }
 
-@article{Li2003IMMSurvey,
+@article{Li2005IMMSurvey,
   author  = {Li, X. Rong and Jilkov, Vesselin P.},
   title   = {Survey of Maneuvering Target Tracking. {Part V}: Multiple-Model
              Methods},
@@ -1322,7 +1328,7 @@
              reference for motion-model selection in {L5h}}
 }
 
-@inproceedings{Chiu2021PolarStream,
+@inproceedings{Chiu2021ProbabilisticMOT,
   author        = {Chiu, Hsu-kuang and Li, Jie and Ambru{\c{s}}, Rare{\c{s}} and
                    Bohg, Jeannette},
   title         = {Probabilistic {3D} Multi-Modal Multi-Object Tracking for
@@ -1335,8 +1341,10 @@
   eprint        = {2012.13755},
   archiveprefix = {arXiv},
   doi           = {10.1109/ICRA48506.2021.9561754},
-  note          = {Probabilistic multi-modal {3D} {MOT} using {EKF} with {3D}
-                   bounding boxes; extends {AB3DMOT} with probabilistic association}
+  url           = {https://arxiv.org/abs/2012.13755},
+  note          = {Standard {Kalman} filtering with learned image/{LiDAR} feature
+                   fusion, association distances, and track initiation. Contextual
+                   tracking research, not our {CV}-{Kalman}/{Hungarian} implementation.}
 }
 
 @article{Mei2022Waymo,

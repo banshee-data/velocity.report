@@ -625,16 +625,20 @@ Rationale:
 
 **S3DB import mapping (OSM → vector scene map):**
 
-| OSM construct / tags                                  | Vector scene usage                                       | Notes                                           |
-| ----------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| `building=*` outline (way or multipolygon)            | LOD 0 structure footprint prior                          | Stores overall footprint + metadata             |
-| `building:part=*` polygons                            | LOD 1 structure sub-features / wall segments             | Preferred for per-part heights                  |
-| `type=building` relation (`outline` + `part` members) | Explicit grouping of outline and parts                   | Use when present; infer containment otherwise   |
-| `height=*`, `min_height=*`                            | `ZMax`, `ZMin` priors (after local frame transform)      | Highest-confidence height tags                  |
-| `building:levels=*`, `building:min_level=*`           | Height fallback priors with lower confidence             | Convert with configured level-height heuristics |
-| `roof:shape`, `roof:height`, `roof:levels`, `roof:*`  | Optional roof prior metadata / roof uncertainty envelope | Used to avoid overfitting roof returns as walls |
+| OSM construct / tags                                  | Vector scene usage                                                                         | Notes                                           |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `building=*` outline (way or multipolygon)            | LOD 0 structure footprint prior                                                            | Stores overall footprint + metadata             |
+| `building:part=*` polygons                            | LOD 1 structure sub-features / wall segments                                               | Preferred for per-part heights                  |
+| `type=building` relation (`outline` + `part` members) | Explicit grouping of outline and parts                                                     | Use when present; infer containment otherwise   |
+| `height=*`, `min_height=*`                            | Add heights to an independently established ground Z, then transform into the sensor frame | Relative heights, not absolute altitude         |
+| `building:levels=*`, `building:min_level=*`           | Height fallback priors with lower confidence                                               | Convert with configured level-height heuristics |
+| `roof:shape`, `roof:height`, `roof:levels`, `roof:*`  | Optional roof prior metadata / roof uncertainty envelope                                   | Used to avoid overfitting roof returns as walls |
 
 **Height precedence for priors (high → low confidence):**
+
+S3DB heights are relative to local ground. A ground-elevation source and vertical datum are
+required before producing world `ZMin`/`ZMax`; a coordinate transform alone does not supply
+them. The precedence below ranks the available height evidence, not surveyed accuracy.
 
 1. Explicit metric tags (`height=*`, `min_height=*`, `roof:height=*`)
 2. Mixed metric + levels (e.g. `height=*` plus `building:levels=*`)
