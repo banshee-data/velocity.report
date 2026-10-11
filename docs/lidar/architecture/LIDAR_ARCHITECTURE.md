@@ -335,18 +335,27 @@ Use the references above as the fast visual index:
 
 The full bibliography in BibTeX format is at [data/maths/references.bib](../../../data/maths/references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
 
+Citation keys are stable identifiers: `Liu2020HDMap` names Bao et al. (2022), and
+`Kim2017Cooperative` names Parker and Emmons (1997). Use the corrected authors and years
+in prose. The [source-context audit](../operations/brief/reference-audit.md#corrected-source-context)
+records the six corrected sources and their implementation limits.
+
 ### L1 packets: sensor transport
 
 **Our approach:** Raw UDP packet capture from Hesai Pandar40P; PCAP file replay for offline analysis.
 
-**Literature context:** Sensor-specific packet formats are proprietary but follow the pattern established by Velodyne's original HDL-64E protocol specification. The general approach of treating raw sensor data as an opaque transport layer; separate from frame assembly; is standard in the Hesai ROS 2 driver architecture and Autoware's `nebula` multi-vendor driver.
+**Literature context:** The Velodyne HDL-64E S2/S2.1 manual documents one sensor's UDP
+return layout; it does not establish the origin of a shared protocol across manufacturers.
+Our parser uses the Hesai Pandar40P format. The pinned Hesai driver exposes separate packet
+and assembled point-cloud topics, which provides context for our L1/L2 boundary. Our Go
+packages define that boundary; the reference driver is not a runtime dependency.
 
-| Reference                           | Relevance                                                                                    |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Velodyne HDL-64E User Manual (2007) | Established the UDP point-return packet convention used by most spinning LiDAR manufacturers |
-| Hesai Pandar40P User Manual v4.02   | Our specific sensor protocol: dual-return UDP at 10 Hz rotation                              |
-| Hesai ROS 2 driver (2022)           | Canonical Hesai L1 driver; demonstrates the packet-driver / pointcloud-assembly split        |
-| Autoware `nebula` driver (2023)     | Modern multi-vendor L1 abstraction supporting Hesai, Velodyne, Ouster, Robosense             |
+| Reference                                                       | Relevance                                                                                         |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Velodyne HDL-64E S2/S2.1 manual (2012, Rev H; `VelodyneHDL64E`) | Documents the HDL-64E UDP return layout; comparative context, not the Pandar40P protocol          |
+| Hesai Pandar40P User Manual v4.02                               | Our specific sensor protocol: dual-return UDP at 10 Hz rotation                                   |
+| Hesai ROS driver (2023 pin; `HesaiROS2`)                        | Supports ROS 1 and ROS 2; separate packet and point-cloud topics illustrate the L1/L2 distinction |
+| Autoware `nebula` driver (2023)                                 | Modern multi-vendor L1 abstraction supporting Hesai, Velodyne, Ouster, Robosense                  |
 
 ### L2 frames: point cloud assembly
 
@@ -667,17 +676,17 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 ### Scene understanding and mapping
 
-| Key            | Description                                     | Layers |
-| -------------- | ----------------------------------------------- | ------ |
-| Behley2019     | SemanticKITTI LiDAR scene understanding         | L6, L7 |
-| Hornung2013    | OctoMap probabilistic 3D mapping                | L7     |
-| Pomerleau2014  | Long-term 3D map maintenance                    | L7     |
-| Pannen2020     | Keeping HD maps up to date                      | L7     |
-| Liu2020HDMap   | HD map construction survey                      | L7     |
-| Li2022HDMap    | HDMapNet online HD map framework                | L7     |
-| Caesar2020     | nuScenes multimodal driving dataset             | L6, L7 |
-| Geiger2012     | KITTI autonomous driving benchmark              | L5, L6 |
-| Schonemann1966 | Orthogonal Procrustes (rigid alignment via SVD) | L7     |
+| Key            | Description                                                          | Layers |
+| -------------- | -------------------------------------------------------------------- | ------ |
+| Behley2019     | SemanticKITTI LiDAR scene understanding                              | L6, L7 |
+| Hornung2013    | OctoMap probabilistic 3D mapping                                     | L7     |
+| Pomerleau2014  | Long-term 3D map maintenance                                         | L7     |
+| Pannen2020     | Keeping HD maps up to date                                           | L7     |
+| Liu2020HDMap   | Bao et al. (2022): HD-map generation survey, planned mapping context | L7     |
+| Li2022HDMap    | HDMapNet online HD map framework                                     | L7     |
+| Caesar2020     | nuScenes multimodal driving dataset                                  | L6, L7 |
+| Geiger2012     | KITTI autonomous driving benchmark                                   | L5, L6 |
+| Schonemann1966 | Orthogonal Procrustes (rigid alignment via SVD)                      | L7     |
 
 ### Trajectory prediction and scene-constrained motion (L7 planned)
 
@@ -690,20 +699,20 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 ### Multi-sensor fusion
 
-| Key                | Description                                      | Layers |
-| ------------------ | ------------------------------------------------ | ------ |
-| BarShalom2011      | Tracking and data fusion                         | L5, L7 |
-| Dames2017          | Decentralised PHD filter for multi-robot targets | L7     |
-| Kim2017Cooperative | Cooperative multi-robot target observation       | L7     |
-| Reid1979           | MHT algorithm for multiple target tracking       | L5     |
-| Sack2004           | Line extraction from range data                  | L4, L7 |
+| Key                | Description                                                                                  | Layers |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------ |
+| BarShalom2011      | Tracking and data fusion                                                                     | L5, L7 |
+| Dames2017          | Dames (2017): distributed PHD estimation and mobile-robot search control, research candidate | L7     |
+| Kim2017Cooperative | Parker and Emmons (1997): mobile-robot observation coverage, contextual reference            | L7     |
+| Reid1979           | MHT algorithm for multiple target tracking                                                   | L5     |
+| Sack2004           | Line extraction from range data                                                              | L4, L7 |
 
 ### Standards and datasets
 
-| Key                  | Description                                     | Layers |
-| -------------------- | ----------------------------------------------- | ------ |
-| VelodyneHDL64E       | Velodyne HDL-64E manual (UDP packet convention) | L1     |
-| HesaiPandar40P       | Hesai Pandar40P user manual                     | L1     |
-| HesaiROS2            | Hesai ROS2 driver reference                     | L1     |
-| OSMSimple3DBuildings | OpenStreetMap Simple 3D Buildings (S3DB)        | L7     |
-| CityJSON             | CityJSON specification v1.1                     | L7     |
+| Key                  | Description                                                                  | Layers |
+| -------------------- | ---------------------------------------------------------------------------- | ------ |
+| VelodyneHDL64E       | HDL-64E S2/S2.1 manual (2012, Rev H), comparative UDP layout                 | L1     |
+| HesaiPandar40P       | Hesai Pandar40P user manual                                                  | L1     |
+| HesaiROS2            | Hesai ROS 1/2 driver, commit `3ef8180` (2023), packet and point-cloud topics | L1, L2 |
+| OSMSimple3DBuildings | S3DB revision `3071724`: proposed building priors, relative heights          | L7     |
+| CityJSON             | CityJSON specification v1.1                                                  | L7     |

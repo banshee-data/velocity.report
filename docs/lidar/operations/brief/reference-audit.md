@@ -15,6 +15,40 @@ report pages or cover sheets. This establishes bibliographic identity. It does n
 paper's numerical claims, reproduce its experiments, or establish suitability for the deployed
 sensor. The briefings' reading and **Confirm** statuses remain the record of those limits.
 
+## Corrected source context
+
+The October 11, 2026 follow-up traced all six sources corrected in PR #739 through the
+tracked repository, searching citation keys, authors, titles, and source names. No executable
+source file cites these six entries directly. Their uses are architectural references and
+future L7 design context; the links below identify the affected documents.
+
+| Stable BibTeX key      | Corrected source and evidence                                                                                                                                                        | Context after review                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Dames2017`            | [Dames's MRS 2017 paper](https://sites.temple.edu/pdames/files/2017/10/DamesMRS2017.pdf), abstract and §§ II–III                                                                     | [L7 plan](../../../plans/lidar-l7-scene-plan.md#multi-sensor-tracking-and-fusion) and [architecture index](../../architecture/LIDAR_ARCHITECTURE.md#multi-sensor-fusion): distributed target-count/position estimation and mobile-robot control. Estimator research for fixed-sensor fusion; does not establish canonical track identity or the proposed handoff scheme.                                                                                                                                                          |
+| `Kim2017Cooperative`   | [Parker and Emmons (1997), original DOE manuscript record](https://digital.library.unt.edu/ark:/67531/metadc679987/), description                                                    | Same L7 plan and architecture index: distributed mobile-robot placement to maintain observation coverage. Removed the claim that it supplies decentralised track fusion. Legacy key retained.                                                                                                                                                                                                                                                                                                                                     |
+| `Liu2020HDMap`         | [Bao et al. (2022), arXiv preprint 2206.05400](https://arxiv.org/abs/2206.05400), abstract and map-generation review                                                                 | [L7 mapping references](../../../plans/lidar-l7-scene-plan.md#scene-and-map-construction), [architecture index](../../architecture/LIDAR_ARCHITECTURE.md#scene-understanding-and-mapping), and [gap-analysis inventory](../../../../data/maths/paper-implementation-gap-analysis.md#source-inventory): mapping survey context. Corrected authors/year and distinguished Li's HDMapNet framework from the survey. September reading-status history retained.                                                                       |
+| `VelodyneHDL64E`       | [HDL-64E S2/S2.1 manual](https://www.termocam.it/pdf/manuale-HDL-64E.pdf), firmware 4.07, Rev H NOV12, “Develop Your Own Application-specific Point-cloud Viewer” and Appendix E     | [L1 literature context](../../architecture/LIDAR_ARCHITECTURE.md#l1-packets-sensor-transport): comparative UDP layout. Corrected the date to 2012 and removed the unsupported protocol-origin claim. It is not the Pandar40P parser specification.                                                                                                                                                                                                                                                                                |
+| `HesaiROS2`            | [Official README at commit `3ef8180`](https://github.com/HesaiTechnology/HesaiLidar_ROS_2.0/blob/3ef8180ac836027012bd6553761dc96a827af6dd/README.md), introduction and configuration | Same L1 context: separate packet and point-cloud topics illustrate the L1/L2 distinction. Corrected the year to 2023 and identified support for ROS 1 and ROS 2. Reference software, not a Go runtime dependency.                                                                                                                                                                                                                                                                                                                 |
+| `OSMSimple3DBuildings` | [S3DB specification revision `3071724`](https://wiki.openstreetmap.org/w/index.php?title=Simple_3D_Buildings&oldid=3071724), building parts, relations, and height tags              | [Vector-scene import design](../../architecture/vector-scene-map.md#osm-simple-3d-buildings-as-the-preferred-structure-prior), L7 plan, [pipeline review](../../../../data/maths/pipeline-review-open-questions.md), and [spatial-priors review](../../../plans/spatial-priors-service-review.md#georeferencing-sources-and-fusion): proposed outline/part/roof priors. Heights are relative to local ground, not absolute altitude; corrected the Z-placement interpretation. The historical changelog mention remains accurate. |
+
+The implementation trace checked:
+
+- [L1 packet ownership](../../../../internal/lidar/l1packets/doc.go),
+  [Pandar40P decoding](../../../../internal/lidar/l1packets/parse/extract.go), and
+  [L2 frame assembly](../../../../internal/lidar/l2frames/frame_builder.go).
+  The Pandar40P decoder has its own packet constants; the Velodyne manual is comparison material.
+- [L5 prediction and association](../../../../internal/lidar/l5tracks/tracking_association.go):
+  constant-velocity Kalman prediction, Mahalanobis gating, and Hungarian assignment. The
+  distributed PHD estimator and mobile-robot control methods are not implemented here.
+- The [canonical layer status](../../../../ARCHITECTURE.md#segmented-concept-status-chart):
+  L7 scene fusion remains planned. No S3DB building-prior importer was found in executable
+  source; the proposed tag mapping is a design contract.
+
+These are source-content and implementation-context checks. No replay, physical sensor,
+multi-sensor identity, or mapping-accuracy validation is claimed. All 156 citation keys remain
+stable; legacy names do not encode the corrected author and year. The two unidentified PET
+mentions below remain unresolved.
+
 ## References added from data
 
 | Source mention                                                          | BibTeX key      | Source document                          |

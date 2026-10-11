@@ -54,6 +54,9 @@ New rows: D6, K9, K10, B7, M5, B8. Reclassified: S3 (edge case → mathematical 
 
 "In hand" means the text was read for this revision. Cached copies live outside the repository in citation-needed's corpus cache (`eval/corpus/cache/{pdf,markdown}`); copies obtained for this pass are in [data/maths/papers/](papers/), which is gitignored.
 
+The inventory records reading status for the September review. The HD-map survey's author
+was subsequently corrected to Bao et al. (2022); its compatibility key remains `Liu2020HDMap`.
+
 | Paper                                                                           | Key                                                       | In hand      | Source                                                                                                                                                    |
 | ------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SORT, DeepSORT                                                                  | `Bewley2016`, `Wojke2017DeepSORT`                         | Yes          | Corpus cache                                                                                                                                              |
@@ -68,7 +71,7 @@ New rows: D6, K9, K10, B7, M5, B8. Reclassified: S3 (edge case → mathematical 
 | CLEAR MOT                                                                       | `Bernardin2008`                                           | No           | Open access, but the publisher's consent wall defeated a scripted fetch. MOT16 §4.1 and HOTA restate the definitions in full, so M1 is not blocked on it. |
 | DBSCAN revisited                                                                | `Schubert2017DBSCANR`                                     | No           | Author copy did not resolve                                                                                                                               |
 | Welford, Kuhn, Munkres, Blom, Julier, Campello, Jolliffe, Mahalanobis, Fischler | —                                                         | No           | Paywalled or print-only                                                                                                                                   |
-| PointPillars, PointNet++, CenterPoint, Liu HD map                               | `Lang2019`, `Qi2017PointNetPP`, `Yin2021`, `Liu2020HDMap` | No           | No DOI in the bib entry, so citation-needed never attempted them; all on arXiv                                                                            |
+| PointPillars, PointNet++, CenterPoint, Bao HD-map survey                        | `Lang2019`, `Qi2017PointNetPP`, `Yin2021`, `Liu2020HDMap` | No           | No DOI in the bib entry at the September review, so citation-needed never attempted them; all on arXiv                                                    |
 
 One finding about the tooling rather than the maths: citation-needed skips any bib entry without a `doi` field before it creates a database row, so `Ester1996`, `Weng2020`, `Lang2019`, `Yin2021` and four others were never attempted despite being freely available. Adding `eprint`/`url` handling there would recover most of the remaining open-access gaps in one run.
 
@@ -667,18 +670,18 @@ Three things, none of which settles the detection cost.
 
 These papers are in [references.bib](references.bib). The implementation either correctly excludes them (deep learning, scope out) or uses them for context only. "In hand" records whether the assessment was made from the text; where it was not, it rests on the paper's abstract-level content and is sound only because the conclusion is "out of scope".
 
-| Paper                        | Key                                         | In hand                     | Assessment                                                                               |
-| ---------------------------- | ------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
-| PointPillars (Lang 2019)     | `Lang2019`                                  | No                          | Deep learning; future L6 replacement. Correctly excluded by the "no black-box AI" tenet. |
-| PointNet / PointNet++        | `Qi2017PointNet`, `Qi2017PointNetPP`        | PointNet yes, PointNet++ no | Deep learning reference. Correctly excluded.                                             |
-| VoxelNet (Zhou 2018)         | `Zhou2018VoxelNet`                          | Yes                         | Deep learning reference. Correctly excluded.                                             |
-| PointRCNN (Shi 2019)         | `Shi2019PointRCNN`                          | Yes                         | Deep learning reference. Correctly excluded.                                             |
-| Trajectron++ (Salzmann 2020) | `Salzmann2020`                              | Yes                         | Not implemented; future L7 work. No current gap.                                         |
-| Lefèvre (2014) survey        | `Lefevre2014`                               | Yes                         | Survey paper; no specific algorithm to implement.                                        |
-| HD Map papers                | `Pannen2020`, `Liu2020HDMap`, `Li2022HDMap` | Pannen and Li yes, Liu no   | Future L7 work. No current gap.                                                          |
-| CenterPoint (Yin 2021)       | `Yin2021`                                   | No                          | Deep learning detector/tracker. Correctly excluded.                                      |
-| PolarStream (Chiu 2021)      | `Chiu2021PolarStream`                       | Yes                         | Multi-modal fusion. Future work.                                                         |
-| Waymo (Sun 2020)             | `Sun2020Waymo`                              | Yes                         | Dataset paper; used for context only.                                                    |
+| Paper                        | Key                                         | In hand                                      | Assessment                                                                                          |
+| ---------------------------- | ------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| PointPillars (Lang 2019)     | `Lang2019`                                  | No                                           | Deep learning; future L6 replacement. Correctly excluded by the "no black-box AI" tenet.            |
+| PointNet / PointNet++        | `Qi2017PointNet`, `Qi2017PointNetPP`        | PointNet yes, PointNet++ no                  | Deep learning reference. Correctly excluded.                                                        |
+| VoxelNet (Zhou 2018)         | `Zhou2018VoxelNet`                          | Yes                                          | Deep learning reference. Correctly excluded.                                                        |
+| PointRCNN (Shi 2019)         | `Shi2019PointRCNN`                          | Yes                                          | Deep learning reference. Correctly excluded.                                                        |
+| Trajectron++ (Salzmann 2020) | `Salzmann2020`                              | Yes                                          | Not implemented; future L7 work. No current gap.                                                    |
+| Lefèvre (2014) survey        | `Lefevre2014`                               | Yes                                          | Survey paper; no specific algorithm to implement.                                                   |
+| HD Map papers                | `Pannen2020`, `Liu2020HDMap`, `Li2022HDMap` | Pannen and Li yes, Bao no (September review) | Future L7 context: Bao is a survey, Li is an online map-learning framework. No current runtime gap. |
+| CenterPoint (Yin 2021)       | `Yin2021`                                   | No                                           | Deep learning detector/tracker. Correctly excluded.                                                 |
+| PolarStream (Chiu 2021)      | `Chiu2021PolarStream`                       | Yes                                          | Multi-modal fusion. Future work.                                                                    |
+| Waymo (Sun 2020)             | `Sun2020Waymo`                              | Yes                                          | Dataset paper; used for context only.                                                               |
 
 The corpus cache also holds ERASOR (Lim 2021, `Lim2021ERASOR`), on removing dynamic objects to build a static map. It is the same group's companion to Patchwork and is worth a read before the L3/L4 settling unification. The paper was absent from the bibliography when this analysis was written; its entry is now in [references.bib](references.bib).
 

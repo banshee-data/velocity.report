@@ -83,7 +83,9 @@ The L7 Scene layer is designed to ingest external map priors as initial low-conf
 
 ### Current state: single sensor
 
-Today, velocity.report runs one LiDAR sensor per deployment. Each sensor has its own L1–L6 pipeline instance. L7–L10 do not yet exist as code packages.
+Today, velocity.report runs one LiDAR sensor per deployment. Each sensor has its own L1–L6
+pipeline instance. L7 scene accumulation and cross-sensor fusion remain planned. L8 analytics
+and L9 endpoints already have code packages; L10 denotes the existing clients.
 
 ### Future state: multi-sensor scene fusion
 
@@ -318,24 +320,29 @@ L7 Scene
 
 ### Scene and map construction
 
-| Reference                                                                              | Relevance                                                                                                                |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| HD Map construction surveys (Liu et al., 2020; Li et al., 2022)                        | Canonical approach to persistent vector map construction from LiDAR; our L7 follows this paradigm at neighbourhood scale |
-| OpenStreetMap Simple 3D Buildings (S3DB) specification                                 | Prior source for building outlines; our priors service ingests S3DB tags                                                 |
-| Pannen et al. (2020): How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020) | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                      |
-| CityJSON specification (v1.1)                                                          | 3D city model interchange format; our L7 export target for building geometry                                             |
-| Hornung et al. (2013): **OctoMap** (doi:10.1007/s10514-012-9321-0)                     | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
-| Pomerleau et al. (2014): Long-term 3D map maintenance                                  | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
-| [Radiance-field scene-model review](lidar-radiance-field-scene-model-review.md)        | Decision note: classical L7 (this plan) supersedes radiance-field-style approaches for the persistent scene model        |
+| Reference                                                                                                | Relevance                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bao et al. (2022): HD-map generation survey (`Liu2020HDMap`); Li et al. (2022): HDMapNet (`Li2022HDMap`) | Survey and online map-learning framework, respectively; background for proposed L7 geometry, not validation of our stationary-sensor design |
+| OpenStreetMap Simple 3D Buildings (S3DB), revision `3071724` (`OSMSimple3DBuildings`)                    | Proposed prior schema for building outlines, parts, and relative heights; ingestion remains planned                                         |
+| Pannen et al. (2020): How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020)                   | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                                         |
+| CityJSON specification (v1.1)                                                                            | 3D city model interchange format; our L7 export target for building geometry                                                                |
+| Hornung et al. (2013): **OctoMap** (doi:10.1007/s10514-012-9321-0)                                       | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                                                 |
+| Pomerleau et al. (2014): Long-term 3D map maintenance                                                    | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                                                 |
+| [Radiance-field scene-model review](lidar-radiance-field-scene-model-review.md)                          | Decision note: classical L7 (this plan) supersedes radiance-field-style approaches for the persistent scene model                           |
 
 ### Multi-sensor tracking and fusion
 
-| Reference                                                                                   | Relevance                                                                                         |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Bar-Shalom et al. (2011): Tracking and Data Fusion (Mathematics in Science and Engineering) | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering |
-| Reid (1979): An algorithm for tracking multiple targets (IEEE TAC)                          | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
-| Kim & Liu (2017): Cooperative multi-robot observation of targets                            | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
-| Dames & Kumar (2017): Detecting, localising, and tracking an unknown number of targets      | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
+| Reference                                                                                                       | Relevance                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bar-Shalom et al. (2011): Tracking and Data Fusion (Mathematics in Science and Engineering)                     | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering                                                        |
+| Reid (1979): An algorithm for tracking multiple targets (IEEE TAC)                                              | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association                                                               |
+| Parker and Emmons (1997): Cooperative Multi-Robot Observation of Multiple Moving Targets (`Kim2017Cooperative`) | Mobile-robot placement and observation coverage; context for coverage planning, not a decentralised track-fusion method                                  |
+| Dames (2017): Distributed Multi-Target Search and Tracking using the PHD Filter (`Dames2017`)                   | Distributed target-count/position estimation coupled to mobile-robot control; candidate estimator research for L7, requiring adaptation to fixed sensors |
+
+The two mobile-robot papers do not establish our proposed canonical-object identity or
+cross-sensor handoff scheme. The current L5 code uses a constant-velocity Kalman filter and
+Hungarian assignment; neither a distributed PHD filter nor cooperative robot control is
+implemented. The legacy BibTeX keys remain stable despite the corrected authors and years.
 
 ### Physics-constrained prediction and scene graphs
 
