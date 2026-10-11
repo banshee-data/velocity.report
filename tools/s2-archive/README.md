@@ -263,7 +263,8 @@ make scene-variants SET=tools/s2-archive/scene-variants/geometry-convergence.jso
 | `scene-variants-recipes` | One scene-capture recipe per variant from a base recipe (`RECIPE=`), for stills |
 
 `SITES='1st-mission'` limits a run to some of the set's sites, `FORCE=1` remakes
-every variant, and `COMPARE=1` adds `make vrlog-compare` against the baseline.
+every variant, and `COMPARE=1` adds `make vrlog-compare` against the baseline,
+over each whole recording, warm-up included.
 
 A set file in [scene-variants/](scene-variants/) names a baseline, the variants
 by tuning config, each a path relative to the server's config directory as the

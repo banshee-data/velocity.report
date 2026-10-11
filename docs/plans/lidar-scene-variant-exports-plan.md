@@ -5,8 +5,9 @@ start that now takes `tuning_config`, and exports each run as a web scene the ex
 opens unchanged. The set of exports, with a manifest that says exactly which file, fingerprint and
 build made each one, is how an arm is shown rather than only scored.
 
-- **Status:** Tooling built and unit-tested on the branch `ai/tools/scene-variant-exports`; not
-  yet run against a server, so the first set and its windows are unverified
+- **Status:** Tooling built, unit-tested and run end to end against a server on kirk0
+  ([first run](#first-run-against-a-server)); the `geometry-convergence` set itself has not been
+  run, so its windows are unverified
 - **Canonical:** [config/CONFIG.md](../../config/CONFIG.md)
 - **Layers:** L9 Endpoints (replay start, configs API), offline tooling, the web scene player
   (read only)
@@ -180,9 +181,11 @@ is now running.
   `make scene-variants-recipes` writes one recipe per variant with only `source` and `output`
   changed. `make capture-scene RECIPE=...` renders each, so every variant is seen at the same
   instant from the same cameras.
-- **As numbers.** `COMPARE=1` runs `make vrlog-compare` for each variant against the baseline. The
-  scorers that decide anything (per-frame evaluation, the solid-body summary) are run as they are
-  today; the set does not replace them.
+- **As numbers.** `COMPARE=1` runs `make vrlog-compare` for each variant against the baseline. It
+  compares each whole recording, warm-up included, not only the exported window, and its report
+  gives its version as `dev`, because the target runs the tool with `go run`. The scorers that
+  decide anything (per-frame evaluation, the solid-body summary) are run as they are today; the set
+  does not replace them.
 
 ## Cost
 
@@ -209,6 +212,47 @@ looks better is not a measurement, and an unchanged picture can reproduce a wron
 scored comparison is the predeclared criteria and the scorers they name. The set is for review,
 for finding what to score, and for showing a result once it is scored.
 
+## First run against a server
+
+The question was whether the tool works against a real server: the configs listing, the replay
+start with `tuning_config`, the fingerprint echo, the run lookup, the export, the manifest and the
+resume. The `geometry-convergence` set could not be the test. Its captures are on the operator's
+volume only: the published dataset on Hugging Face has its README but no manifest and no
+captures.
+
+The method was one smoke set on kirk0, the repository's own capture, fetched through Git LFS. The
+four configs of `geometry-convergence` were run on a 30 s window from 45 s, against a dev server
+from `make dev-go-lidar` on build `c1288cb2`, at the published replay settings. A scratch site
+index and corpus manifest named kirk0, outside the checkout.
+
+| Variant       | Config file                                       | Fingerprint, listed and echoed | `tuning_hash` | Frames | Minutes |
+| ------------- | ------------------------------------------------- | ------------------------------ | ------------- | -----: | ------: |
+| `defaults`    | `tuning.defaults.json`                            | `fd35b0b28fc1`                 | `2319c8f8…`   |    153 |     2.4 |
+| `a2`          | `experiments/solid-body-a2.json`                  | `1fb29f8bea7f`                 | `462efa22…`   |    153 |     2.4 |
+| `alignment`   | `experiments/alignment-candidate.json`            | `f55b8ad99081`                 | `8ca672f3…`   |    153 |     2.4 |
+| `convergence` | `experiments/geometry-convergence-candidate.json` | `6d86dd759ee6`                 | `3244e196…`   |    153 |     2.4 |
+
+What it showed:
+
+- Every check passed and the set recorded no problems. Each variant's echoed fingerprint equalled
+  the listed one, and the four `tuning_hash` values are distinct: an applied file does reach the
+  run's recorded configuration, which the distinct-parameters check depends on.
+- The defaults' `tuning_hash` equals the published 1st-mission scene's, which predates the field:
+  `tuning.defaults.json` applied at the replay start records the same parameters as a server
+  started on it.
+- Every variant replayed 70 s, the window and its warm-up, and exported 153 frames over 30.4 s.
+- A second run skipped all four variants, and `--status` read them as done.
+- `--compare` wrote a comparison for each variant against the baseline.
+- The scene-capture harness rendered every variant's `assets/` from per-variant recipes at one
+  frame and two views. The defaults and the convergence candidate draw visibly different boxes for
+  the same vehicles.
+- The server was left on the convergence candidate, and the run said so.
+
+What it does not establish: anything about the configs' accuracy, which the scorers measure, and
+anything about the `geometry-convergence` windows, which only a run on their captures can check.
+The raw outputs (the database, the four VRLOGs, the exports, the comparisons and the stills) stayed
+in a scratch directory and are not kept.
+
 ## Checklist
 
 On the tooling branch, `ai/tools/scene-variant-exports`:
@@ -228,7 +272,9 @@ On the tooling branch, `ai/tools/scene-variant-exports`:
 - [x] The first set, `geometry-convergence.json`, on the W7 windows (`S`)
 - [x] The runbook in the S2 archive README beside Web scene assets, and a pointer from
       [CONFIG.md](../../config/CONFIG.md#experiment-parameter-sets) under Running a set (`S`)
-- [ ] The first run against a server: the set made end to end, its windows checked by eye
+- [x] A first run against a server, end to end on kirk0, with resume, comparison and stills
+      ([first run](#first-run-against-a-server)) (`S`)
+- [ ] The `geometry-convergence` set made where its captures are, its windows checked by eye
       against the trucks the report names and corrected in the set file (`S`)
 
 ### Deferred
