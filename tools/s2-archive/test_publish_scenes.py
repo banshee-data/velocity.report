@@ -14,6 +14,7 @@ import sqlite3
 import struct
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -451,6 +452,130 @@ class PlanTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as empty:
             with self.assertRaisesRegex(SystemExit, "manifest.json"):
                 publish_scenes.plan("corpus", [], empty, "/vol")
+
+
+class NewestRunTests(unittest.TestCase):
+    """Which run a replay is answered with, once one capture is replayed more than once."""
+
+    def setUp(self):
+        held = tempfile.TemporaryDirectory()
+        self.addCleanup(held.cleanup)
+        self.db = os.path.join(held.name, "runs.db")
+        patched = mock.patch.object(publish_scenes, "DB", self.db)
+        patched.start()
+        self.addCleanup(patched.stop)
+        with contextlib.closing(sqlite3.connect(self.db)) as connection:
+            connection.execute(
+                "CREATE TABLE lidar_run_records (run_id TEXT, created_at INTEGER,"
+                " source_path TEXT, status TEXT, vrlog_path TEXT)"
+            )
+            connection.executemany(
+                "INSERT INTO lidar_run_records VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("early", 1_000, "/vol/raw/site.pcapng", "completed", "/v/early"),
+                    ("late", 2_000, "/real/raw/site.pcapng", "completed", "/v/late"),
+                    ("other", 3_000, "/vol/raw/other.pcapng", "completed", "/v/other"),
+                ],
+            )
+            connection.commit()
+
+    def test_without_a_bound_the_newest_run_of_the_file_is_taken(self):
+        self.assertEqual(publish_scenes.newest_run("site.pcapng")[0], "late")
+
+    def test_a_run_from_before_the_start_is_not_taken(self):
+        self.assertEqual(
+            publish_scenes.newest_run("site.pcapng", since_ns=1_500)[0], "late"
+        )
+        self.assertIsNone(publish_scenes.newest_run("site.pcapng", since_ns=2_001))
+
+
+class ReplayTests(unittest.TestCase):
+    """What the replay start is asked for, and what a replay says it ran."""
+
+    def scene(self):
+        return {"files": ["raw/site.pcapng"], "start_secs": 60.0, "duration": 100.0}
+
+    def replay(self, *args, **kwargs):
+        calls = []
+
+        def api(path, payload=None, timeout=900):
+            calls.append((path, payload))
+            return {
+                "status": "started",
+                "tuning_config": kwargs.get("tuning_config") or "",
+            }
+
+        with tempfile.TemporaryDirectory() as vrlog, mock.patch.object(
+            publish_scenes, "api", side_effect=api
+        ), mock.patch.object(publish_scenes, "stop_any_replay"), mock.patch.object(
+            publish_scenes, "wait_for_idle", return_value=True
+        ), mock.patch.object(
+            publish_scenes.time, "sleep"
+        ), mock.patch.object(
+            publish_scenes, "newest_run", return_value=("run-9", "completed", vrlog)
+        ) as newest:
+            open(os.path.join(vrlog, "header.json"), "w").close()
+            result = publish_scenes.replay(*args, **kwargs)
+        starts = [payload for path, payload in calls if path.startswith("/pcap/start")]
+        self.assertEqual(len(starts), 1)
+        return result, starts[0], newest
+
+    def test_a_tuning_config_is_sent_on_the_start(self):
+        result, payload, _ = self.replay(
+            self.scene(), tuning_config="experiments/a2.json"
+        )
+        self.assertEqual(payload["tuning_config"], "experiments/a2.json")
+        self.assertEqual(payload["start_seconds"], 60.0)
+        self.assertEqual(payload["duration_seconds"], 100.0)
+        self.assertEqual(result["run_id"], "run-9")
+        self.assertEqual(result["start"]["tuning_config"], "experiments/a2.json")
+
+    def test_without_one_the_start_is_what_it_was(self):
+        _, payload, _ = self.replay(self.scene())
+        self.assertNotIn("tuning_config", payload)
+
+    def test_the_run_is_looked_up_from_the_start_request(self):
+        before = time.time_ns()
+        _, _, newest = self.replay(self.scene())
+        since = newest.call_args.kwargs["since_ns"]
+        self.assertLessEqual(since, before)
+        self.assertGreater(since, before - 2_000_000_000)
+
+    def test_replay_stretch_still_returns_the_vrlog(self):
+        with mock.patch.object(
+            publish_scenes,
+            "replay",
+            return_value={"vrlog": "/v/x", "run_id": "r", "start": {}},
+        ) as replay:
+            self.assertEqual(publish_scenes.replay_stretch(self.scene()), "/v/x")
+        replay.assert_called_once_with(self.scene())
+
+
+class AssetsTests(unittest.TestCase):
+    def test_the_manifest_names_one_part_from_the_start(self):
+        with tempfile.TemporaryDirectory() as assets:
+            publish_scenes.write_assets_manifest(assets, "site", "A Site")
+            with open(os.path.join(assets, "manifest.json")) as fh:
+                manifest = json.load(fh)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "site": {"id": "site", "title": "A Site"},
+                "parts": [{"url": "./part-000/", "start_seconds": 0}],
+            },
+        )
+
+    def test_a_swap_replaces_the_live_assets_whole(self):
+        with tempfile.TemporaryDirectory() as root:
+            live, new = os.path.join(root, "assets"), os.path.join(root, "assets.new")
+            for path, name in ((live, "old"), (new, "new")):
+                os.makedirs(path)
+                open(os.path.join(path, name), "w").close()
+            publish_scenes.swap_assets(new, live)
+            self.assertEqual(os.listdir(live), ["new"])
+            self.assertFalse(os.path.exists(new))
+            self.assertFalse(os.path.exists(live + ".old"))
 
 
 if __name__ == "__main__":

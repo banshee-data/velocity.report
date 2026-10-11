@@ -236,6 +236,72 @@ the server resolves every replay path against that directory and refuses
 anything outside it. `scene-assets-status` says so plainly rather than letting
 the batch discover it one refusal at a time.
 
+## Scene variant exports
+
+The same window of a site, replayed once for each tuning config of a set and
+exported each time as a web scene, so arms can be seen side by side rather than
+only scored. The plan is
+[lidar-scene-variant-exports-plan.md](../../docs/plans/lidar-scene-variant-exports-plan.md).
+
+It is the scene-assets path with one field added. `export-scene-variants.py`
+loads `publish-scenes.py` and calls its own replay with the variant's
+`tuning_config` on the start request, the field the :8081 replay form's Tuning
+Config dropdown sends, then the same exporter at the same settings. Each
+variant is written in a published scene's `assets/` layout, so the scene player
+opens it unchanged.
+
+```bash
+make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar/pcaps   # in another shell
+make scene-variants-status SET=tools/s2-archive/scene-variants/geometry-convergence.json
+make scene-variants SET=tools/s2-archive/scene-variants/geometry-convergence.json
+```
+
+| Target                   | What it does                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `scene-variants`         | Replay and export every outstanding variant of a set, then write its `set.json` |
+| `scene-variants-status`  | Each variant made or outstanding, every config checked when the server answers  |
+| `scene-variants-recipes` | One scene-capture recipe per variant from a base recipe (`RECIPE=`), for stills |
+
+`SITES='1st-mission'` limits a run to some of the set's sites, `FORCE=1` remakes
+every variant, and `COMPARE=1` adds `make vrlog-compare` against the baseline,
+over each whole recording, warm-up included.
+
+A set file in [scene-variants/](scene-variants/) names a baseline, the variants
+by tuning config, each a path relative to the server's config directory as the
+dropdown lists it, and the sites, each optionally with a window in seconds from
+the capture's first packet. Every variant must name a file: "keep the current
+parameters" would mean the previous variant's after the first replay. A window
+is replayed from 40 s before it, the transient every export drops.
+
+Before it replays anything the script checks the set, resolves the sites as
+`scene-assets` does, reads the run records, and looks up every file in
+`GET /api/lidar/configs`; a file that is missing or cannot be applied to the
+running server stops the batch with the server's reason. After each replay it
+checks the start echoed the listed fingerprint and takes only a run created
+since the start. After the set it fails if two variants exported the same
+`tuning_hash`, which means one file's changes never reached the pipeline, or if
+the variants came from different builds.
+
+The output is local and is never committed. It goes under
+`SCENE_VARIANTS_DIR`, by default `$(LIDAR_DATA_DIR)/scene-variants`, outside
+the checkout, and the script refuses a directory inside it:
+
+```text
+<SCENE_VARIANTS_DIR>/<set_id>/set.json                     the set manifest
+<SCENE_VARIANTS_DIR>/<set_id>/<site>/<variant>/assets/     one scene export per variant
+<SCENE_VARIANTS_DIR>/<set_id>/<site>/compare/<variant>.json
+<SCENE_VARIANTS_DIR>/<set_id>/recipes/<site>/<variant>.json
+```
+
+`set.json` records the set file's digest, the build, the replay settings, the
+config the server ran before and is left on after, and for each variant its
+file, the fingerprint listed and echoed, the run, the VRLOG, the export's
+`tuning_hash`, its frames and how long it took. A variant whose `.done` marker
+carries its file's current fingerprint is skipped on the next run; an edited
+file is made again.
+
+The server is left on the last variant's parameters, and the run says which.
+
 ## Rebuild inputs and publication state
 
 The scripts read the local archive at `/Volumes/lidar/lidar/pcaps/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.

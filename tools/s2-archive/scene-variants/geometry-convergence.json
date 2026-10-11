@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "set_id": "geometry-convergence",
+  "description": "The near-edge arms of config/experiments/ against the shipped defaults, on the W7 end-on truck windows of docs/lidar/operations/end-on-truck-window-spike-2026-10.md. The windows are that report's seconds into the segment and are checked on the first run.",
+  "baseline": "defaults",
+  "variants": [
+    {
+      "id": "defaults",
+      "label": "Shipped defaults",
+      "tuning_config": "tuning.defaults.json"
+    },
+    {
+      "id": "a2",
+      "label": "Solid body A2",
+      "tuning_config": "experiments/solid-body-a2.json"
+    },
+    {
+      "id": "alignment",
+      "label": "Alignment candidate",
+      "tuning_config": "experiments/alignment-candidate.json"
+    },
+    {
+      "id": "convergence",
+      "label": "Geometry convergence candidate",
+      "tuning_config": "experiments/geometry-convergence-candidate.json"
+    }
+  ],
+  "sites": [
+    { "site": "1st-mission", "offset_seconds": 100, "duration_seconds": 100 },
+    { "site": "3rd-folsom", "offset_seconds": 200, "duration_seconds": 60 }
+  ]
+}
