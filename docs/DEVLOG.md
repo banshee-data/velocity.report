@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 11, 2026 - Beam-wise background subtraction compared with L3
+
+- {claude/roadside-lidar-eval-9ce17d} Read Baumann et al.'s released background-subtraction code and paper against the L3 grid and wrote a [comparison](../data/maths/proposals/20261011-beamwise-background-subtraction-comparison.md) for adversarial review: their window is learned per beam while ours is imposed by range (2× to 33× wider at the median cell, 6× to 129× under region overrides), on road-backed beams that absorbs a fixed band of about 15 cm above the road as configured and 35 to 46 cm with region overrides, their precision comes from a spatial filter L3 lacks, and seven evolution steps are priced with an experiment and twelve falsifiable claims; corrected the window briefing's expansion of CFTA.
+
 ## October 10, 2026 - A weekly research briefing skill, its routine, and citation coverage
 
 - {codex/lidar-paper-bibliography-audit} Audited the paper and research-report references in the LiDAR briefings and `data/`, added 62 missing BibTeX entries, corrected the L-shape and Patchwork titles and the full AB3DMOT paper's key, and linked a [reference audit](lidar/operations/brief/reference-audit.md) that maps the additions and records two unidentified PET-study mentions. Bibliographic identity was checked against primary metadata; this did not validate the papers' numerical claims or change the briefings' Confirm statuses.
