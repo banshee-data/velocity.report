@@ -209,13 +209,26 @@ def db_problem():
     return None
 
 
-def newest_run(basename):
+def newest_run(basename, since_ns=None):
+    """The newest run of a capture, or of one started since since_ns.
+
+    created_at is the server's Unix nanoseconds. Without a bound the newest run
+    of the file is taken, which is ambiguous once one capture is replayed more
+    than once: a replay that ended without a record would be answered with the
+    previous one's. The server writes the run after it receives the start, on
+    the same clock, since it writes the database this reads.
+    """
+    query = (
+        "SELECT run_id, status, vrlog_path FROM lidar_run_records"
+        " WHERE source_path LIKE ?"
+    )
+    params = [f"%{basename}"]
+    if since_ns is not None:
+        query += " AND created_at >= ?"
+        params.append(int(since_ns))
+    query += " ORDER BY created_at DESC LIMIT 1"
     with sqlite3.connect(f"file:{DB}?mode=ro", uri=True) as connection:
-        return connection.execute(
-            "SELECT run_id, status, vrlog_path FROM lidar_run_records"
-            " WHERE source_path LIKE ? ORDER BY created_at DESC LIMIT 1",
-            (f"%{basename}",),
-        ).fetchone()
+        return connection.execute(query, params).fetchone()
 
 
 def export(vrlog, out_dir, site, title, kind=None, extra=None):
@@ -242,6 +255,17 @@ def export(vrlog, out_dir, site, title, kind=None, extra=None):
 
 def replay_stretch(scene):
     """Replay the whole stretch as one sequence and return its VRLOG."""
+    return replay(scene)["vrlog"]
+
+
+def replay(scene, tuning_config=None):
+    """Replay the stretch, optionally under a tuning config file, and say what ran.
+
+    tuning_config is a path relative to the server's config directory, as the
+    :8081 replay form's dropdown sends it; the server applies the whole file
+    before the replay starts. Returns the VRLOG, the run id and the start
+    response, which echoes the file and its fingerprint.
+    """
     # Already relative to the server's safe directory: the scene builders
     # resolve that once, so a failure lands before the batch starts rather
     # than as a 403 an hour in.
@@ -260,6 +284,8 @@ def replay_stretch(scene):
         payload["speed_ratio"] = SPEED_RATIO
     if start > 0.5:
         payload["start_seconds"] = round(start, 3)
+    if tuning_config:
+        payload["tuning_config"] = tuning_config
 
     # A replay left running by an earlier attempt answers with a 409, so wait
     # for the deck to clear rather than reporting a failure that is really a
@@ -268,7 +294,12 @@ def replay_stretch(scene):
     stop_any_replay()
     if not wait_for_idle(120):
         raise RuntimeError("the replay slot did not clear")
-    api(f"/pcap/start?sensor_id={SENSOR}", payload)
+    # The lower bound for the run lookup below. The server reads the same clock
+    # after it receives the start, so the second of slack only absorbs clock
+    # resolution; no earlier run of the file can fall in it, since the slot
+    # was clear before this request.
+    requested_ns = time.time_ns() - 1_000_000_000
+    started = api(f"/pcap/start?sensor_id={SENSOR}", payload)
     time.sleep(5)
     # At half speed a scene takes twice its own length; three times that is
     # generous for a healthy run and still catches a stall the same morning.
@@ -280,15 +311,15 @@ def replay_stretch(scene):
     # is given before recording it — a capture reached through a symlink is
     # recorded at its real location — so matching the request path finds
     # nothing and the replay looks as though it never happened.
-    row = newest_run(os.path.basename(files[0]))
+    row = newest_run(os.path.basename(files[0]), since_ns=requested_ns)
     if not row:
-        raise RuntimeError("no run record for the sequence")
+        raise RuntimeError("no run record for the sequence since its start")
     run_id, status, vrlog = row
     if status != "completed" or not vrlog:
         raise RuntimeError(f"run {run_id} ended {status!r}, vrlog={vrlog!r}")
     if not os.path.exists(os.path.join(vrlog, "header.json")):
         raise RuntimeError(f"{vrlog} has no header.json")
-    return vrlog
+    return {"vrlog": vrlog, "run_id": run_id, "start": started or {}}
 
 
 def carry_over(vrlog, live, assets, site, title):
@@ -339,6 +370,31 @@ def carry_over(vrlog, live, assets, site, title):
     shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
 
 
+def write_assets_manifest(assets, site, title):
+    """The manifest the scene player opens: one part, from the start."""
+    with open(os.path.join(assets, "manifest.json"), "w") as fh:
+        json.dump(
+            {
+                "version": 1,
+                "site": {"id": site, "title": title},
+                "parts": [{"url": "./part-000/", "start_seconds": 0}],
+            },
+            fh,
+            indent=2,
+        )
+        fh.write("\n")
+
+
+def swap_assets(new, live):
+    """Retire the old assets and put the new ones in their place, whole."""
+    retired = live + ".old"
+    shutil.rmtree(retired, ignore_errors=True)
+    if os.path.exists(live):
+        os.rename(live, retired)
+    os.rename(new, live)
+    shutil.rmtree(retired, ignore_errors=True)
+
+
 def build_scene(scene):
     site, title = scene["site"], scene["title"]
     live = os.path.join(SCENES, site, "assets")
@@ -371,24 +427,8 @@ def build_scene(scene):
 
     with open(os.path.join(part, "header.json")) as fh:
         duration = float(json.load(fh)["duration_sec"])
-    with open(os.path.join(assets, "manifest.json"), "w") as fh:
-        json.dump(
-            {
-                "version": 1,
-                "site": {"id": site, "title": title},
-                "parts": [{"url": "./part-000/", "start_seconds": 0}],
-            },
-            fh,
-            indent=2,
-        )
-        fh.write("\n")
-    # Swap: retire the old assets, put the new ones in their place.
-    retired = live + ".old"
-    shutil.rmtree(retired, ignore_errors=True)
-    if os.path.exists(live):
-        os.rename(live, retired)
-    os.rename(assets, live)
-    shutil.rmtree(retired, ignore_errors=True)
+    write_assets_manifest(assets, site, title)
+    swap_assets(assets, live)
     with open(os.path.join(SCENES, site, ".rebuilt"), "w") as fh:
         fh.write(f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE}\n")
     # Regenerate the map and page data now rather than at the end of the batch.
