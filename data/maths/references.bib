@@ -503,17 +503,14 @@
 }
 
 @article{Liu2020HDMap,
-  author        = {Liu, Yan and Yuan, Zhuoming and Liu, Ming},
-  title         = {High-Definition Map Generation Technologies For Autonomous Driving:
-                   A Review},
+  author        = {Bao, Zhibin and Hossain, Sabir and Lang, Haoxiang and Lin, Xianke},
+  title         = {High-Definition Map Generation Technologies for Autonomous Driving},
   journal       = {arXiv preprint},
-  year          = {2020},
+  year          = {2022},
   eprint        = {2206.05400},
   archiveprefix = {arXiv},
-  note          = {Survey of {HD} map construction pipelines; our {L7} scene
-                   accumulation follows the neighbourhood-scale variant of this
-                   paradigm (one of a pair cited as Liu et al.\,2020 in the {L7}
-                   scene plan)}
+  note          = {HD-map generation survey. This is the Bao et al. 2022 preprint, not Liu
+                  et al. 2020; update author-year references in prose.}
 }
 
 @inproceedings{Li2022HDMap,
@@ -647,30 +644,28 @@
 }
 
 @inproceedings{Dames2017,
-  author    = {Dames, Philip and Kumar, Vijay},
-  title     = {Detecting, Localising, and Tracking an Unknown Number of Moving
-               Targets Using a Decentralised {PHD} Filter},
-  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
-               and Automation ({ICRA} 2017)},
-  pages     = {3729--3736},
-  publisher = {{IEEE}},
+  author    = {Dames, Philip},
+  title     = {Distributed Multi-Target Search and Tracking using the {PHD} Filter},
+  booktitle = {2017 International Symposium on Multi-Robot and Multi-Agent Systems (MRS)},
   year      = {2017},
-  doi       = {10.1109/ICRA.2017.7989429},
-  note      = {Multi-sensor {PHD} filter for unknown target count; advanced
-               alternative to our gating-based {L7} multi-sensor approach}
+  pages     = {1--8},
+  publisher = {IEEE},
+  doi       = {10.1109/MRS.2017.8250924},
+  note      = {Distributed PHD estimation for an unknown, varying target count; local
+              neighbourhood estimates and distributed robot control.}
 }
 
 @inproceedings{Kim2017Cooperative,
-  author    = {Kim, Jonghyuk and Liu, Shoudong},
+  author    = {Parker, Lynne E. and Emmons, Brad A.},
   title     = {Cooperative Multi-Robot Observation of Multiple Moving Targets},
-  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
-               Intelligent Robots and Systems ({IROS} 2017)},
-  pages     = {3773--3779},
-  publisher = {{IEEE}},
-  year      = {2017},
-  doi       = {10.1109/IROS.2017.8206225},
-  note      = {Decentralised track fusion across sensor nodes; relevant to
-               distributed edge architecture in {L7} multi-sensor design}
+  booktitle = {Proceedings of the 1997 IEEE International Conference on Robotics and
+              Automation},
+  year      = {1997},
+  publisher = {IEEE},
+  doi       = {10.1109/ROBOT.1997.619270},
+  note      = {Cooperative observation and distributed sensor placement. Local copy is the
+              complete DOE manuscript/report; publisher pagination remains to be
+              verified.}
 }
 
 @article{Reid1979,
@@ -1058,31 +1053,32 @@
 }
 
 @misc{OSMSimple3DBuildings,
-  author       = {{OpenStreetMap Contributors}},
-  title        = {Simple {3D} Buildings ({S3DB}) Specification},
-  howpublished = {\url{https://wiki.openstreetmap.org/wiki/Simple_3D_buildings}},
-  year         = {2012},
-  note         = {{OSM} tagging schema for 3D building geometry; used as external
-                  prior source in {L7} scene ingestion}
+  author = {{OpenStreetMap contributors}},
+  title  = {Simple 3D Buildings},
+  year   = {2012},
+  url    = {https://wiki.openstreetmap.org/w/index.php?title=Simple_3D_Buildings&oldid=3071724},
+  note   = {2012 denotes the scheme origin, not this snapshot date. Actual specification
+           revision 3071724 archived 2026-10-11; previous saved revision 2098064 contained
+           only a redirect.}
 }
 
 @misc{HesaiROS2,
-  author       = {{Hesai Technology}},
-  title        = {{HesaiLidar\_ROS2\_Driver}},
-  howpublished = {\url{https://github.com/HesaiTechnology/HesaiLidar_ROS2_Driver}},
-  year         = {2022},
-  note         = {Official {ROS} 2 driver for {Hesai} sensors; canonical example of
-                  separating packet driver ({L1}) from pointcloud assembly ({L2});
-                  replaces generic velodyne driver in our reference stack}
+  author = {{Hesai Technology}},
+  title  = {{HesaiLidar\_ROS\_2.0}},
+  year   = {2023},
+  url    = {https://github.com/HesaiTechnology/HesaiLidar_ROS_2.0/tree/3ef8180ac836027012bd6553761dc96a827af6dd},
+  note   = {Pinned commit 3ef8180ac836027012bd6553761dc96a827af6dd, 2023-12-07; last
+           commit in the first repository year. ROS 2 packet driver and point-cloud
+           assembly. SDK submodule pinned to 8ced419cd87286ddbf4bbeac9202da37bd21d9fa.}
 }
 
 @manual{VelodyneHDL64E,
   author       = {{Velodyne Lidar, Inc.}},
-  title        = {{HDL-64E S2} User's Manual},
-  organization = {Velodyne {LiDAR}, Inc.},
-  year         = {2007},
-  note         = {Established the {UDP} point-return packet convention used by
-                  most spinning {LiDAR} manufacturers}
+  title        = {HDL-64E S2 and S2.1 User's Manual and Programming Guide},
+  organization = {Velodyne LiDAR, Inc.},
+  year         = {2012},
+  note         = {Firmware version 4.07; Rev H, NOV12. Supports this manual revision and
+                 its UDP packet layout, not a 2007 origin-date claim.}
 }
 
 @misc{AutowareNebula,
