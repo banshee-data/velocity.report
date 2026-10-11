@@ -135,6 +135,11 @@ The production pipeline uses four math-heavy layers:
   filters read against the L3 grid: differences, the learned-versus-imposed window and the
   height band it absorbs above the road, priced evolution steps, an experiment design, and
   claims set out for challenge. Code and paper read; no experiment run.
+- [Beam-wise background subtraction: adversarial review](proposals/20261011-beamwise-background-subtraction-review.md):
+  Claim-by-claim verdicts on the comparison, the absorbed-height derivation re-derived, two
+  simulations on the shipped L3 (parked-car ghosts and sky cells), the finding that absorption of
+  a newly stationary object waits for the age of the background, corrected step costs, and a
+  pre-registrable decision rule.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md):
   Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence,
   low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol.

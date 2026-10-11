@@ -18,6 +18,9 @@ each one.
   [weekly briefing proposal][weekly], [window briefing][window],
   [scene-change recovery sprint](../../../docs/plans/lidar-scene-change-recovery-sprint-plan.md),
   backlog item "Score L3 foreground extraction against point-wise labels (D-28)"
+- **Reviewed:** [adversarial review](20261011-beamwise-background-subtraction-review.md), same day: two
+  claims fall, three are revised by simulation, and the review's own finding (L3 has no policy for
+  an object that arrives and stays) outranks the note's. Read both
 
 [repo]: https://github.com/HighwayScene/roadside-lidar-background-subtraction
 [weekly]: ../../../docs/lidar/operations/brief/research-briefing-2026-10-10.md#proposal-score-l3-against-point-wise-labels
