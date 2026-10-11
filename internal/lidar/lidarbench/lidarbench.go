@@ -615,8 +615,8 @@ func newAnalysisFrameBuilder(cfg Config, res *result) *analysisFrameBuilder {
 		points:         make([]l2frames.PointPolar, 0, 50000),
 		lastRawAzimuth: -1,
 		bgManager:      createBackgroundManager(cfg.SensorID, cfg.Tuning),
-		tracker:        l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()),
-		classifier:     l6objects.NewTrackClassifier(),
+		tracker:        createTracker(cfg.Tuning),
+		classifier:     createClassifier(cfg.Tuning),
 		cfg:            cfg,
 		res:            res,
 		profile:        benchProfile(cfg),
@@ -867,6 +867,25 @@ func createBackgroundManager(sensorID string, tuningCfg *config.TuningConfig) *l
 	tuningCfg = tuningOrEmbedded(tuningCfg)
 	bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 	return l3grid.NewBackgroundManager(sensorID, 40, 1800, bgConfig.ToBackgroundParams(), nil)
+}
+
+// createTracker builds the L5 tracker from tuning exactly as the live server
+// does, from the cv_kf_v1 block. A profile that switches L5 off carries no
+// block, and TrackerConfigFromTuning answers nil with the zero config rather
+// than dereferencing it; the profile gate in processCurrentFrame stops before
+// the tracker, so that zero tracker is built but never run.
+func createTracker(tuningCfg *config.TuningConfig) *l5tracks.Tracker {
+	tuningCfg = tuningOrEmbedded(tuningCfg)
+	return l5tracks.NewTracker(l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1))
+}
+
+// createClassifier builds the L6 classifier from tuning as the live server
+// does. Its threshold is an L5 key; under a profile without L5 the active block
+// is zero and the classifier falls back to its floor, unused for the same
+// reason as the tracker.
+func createClassifier(tuningCfg *config.TuningConfig) *l6objects.TrackClassifier {
+	tuningCfg = tuningOrEmbedded(tuningCfg)
+	return l6objects.NewTrackClassifierWithMinObservations(tuningCfg.GetMinObservationsForClassification())
 }
 
 // tuningOrEmbedded returns t when non-nil, else the embedded defaults (validated
