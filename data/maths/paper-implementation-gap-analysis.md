@@ -269,7 +269,7 @@ In all six frames the two solvers used the same number of pairs; the padded one 
 
 ### Implementation status
 
-`l3grid/background.go`, `foreground.go`: Single-component EMA per cell; not Welford's exact algorithm, not a multi-modal GMM. $\mu \leftarrow (1-\alpha)\mu + \alpha x$, spread: $(1-\alpha)s + \alpha |x - \mu_{old}|$. See [background-grid-settling-maths.md](background-grid-settling-maths.md) for the full model and [proposals/20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md) for the related settling proposal.
+`l3grid/background.go`, `foreground.go`: Single-component EMA per cell; not Welford's exact algorithm, not a multi-modal GMM. $\mu \leftarrow (1-\alpha)\mu + \alpha x$, spread: $(1-\alpha)s + \alpha |x - \mu_{old}|$. See [background-grid-settling-maths.md](background-grid-settling-maths.md) for the full model and [proposals/20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md) for the related settling proposal. Baumann et al.'s (2026) beam-wise models are compared with this one in [proposals/20261011-beamwise-background-subtraction-comparison.md](proposals/20261011-beamwise-background-subtraction-comparison.md): their learned per-beam window bears on B3, B7, B8 and HW1, and on road-backed beams the window absorbs a fixed height band above the road.
 
 ### Gaps
 
