@@ -321,7 +321,7 @@ func rectangleEdge(c []float64) (span float64, support int) {
 	return hi - lo, nearHi
 }
 
-// FoldAxisRad folds the difference between two axes to [0, pi/2), the
+// FoldAxisRad folds the difference between two axes to [0, pi/4], the
 // error between unlabelled axes.
 func FoldAxisRad(a, b float64) float64 {
 	d := math.Mod(a-b, math.Pi/2)
