@@ -75,6 +75,11 @@ func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4D
 // L3 and L4 engine blocks. It is the common construction path for live and
 // offline tooling, so changing the active engine cannot silently select a
 // different background-model configuration for PCAP replay.
+//
+// It maps parameters and nothing more: every L3 engine shares L3Common, so it
+// returns the EMA baseline's configuration for any of them. Whether the
+// selected engine is one the pipeline runs is the caller's check, made with
+// config.ValidateImplementedEngines before the model is built.
 func BackgroundConfigFromActiveTuning(tuningCfg *config.TuningConfig) *BackgroundConfig {
 	if tuningCfg == nil {
 		return &BackgroundConfig{}

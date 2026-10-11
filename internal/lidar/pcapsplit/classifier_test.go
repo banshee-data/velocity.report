@@ -20,6 +20,36 @@ func TestNewMotionClassifierValidation(t *testing.T) {
 	}
 }
 
+// A config naming an engine the pipeline does not run is refused with the
+// server's text, rather than building the EMA baseline under that name.
+func TestNewMotionClassifierRefusesUnimplementedEngines(t *testing.T) {
+	for _, set := range []func(*config.TuningConfig){
+		func(c *config.TuningConfig) { c.L3.Engine = "ema_track_assist_v2" },
+		func(c *config.TuningConfig) { c.L4.Engine = "two_stage_mahalanobis_v2" },
+	} {
+		cfg := config.MustLoadDefaultConfig()
+		set(cfg)
+		want := cfg.ValidateImplementedEngines()
+		if want == nil {
+			t.Fatalf("shared check accepted l3/l4 = %s/%s", cfg.L3.Engine, cfg.L4.Engine)
+		}
+		if _, err := NewMotionClassifier("sensor", "capture.pcapng", cfg); err == nil || err.Error() != want.Error() {
+			t.Errorf("l3/l4 = %s/%s: got %v, want %v", cfg.L3.Engine, cfg.L4.Engine, err, want)
+		}
+	}
+}
+
+// pcap-split runs only L3, so a reduced-depth profile still builds a model.
+func TestNewMotionClassifierAcceptsL3OnlyProfile(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	if err := cfg.ApplyProfile(config.ProfileL3Only); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewMotionClassifier("sensor", "capture.pcapng", cfg); err != nil {
+		t.Fatalf("l3-only profile: %v", err)
+	}
+}
+
 func TestNewMotionClassifierFallsBackToEmbeddedConfig(t *testing.T) {
 	// Running from a directory without config/tuning.defaults.json must not
 	// panic (as MustLoadDefaultConfig would): the classifier loads the embedded

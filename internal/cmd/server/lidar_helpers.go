@@ -133,15 +133,19 @@ func closeLiveObservationBoundary(capture liveObservationEnder, drainer callback
 	capture.End(reason)
 }
 
+// validateSupportedTuning refuses an engine the pipeline does not run, by the
+// check the offline tools share, and also a layer switched off. The shared
+// check accepts "none" because lidar-bench and replay run the reduced
+// profiles; the server refuses it, as it did before the check moved to config.
 func validateSupportedTuning(tuningCfg *config.TuningConfig) error {
-	if tuningCfg.L3.Engine != "ema_baseline_v1" {
-		return fmt.Errorf("unsupported l3.engine %q: this branch only implements ema_baseline_v1 at runtime", tuningCfg.L3.Engine)
+	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
+		return err
 	}
-	if tuningCfg.L4.Engine != "dbscan_xy_v1" {
-		return fmt.Errorf("unsupported l4.engine %q: this branch only implements dbscan_xy_v1 at runtime", tuningCfg.L4.Engine)
+	if tuningCfg.L4.Engine == config.EngineNone {
+		return config.UnsupportedEngineError("l4", tuningCfg.L4.Engine, config.ImplementedL4Engine)
 	}
-	if tuningCfg.L5.Engine != "cv_kf_v1" {
-		return fmt.Errorf("unsupported l5.engine %q: this branch only implements cv_kf_v1 at runtime", tuningCfg.L5.Engine)
+	if tuningCfg.L5.Engine == config.EngineNone {
+		return config.UnsupportedEngineError("l5", tuningCfg.L5.Engine, config.ImplementedL5Engine)
 	}
 	return nil
 }

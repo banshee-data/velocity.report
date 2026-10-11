@@ -122,6 +122,46 @@ func TestValidateSupportedTuning(t *testing.T) {
 	}
 }
 
+// The server refuses an unimplemented engine with the text the offline tools
+// use, because both come from the one check in config.
+func TestValidateSupportedTuningMatchesOfflineCheck(t *testing.T) {
+	for _, set := range []func(*config.TuningConfig){
+		func(c *config.TuningConfig) { c.L3.Engine = "ema_track_assist_v2" },
+		func(c *config.TuningConfig) { c.L4.Engine = "two_stage_mahalanobis_v2" },
+		func(c *config.TuningConfig) { c.L5.Engine = "imm_cv_ca_v2" },
+	} {
+		cfg := config.MustLoadDefaultConfig()
+		set(cfg)
+		want := cfg.ValidateImplementedEngines()
+		if want == nil {
+			t.Fatalf("offline check accepted l3/l4/l5 = %s/%s/%s", cfg.L3.Engine, cfg.L4.Engine, cfg.L5.Engine)
+		}
+		if got := validateSupportedTuning(cfg); got == nil || got.Error() != want.Error() {
+			t.Errorf("server: %v, offline: %v", got, want)
+		}
+	}
+}
+
+// The offline check accepts a layer switched off, for the reduced profiles;
+// the server still refuses one, with the text it has always used.
+func TestValidateSupportedTuningStillRefusesDisabledLayers(t *testing.T) {
+	for _, tc := range []struct {
+		profile config.Profile
+		want    string
+	}{
+		{config.ProfileL3Only, `unsupported l4.engine "none": this branch only implements dbscan_xy_v1 at runtime`},
+		{config.ProfileDetect, `unsupported l5.engine "none": this branch only implements cv_kf_v1 at runtime`},
+	} {
+		cfg := config.MustLoadDefaultConfig()
+		if err := cfg.ApplyProfile(tc.profile); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateSupportedTuning(cfg); err == nil || err.Error() != tc.want {
+			t.Errorf("profile %s: got %v, want %q", tc.profile, err, tc.want)
+		}
+	}
+}
+
 func TestEnsureSupportedTuning(t *testing.T) {
 	cfg := config.MustLoadDefaultConfig()
 	cfg.L3.Engine = "other"
