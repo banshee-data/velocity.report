@@ -21,6 +21,13 @@ import simd
 /// Writes a digest-valid pack from point lists, one per sample. The shared
 /// fixture is two tiny samples of fixed bytes; following an object needs a
 /// cluster that moves by a known amount between samples.
+///
+/// Version 2 by default, as every export now is: the packet table and each
+/// point's return, so the window saves into a label set. Each sample is a
+/// frame of its own run of packets, and point `j` is return `j` of its
+/// frame, unless `frames` and `packets` say otherwise. The pack is written in
+/// a directory of its own, `synthetic-labels-<uuid>/synthetic-<uuid>`, because
+/// its label sets are kept beside it; `removePack` removes both.
 enum SyntheticPack {
     typealias Point = (x: Float, y: Float, z: Float, classification: UInt8)
 
@@ -29,12 +36,40 @@ enum SyntheticPack {
     /// two), and its points.
     typealias Backdrop = (ordinal: Int, points: [simd_float3])
 
+    /// One sample's frame in the pack's packet table, and the return each of
+    /// its points was decoded from (increasing, inside the frame).
+    typealias Frame = (firstPacket: Int, packets: Int, returns: [UInt64])
+
+    static let layout = ReturnLayout.pandar40P
+
     static func write(
         _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
         intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
-        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2
+        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2, version: Int = 2,
+        packets explicitPackets: [UInt64]? = nil, frames explicitFrames: [Frame]? = nil,
+        run: String = "synthetic.vrlog", configHash: String? = nil
     ) throws -> URL {
+        // The frames: each sample on packets of its own, its points on the
+        // first returns of its first packet onwards.
+        let per = Int(layout.perPacket)
+        var frames: [Frame] = []
+        if let explicitFrames {
+            frames = explicitFrames
+        } else {
+            var next = 0
+            for points in samples {
+                let count = max(1, (points.count + per - 1) / per)
+                let start = UInt64(next * per)
+                frames.append((next, count, (0..<points.count).map { start + UInt64($0) }))
+                next += count
+            }
+        }
+        let packetCount = frames.map { $0.firstPacket + $0.packets }.max() ?? 0
+        let packets =
+            explicitPackets ?? (0..<packetCount).map { 0xC0FF_EE00_0000_0000 + UInt64($0 + 1) }
+
         var bytes = Data()
+        var returnBytes = Data()
         var entries: [String] = []
         for (id, points) in samples.enumerated() {
             let offset = bytes.count
@@ -52,18 +87,36 @@ enum SyntheticPack {
                 contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
             let presence = (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
+            var range = ""
+            if version == 2 {
+                let frame = frames[id]
+                range =
+                    ", \"return_start\": \(frame.firstPacket * per), "
+                    + "\"return_end\": \((frame.firstPacket + frame.packets) * per)"
+                for r in frame.returns {
+                    withUnsafeBytes(of: r.littleEndian) { returnBytes.append(contentsOf: $0) }
+                }
+            }
             entries.append(
                 """
                 {"sample_id": \(id), "source_ordinal": \(sourceStride * id + 1), "source_frame_id": \(100 + id), \
                 "timestamp_ns": \(1_000_000_000 + id * 100_000_000), "sensor_id": "synthetic", \
-                "point_count": \(points.count), "byte_offset": \(offset)\(presence)}
+                "point_count": \(points.count), "byte_offset": \(offset)\(presence)\(range)}
                 """)
         }
         let samplesJSON = "[" + entries.joined(separator: ",") + "]"
         let pointsSHA = AnnotationPack.digest(bytes)
         let samplesSHA = AnnotationPack.digest(Data(samplesJSON.utf8))
-        let packDigest = AnnotationPack.digest(Data((pointsSHA + "\n" + samplesSHA).utf8))
+        let packetBytes = PacketKeys.encode(packets)
+        let packetsSHA = AnnotationPack.digest(packetBytes)
+        let returnsSHA = AnnotationPack.digest(returnBytes)
+        let packDigest =
+            version == 2
+            ? AnnotationPack.digest(
+                Data([pointsSHA, samplesSHA, packetsSHA, returnsSHA].joined(separator: "\n").utf8))
+            : AnnotationPack.digest(Data((pointsSHA + "\n" + samplesSHA).utf8))
         let band = heightBand.map { ", \"height_band\": \($0)" } ?? ""
+        let config = configHash.map { ", \"config_hash\": \"\($0)\"" } ?? ""
 
         var backgroundBytes = Data()
         var backgroundEntries: [String] = []
@@ -94,26 +147,40 @@ enum SyntheticPack {
              "backgrounds_sha256": "\(AnnotationPack.digest(Data(backgroundsJSON.utf8)))",
              "background_points_sha256": "\(AnnotationPack.digest(backgroundBytes))"
             """
+        let returnKeys =
+            version == 2
+            ? """
+            , "return_layout": {"model": "\(layout.model)", "blocks": \(layout.blocks), "channels": \(layout.channels)},
+             "packet_key": "sha256-64:udp-payload", "packet_count": \(packets.count),
+             "packets_sha256": "\(packetsSHA)", "returns_sha256": "\(returnsSHA)"
+            """ : ""
         let manifest = """
-            {"schema_version": 1, "dataset_id": "ds_synthetic", "created_ns": 0,
-             "source": {"vrlog_path": "synthetic.vrlog", "vrlog_header_sha256": "sha256:aa",
-                        "vrlog_frames_sha256": "sha256:bb", "sensor_id": "synthetic"\(band)},
+            {"schema_version": \(version), "dataset_id": "ds_synthetic", "created_ns": 0,
+             "source": {"vrlog_path": "\(run)", "vrlog_header_sha256": "sha256:aa",
+                        "vrlog_frames_sha256": "sha256:bb", "pcap_basename": "synthetic-capture.pcapng",
+                        "sensor_id": "synthetic"\(band)\(config)},
              "coordinate": {"units": "metres", "frame_id": "sensor", "reference_frame": "site",
                             "handedness": "right", "origin_note": "sensor origin",
                             "transform_version": ""},
              "coverage": "foreground_only", "sample_count": \(samples.count),
              "point_count": \(samples.map(\.count).reduce(0, +)),
              "points_sha256": "\(pointsSHA)", "samples_sha256": "\(samplesSHA)",
-             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)}
+             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)\(returnKeys)}
             """
+        let id = UUID().uuidString
         let dir =
             directory
             ?? FileManager.default.temporaryDirectory.appendingPathComponent(
-                "synthetic-\(UUID().uuidString)")
+                "synthetic-labels-\(id)"
+            ).appendingPathComponent("synthetic-\(id)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data(manifest.utf8).write(to: dir.appendingPathComponent("manifest.json"))
         try Data((samplesJSON + "\n").utf8).write(to: dir.appendingPathComponent("samples.json"))
         try bytes.write(to: dir.appendingPathComponent("points.bin"))
+        if version == 2 {
+            try packetBytes.write(to: dir.appendingPathComponent("packets.bin"))
+            try returnBytes.write(to: dir.appendingPathComponent("returns.bin"))
+        }
         if !backdrops.isEmpty {
             try Data((backgroundsJSON + "\n").utf8).write(
                 to: dir.appendingPathComponent("backgrounds.json"))

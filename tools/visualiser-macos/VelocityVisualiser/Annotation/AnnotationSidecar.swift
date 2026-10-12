@@ -171,7 +171,9 @@ struct FrameMask: Codable, Equatable {
 struct TrackCorrespondence: Codable, Equatable {
     var objectID: String
     var runID: String?
-    var trackIDs: [String] = []
+    /// Nil and empty are different to Go, which writes null for one and []
+    /// for the other, and the label set's digest is over those bytes.
+    var trackIDs: [String]?
     var startNs: Int64 = 0
     var endNs: Int64 = 0
     var note: String?
