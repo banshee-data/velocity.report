@@ -11,12 +11,11 @@ a journal of deltas, one line per save, not a full copy per save.
 
 ## Where things live
 
-| Path                                                | What it is                                                                                |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `<annotation dir>/labels/<name>/`                   | A label set: `labels.json`, the head files, `journal.ndjson` and `.lock`                  |
-| `<annotation dir>/<pack>/`                          | A version 2 pack: one run's foreground of a capture, with `packets.bin` and `returns.bin` |
-| `<annotation dir>/<pack>/label-set-link.json`       | Names the label set holding the pack's membership, by id and relative path                |
-| `<annotation dir>/<pack>/annotations.json` (legacy) | A version 1 pack's membership. Read-only; migrate it                                      |
+| Path                                          | What it is                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| `<annotation dir>/labels/<name>/`             | A label set: `labels.json`, the head files, `journal.ndjson` and `.lock`        |
+| `<annotation dir>/<pack>/`                    | A pack: one run's foreground of a capture, with `packets.bin` and `returns.bin` |
+| `<annotation dir>/<pack>/label-set-link.json` | Names the label set holding the pack's membership, by id and relative path      |
 
 The annotation dir is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`).
 
@@ -29,23 +28,24 @@ label set cannot measure.
 
 All are `velocity lidar labels <command>`; built through `make`, so records name the build.
 
-| Command   | Use                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------------------------ |
-| `migrate` | Carry a version 1 pack's labels into a label set and write a version 2 copy of the pack linked to it (below) |
-| `create`  | Start a label set from a version 2 pack and link the pack                                                    |
-| `attach`  | Add another version 2 pack of the same capture as a second domain and link it                                |
-| `bind`    | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels    |
-| `verify`  | Replay the journal and check every revision's state digest                                                   |
-| `info`    | Counts, head revision and digest, bindings, and where a migrated set came from                               |
-| `project` | Print a linked pack's membership as a version 1 sidecar, at the head or `--revision N`                       |
-| `publish` | Copy the current state, without the journal, to an empty directory                                           |
-| `census`  | Count packet keys in capture files and report duplicates                                                     |
+| Command   | Use                                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| `create`  | Start a label set from a pack and link the pack                                                             |
+| `attach`  | Add another pack of the same capture as a second domain and link it                                         |
+| `bind`    | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels   |
+| `verify`  | Replay the journal and check every revision's state digest                                                  |
+| `info`    | Counts, head revision and digest, bindings, and where a migrated set came from                              |
+| `project` | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N` |
+| `publish` | Copy the current state, without the journal, to an empty directory                                          |
+| `census`  | Count packet keys in capture files and report duplicates                                                    |
 
-A linked pack reads its membership through the label set wherever a sidecar used to be read:
-splits, physical references, features, the per-frame and near-face evaluators, and the server's
-pack listing. A sidecar save to a linked pack is refused; membership is written through the label
-set. Freezing a split over a linked pack binds its case to the label set's verified captures by
-SHA-256, so a replay of any verified file holds its role and a different file does not.
+Everything that reads a pack's membership reads it through the label set: splits, physical
+references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
+written through the label set too, by the macOS window's save or, in Go, `labelset.SaveMembership`.
+The first save to a pack with no link creates a label set beside it, in
+`<annotation dir>/labels/<capture stem>-<id>`, and links the pack. Freezing a split over a linked
+pack binds its case to the label set's verified captures by SHA-256, so a replay of any verified
+file holds its role and a different file does not.
 
 ## Where it shows
 
@@ -53,42 +53,22 @@ SHA-256, so a replay of any verified file holds its role and a different file do
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | macOS annotation window, label set line | The label set's name and revision; each verified capture file with a short SHA-256, packets found and frames covered (or the `bind` command when there are none); and, for a migrated set, the pack it came from |
 | macOS annotation window, replay check   | With "Follow the main view" on: whether the main view's current frame holds this label set's packets (same capture, partly, a different capture, or cannot check when frames carry no packet keys)               |
-| macOS annotation window, version 1 pack | Read only; when a migrated copy sits beside it, the banner names it and offers "Open version 2 pack"                                                                                                             |
-| Web, Segments page, Annotation packs    | Every pack: its label set and revision or that it is a read-only version 1 pack (and where its labels moved), reviewed work, and each verified capture file                                                      |
+| Web, Segments page, Annotation packs    | Every pack: its label set and revision, or that it has no labels yet; reviewed work; and each verified capture file                                                                                              |
 
 The replay check compares the packet keys on the gRPC stream with the label set's packet table, so it
 is a check of content, whichever verified file the main view replays. A live source, a VRLOG recorded
 before return identity, or an older server sends no keys, and the window says it cannot check.
 
-## Migrating a version 1 pack
+## Version 1 packs
 
-```bash
-make build-velocity
-./velocity lidar labels migrate \
-  --pack   "$LIDAR_ANNOTATION_DIR/<v1 pack>" \
-  --pcap   "$LIDAR_PCAP_DIR/<capture the pack was cut from>" \
-  --labels "$LIDAR_ANNOTATION_DIR/labels/<name>" \
-  --view   "$LIDAR_ANNOTATION_DIR/<v1 pack>-v2" \
-  --name   <name> --report <report.json>
-```
-
-The migration decodes the capture through the L1 parser and an offline L2 frame builder, finds each
-pack sample's frame by its start time, and requires every pack point to be exactly one decoded
-return of that frame: bit-identical float32 coordinates, in frame order. A point with no such return,
-or one that coincides with another return, refuses the whole migration and leaves the version 1
-files as they were. Labels move only by an exact mapping, never by nearby coordinates.
-
-It converts every retained version 1 revision into a journal line with its original author, session,
-operation and time, so revision _n_ stays revision _n_ and pins on version 1 revisions still name
-the same membership. Returns two objects claim in one window, which later validation forbids, are
-resolved: a reviewed claim keeps the return and every proposed claim moves it to that mask's
-uncertain set. Two reviewed claims on one return refuse the migration.
-
-The version 2 copy has the same points, samples and backgrounds, plus their returns. It is linked to
-the label set, and physical references, feature proposals and proposal layers are carried across with
-their pins moved: pack digest, dataset id and each pinned membership revision's digest, which now
-names the label set projected onto the new pack. Their own revision histories stay with the version
-1 pack. The version 1 pack is not modified; archiving or pruning it is a separate decision.
+Version 1 packs had no returns, and kept their membership in the pack as `annotations.json` with a
+full copy per revision. All of them were migrated to label sets on 2026-10-12, by an exact mapping
+from each point to its decoded return; the method and results are in the
+[migration report](annotation-label-set-migration.md). This build reads version 2 only: the Go
+reader, the server's listing and the macOS window refuse a version 1 pack and say why. The
+originals are archived in `work/annotation-v1/` on the LiDAR volume, outside the repository, and the
+git tag `annotation-v1-reader` keeps the last build that reads them and the `labels migrate`
+command that carried them across.
 
 ## Binding and publishing
 
@@ -101,7 +81,7 @@ a capture row only by `raw_sha256`. See the [dataset layout](../../../tools/s2-a
 ## Limits
 
 - Only the Hesai Pandar40P layout (10 blocks × 40 channels) is decoded.
-- A version 2 pack can be cut only from a VRLOG recorded by a build that carries return identity;
-  re-record older runs by replaying their PCAP.
+- A pack can be cut only from a VRLOG recorded by a build that carries return identity; re-record
+  older runs by replaying their PCAP.
 - Physical references, feature proposals and proposal layers stay bound to a pack (one run's view).
   Their membership pins name label set revisions through the projection.

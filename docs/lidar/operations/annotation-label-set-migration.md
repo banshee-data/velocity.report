@@ -152,7 +152,8 @@ Resolving overlapping claims changes proposals, never a reviewed mask. Scores on
 unchanged; scores that count proposals as reference change slightly, as the table shows.
 
 Physical references, feature proposals and proposal layers were carried as their current state;
-their own revision histories remain with the version 1 packs.
+their own revision histories remain with the version 1 packs, in the archive described under
+[Afterwards](#afterwards).
 
 ## Provenance
 
@@ -178,7 +179,18 @@ digest, the capture and the returns, and all three were cut from the same pack p
 ## Recommendations
 
 - Archive or prune the version 1 packs' `annotation-revisions/` (55 GB across the two kirk0 packs)
-  once the label sets are accepted; the journals hold the same history.
-- Label new work through version 2 packs; version 1 packs open read-only.
+  once the label sets are accepted; the journals hold the same history. Done: see below.
+- Label new work through version 2 packs. Done: version 1 is no longer read.
 - Publish label sets with `tools/s2-archive/stage-label-sets.py` once the capture they bind is in the
   dataset; kirk0 is not, and the columbus-broadway set holds proposals only.
+
+## Afterwards
+
+Later on 2026-10-12, version 1 support was removed rather than kept beside version 2. All nine
+version 1 packs in the annotation directory (the five migrated here, and four that held no labels),
+the kirk0 split and draft that pinned them, and the migration reports moved to
+`work/annotation-v1/` on the LiDAR volume, 51 GB with a README. Nothing was deleted. This build
+refuses a version 1 pack wherever one is opened. The `velocity lidar labels migrate` command, the
+version 1 reader and writer, and `lidar-annotation-prune` were removed; the annotated git tag
+`annotation-v1-reader` marks the last commit that has them, and is the build to use to read an
+archived pack or to migrate another.

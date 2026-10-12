@@ -26,7 +26,7 @@ never as a negative.
 
 | File                    | Content                                                                                    | In the state digest |
 | ----------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `labels.json`           | Identity, layout, packet key scheme, verified files (`applies_to`), the head, migration    | No                  |
+| `labels.json`           | Identity, layout, packet key scheme, verified files (`applies_to`), the head, provenance   | No                  |
 | `packets.bin`           | Packet keys as little-endian uint64, in table order                                        | Yes                 |
 | `objects.json`          | `{"correspondences":[…],"dismissed_proposals":[…],"objects":[…]}`                          | Yes                 |
 | `domains.json`          | Array of domains, sorted by `domain_id`                                                    | Yes                 |
@@ -86,7 +86,7 @@ A state is refused when:
   domain's returns for that window;
 - a return is both a member and uncertain in one mask, or a member of two objects in one window.
 
-`ReviewedMasks` returns only reviewed masks on reviewed objects, as in version 1.
+`ReviewedMasks` returns only reviewed masks on reviewed objects, as a pack's projection does.
 
 ## Journal and saves
 
@@ -123,15 +123,18 @@ twice is refused. Binding changes no state and makes no revision.
 
 ## Views
 
-A version 2 annotation pack is one run's view of a capture: the version 1 files plus `packets.bin`
-and `returns.bin`, one little-endian uint64 return number per point in point order, increasing
-within each sample, and each sample's frame range (`return_start`, `return_end`). The pack's
-return numbers use its own packet table; `ViewMap` joins them to a label set by packet key.
-Every pack written is a view: `annotation.Export` builds one from a VRLOG whose point frames carry
-their return identity (`packet_keys`, `return_refs` and the frame range on `PointCloudFrame`), and
-refuses a recording made without it. Version 1 packs are read, never written.
-Editing a mask through a view replaces only the members that view shows, so returns another run
-kept and this one did not survive the edit.
+An annotation pack is one run's view of a capture: its points and samples, plus `packets.bin` and
+`returns.bin`, one little-endian uint64 return number per point in point order, increasing within
+each sample, and each sample's frame range (`return_start`, `return_end`). The pack's return
+numbers use its own packet table; `ViewMap` joins them to a label set by packet key. Every pack is
+a view: `annotation.Export` builds one from a VRLOG whose point frames carry their return identity
+(`packet_keys`, `return_refs` and the frame range on `PointCloudFrame`), and refuses a recording
+made without it. Editing a mask through a view replaces only the members that view shows, so
+returns another run kept and this one did not survive the edit.
 
 `NewFromPack` starts a label set from a pack, and `AddPackDomain` adds another run's foreground
-of the same capture as a second domain.
+of the same capture as a second domain. `SaveMembership` folds a pack's edited projection back
+into its label set; for a pack not linked yet, it creates a label set beside the pack, in
+`<pack parent>/labels/<capture stem>-<id>`, holding the membership as revision 1, and links it.
+`Project` renders a revision as the pack-shaped membership the evaluators and the macOS client
+read.

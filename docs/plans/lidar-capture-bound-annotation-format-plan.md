@@ -265,7 +265,10 @@ Decided on October 12, 2026:
 3. **Publication:** current state only. Journals stay local, and the dataset's Git history is the
    published history (D5).
 4. **Version 1 writer:** removed in P2. Exports write version 2 views only; the version 1 reader
-   stays for the migration and for legacy packs (D7).
+   stayed for the migration (D7).
+5. **Version 1 reader:** removed once the migration was done (P7). No dual path: the build reads
+   version 2 only, the version 1 packs are archived outside the repository, and the git tag
+   `annotation-v1-reader` keeps the last build that reads them.
 
 No questions are open at this stage.
 
@@ -281,15 +284,16 @@ Built on `dd/lidar/annotation-format-v2`. The operations guide is
 [label sets](../lidar/operations/label-sets.md); the format specification is the
 [label set package README](../../internal/lidar/annotation/labelset/README.md).
 
-| Phase | What landed                                                                                                                                                                                                                                         |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0    | The kirk0 dry run: all 1,833,561 points of both kirk0 packs and all 1,076,843 of the columbus-broadway pack are exactly one decoded return each, none coincident                                                                                    |
-| P1    | `internal/lidar/annotation/labelset`: codec, validation, diff and apply, the locked journal store with replay, restore, publish and roll-forward, binding to PCAP and PCAPNG files, views; version 2 packs; Go parity fixtures for the macOS client |
-| P2    | Packet keys in L1 and L2; return identity in the VRLOG point cloud (proto fields 12–18) and through every decimation; export writes version 2 packs only, and the version 1 writer is gone                                                          |
-| P3    | `velocity lidar labels` (migrate, create, attach, bind, verify, info, project, publish, census) and the exact-mapping migration                                                                                                                     |
-| P4    | The macOS window reads and writes label sets through views; version 1 packs open read-only                                                                                                                                                          |
-| P5    | Linked packs' membership is projected from their label set for splits, physical references, features, the evaluators and the server's pack listing; frozen splits bind cases to the label set's verified capture SHA-256s                           |
-| P6    | `tools/s2-archive/stage-label-sets.py` and the dataset's `labels/` layout                                                                                                                                                                           |
+| Phase | What landed                                                                                                                                                                                                                                           |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0    | The kirk0 dry run: all 1,833,561 points of both kirk0 packs and all 1,076,843 of the columbus-broadway pack are exactly one decoded return each, none coincident                                                                                      |
+| P1    | `internal/lidar/annotation/labelset`: codec, validation, diff and apply, the locked journal store with replay, restore, publish and roll-forward, binding to PCAP and PCAPNG files, views; version 2 packs; Go parity fixtures for the macOS client   |
+| P2    | Packet keys in L1 and L2; return identity in the VRLOG point cloud (proto fields 12–18) and through every decimation; export writes version 2 packs only, and the version 1 writer is gone                                                            |
+| P3    | `velocity lidar labels` (migrate, create, attach, bind, verify, info, project, publish, census) and the exact-mapping migration                                                                                                                       |
+| P4    | The macOS window reads and writes label sets through views; version 1 packs open read-only                                                                                                                                                            |
+| P5    | Linked packs' membership is projected from their label set for splits, physical references, features, the evaluators and the server's pack listing; frozen splits bind cases to the label set's verified capture SHA-256s                             |
+| P6    | `tools/s2-archive/stage-label-sets.py` and the dataset's `labels/` layout                                                                                                                                                                             |
+| P7    | Clean cutover: version 1 packs, `annotations.json` and its revision store, `labels migrate`, `lidar-annotation-prune`, the server's `migrated_to` and the macOS read-only and successor paths are gone; membership is written only through label sets |
 
 Decided during the build, beyond §3:
 
@@ -304,7 +308,12 @@ Decided during the build, beyond §3:
   the label set is a follow-on.
 - **The macOS window's first save makes two revisions**: the label set's creation from the pack,
   then the edit, so the first edit can be undone. Saves still run on the main thread; the save
-  latency plan's threading is not taken in.
+  latency plan's threading is not taken in. Go's `labelset.SaveMembership`, which fixtures and
+  tests use, makes one: with no editor there is nothing to undo.
+- **The version 1 packs' intensity flags stay as they were.** Their samples state no per-sample
+  `has_intensity`, and the migrated packs' digests cover the samples, so the reader keeps the
+  manifest's pack-wide flag for samples that state none. This is a rule of version 2, not a
+  version 1 path.
 - **Returns two objects claimed in one window** in version 1 data, which later validation forbids,
   are resolved by the migration: a reviewed claim keeps the return and each proposed claim moves it
   to uncertain. Two reviewed claims refuse the migration.

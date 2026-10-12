@@ -706,11 +706,13 @@ copies only available evidence, preserves original identities through a mapping,
 legacy retention boundary. It cannot manufacture per-point time, membership, missing clusters,
 source precision, or empty-frame records. Re-extract PCAP for a richer corpus when available.
 
-Keep annotation v1 packs and sidecars intact. Lift masks only after validating an exact
-source-index mapping and all mask/review semantics; never guess membership using XYZ, which may
-coincide or have been rounded. If no exact source mapping is available, the v1 pack remains its own
-valid legacy domain. Do not silently promote it to richer capture evidence. Preserve the old
-background digest boundary rather than retroactively changing existing pack identities.
+Annotation v1 packs and sidecars were lifted to capture-bound label sets in October 2026, by an
+exact source-index mapping that checked every point and every mask's review semantics, never by
+XYZ, which may coincide or have been rounded
+([migration report](../lidar/operations/annotation-label-set-migration.md)). The v1 packs are kept
+intact in an archive outside the repository; the build no longer reads them, and the git tag
+`annotation-v1-reader` does. Preserve the old background digest boundary rather than
+retroactively changing existing pack identities.
 
 Extend the shared [Go fixture](../../internal/lidar/annotation/swift_fixture_test.go) and
 [Swift fixture](../../tools/visualiser-macos/VelocityVisualiserTests/AnnotationPackTests.swift) to
@@ -749,12 +751,11 @@ cluster number, approximate XYZ lookup, or timestamp alone as a durable evidence
 One point may support several features. That overlap does not change its recorded classification
 or existing human object-membership label.
 
-Existing legacy annotation packs remain valid in their own immutable pack/sample/point domain.
-If an exact mapping back to retained observation points is unavailable, declare the legacy source
-domain and absent mapping. Keep those labels usable in Swift and export them with their actual
-provenance; never invent recording-domain IDs or upgrade their coverage. Future migration can
-transfer labels only after proving an exact, digest-bound mapping. Decimation without such a map
-limits what a backend can consume, not the value of the preserved original annotation.
+Annotation labels cite capture returns through a [label set](../lidar/operations/label-sets.md),
+and a pack maps its points to those returns exactly; the v1 packs that could not were migrated by
+a proven mapping and are no longer read. Never invent recording-domain IDs or upgrade a label's
+coverage. Decimation without a contributor map limits what a backend can consume, not the value of
+the preserved annotation.
 
 #### Three record families
 

@@ -1,10 +1,11 @@
 # Immutable point packs and reference annotations
 
 This package separates human reference objects from predicted track identities. Packs retain
-exact point indices; sidecars hold reviewed, proposed, and rejected membership independently of
-tracker splits and reruns. The selection client is the macOS visualiser's annotation pane
-(`tools/visualiser-macos/VelocityVisualiser/Annotation`), which reads these packs and writes
-these sidecars through the same revision protocol; it is not supplied by this package.
+exact point indices; the [label set](labelset/README.md) a pack links holds reviewed, proposed,
+and rejected membership independently of tracker splits and reruns, and this package reads it
+projected onto the pack's points. The selection client is the macOS visualiser's annotation pane
+(`tools/visualiser-macos/VelocityVisualiser/Annotation`), which reads these packs and saves to the
+same label sets; it is not supplied by this package.
 
 ## What a pack carries
 
@@ -14,12 +15,14 @@ these sidecars through the same revision protocol; it is not supplied by this pa
 | `manifest.json`                      | Identity, coverage, coordinate contract, and the run's L4 height band     | It holds it        |
 | `background.bin`, `backgrounds.json` | The settled-background snapshots in force over the excerpt, when recorded | No                 |
 
-Version 2 packs add the returns: `packets.bin` (the packet table, keyed by a digest of each UDP
+A pack also carries its returns: `packets.bin` (the packet table, keyed by a digest of each UDP
 payload), `returns.bin` (one return number per point), and each sample's frame range. Both files
-are inside the version 2 pack digest. They are what lets a [label set](labelset/README.md) made
-against one run's pack apply to another run's pack of the same capture. Every pack written is
-version 2. Version 1 packs, which carry no returns, stay readable through `OpenPack` for the label
-set migration and for packs already on disk; nothing writes them.
+are inside the pack digest. They are what lets a [label set](labelset/README.md) made against one
+run's pack apply to another run's pack of the same capture. Packs are schema version 2, the only
+version this package reads or writes. `OpenPack` refuses a version 1 pack, which had no returns:
+those were migrated to label sets
+([migration report](../../../docs/lidar/operations/annotation-label-set-migration.md)), and the
+git tag `annotation-v1-reader` keeps the last build that reads one.
 
 | Writer                                                               | Contract                                                                                                                                 |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -59,73 +62,47 @@ presence from the bytes. Presence is recorded instead, at two levels:
 | `samples.json` `has_intensity` (per sample) | This sample's bytes are measurements. Written `true` or `false` on every sample the exporter writes |
 
 Read presence through `Pack.SampleHasIntensity`: the sample's own flag when recorded, else the
-manifest's, which is the most a pack written before the field existed can say. Check
+manifest's, which is all a sample cut before the field existed has. The migrated packs are such:
+their samples came from version 1 packs, and the pack digest covers them as they are. Check
 `Pack.IntensityPresenceIsPerSample` first when every byte read must be a measurement rather than
-some sample's; it is false for a legacy pack and for one that records the flag on some samples only.
+some sample's; it is false for a pack whose samples record no flag, or record it on some only.
 When every sample records its flag, the manifest must equal their disjunction. `WritePack` refuses
 to write the contradiction and `OpenPack` refuses to read it, since the manifest sits outside the
 pack digest and an edit to it passes every digest check.
 
-The exporter reads the legacy `FrameBundle` point cloud, which has no column-presence bit: a
+The exporter reads the `FrameBundle` point cloud, which has no column-presence bit: a
 frame is present when its column holds one byte per point and absent when it holds none. A column
 of any other length is refused, because zero-filling its tail under a `true` flag would be a lie
 and dropping it under `false` would discard readings. Samples in packs written before this field
 carry no key, so their bytes and digests are unchanged.
 
-## Revision-safe storage
+## Membership
 
-| Entry point              | Contract                                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `LoadSidecar`            | Read the current bounded, validated snapshot and its private concurrency token; an untouched pack starts empty          |
-| `SaveSidecar`            | Save an edit of that loaded snapshot; do not increment its revision manually                                            |
-| `LoadSidecarRevision`    | Read a retained revision without making it current                                                                      |
-| `RestoreSidecarRevision` | Restore a snapshot as a new revision, retaining its original membership and review status                               |
-| `ReviewedMasks`          | Return only masks whose object and mask are both reviewed; a complete object mask does not certify background negatives |
+A pack's membership (its objects, masks, track correspondences and dismissed proposals) lives in
+the label set named by `label-set-link.json` in the pack. A pack with no link has none yet.
 
-Set `Change.Author`, `Change.Session`, and `Change.Operation` for an operator action. The store
-supplies parent/current revision numbers and a UTC timestamp. It never invents a human author.
-Anonymous legacy data remain readable; the future client must collect operator provenance.
+| Entry point                   | Contract                                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `LoadSidecar`                 | The label set's head projected onto this pack's samples and point indices; an unlinked pack starts empty                |
+| `LoadSidecarRevision`         | The same at a retained revision; refused for an unlinked pack, and for a revision older than the history the copy holds |
+| `Sidecar.Digest`              | The membership token: the label set's state digest, which physical references, features and frozen splits pin           |
+| `ReviewedMasks`               | Only masks whose object and mask are both reviewed; a complete object mask does not certify background negatives        |
+| `labelset.SaveMembership`     | Fold an edited projection back into the label set, creating and linking one beside the pack on the first save           |
+| `RegisterMembershipProjector` | How package `labelset`, which imports this one, supplies the projection; importing `labelset` registers it              |
 
-Load a document, edit its membership, then save that same document. The revision and a digest of
-the exact loaded bytes both have to match the current file. A fresh document cannot overwrite an
-existing one, and editing its public revision cannot bypass the private token. Keep separate
-documents for separate sessions; concurrent mutation of one Go object is not supported.
+A projection is a view: it shows the returns this pack's run separated as foreground. A save
+through it replaces what it shows and keeps what it does not, so a mask's members in another
+run's foreground survive an edit made through this one; deleting a mask that still holds them is
+refused. History is the label set's journal, kept locally and never published; see
+[label sets](../../../docs/lidar/operations/label-sets.md) for the files, locking and recovery.
 
-`ErrSidecarBusy` means another writer owns the transaction. Retry after it completes.
-`ErrSidecarConflict` means the base changed: reload and explicitly reconcile the unsaved edit.
-Neither error discards or canonicalises the caller's dirty data. Do not resolve a conflict by
-blindly copying the old mask over the newer revision.
-
-## Files and failure behaviour
-
-The immutable manifest and point arrays are unchanged. Annotation storage uses:
-
-- `annotations.json`: current snapshot, replaced atomically.
-- `annotation-revisions/0000000001.json`: exact prior snapshots, retained before advancing the
-  current file. The latest snapshot is read through the same revision API.
-- `.annotations.lock`: persistent lock inode. The kernel releases its lock when the descriptor
-  closes or the process exits. Do not delete this file while a writer might be running.
-
-The local macOS/Linux writer uses a non-blocking kernel lock, unique temporary files, file sync,
-atomic rename, and directory sync. Failed archive writes leave the current revision unchanged.
-An error after replacement may represent an uncertain commit: reload before retrying. This is
-not a distributed or network-filesystem locking protocol; do not mix older, unguarded writers
-with this writer.
-
-Each JSON snapshot is limited to 64 MiB. Reads and writes stay inside the pack directory through
-`os.Root`; non-regular sidecars and linked archive destinations are refused. Historical files
-are not a tamper-proof audit service or an off-device backup. Back up the whole pack with its
-annotation history before moving or distributing it.
-
-Legacy schema-v1 snapshots acquire history on their next save without rewriting their original
-bytes. A corrupt current file opens with an error, never as an empty dataset. If history exists
-but the current file is missing, new saves are refused. Retained snapshots can still be read
-by revision for explicit recovery; damaged-head replacement is not automated.
-
-Undo and redo use the same restore operation. Restoring revision 1 over revision 2 produces
-revision 3; restoring revision 2 then produces revision 4. Neither action changes earlier files
-or converts an algorithm's proposal into a reviewed label. Ordinary saves clear the restore
-marker. This is revision-level recovery, not the future client's unsaved-stroke undo stack.
+Physical references and feature proposals stay in the pack, each with its own revision store:
+the current document, prior revisions under a directory of its own, and `.annotations.lock`. The
+writer takes a non-blocking kernel lock, writes unique temporary files, syncs, renames atomically
+and syncs the directory. `ErrSidecarBusy` means another writer holds the lock; `ErrSidecarConflict`
+means the base changed, and the caller reloads and reconciles. This is not a network-filesystem
+locking protocol. Each document is limited to 64 MiB, and reads and writes stay inside the pack
+directory through `os.Root`.
 
 ## Physical references
 
@@ -135,7 +112,7 @@ separate review from the masks. The record is documented in the
 
 | Entry point                                                         | Contract                                                                                  |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The sidecar's protocol and lock; a save refuses any record whose links do not hold        |
+| `LoadPhysicalReferences`, `SavePhysicalReferences`                  | The pack's revision store and lock; a save refuses any record whose links do not hold     |
 | `PhysicalReferenceSet.Stale`, `StaleAgainst`                        | The records a later membership edit invalidated, found by the load, and the revision      |
 | `LoadPhysicalReferenceRevision`, `RestorePhysicalReferenceRevision` | Read a retained revision; restore one as a new revision                                   |
 | `PhysicalReferenceSet.Validate`                                     | Pack, source, bounds, evidence, provenance, gap bumpers and conflicting following records |
@@ -150,7 +127,7 @@ in `record_origins`, so a tracker-assisted record cannot become independent by r
 or by being deleted and added back under its old ID.
 
 Membership saves do not read the references, and the macOS client makes them without this
-package, so a later edit can invalidate a saved reference. Loads find those records and list them
+package, so a later edit of the label set can invalidate a saved reference. Loads find those records and list them
 in `Stale`; saves refuse them. No file is rewritten to mark them.
 
 ## Scoring against the annotations
