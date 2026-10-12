@@ -89,6 +89,18 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// Where membership is kept, in one line.
     var membershipSummary: String { membership.summary }
 
+    /// The label set's verified capture files and the version 1 pack it was
+    /// migrated from, a line each. Empty for a version 1 pack, and for a
+    /// version 2 pack until its first save makes a label set.
+    var labelSetCaptureLines: [String] {
+        guard let labels = membership as? LabelSetMembership, let store = labels.store else {
+            return []
+        }
+        return LabelSetCaptures.lines(
+            manifest: store.manifest, packets: store.baseState.packets.count,
+            windows: store.baseState.windows.count, directory: store.directory)
+    }
+
     // MARK: Physical references
 
     /// What a gesture authors. Physical authoring is blind to tracker output:
