@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
@@ -25,8 +26,12 @@ type packListing struct {
 	ReviewedObjects int                         `json:"reviewed_objects"`
 	ReviewedMasks   int                         `json:"reviewed_masks"`
 	ProposalLayers  int                         `json:"proposal_layers"`
-	Status          string                      `json:"status"`
-	Error           string                      `json:"error,omitempty"`
+	// A version 2 pack linked to a label set reports the label set's counts.
+	LabelSetID       string `json:"label_set_id,omitempty"`
+	LabelSetName     string `json:"label_set_name,omitempty"`
+	LabelSetRevision int    `json:"label_set_revision,omitempty"`
+	Status           string `json:"status"`
+	Error            string `json:"error,omitempty"`
 }
 
 func (ws *Server) handleAnnotationPacks(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +108,28 @@ func readPackListing(dir string) packListing {
 		if item.ProposalLayers > 0 {
 			item.Status = "proposed"
 		}
+	}
+	if link, err := annotation.ReadLabelSetLink(dir); err != nil {
+		item.Error = "label set link: " + err.Error()
+		return item
+	} else if link != nil {
+		ls, err := labelset.Open(link.LabelSetDir(dir))
+		if err != nil {
+			item.Error = "label set: " + err.Error()
+			return item
+		}
+		item.LabelSetID, item.LabelSetName, item.LabelSetRevision = ls.Manifest.LabelSetID, ls.Manifest.Name, ls.Revision()
+		item.Objects, item.Masks = len(ls.State.Records.Objects), len(ls.State.Masks)
+		for _, obj := range ls.State.Records.Objects {
+			if obj.Status == annotation.StatusReviewed {
+				item.ReviewedObjects++
+			}
+		}
+		item.ReviewedMasks = len(ls.State.ReviewedMasks())
+		if item.ReviewedMasks > 0 {
+			item.Status = "reviewed"
+		}
+		return item
 	}
 	if b, err = os.ReadFile(filepath.Join(dir, "annotations.json")); err == nil {
 		var sidecar annotation.Sidecar

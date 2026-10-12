@@ -40,7 +40,7 @@ func SaveSidecar(p *Pack, s *Sidecar) error {
 }
 
 func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
-	if link, err := ReadLabelSetLink(p); err != nil {
+	if link, err := ReadLabelSetLink(p.Dir); err != nil {
 		return err
 	} else if link != nil {
 		return ErrMembershipInLabelSet

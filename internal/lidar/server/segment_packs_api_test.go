@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
@@ -119,5 +121,49 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	ws.annotationPacksDir = file
 	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 500 {
 		t.Fatalf("unreadable pack root: %d", response.Code)
+	}
+}
+
+func TestPackInventoryReportsLinkedLabelSet(t *testing.T) {
+	base := t.TempDir()
+	packDir := filepath.Join(base, "pack")
+	pts := annotation.Points{X: []float32{1, 2}, Y: []float32{0, 0}, Z: []float32{0, 0}}
+	block, err := annotation.EncodePoints(pts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	samples := []annotation.Sample{{PointCount: 2, ReturnStart: 0, ReturnEnd: 400, TimestampNs: 1}}
+	pr := annotation.PackReturns{Layout: annotation.ReturnLayout{Model: "hesai-pandar40p", Blocks: 10, Channels: 40},
+		Packets: []uint64{42}, Returns: [][]uint64{{3, 9}}}
+	if err := annotation.WritePackV2(packDir, annotation.Manifest{Source: annotation.SourceProvenance{VRLOGPath: "run"}}, samples, [][]byte{block}, pr, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := annotation.OpenPack(packDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, state, err := labelset.NewFromPack(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Records.Objects = []annotation.Object{{ObjectID: "obj", Class: "car", Status: annotation.StatusReviewed}}
+	state.Masks = []labelset.Mask{{ObjectID: "obj", WindowID: 0, DomainID: state.Domains[0].DomainID, Members: labelset.Ranges{{Start: 3, Len: 1}},
+		Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed}}
+	setDir := filepath.Join(base, "labels", "set")
+	ls, err := labelset.Create(setDir, labelset.Manifest{Name: "set", Layout: layout}, state, labelset.Change{Author: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := annotation.WriteLabelSetLink(pack, ls.Manifest.LabelSetID, setDir); err != nil {
+		t.Fatal(err)
+	}
+	item := readPackListing(packDir)
+	if item.Error != "" || item.LabelSetID != ls.Manifest.LabelSetID || item.LabelSetRevision != 1 ||
+		item.ReviewedMasks != 1 || item.ReviewedObjects != 1 || item.Status != "reviewed" {
+		t.Fatalf("listing %+v", item)
+	}
+	inputs := packListingInputs(packDir)
+	if inputs[len(inputs)-1] != filepath.Join(setDir, labelset.ManifestFile) {
+		t.Fatalf("listing cache does not watch the label set: %v", inputs)
 	}
 }

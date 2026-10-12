@@ -4,15 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
 func init() {
 	annotation.RegisterMembershipProjector(func(p *annotation.Pack, link annotation.LabelSetLink, revision int) ([]byte, error) {
-		dir := filepath.Join(p.Dir, filepath.FromSlash(link.Path))
-		return ProjectAt(dir, link.LabelSetID, p, revision)
+		return ProjectAt(link.LabelSetDir(p.Dir), link.LabelSetID, p, revision)
 	})
 }
 

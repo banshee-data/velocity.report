@@ -37,9 +37,10 @@ var projector MembershipProjector
 // linked packs' membership through it.
 func RegisterMembershipProjector(fn MembershipProjector) { projector = fn }
 
-// ReadLabelSetLink returns the pack's label set link, or nil when it has none.
-func ReadLabelSetLink(p *Pack) (*LabelSetLink, error) {
-	b, err := os.ReadFile(filepath.Join(p.Dir, LabelSetLinkFile))
+// ReadLabelSetLink returns a pack directory's label set link, or nil when it
+// has none.
+func ReadLabelSetLink(packDir string) (*LabelSetLink, error) {
+	b, err := os.ReadFile(filepath.Join(packDir, LabelSetLinkFile))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -54,6 +55,11 @@ func ReadLabelSetLink(p *Pack) (*LabelSetLink, error) {
 		return nil, fmt.Errorf("%s names no label set", LabelSetLinkFile)
 	}
 	return &link, nil
+}
+
+// LabelSetDir resolves a link to the label set's directory.
+func (l LabelSetLink) LabelSetDir(packDir string) string {
+	return filepath.Join(packDir, filepath.FromSlash(l.Path))
 }
 
 // WriteLabelSetLink links a version 2 pack to a label set directory.
@@ -83,7 +89,7 @@ func WriteLabelSetLink(p *Pack, labelSetID, labelSetDir string) error {
 // projectedSidecar returns a linked pack's membership projected from its
 // label set. linked is false when the pack has no link.
 func projectedSidecar(p *Pack, revision int) (s *Sidecar, linked bool, err error) {
-	link, err := ReadLabelSetLink(p)
+	link, err := ReadLabelSetLink(p.Dir)
 	if err != nil {
 		return nil, true, err
 	}
@@ -105,4 +111,38 @@ func projectedSidecar(p *Pack, revision int) (s *Sidecar, linked bool, err error
 		return nil, true, fmt.Errorf("label set projected revision %d for requested revision %d", s.Revision, revision)
 	}
 	return s, true, nil
+}
+
+// LabelSetCaptures returns the capture files a linked pack's label set has
+// verified hold its packets, by SHA-256, or nil for a pack with no link. A
+// split freezing the pack binds its case to these, so a replay is checked by
+// content whichever verified file it reads.
+func LabelSetCaptures(packDir string) ([]CaseCapture, error) {
+	link, err := ReadLabelSetLink(packDir)
+	if err != nil || link == nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(filepath.Join(link.LabelSetDir(packDir), "labels.json"))
+	if err != nil {
+		return nil, fmt.Errorf("read label set manifest: %w", err)
+	}
+	var m struct {
+		LabelSetID string `json:"label_set_id"`
+		AppliesTo  []struct {
+			Name   string `json:"name"`
+			SHA256 string `json:"sha256"`
+		} `json:"applies_to"`
+	}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("parse label set manifest: %w", err)
+	}
+	if m.LabelSetID != link.LabelSetID {
+		return nil, fmt.Errorf("pack links label set %s, the directory holds %s", link.LabelSetID, m.LabelSetID)
+	}
+	var out []CaseCapture
+	for _, a := range m.AppliesTo {
+		out = append(out, CaseCapture{Basename: a.Name, SHA256: a.SHA256})
+	}
+	sortCaptures(out)
+	return out, nil
 }
