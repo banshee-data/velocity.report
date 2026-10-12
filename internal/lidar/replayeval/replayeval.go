@@ -242,6 +242,10 @@ type Result struct {
 	SourcePCAP          string
 	SourcePCAPs         []string
 	ObservationSourceID string
+	// SolidBody says the replay ran the solid body, from the tuning file's
+	// l5.cv_kf_v1.solid_body block or the solid_body experiment, so a runner
+	// knows to summarise its rows whichever way the arm was named.
+	SolidBody bool
 	// ObservationFrames counts foreground-complete records delivered to
 	// Config.ObservationFrames or Config.ObservationLogDir.
 	ObservationFrames int
@@ -1162,6 +1166,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SourcePCAP:          pcapFiles[0],
 		SourcePCAPs:         append([]string(nil), pcapFiles...),
 		ObservationSourceID: observationSourceID,
+		SolidBody:           solidBodyEnabled(tuningCfg, experiments),
 		ObservationFrames:   observationFrames,
 		ObservationLog:      observationLogSummary,
 		ObservationLogStats: observationLogStats,
@@ -1280,6 +1285,15 @@ func tuningNearEdge(cfg *config.TuningConfig) bool {
 		return false
 	}
 	return cfg.L5.CvKfV1.SolidBody.Enabled && cfg.L5.CvKfV1.SolidBody.NearEdgeTracking
+}
+
+// solidBodyEnabled says the replay runs the solid body: the tuning file's
+// solid_body.enabled, or the experiment of that name.
+func solidBodyEnabled(cfg *config.TuningConfig, experiments []string) bool {
+	if cfg != nil && cfg.L5.CvKfV1 != nil && cfg.L5.CvKfV1.SolidBody != nil && cfg.L5.CvKfV1.SolidBody.Enabled {
+		return true
+	}
+	return hasExperiment(experiments, ExperimentSolidBody)
 }
 
 // solidBodyFullMembers says the tracker is handed every cluster member: the

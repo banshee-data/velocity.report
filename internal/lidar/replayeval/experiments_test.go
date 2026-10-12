@@ -384,3 +384,28 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 		}
 	}
 }
+
+// A solid body switched on by the tuning file's block runs as surely as one
+// named as an experiment, and a runner that summarises only the named one
+// drops the summary from every arm run from a parameter set.
+func TestSolidBodyEnabledReadsTheTuningBlockAndTheExperiment(t *testing.T) {
+	shipped := config.MustLoadDefaultConfig()
+	if solidBodyEnabled(shipped, nil) {
+		t.Error("the shipped defaults run the solid body")
+	}
+	if !solidBodyEnabled(shipped, []string{ExperimentSolidBody}) {
+		t.Error("the solid_body experiment was not read")
+	}
+	withBlock := config.MustLoadDefaultConfig()
+	withBlock.L5.CvKfV1.SolidBody = &config.L5SolidBody{Enabled: true}
+	if !solidBodyEnabled(withBlock, nil) {
+		t.Error("a tuning block with enabled true was not read")
+	}
+	withBlock.L5.CvKfV1.SolidBody.Enabled = false
+	if solidBodyEnabled(withBlock, nil) {
+		t.Error("a tuning block with enabled false was read as on")
+	}
+	if solidBodyEnabled(nil, nil) {
+		t.Error("a nil config was read as on")
+	}
+}
