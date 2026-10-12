@@ -117,16 +117,19 @@ func (bm *BackgroundManager) SetDisableRegionOverrides(v bool) error {
 	return nil
 }
 
-// SetRegionOverridesVolatileOnly keeps the region overrides for the volatile
-// tercile only (replay experiment region_overrides_volatile_only). See
-// BackgroundParams.RegionOverridesVolatileOnly.
-func (bm *BackgroundManager) SetRegionOverridesVolatileOnly(v bool) error {
+// SetRegionOverrideScope limits the region overrides to the volatile or the
+// quiet terciles (replay experiments region_overrides_volatile_only and
+// region_overrides_quiet_only). See BackgroundParams.RegionOverrideScope.
+func (bm *BackgroundManager) SetRegionOverrideScope(v RegionOverrideScope) error {
 	if bm == nil || bm.Grid == nil {
 		return fmt.Errorf("background manager or grid nil")
 	}
+	if v < RegionOverrideScopeAll || v > RegionOverrideScopeQuiet {
+		return fmt.Errorf("invalid region override scope %d", v)
+	}
 	g := bm.Grid
 	g.mu.Lock()
-	g.Params.RegionOverridesVolatileOnly = v
+	g.Params.RegionOverrideScope = v
 	g.mu.Unlock()
 	return nil
 }

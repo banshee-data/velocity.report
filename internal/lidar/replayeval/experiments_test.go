@@ -75,7 +75,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -207,7 +207,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
@@ -341,16 +341,19 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 		return l3grid.NewBackgroundManager(t.Name(), 4, 16, l3grid.BackgroundParams{}, nil)
 	}
 	cases := []struct {
-		names                                []string
-		disable, volatileOnly, supportFilter bool
+		names         []string
+		disable       bool
+		scope         l3grid.RegionOverrideScope
+		supportFilter bool
 	}{
-		{nil, false, false, false},
-		{[]string{ExperimentNoRegionOverrides}, true, false, false},
-		{[]string{ExperimentRegionOverridesVolatileOnly}, false, true, false},
-		{[]string{ExperimentSupportFilter}, false, false, true},
-		{[]string{ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter}, false, true, true},
+		{nil, false, l3grid.RegionOverrideScopeAll, false},
+		{[]string{ExperimentNoRegionOverrides}, true, l3grid.RegionOverrideScopeAll, false},
+		{[]string{ExperimentRegionOverridesVolatileOnly}, false, l3grid.RegionOverrideScopeVolatile, false},
+		{[]string{ExperimentRegionOverridesQuietOnly}, false, l3grid.RegionOverrideScopeQuiet, false},
+		{[]string{ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeAll, true},
+		{[]string{ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeQuiet, true},
 		// Tracker experiments are not the background's to apply.
-		{[]string{ExperimentCascade}, false, false, false},
+		{[]string{ExperimentCascade}, false, l3grid.RegionOverrideScopeAll, false},
 	}
 	for _, c := range cases {
 		bm := newBM(t)
@@ -358,19 +361,26 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 			t.Fatalf("%v: %v", c.names, err)
 		}
 		p := bm.Grid.Params
-		if p.DisableRegionOverrides != c.disable || p.RegionOverridesVolatileOnly != c.volatileOnly || (p.SupportFilter != nil) != c.supportFilter {
-			t.Errorf("%v: disable=%v volatileOnly=%v supportFilter=%v, want %v %v %v", c.names,
-				p.DisableRegionOverrides, p.RegionOverridesVolatileOnly, p.SupportFilter != nil,
-				c.disable, c.volatileOnly, c.supportFilter)
+		if p.DisableRegionOverrides != c.disable || p.RegionOverrideScope != c.scope || (p.SupportFilter != nil) != c.supportFilter {
+			t.Errorf("%v: disable=%v scope=%v supportFilter=%v, want %v %v %v", c.names,
+				p.DisableRegionOverrides, p.RegionOverrideScope, p.SupportFilter != nil,
+				c.disable, c.scope, c.supportFilter)
 		}
 	}
-	if err := ApplyBackgroundExperiments(newBM(t), []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly}); err == nil {
-		t.Error("no_region_overrides with region_overrides_volatile_only was accepted")
+	for _, pair := range [][]string{
+		{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly},
+		{ExperimentNoRegionOverrides, ExperimentRegionOverridesQuietOnly},
+		{ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly},
+	} {
+		if err := ApplyBackgroundExperiments(newBM(t), pair); err == nil {
+			t.Errorf("%v was accepted", pair)
+		}
 	}
+	background := map[string]bool{ExperimentNoRegionOverrides: true, ExperimentRegionOverridesVolatileOnly: true,
+		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true}
 	for _, name := range KnownExperiments() {
-		want := name == ExperimentNoRegionOverrides || name == ExperimentRegionOverridesVolatileOnly || name == ExperimentSupportFilter
-		if IsBackgroundExperiment(name) != want {
-			t.Errorf("IsBackgroundExperiment(%s) = %v, want %v", name, !want, want)
+		if IsBackgroundExperiment(name) != background[name] {
+			t.Errorf("IsBackgroundExperiment(%s) = %v, want %v", name, !background[name], background[name])
 		}
 	}
 }

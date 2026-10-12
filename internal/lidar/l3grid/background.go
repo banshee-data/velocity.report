@@ -57,17 +57,19 @@ type BackgroundParams struct {
 	// fingerprint does not move.
 	DisableRegionOverrides bool
 
-	// RegionOverridesVolatileOnly keeps the region overrides for the
-	// volatile tercile only (the x8 noise, +2 neighbours and halved update
-	// fraction) and serves the globals to the stable and variable terciles,
-	// whose x4 and x3 widening the zero-code L3 arms found absorbing the
-	// lower part of near-field road users. It is the beam-wise review's
-	// revised next arm: the flicker suppression without the near-field cost.
+	// RegionOverrideScope limits the region overrides to one side of the
+	// variance terciles: RegionOverrideScopeVolatile keeps them for the
+	// volatile tercile only (x8 noise, +2 neighbours, halved update fraction)
+	// and serves the globals to the stable and variable terciles;
+	// RegionOverrideScopeQuiet keeps the x4 and x3 overrides of the stable
+	// and variable terciles and serves the globals to the volatile one. The
+	// beam-wise review proposed the first as its revised next arm; the second
+	// is its inverse, so the two attribute the recall the overrides cost.
 	// Volatility is the region's tercile at identification, which a restored
-	// region does not carry, so after a restore every cell runs the globals.
+	// region does not carry, so after a restore every region reads as quiet.
 	// DisableRegionOverrides wins when both are set. Go-level and default
-	// false, so the config fingerprint does not move.
-	RegionOverridesVolatileOnly bool
+	// RegionOverrideScopeAll, so the config fingerprint does not move.
+	RegionOverrideScope RegionOverrideScope
 
 	// SupportFilter, when set, runs the range-image support filter on the
 	// per-point foreground mask after every cell has been updated (the
@@ -136,6 +138,19 @@ type BackgroundParams struct {
 	SnapshotIntervalNanos      int64 // 2 hours between snapshots
 	ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
 }
+
+// RegionOverrideScope selects which variance terciles keep their region
+// overrides once regions are identified. See BackgroundParams.RegionOverrideScope.
+type RegionOverrideScope int
+
+const (
+	// RegionOverrideScopeAll is the shipped behaviour: every region overrides.
+	RegionOverrideScopeAll RegionOverrideScope = iota
+	// RegionOverrideScopeVolatile keeps the overrides of the volatile tercile only.
+	RegionOverrideScopeVolatile
+	// RegionOverrideScopeQuiet keeps the overrides of the stable and variable terciles only.
+	RegionOverrideScopeQuiet
+)
 
 // RegionParams defines parameters that can vary per region
 type RegionParams struct {
@@ -391,8 +406,15 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 		return
 	}
 	regionID := g.RegionMgr.GetRegionForCell(cellIdx)
-	if g.Params.RegionOverridesVolatileOnly && !g.RegionMgr.IsVolatileRegion(regionID) {
-		return
+	switch g.Params.RegionOverrideScope {
+	case RegionOverrideScopeVolatile:
+		if !g.RegionMgr.IsVolatileRegion(regionID) {
+			return
+		}
+	case RegionOverrideScopeQuiet:
+		if g.RegionMgr.IsVolatileRegion(regionID) {
+			return
+		}
 	}
 	regionParams := g.RegionMgr.GetRegionParams(regionID)
 	if regionParams == nil {

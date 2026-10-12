@@ -35,12 +35,14 @@ const (
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
 	ExperimentNoRegionOverrides = "no_region_overrides"
-	// ExperimentRegionOverridesVolatileOnly:
-	// l3grid.BackgroundParams.RegionOverridesVolatileOnly, the beam-wise
-	// review's revised next arm: the region overrides kept for the volatile
-	// tercile only. It contradicts no_region_overrides, so naming both is
-	// refused.
+	// ExperimentRegionOverridesVolatileOnly and ExperimentRegionOverridesQuietOnly:
+	// l3grid.BackgroundParams.RegionOverrideScope, the region overrides kept
+	// for the volatile tercile only (the beam-wise review's revised next arm)
+	// or for the stable and variable terciles only (its inverse). They are
+	// two settings of one option and contradict no_region_overrides, so a
+	// replay may name only one of the three.
 	ExperimentRegionOverridesVolatileOnly = "region_overrides_volatile_only"
+	ExperimentRegionOverridesQuietOnly    = "region_overrides_quiet_only"
 	// ExperimentSupportFilter: l3grid.BackgroundParams.SupportFilter at
 	// l3grid.DefaultSupportFilterParams, the range-image support filter of
 	// the beam-wise review (E4): a cell's foreground survives only with
@@ -216,6 +218,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBody:           true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
+	ExperimentRegionOverridesQuietOnly:    true,
 
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
@@ -290,6 +293,7 @@ func ParseExperiments(flagValue string) ([]string, error) {
 var backgroundExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:           true,
 	ExperimentRegionOverridesVolatileOnly: true,
+	ExperimentRegionOverridesQuietOnly:    true,
 	ExperimentSupportFilter:               true,
 }
 
@@ -304,18 +308,29 @@ func IsBackgroundExperiment(name string) bool {
 // background manager before its first frame. Names that are not background
 // experiments are ignored here; the caller decides whether they are allowed.
 func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []string) error {
-	if hasExperiment(experiments, ExperimentNoRegionOverrides) && hasExperiment(experiments, ExperimentRegionOverridesVolatileOnly) {
-		return fmt.Errorf("replay experiments %s and %s contradict each other; name one",
-			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly)
+	scopes := 0
+	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly} {
+		if hasExperiment(experiments, name) {
+			scopes++
+		}
+	}
+	if scopes > 1 {
+		return fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
+			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly)
 	}
 	if hasExperiment(experiments, ExperimentNoRegionOverrides) {
 		if err := bgMgr.SetDisableRegionOverrides(true); err != nil {
 			return fmt.Errorf("apply %s: %w", ExperimentNoRegionOverrides, err)
 		}
 	}
-	if hasExperiment(experiments, ExperimentRegionOverridesVolatileOnly) {
-		if err := bgMgr.SetRegionOverridesVolatileOnly(true); err != nil {
-			return fmt.Errorf("apply %s: %w", ExperimentRegionOverridesVolatileOnly, err)
+	for name, scope := range map[string]l3grid.RegionOverrideScope{
+		ExperimentRegionOverridesVolatileOnly: l3grid.RegionOverrideScopeVolatile,
+		ExperimentRegionOverridesQuietOnly:    l3grid.RegionOverrideScopeQuiet,
+	} {
+		if hasExperiment(experiments, name) {
+			if err := bgMgr.SetRegionOverrideScope(scope); err != nil {
+				return fmt.Errorf("apply %s: %w", name, err)
+			}
 		}
 	}
 	if hasExperiment(experiments, ExperimentSupportFilter) {
