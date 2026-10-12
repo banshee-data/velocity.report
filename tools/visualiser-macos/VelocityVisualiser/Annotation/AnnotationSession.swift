@@ -89,12 +89,6 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// read only: its labels are bound to one run's export.
     var readOnlyReason: String? { membership.readOnlyReason }
 
-    /// The version 2 pack beside this version 1 pack that its labels were
-    /// migrated to, if there is one.
-    var migratedSuccessor: MigratedPackSuccessor? {
-        (membership as? LegacySidecarReader)?.search.successor
-    }
-
     /// Where membership is kept, in one line.
     var membershipSummary: String { membership.summary }
 

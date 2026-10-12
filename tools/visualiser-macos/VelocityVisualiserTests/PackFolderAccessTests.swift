@@ -325,6 +325,23 @@ struct PackFolderAccessTests {
         #expect(bookmarking.stopped.count == bookmarking.started.count)
     }
 
+    /// A pack that cannot be opened while another is open is reported in the
+    /// open window, where the operator is looking, and that pack stays open.
+    @Test func decliningWhileAPackIsOpenKeepsItAndSaysWhyInTheWindow() throws {
+        let open = try PackFixture.write()
+        let generated = try PackFixture.write()
+        let (controller, _, bookmarking, storage) = makeController(answer: nil)
+        controller.openPack(at: open)
+
+        controller.openGeneratedPack(at: generated)
+
+        #expect(controller.packName == open.lastPathComponent)
+        #expect(controller.session?.lastError?.contains(generated.path) == true)
+        #expect(controller.lastError == nil, "said in the open window, where it is seen")
+        #expect(storage.bookmarks.isEmpty)
+        #expect(bookmarking.started.isEmpty)
+    }
+
     /// An operator-chosen pack needs no folder grant: the panel is the grant.
     @Test func anOperatorChosenPackNeitherAsksNorStartsAccess() throws {
         let pack = try PackFixture.write()
@@ -420,80 +437,5 @@ struct PackFolderAccessTests {
         controller.openPack(at: pack)
         #expect(asker.askedAbout.count == 1)
         #expect(controller.session?.readOnlyReason == nil)
-    }
-}
-
-/// A version 1 pack's banner opens the version 2 pack its labels were
-/// migrated to, through the grant path a generated pack takes: a remembered
-/// folder silently, and otherwise the folder holding both, asked for once.
-@MainActor struct MigratedSuccessorOpeningTests {
-    private final class Asker {
-        var answer: URL?
-        private(set) var askedAbout: [URL] = []
-        func ask(_ suggested: URL) -> URL? {
-            askedAbout.append(suggested)
-            return answer
-        }
-    }
-
-    @Test func aRememberedFolderFindsTheSuccessorAndOpensItWithoutAsking() throws {
-        let (folder, v1, v2) = try migratedPackPair()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let (access, bookmarking, _) = makeAccess()
-        try access.remember(folder)
-        let asker = Asker()
-        let controller = AnnotationController(
-            folderAccess: access, askForFolder: asker.ask, askForLabelFolder: { _ in nil })
-
-        controller.openPack(at: v1)
-        // The remembered folder is opened to look beside the pack.
-        #expect(bookmarking.started == [folder.path])
-        let successor = try #require(controller.session?.migratedSuccessor)
-
-        controller.openMigratedSuccessor(at: successor.packDirectory)
-        #expect(controller.packName == v2.lastPathComponent)
-        #expect(controller.session?.readOnlyReason == nil, "the version 2 pack can save")
-        #expect(controller.lastError == nil)
-        #expect(asker.askedAbout.isEmpty)
-        // The version 1 pack's access ended with it; the new pack holds its own.
-        #expect(bookmarking.started == [folder.path, folder.path])
-        #expect(bookmarking.stopped == [folder.path])
-    }
-
-    @Test func withNothingRememberedItAsksForTheFolderHoldingBoth() throws {
-        let (folder, v1, v2) = try migratedPackPair()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let (access, _, storage) = makeAccess()
-        let asker = Asker()
-        asker.answer = folder
-        let controller = AnnotationController(
-            folderAccess: access, askForFolder: asker.ask, askForLabelFolder: { _ in nil })
-
-        controller.openPack(at: v1)
-        #expect(asker.askedAbout.isEmpty, "a version 1 pack never asks: it saves nothing")
-        let successor = try #require(controller.session?.migratedSuccessor)
-
-        controller.openMigratedSuccessor(at: successor.packDirectory)
-        #expect(asker.askedAbout.map(\.path) == [folder.path])
-        #expect(storage.bookmarks.count == 1, "remembered for the next time")
-        #expect(controller.packName == v2.lastPathComponent)
-        #expect(controller.session?.readOnlyReason == nil)
-    }
-
-    @Test func decliningKeepsTheVersion1PackOpenAndSaysWhy() throws {
-        let (folder, v1, v2) = try migratedPackPair()
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let (access, _, storage) = makeAccess()
-        let controller = AnnotationController(
-            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: { _ in nil })
-
-        controller.openPack(at: v1)
-        let successor = try #require(controller.session?.migratedSuccessor)
-        controller.openMigratedSuccessor(at: successor.packDirectory)
-
-        #expect(controller.packName == v1.lastPathComponent)
-        #expect(controller.session?.lastError?.contains(v2.lastPathComponent) == true)
-        #expect(controller.lastError == nil, "said in the open window, where it is seen")
-        #expect(storage.bookmarks.isEmpty)
     }
 }

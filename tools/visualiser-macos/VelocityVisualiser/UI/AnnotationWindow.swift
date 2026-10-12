@@ -150,19 +150,6 @@ func annotationFramingHalfHeight(
                 + "Open Annotation Pack.")
     }
 
-    /// Opens the version 2 pack a version 1 pack's labels were migrated to.
-    ///
-    /// It lies beside the open pack, which the operator may have chosen on
-    /// its own, so the folder holding both is asked for as it is for a
-    /// generated pack, and remembered. That folder is also where the label
-    /// set lives, so the version 2 pack opens able to save.
-    func openMigratedSuccessor(at directory: URL) {
-        openGranting(
-            directory,
-            declined: "The version 2 pack is at \(directory.path), but the app has not been "
-                + "given access to that folder. Open it with Open Pack.")
-    }
-
     /// Opens a pack the operator did not choose in a panel: with a remembered
     /// folder if one holds it, and otherwise after asking for the folder
     /// holding it, once, and remembering the answer.
@@ -203,8 +190,6 @@ func annotationFramingHalfHeight(
             let store = MembershipStores.forPack(pack)
             if let labels = store as? LabelSetMembership {
                 labels.accessRefusal = labelFolderAccess(for: pack)
-            } else {
-                beginNeighbourAccess(for: pack)
             }
             let opened = try AnnotationSession(pack: pack, store: store)
             session = opened
@@ -249,16 +234,6 @@ func annotationFramingHalfHeight(
         }
         return "Read only: label sets for this pack are kept in \(folder.path)/labels, and the app "
             + "has not been given that folder. Open the pack again and grant it to save."
-    }
-
-    /// A version 1 pack looks beside itself for the version 2 pack its labels
-    /// were migrated to, which needs the folder above it. A folder already
-    /// granted is used. The operator is not asked: nothing is saved here, and
-    /// the banner says when the folder could not be read.
-    private func beginNeighbourAccess(for pack: AnnotationPack) {
-        let folder = pack.annotationDirectory
-        if let grant, PackFolderAccess.folder(grant.folder, contains: folder) { return }
-        labelGrant = folderAccess.beginAccess(for: folder)
     }
 
     /// Shows a failure in the open window, where the operator is looking, or
@@ -468,11 +443,7 @@ struct AnnotationWorkspace: View {
             Divider()
 
             VStack(spacing: 0) {
-                AnnotationStatusStrip(
-                    session: session,
-                    openSuccessor: { url in
-                        guardedNavigate { controller.openMigratedSuccessor(at: url) }
-                    })
+                AnnotationStatusStrip(session: session)
                 AnnotationProgressHeader(session: session)
                 Divider()
                 // Shared by fraction, not by points: see FractionSplit.swift.
