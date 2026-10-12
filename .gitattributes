@@ -1,1 +1,4 @@
 internal/lidar/perf/pcap/** filter=lfs diff=lfs merge=lfs -text
+
+# Label set parity fixtures are compared byte for byte; never convert their line endings.
+internal/lidar/annotation/labelset/testdata/parity/** -text

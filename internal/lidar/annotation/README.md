@@ -14,6 +14,12 @@ these sidecars through the same revision protocol; it is not supplied by this pa
 | `manifest.json`                      | Identity, coverage, coordinate contract, and the run's L4 height band     | It holds it        |
 | `background.bin`, `backgrounds.json` | The settled-background snapshots in force over the excerpt, when recorded | No                 |
 
+Version 2 packs add the returns: `packets.bin` (the packet table, keyed by a digest of each UDP
+payload), `returns.bin` (one return number per point), and each sample's frame range. Both files
+are inside the version 2 pack digest. They are what lets a [label set](labelset/README.md) made
+against one run's pack apply to another run's pack of the same capture. Version 1 packs stay
+readable and carry no returns.
+
 The background is context for whoever is labelling: it shows what the run had already decided
 was static, and when that decision changed. No mask can cite a background point, so it has
 digests of its own in the manifest and stays out of the pack digest. The snapshot in force at a
