@@ -20,6 +20,15 @@ are inside the version 2 pack digest. They are what lets a [label set](labelset/
 against one run's pack apply to another run's pack of the same capture. Version 1 packs stay
 readable and carry no returns.
 
+`Export` writes version 2. The VRLOG's point frames name their returns: each frame's packet table,
+one return number per point and the frame's full return range (see
+[`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto) `PointCloudFrame`).
+`Export` joins the frames' tables into one in recording order. A packet that the rotation split
+between two consecutive frames is listed once; any other repetition is refused, because its
+returns could not be told apart. A recording made before frames carried identity, or from a source
+without packets, is refused with `ErrNoReturnIdentity`: replay its PCAP with a current build to
+record it again, then export that. The HTTP export answers such a run with 422.
+
 The background is context for whoever is labelling: it shows what the run had already decided
 was static, and when that decision changed. No mask can cite a background point, so it has
 digests of its own in the manifest and stays out of the pack digest. The snapshot in force at a

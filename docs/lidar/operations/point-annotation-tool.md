@@ -67,6 +67,13 @@ Packs cut before those were added have neither: generate them again. A re-export
 frames has the same pack digest, so its `annotations.json` and `annotation-revisions/` apply to
 it unchanged.
 
+Every pack is version 2: each point also names the return in the capture it was decoded from, by
+packet and position, which is what lets a
+[label set](../../../internal/lidar/annotation/labelset/README.md) apply to other runs of the same
+capture. A run recorded before recordings carried that identity cannot be exported, and **Generate
+from Run…** says so: replay its PCAP again with the current build and generate from the new run.
+Version 1 packs already on disk stay readable.
+
 ### Choosing what to cut
 
 An hour of labelling covers tens of seconds of a busy street, so the window matters more than the
