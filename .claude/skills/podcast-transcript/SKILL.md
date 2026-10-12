@@ -123,8 +123,12 @@ Only what a document uses goes into the repository, in the document that uses it
   study, a host) and keep spoken characterisations apart from the source's published figures: an
   interview is a secondary account of a report, and a figure heard in it is not read from the
   report.
-- A row in the document's sources table and a reference link to the episode's public page, naming
-  the archived transcript by its SHA-256 and the archive's relative path (`transcripts/<show>/…`).
+- Beneath the summary, a **Provenance** table pasted from
+  `cite <archive>/<show>/<episode> --doc <document>`, unedited. It carries every header field and
+  provenance row of the archived transcript, as links where the transcript has links, and ends with
+  the transcript's archive path and SHA-256. Republishing changes the hash: run `cite` again.
+- A row in the document's sources table and a reference link to the episode's public page, pointing
+  at that provenance table.
 - A `@misc` entry in `data/maths/references.bib` when a plan cites the episode as a source.
 - The house rules still apply: the wording guard, British spelling in the project's prose, and the
   line between what people say and what the sensor measures.

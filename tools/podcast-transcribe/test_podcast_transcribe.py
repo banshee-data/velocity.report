@@ -403,6 +403,16 @@ class RenderTests(unittest.TestCase):
         for line in pt.wrap_md(text, width=40)[1:]:
             self.assertNotRegex(line, r"^(\d+[.)]\s|[-+*>#]\s)")
 
+    def test_links_put_awkward_urls_in_angle_brackets(self):
+        self.assertEqual(
+            pt.md_link("feed", "https://a.org/x.xml"), "[feed](https://a.org/x.xml)"
+        )
+        self.assertEqual(
+            pt.md_link("ep", "https://a.org/x_(1)"), "[ep](<https://a.org/x_(1)>)"
+        )
+        self.assertEqual(pt.md_table([("A", "x | y")])[2], "| A | x \\| y |")
+        self.assertEqual(pt._site("https://c6996bab-7d65.libsyn.com/ep"), "libsyn.com")
+
     def test_markdown_is_escaped_outside_urls(self):
         self.assertEqual(
             pt.md_escape("a_b (https://x.org/a_b)."), "a\\_b (<https://x.org/a_b>)."
@@ -461,7 +471,9 @@ class RenderTests(unittest.TestCase):
             "editorial_words": 0,
             "omitted_agreed_words": 0,
         }
-        md = pt.render_transcript(state, rec, result)
+        md = pt.render_transcript(
+            state, rec, result, {"commit": "abc123", "dirty": True}
+        )
         self.assertTrue(
             md.startswith("# X\\_Y\n\n- **Source:** _The Show_, released 2026-10-06\n")
         )
@@ -470,6 +482,11 @@ class RenderTests(unittest.TestCase):
         self.assertIn("`--initial_prompt 'The Show.'`", md)
         self.assertIn("parakeet-mlx 1, model `turbo`, default settings", md)
         self.assertIn("- **Length:** 1 min 01 s", md)
+        self.assertIn("| Episode link | [Episode page](https://example.com/e) |", md)
+        self.assertIn(
+            f"| Audio enclosure | [mp3 on traffic.example.com]({ENCLOSURE}) |", md
+        )
+        self.assertIn("at `abc123` with uncommitted changes", md)
 
 
 def make_work_dir(root):
@@ -577,6 +594,41 @@ class PublishTests(unittest.TestCase):
                 (dest / "passes" / "parakeet-mlx-v2" / "audio.json").exists()
             )
             self.assertFalse((dest / "audio.wav").exists())
+
+    def test_cite_repeats_every_transcript_field_and_adds_the_archive_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = make_work_dir(tmp)
+            archive = Path(tmp) / "transcripts"
+            pt.main(["publish", str(work), "--out-dir", str(archive)])
+            dest = archive / "the-show" / "2026-10-06-episode"
+            transcript = (dest / "transcript.md").read_text()
+            published = json.loads((dest / "published.json").read_text())
+            doc = Path(pt.REPO_ROOT) / "docs" / "plans" / "x.md"
+            table = pt.cite_table(dest, doc)
+
+        header = [
+            line[4:] for line in transcript.splitlines() if line.startswith("- **")
+        ]
+        provenance = transcript.split("## Provenance\n\n", 1)[1].strip().splitlines()
+        cited = {line.split(" | ", 1)[0]: line for line in table}
+        for field in header:
+            key, value = field.split(":** ", 1)
+            self.assertEqual(cited["| " + key], f"| {key} | {value} |")
+        for row in provenance[2:]:
+            key = row.split(" | ", 1)[0]
+            if key not in ("| Tool", "| Evidence"):
+                self.assertEqual(cited[key], row)
+        self.assertIn(published["tool"]["commit"] or "unrecorded", cited["| Tool"])
+        self.assertIn(
+            "[podcast-transcribe](../../tools/podcast-transcribe/README.md)",
+            cited["| Tool"],
+        )
+        self.assertIn("Beside the transcript in the archive", cited["| Evidence"])
+        self.assertIn(
+            "`transcripts/the-show/2026-10-06-episode/transcript.md`",
+            cited["| Transcript"],
+        )
+        self.assertIn(published["transcript_sha256"], cited["| Transcript"])
 
     def test_publish_refuses_a_git_checkout_and_a_missing_archive(self):
         with tempfile.TemporaryDirectory() as tmp:

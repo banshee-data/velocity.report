@@ -15,12 +15,14 @@ Usage:
     podcast-transcribe.py prepare URL [--work-root DIR] [--pass-a ENGINE:MODEL] [--pass-b ...]
     podcast-transcribe.py check WORK_DIR
     podcast-transcribe.py publish WORK_DIR [--out-dir DIR]
+    podcast-transcribe.py cite ARCHIVE_EPISODE_DIR [--doc PATH]
 
 Nothing here is committed. Audio and raw engine output stay in the work directory (default
 ``~/.cache/velocity-report/podcast-transcribe/<episode>/``), and ``publish`` writes the transcript
 and the evidence behind it to ``$PODCAST_TRANSCRIPT_DIR/<show>/<episode>/``, which must lie outside
 any Git checkout: the full text of someone else's episode does not belong in a public repository.
-Documents summarise it and cite the episode link with timestamps.
+Documents summarise it, cite it by timestamp, and carry the provenance table ``cite`` prints: the
+transcript's header fields and provenance rows, with its archive path and SHA-256.
 """
 
 from __future__ import annotations
@@ -1186,8 +1188,8 @@ def wrap_md(text: str, width: int = 99, prefix: str = "") -> list[str]:
     return out
 
 
-def tool_revision() -> str:
-    """The commit the tool ran from, flagged when the tool's own files differ from it."""
+def tool_revision() -> dict[str, Any]:
+    """The commit the tool runs from, and whether the tool's own files differ from it."""
     git = ["git", "-C", str(REPO_ROOT)]
     try:
         sha = subprocess.run(
@@ -1203,8 +1205,16 @@ def tool_revision() -> str:
             check=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
-        return "an unknown revision"
-    return f"`{sha}` with uncommitted changes" if dirty else f"`{sha}`"
+        return {"commit": None, "dirty": False}
+    return {"commit": sha, "dirty": bool(dirty)}
+
+
+def revision_text(rev: dict[str, Any] | None) -> str:
+    if not rev or not rev.get("commit"):
+        return "an unrecorded revision"
+    return f"`{rev['commit']}`" + (
+        " with uncommitted changes" if rev.get("dirty") else ""
+    )
 
 
 ARCHIVE_ENV = "PODCAST_TRANSCRIPT_DIR"
@@ -1236,7 +1246,39 @@ def archive_work(work: Path, dest: Path) -> None:
             shutil.copytree(run, dest / "passes" / run.name, dirs_exist_ok=True)
 
 
-def _pass_row(label: str, run: dict) -> str:
+STATUS = (
+    "Machine transcript from two independent speech-recognition passes, reconciled by an agent; "
+    "not proofread against the audio by a person"
+)
+PLATFORM_LABELS = {
+    "apple": "Apple Podcasts",
+    "castro": "Castro",
+    "spotify": "Spotify",
+    "direct": "Audio file",
+    "web": "Episode page",
+}
+EVIDENCE = (
+    "the source audio, both passes with their logs, the worksheet, `reconciled.md` and "
+    "`check.json`"
+)
+
+
+def md_link(text: str, url: str) -> str:
+    """A Markdown link; a URL with spaces, parentheses or angle brackets goes in <>."""
+    target = f"<{url}>" if re.search(r"[\s()<>]", url) else url
+    return f"[{text}]({target})"
+
+
+def _host(url: str) -> str:
+    return urlparse(url).netloc or url
+
+
+def _site(url: str) -> str:
+    """The site's name without hosting subdomains ("c6996bab-….libsyn.com" reads "libsyn.com")."""
+    return ".".join(_host(url).split(".")[-2:])
+
+
+def pass_text(run: dict) -> str:
     cmd = run["command"]
     flags = []
     for i, arg in enumerate(cmd):
@@ -1256,36 +1298,105 @@ def _pass_row(label: str, run: dict) -> str:
             flags += [arg, value] if value else [arg]
     settings = f"`{shlex.join(flags)}`" if flags else "default settings"
     wall = f"; {run['wall_s']:.0f} s wall" if run.get("wall_s") else ""
-    return (
-        f"| Pass {label} | {run['engine']} {run['version']}, model `{run['model']}`, "
-        f"{settings}{wall} |"
-    )
+    return f"{run['engine']} {run['version']}, model `{run['model']}`, {settings}{wall}"
 
 
-def render_transcript(state: dict, rec: dict, result: dict) -> str:
+def header_fields(state: dict, rec: dict) -> list[tuple[str, str]]:
+    """The transcript's header metadata: source, speakers, length and status."""
+    ep = state["episode"]
+    source = f"_{md_escape(ep.get('show') or '?')}_"
+    if ep.get("show_author"):
+        source += f" ({md_escape(ep['show_author'])})"
+    if ep.get("released"):
+        source += f", released {ep['released']}"
+    roles = "; ".join(f"{n} ({r})" if r else n for n, r in rec["speakers"])
+    minutes, seconds = divmod(int(round(ep["audio"]["duration_s"])), 60)
+    return [
+        ("Source", source),
+        ("Speakers", md_escape(roles)),
+        ("Length", f"{minutes} min {seconds:02d} s"),
+        ("Status", STATUS),
+    ]
+
+
+def provenance_rows(
+    state: dict,
+    result: dict,
+    revision: dict | None,
+    evidence_where: str = "Beside this file",
+    tool_link: str | None = None,
+) -> list[tuple[str, str]]:
+    """The provenance table, shared by the archived transcript and the documents that cite it."""
     ep, runs, stats = state["episode"], state["runs"], state["stats"]
     audio = ep["audio"]
-    roles = "; ".join(f"{n} ({r})" if r else n for n, r in rec["speakers"])
-    minutes, seconds = divmod(int(round(audio["duration_s"])), 60)
-    lines = [
-        f"# {md_escape(ep.get('title') or 'Podcast transcript')}",
-        "",
-        f"- **Source:** _{md_escape(ep.get('show') or '?')}_"
-        + (f" ({md_escape(ep['show_author'])})" if ep.get("show_author") else "")
-        + (f", released {ep['released']}" if ep.get("released") else ""),
-        f"- **Speakers:** {md_escape(roles)}",
-        f"- **Length:** {minutes} min {seconds:02d} s",
-        "- **Status:** Machine transcript from two independent speech-recognition passes, "
-        "reconciled by an agent; not proofread against the audio by a person",
-        "",
+    label = PLATFORM_LABELS.get(ep.get("platform", ""), "Episode page")
+    rows = [("Episode link", md_link(label, ep["source_url"]))]
+    if ep.get("link") and ep["link"] != ep["source_url"]:
+        rows.append(("Publisher page", md_link(_site(ep["link"]), ep["link"])))
+    if ep.get("feed_url"):
+        rows.append(("RSS feed", md_link(_host(ep["feed_url"]), ep["feed_url"])))
+    if ep.get("guid"):
+        rows.append(("Episode GUID", f"`{ep['guid']}`"))
+    enclosure = ep["enclosure_url"]
+    rows += [
+        (
+            "Audio enclosure",
+            md_link(
+                f"{audio.get('codec') or 'audio'} on {_host(enclosure)}", enclosure
+            ),
+        ),
+        (
+            "Audio SHA-256",
+            f"`{audio['sha256']}` ({audio.get('codec')}, "
+            f"{(audio.get('bit_rate') or 0) // 1000} kbit/s, {hms(audio['duration_s'])})",
+        ),
+        ("Pass A", pass_text(runs[0])),
+        ("Pass B", pass_text(runs[1])),
+        (
+            "Agreement between passes",
+            f"{stats['agreement']:.1%} of words; word error rate of B against A "
+            f"{stats['wer_b_vs_a']:.1%}; {stats['divergent_spans']} divergent spans",
+        ),
+        (
+            "Reconciliation check",
+            f"{result['words']} words in {result['paragraphs']} paragraphs; "
+            f"{result['supported_by_a']:.1%} heard by A, {result['supported_by_b']:.1%} by B; "
+            f"{result['editorial_words']} words heard by neither (spellings and editorial "
+            f"marks); {result['omitted_agreed_words']} words both passes heard left out",
+        ),
+        (
+            "Tool",
+            (md_link("podcast-transcribe", tool_link) if tool_link else TOOL_PATH)
+            + f" at {revision_text(revision)}, `podcast-transcript` skill",
+        ),
+        ("Evidence", f"{evidence_where}: {EVIDENCE}; work key `{state['key']}`"),
     ]
+    return rows
+
+
+TOOL_PATH = "`tools/podcast-transcribe/podcast-transcribe.py`"
+
+
+def md_table(rows: list[tuple[str, str]]) -> list[str]:
+    out = ["| Item | Value |", "| ---- | ----- |"]
+    for item, value in rows:
+        out.append("| " + item + " | " + value.replace("|", "\\|") + " |")
+    return out
+
+
+def render_transcript(
+    state: dict, rec: dict, result: dict, revision: dict | None
+) -> str:
+    ep = state["episode"]
+    lines = [f"# {md_escape(ep.get('title') or 'Podcast transcript')}", ""]
+    lines += [f"- **{k}:** {v}" for k, v in header_fields(state, rec)] + [""]
     intro = (
         "A transcript of a published podcast episode, kept outside the public repository as a "
-        "source for documents that summarise the episode and cite it by timestamp. The words are the speakers' own; punctuation, paragraphs and the attribution of "
-        "each paragraph to a speaker are the transcriber's, inferred from the conversation rather "
-        "than from the voices. Timestamps are positions in the episode audio. Fillers such as "
-        "“um” and “uh” are left out, and text in square brackets is the "
-        "transcriber's."
+        "source for documents that summarise the episode and cite it by timestamp. The words "
+        "are the speakers' own; punctuation, paragraphs and the attribution of each paragraph "
+        "to a speaker are the transcriber's, inferred from the conversation rather than from "
+        "the voices. Timestamps are positions in the episode audio. Fillers such as \u201cum\u201d "
+        "and \u201cuh\u201d are left out, and text in square brackets is the transcriber's."
     )
     if rec["notes"]:
         intro += " " + rec["notes"]
@@ -1304,31 +1415,46 @@ def render_transcript(state: dict, rec: dict, result: dict) -> str:
             else f"({hms(para['t'])})"
         )
         lines += wrap_md(f"{lead} {text}") + [""]
-    enclosure = ep["enclosure_url"]
-    rows = [
-        "| Item | Value |",
-        "| ---- | ----- |",
-        f"| Episode link | <{ep['source_url']}> |",
-        f"| RSS feed | <{ep['feed_url']}> |" if ep.get("feed_url") else None,
-        f"| Episode GUID | `{ep['guid']}` |" if ep.get("guid") else None,
-        f"| Audio enclosure | <{enclosure}> |",
-        f"| Audio SHA-256 | `{audio['sha256']}` ({audio.get('codec')}, "
-        f"{(audio.get('bit_rate') or 0) // 1000} kbit/s, {hms(audio['duration_s'])}) |",
-        _pass_row("A", runs[0]),
-        _pass_row("B", runs[1]),
-        f"| Agreement between passes | {stats['agreement']:.1%} of words; word error rate of B "
-        f"against A {stats['wer_b_vs_a']:.1%}; {stats['divergent_spans']} divergent spans |",
-        f"| Reconciliation check | {result['words']} words in {result['paragraphs']} paragraphs; "
-        f"{result['supported_by_a']:.1%} heard by A, {result['supported_by_b']:.1%} by B; "
-        f"{result['editorial_words']} words heard by neither (spellings and editorial marks); "
-        f"{result['omitted_agreed_words']} words both passes heard left out |",
-        f"| Tool | `tools/podcast-transcribe/podcast-transcribe.py` at {tool_revision()}, "
-        f"`podcast-transcript` skill |",
-        f"| Evidence | Beside this file: the source audio, both passes with their logs, the "
-        f"worksheet, `reconciled.md` and `check.json`; work key `{state['key']}` |",
-    ]
-    lines += ["## Provenance", "", *[r for r in rows if r], ""]
+    lines += ["## Provenance", ""]
+    lines += md_table(provenance_rows(state, result, revision)) + [""]
     return "\n".join(lines)
+
+
+def cite_table(dest: Path, doc: Path | None = None) -> list[str]:
+    """The table a document pastes when it cites an archived transcript.
+
+    Every field of the transcript's header and every row of its provenance table, in the same
+    order and wording, then the transcript's own path in the archive and its SHA-256.
+    """
+    state = json.loads((dest / "state.json").read_text())
+    result = json.loads((dest / "check.json").read_text())
+    rec = parse_reconciled(dest / "reconciled.md")
+    published = {}
+    if (dest / "published.json").exists():
+        published = json.loads((dest / "published.json").read_text())
+    tool_link = None
+    if doc is not None:
+        readme = REPO_ROOT / "tools" / "podcast-transcribe" / "README.md"
+        tool_link = os.path.relpath(readme, Path(doc).resolve().parent)
+    transcript = dest / "transcript.md"
+    archive_name = dest.parent.parent.name
+    rel = f"{archive_name}/{dest.parent.name}/{dest.name}/transcript.md"
+    rows = header_fields(state, rec)
+    rows += provenance_rows(
+        state,
+        result,
+        published.get("tool"),
+        evidence_where="Beside the transcript in the archive",
+        tool_link=tool_link,
+    )
+    rows.append(
+        (
+            "Transcript",
+            f"`{rel}` in the transcript archive, outside the repository; SHA-256 "
+            f"`{sha256_file(transcript)}`",
+        )
+    )
+    return md_table(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -1421,10 +1547,29 @@ def cmd_publish(args: argparse.Namespace) -> int:
         )
     dest.mkdir(parents=True, exist_ok=True)
     archive_work(work, dest)
+    revision = tool_revision()
     transcript = dest / "transcript.md"
-    transcript.write_text(render_transcript(state, rec, result))
+    transcript.write_text(render_transcript(state, rec, result, revision))
+    digest = sha256_file(transcript)
+    published = {
+        "tool": revision,
+        "transcript_sha256": digest,
+        "published": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    (dest / "published.json").write_text(json.dumps(published, indent=2) + "\n")
     print(f"Wrote {transcript}")
-    print(f"  sha256 {sha256_file(transcript)}")
+    print(f"  sha256 {digest}")
+    print(f"  cite with: podcast-transcribe.py cite {dest} --doc <document>")
+    return 0
+
+
+def cmd_cite(args: argparse.Namespace) -> int:
+    dest = Path(args.archive_dir).expanduser()
+    if not (dest / "transcript.md").exists():
+        raise SystemExit(
+            f"{dest} holds no transcript.md; pass an episode's archive directory"
+        )
+    print("\n".join(cite_table(dest, Path(args.doc) if args.doc else None)))
     return 0
 
 
@@ -1460,6 +1605,12 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="publish even if the check fails"
     )
     p.set_defaults(func=cmd_publish)
+    p = sub.add_parser(
+        "cite", help="print the provenance table a document pastes beside its summary"
+    )
+    p.add_argument("archive_dir", help="the episode's directory in the archive")
+    p.add_argument("--doc", help="the citing document, for a relative link to the tool")
+    p.set_defaults(func=cmd_cite)
     args = parser.parse_args(argv)
     return args.func(args)
 

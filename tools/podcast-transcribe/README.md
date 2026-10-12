@@ -47,6 +47,7 @@ python3 $T resolve  'https://podcasts.apple.com/us/podcast/…/id1610029625?i=10
 python3 $T prepare  'https://castro.fm/episode/esLjgi'
 python3 $T check    ~/.cache/velocity-report/podcast-transcribe/<episode>
 python3 $T publish  ~/.cache/velocity-report/podcast-transcribe/<episode> --out-dir <archive>
+python3 $T cite     <archive>/<show>/<episode> --doc docs/plans/<plan>.md
 ```
 
 - `resolve` prints the episode a link points to. Apple Podcasts links resolve through the iTunes
@@ -62,7 +63,13 @@ python3 $T publish  ~/.cache/velocity-report/podcast-transcribe/<episode> --out-
 - `publish` runs the check, then writes `transcript.md` with its provenance table, beside the
   evidence for it, to `<archive>/<show>/<released>-<title>/`. The archive is `--out-dir` or
   `$PODCAST_TRANSCRIPT_DIR`; the owner's is `/Volumes/lidar/lidar/transcripts`. It refuses any
-  directory inside a Git checkout, and prints the transcript's SHA-256 for citing.
+  directory inside a Git checkout, and records the tool's commit and the transcript's SHA-256 in
+  `published.json`.
+- `cite` prints the provenance table a document pastes beneath its summary. It has every header
+  field and provenance row of the archived transcript, in the same order and words, then the
+  transcript's archive path and SHA-256, so a reader of the repository holds the same identifiers
+  as a reader of the archive. With `--doc`, the tool row links the README relative to that
+  document.
 
 ## Work directory
 
