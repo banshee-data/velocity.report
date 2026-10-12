@@ -23,6 +23,14 @@ decision rule for Section 7. No code and no tuning default was changed.
   `support_filter` and run on A1 (the report's Section 8): it removes the single-cell speckle at
   under a point of recall and lifts HOTA and IDF1, but most of the flood is coherent patches it
   cannot separate from small objects, so the next arm keeps the volatile cells' widening
+- **Followed up** on October 12, 2026:
+  [region override attribution](../../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md).
+  Keeping the volatile tercile's overrides alone changes almost nothing; keeping the quiet ones
+  alone is the overrides-off arm. Over 518 configs, switching the overrides off never beats
+  keeping them, and an overrides-on retune (`closeness_multiplier` 2.0, minimum cluster points 8,
+  the height band floor at road height) reaches 0.89 kirk0 recall at the shipped false positives.
+  The overrides-off arms are retired as candidates; Stage B, with the dwell policy, applies to the
+  retune
 
 ## 1. Verdict
 

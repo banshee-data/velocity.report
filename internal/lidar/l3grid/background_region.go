@@ -173,6 +173,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 
 			// Assign parameters based on category
 			region.Params = rm.assignRegionParams(category, grid.Params)
+			region.Volatile = category == 2
 
 			tempRegions = append(tempRegions, region)
 			regionID++
@@ -369,6 +370,16 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 		return nil
 	}
 	return &rm.Regions[regionID].Params
+}
+
+// IsVolatileRegion reports whether a region was identified from the
+// high-variance tercile. A merged region keeps the flag of the region that
+// absorbed it, as it keeps that region's parameters.
+func (rm *RegionManager) IsVolatileRegion(regionID int) bool {
+	if !rm.IdentificationComplete || regionID < 0 || regionID >= len(rm.Regions) {
+		return false
+	}
+	return rm.Regions[regionID].Volatile
 }
 
 // ToSnapshot serialises the RegionManager's region data into a form suitable for database persistence.

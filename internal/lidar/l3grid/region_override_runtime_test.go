@@ -122,3 +122,95 @@ func TestDisableRegionOverridesOffByDefault(t *testing.T) {
 		t.Fatal("DisableRegionOverrides defaults on; the shipped behaviour must stay the default until it is measured")
 	}
 }
+
+func TestRegionOverrideScopeSplitsTheTerciles(t *testing.T) {
+	g := settledThreeZoneGrid(t, 0.02)
+
+	g.Params.RegionOverrideScope = RegionOverrideScopeVolatile
+	for _, ring := range []int{0, 2} {
+		noise, neighbours, alpha := g.effectiveCellParams(g.Idx(ring, 0), 0.02, 3, 0.02)
+		if !approx(noise, 0.02) || neighbours != 3 || !approx(alpha, 0.02) {
+			t.Errorf("volatile scope, ring %d (stable or variable): noise %.4f neighbours %d alpha %.4f, want the globals 0.02, 3, 0.02",
+				ring, noise, neighbours, alpha)
+		}
+	}
+	noise, neighbours, alpha := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	if !approx(noise, 0.16) || neighbours != 5 || !approx(alpha, 0.01) {
+		t.Errorf("volatile scope, ring 4 (volatile): noise %.4f neighbours %d alpha %.4f, want the overrides 0.16, 5, 0.01",
+			noise, neighbours, alpha)
+	}
+
+	g.Params.RegionOverrideScope = RegionOverrideScopeQuiet
+	if got := effectiveNoise(g, 0); !approx(got, 0.08) {
+		t.Errorf("quiet scope, stable ring: effective noise %.4f, want the x4 override 0.08", got)
+	}
+	if got := effectiveNoise(g, 2); !approx(got, 0.06) {
+		t.Errorf("quiet scope, variable ring: effective noise %.4f, want the x3 override 0.06", got)
+	}
+	noise, neighbours, alpha = g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	if !approx(noise, 0.02) || neighbours != 3 || !approx(alpha, 0.02) {
+		t.Errorf("quiet scope, ring 4 (volatile): noise %.4f neighbours %d alpha %.4f, want the globals 0.02, 3, 0.02",
+			noise, neighbours, alpha)
+	}
+
+	g.Params.RegionOverrideScope = RegionOverrideScopeVolatile
+	g.Params.DisableRegionOverrides = true
+	if got := effectiveNoise(g, 4); !approx(got, 0.02) {
+		t.Errorf("volatile ring with overrides disabled and the volatile scope: effective noise %.4f, want the global 0.02 (disable wins)", got)
+	}
+}
+
+func TestRegionOverrideScopeAfterRestore(t *testing.T) {
+	g := settledThreeZoneGrid(t, 0.02)
+	for _, r := range g.RegionMgr.Regions {
+		r.Volatile = false // a restored region carries no tercile
+	}
+	g.Params.RegionOverrideScope = RegionOverrideScopeVolatile
+	if got := effectiveNoise(g, 4); !approx(got, 0.02) {
+		t.Errorf("volatile scope, restored volatile ring: effective noise %.4f, want the global 0.02", got)
+	}
+}
+
+func TestRegionOverrideScopeAllByDefault(t *testing.T) {
+	if makeTestGrid(2, 4).Params.RegionOverrideScope != RegionOverrideScopeAll {
+		t.Fatal("RegionOverrideScope defaults to a partial scope; the shipped behaviour must stay the default until it is measured")
+	}
+}
+
+func TestSetRegionOverrideScope(t *testing.T) {
+	var nilManager *BackgroundManager
+	if err := nilManager.SetRegionOverrideScope(RegionOverrideScopeVolatile); err == nil {
+		t.Error("a nil manager accepted a scope")
+	}
+	bm := NewBackgroundManager(t.Name(), 2, 4, BackgroundParams{}, nil)
+	for _, bad := range []RegionOverrideScope{RegionOverrideScopeAll - 1, RegionOverrideScopeQuiet + 1} {
+		if err := bm.SetRegionOverrideScope(bad); err == nil {
+			t.Errorf("scope %d accepted", bad)
+		}
+	}
+	for _, scope := range []RegionOverrideScope{RegionOverrideScopeVolatile, RegionOverrideScopeQuiet, RegionOverrideScopeAll} {
+		if err := bm.SetRegionOverrideScope(scope); err != nil {
+			t.Fatalf("scope %d refused: %v", scope, err)
+		}
+		if got := bm.Grid.Params.RegionOverrideScope; got != scope {
+			t.Errorf("scope %d set, grid reads %d", scope, got)
+		}
+	}
+}
+
+func TestIsVolatileRegionOutsideTheIdentifiedRegions(t *testing.T) {
+	unidentified := NewRegionManager(2, 4)
+	if unidentified.IsVolatileRegion(0) {
+		t.Error("a region read as volatile before identification")
+	}
+	g := settledThreeZoneGrid(t, 0.02)
+	for _, id := range []int{-1, len(g.RegionMgr.Regions)} {
+		if g.RegionMgr.IsVolatileRegion(id) {
+			t.Errorf("region id %d, outside the identified regions, read as volatile", id)
+		}
+	}
+	volatile := g.RegionMgr.GetRegionForCell(g.Idx(4, 0))
+	if !g.RegionMgr.IsVolatileRegion(volatile) {
+		t.Error("the volatile ring's region did not read as volatile")
+	}
+}

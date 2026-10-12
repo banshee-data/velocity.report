@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"sort"
 	"strings"
 
@@ -381,7 +380,10 @@ func main() {
 		if *uncertaintyReport {
 			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
 		}
-		if first.ObservationDBPath != "" && slices.Contains(experiments, replayeval.ExperimentSolidBody) {
+		// The solid body runs from the tuning file's block as well as from the
+		// named experiment; summarising only the latter dropped the section
+		// from every arm run from a parameter set.
+		if first.ObservationDBPath != "" && firstResult.SolidBody {
 			sb, err := summariseSolidBodies(first.ObservationDBPath, firstResult.ObservationSourceID)
 			if err != nil {
 				fatal(fmt.Errorf("solid-body summary %s: %w", selectedCase.ID, err))
