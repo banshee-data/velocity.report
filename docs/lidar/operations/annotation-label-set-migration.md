@@ -1,6 +1,6 @@
 # Annotation label set migration, October 2026
 
-The three annotated version 1 packs were carried into capture-bound label sets. The question was
+The five version 1 packs that held labels were carried into capture-bound label sets. The question was
 whether labels made on one run's export could be moved onto the capture's returns exactly, keeping
 their history, and then apply to another file of the same capture. They could: every labelled
 point mapped to exactly one decoded return, every revision was carried, and labels migrated from a
@@ -25,6 +25,9 @@ references, feature proposals and proposal layers with their pins moved to the n
 version 1 packs were not modified.
 
 ## Results
+
+Three packs carry the work that matters (below); two earlier columbus-broadway attempts, on the same
+points as the third, follow in [their own table](#the-earlier-columbus-broadway-attempts).
 
 | Measure                                  | kirk0 reference (`ad8b9438`)    | kirk0 sweep ground truth (`8e422582`)                                    | columbus-broadway (`aadfe835`)                |
 | ---------------------------------------- | ------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
@@ -53,6 +56,27 @@ replays the journal to check every digest.
 Every journal replays to the digest each revision recorded (`labels verify`). The kirk0 reference
 pack's physical references validate on its version 2 copy with the same content as on version 1
 (3 objects, 44 keyframes, 2 following references, revision 76).
+
+### The earlier columbus-broadway attempts
+
+Two earlier label files on the same 1,076,843 points as `aadfe835-…175735` were migrated as their
+own label sets. The `055307` pack's manifest says `full` coverage, but all its points are classed
+foreground, so its domain is a foreground extraction like the others.
+
+| Measure                                  | `columbus-broadway-0921-0553` (`…055307`) | `columbus-broadway-0921-1917` (`…191749`)     |
+| ---------------------------------------- | ----------------------------------------- | --------------------------------------------- |
+| Pack points, exactly one return each     | 1,076,843 of 1,076,843                    | 1,076,843 of 1,076,843                        |
+| Revisions converted                      | 87                                        | 5                                             |
+| Head objects, masks (reviewed)           | 2, 61 (0)                                 | 4, 800 (0)                                    |
+| Returns two objects claimed, at the head | 0                                         | 5,876 proposed only, 474 masks                |
+| Version 1 history, journal               | 22.4 MB, 6.8 MB                           | 2.1 MB, 7.2 MB                                |
+| Head projected onto the version 2 pack   | Identical to the version 1 head           | Differs only by the claims moved to uncertain |
+
+A short history can grow: the journal's first line records the whole domain (every foreground return
+of every window), so a set with five revisions has a larger journal than its version 1 snapshots.
+
+Across all five, 6,897,651 pack points each matched exactly one return and 2,756 revisions were
+carried.
 
 ### The tuning split
 
@@ -87,7 +111,7 @@ The columbus-broadway label set was migrated from the source roll `s2_sf_3_20260
 Bound to the published `20260902T1320_80858-0f4_columbus-broadway.pcapng` (4.9 GB), it found all
 36,001 of its packets, all 200 windows complete and no packet twice, and the file's SHA-256
 (`sha256:aa69875b…3b66`) equals the dataset manifest's `raw_sha256`. The same labels now apply to
-both files.
+both files. The two earlier columbus-broadway sets bind to the published file the same way.
 
 ## Packet key census
 
@@ -137,6 +161,8 @@ their own revision histories remain with the version 1 packs.
 | `kirk0-reference`             | `dd6579b7-4705-4a95-a2a3-2a4c12bef749` | 2232     | `sha256:75a268d1…590c` | `sha256:95be6fb2…49d6` (2232) | `sha256:e9d93b33…2c9e` |
 | `kirk0-sweep-gt`              | `a7ff24ac-5e7c-4bee-bf30-4be25db72b3d` | 402      | `sha256:3b76c3e4…581b` | `sha256:a2027d43…736d` (402)  | `sha256:8bd75d25…57d9` |
 | `columbus-broadway-proposals` | `5bdcf414-d69d-416f-b265-24ee4fb06c56` | 30       | `sha256:22643376…8576` | `sha256:524b1594…4147` (30)   | `sha256:06305626…793e` |
+| `columbus-broadway-0921-0553` | `af2d0692-a778-4987-b4e1-46bf5ec40cff` | 87       | `sha256:2b4a5afb…9a29` | `sha256:524b1594…4147` (87)   | `sha256:06305626…793e` |
+| `columbus-broadway-0921-1917` | `1f862387-3835-432d-be5e-c7b708ff4b3d` | 5        | `sha256:19d4b118…9c32` | `sha256:524b1594…4147` (5)    | `sha256:06305626…793e` |
 
 | Capture                                            | SHA-256                |
 | -------------------------------------------------- | ---------------------- |
@@ -146,7 +172,8 @@ their own revision histories remain with the version 1 packs.
 
 The label sets and version 2 packs are under the annotation directory (`labels/<name>/` and
 `<version 1 pack>-v2/`); the migration reports and the census table are local output and are not
-committed.
+committed. The three columbus-broadway sets share a mapping digest: the mapping covers the pack
+digest, the capture and the returns, and all three were cut from the same pack points.
 
 ## Recommendations
 
