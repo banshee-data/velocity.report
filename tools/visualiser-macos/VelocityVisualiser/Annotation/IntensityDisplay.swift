@@ -175,12 +175,14 @@ struct IntensityDisplaySpec: Equatable {
     }
 }
 
-/// Whether this pack's intensity is a measurement.
+/// Whether this frame's intensity is a measurement.
 ///
-/// The pack says so once, for the whole pack. The exporter sets that flag if
-/// any sample carried intensity and zero-fills the rest, so a true flag does
-/// not prove every sample was measured; that is said beside the readout rather
-/// than inferred from whether a byte is zero.
+/// A sample says so for itself when it records `has_intensity`, and otherwise
+/// the pack's flag answers for it, as Go's Pack.SampleHasIntensity has it. The
+/// exporter sets the pack's flag if any sample carried intensity and
+/// zero-fills the rest, so a true pack flag does not prove a sample without
+/// its own was measured; that is said beside the readout rather than inferred
+/// from whether a byte is zero.
 enum IntensityAvailability: Equatable {
     /// This sample's source frame carried intensity.
     case measured
@@ -192,13 +194,13 @@ enum IntensityAvailability: Equatable {
     /// The pack carries no intensity at all.
     case absent
 
-    /// From the pack-wide flag and, when the pack records it, the sample's own.
+    /// The sample's own flag when it records one, else the pack-wide flag.
     init(hasIntensity: Bool, sample: Bool? = nil) {
         switch (hasIntensity, sample) {
-        case (false, _): self = .absent
-        case (true, true?): self = .measured
+        case (_, true?): self = .measured
         case (true, false?): self = .absentThisSample
         case (true, nil): self = .packFlag
+        case (false, _): self = .absent
         }
     }
 

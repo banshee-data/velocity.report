@@ -225,8 +225,10 @@ struct AnnotationSample: Codable, Equatable {
     var sensorID: String
     var pointCount: Int
     var byteOffset: Int64
-    /// Whether this sample's source frame carried an intensity column. Packs
-    /// cut before it was recorded have nil, and only the pack-wide flag.
+    /// Whether this sample's source frame carried an intensity column. Nil
+    /// for samples cut before per-sample presence was recorded, as the
+    /// migrated packs' were: the manifest's pack-wide flag then answers, as
+    /// Go's Pack.SampleHasIntensity has it.
     var hasIntensity: Bool? = nil
     /// Every return of the frame the sample came from, foreground or not, as
     /// [returnStart, returnEnd) in the pack's return numbering. A label set's
@@ -439,6 +441,7 @@ final class AnnotationPack {
                 "manifest declares \(manifest.sampleCount) samples, samples.json has \(samples.count)"
             )
         }
+        try checkIntensityPresence(manifest: manifest, samples: samples)
 
         let (backgrounds, backgroundData) = try openBackground(
             directory: directory, manifest: manifest, decoder: decoder)
@@ -448,6 +451,26 @@ final class AnnotationPack {
             directory: directory, manifest: manifest, samples: samples, raw: pointsData,
             backgrounds: backgrounds, rawBackground: backgroundData, packets: packets,
             rawReturns: returns, returnOffsets: offsets)
+    }
+
+    /// Refuses a manifest whose intensity flag the samples contradict, as
+    /// Go's checkIntensityPresence does. The flag means "any sample was
+    /// measured", so when every sample records its own the two are bound: a
+    /// pack-wide true over samples that all say false would send the reader
+    /// to zero bytes as if they were readings, and the manifest is outside
+    /// the pack digest, so an edit to it passes every check above. When any
+    /// sample records none, the manifest is the only word on it and nothing
+    /// is checked.
+    private static func checkIntensityPresence(
+        manifest: AnnotationManifest, samples: [AnnotationSample]
+    ) throws {
+        guard !samples.isEmpty, samples.allSatisfy({ $0.hasIntensity != nil }) else { return }
+        let any = samples.contains { $0.hasIntensity == true }
+        guard any == manifest.hasIntensity else {
+            throw AnnotationPackError.malformed(
+                "manifest has_intensity=\(manifest.hasIntensity) but the samples' own flags say \(any)"
+            )
+        }
     }
 
     /// The pack digest the manifest should carry: over the points, samples,

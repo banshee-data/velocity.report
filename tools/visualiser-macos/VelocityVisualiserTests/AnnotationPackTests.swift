@@ -74,6 +74,35 @@ enum PackFixture {
         edit(&object)
         return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
+
+    /// Applies `edit` to samples.json and gives the manifest the samples and
+    /// pack digests that match, so the edit gets past the digest checks to
+    /// the check under test.
+    static func redigestSamples(
+        _ files: inout [String: Data], manifest edits: (inout [String: Any]) -> Void = { _ in },
+        _ edit: (String) -> String
+    ) throws {
+        let samples = Data(edit(String(decoding: files["samples.json"]!, as: UTF8.self)).utf8)
+        files["samples.json"] = samples
+        var manifest = try JSONDecoder().decode(
+            AnnotationManifest.self, from: files["manifest.json"]!)
+        manifest.samplesSHA256 = AnnotationPack.digest(AnnotationPack.trimTrailingNewline(samples))
+        let packDigest = AnnotationPack.packDigest(of: manifest)
+        files["manifest.json"] = try PackFixture.manifest {
+            $0["samples_sha256"] = manifest.samplesSHA256
+            $0["pack_digest"] = packDigest
+            edits(&$0)
+        }
+    }
+
+    /// samples.json without sample `index`'s has_intensity line. Every
+    /// sample in the fixture records one, followed by sample 0's return_end
+    /// (its return_start is 0, which Go omits) or sample 1's return_start.
+    static func droppingIntensityFlag(_ samples: String, sample index: Int) -> String {
+        let next = index == 0 ? "\"return_end\": 400" : "\"return_start\": 400"
+        return samples.replacingOccurrences(
+            of: "\"has_intensity\": true,\n    \(next)", with: next)
+    }
 }
 
 // MARK: - Tests
@@ -113,6 +142,72 @@ struct AnnotationPackTests {
         #expect(second.z == [1.5, 1.75])
         #expect(second.intensity == [50, 60])
         #expect(second.x[1] == 3.5 && second.intensity[1] == 60)
+
+        // Every sample records whether its intensity was measured, and the
+        // manifest's flag is whether any was.
+        #expect(pack.samples.allSatisfy { $0.hasIntensity == true } && pack.manifest.hasIntensity)
+    }
+
+    /// When every sample records its own flag, the manifest's must be their
+    /// "any": it is outside the pack digest, so an edit to it would pass every
+    /// digest check. Go's reader refuses it too.
+    @Test func refusesAManifestIntensityFlagTheSamplesContradict() throws {
+        let dir = try PackFixture.write { files in
+            files["manifest.json"] = try PackFixture.manifest { $0["has_intensity"] = false }
+        }
+        defer { removePack(dir) }
+
+        do {
+            _ = try AnnotationPack.open(directory: dir)
+            Issue.record("expected a contradicting manifest flag to be refused")
+        } catch let error as AnnotationPackError {
+            #expect(
+                error
+                    == .malformed(
+                        "manifest has_intensity=false but the samples' own flags say true"))
+        }
+    }
+
+    /// Samples cut before per-sample presence was recorded, as the migrated
+    /// packs' were, state no flag. The pack opens, and the manifest's flag
+    /// answers for them.
+    @Test func samplesWithoutTheirOwnIntensityFlagFallBackToThePacks() throws {
+        let dir = try PackFixture.write { files in
+            try PackFixture.redigestSamples(&files) {
+                PackFixture.droppingIntensityFlag(
+                    PackFixture.droppingIntensityFlag($0, sample: 0), sample: 1)
+            }
+        }
+        defer { removePack(dir) }
+
+        let pack = try AnnotationPack.open(directory: dir)
+        #expect(pack.samples.allSatisfy { $0.hasIntensity == nil })
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[0].hasIntensity)
+                == .packFlag)
+    }
+
+    /// With one sample silent the manifest is the only word on it, so the
+    /// manifest is not checked against the others, as in Go.
+    @Test func aPackWithSomeSamplesFlaggedIsNotCheckedAgainstTheManifest() throws {
+        let dir = try PackFixture.write { files in
+            try PackFixture.redigestSamples(
+                &files, manifest: { $0["has_intensity"] = false }
+            ) { PackFixture.droppingIntensityFlag($0, sample: 0) }
+        }
+        defer { removePack(dir) }
+
+        let pack = try AnnotationPack.open(directory: dir)
+        #expect(pack.samples[0].hasIntensity == nil && pack.samples[1].hasIntensity == true)
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[0].hasIntensity)
+                == .absent)
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[1].hasIntensity)
+                == .measured)
     }
 
     @Test func readsGosPacketTableAndReturns() throws {
@@ -128,7 +223,8 @@ struct AnnotationPackTests {
         #expect(try pack.returns(sampleID: 1) == [400, 445])
         // Go writes the frame range with omitempty: sample 0's frame starts
         // at return 0, so its samples.json entry has no return_start.
-        let samplesJSON = try #require(String(data: PackFixture.file("samples.json"), encoding: .utf8))
+        let samplesJSON = try #require(
+            String(data: PackFixture.file("samples.json"), encoding: .utf8))
         #expect(samplesJSON.components(separatedBy: "\"return_start\"").count == 2)
         #expect(pack.samples[0].returnStart == 0 && pack.samples[0].returnEnd == 400)
         #expect(pack.samples[1].returnStart == 400 && pack.samples[1].returnEnd == 800)
