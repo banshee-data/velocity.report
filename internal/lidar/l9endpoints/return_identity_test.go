@@ -1,6 +1,7 @@
 package l9endpoints
 
 import (
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
 	"slices"
 	"testing"
 	"time"
@@ -207,5 +208,18 @@ func TestFixtureReturnIdentityIsValid(t *testing.T) {
 	pc.ReturnEnd = 401 // past one packet's returns
 	if pc.HasReturnIdentity() {
 		t.Fatal("a range past the packet table counted as identity")
+	}
+}
+
+func TestStreamCarriesPacketKeysButNotReturns(t *testing.T) {
+	pc := &PointCloudFrame{X: []float32{1, 2}, Y: []float32{0, 0}, Z: []float32{0, 0}, PointCount: 2}
+	FixtureReturnIdentity(pc, 7<<20)
+	bundle := &FrameBundle{FrameID: 1, TimestampNanos: 5, PointCloud: pc}
+	out := frameBundleToProto(bundle, &pb.StreamRequest{IncludePoints: true})
+	if len(out.PointCloud.PacketKeys) == 0 || out.PointCloud.PacketKeys[0] != pc.PacketKeys[0] {
+		t.Fatalf("stream packet keys %v, want %v", out.PointCloud.PacketKeys, pc.PacketKeys)
+	}
+	if len(out.PointCloud.ReturnRefs) != 0 {
+		t.Fatalf("stream carries %d per-point returns", len(out.PointCloud.ReturnRefs))
 	}
 }

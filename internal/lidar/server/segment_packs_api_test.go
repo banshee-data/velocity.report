@@ -162,8 +162,22 @@ func TestPackInventoryReportsLinkedLabelSet(t *testing.T) {
 		item.ReviewedMasks != 1 || item.ReviewedObjects != 1 || item.Status != "reviewed" {
 		t.Fatalf("listing %+v", item)
 	}
+	if item.LabelSetPackets != 1 || item.LabelSetWindows != 1 || item.LabelSetCaptures != nil {
+		t.Fatalf("label set size %d packets, %d windows, captures %v", item.LabelSetPackets, item.LabelSetWindows, item.LabelSetCaptures)
+	}
 	inputs := packListingInputs(packDir)
 	if inputs[len(inputs)-1] != filepath.Join(setDir, labelset.ManifestFile) {
 		t.Fatalf("listing cache does not watch the label set: %v", inputs)
+	}
+}
+
+func TestListingNamesTheVersion2SuccessorOfAMigratedPack(t *testing.T) {
+	listed := linkMigrations([]packListing{
+		{PackDir: "/packs/v1-pack", Status: "reviewed"},
+		{PackDir: "/packs/v1-pack-v2", LabelSetID: "ls", LabelSetMigratedFrom: "v1-pack"},
+		{PackDir: "/packs/other", Status: "packed"},
+	})
+	if listed[0].MigratedTo != "/packs/v1-pack-v2" || listed[1].MigratedTo != "" || listed[2].MigratedTo != "" {
+		t.Fatalf("migrated_to %q, %q, %q", listed[0].MigratedTo, listed[1].MigratedTo, listed[2].MigratedTo)
 	}
 }

@@ -71,7 +71,9 @@ message PointCloudFrame {
   // Return identity (optional). Names each point's return in the capture,
   // independently of this run, so a label can cite it. Absent from frames
   // recorded before it existed and from sources without packets (synthetic).
-  // Written to VRLOG recordings; not filled on the live gRPC stream.
+  // Written to VRLOG recordings. The gRPC stream carries packet_keys only, so
+  // a client can tell whose packets a frame holds (about 1.4 KB a frame); the
+  // per-point fields stay out of the stream.
   //
   // Every packet that contributed any return to the frame, emitted here or
   // not, in first-seen order. A key is the first 64 bits of SHA-256 over the

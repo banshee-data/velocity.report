@@ -80,8 +80,9 @@ Points are emitted in world frame. Full fidelity or downsampled modes are suppor
 | `decimation_ratio` | float            | Fraction of points retained (e.g. 0.5)                |
 
 VRLOG recordings also carry each point's return identity, so an annotation can cite a return in the
-capture rather than a point in one run. The live stream leaves these fields empty, and recordings
-made before they existed, or from sources without packets, lack them.
+capture rather than a point in one run. The gRPC stream carries `packet_keys` alone, about 1.4 KB a
+frame, so a client can check which capture a frame came from; it leaves the per-point fields empty.
+Recordings made before these fields existed, or from sources without packets, lack them.
 
 | Field                                              | Type             | Description                                                                                               |
 | -------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
