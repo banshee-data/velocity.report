@@ -623,7 +623,8 @@ final class LockedState<Value>: @unchecked Sendable {
                 y: pc.y, z: pc.z, intensity: pc.intensity.map { UInt8($0) },
                 classification: pc.classification.map { UInt8($0) },
                 decimationMode: DecimationMode(rawValue: Int(pc.decimationMode.rawValue)) ?? .none,
-                decimationRatio: pc.decimationRatio, pointCount: Int(pc.pointCount))
+                decimationRatio: pc.decimationRatio, pointCount: Int(pc.pointCount),
+                packetKeys: pc.packetKeys)
         }
 
         // Clusters

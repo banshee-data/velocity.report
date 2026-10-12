@@ -237,6 +237,10 @@ final class LabelSetMembership: MembershipStore {
 
     var domainID: String { pack.labelSetDomain.domainID }
 
+    /// The packets a replay is checked against: the label set's table, or
+    /// before the first save makes one, the pack's own.
+    var packetTable: [UInt64] { store?.baseState.packets ?? pack.packets }
+
     var labelsDirectory: URL { pack.annotationDirectory.appendingPathComponent("labels") }
 
     var readOnlyReason: String? { accessRefusal }
