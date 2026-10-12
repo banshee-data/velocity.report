@@ -1,18 +1,17 @@
-// AnnotationSidecar.swift
-// Reference annotation records, and the version 1 sidecar shape the window
-// edits in.
+// AnnotationRecords.swift
+// Reference annotation records, and the in-memory view of them the window
+// edits.
 //
-// The records mirror Go's internal/lidar/annotation schema field for field. A
-// label set keeps objects, poses and provenance in exactly these shapes; only
-// membership moved, from sample and point index to window and return. The
-// window still edits one pack's view as a Sidecar: masks by sample id and
-// point index. LabelSetMembership projects a label set into that shape and
-// folds edits back as deltas.
+// The records mirror Go's internal/lidar/annotation records field for field. A
+// label set keeps objects, poses and provenance in exactly these shapes, with
+// membership by window and return. Proposal layers keep objects and masks in
+// them too, which is why those are Codable.
 //
-// This client neither reads nor writes annotations.json: labels are kept in
-// label sets.
+// The window edits one pack's view of its label set as a Sidecar: masks by
+// sample id and point index. That is a working copy in memory, not a file:
+// LabelSetMembership projects the label set into it and folds edits back as
+// deltas. Nothing here reads or writes a file of its own.
 
-import CryptoKit
 import Foundation
 
 // MARK: - Records
@@ -168,7 +167,8 @@ struct FrameMask: Codable, Equatable {
 
 /// An optional link from a human object to predicted tracks. One reference
 /// object may map to several tracks, and one merged track to several objects.
-struct TrackCorrespondence: Codable, Equatable {
+/// The label set codec reads and writes it (LabelSetModel.swift).
+struct TrackCorrespondence: Equatable {
     var objectID: String
     var runID: String?
     /// Nil and empty are different to Go, which writes null for one and []
@@ -177,49 +177,23 @@ struct TrackCorrespondence: Codable, Equatable {
     var startNs: Int64 = 0
     var endNs: Int64 = 0
     var note: String?
-
-    enum CodingKeys: String, CodingKey {
-        case objectID = "object_id"
-        case runID = "run_id"
-        case trackIDs = "track_ids"
-        case startNs = "start_ns"
-        case endNs = "end_ns"
-        case note
-    }
 }
 
-/// The whole annotation snapshot for one pack.
-struct Sidecar: Codable, Equatable {
-    /// Must match Go's SidecarSchemaVersion: that reader refuses any other
-    /// value outright, so writing a newer number here would lock the Go
-    /// tooling out of packs this client has touched.
-    static let schemaVersion = 1
-
-    var schemaVersion: Int = Sidecar.schemaVersion
+/// One pack's view of its label set, as the window edits it: objects, and
+/// masks by sample id and point index. Held in memory only: no file is read
+/// or written in this shape. The name is Go's, whose annotation.Sidecar holds
+/// the same projection on the server.
+struct Sidecar: Equatable {
     var datasetID: String = ""
     var packDigest: String = ""
+    /// The label set's revision this view was projected from, and when it
+    /// was saved.
     var revision: Int = 0
     var updatedUTC: String = ""
-    var change: Provenance?
-    var restoredFrom: Int?
     var objects: [AnnotationObject] = []
     var masks: [FrameMask] = []
     var correspondences: [TrackCorrespondence]?
     var dismissedProposals: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case schemaVersion = "schema_version"
-        case datasetID = "dataset_id"
-        case packDigest = "pack_digest"
-        case revision
-        case updatedUTC = "updated_utc"
-        case change
-        case restoredFrom = "restored_from"
-        case objects
-        case masks
-        case correspondences
-        case dismissedProposals = "dismissed_proposals"
-    }
 
     /// The mask for one object in one sample, if any.
     func mask(objectID: String, sampleID: Int) -> FrameMask? {
@@ -234,7 +208,7 @@ struct Sidecar: Codable, Equatable {
     }
 
     /// Replaces or inserts a mask, keeping masks ordered by (sample, object)
-    /// so an unchanged snapshot serialises to unchanged bytes.
+    /// so the same masks compare equal however they were added.
     mutating func upsert(mask: FrameMask) {
         if let idx = masks.firstIndex(where: {
             $0.objectID == mask.objectID && $0.sampleID == mask.sampleID
@@ -262,9 +236,9 @@ enum AnnotationClock {
 
 // MARK: - Points claimed twice
 
-/// A return two objects claim in one sample. Go's sidecar validation refuses
-/// any such file outright, so every Go reader of the pack, the physical
-/// reference service included, would refuse it too.
+/// A return two objects claim in one sample. A label set's validation refuses
+/// any, in Go and here, so a save that would make one is refused first, with
+/// the sample and point the operator can find.
 struct PointClaimConflict: Hashable {
     var sampleID: Int
     var point: Int

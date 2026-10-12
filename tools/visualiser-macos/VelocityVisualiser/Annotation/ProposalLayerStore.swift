@@ -1,5 +1,6 @@
 // Immutable proposer output, bound to the pack digest. Its objects and masks
-// use the sidecar's schema, but remain suggestions even after being reloaded.
+// use the annotation records' shapes (AnnotationRecords.swift), but remain
+// suggestions even after being reloaded.
 import Darwin
 import Foundation
 
