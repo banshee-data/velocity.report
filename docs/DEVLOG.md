@@ -10,7 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 12, 2026 - Weekly research briefing
 
-- {claude/research-briefing-2026-10-12} Reviewed the week's roadside LiDAR and safety literature in a [briefing](lidar/operations/brief/research-briefing-2026-10-12.md): no definition changed; the FHWA SSAM user manual, read for the first time, confirms the 5 s PET default the behaviour plan carried as secondary (B8 answered), Waymo's ESV26-294 comparison of naturalistic and police-reported VRU rates entered the crash-data plan's sources, and an RTK-referenced probe vehicle and a point-count covariate for weather comparisons were logged as open questions.
+- {claude/research-briefing-2026-10-12} Reviewed the week's roadside LiDAR and safety literature in a [briefing](lidar/operations/brief/research-briefing-2026-10-12.md): no definition changed; the FHWA SSAM user manual, read for the first time, confirms the 5 s PET default the behaviour plan carried as secondary (B8 answered), Waymo's ESV26-294 comparison of naturalistic and police-reported VRU rates entered the crash-data plan's sources, and an RTK-referenced probe vehicle and a point-count covariate for weather comparisons were logged as open questions; the owner adopted the probe vehicle as a proposed external reference with an `M` backlog item and deferred the point-count covariate until the corpus gains a wet or snowy capture ([D-29](DECISIONS.md#d-29--research-briefing-decisions-october-12-2026)).
 
 ## October 11, 2026 - LiDAR experiments, the :8081 replay, tooling, market reviews, and corrected references
 

@@ -3,7 +3,9 @@
 - **Status:** Complete. No definition, benchmark kind or registered metric changed. Adopted: the
   primary SSAM user manual as the source for the 5 s PET screen, which answers the behaviour
   plan's question B8, and Waymo's ESV26-294 naturalistic and police-reported comparison as a
-  cited source in the crash-data plan. Two open questions are logged.
+  cited source in the crash-data plan. Owner decisions applied October 12 ([D-29][d29]): Q1
+  adopted as a proposed external reference in the physical-reference plan with a backlog item; Q2
+  deferred until the corpus gains a wet or snowy capture.
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 5 to 12, 2026. No third-party
   briefing was supplied. The window overlaps the October 11 briefing, which is still on its own
@@ -305,6 +307,15 @@ Nothing in code, the metrics registry, benchmark kinds or definitions.
 
 The October 11 briefing's three questions remain open on its own branch and are not repeated.
 
+### Decisions
+
+Decided by the owner on October 12, 2026 and recorded as [D-29][d29].
+
+| ID  | Decision                                                                                                                                                                                                                                                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | **Adopted as a proposal.** The [physical-reference plan](../../../plans/lidar-physical-reference-review-plan.md#proposed-external-reference-rtk-probe-vehicle) gains an RTK probe vehicle as a planned external reference source, independent of the sensor's returns, and the backlog gains an `M` item for it. No code, registry or definition changes. |
+| Q2  | **Deferred.** Reopens when the [test corpus](../../../plans/lidar-test-corpus-plan.md#non-goals) first gains a wet or snowy capture, or when a comparison of L3 or L4 across conditions is proposed; it then becomes a method rule: object point count per passage is reported beside any recall comparison. Nothing is built now.                        |
+
 ## Sources checked
 
 | Source                                                                   | Status                                                          |
@@ -370,3 +381,5 @@ mdpi.com (403), pubmed.ncbi.nlm.nih.gov (cookie wall).
   https://doi.org/10.1177/03611981251327216, https://doi.org/10.3390/s26113529,
   https://highwayscene.github.io/ and
   https://road-safety.transport.ec.europa.eu/document/download/9826c063-bc55-423e-84a3-24200dca3547_en?filename=ERSO-TR-speed_2026.pdf
+
+[d29]: ../../../DECISIONS.md#d-29--research-briefing-decisions-october-12-2026
