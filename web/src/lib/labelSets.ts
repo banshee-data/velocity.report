@@ -32,8 +32,6 @@ export type AnnotationPack = {
 	label_set_packets?: number;
 	label_set_windows?: number;
 	label_set_captures?: LabelSetCapture[];
-	label_set_migrated_from?: string;
-	migrated_to?: string;
 	error?: string;
 };
 
@@ -48,7 +46,7 @@ export function shortSHA(digest: string): string {
 	return digest.replace(/^sha256:/, '').slice(0, 8);
 }
 
-/** Whether the pack's labels live in a label set (a version 2 pack). */
+/** Whether the pack is linked to a label set, which holds its labels. */
 export function hasLabelSet(pack: AnnotationPack): boolean {
 	return Boolean(pack.label_set_id);
 }
@@ -59,10 +57,7 @@ export function labelsText(pack: AnnotationPack): string {
 		const name = pack.label_set_name || pack.label_set_id;
 		return `Label set ${name}, revision ${pack.label_set_revision ?? 0}`;
 	}
-	if (pack.migrated_to) {
-		return `Version 1, read only: labels moved to ${baseName(pack.migrated_to)}`;
-	}
-	return 'Version 1, read only';
+	return 'No labels yet';
 }
 
 /** One verified capture: name, short digest, packets and frames covered. */
@@ -97,12 +92,11 @@ export function reviewText(pack: AnnotationPack): string {
 }
 
 /**
- * Packs in the order an operator looks for them: label sets first, then the
- * version 1 packs whose labels have not moved, then those whose labels have,
- * each by name.
+ * Packs in the order an operator looks for them: those with labels first,
+ * then the rest, each by name.
  */
 export function inventoryOrder(packs: AnnotationPack[]): AnnotationPack[] {
-	const rank = (pack: AnnotationPack) => (hasLabelSet(pack) ? 0 : pack.migrated_to ? 2 : 1);
+	const rank = (pack: AnnotationPack) => (hasLabelSet(pack) ? 0 : 1);
 	return [...packs].sort(
 		(a, b) => rank(a) - rank(b) || baseName(a.pack_dir).localeCompare(baseName(b.pack_dir))
 	);

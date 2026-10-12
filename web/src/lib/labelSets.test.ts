@@ -46,10 +46,7 @@ describe('labelSets', () => {
 				pack({ label_set_id: 'id', label_set_name: 'kirk0-reference', label_set_revision: 2232 })
 			)
 		).toBe('Label set kirk0-reference, revision 2232');
-		expect(labelsText(pack({ migrated_to: '/packs/ad8b9438-v2' }))).toBe(
-			'Version 1, read only: labels moved to ad8b9438-v2'
-		);
-		expect(labelsText(pack())).toBe('Version 1, read only');
+		expect(labelsText(pack())).toBe('No labels yet');
 	});
 
 	it('describes a verified capture against the label set it belongs to', () => {
@@ -86,13 +83,13 @@ describe('labelSets', () => {
 		);
 	});
 
-	it('orders label sets first and migrated originals last', () => {
+	it('orders labelled packs first, each group by name', () => {
 		const ordered = inventoryOrder([
-			pack({ pack_dir: '/p/old', migrated_to: '/p/old-v2' }),
 			pack({ pack_dir: '/p/zeta-v2', label_set_id: 'z' }),
 			pack({ pack_dir: '/p/plain' }),
-			pack({ pack_dir: '/p/alpha-v2', label_set_id: 'a' })
+			pack({ pack_dir: '/p/alpha-v2', label_set_id: 'a' }),
+			pack({ pack_dir: '/p/blank' })
 		]).map((p) => baseName(p.pack_dir));
-		expect(ordered).toEqual(['alpha-v2', 'zeta-v2', 'plain', 'old']);
+		expect(ordered).toEqual(['alpha-v2', 'zeta-v2', 'blank', 'plain']);
 	});
 });

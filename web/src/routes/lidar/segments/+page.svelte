@@ -437,7 +437,7 @@
 				<p class="text-surface-content/70">
 					Labels live in label sets, which cite a capture's returns by packet, so one set applies to
 					every run of the capture. Verified captures are the files checked to hold its packets.
-					Edit in the macOS annotation tool; version 1 packs are read only.
+					Edit in the macOS annotation tool.
 				</p>
 				<ul class="space-y-2">
 					{#each inventory as pack (pack.pack_dir)}
