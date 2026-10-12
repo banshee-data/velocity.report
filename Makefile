@@ -111,6 +111,7 @@ help:
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
 	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
+	@echo "  install-transcribe   Install the two speech-recognition engines for podcast-transcribe (pipx)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
@@ -989,7 +990,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-transcribe install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1021,7 +1022,8 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_export_scene_variants.py \
 	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
-	tools/grid-heatmap/test_plot_grid_heatmap.py
+	tools/grid-heatmap/test_plot_grid_heatmap.py \
+	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
 	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
@@ -1139,6 +1141,28 @@ install-scene-capture:
 install-scene-capture-browser: install-scene-capture
 	@echo "Downloading the pinned headless Chromium for scene-capture..."
 	@cd $(SCENE_CAPTURE_DIR) && npx playwright install chromium
+
+# Speech-recognition engines for tools/podcast-transcribe, each in its own pipx
+# venv and reused when already on PATH. Opt-in: torch and MLX are large, and the
+# models (about 1.6 GB and 2.5 GB) download on first use into ~/.cache/whisper
+# and ~/.cache/huggingface. Parakeet runs on MLX, so Apple Silicon only.
+TRANSCRIBE_WHISPER_VERSION = 20240930
+TRANSCRIBE_PARAKEET_VERSION = 0.5.3
+install-transcribe:
+	@command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg not found: brew install ffmpeg"; exit 1; }
+	@command -v pipx >/dev/null 2>&1 || { echo "pipx not found: brew install pipx"; exit 1; }
+	@if command -v whisper >/dev/null 2>&1; then \
+		echo "whisper already installed: $$(command -v whisper)"; \
+	else \
+		pipx install --python python$(PYTHON_VERSION) "openai-whisper==$(TRANSCRIBE_WHISPER_VERSION)"; \
+	fi
+	@if command -v parakeet-mlx >/dev/null 2>&1; then \
+		echo "parakeet-mlx already installed: $$(command -v parakeet-mlx)"; \
+	elif [ "$$(uname -sm)" = "Darwin arm64" ]; then \
+		pipx install --python python$(PYTHON_VERSION) "parakeet-mlx==$(TRANSCRIBE_PARAKEET_VERSION)"; \
+	else \
+		echo "parakeet-mlx needs Apple Silicon; run prepare with --pass-b openai-whisper:medium.en"; \
+	fi
 
 .PHONY: ensure-python-tools
 ensure-python-tools:

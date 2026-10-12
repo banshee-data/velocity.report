@@ -221,22 +221,22 @@ bullet.
 
 ## Sources checked
 
-| Source                                                                                | Status                                                |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Waymo blog, sober-driver benchmarks, October 2026                                     | **Confirm** (search summary; headline not reproduced) |
-| Waymo blog, time-of-day crash risk, July 2026                                         | **Confirm**                                           |
-| Scanlon et al., sober baselines; Kusano et al., fatal rate (TIP 2026)                 | Superseded (read in full in the October 8 analysis)   |
-| Valgo humanbaselines                                                                  | Superseded (October 8 analysis)                       |
-| AAA Foundation, Attitudes Toward Speeding, August 2026                                | **Confirm**                                           |
-| AAA Foundation, Traffic Safety Culture Index, June 2026; seat belt release, October 8 | **Confirm**                                           |
-| arXiv 2608.14868, beam-wise background subtraction                                    | **Confirm**                                           |
-| arXiv 2510.22390, interpretable background subtraction (ICVES 2025)                   | **Confirm**                                           |
-| arXiv 2607.16156, PRISA                                                               | **Confirm**                                           |
-| Applied Sciences 16(5) 2513, rectangle edge matching                                  | **Confirm**                                           |
-| Schaefer, Advanced Intelligent Systems, doi 10.1002/aisy.202501102                    | **Confirm**                                           |
-| IIHS pedestrian height release; J. Safety Research S0022437525001021                  | **Confirm**                                           |
-| FHWA Speed Limit Setting Handbook; ITE setting speed limits page                      | **Confirm**                                           |
-| Post-encroachment time threshold studies (Springer 2026, ScienceDirect midblock)      | **Confirm**                                           |
+| Source                                                                                | Status                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Waymo blog, sober-driver benchmarks, October 2026                                     | **Confirm** (search summary; headline not reproduced)                                                                                                                                                  |
+| Waymo blog, time-of-day crash risk, July 2026                                         | **Confirm**                                                                                                                                                                                            |
+| Scanlon et al., sober baselines; Kusano et al., fatal rate (TIP 2026)                 | Superseded (read in full in the October 8 analysis)                                                                                                                                                    |
+| Valgo humanbaselines                                                                  | Superseded (October 8 analysis)                                                                                                                                                                        |
+| AAA Foundation, Attitudes Toward Speeding, August 2026                                | **Confirm** at the time; read in full on October 12, 2026 for the [attitudes plan](../../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md#the-five-mindsets-what-the-report-states) |
+| AAA Foundation, Traffic Safety Culture Index, June 2026; seat belt release, October 8 | **Confirm**                                                                                                                                                                                            |
+| arXiv 2608.14868, beam-wise background subtraction                                    | **Confirm**                                                                                                                                                                                            |
+| arXiv 2510.22390, interpretable background subtraction (ICVES 2025)                   | **Confirm**                                                                                                                                                                                            |
+| arXiv 2607.16156, PRISA                                                               | **Confirm**                                                                                                                                                                                            |
+| Applied Sciences 16(5) 2513, rectangle edge matching                                  | **Confirm**                                                                                                                                                                                            |
+| Schaefer, Advanced Intelligent Systems, doi 10.1002/aisy.202501102                    | **Confirm**                                                                                                                                                                                            |
+| IIHS pedestrian height release; J. Safety Research S0022437525001021                  | **Confirm**                                                                                                                                                                                            |
+| FHWA Speed Limit Setting Handbook; ITE setting speed limits page                      | **Confirm**                                                                                                                                                                                            |
+| Post-encroachment time threshold studies (Springer 2026, ScienceDirect midblock)      | **Confirm**                                                                                                                                                                                            |
 
 ## Provenance
 
