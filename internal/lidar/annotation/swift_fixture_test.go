@@ -6,10 +6,11 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// The macOS annotation client reads packs written here, so the two
+// The macOS annotation client reads version 1 packs, so the two
 // implementations have to agree byte for byte about the canonical layout: all
 // X, then all Y, then all Z as little-endian float32, then intensity and
 // classification as uint8, with the samples digest taken before the trailing
@@ -17,14 +18,79 @@ import (
 //
 // This test pins one small pack's exact bytes and digests. The same values are
 // embedded in the Swift reader's tests
-// (tools/visualiser-macos/VelocityVisualiserTests/AnnotationPackTests.swift),
-// so a change to the writer fails here first and names what to update rather
-// than silently invalidating every point index the client has recorded.
+// (tools/visualiser-macos/VelocityVisualiserTests/AnnotationPackTests.swift,
+// PackFixture). Nothing writes version 1 any more, so the files are laid down
+// verbatim here, as the Swift tests lay them down, and the test holds this
+// package's reader to them: legacy packs must stay readable for the label set
+// migration.
 const (
 	swiftFixturePointsBase64 = "AACAPwAAwD8AAABAAAAgQgAAgD8AAKA/AADAPwAA8MEAAAA/AABAPwAAgD8AAEBAChQeKAEBAQIAAEBAAABgQAAAAEAAACBAAADAPwAA4D8yPAEB"
 	swiftFixturePointsSHA    = "sha256:f8bf067228e595dfee12c0cd3d974db11ebe5474f30e6e08fafef9da47211186"
 	swiftFixtureSamplesSHA   = "sha256:38e62501b09464832baa1bcdbcc21b3f58f2b77e58327df59cbda66109654410"
 	swiftFixturePackDigest   = "sha256:41b9794747f16ebe2722ea9f75a631f38e35f9670e14dccc3636ed480320d84c"
+
+	// samples.json verbatim, with the writer's trailing newline.
+	swiftFixtureSamplesJSON = `[
+  {
+    "sample_id": 0,
+    "source_ordinal": 0,
+    "source_frame_id": 100,
+    "timestamp_ns": 1000000000,
+    "sensor_id": "hesai-pandar40p",
+    "point_count": 4,
+    "byte_offset": 0
+  },
+  {
+    "sample_id": 1,
+    "source_ordinal": 1,
+    "source_frame_id": 101,
+    "timestamp_ns": 1100000000,
+    "sensor_id": "hesai-pandar40p",
+    "point_count": 2,
+    "byte_offset": 56
+  }
+]
+`
+
+	swiftFixtureManifestJSON = `{
+  "schema_version": 1,
+  "dataset_id": "ds_41b9794747f16ebe",
+  "created_ns": 0,
+  "source": {
+    "vrlog_path": "fixture.vrlog",
+    "vrlog_header_sha256": "sha256:aa",
+    "vrlog_frames_sha256": "sha256:bb",
+    "sensor_id": "hesai-pandar40p",
+    "build_version": "fixture"
+  },
+  "coordinate": {
+    "units": "metres",
+    "frame_id": "sensor",
+    "reference_frame": "site",
+    "handedness": "right",
+    "origin_note": "sensor origin",
+    "transform_version": "v1"
+  },
+  "coverage": "foreground_only",
+  "coverage_note": "fixture",
+  "sample_count": 2,
+  "point_count": 6,
+  "points_sha256": "` + swiftFixturePointsSHA + `",
+  "samples_sha256": "` + swiftFixtureSamplesSHA + `",
+  "pack_digest": "` + swiftFixturePackDigest + `",
+  "has_intensity": true,
+  "has_classification": true,
+  "completeness": {
+    "requested_start_ns": 0,
+    "requested_end_ns": 0,
+    "actual_start_ns": 0,
+    "actual_end_ns": 0,
+    "frames_without_points": 0,
+    "duplicate_timestamps": 0,
+    "max_timestamp_gap_ns": 0
+  }
+}
+`
 )
 
 func swiftFixtureBlock(xs, ys, zs []float32, intensity, class []uint8) []byte {
@@ -48,9 +114,47 @@ func swiftFixtureBlock(xs, ys, zs []float32, intensity, class []uint8) []byte {
 	return buf
 }
 
-// writeSwiftFixturePack builds the shared fixture pack in dir.
+// writeSwiftFixturePack lays the shared version 1 fixture pack down in dir.
 func writeSwiftFixturePack(t *testing.T, dir string) {
 	t.Helper()
+	points, err := base64.StdEncoding.DecodeString(swiftFixturePointsBase64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string][]byte{
+		manifestFile: []byte(swiftFixtureManifestJSON),
+		samplesFile:  []byte(swiftFixtureSamplesJSON),
+		pointsFile:   points,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSwiftFixturePackBytesAreStable(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "pack")
+	writeSwiftFixturePack(t, dir)
+
+	pack, err := OpenPack(dir)
+	if err != nil {
+		t.Fatalf("the version 1 fixture no longer opens: %v", err)
+	}
+	if pack.Manifest.SchemaVersion != PackSchemaVersionLegacy || pack.HasReturns() {
+		t.Fatalf("fixture read as version %d with returns %v", pack.Manifest.SchemaVersion, pack.HasReturns())
+	}
+	if _, err := pack.ReturnsAt(0); err == nil {
+		t.Error("a version 1 pack answered for returns it does not carry")
+	}
+
+	// The points the bytes encode, as the Swift test reads them.
+	points, err := os.ReadFile(filepath.Join(dir, pointsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
 	block0 := swiftFixtureBlock(
 		[]float32{1.0, 1.5, 2.0, 40.0},
 		[]float32{1.0, 1.25, 1.5, -30.0},
@@ -65,57 +169,36 @@ func writeSwiftFixturePack(t *testing.T, dir string) {
 		[]uint8{50, 60},
 		[]uint8{1, 1},
 	)
-	samples := []Sample{
-		{SampleID: 0, SourceOrdinal: 0, SourceFrameID: 100, TimestampNs: 1_000_000_000, SensorID: "hesai-pandar40p", PointCount: 4},
-		{SampleID: 1, SourceOrdinal: 1, SourceFrameID: 101, TimestampNs: 1_100_000_000, SensorID: "hesai-pandar40p", PointCount: 2},
+	if string(points) != string(append(block0, block1...)) {
+		t.Error("points.bin no longer encodes the fixture's points; update AnnotationPackTests.swift only if the layout changed on purpose")
 	}
-	m := Manifest{
-		Source: SourceProvenance{
-			VRLOGPath: "fixture.vrlog", VRLOGHeaderSHA: "sha256:aa", VRLOGFramesSHA: "sha256:bb",
-			SensorID: "hesai-pandar40p", BuildVersion: "fixture",
-		},
-		Coordinate: CoordinateContract{
-			Units: "metres", FrameID: "sensor", ReferenceFrame: "site",
-			Handedness: "right", OriginNote: "sensor origin", TransformVersion: "v1",
-		},
-		Coverage: CoverageForegroundOnly, CoverageNote: "fixture",
-		HasIntensity: true, HasClassification: true,
+	if got := sha256Hex(points); got != swiftFixturePointsSHA {
+		t.Errorf("points digest = %s, want %s", got, swiftFixturePointsSHA)
 	}
-	if err := WritePack(dir, m, samples, [][]byte{block0, block1}); err != nil {
-		t.Fatalf("write fixture pack: %v", err)
+	if got := sha256Hex([]byte(strings.TrimSuffix(swiftFixtureSamplesJSON, "\n"))); got != swiftFixtureSamplesSHA {
+		t.Errorf("samples digest = %s, want %s: the digest is over the bytes before the trailing newline", got, swiftFixtureSamplesSHA)
 	}
-}
-
-func TestSwiftFixturePackBytesAreStable(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "pack")
-	writeSwiftFixturePack(t, dir)
-
-	pack, err := OpenPack(dir)
-	if err != nil {
-		t.Fatalf("the writer produced a pack its own reader rejects: %v", err)
-	}
-
-	points, err := os.ReadFile(filepath.Join(dir, pointsFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := base64.StdEncoding.EncodeToString(points); got != swiftFixturePointsBase64 {
-		t.Errorf("points.bin changed.\n got: %s\nwant: %s\nUpdate AnnotationPackTests.swift's fixture to match.", got, swiftFixturePointsBase64)
-	}
-	if pack.Manifest.PointsSHA256 != swiftFixturePointsSHA {
-		t.Errorf("points digest = %s, want %s; update AnnotationPackTests.swift", pack.Manifest.PointsSHA256, swiftFixturePointsSHA)
-	}
-	if pack.Manifest.SamplesSHA256 != swiftFixtureSamplesSHA {
-		t.Errorf("samples digest = %s, want %s; update AnnotationPackTests.swift", pack.Manifest.SamplesSHA256, swiftFixtureSamplesSHA)
-	}
-	if pack.Manifest.PackDigest != swiftFixturePackDigest {
-		t.Errorf("pack digest = %s, want %s; update AnnotationPackTests.swift", pack.Manifest.PackDigest, swiftFixturePackDigest)
+	if pack.Manifest.PackDigest != swiftFixturePackDigest || packDigest(pack.Manifest) != swiftFixturePackDigest {
+		t.Errorf("pack digest = %s, want %s: the version 1 digest rule changed", packDigest(pack.Manifest), swiftFixturePackDigest)
 	}
 
 	// The layout claim the Swift decoder depends on: sample 1's block starts
 	// immediately after sample 0's 4 points (4*12 + 4*2 = 56 bytes).
 	if pack.Samples[1].ByteOffset != 56 {
 		t.Errorf("sample 1 byte offset = %d, want 56", pack.Samples[1].ByteOffset)
+	}
+	second, err := pack.PointsAt(1)
+	if err != nil || len(second.X) != 2 || second.X[1] != 3.5 || second.Intensity[1] != 60 {
+		t.Errorf("sample 1 decoded as %+v (%v)", second, err)
+	}
+
+	// Fails closed like any other pack.
+	points[0] ^= 0xFF
+	if err := os.WriteFile(filepath.Join(dir, pointsFile), points, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenPack(dir); err == nil {
+		t.Error("a version 1 pack with altered points opened")
 	}
 }
 
@@ -235,7 +318,7 @@ func TestSwiftFixtureBackgroundIsByteStable(t *testing.T) {
 	}}
 	if err := WritePackWithBackground(
 		dir, Manifest{Coverage: CoverageForegroundOnly}, samples, [][]byte{points},
-		backgrounds, [][]byte{block},
+		FixtureReturns(samples), backgrounds, [][]byte{block},
 	); err != nil {
 		t.Fatalf("write: %v", err)
 	}

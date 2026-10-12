@@ -45,7 +45,7 @@ func fitTestPack(t *testing.T, root, name string) *annotation.Pack {
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
 	dir := filepath.Join(root, name, "pack")
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)

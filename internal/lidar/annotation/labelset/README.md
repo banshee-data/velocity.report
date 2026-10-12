@@ -127,6 +127,9 @@ A version 2 annotation pack is one run's view of a capture: the version 1 files 
 and `returns.bin`, one little-endian uint64 return number per point in point order, increasing
 within each sample, and each sample's frame range (`return_start`, `return_end`). The pack's
 return numbers use its own packet table; `ViewMap` joins them to a label set by packet key.
+Every pack written is a view: `annotation.Export` builds one from a VRLOG whose point frames carry
+their return identity (`packet_keys`, `return_refs` and the frame range on `PointCloudFrame`), and
+refuses a recording made without it. Version 1 packs are read, never written.
 Editing a mask through a view replaces only the members that view shows, so returns another run
 kept and this one did not survive the edit.
 

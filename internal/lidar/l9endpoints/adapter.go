@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/debug"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -166,6 +167,7 @@ func (a *FrameAdapter) adaptPointCloud(frame *l2frames.LiDARFrame, mask []bool) 
 			pc.Classification[i] = 0
 		}
 	}
+	fillReturnIdentity(pc, frame.Points, nil)
 
 	return pc
 }
@@ -205,8 +207,95 @@ func (a *FrameAdapter) adaptForegroundOnly(frame *l2frames.LiDARFrame, mask []bo
 		}
 	}
 	pc.PointCount = len(pc.X)
+	fillReturnIdentity(pc, frame.Points, mask)
 
 	return pc
+}
+
+// The return layout of the only parser that keys packets: a Pandar40P packet
+// holds ten blocks of forty channels, blocks numbered from 0 and channels
+// from 1. A second sensor model must carry its own layout with its points.
+const (
+	returnModelPandar40P    = "hesai-pandar40p"
+	returnBlocksPandar40P   = parse.BLOCKS_PER_PACKET
+	returnChannelsPandar40P = parse.CHANNELS_PER_BLOCK
+)
+
+// fillReturnIdentity numbers every return of the frame within the frame's own
+// packet table and gives each emitted point its number. emitted is the
+// foreground mask when only masked points were emitted, nil when all were;
+// either way the table and the range cover every point of the frame, because
+// a label set's window is the whole frame the labeller saw.
+//
+// Points from one packet arrive together, so the table is consulted only when
+// the key changes. A frame with any point lacking a packet key, or naming a
+// block or channel outside the layout, gets no identity at all: a partial one
+// would cite returns that cannot be found. Export then refuses the recording,
+// which is where the gap becomes visible.
+func fillReturnIdentity(pc *PointCloudFrame, points []l2frames.Point, emitted []bool) {
+	if len(points) == 0 {
+		return
+	}
+	const (
+		blocks   = uint32(returnBlocksPandar40P)
+		channels = uint32(returnChannelsPandar40P)
+		per      = blocks * channels
+	)
+	var refs []uint32
+	if emitted == nil {
+		refs = getUint32Slice(len(points))
+	} else {
+		refs = make([]uint32, 0, len(pc.X))
+	}
+	var (
+		keys     []uint64
+		index    = make(map[uint64]uint32, len(points)/int(per)+2)
+		lastKey  uint64
+		packet   uint32
+		minR     uint32
+		maxR     uint32
+		complete = true
+	)
+	for i := range points {
+		p := &points[i]
+		if p.PacketKey == 0 || p.BlockID < 0 || uint32(p.BlockID) >= blocks ||
+			p.Channel < 1 || uint32(p.Channel) > channels {
+			complete = false
+			break
+		}
+		if i == 0 || p.PacketKey != lastKey {
+			j, seen := index[p.PacketKey]
+			if !seen {
+				j = uint32(len(keys))
+				index[p.PacketKey] = j
+				keys = append(keys, p.PacketKey)
+			}
+			lastKey, packet = p.PacketKey, j
+		}
+		r := packet*per + uint32(p.BlockID)*channels + uint32(p.Channel-1)
+		if i == 0 || r < minR {
+			minR = r
+		}
+		if r > maxR {
+			maxR = r
+		}
+		if emitted == nil {
+			refs[i] = r
+		} else if i < len(emitted) && emitted[i] {
+			refs = append(refs, r)
+		}
+	}
+	if !complete || len(refs) != len(pc.X) {
+		if emitted == nil {
+			putUint32Slice(refs)
+		}
+		return
+	}
+	pc.PacketKeys = keys
+	pc.ReturnRefs = refs
+	pc.ReturnStart, pc.ReturnEnd = minR, maxR+1
+	pc.ReturnModel = returnModelPandar40P
+	pc.ReturnBlocks, pc.ReturnChannels = int(blocks), int(channels)
 }
 
 // Release decrements the reference count and returns slices to the pool when
@@ -217,7 +306,8 @@ func (a *FrameAdapter) adaptForegroundOnly(frame *l2frames.LiDARFrame, mask []bo
 // The slices are only returned to the pool when the last consumer releases.
 //
 // For frames created with SplitStreaming=true (adaptForegroundOnly), pooled
-// slices are not used, so Release() is a no-op for those frames.
+// slices are not used, so Release() is a no-op for those frames. The full
+// path's ReturnRefs is pooled like its coordinates.
 
 // adaptUnassociatedClusters converts WorldClusters to the canonical Cluster
 // format, skipping clusters that the tracker associated with an existing track.

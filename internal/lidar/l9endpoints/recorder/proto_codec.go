@@ -63,6 +63,17 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 			DecimationRatio: pc.DecimationRatio,
 			PointCount:      int32(pc.PointCount),
 		}
+		// Return identity is written whole or not at all: a recording
+		// that cites returns it cannot locate is worse than one that
+		// says it has none.
+		if pc.HasReturnIdentity() {
+			p := pbFrame.PointCloud
+			p.PacketKeys = pc.PacketKeys
+			p.ReturnRefs = pc.ReturnRefs
+			p.ReturnStart, p.ReturnEnd = pc.ReturnStart, pc.ReturnEnd
+			p.ReturnModel = pc.ReturnModel
+			p.ReturnBlocks, p.ReturnChannels = uint32(pc.ReturnBlocks), uint32(pc.ReturnChannels)
+		}
 	}
 
 	if frame.Clusters != nil {
@@ -238,6 +249,13 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 			DecimationMode:  l9endpoints.DecimationMode(pc.DecimationMode),
 			DecimationRatio: pc.DecimationRatio,
 			PointCount:      int(pc.PointCount),
+			PacketKeys:      pc.PacketKeys,
+			ReturnRefs:      pc.ReturnRefs,
+			ReturnStart:     pc.ReturnStart,
+			ReturnEnd:       pc.ReturnEnd,
+			ReturnModel:     pc.ReturnModel,
+			ReturnBlocks:    int(pc.ReturnBlocks),
+			ReturnChannels:  int(pc.ReturnChannels),
 		}
 	}
 

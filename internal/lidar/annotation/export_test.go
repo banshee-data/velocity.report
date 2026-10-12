@@ -34,6 +34,7 @@ func writeVRLOG(t *testing.T, withPoints bool, timestamps ...int64) string {
 				pc.X[j], pc.Y[j], pc.Z[j] = float32(j), float32(i), 1
 				pc.Intensity[j] = uint8(j)
 			}
+			l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 			bundle.PointCloud = pc
 		}
 		if err := rec.Record(bundle); err != nil {
@@ -190,6 +191,7 @@ func writeClassedVRLOG(t *testing.T, class uint8, strays int) string {
 				pc.Classification[j] = 0
 			}
 		}
+		l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 		if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
 			t.Fatalf("record frame %d: %v", i, err)
 		}
@@ -302,6 +304,7 @@ func recordScript(t *testing.T, script string, bgTs int64) string {
 				X: []float32{1}, Y: []float32{1}, Z: []float32{1},
 				Intensity: []uint8{1}, Classification: []uint8{0}, PointCount: 1,
 			}
+			l9endpoints.FixtureReturnIdentity(bundle.PointCloud, uint64(i+1)<<20)
 		}
 		if err := rec.Record(bundle); err != nil {
 			t.Fatalf("record frame %d: %v", i, err)
@@ -462,6 +465,7 @@ func writeIntensityVRLOG(t *testing.T, columnLens ...int) string {
 		for j := range pc.Intensity {
 			pc.Intensity[j] = uint8(100 + j)
 		}
+		l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 		if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
 			t.Fatalf("record frame %d: %v", i, err)
 		}

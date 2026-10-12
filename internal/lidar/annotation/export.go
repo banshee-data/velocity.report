@@ -1,6 +1,7 @@
 package annotation
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -33,12 +34,23 @@ type ExportConfig struct {
 	HeightBand *HeightBand
 }
 
+// ErrNoReturnIdentity marks a recording whose point frames do not name the
+// returns they came from: one made before the VRLOG carried return identity,
+// or from a source without packets. Its points cannot become a version 2
+// pack, and the remedy is to record again from the PCAP.
+var ErrNoReturnIdentity = errors.New("recording carries no return identity")
+
 // Export cuts a frozen pack from a VRLOG.
 //
 // It reads the source and writes a new directory; the recording is never
 // modified. Frames without a point cloud are counted and skipped rather than
 // written as empty samples, because an empty sample is indistinguishable from
 // a frame where everything was occluded.
+//
+// The pack is version 2: every point carries the return it was decoded from,
+// numbered in one packet table built across the exported frames in recording
+// order. A recording without return identity is refused with
+// ErrNoReturnIdentity rather than exported as a pack no label set can cite.
 func Export(cfg ExportConfig) (*Pack, error) {
 	if cfg.VRLOGPath == "" || cfg.OutDir == "" {
 		return nil, fmt.Errorf("VRLOGPath and OutDir are required")
@@ -72,6 +84,7 @@ func Export(cfg ExportConfig) (*Pack, error) {
 	header := replayer.Header()
 
 	comp := Completeness{RequestedStartNs: cfg.StartNs, RequestedEndNs: cfg.EndNs}
+	table := newPackTable()
 	var (
 		samples  []Sample
 		blocks   [][]byte
@@ -199,6 +212,11 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		}
 		comp.ActualEndNs = ts
 
+		returnStart, returnEnd, err := table.add(ordinal-1, pc)
+		if err != nil {
+			return nil, err
+		}
+
 		if len(samples) == 0 {
 			keepPending()
 		}
@@ -209,6 +227,8 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			SensorID:      header.SensorID,
 			PointCount:    len(pc.X),
 			HasIntensity:  boolPtr(intensityPresent),
+			ReturnStart:   returnStart,
+			ReturnEnd:     returnEnd,
 		})
 		blocks = append(blocks, block)
 
@@ -271,10 +291,114 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		backgroundBlocks = backgroundBlocks[:len(backgroundBlocks)-1]
 	}
 
-	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, backgrounds, backgroundBlocks); err != nil {
+	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, table.returns(), backgrounds, backgroundBlocks); err != nil {
 		return nil, err
 	}
 	return OpenPack(cfg.OutDir)
+}
+
+// packTable builds a pack's packet table from the exported frames, in
+// recording order, and renumbers each frame's returns into it.
+//
+// A frame's own table lists its packets in first-seen order. A packet split
+// between two consecutive frames, as when the rotation wraps inside it, ends
+// one frame's table and starts the next one's; it is listed once. Any other
+// repetition of a packet means the recording does not identify its returns
+// uniquely, and the export is refused rather than guess which one a point
+// was.
+type packTable struct {
+	layout  ReturnLayout
+	packets []uint64
+	index   map[uint64]int
+	// The first packet of the previous sample, and where its range ended: a
+	// packet may be shared with that sample and no other, and the next
+	// sample's returns must start after it.
+	prevFirst int
+	prevEnd   uint64
+	perSample [][]uint64
+}
+
+func newPackTable() *packTable {
+	return &packTable{index: make(map[uint64]int)}
+}
+
+// add renumbers one frame's returns into the table and returns its range.
+func (t *packTable) add(ordinal int, pc *l9endpoints.PointCloudFrame) (start, end uint64, err error) {
+	if !pc.HasReturnIdentity() {
+		return 0, 0, fmt.Errorf("frame %d (ordinal): %w; it was recorded before return identity "+
+			"existed or from a source without packets. Re-record it by replaying the PCAP with this "+
+			"build, then export the new VRLOG", ordinal, ErrNoReturnIdentity)
+	}
+	layout := ReturnLayout{Model: pc.ReturnModel, Blocks: pc.ReturnBlocks, Channels: pc.ReturnChannels}
+	if err := layout.validate(); err != nil {
+		return 0, 0, fmt.Errorf("frame %d (ordinal): %w", ordinal, err)
+	}
+	if len(t.perSample) == 0 {
+		t.layout = layout
+	} else if layout != t.layout {
+		return 0, 0, fmt.Errorf("frame %d (ordinal) numbers returns as %+v, earlier frames as %+v", ordinal, layout, t.layout)
+	}
+	for i, r := range pc.ReturnRefs {
+		if r < pc.ReturnStart || r >= pc.ReturnEnd || (i > 0 && r <= pc.ReturnRefs[i-1]) {
+			return 0, 0, fmt.Errorf("frame %d (ordinal) point %d: return %d is out of point order or outside "+
+				"the frame's [%d,%d): the frame repeats a packet", ordinal, i, r, pc.ReturnStart, pc.ReturnEnd)
+		}
+	}
+
+	// The leading packets already in the table must be its tail, in order,
+	// and belong to the previous sample. Every packet after them is new.
+	keys := pc.PacketKeys
+	shared := 0
+	for shared < len(keys) {
+		if _, ok := t.index[keys[shared]]; !ok {
+			break
+		}
+		shared++
+	}
+	tail := len(t.packets) - shared
+	for j := 0; j < shared; j++ {
+		if tail < t.prevFirst || t.packets[tail+j] != keys[j] {
+			return 0, 0, t.repeated(ordinal, keys[j])
+		}
+	}
+	mapping := make([]uint64, len(keys))
+	for j := range keys {
+		if j < shared {
+			mapping[j] = uint64(tail + j)
+			continue
+		}
+		if _, ok := t.index[keys[j]]; ok {
+			return 0, 0, t.repeated(ordinal, keys[j])
+		}
+		t.index[keys[j]] = len(t.packets)
+		mapping[j] = uint64(len(t.packets))
+		t.packets = append(t.packets, keys[j])
+	}
+
+	per := layout.PerPacket()
+	renumber := func(r uint64) uint64 { return mapping[r/per]*per + r%per }
+	start, end = renumber(uint64(pc.ReturnStart)), renumber(uint64(pc.ReturnEnd)-1)+1
+	if len(t.perSample) > 0 && start < t.prevEnd {
+		return 0, 0, fmt.Errorf("frame %d (ordinal) starts at return %d, inside the previous sample's frame, "+
+			"which ends at %d: two frames claim the same returns", ordinal, start, t.prevEnd)
+	}
+	returns := make([]uint64, len(pc.ReturnRefs))
+	for i, r := range pc.ReturnRefs {
+		returns[i] = renumber(uint64(r))
+	}
+	t.perSample = append(t.perSample, returns)
+	t.prevFirst = int(mapping[0])
+	t.prevEnd = end
+	return start, end, nil
+}
+
+func (t *packTable) repeated(ordinal int, key uint64) error {
+	return fmt.Errorf("frame %d (ordinal): packet %016x appeared earlier in the recording, not only at the "+
+		"previous frame's boundary: its returns cannot be told apart, so this recording cannot be exported", ordinal, key)
+}
+
+func (t *packTable) returns() PackReturns {
+	return PackReturns{Layout: t.layout, Packets: t.packets, Returns: t.perSample}
 }
 
 // classForeground is the recorder's per-point class for a foreground return

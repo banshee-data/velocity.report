@@ -63,7 +63,7 @@ func physPack(t *testing.T) *Pack {
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
 	dir := filepath.Join(t.TempDir(), "pack")
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)

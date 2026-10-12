@@ -136,7 +136,7 @@ func writePack(dir string) (*annotation.Pack, error) {
 		blocks = append(blocks, block)
 	}
 	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{SensorID: "fixture"}}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		return nil, err
 	}
 	pack, err := annotation.OpenPack(dir)

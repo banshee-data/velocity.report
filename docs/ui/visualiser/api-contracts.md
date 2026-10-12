@@ -79,6 +79,17 @@ Points are emitted in world frame. Full fidelity or downsampled modes are suppor
 | `decimation_mode`  | `DecimationMode` | NONE, UNIFORM, VOXEL, or FOREGROUND_ONLY              |
 | `decimation_ratio` | float            | Fraction of points retained (e.g. 0.5)                |
 
+VRLOG recordings also carry each point's return identity, so an annotation can cite a return in the
+capture rather than a point in one run. The live stream leaves these fields empty, and recordings
+made before they existed, or from sources without packets, lack them.
+
+| Field                                              | Type             | Description                                                                                               |
+| -------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `packet_keys`                                      | packed fixed64[] | Every packet that gave the frame a return, in first-seen order: SHA-256 of the UDP payload, first 64 bits |
+| `return_refs`                                      | packed uint32[]  | Per point: `packet_index × blocks × channels + block × channels + (channel − 1)`                          |
+| `return_start`, `return_end`                       | uint32           | Every return of the frame, emitted or not                                                                 |
+| `return_model`, `return_blocks`, `return_channels` | string, uint32   | The layout: `hesai-pandar40p`, 10, 40                                                                     |
+
 See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.3 Clusters (foreground objects)

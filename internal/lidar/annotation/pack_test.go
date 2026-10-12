@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -49,7 +50,7 @@ func synthPack(t *testing.T, counts ...int) *Pack {
 	}
 
 	m := Manifest{Coverage: CoverageFull, Source: SourceProvenance{SensorID: "synthetic"}}
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatalf("write pack: %v", err)
 	}
 	p, err := OpenPack(dir)
@@ -175,14 +176,15 @@ func TestWritePackRefusesToOverwrite(t *testing.T) {
 	p := synthPack(t)
 	m := Manifest{Coverage: CoverageFull}
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
-	err := WritePack(p.Dir, m, []Sample{{PointCount: 1}}, [][]byte{block})
+	samples := []Sample{{PointCount: 1}}
+	err := WritePack(p.Dir, m, samples, [][]byte{block}, FixtureReturns(samples))
 	if err == nil {
 		t.Fatal("overwrote an existing pack; a changed point domain must be a new pack")
 	}
 }
 
 func TestWritePackRefusesEmpty(t *testing.T) {
-	if err := WritePack(filepath.Join(t.TempDir(), "p"), Manifest{}, nil, nil); err == nil {
+	if err := WritePack(filepath.Join(t.TempDir(), "p"), Manifest{}, nil, nil, FixtureReturns(nil)); err == nil {
 		t.Fatal("wrote an empty pack")
 	}
 }
@@ -195,7 +197,8 @@ func TestCoverageSurvivesTheRoundTrip(t *testing.T) {
 		Coverage:     CoverageForegroundOnly,
 		CoverageNote: "recording dropped background; export applied no further filter",
 	}
-	if err := WritePack(dir, m, []Sample{{PointCount: 1}}, [][]byte{block}); err != nil {
+	samples := []Sample{{PointCount: 1}}
+	if err := WritePack(dir, m, samples, [][]byte{block}, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -230,7 +233,8 @@ func TestLegacyPackFallsBackToTheManifestIntensityFlag(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "pack")
 		block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
 		m := Manifest{Coverage: CoverageFull, HasIntensity: packWide}
-		if err := WritePack(dir, m, []Sample{{PointCount: 1}}, [][]byte{block}); err != nil {
+		samples := []Sample{{PointCount: 1}}
+		if err := WritePack(dir, m, samples, [][]byte{block}, FixtureReturns(samples)); err != nil {
 			t.Fatal(err)
 		}
 		raw, err := os.ReadFile(filepath.Join(dir, samplesFile))
@@ -266,7 +270,7 @@ func TestWritePackRoundTripsPerSampleIntensityPresence(t *testing.T) {
 		{PointCount: 1}, // recorded by nothing; the manifest speaks for it
 	}
 	m := Manifest{Coverage: CoverageFull, HasIntensity: true}
-	if err := WritePack(dir, m, samples, [][]byte{block, block, block}); err != nil {
+	if err := WritePack(dir, m, samples, [][]byte{block, block, block}, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -306,7 +310,7 @@ func TestPackRefusesAContradictoryIntensityFlag(t *testing.T) {
 		for i := range blocks {
 			blocks[i] = block
 		}
-		err := WritePack(filepath.Join(t.TempDir(), "pack"), Manifest{HasIntensity: tc.packWide}, tc.samples, blocks)
+		err := WritePack(filepath.Join(t.TempDir(), "pack"), Manifest{HasIntensity: tc.packWide}, tc.samples, blocks, FixtureReturns(tc.samples))
 		if err == nil || !strings.Contains(err.Error(), "has_intensity") {
 			t.Errorf("%s: written, or refused for another reason: %v", tc.name, err)
 		}
@@ -315,8 +319,8 @@ func TestPackRefusesAContradictoryIntensityFlag(t *testing.T) {
 	// The manifest sits outside the pack digest, so flipping its flag after
 	// the fact passes every digest check. The reader has to look for itself.
 	dir := filepath.Join(t.TempDir(), "pack")
-	if err := WritePack(dir, Manifest{HasIntensity: true},
-		[]Sample{{PointCount: 1, HasIntensity: &yes}}, [][]byte{block}); err != nil {
+	flagged := []Sample{{PointCount: 1, HasIntensity: &yes}}
+	if err := WritePack(dir, Manifest{HasIntensity: true}, flagged, [][]byte{block}, FixtureReturns(flagged)); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, manifestFile)
@@ -333,5 +337,59 @@ func TestPackRefusesAContradictoryIntensityFlag(t *testing.T) {
 	}
 	if _, err := OpenPack(dir); err == nil || !strings.Contains(err.Error(), "has_intensity") {
 		t.Errorf("opened a pack whose manifest denies the intensity its samples record: %v", err)
+	}
+}
+
+// Every pack is version 2, and a writer without returns gets no pack: a point
+// that names no return cannot be cited by a label set.
+func TestWritePackWritesVersion2Only(t *testing.T) {
+	p := synthPack(t)
+	if p.Manifest.SchemaVersion != PackSchemaVersion || !p.HasReturns() || p.Manifest.PacketKeyKind != PacketKeyKind {
+		t.Fatalf("wrote version %d, returns %v", p.Manifest.SchemaVersion, p.HasReturns())
+	}
+	for _, name := range []string{packetsFile, returnsFile} {
+		if _, err := os.Stat(filepath.Join(p.Dir, name)); err != nil {
+			t.Errorf("%s not written: %v", name, err)
+		}
+	}
+
+	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
+	samples := []Sample{{PointCount: 1}}
+	if err := WritePack(filepath.Join(t.TempDir(), "p"), Manifest{}, samples, [][]byte{block}, PackReturns{}); err == nil {
+		t.Fatal("a pack without returns was written")
+	}
+	short := FixtureReturns(samples)
+	short.Returns[0] = nil
+	if err := WritePack(filepath.Join(t.TempDir(), "p"), Manifest{}, samples, [][]byte{block}, short); err == nil {
+		t.Fatal("a point without its return was written")
+	}
+}
+
+// FixtureReturns gives each sample packets of its own and numbers its points
+// from the first of them, the same way every time.
+func TestFixtureReturnsIsValidAndDeterministic(t *testing.T) {
+	samples := []Sample{{PointCount: 3}, {PointCount: 0}, {PointCount: 401}}
+	r := FixtureReturns(samples)
+	if len(r.Packets) != 1+1+2 || r.Layout != (ReturnLayout{"hesai-pandar40p", 10, 40}) {
+		t.Fatalf("packets %d, layout %+v", len(r.Packets), r.Layout)
+	}
+	seen := map[uint64]bool{}
+	for _, k := range r.Packets {
+		if k == 0 || seen[k] {
+			t.Fatalf("key %x is zero or repeated", k)
+		}
+		seen[k] = true
+	}
+	for i, want := range [][2]uint64{{0, 400}, {400, 800}, {800, 1600}} {
+		if samples[i].ReturnStart != want[0] || samples[i].ReturnEnd != want[1] {
+			t.Errorf("sample %d frame [%d,%d), want [%d,%d)", i, samples[i].ReturnStart, samples[i].ReturnEnd, want[0], want[1])
+		}
+	}
+	if r.Returns[2][0] != 800 || r.Returns[2][400] != 1200 || len(r.Returns[1]) != 0 {
+		t.Fatalf("returns %v %v", r.Returns[1], r.Returns[2][:2])
+	}
+	again := FixtureReturns([]Sample{{PointCount: 3}, {PointCount: 0}, {PointCount: 401}})
+	if !slices.Equal(again.Packets, r.Packets) {
+		t.Fatal("the same samples gave a different packet table")
 	}
 }
