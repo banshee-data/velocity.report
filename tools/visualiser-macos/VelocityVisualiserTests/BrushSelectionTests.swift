@@ -359,7 +359,7 @@ struct BrushSizeTests {
 @MainActor
 struct BrushSessionTests {
     private func makeSession() throws -> AnnotationSession {
-        let pack = try AnnotationPack.open(directory: try PackFixture.write())
+        let pack = try AnnotationPack.open(directory: try PackFixture.writeLabellable())
         let session = try AnnotationSession(pack: pack)
         session.operatorName = "dd"
         return session

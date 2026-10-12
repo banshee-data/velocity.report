@@ -273,7 +273,7 @@ struct HeightBandTests {
         let (session, dir) = try openSession(
             [[(0, 0, -1.5, 1), (0, 0, 0, 1)]],
             heightBand: #"{"floor_m": -1.0, "ceiling_m": 0.5, "remove_ground": true}"#)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.heightBand == HeightBand(floorM: -1.0, ceilingM: 0.5, removeGround: true))
         #expect(!session.heightBandIsAssumed)
@@ -284,7 +284,7 @@ struct HeightBandTests {
 
     @Test func aPackThatRecordsNoBandGetsTheDefaultAndSaysSo() throws {
         let (session, dir) = try openSession([[(0, 0, -1.5, 1), (0, 0, -3, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.heightBand == .pipelineDefault)
         #expect(session.heightBandIsAssumed)
@@ -293,7 +293,7 @@ struct HeightBandTests {
 
     @Test func hidingGroundLeavesExactlyWhatTheClustererSaw() throws {
         let (session, dir) = try openSession([[(0, 0, -3, 1), (0, 0, 0, 1), (0, 0, 2, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.visibility.ground = false
         #expect(session.select(polygon: everything, mode: .replace))
@@ -306,7 +306,7 @@ struct HeightBandTests {
 @MainActor struct ObjectOrderTests {
     @Test func namingWhatIsSelectedDoesNotThrowTheSelectionAway() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // Select first, then say what it is: the natural order. Creating the
         // object used to reload its (empty) saved mask over the selection.
@@ -318,14 +318,13 @@ struct HeightBandTests {
         #expect(session.save())
         #expect(session.savedSelection.count == 18)
         #expect(session.navigationGuard() == nil)
-        #expect(
-            FileManager.default.fileExists(
-                atPath: dir.appendingPathComponent("annotations.json").path))
+        // Saved into a label set beside the pack, which the pack now links.
+        #expect(try LabelSetLink.read(packDirectory: dir) != nil)
     }
 
     @Test func switchingObjectsIsRefusedWithUnsavedChanges() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "car")
         let second = session.createObject(objectClass: "pedestrian")
         #expect(session.select(polygon: everything, mode: .replace))
@@ -343,7 +342,7 @@ struct HeightBandTests {
     /// out of a selection they have not saved yet.
     @Test func creatingAnObjectIsNeverRefusedByUnsavedChanges() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.navigationGuard() != nil, "the fixture should have dirty membership")
@@ -360,7 +359,7 @@ struct HeightBandTests {
 
     @Test func whatIsAlreadyLabelledIsShownWhileLabellingSomethingElse() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero) + SyntheticPack.wall])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -374,7 +373,7 @@ struct HeightBandTests {
 
     @Test func theNextStepIsAlwaysSaid() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.operatorName = ""
         #expect(session.nextStep?.contains("name") == true)
@@ -390,7 +389,7 @@ struct HeightBandTests {
 
     @Test func aRefusedSaveSaysSoWhereItCanBeSeen() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.operatorName = "  "
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
@@ -404,7 +403,7 @@ struct HeightBandTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let dir = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let first = try AnnotationSession(
             pack: try AnnotationPack.open(directory: dir), defaults: defaults)
@@ -428,7 +427,7 @@ struct HeightBandTests {
 
     @Test func aStrokeTakesEverythingTheBrushPassedOver() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
         // The slab keeps the brush on the lower returns.
@@ -448,7 +447,7 @@ struct HeightBandTests {
 
     @Test func theBrushTakesItsDepthFromTheReturnUnderTheCursor() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
 
@@ -464,7 +463,7 @@ struct HeightBandTests {
 
     @Test func shiftScrollMovesTheBrushAlongTheLineOfSight() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
         session.hover(atViewPoint: simd_float2(1, 0), pickDistance: 0.2)
@@ -483,7 +482,7 @@ struct HeightBandTests {
 
     @Test func hoveringShowsWhatAClickWouldTakeAndOnlyForTheSphere() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.sphereRadius = 0.3
 
         session.tool = .lasso
@@ -561,7 +560,7 @@ struct SelectionFootprintTests {
 
     @Test func theSelectionIsLaidOverTheNextSampleWhereTheCarWent() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1.0, 0.5)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -586,7 +585,7 @@ struct SelectionFootprintTests {
     @Test func aNudgeMovesTheProposalInTheViewsOwnDirections() throws {
         // Three metres a sample: further than the search reaches.
         let (session, dir) = try openSession(drive([.zero, simd_float2(3, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -607,7 +606,7 @@ struct SelectionFootprintTests {
 
     @Test func theNextCarryStartsFromHowFarTheLastOneMoved() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(3, 0), simd_float2(6, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -632,7 +631,7 @@ struct SelectionFootprintTests {
         let halfWall = Array(SyntheticPack.wall.prefix(3))
         let decoy: [SyntheticPack.Point] = SyntheticPack.wall.map { ($0.x, $0.y + 1, $0.z, 1) }
         let (session, dir) = try openSession([SyntheticPack.wall, halfWall + decoy])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "building")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -648,7 +647,7 @@ struct SelectionFootprintTests {
         let halfWall = Array(SyntheticPack.wall.prefix(3))
         let decoy: [SyntheticPack.Point] = SyntheticPack.wall.map { ($0.x, $0.y + 1, $0.z, 1) }
         let (session, dir) = try openSession([SyntheticPack.wall, halfWall + decoy])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -660,7 +659,7 @@ struct SelectionFootprintTests {
 
     @Test func nothingIsCarriedOntoASampleAlreadyLabelledOrAcrossAJump() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1, 0), simd_float2(2, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -679,7 +678,7 @@ struct SelectionFootprintTests {
 
     @Test func selectingByHandReplacesTheProposal() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -706,7 +705,7 @@ struct SelectionFootprintTests {
 
     @Test func aBuildingIsSavedIntoEverySampleAndSaysHowItGotThere() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let building = session.createObject(objectClass: "building")
         #expect(session.select(polygon: roundTheWall, mode: .replace))
 
@@ -727,7 +726,7 @@ struct SelectionFootprintTests {
 
     @Test func aSampleAlreadyMaskedIsLeftAsItWas() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let building = session.createObject(objectClass: "building")
         // Half the wall, saved by hand in sample 1.
         session.step(to: 1)
@@ -749,7 +748,7 @@ struct SelectionFootprintTests {
 
     @Test func aCarCannotBeAppliedToEverySample() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
 

@@ -95,7 +95,7 @@ struct FacetAuthoringFeedbackTests {
             (0, 0, 1, 1), (1, 0, 1, 1), (0, 1, 1, 1), (1, 1, 1, 1),
         ]
         let dir = try SyntheticPack.write([points, points], sourceStride: 1)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: AnnotationPack.open(directory: dir))
         session.operatorName = "op"
         _ = session.createObject(objectClass: "car")

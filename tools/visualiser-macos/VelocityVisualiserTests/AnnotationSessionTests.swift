@@ -15,7 +15,8 @@ import simd
 
 @MainActor
 private func makeSession() throws -> (AnnotationSession, URL) {
-    let dir = try PackFixture.write()
+    // The fixture's points as a version 2 pack: a version 1 pack is read only.
+    let dir = try PackFixture.writeLabellable()
     let pack = try AnnotationPack.open(directory: dir)
     let session = try AnnotationSession(pack: pack)
     session.operatorName = "dd"
@@ -30,7 +31,7 @@ private let clusterLasso = SelectionPolygon(
 struct AnnotationSessionTests {
     @Test func startsOnTheFirstSampleWithItsPointsDecoded() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.currentSample?.sampleID == 0)
         #expect(session.currentPoints.count == 4)
@@ -42,7 +43,7 @@ struct AnnotationSessionTests {
     /// from the moment the views are on screen.
     @Test func startsWithTheSphereBrushSelected() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.tool == .sphere)
     }
 
@@ -52,7 +53,7 @@ struct AnnotationSessionTests {
     /// on the foreground alone.
     @Test func opensFramedOnTheForegroundNotTheWholeSample() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // Fixture sample 0: three foreground returns clustered near
         // (1.5, 1.25), and one ground return far away at (40, -30). A sample
@@ -77,7 +78,7 @@ struct AnnotationSessionTests {
 
     @Test func newObjectStartsProposedNotReviewed() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let object = session.createObject(objectClass: "car")
 
@@ -89,7 +90,7 @@ struct AnnotationSessionTests {
 
     @Test func lassoSelectsThenAddAndSubtractAdjustMembership() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
 
         #expect(session.select(polygon: clusterLasso, mode: .replace))
@@ -107,7 +108,7 @@ struct AnnotationSessionTests {
 
     @Test func previewShowsTheCandidateCountBeforeItIsApplied() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
 
         session.beginStroke()
@@ -124,7 +125,7 @@ struct AnnotationSessionTests {
 
     @Test func slabDefaultsToTheSamplesFullDepthExtent() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // A fresh sample must not start with an invisible selection volume.
         let slab = try #require(session.slab)
@@ -135,7 +136,7 @@ struct AnnotationSessionTests {
 
     @Test func navigationIsBlockedWhileAStrokeIsInProgress() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
 
         session.beginStroke()
@@ -152,7 +153,7 @@ struct AnnotationSessionTests {
 
     @Test func navigationIsBlockedWhileMembershipIsUnsaved() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
 
         _ = session.select(polygon: clusterLasso)
@@ -166,7 +167,7 @@ struct AnnotationSessionTests {
 
     @Test func steppingKeepsObjectIdentityButNotPointIndices() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
 
         _ = session.select(polygon: clusterLasso)
@@ -182,7 +183,7 @@ struct AnnotationSessionTests {
 
     @Test func returningToASampleReloadsItsSavedMask() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
 
         _ = session.select(polygon: clusterLasso)
@@ -197,7 +198,7 @@ struct AnnotationSessionTests {
 
     @Test func saveRefusedWithoutAnOperatorName() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.operatorName = "   "
         _ = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
@@ -209,7 +210,7 @@ struct AnnotationSessionTests {
 
     @Test func saveRefusedWithoutAnActiveObject() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.select(polygon: clusterLasso)
 
         #expect(!session.save())
@@ -218,7 +219,7 @@ struct AnnotationSessionTests {
 
     @Test func savedMaskIsProposedNotReviewed() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
         #expect(session.save())
@@ -232,7 +233,7 @@ struct AnnotationSessionTests {
 
     @Test func reviewRequiresTheSecondViewConfirmation() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
 
@@ -248,7 +249,7 @@ struct AnnotationSessionTests {
 
     @Test func savePersistsCanonicalSortedIndices() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
 
         // Select out of order: third point, then the first two.
@@ -264,17 +265,16 @@ struct AnnotationSessionTests {
 
     @Test func conflictKeepsTheDirtySelectionForReconciliation() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
 
-        // Another writer advances the file underneath this session.
-        let other = SidecarStore(packDirectory: dir)
-        var theirs = try other.load()
-        theirs.sidecar.objects = [AnnotationObject(objectID: "theirs", objectClass: "bus")]
-        _ = try other.save(
-            theirs,
-            change: Provenance(author: "other", session: "s", createdUTC: "", operation: "save_mask"))
+        // Another window advances the label set underneath this session.
+        let other = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
+        other.operatorName = "other"
+        _ = other.createObject(objectClass: "bus")
+        #expect(other.select(polygon: clusterLasso, mode: .replace))
+        #expect(other.save())
 
         #expect(!session.save())
         // Refusing must not discard the operator's work.
@@ -288,7 +288,7 @@ struct AnnotationSessionTests {
 
     @Test func reloadIsTheExplicitWayToDropUnsavedWork() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
         #expect(session.selectionCount == 3)
@@ -302,7 +302,7 @@ struct AnnotationSessionTests {
 
     @Test func undoAndRedoTrackDirtinessAgainstWhatIsSaved() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
 
         _ = session.select(polygon: clusterLasso)
@@ -322,7 +322,7 @@ struct AnnotationSessionTests {
 
     @Test func visibilityAndCompletenessRoundTripThroughASave() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
         _ = session.select(polygon: clusterLasso)
         session.maskVisibility = .partlyOccluded
@@ -342,7 +342,7 @@ struct AnnotationSessionTests {
 
     @Test func emptyMaskSavesAsEmptyRatherThanBeingSkipped() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
 
         // A fully occluded object has an empty mask for an understandable
@@ -357,7 +357,7 @@ struct AnnotationSessionTests {
 
     @Test func secondViewDefaultsToADifferentAxisThanTheEditingView() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.viewStandard != session.secondViewStandard)
     }
@@ -371,7 +371,7 @@ struct AnnotationSessionTests {
         // still reports unsaved work, silently contradicting the alert the
         // operator just confirmed.
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let object = session.createObject(objectClass: "car")
 
         _ = session.select(polygon: clusterLasso)

@@ -337,3 +337,88 @@ struct PackFolderAccessTests {
         #expect(bookmarking.started.isEmpty)
     }
 }
+
+/// A version 2 pack saves into a label set beside it, in a folder a grant on
+/// the pack alone does not reach. The window asks for that folder when the
+/// pack opens, and opens read only, saying why, if it is not given.
+@MainActor struct LabelFolderAccessTests {
+    private final class Asker {
+        var answer: URL?
+        private(set) var askedAbout: [URL] = []
+        func ask(_ suggested: URL) -> URL? {
+            askedAbout.append(suggested)
+            return answer
+        }
+    }
+
+    /// A version 2 pack in a folder the app cannot write.
+    private func lockedPack() throws -> (pack: URL, folder: URL) {
+        let pack = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
+        let folder = pack.deletingLastPathComponent()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+        return (pack, folder)
+    }
+
+    private func unlock(_ folder: URL) {
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: folder.path)
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    @Test func aWritableFolderNeedsNoQuestion() throws {
+        let pack = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
+        defer { removePack(pack) }
+        let asker = Asker()
+        let (access, _, _) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+        #expect(controller.session?.readOnlyReason == nil)
+        #expect(asker.askedAbout.isEmpty)
+    }
+
+    @Test func refusingTheFolderOpensReadOnlyAndSaysWhy() throws {
+        let (pack, folder) = try lockedPack()
+        defer { unlock(folder) }
+        let asker = Asker()
+        let (access, _, storage) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+
+        let session = try #require(controller.session)
+        #expect(asker.askedAbout.map(\.path) == [folder.path], "asked for the pack's parent")
+        #expect(session.readOnlyReason?.contains("\(folder.path)/labels") == true)
+        #expect(storage.bookmarks.isEmpty)
+        session.operatorName = "dd"
+        _ = session.createObject(objectClass: "car")
+        #expect(
+            session.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(!session.save())
+        #expect(session.lastError?.contains("Not saved") == true)
+    }
+
+    @Test func grantingTheFolderIsRememberedAndHeldForTheSession() throws {
+        let (pack, folder) = try lockedPack()
+        defer { unlock(folder) }
+        let asker = Asker()
+        asker.answer = folder
+        let (access, bookmarking, storage) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+
+        #expect(controller.session?.readOnlyReason == nil)
+        #expect(storage.bookmarks.count == 1)
+        #expect(bookmarking.started == [folder.path])
+        controller.close()
+        #expect(bookmarking.stopped == [folder.path])
+
+        // Opened again, the remembered folder is used without asking.
+        controller.openPack(at: pack)
+        #expect(asker.askedAbout.count == 1)
+        #expect(controller.session?.readOnlyReason == nil)
+    }
+}

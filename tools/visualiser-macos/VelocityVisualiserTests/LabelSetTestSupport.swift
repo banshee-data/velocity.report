@@ -43,6 +43,22 @@ func labelSetTemporaryDirectory() -> URL {
     return dir
 }
 
+extension PackFixture {
+    /// The fixture's points as a version 2 pack, the kind the window saves
+    /// through: the same two samples and six points, with a packet table and
+    /// returns. Its bytes are this client's, not Go's, so it pins nothing;
+    /// the version 1 fixture above stays byte for byte what Go wrote.
+    static func writeLabellable() throws -> URL {
+        try SyntheticPack.write(
+            [
+                [
+                    (1.0, 1.0, 0.5, 1), (1.5, 1.25, 0.75, 1), (2.0, 1.5, 1.0, 1),
+                    (40.0, -30.0, 3.0, 2),
+                ], [(3.0, 2.0, 1.5, 1), (3.5, 2.5, 1.75, 1)],
+            ], intensities: [[10, 20, 30, 40], [50, 60]])
+    }
+}
+
 /// Go's testState in state_test.go: two windows of a four-packet table with
 /// one domain and two objects.
 func goTestState() -> LabelSetState {
@@ -137,4 +153,13 @@ func journalLines(_ labelSetDirectory: URL) -> [String] {
             contentsOf: labelSetDirectory.appendingPathComponent(LabelSetFiles.journal),
             encoding: .utf8)) ?? ""
     return text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+}
+
+/// Everything a membership save writes for a pack: its label set's labels.json
+/// and journal. A save of anything else must leave these bytes alone.
+func savedMembershipBytes(_ pack: URL) throws -> Data {
+    let link = try #require(try LabelSetLink.read(packDirectory: pack))
+    let dir = link.directory(packDirectory: pack)
+    return try Data(contentsOf: dir.appendingPathComponent(LabelSetFiles.manifest))
+        + Data(contentsOf: dir.appendingPathComponent(LabelSetFiles.journal))
 }

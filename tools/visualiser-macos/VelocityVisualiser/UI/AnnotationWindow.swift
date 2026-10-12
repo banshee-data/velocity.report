@@ -1,7 +1,7 @@
 // AnnotationWindow.swift
 // The entry point to the point-cloud annotation toolset.
 //
-// The pieces this composes — pack reading, selection, the sidecar protocol,
+// The pieces this composes — pack reading, selection, the label-set store,
 // the controls — all landed together and were tested, but nothing presented
 // them, so the toolset could not be reached from the running app. This is the
 // wiring: a menu item, a pack picker, and a window that puts the lasso overlay
@@ -104,14 +104,23 @@ func annotationFramingHalfHeight(
     /// Asks the operator for the folder to grant, given where the pack is.
     /// Injected so the grant flow can be tested without an open panel.
     private let askForFolder: (URL) -> URL?
-    /// Held for as long as the session it serves: SidecarStore writes into the
-    /// pack on every save, so access has to outlive the act of opening.
+    /// Asks for the folder a version 2 pack's label sets live in, the pack's
+    /// parent, when nothing granted so far reaches it.
+    private let askForLabelFolder: (URL) -> URL?
+    /// Held for as long as the session it serves: a save writes the label set
+    /// and the pack's link, so access has to outlive the act of opening.
     private var grant: PackFolderGrant?
+    /// The grant on the label sets' folder, when the pack's own does not
+    /// reach it.
+    private var labelGrant: PackFolderGrant?
 
-    init(folderAccess: PackFolderAccess = PackFolderAccess(), askForFolder: ((URL) -> URL?)? = nil)
-    {
+    init(
+        folderAccess: PackFolderAccess = PackFolderAccess(), askForFolder: ((URL) -> URL?)? = nil,
+        askForLabelFolder: ((URL) -> URL?)? = nil
+    ) {
         self.folderAccess = folderAccess
         self.askForFolder = askForFolder ?? AnnotationController.runFolderPanel
+        self.askForLabelFolder = askForLabelFolder ?? AnnotationController.runLabelFolderPanel
     }
 
     /// Name of the open pack's directory, for the window's title bar.
@@ -164,10 +173,16 @@ func annotationFramingHalfHeight(
 
     private func open(_ directory: URL, holding newGrant: PackFolderGrant?) {
         grant?.end()
+        labelGrant?.end()
         grant = newGrant
+        labelGrant = nil
         do {
             let pack = try AnnotationPack.open(directory: directory)
-            let opened = try AnnotationSession(pack: pack)
+            let store = MembershipStores.forPack(pack)
+            if let labels = store as? LabelSetMembership {
+                labels.accessRefusal = labelFolderAccess(for: pack)
+            }
+            let opened = try AnnotationSession(pack: pack, store: store)
             session = opened
             if !ProposalLayerStore(pack: pack).hasLayers { Task { await opened.proposeObjects() } }
             lastError = nil
@@ -176,9 +191,40 @@ func annotationFramingHalfHeight(
             session = nil
             grant?.end()
             grant = nil
+            labelGrant?.end()
+            labelGrant = nil
             lastError = "Could not open \(directory.lastPathComponent): \(error)"
             annotationLogger.error("Failed to open annotation pack: \(error)")
         }
+    }
+
+    /// Makes sure a version 2 pack's label sets can be written: they live
+    /// beside the pack, in `<annotation dir>/labels/`, which a grant on the
+    /// pack alone does not reach. Returns why saving is impossible, or nil.
+    ///
+    /// Asked at opening rather than at the first save, because a save that
+    /// fails for want of a folder grant fails after the operator has done
+    /// the work.
+    private func labelFolderAccess(for pack: AnnotationPack) -> String? {
+        let folder = pack.annotationDirectory
+        if let grant, PackFolderAccess.folder(grant.folder, contains: folder) { return nil }
+        if let remembered = folderAccess.beginAccess(for: folder) {
+            labelGrant = remembered
+            return nil
+        }
+        if FileManager.default.isWritableFile(atPath: folder.path) { return nil }
+        if let chosen = askForLabelFolder(folder), PackFolderAccess.folder(chosen, contains: folder)
+        {
+            do { try folderAccess.remember(chosen) } catch {
+                annotationLogger.error("Could not remember label folder \(chosen.path): \(error)")
+            }
+            labelGrant = folderAccess.beginAccess(for: folder)
+            if labelGrant != nil || FileManager.default.isWritableFile(atPath: folder.path) {
+                return nil
+            }
+        }
+        return "Read only: label sets for this pack are kept in \(folder.path)/labels, and the app "
+            + "has not been given that folder. Open the pack again and grant it to save."
     }
 
     /// The production `askForFolder`: a directory panel opened on the folder
@@ -194,6 +240,24 @@ func annotationFramingHalfHeight(
         panel.message =
             "The new pack is in this folder. Grant access so it can be opened and its "
             + "annotations saved. You will not be asked again for packs written here."
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
+    }
+
+    /// The production `askForLabelFolder`. Never shown under test, where no
+    /// one is there to answer it.
+    private static func runLabelFolderPanel(suggested: URL) -> URL? {
+        guard !AppState.isRunningUnderXCTest else { return nil }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = suggested
+        panel.prompt = "Grant Access"
+        panel.message =
+            "Labels for this pack are kept beside it, in this folder's labels directory, so "
+            + "every run of the capture can share them. Grant access to this folder to save."
         guard panel.runModal() == .OK else { return nil }
         return panel.url
     }
@@ -220,6 +284,8 @@ func annotationFramingHalfHeight(
         lastError = nil
         grant?.end()
         grant = nil
+        labelGrant?.end()
+        labelGrant = nil
     }
 }
 
