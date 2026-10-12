@@ -5,6 +5,7 @@ package lidar
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -116,5 +117,28 @@ func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
 func TestBenchMainRejectsTrackerExperiment(t *testing.T) {
 	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "cascade"}); code != 2 {
 		t.Errorf("BenchMain(-experiment cascade) = %d, want 2", code)
+	}
+}
+
+func TestBenchMainRunsABackgroundExperiment(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "bench.json")
+	code := BenchMain([]string{
+		"-pcap", benchFixture, "-output", dir, "-benchmark-output", out,
+		"-duration-seconds", "2", "-max-frames-over-budget-pct", "100", "-quiet",
+		"-experiment", "no_region_overrides",
+	})
+	if code != 0 {
+		t.Fatalf("BenchMain = %d, want 0", code)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"experiments"`) || !strings.Contains(string(raw), `"no_region_overrides"`) {
+		t.Errorf("benchmark JSON does not record the experiment:\n%s", raw)
+	}
+	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "no_region_overrides,region_overrides_quiet_only"}); code != 2 {
+		t.Errorf("contradictory scopes: BenchMain = %d, want 2", code)
 	}
 }

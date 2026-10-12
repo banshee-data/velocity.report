@@ -304,10 +304,10 @@ func IsBackgroundExperiment(name string) bool {
 	return backgroundExperiments[name]
 }
 
-// ApplyBackgroundExperiments switches the named L3 experiments on in a
-// background manager before its first frame. Names that are not background
-// experiments are ignored here; the caller decides whether they are allowed.
-func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []string) error {
+// ValidateBackgroundExperiments refuses a selection that names more than one
+// setting of the region overrides (no_region_overrides and the two scopes), so
+// a runner can refuse it before it reads a capture rather than after.
+func ValidateBackgroundExperiments(experiments []string) error {
 	scopes := 0
 	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly} {
 		if hasExperiment(experiments, name) {
@@ -317,6 +317,16 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 	if scopes > 1 {
 		return fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
 			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly)
+	}
+	return nil
+}
+
+// ApplyBackgroundExperiments switches the named L3 experiments on in a
+// background manager before its first frame. Names that are not background
+// experiments are ignored here; the caller decides whether they are allowed.
+func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []string) error {
+	if err := ValidateBackgroundExperiments(experiments); err != nil {
+		return err
 	}
 	if hasExperiment(experiments, ExperimentNoRegionOverrides) {
 		if err := bgMgr.SetDisableRegionOverrides(true); err != nil {

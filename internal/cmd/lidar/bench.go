@@ -144,5 +144,8 @@ func benchExperiments(flagValue string) ([]string, error) {
 			return nil, fmt.Errorf("%s is not a background experiment; lidar-bench runs only the background experiments (no_region_overrides, region_overrides_volatile_only, region_overrides_quiet_only, support_filter)", name)
 		}
 	}
+	if err := replayeval.ValidateBackgroundExperiments(experiments); err != nil {
+		return nil, err
+	}
 	return experiments, nil
 }

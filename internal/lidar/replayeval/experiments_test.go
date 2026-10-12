@@ -1,6 +1,7 @@
 package replayeval
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -407,5 +408,31 @@ func TestSolidBodyEnabledReadsTheTuningBlockAndTheExperiment(t *testing.T) {
 	}
 	if solidBodyEnabled(nil, nil) {
 		t.Error("a nil config was read as on")
+	}
+}
+
+// Each background experiment reports a manager it cannot apply to rather than
+// running as the baseline under its name.
+func TestApplyBackgroundExperimentsReportsAManagerItCannotSet(t *testing.T) {
+	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly,
+		ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter} {
+		err := ApplyBackgroundExperiments(nil, []string{name})
+		if err == nil || !strings.Contains(err.Error(), name) {
+			t.Errorf("%s on a nil manager: %v, want an error naming it", name, err)
+		}
+	}
+}
+
+// Contradictory override settings are refused before any capture is read.
+func TestRunRefusesContradictoryOverrideSettingsBeforeReadingACapture(t *testing.T) {
+	_, err := Run(Config{
+		PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
+		Experiments: []string{ExperimentRegionOverridesQuietOnly, ExperimentNoRegionOverrides},
+	})
+	if err == nil || !strings.Contains(err.Error(), "settings of one option") {
+		t.Fatalf("got %v, want the contradiction refused before the missing capture is read", err)
+	}
+	if err := ValidateBackgroundExperiments([]string{ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter}); err != nil {
+		t.Errorf("one scope with the support filter refused: %v", err)
 	}
 }

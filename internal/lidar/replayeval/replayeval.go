@@ -631,6 +631,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateBackgroundExperiments(experiments); err != nil {
+		return nil, err
+	}
 	noiseCalibration, err := loadUncertaintyCalibration(cfg.UncertaintyCalibrationFile, experiments)
 	if err != nil {
 		return nil, err

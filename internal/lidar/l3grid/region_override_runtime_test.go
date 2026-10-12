@@ -176,3 +176,41 @@ func TestRegionOverrideScopeAllByDefault(t *testing.T) {
 		t.Fatal("RegionOverrideScope defaults to a partial scope; the shipped behaviour must stay the default until it is measured")
 	}
 }
+
+func TestSetRegionOverrideScope(t *testing.T) {
+	var nilManager *BackgroundManager
+	if err := nilManager.SetRegionOverrideScope(RegionOverrideScopeVolatile); err == nil {
+		t.Error("a nil manager accepted a scope")
+	}
+	bm := NewBackgroundManager(t.Name(), 2, 4, BackgroundParams{}, nil)
+	for _, bad := range []RegionOverrideScope{RegionOverrideScopeAll - 1, RegionOverrideScopeQuiet + 1} {
+		if err := bm.SetRegionOverrideScope(bad); err == nil {
+			t.Errorf("scope %d accepted", bad)
+		}
+	}
+	for _, scope := range []RegionOverrideScope{RegionOverrideScopeVolatile, RegionOverrideScopeQuiet, RegionOverrideScopeAll} {
+		if err := bm.SetRegionOverrideScope(scope); err != nil {
+			t.Fatalf("scope %d refused: %v", scope, err)
+		}
+		if got := bm.Grid.Params.RegionOverrideScope; got != scope {
+			t.Errorf("scope %d set, grid reads %d", scope, got)
+		}
+	}
+}
+
+func TestIsVolatileRegionOutsideTheIdentifiedRegions(t *testing.T) {
+	unidentified := NewRegionManager(2, 4)
+	if unidentified.IsVolatileRegion(0) {
+		t.Error("a region read as volatile before identification")
+	}
+	g := settledThreeZoneGrid(t, 0.02)
+	for _, id := range []int{-1, len(g.RegionMgr.Regions)} {
+		if g.RegionMgr.IsVolatileRegion(id) {
+			t.Errorf("region id %d, outside the identified regions, read as volatile", id)
+		}
+	}
+	volatile := g.RegionMgr.GetRegionForCell(g.Idx(4, 0))
+	if !g.RegionMgr.IsVolatileRegion(volatile) {
+		t.Error("the volatile ring's region did not read as volatile")
+	}
+}

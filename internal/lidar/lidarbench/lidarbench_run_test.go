@@ -828,3 +828,41 @@ func TestSystemInfoCarriesTheHostClass(t *testing.T) {
 		t.Fatalf("host class = %q, want pi", got)
 	}
 }
+
+// The background hook runs on the manager the replay uses before the first
+// frame, the experiments it names are recorded in the benchmark JSON, and a
+// hook that fails stops the run.
+func TestRunAppliesTheBackgroundHook(t *testing.T) {
+	cfg := benchConfig(t)
+	cfg.DurationSeconds = 2
+	cfg.BenchmarkOutput = filepath.Join(cfg.OutputDir, "bench.json")
+	cfg.Experiments = []string{"no_region_overrides"}
+	var seen *l3grid.BackgroundManager
+	cfg.ConfigureBackground = func(bm *l3grid.BackgroundManager) error {
+		seen = bm
+		return bm.SetDisableRegionOverrides(true)
+	}
+	if code := Run(cfg); code != 0 {
+		t.Fatalf("Run() = %d, want 0", code)
+	}
+	if seen == nil || !seen.GetParams().DisableRegionOverrides {
+		t.Fatal("the hook did not reach the replay's background manager")
+	}
+	raw, err := os.ReadFile(cfg.BenchmarkOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got BenchmarkResult
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Experiments) != 1 || got.Experiments[0] != "no_region_overrides" {
+		t.Errorf("benchmark JSON records experiments %v, want [no_region_overrides]", got.Experiments)
+	}
+
+	failing := benchConfig(t)
+	failing.ConfigureBackground = func(*l3grid.BackgroundManager) error { return errors.New("refused") }
+	if code := Run(failing); code != 1 {
+		t.Errorf("Run() with a failing hook = %d, want 1", code)
+	}
+}
