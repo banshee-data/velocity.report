@@ -239,6 +239,40 @@ func TestExportAcceptsFullCoverageWhenAnyBackgroundWasRecorded(t *testing.T) {
 	}
 }
 
+func TestForegroundOnlyExportKeepsOnlyForeground(t *testing.T) {
+	// A replay that recorded whole frames still yields a foreground pack:
+	// annotation is downstream of foreground separation.
+	src := writeClassedVRLOG(t, 1, 2)
+	res, err := Export(ExportConfig{
+		VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "pack"), Coverage: CoverageForegroundOnly,
+		CoverageNote: "replay records whole frames",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := OpenPack(res.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Samples[0].PointCount != 4 || p.Samples[1].PointCount != 2 {
+		t.Fatalf("sample point counts %d, %d; want 4, 2", p.Samples[0].PointCount, p.Samples[1].PointCount)
+	}
+	pts, _ := p.PointsAt(1)
+	for i, c := range pts.Classification {
+		if c != classForeground {
+			t.Fatalf("point %d is class %d", i, c)
+		}
+	}
+	returns, err := p.ReturnsAt(1)
+	if err != nil || len(returns) != 2 {
+		t.Fatalf("returns %v %v", returns, err)
+	}
+	if !strings.Contains(p.Manifest.CoverageNote, "kept the 6 foreground-classed of 8 recorded points") ||
+		!strings.HasPrefix(p.Manifest.CoverageNote, "replay records whole frames") {
+		t.Fatalf("coverage note %q", p.Manifest.CoverageNote)
+	}
+}
+
 func TestExportRecordsTheRunsHeightBand(t *testing.T) {
 	src := writeVRLOG(t, true, 1000, 2000)
 	band := &HeightBand{FloorM: -2.8, CeilingM: 1.5, RemoveGround: true}

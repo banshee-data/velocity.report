@@ -96,6 +96,9 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		// Classed points that are not foreground. A recording that kept the
 		// whole scene has them in every frame.
 		nonForeground int64
+		// Under foreground_only coverage, the classed non-foreground points
+		// the export left out, and every point it read.
+		dropped, read int64
 
 		backgrounds      []Background
 		backgroundBlocks [][]byte
@@ -162,6 +165,22 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		}
 		if cfg.EndNs != 0 && ts > cfg.EndNs {
 			break
+		}
+		// Annotation is downstream of foreground separation. A pack that says
+		// foreground_only holds exactly the points the run classed
+		// foreground, even when the recording kept the whole frame, so its
+		// point domain is the run's foreground.
+		if cfg.Coverage == CoverageForegroundOnly {
+			read += int64(len(pc.X))
+			var n int
+			pc, n = keepForeground(pc)
+			dropped += int64(n)
+			if len(pc.X) == 0 {
+				if inWindow && frame.Background == nil {
+					comp.FramesWithoutPoints++
+				}
+				continue
+			}
 		}
 
 		block, err := encodePoints(Points{
@@ -253,6 +272,14 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			"coverage %q contradicts the recording: every point in the %d exported frames is "+
 				"classed foreground, so it kept foreground only (export it as %q)",
 			CoverageFull, len(samples), CoverageForegroundOnly)
+	}
+
+	if dropped > 0 {
+		note := fmt.Sprintf("export kept the %d foreground-classed of %d recorded points", read-dropped, read)
+		if cfg.CoverageNote != "" {
+			note = cfg.CoverageNote + "; " + note
+		}
+		cfg.CoverageNote = note
 	}
 
 	m := Manifest{
@@ -399,6 +426,50 @@ func (t *packTable) repeated(ordinal int, key uint64) error {
 
 func (t *packTable) returns() PackReturns {
 	return PackReturns{Layout: t.layout, Packets: t.packets, Returns: t.perSample}
+}
+
+// keepForeground returns the frame's foreground-classed points, with their
+// columns and returns kept aligned, and how many it left out. The frame's
+// packet table and return range are unchanged: they bound every return of
+// the frame, emitted or not. A frame without classification is returned as
+// it is.
+func keepForeground(pc *l9endpoints.PointCloudFrame) (*l9endpoints.PointCloudFrame, int) {
+	n := len(pc.X)
+	if len(pc.Classification) != n {
+		return pc, 0
+	}
+	keep := 0
+	for _, c := range pc.Classification {
+		if c == classForeground {
+			keep++
+		}
+	}
+	if keep == n {
+		return pc, 0
+	}
+	out := *pc
+	out.X, out.Y, out.Z = make([]float32, 0, keep), make([]float32, 0, keep), make([]float32, 0, keep)
+	out.Classification = make([]uint8, 0, keep)
+	withIntensity, withRefs := len(pc.Intensity) == n, len(pc.ReturnRefs) == n
+	out.Intensity, out.ReturnRefs = nil, nil
+	for i, c := range pc.Classification {
+		if c != classForeground {
+			continue
+		}
+		out.X, out.Y, out.Z = append(out.X, pc.X[i]), append(out.Y, pc.Y[i]), append(out.Z, pc.Z[i])
+		out.Classification = append(out.Classification, c)
+		if withIntensity {
+			out.Intensity = append(out.Intensity, pc.Intensity[i])
+		}
+		if withRefs {
+			out.ReturnRefs = append(out.ReturnRefs, pc.ReturnRefs[i])
+		}
+	}
+	if withIntensity && out.Intensity == nil {
+		out.Intensity = []uint8{}
+	}
+	out.PointCount = keep
+	return &out, n - keep
 }
 
 // classForeground is the recorder's per-point class for a foreground return
