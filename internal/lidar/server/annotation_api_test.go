@@ -35,6 +35,9 @@ func writeTestVRLOG(t *testing.T, frameCount int) string {
 			Intensity: make([]uint8, n), Classification: make([]uint8, n),
 			PointCount: n,
 		}
+		// One foreground return among background: a full-coverage export
+		// sees background, and a foreground_only one keeps the foreground.
+		pc.Classification[0] = 1
 		l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 		bundle := &l9endpoints.FrameBundle{
 			TimestampNanos: pc.TimestampNanos, PointCloud: pc,

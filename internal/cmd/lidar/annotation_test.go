@@ -34,6 +34,11 @@ func recordPointVRLOG(t *testing.T, withPoints bool, timestamps ...int64) string
 				X: make([]float32, n), Y: make([]float32, n), Z: make([]float32, n),
 				Intensity: make([]uint8, n), Classification: make([]uint8, n), PointCount: n,
 			}
+			// Classed foreground, as a recording a foreground_only pack is cut
+			// from classes its points; the export keeps only those.
+			for j := range pc.Classification {
+				pc.Classification[j] = 1
+			}
 			l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 			bundle.PointCloud = pc
 		}
