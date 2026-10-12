@@ -74,23 +74,6 @@ enum PackFixture {
         edit(&object)
         return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
-
-    /// Applies `edit` to samples.json and gives the manifest the samples and
-    /// pack digests that match, so the edit gets past the digest checks to
-    /// the check under test.
-    static func redigestSamples(_ files: inout [String: Data], _ edit: (String) -> String) throws
-    {
-        let samples = Data(edit(String(decoding: files["samples.json"]!, as: UTF8.self)).utf8)
-        files["samples.json"] = samples
-        var manifest = try JSONDecoder().decode(
-            AnnotationManifest.self, from: files["manifest.json"]!)
-        manifest.samplesSHA256 = AnnotationPack.digest(AnnotationPack.trimTrailingNewline(samples))
-        let packDigest = AnnotationPack.packDigest(of: manifest)
-        files["manifest.json"] = try PackFixture.manifest {
-            $0["samples_sha256"] = manifest.samplesSHA256
-            $0["pack_digest"] = packDigest
-        }
-    }
 }
 
 // MARK: - Tests
@@ -130,56 +113,6 @@ struct AnnotationPackTests {
         #expect(second.z == [1.5, 1.75])
         #expect(second.intensity == [50, 60])
         #expect(second.x[1] == 3.5 && second.intensity[1] == 60)
-
-        // Every sample says whether its intensity was measured, and the
-        // manifest's flag is whether any was.
-        #expect(pack.samples.allSatisfy(\.hasIntensity) && pack.manifest.hasIntensity)
-    }
-
-    /// The block zero-fills an absent intensity column, so only the sample's
-    /// own flag says whether its bytes are readings. A sample without one
-    /// is refused, never read under the pack-wide flag.
-    @Test func refusesASampleThatDoesNotSayWhetherItHasIntensity() throws {
-        let dir = try PackFixture.write { files in
-            try PackFixture.redigestSamples(&files) {
-                $0.replacingOccurrences(
-                    of: "\"byte_offset\": 0,\n    \"has_intensity\": true,\n",
-                    with: "\"byte_offset\": 0,\n")
-            }
-        }
-        defer { removePack(dir) }
-
-        do {
-            _ = try AnnotationPack.open(directory: dir)
-            Issue.record("expected a sample without has_intensity to be refused")
-        } catch let error as AnnotationPackError {
-            guard case .malformed(let detail) = error else {
-                Issue.record("expected malformed, got \(error)")
-                return
-            }
-            #expect(detail.hasPrefix("samples.json:"))
-            #expect(detail.contains("has_intensity"))
-        }
-    }
-
-    /// The manifest is outside the pack digest, so a flag that contradicts
-    /// the samples' own would pass every digest check. Go refuses it; so
-    /// does this reader.
-    @Test func refusesAManifestIntensityFlagTheSamplesContradict() throws {
-        let dir = try PackFixture.write { files in
-            files["manifest.json"] = try PackFixture.manifest { $0["has_intensity"] = false }
-        }
-        defer { removePack(dir) }
-
-        do {
-            _ = try AnnotationPack.open(directory: dir)
-            Issue.record("expected a contradicting manifest flag to be refused")
-        } catch let error as AnnotationPackError {
-            #expect(
-                error
-                    == .malformed(
-                        "manifest has_intensity=false but the samples' own flags say true"))
-        }
     }
 
     @Test func readsGosPacketTableAndReturns() throws {
@@ -195,8 +128,7 @@ struct AnnotationPackTests {
         #expect(try pack.returns(sampleID: 1) == [400, 445])
         // Go writes the frame range with omitempty: sample 0's frame starts
         // at return 0, so its samples.json entry has no return_start.
-        let samplesJSON = try #require(
-            String(data: PackFixture.file("samples.json"), encoding: .utf8))
+        let samplesJSON = try #require(String(data: PackFixture.file("samples.json"), encoding: .utf8))
         #expect(samplesJSON.components(separatedBy: "\"return_start\"").count == 2)
         #expect(pack.samples[0].returnStart == 0 && pack.samples[0].returnEnd == 400)
         #expect(pack.samples[1].returnStart == 400 && pack.samples[1].returnEnd == 800)

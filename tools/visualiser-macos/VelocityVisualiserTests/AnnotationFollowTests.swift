@@ -205,7 +205,7 @@ struct SampleLabelTests {
     @Test func aFrameIsNamedByItsSampleEverywhere() throws {
         let sample = AnnotationSample(
             sampleID: 500, sourceOrdinal: 504, sourceFrameID: 9, timestampNs: 1, sensorID: "s",
-            pointCount: 0, byteOffset: 0, hasIntensity: true)
+            pointCount: 0, byteOffset: 0)
         #expect(sample.label == "sample 500" && sample.label.capitalized == "Sample 500")
         #expect(sample.recordingLabel == "recording frame 504")
         // No label of a 1-based position or a bare recording frame is left.

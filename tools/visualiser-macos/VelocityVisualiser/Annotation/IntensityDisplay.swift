@@ -175,31 +175,34 @@ struct IntensityDisplaySpec: Equatable {
     }
 }
 
-/// Whether this frame's intensity is a measurement.
+/// Whether this pack's intensity is a measurement.
 ///
-/// Every sample says whether its source frame carried intensity, and the
-/// pack's flag says whether any did. The exporter zero-fills a frame without
-/// it, so that is read from the flags, never inferred from whether a byte is
-/// zero.
+/// The pack says so once, for the whole pack. The exporter sets that flag if
+/// any sample carried intensity and zero-fills the rest, so a true flag does
+/// not prove every sample was measured; that is said beside the readout rather
+/// than inferred from whether a byte is zero.
 enum IntensityAvailability: Equatable {
     /// This sample's source frame carried intensity.
     case measured
     /// The pack carries intensity, but this sample's source frame did not:
     /// its bytes are zero-fill.
     case absentThisSample
+    /// The pack declares intensity as a whole and records nothing per sample.
+    case packFlag
     /// The pack carries no intensity at all.
     case absent
 
-    /// From the pack-wide flag and the sample's own.
-    init(hasIntensity: Bool, sample: Bool) {
+    /// From the pack-wide flag and, when the pack records it, the sample's own.
+    init(hasIntensity: Bool, sample: Bool? = nil) {
         switch (hasIntensity, sample) {
         case (false, _): self = .absent
-        case (true, true): self = .measured
-        case (true, false): self = .absentThisSample
+        case (true, true?): self = .measured
+        case (true, false?): self = .absentThisSample
+        case (true, nil): self = .packFlag
         }
     }
 
-    var available: Bool { self == .measured }
+    var available: Bool { self == .measured || self == .packFlag }
 
     var caveat: String {
         switch self {
@@ -208,6 +211,9 @@ enum IntensityAvailability: Equatable {
         case .absentThisSample:
             return "This frame's source carried no intensity. Its stored bytes are zero-fill, not "
                 + "measurements, so nothing is coloured or read from them here; other frames may differ."
+        case .packFlag:
+            return "The pack declares intensity for the pack as a whole; presence is not recorded "
+                + "per frame. A frame the source did not measure would read as zeros."
         case .absent:
             return "This pack carries no intensity. Its stored bytes are zero-fill, not "
                 + "measurements, so nothing is coloured or read from them."

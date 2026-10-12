@@ -43,26 +43,28 @@ private func fixturePackDigest() throws -> String {
 struct IntensityPresenceTests {
     @Test func availabilityComesFromThePackAndThenTheSample() {
         #expect(IntensityAvailability(hasIntensity: false, sample: true) == .absent)
-        #expect(IntensityAvailability(hasIntensity: false, sample: false) == .absent)
+        #expect(IntensityAvailability(hasIntensity: false, sample: nil) == .absent)
+        #expect(IntensityAvailability(hasIntensity: true, sample: nil) == .packFlag)
         #expect(IntensityAvailability(hasIntensity: true, sample: true) == .measured)
         #expect(IntensityAvailability(hasIntensity: true, sample: false) == .absentThisSample)
-        #expect(IntensityAvailability.measured.available)
+        #expect(
+            IntensityAvailability.measured.available && IntensityAvailability.packFlag.available)
         #expect(
             !IntensityAvailability.absentThisSample.available
                 && !IntensityAvailability.absent.available)
-        let caveats = [IntensityAvailability.measured, .absentThisSample, .absent].map(\.caveat)
-        #expect(Set(caveats).count == 3)
-        #expect(caveats[1].contains("zero-fill") && caveats[2].contains("zero-fill"))
+        let caveats = [IntensityAvailability.measured, .absentThisSample, .packFlag, .absent].map(
+            \.caveat)
+        #expect(Set(caveats).count == 4)
+        #expect(caveats[1].contains("zero-fill") && caveats[2].contains("per frame"))
     }
 
-    @Test func aSampleMustSayWhetherItHasIntensity() throws {
+    @Test func aSampleWithoutTheFieldDecodesAsUnknown() throws {
         let json = """
             {"sample_id": 0, "source_ordinal": 1, "source_frame_id": 100, "timestamp_ns": 5,
              "sensor_id": "s", "point_count": 0, "byte_offset": 0}
             """
-        #expect(throws: DecodingError.self) {
-            try JSONDecoder().decode(AnnotationSample.self, from: Data(json.utf8))
-        }
+        let legacy = try JSONDecoder().decode(AnnotationSample.self, from: Data(json.utf8))
+        #expect(legacy.hasIntensity == nil)
         let flagged = try JSONDecoder().decode(
             AnnotationSample.self,
             from: Data(
@@ -75,8 +77,8 @@ struct IntensityPresenceTests {
     @MainActor @Test func aMixedPackReadsEachFrameOnItsOwnTerms() throws {
         let points: [SyntheticPack.Point] = [(0, 5, 1, 1), (2, 5, 1, 1)]
         let dir = try SyntheticPack.write(
-            [points, points, points], intensities: [[7, 9], [0, 0], [3, 4]],
-            sampleIntensity: [true, false, true])
+            [points, points, points], intensities: [[7, 9], [0, 0], [3, 4]], hasIntensity: true,
+            sampleIntensity: [true, false, nil])
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         session.inspectIntensity = true
         let vp = OrthoViewport(
@@ -101,7 +103,7 @@ struct IntensityPresenceTests {
                 .allSatisfy { $0 == SIMD4(IntensityDisplaySpec.missingColour, 1) })
 
         #expect(session.stepForward() == nil)
-        #expect(session.intensityAvailability == .measured)
+        #expect(session.intensityAvailability == .packFlag)
         session.inspectReturns(in: .top, viewport: vp, at: at)
         #expect(session.inspection.current?.raw == 3)
     }

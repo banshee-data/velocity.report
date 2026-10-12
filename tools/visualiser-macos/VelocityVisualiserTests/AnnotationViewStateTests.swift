@@ -427,7 +427,7 @@ struct FrameSyncTests {
     private func sample(_ id: Int, _ ts: Int64) -> AnnotationSample {
         AnnotationSample(
             sampleID: id, sourceOrdinal: id, sourceFrameID: UInt64(id), timestampNs: ts,
-            sensorID: "s", pointCount: 0, byteOffset: 0, hasIntensity: true)
+            sensorID: "s", pointCount: 0, byteOffset: 0)
     }
 
     private var samples: [AnnotationSample] {
@@ -669,7 +669,7 @@ struct AnnotationSceneTests {
     @Test func theFrameCarriesTheSampleItWasCutFrom() {
         let sample = AnnotationSample(
             sampleID: 4, sourceOrdinal: 9, sourceFrameID: 321, timestampNs: 77, sensorID: "s",
-            pointCount: 6, byteOffset: 0, hasIntensity: true)
+            pointCount: 6, byteOffset: 0)
         let bundle = AnnotationScene.frame(
             points: points, classes: classes, visibility: nil, marks: AnnotationScene.Marks(),
             sample: sample)
