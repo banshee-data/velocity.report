@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"math/rand"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 )
 
 func setOf(rs Ranges) map[uint64]bool {
@@ -118,5 +120,12 @@ func TestPacketKey(t *testing.T) {
 	}
 	if _, err := ParsePacketKey("xyz"); err == nil {
 		t.Fatal("short key accepted")
+	}
+}
+
+func TestKeyOfMatchesParser(t *testing.T) {
+	payload := []byte("a Pandar40P payload stands in here")
+	if uint64(KeyOf(payload)) != parse.PacketKey(payload) {
+		t.Fatal("label set and parser derive different packet keys")
 	}
 }
