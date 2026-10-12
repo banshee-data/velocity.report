@@ -140,6 +140,27 @@ the workflow checks is not a pass of the physical estimator or following gates: 
 their existing evidence and thresholds. The week of live observations and hardware/power-loss
 qualification remain separately tracked under the persistence and deployment plans.
 
+## Proposed external reference: RTK probe vehicle
+
+**Answered** October 12, 2026 ([D-29](../DECISIONS.md#d-29--research-briefing-decisions-october-12-2026)):
+adopted as a proposal from the
+[October 12 briefing](../lidar/operations/brief/research-briefing-2026-10-12.md#decisions), Q1.
+
+Every reference this plan produces is drawn from the sensor's own returns, so it can show a
+tracker drifting from the points but not a bias the points and the tracker share. A probe vehicle
+carrying an RTK GNSS receiver, driven past a static sensor whose position is surveyed once, gives a
+trajectory measured by something other than the LiDAR: speed, path and, with two probe vehicles or
+one probe and a fitted lead, a following gap. Cellina et al. (arXiv 2608.26669) scored a commercial
+LiDAR tracker this way on a motorway and had both vehicles fixed at once for only 2.3% of the
+record; a static sensor needs only the probe's fix, but trees and buildings on a residential street
+can still cut it.
+
+The work, in order: measure fix availability on the pilot street before buying anything; survey
+the sensor; drive scripted passes at stated speeds and gaps; time-align the receiver to the
+capture; and score L5 speed, path and gap against the probe with the same P2 scorer, the probe
+recorded as a reference source distinct from operator-fitted references. It changes no code path
+in the pipeline, no registry entry and no definition.
+
 ## Checklist
 
 - [x] P0: versioned physical-reference contract, independent import, and revision-safe round trip
@@ -147,3 +168,4 @@ qualification remain separately tracked under the persistence and deployment pla
 - [x] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting (Go; the macOS Compare mode reads its per-instant record, and physical scoring binds frozen splits with a verifiable bundle)
 - [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits (frozen splits now pin each pack's physical revision, digests and review coverage, and the window freezes through the service; the [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md) froze three vehicles and two following pairs and scored them; more pairs and a second site remain)
 - [ ] Physical gates scored against the frozen references; insufficient evidence remains visible
+- [ ] Proposed: RTK probe-vehicle passes as an external reference (D-29); fix availability measured on the pilot street first
