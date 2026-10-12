@@ -115,7 +115,11 @@ and report per-site and aggregate results.
 
 - Multi-sensor corpus (different LiDAR models): deferred until single-sensor defaults are validated
 - Weather variation within the initial corpus: one clear-weather capture per
-  site; weather studies are a future extension
+  site; weather studies are a future extension. When the first wet or snowy capture is added,
+  object point count per passage is reported beside any recall comparison across conditions, so
+  that a change in returns is not read as a change in conditions (deferred by
+  [D-29](../DECISIONS.md#d-29--research-briefing-decisions-october-12-2026), from the
+  [October 12 briefing](../lidar/operations/brief/research-briefing-2026-10-12.md#decisions))
 - Synthetic PCAPs: all captures must be real-world data
 
 ## References
