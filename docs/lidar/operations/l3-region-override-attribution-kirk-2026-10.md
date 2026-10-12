@@ -29,13 +29,13 @@ off moves kirk0's recall and false-foreground trade-off or only moves along it.
   2.0, `post_settle_update_fraction` 0.005 and `foreground_min_cluster_points` 8 (CM) take kirk0
   recall from 0.587 to 0.888 and pedestrians from 0.28 to 0.76 at the shipped arm's false
   positives (877 against 722), with HOTA 0.545 against 0.376 and IDF1 0.607 against 0.350; kirk1,
-  which no sweep scored, has all 49 labelled road users covered against 38. On 17 corpus sites,
-  label-free, it confirms 62 % more moving tracks with longer lives.
+  which no sweep scored, has all 49 labelled road users covered against 38. On the 23 corpus
+  sites, label-free, it confirms 56 % more moving tracks with longer lives.
 - **A height band floor at road height is free.** Moving `height_band_floor` from −2.8 to −2.0 m
   (0.3 m above the 2.3 m mount's road) removes every road-surface cluster in every regime, takes
   18 to 32 % of kirk0's unlabelled clusters with them, and costs at most 0.2 points of recall.
 - **The price of finding more is stationary tracks.** Every arm that recovers road users makes
-  more long stationary tracks: on the corpus, 39 to 67 over 20 s and 5 to 15 over 60 s. The dwell
+  more long stationary tracks: on the corpus, 56 to 89 over 20 s and 5 to 19 over 60 s. The dwell
   policy the beam-wise review asked for is still a prerequisite.
 - **lidar-bench's L4 is bare DBSCAN**, without the product's height band or size filters, so the
   annotation-scored sweeps' spurious and fragmentation figures are for a different L4 than the
@@ -234,28 +234,28 @@ says the same, and Section 3.3 runs four of its points through the harness.
 
 ## 5. Results: the corpus, label-free
 
-CMR against the shipped config on the first segment of 17 of the 23 corpus sites (the run was
-stopped when the machine ran short of disk), 200 s scored after a 70 s warm-up, both arms from
-their parameter sets, counted with the definitions of Section 2. CR ran on the first 6 sites
-before it was dropped to give CMR the time. None of these sites has labels, so the counts say how
-much the output moved, not whether it is right.
+CMR against the shipped config on the first segment of all 23 tuning and screen sites
+(`embarcadero-folsom` held out), 200 s scored after a 70 s warm-up, both arms from their parameter
+sets, counted with the definitions of Section 2. The first 17 sites ran in the unattended window
+and the last 6 the next day, from the same build and files, after the run was paused for disk. CR
+ran on the first 6 sites before it was dropped to give CMR the time. None of these sites has
+labels, so the counts say how much the output moved, not whether it is right.
 
-| Measure (per site)               | Shipped, median | CMR, median | Median change | Sites up / down | Pooled over 17 sites |
+| Measure (per site)               | Shipped, median | CMR, median | Median change | Sites up / down | Pooled over 23 sites |
 | -------------------------------- | --------------: | ----------: | ------------: | --------------- | -------------------- |
-| Clusters a frame                 |            3.91 |        4.98 |         +0.99 | 16 / 1          |                      |
-| Road-surface clusters a frame    |           0.183 |           0 |        −0.183 | 0 / 17          |                      |
-| Tracks                           |             225 |         235 |           +20 | 11 / 5          | 4,858 → 5,174        |
-| Tracks lasting 2 s or more       |             123 |         131 |           +35 | 15 / 1          | 2,095 → 2,771        |
-| Moving tracks (2 s, p90 ≥ 2 m/s) |              52 |          80 |           +21 | 16 / 1          | 949 → 1,533          |
-| Median track lifetime (s)        |             1.6 |         2.3 |          +0.8 | 16 / 1          |                      |
-| Share of tracks under 1 s        |           0.376 |       0.314 |        −0.083 | 2 / 15          |                      |
-| Stationary tracks over 20 s (M3) |               1 |           2 |            +1 | 12 / 1          | 39 → 67              |
-| Stationary tracks over 60 s (M3) |               0 |           0 |             0 | 6 / 0           | 5 → 15               |
+| Clusters a frame                 |            4.30 |        5.54 |         +1.13 | 22 / 1          |                      |
+| Road-surface clusters a frame    |           0.220 |           0 |        −0.220 | 0 / 23          |                      |
+| Tracks                           |             262 |         259 |           +27 | 17 / 5          | 7,031 → 7,679        |
+| Tracks lasting 2 s or more       |             124 |         146 |           +29 | 20 / 2          | 3,145 → 4,016        |
+| Moving tracks (2 s, p90 ≥ 2 m/s) |              52 |          80 |           +21 | 22 / 1          | 1,331 → 2,081        |
+| Median track lifetime (s)        |             1.6 |         2.2 |          +0.5 | 20 / 3          |                      |
+| Share of tracks under 1 s        |           0.376 |       0.321 |        −0.071 | 3 / 20          |                      |
+| Stationary tracks over 20 s (M3) |               2 |           3 |            +1 | 14 / 3          | 56 → 89              |
+| Stationary tracks over 60 s (M3) |               0 |           0 |             0 | 9 / 0           | 5 → 19               |
 
-The one site where moving tracks fall, marina-broderick (107 to 80), is also the one where the
-shipped config already confirms the most. CR on its 6 sites goes further in the same direction:
-clusters a frame double (median 3.0 to 6.0), moving tracks rise 237 to 404 pooled, and stationary
-tracks over 20 s rise 18 to 54.
+The one site where moving tracks fall is marina-broderick (107 to 80); these counts do not say
+why. CR on its 6 sites goes further in the same direction: clusters a frame double (median 3.0 to
+6.0), moving tracks rise 237 to 404 pooled, and stationary tracks over 20 s rise 18 to 54.
 
 ## 6. Interpretation
 
