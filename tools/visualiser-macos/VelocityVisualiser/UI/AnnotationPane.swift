@@ -215,6 +215,12 @@ struct AnnotationPane: View {
         ).help(
             "Labels cite the capture's returns, so every run of the capture can share them. "
                 + "Each save adds one line to the label set's journal.")
+        // The files verified to hold the set's packets: which recordings the
+        // labels apply to, so the main view can replay the right one.
+        ForEach(Array(session.labelSetCaptureLines.enumerated()), id: \.offset) { _, line in
+            Text(line).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
         if session.canAttachLabelSet {
             ForEach(session.labelSetCandidates().prefix(3)) { candidate in
                 Button(
