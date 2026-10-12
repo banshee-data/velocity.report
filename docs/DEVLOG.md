@@ -8,6 +8,12 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 12, 2026 - Two-pass podcast transcription and the attitudes report read in full
+
+- {claude/podcast-transcribe} Added [podcast-transcribe](../tools/podcast-transcribe/README.md) and the `/podcast-transcript` skill: an Apple Podcasts, Castro or Spotify episode transcribed by Whisper and by Parakeet, aligned word by word, reconciled for sense by an agent and checked against both passes for invented or dropped words; the full text is archived outside the repository and documents cite it by path and SHA-256
+- {claude/podcast-transcribe} Read the AAA Foundation's _Attitudes Toward Speeding_ in full (196 pages) for the [attitudes plan](plans/platform-speeding-attitudes-and-aggressive-driving-plan.md): the five mindsets from Table 13 and Appendix D, the Discussion and Figure 16, five places the report disagrees with itself, the radar-detector and leader-following strategies, California's state-level estimates and every figure the plan takes from it checked against the text; the title corrected from "Towards"
+- {claude/podcast-transcribe} Summarised the lead author's interview on Streetsblog's _The Brake_ beside the report, listing where her spoken account and the report's tables differ, with the transcript archived outside the repository
+
 ## October 11, 2026 - LiDAR experiments, the :8081 replay, tooling, market reviews, and corrected references
 
 - Split the [LiDAR market watch](platform/hardware/lidar-market-watch.md) into one current assessment and annual review archives, preserving both published entries and their old anchors; separated model facts from offers, made availability and snippet evidence explicit, and updated the fortnightly review skill to expire offers after 28 elapsed UTC days without refreshing blocked observations (#740).
