@@ -281,6 +281,9 @@ func decodePhysical(p *Pack, b []byte) (*PhysicalReferenceSet, error) {
 // pack has an empty one. A caller that needs it to stay current holds the
 // annotation lock.
 func readSidecar(p *Pack, root *os.Root) (*Sidecar, error) {
+	if s, linked, err := projectedSidecar(p, 0); linked {
+		return s, err
+	}
 	b, err := readAnnotationFile(root, sidecarFile)
 	if errors.Is(err, os.ErrNotExist) {
 		if _, historyErr := root.Stat(revisionDir); !errors.Is(historyErr, os.ErrNotExist) {

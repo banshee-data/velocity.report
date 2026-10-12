@@ -40,6 +40,11 @@ func SaveSidecar(p *Pack, s *Sidecar) error {
 }
 
 func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
+	if link, err := ReadLabelSetLink(p); err != nil {
+		return err
+	} else if link != nil {
+		return ErrMembershipInLabelSet
+	}
 	// Clone before canonicalising: a failed save must not change a dirty session.
 	next := *s
 	next.Objects = append([]Object(nil), s.Objects...)
@@ -127,6 +132,9 @@ func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
 // remain readable and acquire history on their next save. Missing current data
 // with existing history is an error, not permission to restart revision numbering.
 func LoadSidecar(p *Pack) (*Sidecar, error) {
+	if s, linked, err := projectedSidecar(p, 0); linked {
+		return s, err
+	}
 	root, err := os.OpenRoot(p.Dir)
 	if err != nil {
 		return nil, err
@@ -150,6 +158,9 @@ func LoadSidecar(p *Pack) (*Sidecar, error) {
 func LoadSidecarRevision(p *Pack, revision int) (*Sidecar, error) {
 	if revision < 1 {
 		return nil, fmt.Errorf("invalid requested revision %d", revision)
+	}
+	if s, linked, err := projectedSidecar(p, revision); linked {
+		return s, err
 	}
 	current, err := LoadSidecar(p)
 	if err == nil && current.baseDigest != "" && current.Revision == revision {
