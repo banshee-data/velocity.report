@@ -23,6 +23,13 @@ var byteSlicePool = sync.Pool{
 	},
 }
 
+// uint32SlicePool reduces allocations for per-point return numbers.
+var uint32SlicePool = sync.Pool{
+	New: func() interface{} {
+		return make([]uint32, 0, 75000)
+	},
+}
+
 // getFloat32Slice gets a slice from the pool and resets it.
 func getFloat32Slice(n int) []float32 {
 	s := pointSlicePool.Get().([]float32)
@@ -59,6 +66,23 @@ func putUint8Slice(s []uint8) {
 	}
 }
 
+// getUint32Slice gets a slice from the pool and resets it.
+func getUint32Slice(n int) []uint32 {
+	s := uint32SlicePool.Get().([]uint32)
+	if cap(s) < n {
+		uint32SlicePool.Put(s)
+		return make([]uint32, n)
+	}
+	return s[:n]
+}
+
+// putUint32Slice returns a slice to the pool.
+func putUint32Slice(s []uint32) {
+	if cap(s) > 0 && cap(s) <= 150000 {
+		uint32SlicePool.Put(s[:0])
+	}
+}
+
 // Release returns the PointCloudFrame's slices to the pool. Reference-counted:
 // only releases when the last consumer calls Release.
 func (pc *PointCloudFrame) Release() {
@@ -81,19 +105,31 @@ func (pc *PointCloudFrame) Release() {
 	putFloat32Slice(pc.Z)
 	putUint8Slice(pc.Intensity)
 	putUint8Slice(pc.Classification)
+	putUint32Slice(pc.ReturnRefs)
 	pc.X = nil
 	pc.Y = nil
 	pc.Z = nil
 	pc.Intensity = nil
 	pc.Classification = nil
+	// Nil after pooling, so a second Release cannot hand the same backing
+	// array to two frames.
+	pc.ReturnRefs = nil
+	pc.PacketKeys = nil
 }
 
 // ApplyDecimation decimates the point cloud according to the specified mode and ratio.
 // This modifies the PointCloudFrame in place.
 // For uniform/voxel modes, ratio should be in (0, 1]. A ratio of 1.0 keeps all points.
+//
+// Return numbers follow the points they belong to. A frame whose ReturnRefs
+// do not match its points one for one loses its identity here rather than
+// carry numbers that name the wrong returns.
 func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 	if mode == DecimationNone {
 		return
+	}
+	if len(pc.ReturnRefs) != pc.PointCount {
+		pc.clearReturnIdentity()
 	}
 
 	// ForegroundOnly mode ignores ratio
@@ -147,6 +183,10 @@ func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
 	newZ := make([]float32, 0, targetCount)
 	newIntensity := make([]uint8, 0, targetCount)
 	newClassification := make([]uint8, 0, targetCount)
+	var newRefs []uint32
+	if pc.ReturnRefs != nil {
+		newRefs = make([]uint32, 0, targetCount)
+	}
 
 	for i := 0; i < pc.PointCount && len(newX) < targetCount; i += stride {
 		newX = append(newX, pc.X[i])
@@ -154,6 +194,9 @@ func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
 		newZ = append(newZ, pc.Z[i])
 		newIntensity = append(newIntensity, pc.Intensity[i])
 		newClassification = append(newClassification, pc.Classification[i])
+		if newRefs != nil {
+			newRefs = append(newRefs, pc.ReturnRefs[i])
+		}
 	}
 
 	pc.X = newX
@@ -161,6 +204,7 @@ func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
 	pc.Z = newZ
 	pc.Intensity = newIntensity
 	pc.Classification = newClassification
+	pc.ReturnRefs = newRefs
 	pc.PointCount = len(newX)
 }
 
@@ -171,6 +215,10 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	newZ := make([]float32, 0, pc.PointCount/2)
 	newIntensity := make([]uint8, 0, pc.PointCount/2)
 	newClassification := make([]uint8, 0, pc.PointCount/2)
+	var newRefs []uint32
+	if pc.ReturnRefs != nil {
+		newRefs = make([]uint32, 0, pc.PointCount/2)
+	}
 
 	for i := 0; i < pc.PointCount; i++ {
 		if pc.Classification[i] == 1 {
@@ -179,6 +227,9 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 			newZ = append(newZ, pc.Z[i])
 			newIntensity = append(newIntensity, pc.Intensity[i])
 			newClassification = append(newClassification, pc.Classification[i])
+			if newRefs != nil {
+				newRefs = append(newRefs, pc.ReturnRefs[i])
+			}
 		}
 	}
 
@@ -187,6 +238,7 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	pc.Z = newZ
 	pc.Intensity = newIntensity
 	pc.Classification = newClassification
+	pc.ReturnRefs = newRefs
 	pc.PointCount = len(newX)
 }
 
@@ -263,6 +315,9 @@ func (pc *PointCloudFrame) applyVoxelDecimation(leafSize float32) {
 			if i < len(pc.Classification) {
 				pc.Classification[kept] = pc.Classification[i]
 			}
+			if pc.ReturnRefs != nil {
+				pc.ReturnRefs[kept] = pc.ReturnRefs[i]
+			}
 			kept++
 		}
 	}
@@ -275,6 +330,9 @@ func (pc *PointCloudFrame) applyVoxelDecimation(leafSize float32) {
 	}
 	if len(pc.Classification) >= kept {
 		pc.Classification = pc.Classification[:kept]
+	}
+	if pc.ReturnRefs != nil {
+		pc.ReturnRefs = pc.ReturnRefs[:kept]
 	}
 	pc.PointCount = kept
 }
