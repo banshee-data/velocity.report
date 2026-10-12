@@ -109,7 +109,7 @@ struct ProposalLayerStore {
 
     func save(_ proposals: [ObjectProposal], algorithm: String) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let timestamp = SidecarStore.utcTimestamp()
+        let timestamp = AnnotationClock.utcTimestamp()
         let provenance = Provenance(
             author: algorithm, createdUTC: timestamp, operation: "propose", algorithm: algorithm,
             algorithmVersion: "1")

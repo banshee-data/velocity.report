@@ -507,28 +507,37 @@ private func columns(_ x0: Float, _ x1: Float) -> SelectionPolygon {
         #expect(session.save())
     }
 
-    @Test func aPackThatAlreadyHasOneCanStillBeRepaired() throws {
-        let dir = try SyntheticPack.write([SyntheticPack.car(at: simd_float2(5, 0))])
+    /// A label set cannot hold one: its validation refuses the state, so no
+    /// version 2 pack can open with one. A version 1 sidecar can still carry
+    /// one, and the window lists it, but that pack is read only: the
+    /// migration into a label set is where it has to be resolved.
+    @Test func aLegacyPackThatHasOneListsItAndSavesNothing() throws {
+        let dir = try SyntheticPack.write([SyntheticPack.car(at: simd_float2(5, 0))], version: 1)
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
-        let store = SidecarStore(packDirectory: dir)
-        var doc = try store.load(
-            packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
-        doc.sidecar.objects = [
-            AnnotationObject(objectID: "a", objectClass: "car"),
-            AnnotationObject(objectID: "b", objectClass: "car"),
-        ]
-        doc.sidecar.masks = [
-            FrameMask(objectID: "a", sampleID: 0, pointIndices: [0, 1]),
-            FrameMask(objectID: "b", sampleID: 0, pointIndices: [1, 12]),
-        ]
-        _ = try store.save(doc, change: Provenance(author: "old", operation: "seed"))
+        let sidecar = """
+            {"schema_version": 1, "dataset_id": "\(pack.manifest.datasetID)",
+             "pack_digest": "\(pack.manifest.packDigest)", "revision": 1, "updated_utc": "",
+             "objects": [{"object_id": "a", "class": "car", "confidence": 1, "status": "proposed",
+                          "provenance": {"author": "old", "created_utc": "", "revision": 1}},
+                         {"object_id": "b", "class": "car", "confidence": 1, "status": "proposed",
+                          "provenance": {"author": "old", "created_utc": "", "revision": 1}}],
+             "masks": [{"object_id": "a", "sample_id": 0, "point_indices": [0, 1],
+                        "completeness": "partial", "visibility": "present", "status": "proposed",
+                        "provenance": {"author": "old", "created_utc": "", "revision": 1}},
+                       {"object_id": "b", "sample_id": 0, "point_indices": [1, 12],
+                        "completeness": "partial", "visibility": "present", "status": "proposed",
+                        "provenance": {"author": "old", "created_utc": "", "revision": 1}}]}
+            """
+        try Data(sidecar.utf8).write(to: dir.appendingPathComponent("annotations.json"))
         let session = try AnnotationSession(pack: pack)
         session.operatorName = "op"
         #expect(session.pointClaimConflicts.count == 1)
+        #expect(session.readOnlyReason != nil)
         #expect(session.activate(objectID: "b") == nil)
         #expect(session.select(polygon: columns(5.55, 5.7), mode: .replace))
-        #expect(session.save(), "the repair itself was refused")
-        #expect(session.pointClaimConflicts.isEmpty)
+        #expect(!session.save())
+        #expect(session.pointClaimConflicts.count == 1)
     }
 }
 

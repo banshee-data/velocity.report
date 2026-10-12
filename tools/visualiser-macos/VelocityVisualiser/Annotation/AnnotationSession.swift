@@ -62,10 +62,12 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Source
 
     let pack: AnnotationPack
-    private let store: SidecarStore
+    /// Where membership is kept: the label set this version 2 pack is a view
+    /// of, or a version 1 pack's annotations.json, read only.
+    private let membership: any MembershipStore
 
-    /// The current saved snapshot plus its concurrency token.
-    private var document: SidecarDocument {
+    /// The current saved revision plus its concurrency token.
+    private var document: MembershipDocument {
         didSet {
             // Membership changed on disk: the physical references' links are
             // checked against it, so the physical session has to hear.
@@ -76,8 +78,16 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
     }
 
-    /// The exact-byte digest of the membership this window last read or saved.
+    /// The digest of the membership this window last read or saved: the
+    /// label set's state digest, or a version 1 sidecar's byte digest.
     var membershipDigest: String { document.loadedDigest }
+
+    /// Why this window cannot save, or nil when it can. A version 1 pack is
+    /// read only: its labels are bound to one run's export.
+    var readOnlyReason: String? { membership.readOnlyReason }
+
+    /// Where membership is kept, in one line.
+    var membershipSummary: String { membership.summary }
 
     // MARK: Physical references
 
@@ -577,8 +587,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published private(set) var dirtySamples: Set<Int> = []
 
     @Published private(set) var lastError: String?
-    /// Set when a save was refused because another writer advanced the file.
-    @Published private(set) var conflict: SidecarStoreError?
+    /// Set when a save was refused because another writer advanced the
+    /// label set or holds its lock.
+    @Published private(set) var conflict: MembershipStoreError?
 
     /// Operator identity, collected rather than invented. A save without it
     /// is refused: anonymous legacy data stays readable, but this client does
@@ -678,7 +689,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Init
 
     init(
-        pack: AnnotationPack, store: SidecarStore? = nil,
+        pack: AnnotationPack, store: (any MembershipStore)? = nil,
         defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
         physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
         featureClient: FeatureAPIClient = FeatureAPIClient()
@@ -687,10 +698,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         self.physicalClient = physicalClient
         self.featureClient = featureClient
         self.defaults = defaults
-        let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
-        self.store = resolvedStore
-        self.document = try resolvedStore.load(
-            packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
+        let resolvedStore = store ?? MembershipStores.forPack(pack)
+        self.membership = resolvedStore
+        self.document = try resolvedStore.load()
         self.sidecar = document.sidecar
         self.pointClaimConflicts = document.sidecar.pointClaimConflicts()
         self.orderedSamples = pack.chronologicalSamples
@@ -787,8 +797,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             objectID: "obj_" + UUID().uuidString.prefix(8).lowercased(), objectClass: objectClass,
             subtype: subtype, confidence: 1.0, status: .proposed,
             provenance: Provenance(
-                author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
-                operation: "create_object"))
+                author: operatorName, session: sessionID,
+                createdUTC: AnnotationClock.utcTimestamp(), operation: "create_object"))
         sidecar.objects.append(object)
         activeObjectID = object.objectID
         // The selection on screen stays: it becomes this object's unsaved
@@ -868,7 +878,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
         sidecar.objects[idx].status = .reviewed
         sidecar.objects[idx].provenance = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "review_object")
         return true
     }
@@ -933,7 +943,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 "Enter your name under Labelled by before reviewing: a review has an author.")
         }
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: operation)
         var edited = document
         edited.sidecar = sidecar
@@ -961,10 +971,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             sidecar = document.sidecar
             refreshFrameProgress()
             return reviewed
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
     }
 
     /// How many of the object's saved frames are reviewed.
@@ -1773,7 +1780,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "apply_fixed_mask")
         change.algorithm = "footprint_carry"
         change.algorithmVersion = "1"
@@ -1789,7 +1796,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 mask.pointIndices = canonicalSelection
                 mask.provenance = Provenance(
                     author: operatorName, session: sessionID,
-                    createdUTC: SidecarStore.utcTimestamp(), operation: "save_mask")
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "save_mask")
             } else {
                 guard sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID) == nil,
                     let points = try? pack.points(sampleID: sample.sampleID)
@@ -1821,10 +1828,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             savedSelection = history.current
             refreshFrameProgress()
             return written
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
     }
 
     /// Records a failure where the operator can see it and where the log can:
@@ -1910,7 +1914,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         defer { propagationProgress = nil }
 
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "propagate_mask")
         change.algorithm = "footprint_carry"
         change.algorithmVersion = "1"
@@ -1996,10 +2000,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 refreshFrameProgress()
-            } catch let error as SidecarStoreError {
-                conflict = error
-                return fail(AnnotationSession.describe(error))
-            } catch { return fail("\(error)") }
+            } catch { return failSave(error) }
             carryVelocity[object.objectID] = velocity * Float(direction)
         }
 
@@ -2173,10 +2174,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 edited,
                 change: Provenance(
                     author: operatorName, session: sessionID,
-                    createdUTC: SidecarStore.utcTimestamp(), operation: "dismiss_proposal"))
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "dismiss_proposal"))
             sidecar = document.sidecar
         } catch {
-            lastError = "Could not keep dismissal: \(error)"
+            let _: Bool? = failSave(error)
             return
         }
         for (frame, indices) in proposal.frames {
@@ -2218,7 +2219,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "accept_proposal")
 
         let objectID: String
@@ -2255,10 +2256,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: change)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
 
         // What was not accepted stays proposed, if there is enough of it left
         // to be worth grading.
@@ -2319,7 +2317,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "merge_object")
 
         let moving = sidecar.masks.filter { others.contains($0.objectID) }
@@ -2350,10 +2348,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: change)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
 
         if let active = activeObjectID, others.contains(active) { activeObjectID = targetID }
         secondViewChecked = false
@@ -2402,7 +2397,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
 
         let byHand = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "split_object")
         var carriedOver = byHand
         carriedOver.algorithm = "footprint_split"
@@ -2506,10 +2501,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: byHand)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
         dirtySamples.remove(here.sampleID)
         loadSelectionForCurrentSample()
         refreshFrameProgress()
@@ -2764,8 +2756,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         case .failure(let error): return fail(error.message) ?? false
         case .success(let validated):
             let change = Provenance(
-                author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
-                operation: "save_mask")
+                author: operatorName, session: sessionID,
+                createdUTC: AnnotationClock.utcTimestamp(), operation: "save_mask")
             var mask =
                 sidecar.mask(objectID: objectID, sampleID: sample.sampleID)
                 ?? FrameMask(objectID: objectID, sampleID: sample.sampleID)
@@ -2791,22 +2783,21 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 savedSelection = Set(validated)
                 refreshFrameProgress()
                 return true
-            } catch let error as SidecarStoreError {
+            } catch {
                 // Neither busy nor conflict discards the operator's dirty
                 // membership: it stays in the history for reconciliation.
-                conflict = error
-                return fail(AnnotationSession.describe(error)) ?? false
-            } catch { return fail("\(error)") ?? false }
+                return failSave(error) ?? false
+            }
         }
     }
 
-    /// Re-reads the saved snapshot, discarding unsaved membership for the
+    /// Re-reads the saved revision, discarding unsaved membership for the
     /// current sample. The explicit way to resolve a conflict after the
     /// operator has decided the other writer wins.
     func reload() {
+        cachedCandidates = nil
         do {
-            document = try store.load(
-                packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
+            document = try membership.load()
             sidecar = document.sidecar
             dirtySamples.removeAll()
             conflict = nil
@@ -2823,28 +2814,151 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// Every membership write goes through here. It refuses a save that would
-    /// make two objects claim one return, which Go's sidecar validation
-    /// refuses outright. A pack that already has such a return can still be
-    /// saved, so the operator can repair it: only a new one is refused.
-    private func commit(_ edited: SidecarDocument, change: Provenance) throws -> SidecarDocument {
+    /// make two objects claim one return, which the label set's validation
+    /// refuses outright, with the sample and point the operator can find.
+    /// One call is one revision: an operation that writes many frames (a
+    /// propagation, a merge, a split) commits them together.
+    private func commit(
+        _ edited: MembershipDocument, change: Provenance
+    ) throws -> MembershipDocument {
+        if let reason = membership.readOnlyReason { throw MembershipStoreError.readOnly(reason) }
         let existing = Set(document.sidecar.pointClaimConflicts().map(\.key))
         let introduced = edited.sidecar.pointClaimConflicts().filter { !existing.contains($0.key) }
         if !introduced.isEmpty { throw PointClaimError(conflicts: introduced) }
-        return try store.save(edited, change: change)
+        return try membership.save(edited.sidecar, over: document, change: change)
     }
 
-    static func describe(_ error: SidecarStoreError) -> String {
+    /// Reports a refused save. Busy and conflict are kept apart, so the
+    /// window can offer to reload; nothing here discards unsaved work.
+    private func failSave<T>(_ error: Error) -> T? {
+        if let error = error as? MembershipStoreError {
+            switch error {
+            case .busy, .conflict: conflict = error
+            default: break
+            }
+            return fail(AnnotationSession.describe(error))
+        }
+        return fail("\(error)")
+    }
+
+    static func describe(_ error: MembershipStoreError) -> String {
         switch error {
-        case .busy: return "Another writer holds the annotation lock. Retry when it finishes."
+        case .busy: return "Another writer holds the label set's lock. Retry when it finishes."
         case .conflict(let loaded, let current):
             return
-                "This pack advanced to revision \(current) while you edited revision \(loaded). Your selection is kept; reconcile before saving."
+                "The label set advanced to revision \(current) while you edited revision \(loaded). Your selection is kept; reconcile before saving."
         case .malformed(let detail): return "Annotation file problem: \(detail)"
         case .unwritable(let detail): return "Could not write: \(detail)"
-        case .tooLarge(let bytes): return "Snapshot is \(bytes) bytes, above the 64 MiB limit."
-        case .packMismatch(let expected, let actual):
-            return "Annotations belong to pack \(actual), not \(expected)."
+        case .readOnly(let reason): return "Not saved. \(reason)"
+        case .refused(let detail): return detail
         }
+    }
+
+    // MARK: - Revisions
+
+    /// The label set's saved revisions, oldest first. Empty for a version 1
+    /// pack and before the first save.
+    func revisionHistory() -> [MembershipRevision] { membership.revisions() }
+
+    /// Makes an earlier revision current again, as a new revision rebuilt by
+    /// replaying the journal. Nothing earlier is rewritten, and a restore
+    /// recreates what that revision held: it never reviews anything.
+    @discardableResult func restoreRevision(_ revision: Int) -> Bool {
+        lastError = nil
+        conflict = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail(
+                "Enter your name under Labelled by before restoring: a revision has an author.")
+                ?? false
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before restoring a revision.")
+                ?? false
+        }
+        do {
+            document = try membership.restore(
+                revision: revision,
+                change: Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "restore"))
+        } catch { return failSave(error) ?? false }
+        sidecar = document.sidecar
+        dirtySamples.removeAll()
+        if let id = activeObjectID, !sidecar.objects.contains(where: { $0.objectID == id }) {
+            activeObjectID = nil
+        }
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return true
+    }
+
+    /// Undoes the last save by restoring the revision before it.
+    @discardableResult func undoLastSave() -> Bool {
+        guard document.revision > 1 else {
+            return fail("There is no earlier saved revision to go back to.") ?? false
+        }
+        return restoreRevision(document.revision - 1)
+    }
+
+    /// The saved revision this window holds.
+    var savedRevision: Int { document.revision }
+
+    // MARK: - Attaching to a label set
+
+    /// Whether this pack can be attached to an existing label set: a
+    /// version 2 pack that is not yet a view of one.
+    var canAttachLabelSet: Bool {
+        guard let labels = membership as? LabelSetMembership else { return false }
+        return labels.store == nil && labels.readOnlyReason == nil
+    }
+
+    /// Label sets beside this pack that share its packets. Found once and
+    /// kept, because the pane asks on every redraw and finding them reads
+    /// every set's packet table.
+    func labelSetCandidates() -> [LabelSetCandidate] {
+        if let cachedCandidates { return cachedCandidates }
+        let found = (membership as? LabelSetMembership)?.candidates() ?? []
+        cachedCandidates = found
+        return found
+    }
+
+    private var cachedCandidates: [LabelSetCandidate]?
+
+    /// Makes this pack a view of an existing label set of the same capture:
+    /// its foreground is added as a new domain, in one revision, and the
+    /// window reloads to show the set's labels through this pack.
+    @discardableResult func attachLabelSet(at directory: URL) -> Bool {
+        lastError = nil
+        guard let labels = membership as? LabelSetMembership, canAttachLabelSet else {
+            return fail("Only a version 2 pack with no label set yet can be attached.") ?? false
+        }
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail(
+                "Enter your name under Labelled by before attaching: a revision has an author.")
+                ?? false
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before attaching a label set.")
+                ?? false
+        }
+        let skipped: [Int]
+        do {
+            skipped = try labels.attach(
+                to: directory,
+                change: Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "add_domain"))
+        } catch { return failSave(error) ?? false }
+        reload()
+        guard lastError == nil else { return false }
+        if !skipped.isEmpty {
+            lastError =
+                "Attached. \(skipped.count) of this pack's frames were framed differently from "
+                + "the label set's and cannot be labelled through it."
+        }
+        return true
     }
 
     // MARK: - Private
