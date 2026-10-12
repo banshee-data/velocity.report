@@ -47,6 +47,19 @@ pack listing. A sidecar save to a linked pack is refused; membership is written 
 set. Freezing a split over a linked pack binds its case to the label set's verified captures by
 SHA-256, so a replay of any verified file holds its role and a different file does not.
 
+## Where it shows
+
+| Place                                   | What it shows                                                                                                                                                                                                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS annotation window, label set line | The label set's name and revision; each verified capture file with a short SHA-256, packets found and frames covered (or the `bind` command when there are none); and, for a migrated set, the pack it came from |
+| macOS annotation window, replay check   | With "Follow the main view" on: whether the main view's current frame holds this label set's packets (same capture, partly, a different capture, or cannot check when frames carry no packet keys)               |
+| macOS annotation window, version 1 pack | Read only; when a migrated copy sits beside it, the banner names it and offers "Open version 2 pack"                                                                                                             |
+| Web, Segments page, Annotation packs    | Every pack: its label set and revision or that it is a read-only version 1 pack (and where its labels moved), reviewed work, and each verified capture file                                                      |
+
+The replay check compares the packet keys on the gRPC stream with the label set's packet table, so it
+is a check of content, whichever verified file the main view replays. A live source, a VRLOG recorded
+before return identity, or an older server sends no keys, and the window says it cannot check.
+
 ## Migrating a version 1 pack
 
 ```bash
