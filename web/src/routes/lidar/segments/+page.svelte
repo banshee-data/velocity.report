@@ -9,6 +9,14 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { getLidarRuns } from '#lib/api.js';
+	import {
+		baseName,
+		capturesText,
+		inventoryOrder,
+		labelsText,
+		reviewText,
+		type AnnotationPack
+	} from '#lib/labelSets.js';
 	import { clipQuery, runQuery, tracksQuery } from '#lib/lidarLinks.js';
 	import {
 		keepSelector,
@@ -45,15 +53,7 @@
 		job_id?: string;
 		pack_dir?: string;
 	};
-	type Pack = {
-		segment_id?: string;
-		status: string;
-		pack_dir: string;
-		reviewed_objects: number;
-		reviewed_masks: number;
-		proposal_layers: number;
-		error?: string;
-	};
+	type Pack = AnnotationPack;
 
 	let runs: AnalysisRun[] = [];
 	let runID = '';
@@ -79,6 +79,7 @@
 	$: chosen = selectors.find((entry) => entry.id === selectorID);
 	$: visible = segments.filter((entry) => !dismissed.has(entry.id));
 	$: selectedPack = packs.find((pack) => pack.segment_id === selected?.id);
+	$: inventory = inventoryOrder(packs);
 
 	async function api(path: string, init?: RequestInit) {
 		const response = await fetch(path, init);
@@ -192,6 +193,8 @@
 		// The full list carries every run's label progress, which takes a
 		// while on a large database. The ranking needs only the newest run,
 		// so it starts from that, and the list fills the picker on arrival.
+		// The pack inventory does not depend on the run.
+		void loadPacks();
 		const everyRun = getLidarRuns();
 		// Its failure is reported below; this keeps one that comes before it
 		// is awaited from being an unhandled rejection.
@@ -414,10 +417,40 @@
 				{#if selectedPack}<p>
 						Pack: {selectedPack.pack_dir} · {selectedPack.proposal_layers} proposal layers · {selectedPack.reviewed_objects}
 						reviewed objects · {selectedPack.reviewed_masks} reviewed masks
-					</p>{/if}
+					</p>
+					<p>{labelsText(selectedPack)}</p>
+					{#each capturesText(selectedPack) as line, i (i)}<p class="text-surface-content/70">
+							{line}
+						</p>{/each}{/if}
 				<p class="text-surface-content/70">
 					Open the pack directory in the macOS annotation tool to review it.
 				</p>
+			</section>
+		{/if}
+
+		{#if inventory.length > 0}
+			<section
+				class="border-surface-content/10 bg-surface-100 space-y-3 rounded-lg border p-4 text-sm"
+				aria-label="Annotation packs"
+			>
+				<h2 class="text-surface-content text-lg font-semibold">Annotation packs</h2>
+				<p class="text-surface-content/70">
+					Labels live in label sets, which cite a capture's returns by packet, so one set applies to
+					every run of the capture. Verified captures are the files checked to hold its packets.
+					Edit in the macOS annotation tool; version 1 packs are read only.
+				</p>
+				<ul class="space-y-2">
+					{#each inventory as pack (pack.pack_dir)}
+						<li>
+							<p class="font-mono">{baseName(pack.pack_dir)}</p>
+							<p>{labelsText(pack)} · {reviewText(pack)}</p>
+							{#each capturesText(pack) as line, i (i)}<p class="text-surface-content/70">
+									{line}
+								</p>{/each}
+							{#if pack.error}<p class="text-danger">{pack.error}</p>{/if}
+						</li>
+					{/each}
+				</ul>
 			</section>
 		{/if}
 	</div>
