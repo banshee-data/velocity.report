@@ -17,7 +17,8 @@ of it each run actually found.
 | `analyse.py`    | Reads the results and reports the trade between recall and precision         |
 
 ```bash
-python3 gt_extract.py <pack-dir> ground-truth.json
+velocity lidar labels project --pack <pack-dir> > membership.json
+python3 gt_extract.py <pack-dir> ground-truth.json membership.json
 python3 sweep.py ./lidar-bench <work-dir> <repo> <hours> <parallel-runs>
 python3 analyse.py <work-dir>/results.jsonl
 ```
