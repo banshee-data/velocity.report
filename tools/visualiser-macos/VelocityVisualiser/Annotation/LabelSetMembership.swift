@@ -93,17 +93,32 @@ enum MembershipStores {
 
 /// Shows a version 1 pack's annotations.json as it stands. Saves are refused:
 /// those labels cite this run's sample and point numbers, and a new revision
-/// of them would be more work bound to one export. The migration moves them.
+/// of them would be more work bound to one export. The migration moves them,
+/// and once it has, the pack points to the version 2 copy that holds them.
 final class LegacySidecarReader: MembershipStore {
     let pack: AnnotationPack
     /// The sidecar's ceiling, as the Go store has it.
     static let maxBytes = 64 << 20
+    /// What looking beside the pack for its migrated copy found, each time
+    /// the labels are read.
+    private(set) var search: MigratedPackSearch = .notFound
 
     init(pack: AnnotationPack) { self.pack = pack }
 
     var readOnlyReason: String? {
-        "Legacy pack (version 1): read only. Its labels cite this run's points, not the "
-            + "capture's returns. Migrate it with `\(MembershipStores.migrateCommand(packDirectory: pack.directory))`."
+        let lead = "Legacy pack (version 1): read only."
+        if let successor = search.successor {
+            return lead
+                + " Its labels were migrated to \(successor.packDirectory.lastPathComponent) "
+                + "(label set \(successor.labelSetName), revision \(successor.labelSetRevision))."
+        }
+        let migrate =
+            lead + " Its labels cite this run's points, not the capture's returns. Migrate it with "
+            + "`\(MembershipStores.migrateCommand(packDirectory: pack.directory))`."
+        guard case .folderUnreadable = search else { return migrate }
+        return migrate
+            + " The folder holding it could not be read, so a migrated copy beside it was not "
+            + "looked for."
     }
 
     var summary: String {
@@ -114,6 +129,7 @@ final class LegacySidecarReader: MembershipStore {
     private var url: URL { pack.directory.appendingPathComponent("annotations.json") }
 
     func load() throws -> MembershipDocument {
+        search = MigratedPackSearch.beside(pack.directory)
         guard FileManager.default.fileExists(atPath: url.path) else {
             var empty = Sidecar()
             empty.packDigest = pack.manifest.packDigest
