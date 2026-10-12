@@ -89,6 +89,12 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// read only: its labels are bound to one run's export.
     var readOnlyReason: String? { membership.readOnlyReason }
 
+    /// The version 2 pack beside this version 1 pack that its labels were
+    /// migrated to, if there is one.
+    var migratedSuccessor: MigratedPackSuccessor? {
+        (membership as? LegacySidecarReader)?.search.successor
+    }
+
     /// Where membership is kept, in one line.
     var membershipSummary: String { membership.summary }
 
@@ -1904,6 +1910,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             return written
         } catch { return failSave(error) }
     }
+
+    /// Shows a failure this window asked for but did not cause, such as a
+    /// pack it was asked to open that could not be.
+    func report(_ message: String) { let _: Bool? = fail(message) }
 
     /// Records a failure where the operator can see it and where the log can:
     /// a save that fails silently is indistinguishable from one that worked.
