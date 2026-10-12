@@ -75,6 +75,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 let physical = self.physical
                 Task { await physical.membershipDidChange() }
             }
+            // A first save or an attach changes what a replay is checked
+            // against.
+            refreshReplayCheck()
         }
     }
 
@@ -86,8 +89,26 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// read only: its labels are bound to one run's export.
     var readOnlyReason: String? { membership.readOnlyReason }
 
+    /// The version 2 pack beside this version 1 pack that its labels were
+    /// migrated to, if there is one.
+    var migratedSuccessor: MigratedPackSuccessor? {
+        (membership as? LegacySidecarReader)?.search.successor
+    }
+
     /// Where membership is kept, in one line.
     var membershipSummary: String { membership.summary }
+
+    /// The label set's verified capture files and the version 1 pack it was
+    /// migrated from, a line each. Empty for a version 1 pack, and for a
+    /// version 2 pack until its first save makes a label set.
+    var labelSetCaptureLines: [String] {
+        guard let labels = membership as? LabelSetMembership, let store = labels.store else {
+            return []
+        }
+        return LabelSetCaptures.lines(
+            manifest: store.manifest, packets: store.baseState.packets.count,
+            windows: store.baseState.windows.count, directory: store.directory)
+    }
 
     // MARK: Physical references
 
@@ -458,10 +479,24 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             // Physical authoring is blind: the main view draws the tracker's
             // boxes, so it does not follow or lead while a pose is authored.
             if syncWithMainView, workMode != .points { syncWithMainView = false }
-            if !syncWithMainView { syncStatus = .off }
+            if !syncWithMainView {
+                syncStatus = .off
+                matchMainView(packetKeys: nil)
+            }
         }
     }
     @Published private(set) var syncStatus: FrameSyncStatus = .off
+    /// Whether the main view's frame is of the capture this pack's labels
+    /// cite, by its packet keys. Nil until frame sync has matched the main
+    /// view to one of this pack's frames, and always for a version 1 pack,
+    /// which has no packets to compare with.
+    @Published private(set) var replayCheck: ReplayCaptureCheck?
+    /// The main view's packet keys when frame sync last matched it to a
+    /// sample, kept so the check can be made again if the table changes.
+    private var matchedMainKeys: [UInt64]?
+    /// The table as a set, built once per table: a label set's can hold
+    /// a hundred and fifty thousand packets, and the check runs per frame.
+    private var replayTableCache: (labelSetID: String, count: Int, keys: Set<UInt64>)?
     /// While the main view plays, keep it inside this pack's frames: when it
     /// runs past the last one, send it back to the first. A pack is a few
     /// seconds of a recording that may be minutes long, and a replay that
@@ -1589,7 +1624,11 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// this window stepped.
     @discardableResult func follow(_ main: MainViewPlayback) -> Bool {
         guard syncWithMainView else { return false }
-        guard let target = syncTarget(for: main) else { return false }
+        guard let target = syncTarget(for: main) else {
+            matchMainView(packetKeys: nil)
+            return false
+        }
+        matchMainView(packetKeys: main.packetKeys)
         guard target != sampleIndex else {
             syncStatus = .inSync
             return false
@@ -1641,6 +1680,47 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             main.timestampNs > last.timestampNs + tolerance
             || main.timestampNs < first.timestampNs - tolerance
         return outside || main.finished ? first.timestampNs : nil
+    }
+
+    /// True for a version 2 pack, whose packets a replay can be checked
+    /// against. A version 1 pack has none.
+    var checksReplayCapture: Bool { membership is LabelSetMembership }
+
+    /// What the replay check compares with.
+    var replayCheckSubject: ReplayCheckSubject {
+        (membership as? LabelSetMembership)?.store == nil ? .pack : .labelSet
+    }
+
+    /// Records the main view's packet keys at a matched frame, or nil when
+    /// frame sync matched none, and checks them.
+    private func matchMainView(packetKeys: [UInt64]?) {
+        matchedMainKeys = packetKeys
+        refreshReplayCheck()
+    }
+
+    private func refreshReplayCheck() {
+        var next: ReplayCaptureCheck?
+        if let keys = matchedMainKeys, let table = replayTable() {
+            next = ReplayCaptureCheck.evaluate(frameKeys: keys, table: table)
+        }
+        // Published only when it changes: it is checked on every followed
+        // frame, and an unchanged answer is no reason to redraw.
+        if next != replayCheck { replayCheck = next }
+    }
+
+    /// The table a replay is checked against. A table only grows, at its
+    /// end, so its label set and length say whether the cached set is
+    /// still it.
+    private func replayTable() -> Set<UInt64>? {
+        guard let labels = membership as? LabelSetMembership else { return nil }
+        let id = labels.store?.labelSetID ?? ""
+        let table = labels.packetTable
+        if let cached = replayTableCache, cached.labelSetID == id, cached.count == table.count {
+            return cached.keys
+        }
+        let keys = Set(table)
+        replayTableCache = (id, table.count, keys)
+        return keys
     }
 
     /// The sample the main view's frame corresponds to, recording why not when
@@ -1830,6 +1910,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             return written
         } catch { return failSave(error) }
     }
+
+    /// Shows a failure this window asked for but did not cause, such as a
+    /// pack it was asked to open that could not be.
+    func report(_ message: String) { let _: Bool? = fail(message) }
 
     /// Records a failure where the operator can see it and where the log can:
     /// a save that fails silently is indistinguishable from one that worked.

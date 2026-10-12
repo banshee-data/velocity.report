@@ -56,6 +56,8 @@ struct AnnotationProgressHeader: View {
 /// that had worked.
 struct AnnotationStatusStrip: View {
     @ObservedObject var session: AnnotationSession
+    /// Opens the version 2 pack a version 1 pack's labels were migrated to.
+    var openSuccessor: ((URL) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -65,6 +67,12 @@ struct AnnotationStatusStrip: View {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "lock.fill").foregroundStyle(.orange)
                     Text(reason).foregroundStyle(.orange).textSelection(.enabled)
+                    // Where these labels are kept now: one click to where
+                    // they can be edited.
+                    if let successor = session.migratedSuccessor, let openSuccessor {
+                        Button("Open version 2 pack") { openSuccessor(successor.packDirectory) }
+                            .controlSize(.small).fixedSize().help(successor.packDirectory.path)
+                    }
                 }
             }
             status

@@ -89,8 +89,18 @@ the [labelset package README](../../../internal/lidar/annotation/labelset/README
   sets in `labels/` that share its packets. Its foreground becomes a second domain. An edit made
   through one run keeps the members that only the other run shows. Removing or merging an object
   that has labels this run cannot see is refused.
-- A **version 1** pack opens read only. Its `annotations.json` is shown as it stands, and a banner
-  gives the migration: `velocity lidar labels migrate --pack <dir> --pcap <file>`.
+- Under the label set's name and revision, the left column lists the capture files the set has
+  been verified against with `velocity lidar labels bind`: file name, the first 8 hex digits of
+  its SHA-256, packets found of the set's packets, and whole frames of the set's frames. Three are
+  listed, then a count. A set verified against none says so and gives the `bind` command with its
+  directory. A migrated set names the version 1 pack and revision it came from.
+- A **version 1** pack opens read only. Its `annotations.json` is shown as it stands. If a pack
+  beside it is linked to a label set migrated from it (the set's `migrated_from.pack_dir` is this
+  pack's directory name, whatever the copy is called), the banner names that pack, the label set
+  and its revision, and **Open version 2 pack** opens it, asking for the annotation dir if the app
+  has not been given it. Otherwise the banner gives the migration:
+  `velocity lidar labels migrate --pack <dir> --pcap <file>`. The window looks beside the pack
+  only in a folder already granted, and says so when it could not read it.
 
 Every pack is version 2: each point also names the return in the capture it was decoded from, by
 packet and position, which is what lets a
@@ -231,6 +241,18 @@ object is behind is left alone. Any other fit stops following, until an object i
 The arrow keys belong to the window: `←` and `→` step a frame whichever view was clicked last,
 the 3D view included, and only a text field being typed in keeps them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
 moving the main view steps here; the main view has to be replaying the same run.
+
+Frames are matched by time, which cannot tell two captures apart. So when the main view is on one
+of this pack's frames, a second line compares the packets that frame was decoded from (the
+stream's packet keys) with the label set's packet table, or with the pack's own packets before
+its first save. It is information only, and blocks nothing.
+
+| Line                               | Means                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Same capture: _n_ of _m_ packets … | At least nine in ten of the frame's packets are in the table                            |
+| Partly the same capture (orange)   | Some of them are, fewer than nine in ten                                                |
+| Different capture (orange)         | None are: the main view is replaying packets this label set does not cover              |
+| Cannot check the capture           | The frame carries no packet keys: an older recording, a live source, or an older server |
 
 **Loop this pack's frames**, on by default, keeps a playing main view inside the pack: when it
 runs past the pack's last frame, or off the end of the recording, it is sent back to the first.
