@@ -5,7 +5,8 @@
   plan's question B8, and Waymo's ESV26-294 naturalistic and police-reported comparison as a
   cited source in the crash-data plan. Owner decisions applied October 12 ([D-29][d29]): Q1
   adopted as a proposed external reference in the physical-reference plan with a backlog item; Q2
-  deferred until the corpus gains a wet or snowy capture.
+  deferred until the corpus gains a wet or snowy capture. Follow-up reads the same day: the SSAM
+  screenshots, the Patna PET paper in full and three more sources in part; none changes anything.
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 5 to 12, 2026. No third-party
   briefing was supplied. The window overlaps the October 11 briefing, which is still on its own
@@ -73,7 +74,7 @@ through news coverage.
 | FHWA, _SSAM: Software User Manual_, FHWA-HRT-08-050                                              | 2008                | Primary newly reachable; the behaviour plan's B8                       |
 | Campolettano, Scanlon and Kusano, VRU benchmarks from naturalistic and police data, ESV26-294    | 2026 (ESV, Toronto) | Waymo research page; read in full                                      |
 | AAA Foundation, 2026 Safe Mobility Conference proceedings                                        | September 2026      | **Confirm** on October 11; read in part this week                      |
-| Post-encroachment thresholds at unsignalised intersections, Patna (Springer, s44465-026-00015-2) | May 2026            | PET topic query; Springer served a script challenge                    |
+| Post-encroachment thresholds at unsignalised intersections, Patna (Springer, s44465-026-00015-2) | May 2026            | PET topic query; read in full in a follow-up fetch                     |
 | Gao and Luo, TACTIC, roadside attacks on a vehicle's LiDAR, arXiv 2609.39969                     | September 30, 2026  | arXiv API; abstract read; the attacked sensor is a vehicle's, not ours |
 
 The proceedings were read for the sessions in scope. One abstract, Campolettano's on speed-limit
@@ -146,8 +147,8 @@ quantity; ESV26-252 is the one a later crash-data review should read.
    42.7 m at 30 km/h; at 130 km/h, 36.1 m to 51.0 m. Its slope in the speed difference is t_B +
    Δv/a, at least 0.4 s, so the curve is flattest, not flat, at small Δv, where the paper's six
    overshoots sit. There the time-gap term dominates, and the 1 s lane-crossing annotation moves
-   the measured gap by Δv times the timing error; at a few metres per second that is the same order as
-   the tracker's 0.83 m. The paper claims "3-sigma or 99% confidence" for three cases: three
+   the measured gap by Δv times the timing error; at a few metres per second that is the same order
+   as the tracker's 0.83 m. The paper claims "3-sigma or 99% confidence" for three cases: three
    sigma is 99.7%, so the two statements differ, and the case list names 16d in the discussion and
    16c in the results. The precision figures rest on the 2.3% of the record where both vehicles
    held an RTK integer fix at once: that small, selected subset is the dominant uncertainty.
@@ -185,9 +186,11 @@ quantity; ESV26-252 is the one a later crash-data review should read.
 2. **Maths.** None to re-derive. The values are the point: the Configuration tab "configured with
    Maximum TTC value to be 1.5 and Maximum post-encroachment to be 5.0" (Figure 20), the text
    says the example leaves "default maximum TTC and maximum PET values" unchanged (Figure 24), and
-   the map view groups conflicts at TTC of at most 0.5, 1.0 and 1.5 s. The values come from the
-   figures' descriptions and the text; the screenshots were not viewed, which is why the plan
-   says "as the manual describes it".
+   the map view groups conflicts at TTC of at most 0.5, 1.0 and 1.5 s. The two screenshots were
+   viewed in a follow-up fetch the same day: Figure 20 shows a new case file with no trajectory
+   files loaded and the Conflict Thresholds fields at 1.50 and 5.00, and Figure 24 shows the same
+   values after files are added with "all other settings ... by default". The default is read
+   from the primary, not inferred from its captions.
 3. **Sensor.** Unchanged from the plan: a screen built for simulated trajectories, extended to
    measured ones with that said wherever an SSAM number appears.
 4. **Lands.** The behaviour plan's Section 5.1 cited the 5 s PET default "as reported in the
@@ -212,8 +215,8 @@ quantity; ESV26-252 is the one a later crash-data review should read.
    2020 to October 2024, of which 104 contacts (96 with injury potential) fall in the two years
    with mileage, against 92.9 million surface-street miles, reweighted by borough to FHWA shares.
    The other is New York State police reports for 2022, all passenger vehicles in transport,
-   against 9,494.6 million surface-street miles. Collision speed is reconstructed from video and GPS, with
-   side contacts scaled down for partial engagement.
+   against 9,494.6 million surface-street miles. Collision speed is reconstructed from video and
+   GPS, with side contacts scaled down for partial engagement.
 2. **Maths.** The police-reported rates reproduce: 8,501.58 / 9,494.58 = 0.895, 4,239.95 / 9,494.58
    = 0.447 and 1,610.95 / 9,494.58 = 0.170 per million miles, and Byar's approximation on those
    counts returns the published intervals to the third decimal. The counts are fractional, so they
@@ -270,14 +273,59 @@ does not cite before-and-after effects of enforcement. Not adopted: a secondary 
 studies; the primaries it cites would be the sources if the posted speed limits plan ever needs
 an enforcement context paragraph. Rights: no reuse terms stated.
 
+## Follow-up reads, October 12
+
+After the owner asked for the "To fetch" list to be retried, four more sources were reached: one
+in full through a different fetch path, one as a full-text extraction, and two as abstracts from
+the Semantic Scholar API. None changes a definition.
+
+- **Ranjan, Kumar, Sinha, Suman and Kumar, _Assessment of traffic safety at unsignalized
+  intersections using post encroachment time under heterogeneous traffic conditions_, Discover
+  Vehicles 2:14, 2026 (read in full).** Six four-leg unsignalised intersections in Patna,
+  recorded by video from about 6 m at 30 frames per second in two peak periods a day, PET
+  extracted by hand at 0.1 s resolution by two analysts, and compared with VISSIM and SSAM. A
+  6 s PET threshold separates "critical" from "non-critical" conflicts, following Singh et al.
+  and the 3 to 6 s range reported for heterogeneous traffic; the same 6 s also defines which
+  interactions count as conflicts at all, so the paper's critical share is a share of
+  interactions below a band. Its critical-speed table follows from equating the distance
+  available, v × PET, with the braking distance v² / (2gf), which gives v = 2gf × PET; the
+  tabulated 6.86 m/s at 1.0 s implies f = 0.35, and every row reproduces. The hourly totals
+  reproduce (Bypass Road 741 over four hours, 185.25 an hour). SSAM found fewer conflicts than
+  the manual count at every site. The method is a camera, which Tenet 1 rules out here; the
+  definition of PET is the plan's. Verdict: not adopted; 6 s is a site- and traffic-mix choice
+  and joins the evidence that Section 5.1's "thresholds vary substantially by site type and road
+  user" is right. Rights: CC BY 4.0, stated on the article.
+- **Wang et al., _Dynamic occlusion-predictive neural network for robust roadside multi-vehicle
+  tracking_, Sensors 26(11):3529, 2026 (read in part, through a summarising fetch of the PMC full
+  text, so every figure stays Confirm).** Pole-mounted LiDAR and cameras: DAIR-V2X segments and
+  about 300 hours from 14 sensor groups on a 2 km Shanghai road. A learned occlusion predictor
+  weights the loss, and a graph network generates "virtual perception" states for targets it
+  cannot see. Reported MOTA 92.6% on DAIR-V2X and 80.6% on the authors' own data, at about
+  28 frames per second on an RTX 3090. The extraction notes that the abstract calls the predictor
+  a Transformer where Section 3.1 describes an LSTM, and that the same-detector table repeats
+  the main table's row. Verdict: not adopted: a GPU model outside the Raspberry Pi envelope, and
+  inferred states for unseen targets run against the plan's rule that coasted intervals are not
+  observations; the behaviour plan already cites Dong et al.'s time-space correction for the same
+  problem. Rights: CC BY 4.0.
+- **Wu et al., _Modeling crash risk via pre-crash trajectory analysis_, Accident Analysis and
+  Prevention 236, 2026 (abstract).** It answers half of the October 11 briefing's Q3: the
+  population is 545,052 crash-involved trajectories from a nationwide naturalistic driving
+  dataset in China, each matched to four non-crash trajectories by time and place and fitted by
+  conditional logistic regression. It is an association model over vehicle telemetry, not a
+  speed-change crash model, and not a population a roadside sensor observes. Not adopted.
+- **Dean, Doerzaph and Riexinger, _A Safe System approach to setting speed limits through the
+  development of injury modification factors_, Transportation Research Record, 2025
+  (abstract).** Worst-case crash scenarios for seven crash types give a maximum delta-v, which
+  existing frontal, oblique and rear injury-risk models turn into injury counts, divided by crash
+  counts to give an injury-to-crash ratio by road type and posted limit. It is a model built on
+  worst-case scenarios, not observed injuries; it would be a `published_model` candidate beside
+  the harm curves if that kind is adopted. The October 11 briefing dated it 2026, but the record
+  gives 2025. Not adopted; the factors themselves were not read.
+
 ## Sources seen only as summaries
 
 Each is **Confirm**; no figure below was read in a primary.
 
-- **Post-encroachment thresholds at six unsignalised intersections in Patna, India (Springer,
-  May 2026).** Search summary: a 6 s PET threshold for critical conflicts in heterogeneous
-  traffic, citing earlier values of 3 to 6 s. The behaviour plan's Section 5.1 already says PET
-  thresholds "vary substantially by site type and road user". Not adopted unread.
 - **NSC Injury Facts, preliminary motor-vehicle deaths, first half of 2026.** Search summary:
   1.12 deaths per 100 million vehicle-miles. A preliminary estimate the crash-data plan has no use
   for while FARS is its fatal source; the host refused the proxy.
@@ -318,27 +366,28 @@ Decided by the owner on October 12, 2026 and recorded as [D-29][d29].
 
 ## Sources checked
 
-| Source                                                                   | Status                                                          |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| arXiv 2610.13891, Yang and Bos                                           | Read                                                            |
-| arXiv 2608.26669, Cellina et al.                                         | Read                                                            |
-| FHWA-HRT-08-050, SSAM software user manual (HTML)                        | Read in part (Configuration, Filter, Map and appendix)          |
-| ESV26-294, Campolettano, Scanlon and Kusano                              | Read                                                            |
-| arXiv 2610.08458, Liu et al., Part II                                    | Read in part (abstract, method and results)                     |
-| IIHS and HLDI, _Safety Solution: speed safety cameras_                   | Read                                                            |
-| AAA Foundation, 2026 Safe Mobility Conference proceedings                | Read in part (surrogate-measure and speed-management sessions)  |
-| Waymo safety research page                                               | Read; ESV26-294 taken up; four other 2026 entries not evaluated |
-| PyPI `humanbaselines` release list                                       | Read; 0.4.0 of October 1 is still the latest                    |
-| arXiv 2610.05003, percentile control for scenario generation             | Read in part (abstract)                                         |
-| arXiv 2609.39969, TACTIC                                                 | Read in part (abstract)                                         |
-| Springer s44465-026-00015-2, Patna PET thresholds                        | **Confirm** (script challenge)                                  |
-| NSC Injury Facts, preliminary estimates, first half of 2026              | **Confirm** (refused by the proxy)                              |
-| AAA Foundation unbelted-occupant analysis, October 2026                  | **Confirm** (news coverage only; host refused)                  |
-| WADS-3D dataset licence                                                  | **Confirm**                                                     |
-| PubMed 42508180, pre-crash trajectory case-control (October 11 To fetch) | **Confirm** (cookie wall again)                                 |
-| HighwayScene project page (October 11 To fetch)                          | **Confirm** (refused by the proxy)                              |
-| ERSO thematic report on speed, 2026 PDF (October 11 To fetch)            | **Confirm** (refused by the proxy)                              |
-| Sensors 26(11):3529 (October 11 To fetch)                                | **Confirm** (403)                                               |
+| Source                                                                      | Status                                                                 |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| arXiv 2610.13891, Yang and Bos                                              | Read                                                                   |
+| arXiv 2608.26669, Cellina et al.                                            | Read                                                                   |
+| FHWA-HRT-08-050, SSAM software user manual (HTML)                           | Read in part (Configuration, Filter, Map and appendix)                 |
+| ESV26-294, Campolettano, Scanlon and Kusano                                 | Read                                                                   |
+| arXiv 2610.08458, Liu et al., Part II                                       | Read in part (abstract, method and results)                            |
+| IIHS and HLDI, _Safety Solution: speed safety cameras_                      | Read                                                                   |
+| AAA Foundation, 2026 Safe Mobility Conference proceedings                   | Read in part (surrogate-measure and speed-management sessions)         |
+| Waymo safety research page                                                  | Read; ESV26-294 taken up; four other 2026 entries not evaluated        |
+| PyPI `humanbaselines` release list                                          | Read; 0.4.0 of October 1 is still the latest                           |
+| arXiv 2610.05003, percentile control for scenario generation                | Read in part (abstract)                                                |
+| arXiv 2609.39969, TACTIC                                                    | Read in part (abstract)                                                |
+| Discover Vehicles 2:14, Ranjan et al., Patna PET thresholds                 | Read (follow-up fetch)                                                 |
+| NSC Injury Facts, preliminary estimates, first half of 2026                 | **Confirm** (refused by the proxy)                                     |
+| AAA Foundation unbelted-occupant analysis, October 2026                     | **Confirm** (news coverage only; host refused)                         |
+| WADS-3D dataset licence                                                     | **Confirm**                                                            |
+| AAP 236, Wu et al., pre-crash trajectory case-control (October 11 To fetch) | Read in part (abstract, Semantic Scholar API); full text **Confirm**   |
+| TRR, Dean, Doerzaph and Riexinger (October 11 To fetch)                     | Read in part (abstract, Semantic Scholar API); factors **Confirm**     |
+| HighwayScene project page (October 11 To fetch)                             | **Confirm** (refused by the proxy)                                     |
+| ERSO thematic report on speed, 2026 PDF (October 11 To fetch)               | **Confirm** (refused by the proxy)                                     |
+| Sensors 26(11):3529, Wang et al. (October 11 To fetch)                      | Read in part (summarising fetch of PMC full text); figures **Confirm** |
 
 ## Provenance
 
@@ -370,16 +419,27 @@ PyPI JSON for `humanbaselines`. Refused: link.springer.com (script challenge), i
 highwayscene.github.io, road-safety.transport.ec.europa.eu and contracosta.news (proxy 403),
 mdpi.com (403), pubmed.ncbi.nlm.nih.gov (cookie wall).
 
+Follow-up retrieval, October 12, after the owner asked for the "To fetch" list to be retried: the
+FHWA figure images `fig20.jpg` and `fig24.jpg` by `curl` and viewed; the Discover Vehicles PDF
+through `WebFetch`, which followed Springer's cookie redirect where `curl` met a script challenge,
+converted with `pdftotext`; the Sensors article through `WebFetch` of its PMC page, which `curl`
+met with a reCAPTCHA; abstracts for the AAP and TRR papers from api.semanticscholar.org. Still
+refused: digitalcommons.mtu.edu, injuryfacts.nsc.org, highwayscene.github.io,
+road-safety.transport.ec.europa.eu, ebi.ac.uk, api.openalex.org and api.unpaywall.org (proxy or
+DNS), journals.sagepub.com (403), pubmed.ncbi.nlm.nih.gov (cookie wall).
+
 ## To fetch
 
-- https://link.springer.com/article/10.1007/s44465-026-00015-2 (Patna PET thresholds)
+Retried October 12; still unreachable from the cloud session:
+
 - https://digitalcommons.mtu.edu/wads-3d/ (WADS-3D licence)
 - https://injuryfacts.nsc.org/motor-vehicle/overview/preliminary-estimates/
-- https://www.fhwa.dot.gov/publications/research/safety/08050/ figures 20 and 24 as images, to see
-  the default thresholds rather than their descriptions
-- From the October 11 list, still unread: https://pubmed.ncbi.nlm.nih.gov/42508180/,
-  https://doi.org/10.1177/03611981251327216, https://doi.org/10.3390/s26113529,
-  https://highwayscene.github.io/ and
+- https://doi.org/10.1016/j.aap.2026.108696 (Wu et al., full text; abstract read)
+- https://doi.org/10.1177/03611981251327216 (Dean et al., full text and factor tables; abstract
+  read)
+- https://pmc.ncbi.nlm.nih.gov/articles/PMC13259315/ (Sensors 26(11):3529, to check the
+  summarised figures line by line)
+- https://highwayscene.github.io/ and
   https://road-safety.transport.ec.europa.eu/document/download/9826c063-bc55-423e-84a3-24200dca3547_en?filename=ERSO-TR-speed_2026.pdf
 
 [d29]: ../../../DECISIONS.md#d-29--research-briefing-decisions-october-12-2026
