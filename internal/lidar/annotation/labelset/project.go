@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	annotation.RegisterMembershipProjector(func(p *annotation.Pack, link annotation.LabelSetLink, revision int) ([]byte, error) {
+	annotation.RegisterMembershipProjector(func(p *annotation.Pack, link annotation.LabelSetLink, revision int) ([]byte, string, error) {
 		return ProjectAt(link.LabelSetDir(p.Dir), link.LabelSetID, p, revision)
 	})
 }
@@ -19,27 +19,28 @@ func init() {
 // the pack shows, in its point indices, encoded as the version 1 writer
 // encodes. Consumers that read sidecars (splits, physical references,
 // features, evaluators) read a linked pack's membership this way unchanged.
-// The bytes are a function of the label set state and the pack, so their
-// digest pins a membership revision as a version 1 file's did.
-func ProjectAt(dir, labelSetID string, p *annotation.Pack, revision int) ([]byte, error) {
+// It returns the label set's state digest at that revision too: the token
+// that pins a linked pack's membership, the same whichever pack shows it.
+func ProjectAt(dir, labelSetID string, p *annotation.Pack, revision int) ([]byte, string, error) {
 	ls, err := Open(dir)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if labelSetID != "" && ls.Manifest.LabelSetID != labelSetID {
-		return nil, fmt.Errorf("%s holds label set %s, the pack links %s", dir, ls.Manifest.LabelSetID, labelSetID)
+		return nil, "", fmt.Errorf("%s holds label set %s, the pack links %s", dir, ls.Manifest.LabelSetID, labelSetID)
 	}
-	state, change, rev := &ls.State, Change{}, ls.Revision()
+	state, change, rev, digest := &ls.State, Change{}, ls.Revision(), ls.StateDigest()
 	if revision > 0 && revision != ls.Revision() {
 		old, d, err := revisionWithDelta(dir, revision)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		state, change, rev = old, d.Change, revision
+		state, change, rev, digest = old, d.Change, revision, d.State
 	} else if tip, err := tipOf(dir); err == nil && tip != nil {
 		change = tip.Change
 	}
-	return Project(ls.Manifest.Layout, state, rev, change, p)
+	b, err := Project(ls.Manifest.Layout, state, rev, change, p)
+	return b, digest, err
 }
 
 func tipOf(dir string) (*Delta, error) {

@@ -42,6 +42,9 @@ func TestLinkedPackReadsProjectedMembership(t *testing.T) {
 		t.Fatalf("projected %+v", sc)
 	}
 	first := sc.Digest()
+	if first != ls.StateDigest() {
+		t.Fatalf("a linked pack's membership token is %s, the label set's state is %s", first, ls.StateDigest())
+	}
 
 	// A save through the label set is a new projected revision; the old one
 	// still projects to the same bytes.
@@ -53,7 +56,7 @@ func TestLinkedPackReadsProjectedMembership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if head.Revision != 2 || len(head.Masks[0].PointIndices) != 3 || head.Change.Author != "dd" {
+	if head.Revision != 2 || len(head.Masks[0].PointIndices) != 3 || head.Change.Author != "dd" || head.Digest() != ls.StateDigest() {
 		t.Fatalf("head %+v", head)
 	}
 	r1, err := annotation.LoadSidecarRevision(pack, 1)

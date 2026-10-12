@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -188,7 +187,8 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 	if err != nil {
 		return rep, err
 	}
-	v1Digests := map[string]int{}
+	v1Digests := map[string]int{}    // v1 sidecar bytes digest -> revision
+	stateDigests := map[int]string{} // revision -> label set state digest
 	finished := false
 	defer func() {
 		if !finished {
@@ -217,11 +217,13 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 		if change.Author == "" {
 			change.Author = "unknown (version 1)"
 		}
+		var digest string
 		if asBase {
-			_, err = hw.Base(rev, s, change)
+			digest, err = hw.Base(rev, s, change)
 		} else {
-			_, err = hw.Add(s, change, sc.RestoredFrom)
+			digest, err = hw.Add(s, change, sc.RestoredFrom)
 		}
+		stateDigests[rev] = digest
 		rep.RevisionsConverted++
 		return err
 	}
@@ -274,7 +276,7 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 
 	if cfg.ViewPackDir != "" {
 		logf("writing version 2 pack %s", cfg.ViewPackDir)
-		if err := writeViewPack(cfg, p, maps, table, viewReturns, ls, v1Digests, headBytes, rep); err != nil {
+		if err := writeViewPack(cfg, p, table, viewReturns, ls, v1Digests, stateDigests, rep); err != nil {
 			return rep, err
 		}
 	}
@@ -563,9 +565,10 @@ func convertSidecar(base State, offsets [][]uint64, sc *annotation.Sidecar) (Sta
 // writeViewPack writes the pack again as version 2 with its returns, links it
 // to the label set, and carries the pack-bound records across with their pins
 // moved to the new pack: pack digest, dataset id, and each pinned membership
-// revision's digest, which now names the label set projected onto the pack.
-func writeViewPack(cfg MigrateConfig, p *annotation.Pack, maps []sampleMap, table []PacketKey, returns [][]uint64,
-	ls *LabelSet, v1Digests map[string]int, headBytes []byte, rep *MigrateReport) error {
+// revision's digest, which becomes the label set's state digest at that
+// revision, the token a linked pack's membership is pinned by.
+func writeViewPack(cfg MigrateConfig, p *annotation.Pack, table []PacketKey, returns [][]uint64,
+	ls *LabelSet, v1Digests map[string]int, stateDigests map[int]string, rep *MigrateReport) error {
 	samples := append([]annotation.Sample(nil), p.Samples...)
 	blocks := make([][]byte, len(samples))
 	for i := range samples {
@@ -646,7 +649,6 @@ func writeViewPack(cfg MigrateConfig, p *annotation.Pack, maps []sampleMap, tabl
 			}
 		}
 	}
-	pinned := map[int]string{}
 	digestRe := regexp.MustCompile(`sha256:[0-9a-f]{64}`)
 	contents := map[string][]byte{}
 	for _, name := range carried {
@@ -657,22 +659,12 @@ func writeViewPack(cfg MigrateConfig, p *annotation.Pack, maps []sampleMap, tabl
 		contents[name] = b
 		for _, d := range digestRe.FindAll(b, -1) {
 			if rev, ok := v1Digests[string(d)]; ok {
-				pinned[rev] = string(d)
+				state, ok := stateDigests[rev]
+				if !ok {
+					return fmt.Errorf("%s pins membership revision %d, which was not migrated", name, rev)
+				}
+				replace[string(d)] = state
 			}
-		}
-	}
-	if len(pinned) > 0 {
-		revs := make([]int, 0, len(pinned))
-		for r := range pinned {
-			revs = append(revs, r)
-		}
-		sort.Ints(revs)
-		projectedDigests, err := projectRevisions(cfg.LabelSetDir, ls, view, revs)
-		if err != nil {
-			return err
-		}
-		for _, r := range revs {
-			replace[pinned[r]] = projectedDigests[r]
 		}
 	}
 	for _, name := range carried {
@@ -705,35 +697,6 @@ func writeViewPack(cfg MigrateConfig, p *annotation.Pack, maps []sampleMap, tabl
 		}
 	}
 	return nil
-}
-
-// projectRevisions returns the digest of each revision's projection onto the
-// pack, replaying the journal once.
-func projectRevisions(dir string, ls *LabelSet, view *annotation.Pack, revs []int) (map[int]string, error) {
-	want := map[int]bool{}
-	for _, r := range revs {
-		want[r] = true
-	}
-	out := map[int]string{}
-	err := Replay(dir, func(rev int, s *State, d *Delta) (bool, error) {
-		if want[rev] {
-			b, err := Project(ls.Manifest.Layout, s, rev, d.Change, view)
-			if err != nil {
-				return false, err
-			}
-			out[rev] = sha256Hex(b)
-		}
-		return len(out) < len(want), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range revs {
-		if _, ok := out[r]; !ok {
-			return nil, fmt.Errorf("revision %d is not in the journal", r)
-		}
-	}
-	return out, nil
 }
 
 func sameMembership(a, b *annotation.Sidecar) bool {

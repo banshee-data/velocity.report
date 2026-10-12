@@ -447,11 +447,17 @@ func keepForeground(pc *l9endpoints.PointCloudFrame) (*l9endpoints.PointCloudFra
 	if keep == n {
 		return pc, 0
 	}
-	out := *pc
-	out.X, out.Y, out.Z = make([]float32, 0, keep), make([]float32, 0, keep), make([]float32, 0, keep)
-	out.Classification = make([]uint8, 0, keep)
+	// Built field by field: the frame carries a reference count that must
+	// not be copied.
+	out := l9endpoints.PointCloudFrame{
+		FrameID: pc.FrameID, TimestampNanos: pc.TimestampNanos, SensorID: pc.SensorID,
+		DecimationMode: pc.DecimationMode, DecimationRatio: pc.DecimationRatio,
+		PacketKeys: pc.PacketKeys, ReturnStart: pc.ReturnStart, ReturnEnd: pc.ReturnEnd,
+		ReturnModel: pc.ReturnModel, ReturnBlocks: pc.ReturnBlocks, ReturnChannels: pc.ReturnChannels,
+		X: make([]float32, 0, keep), Y: make([]float32, 0, keep), Z: make([]float32, 0, keep),
+		Classification: make([]uint8, 0, keep),
+	}
 	withIntensity, withRefs := len(pc.Intensity) == n, len(pc.ReturnRefs) == n
-	out.Intensity, out.ReturnRefs = nil, nil
 	for i, c := range pc.Classification {
 		if c != classForeground {
 			continue

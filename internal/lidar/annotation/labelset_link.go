@@ -26,9 +26,12 @@ var ErrMembershipInLabelSet = errors.New("this pack's membership is stored in a 
 
 // MembershipProjector returns the version 1 sidecar encoding of a label
 // set's membership as a linked pack shows it: point indices of that pack, at
-// a label set revision (0 for the head). Package labelset registers one;
-// annotation cannot import it.
-type MembershipProjector func(p *Pack, link LabelSetLink, revision int) ([]byte, error)
+// a label set revision (0 for the head). It also returns the label set's
+// state digest at that revision, which is the projected sidecar's membership
+// token: pins on a linked pack's membership (physical references, features,
+// frozen splits) name the label set's state, as the macOS client does.
+// Package labelset registers one; annotation cannot import it.
+type MembershipProjector func(p *Pack, link LabelSetLink, revision int) (b []byte, stateDigest string, err error)
 
 var projector MembershipProjector
 
@@ -99,7 +102,7 @@ func projectedSidecar(p *Pack, revision int) (s *Sidecar, linked bool, err error
 	if projector == nil {
 		return nil, true, fmt.Errorf("pack %s keeps its membership in label set %s, and this binary was built without label set support", p.Dir, link.LabelSetID)
 	}
-	b, err := projector(p, *link, revision)
+	b, stateDigest, err := projector(p, *link, revision)
 	if err != nil {
 		return nil, true, fmt.Errorf("project label set %s: %w", link.LabelSetID, err)
 	}
@@ -107,6 +110,10 @@ func projectedSidecar(p *Pack, revision int) (s *Sidecar, linked bool, err error
 	if err != nil {
 		return nil, true, fmt.Errorf("projected membership: %w", err)
 	}
+	if stateDigest == "" {
+		return nil, true, fmt.Errorf("label set %s projected no state digest", link.LabelSetID)
+	}
+	s.baseDigest = stateDigest
 	if revision > 0 && s.Revision != revision {
 		return nil, true, fmt.Errorf("label set projected revision %d for requested revision %d", s.Revision, revision)
 	}
