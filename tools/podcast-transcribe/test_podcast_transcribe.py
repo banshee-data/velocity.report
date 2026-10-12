@@ -595,40 +595,18 @@ class PublishTests(unittest.TestCase):
             )
             self.assertFalse((dest / "audio.wav").exists())
 
-    def test_cite_repeats_every_transcript_field_and_adds_the_archive_identity(self):
+    def test_publish_records_the_tool_commit_and_the_transcript_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             work = make_work_dir(tmp)
             archive = Path(tmp) / "transcripts"
             pt.main(["publish", str(work), "--out-dir", str(archive)])
             dest = archive / "the-show" / "2026-10-06-episode"
-            transcript = (dest / "transcript.md").read_text()
             published = json.loads((dest / "published.json").read_text())
-            doc = Path(pt.REPO_ROOT) / "docs" / "plans" / "x.md"
-            table = pt.cite_table(dest, doc)
-
-        header = [
-            line[4:] for line in transcript.splitlines() if line.startswith("- **")
-        ]
-        provenance = transcript.split("## Provenance\n\n", 1)[1].strip().splitlines()
-        cited = {line.split(" | ", 1)[0]: line for line in table}
-        for field in header:
-            key, value = field.split(":** ", 1)
-            self.assertEqual(cited["| " + key], f"| {key} | {value} |")
-        for row in provenance[2:]:
-            key = row.split(" | ", 1)[0]
-            if key not in ("| Tool", "| Evidence"):
-                self.assertEqual(cited[key], row)
-        self.assertIn(published["tool"]["commit"] or "unrecorded", cited["| Tool"])
-        self.assertIn(
-            "[podcast-transcribe](../../tools/podcast-transcribe/README.md)",
-            cited["| Tool"],
-        )
-        self.assertIn("Beside the transcript in the archive", cited["| Evidence"])
-        self.assertIn(
-            "`transcripts/the-show/2026-10-06-episode/transcript.md`",
-            cited["| Transcript"],
-        )
-        self.assertIn(published["transcript_sha256"], cited["| Transcript"])
+            transcript = (dest / "transcript.md").read_text()
+            self.assertEqual(
+                published["transcript_sha256"], pt.sha256_file(dest / "transcript.md")
+            )
+        self.assertIn(pt.revision_text(published["tool"]), transcript)
 
     def test_publish_refuses_a_git_checkout_and_a_missing_archive(self):
         with tempfile.TemporaryDirectory() as tmp:

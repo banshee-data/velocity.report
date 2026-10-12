@@ -15,14 +15,13 @@ Usage:
     podcast-transcribe.py prepare URL [--work-root DIR] [--pass-a ENGINE:MODEL] [--pass-b ...]
     podcast-transcribe.py check WORK_DIR
     podcast-transcribe.py publish WORK_DIR [--out-dir DIR]
-    podcast-transcribe.py cite ARCHIVE_EPISODE_DIR [--doc PATH]
 
 Nothing here is committed. Audio and raw engine output stay in the work directory (default
 ``~/.cache/velocity-report/podcast-transcribe/<episode>/``), and ``publish`` writes the transcript
 and the evidence behind it to ``$PODCAST_TRANSCRIPT_DIR/<show>/<episode>/``, which must lie outside
 any Git checkout: the full text of someone else's episode does not belong in a public repository.
-Documents summarise it, cite it by timestamp, and carry the provenance table ``cite`` prints: the
-transcript's header fields and provenance rows, with its archive path and SHA-256.
+Documents summarise it, cite it by timestamp, and identify it by its archive path and the
+SHA-256 that ``publish`` records in ``published.json``.
 """
 
 from __future__ import annotations
@@ -1323,10 +1322,8 @@ def provenance_rows(
     state: dict,
     result: dict,
     revision: dict | None,
-    evidence_where: str = "Beside this file",
-    tool_link: str | None = None,
 ) -> list[tuple[str, str]]:
-    """The provenance table, shared by the archived transcript and the documents that cite it."""
+    """The archived transcript's provenance table: episode, audio, passes, check and tool."""
     ep, runs, stats = state["episode"], state["runs"], state["stats"]
     audio = ep["audio"]
     label = PLATFORM_LABELS.get(ep.get("platform", ""), "Episode page")
@@ -1366,10 +1363,9 @@ def provenance_rows(
         ),
         (
             "Tool",
-            (md_link("podcast-transcribe", tool_link) if tool_link else TOOL_PATH)
-            + f" at {revision_text(revision)}, `podcast-transcript` skill",
+            f"{TOOL_PATH} at {revision_text(revision)}, `podcast-transcript` skill",
         ),
-        ("Evidence", f"{evidence_where}: {EVIDENCE}; work key `{state['key']}`"),
+        ("Evidence", f"Beside this file: {EVIDENCE}; work key `{state['key']}`"),
     ]
     return rows
 
@@ -1418,43 +1414,6 @@ def render_transcript(
     lines += ["## Provenance", ""]
     lines += md_table(provenance_rows(state, result, revision)) + [""]
     return "\n".join(lines)
-
-
-def cite_table(dest: Path, doc: Path | None = None) -> list[str]:
-    """The table a document pastes when it cites an archived transcript.
-
-    Every field of the transcript's header and every row of its provenance table, in the same
-    order and wording, then the transcript's own path in the archive and its SHA-256.
-    """
-    state = json.loads((dest / "state.json").read_text())
-    result = json.loads((dest / "check.json").read_text())
-    rec = parse_reconciled(dest / "reconciled.md")
-    published = {}
-    if (dest / "published.json").exists():
-        published = json.loads((dest / "published.json").read_text())
-    tool_link = None
-    if doc is not None:
-        readme = REPO_ROOT / "tools" / "podcast-transcribe" / "README.md"
-        tool_link = os.path.relpath(readme, Path(doc).resolve().parent)
-    transcript = dest / "transcript.md"
-    archive_name = dest.parent.parent.name
-    rel = f"{archive_name}/{dest.parent.name}/{dest.name}/transcript.md"
-    rows = header_fields(state, rec)
-    rows += provenance_rows(
-        state,
-        result,
-        published.get("tool"),
-        evidence_where="Beside the transcript in the archive",
-        tool_link=tool_link,
-    )
-    rows.append(
-        (
-            "Transcript",
-            f"`{rel}` in the transcript archive, outside the repository; SHA-256 "
-            f"`{sha256_file(transcript)}`",
-        )
-    )
-    return md_table(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -1559,17 +1518,6 @@ def cmd_publish(args: argparse.Namespace) -> int:
     (dest / "published.json").write_text(json.dumps(published, indent=2) + "\n")
     print(f"Wrote {transcript}")
     print(f"  sha256 {digest}")
-    print(f"  cite with: podcast-transcribe.py cite {dest} --doc <document>")
-    return 0
-
-
-def cmd_cite(args: argparse.Namespace) -> int:
-    dest = Path(args.archive_dir).expanduser()
-    if not (dest / "transcript.md").exists():
-        raise SystemExit(
-            f"{dest} holds no transcript.md; pass an episode's archive directory"
-        )
-    print("\n".join(cite_table(dest, Path(args.doc) if args.doc else None)))
     return 0
 
 
@@ -1605,12 +1553,6 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="publish even if the check fails"
     )
     p.set_defaults(func=cmd_publish)
-    p = sub.add_parser(
-        "cite", help="print the provenance table a document pastes beside its summary"
-    )
-    p.add_argument("archive_dir", help="the episode's directory in the archive")
-    p.add_argument("--doc", help="the citing document, for a relative link to the tool")
-    p.set_defaults(func=cmd_cite)
     args = parser.parse_args(argv)
     return args.func(args)
 
