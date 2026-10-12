@@ -604,7 +604,7 @@ func writeViewPack(cfg MigrateConfig, p *annotation.Pack, maps []sampleMap, tabl
 		Layout:  annotation.ReturnLayout{Model: Pandar40P.Model, Blocks: Pandar40P.Blocks, Channels: Pandar40P.Channels},
 		Packets: keys, Returns: returns,
 	}
-	if err := annotation.WritePackV2(cfg.ViewPackDir, m, samples, blocks, pr, append([]annotation.Background(nil), p.Backgrounds...), bgBlocks); err != nil {
+	if err := annotation.WritePackWithBackground(cfg.ViewPackDir, m, samples, blocks, pr, append([]annotation.Background(nil), p.Backgrounds...), bgBlocks); err != nil {
 		return err
 	}
 	view, err := annotation.OpenPack(cfg.ViewPackDir)

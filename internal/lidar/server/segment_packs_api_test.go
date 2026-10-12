@@ -135,7 +135,7 @@ func TestPackInventoryReportsLinkedLabelSet(t *testing.T) {
 	samples := []annotation.Sample{{PointCount: 2, ReturnStart: 0, ReturnEnd: 400, TimestampNs: 1}}
 	pr := annotation.PackReturns{Layout: annotation.ReturnLayout{Model: "hesai-pandar40p", Blocks: 10, Channels: 40},
 		Packets: []uint64{42}, Returns: [][]uint64{{3, 9}}}
-	if err := annotation.WritePackV2(packDir, annotation.Manifest{Source: annotation.SourceProvenance{VRLOGPath: "run"}}, samples, [][]byte{block}, pr, nil, nil); err != nil {
+	if err := annotation.WritePack(packDir, annotation.Manifest{Source: annotation.SourceProvenance{VRLOGPath: "run"}}, samples, [][]byte{block}, pr); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(packDir)
