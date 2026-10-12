@@ -32,11 +32,13 @@ import (
 //
 // Version 2 adds the returns: a packet table and, for every point, the return
 // it was decoded from. That is what lets a label set made against one run's
-// pack apply to another run's pack of the same capture. Version 1 packs stay
-// readable; they carry no returns.
+// pack apply to another run's pack of the same capture. It is the only
+// version this package writes.
 const PackSchemaVersion = 2
 
 // PackSchemaVersionLegacy is the version 1 layout: points without returns.
+// OpenPack still reads it, for the label set migration and for packs already
+// on disk; nothing writes it.
 const PackSchemaVersionLegacy = 1
 
 // MaxPointsPerSample bounds a single frame's point count on read, so a
@@ -410,23 +412,6 @@ func decodePoints(b []byte, n int) (Points, error) {
 	return p, nil
 }
 
-// WritePack writes a pack directory atomically: content is staged beside the
-// destination and moved into place, so an interrupted export cannot leave a
-// half-written domain that annotations would then cite.
-func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte) error {
-	return WritePackWithBackground(dir, m, samples, blocks, nil, nil)
-}
-
-// WritePackWithBackground is WritePack plus the settled-background snapshots
-// in force over the excerpt. With none it writes exactly what WritePack
-// always has: no extra files, and no extra manifest keys.
-func WritePackWithBackground(
-	dir string, m Manifest, samples []Sample, blocks [][]byte,
-	backgrounds []Background, backgroundBlocks [][]byte,
-) error {
-	return writePack(dir, m, samples, blocks, nil, backgrounds, backgroundBlocks)
-}
-
 // PackReturns is what a version 2 pack adds to the points: the packet table
 // and, for each sample, the return each point was decoded from, in point
 // order. Returns within a sample are strictly increasing, because a frame's
@@ -438,18 +423,22 @@ type PackReturns struct {
 	Returns [][]uint64
 }
 
-// WritePackV2 writes a version 2 pack: the points, and the returns that make
-// them citable by a label set independently of this run. Samples must carry
-// ReturnStart and ReturnEnd.
-func WritePackV2(
-	dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns,
-	backgrounds []Background, backgroundBlocks [][]byte,
-) error {
-	return writePack(dir, m, samples, blocks, &returns, backgrounds, backgroundBlocks)
+// WritePack writes a version 2 pack directory atomically: content is staged
+// beside the destination and moved into place, so an interrupted export
+// cannot leave a half-written domain that annotations would then cite.
+//
+// Every point needs its return, and every sample its ReturnStart and
+// ReturnEnd: a pack whose points cannot be cited by a label set is not
+// written. Version 1 packs are read, never written.
+func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns) error {
+	return WritePackWithBackground(dir, m, samples, blocks, returns, nil, nil)
 }
 
-func writePack(
-	dir string, m Manifest, samples []Sample, blocks [][]byte, returns *PackReturns,
+// WritePackWithBackground is WritePack plus the settled-background snapshots
+// in force over the excerpt. With none it writes exactly what WritePack
+// does: no extra files, and no extra manifest keys.
+func WritePackWithBackground(
+	dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns,
 	backgrounds []Background, backgroundBlocks [][]byte,
 ) error {
 	if len(backgrounds) != len(backgroundBlocks) {
@@ -480,7 +469,13 @@ func writePack(
 		return fmt.Errorf("marshal samples: %w", err)
 	}
 
-	m.SchemaVersion = PackSchemaVersionLegacy
+	packetBytes, returnBytes, err := encodeReturns(samples, returns)
+	if err != nil {
+		return err
+	}
+	layout := returns.Layout
+
+	m.SchemaVersion = PackSchemaVersion
 	m.SampleCount = len(samples)
 	m.PointCount = 0
 	for _, s := range samples {
@@ -488,25 +483,16 @@ func writePack(
 	}
 	m.PointsSHA256 = sha256Hex(points)
 	m.SamplesSHA256 = sha256Hex(samplesJSON)
+	m.ReturnLayout = &layout
+	m.PacketKeyKind = PacketKeyKind
+	m.PacketCount = len(returns.Packets)
+	m.PacketsSHA256 = sha256Hex(packetBytes)
+	m.ReturnsSHA256 = sha256Hex(returnBytes)
 	files := map[string][]byte{
 		pointsFile:  points,
 		samplesFile: append(samplesJSON, '\n'),
-	}
-	m.ReturnLayout, m.PacketKeyKind, m.PacketCount, m.PacketsSHA256, m.ReturnsSHA256 = nil, "", 0, "", ""
-	if returns != nil {
-		packetBytes, returnBytes, err := encodeReturns(samples, *returns)
-		if err != nil {
-			return err
-		}
-		layout := returns.Layout
-		m.SchemaVersion = PackSchemaVersion
-		m.ReturnLayout = &layout
-		m.PacketKeyKind = PacketKeyKind
-		m.PacketCount = len(returns.Packets)
-		m.PacketsSHA256 = sha256Hex(packetBytes)
-		m.ReturnsSHA256 = sha256Hex(returnBytes)
-		files[packetsFile] = packetBytes
-		files[returnsFile] = returnBytes
+		packetsFile: packetBytes,
+		returnsFile: returnBytes,
 	}
 	m.PackDigest = packDigest(m)
 	if m.DatasetID == "" {

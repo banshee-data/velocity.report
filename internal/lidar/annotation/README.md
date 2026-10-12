@@ -17,8 +17,15 @@ these sidecars through the same revision protocol; it is not supplied by this pa
 Version 2 packs add the returns: `packets.bin` (the packet table, keyed by a digest of each UDP
 payload), `returns.bin` (one return number per point), and each sample's frame range. Both files
 are inside the version 2 pack digest. They are what lets a [label set](labelset/README.md) made
-against one run's pack apply to another run's pack of the same capture. Version 1 packs stay
-readable and carry no returns.
+against one run's pack apply to another run's pack of the same capture. Every pack written is
+version 2. Version 1 packs, which carry no returns, stay readable through `OpenPack` for the label
+set migration and for packs already on disk; nothing writes them.
+
+| Writer                                                               | Contract                                                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `WritePack(dir, m, samples, blocks, returns)`                        | A version 2 pack, staged and renamed into place; refuses a point without its return                                                      |
+| `WritePackWithBackground(…, returns, backgrounds, backgroundBlocks)` | The same, with the settled-background snapshots in force over the excerpt                                                                |
+| `FixtureReturns(samples)`                                            | Fabricated returns for tests and synthetic fixtures: packets of their own per sample, deterministic keys. Sets each sample's frame range |
 
 `Export` writes version 2. The VRLOG's point frames name their returns: each frame's packet table,
 one return number per point and the frame's full return range (see

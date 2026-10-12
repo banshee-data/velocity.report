@@ -41,7 +41,7 @@ func reviewedPack(t *testing.T, dir string, startNs int64) *annotation.Pack {
 	}
 	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{PCAPBasename: "cap.pcap"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor", Handedness: "right", OriginNote: "test"}}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)

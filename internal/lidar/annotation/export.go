@@ -291,7 +291,7 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		backgroundBlocks = backgroundBlocks[:len(backgroundBlocks)-1]
 	}
 
-	if err := WritePackV2(cfg.OutDir, m, samples, blocks, table.returns(), backgrounds, backgroundBlocks); err != nil {
+	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, table.returns(), backgrounds, backgroundBlocks); err != nil {
 		return nil, err
 	}
 	return OpenPack(cfg.OutDir)

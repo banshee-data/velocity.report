@@ -47,7 +47,7 @@ func writeTestPack(t *testing.T, dir string, packets []uint64, frames []testFram
 		Layout:  annotation.ReturnLayout{Model: Pandar40P.Model, Blocks: Pandar40P.Blocks, Channels: Pandar40P.Channels},
 		Packets: packets, Returns: returns,
 	}
-	if err := annotation.WritePackV2(dir, m, samples, blocks, pr, nil, nil); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, pr); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)
@@ -81,11 +81,11 @@ func TestPackV2RefusesDisorderedReturns(t *testing.T) {
 	b, _ := annotation.EncodePoints(pts)
 	samples := []annotation.Sample{{PointCount: 2, ReturnStart: 0, ReturnEnd: 400}}
 	pr := annotation.PackReturns{Layout: annotation.ReturnLayout{Model: "m", Blocks: 10, Channels: 40}, Packets: []uint64{9}, Returns: [][]uint64{{7, 3}}}
-	if err := annotation.WritePackV2(dir, annotation.Manifest{}, samples, [][]byte{b}, pr, nil, nil); err == nil {
+	if err := annotation.WritePack(dir, annotation.Manifest{}, samples, [][]byte{b}, pr); err == nil {
 		t.Fatal("decreasing returns written")
 	}
 	pr.Returns = [][]uint64{{3, 400}}
-	if err := annotation.WritePackV2(dir, annotation.Manifest{}, samples, [][]byte{b}, pr, nil, nil); err == nil {
+	if err := annotation.WritePack(dir, annotation.Manifest{}, samples, [][]byte{b}, pr); err == nil {
 		t.Fatal("a return outside its frame written")
 	}
 }

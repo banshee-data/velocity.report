@@ -94,7 +94,9 @@ func WriteNearFacePack(dir string, o NearFaceOptions) (*NearFaceFixture, error) 
 	var pack *annotation.Pack
 	path := filepath.Join(dir, "split.json")
 	err := steps(
-		func() error { return annotation.WritePack(packDir, m, samples, blocks) },
+		func() error {
+			return annotation.WritePack(packDir, m, samples, blocks, annotation.FixtureReturns(samples))
+		},
 		func() (err error) { pack, err = annotation.OpenPack(packDir); return },
 		func() error {
 			status := annotation.StatusReviewed

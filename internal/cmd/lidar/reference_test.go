@@ -35,7 +35,7 @@ func referencePack(t *testing.T) (*annotation.Pack, string) {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}); err != nil {
+	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -269,7 +269,7 @@ func followingPack(t *testing.T) *annotation.Pack {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}); err != nil {
+	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -467,7 +467,7 @@ func fitPack(t *testing.T) *annotation.Pack {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)

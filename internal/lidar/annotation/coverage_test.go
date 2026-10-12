@@ -138,12 +138,14 @@ func TestWritePackRejectsInconsistentInput(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pack")
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
 
-	if err := WritePack(dir, Manifest{}, []Sample{{PointCount: 1}}, nil); err == nil {
+	one := []Sample{{PointCount: 1}}
+	if err := WritePack(dir, Manifest{}, one, nil, FixtureReturns(one)); err == nil {
 		t.Fatal("samples without blocks were written")
 	}
 	// A declared point count that disagrees with the block is the mismatch
 	// that would silently shift every later sample's offset.
-	if err := WritePack(dir, Manifest{}, []Sample{{PointCount: 5}}, [][]byte{block}); err == nil {
+	five := []Sample{{PointCount: 5}}
+	if err := WritePack(dir, Manifest{}, five, [][]byte{block}, FixtureReturns(five)); err == nil {
 		t.Fatal("a block of the wrong size was written")
 	}
 }
@@ -381,8 +383,9 @@ func TestWritePackReportsAnUnusableDestination(t *testing.T) {
 		t.Fatal(err)
 	}
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
+	samples := []Sample{{PointCount: 1}}
 	err := WritePack(filepath.Join(base, "pack"), Manifest{Coverage: CoverageFull},
-		[]Sample{{PointCount: 1}}, [][]byte{block})
+		samples, [][]byte{block}, FixtureReturns(samples))
 	if err == nil {
 		t.Fatal("wrote a pack beneath a regular file")
 	}
@@ -434,8 +437,9 @@ func TestWritePackReportsAnUncreatableStagingDirectory(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
 
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
+	samples := []Sample{{PointCount: 1}}
 	err := WritePack(filepath.Join(parent, "pack"), Manifest{Coverage: CoverageFull},
-		[]Sample{{PointCount: 1}}, [][]byte{block})
+		samples, [][]byte{block}, FixtureReturns(samples))
 	if err == nil {
 		t.Fatal("wrote a pack into a read-only parent")
 	}

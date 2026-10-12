@@ -239,7 +239,7 @@ func writePhysicalPack(dir string) (*annotation.Pack, error) {
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor",
 			Handedness: "right", OriginNote: "fixture"},
 	}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		return nil, err
 	}
 	pack, err := annotation.OpenPack(dir)

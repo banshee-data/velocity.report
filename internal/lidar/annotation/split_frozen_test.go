@@ -36,7 +36,7 @@ func splitPack(t *testing.T, name, pcap string, startNs int64, n int) *Pack {
 	m := Manifest{Coverage: CoverageForegroundOnly, Source: SourceProvenance{
 		SensorID: "synthetic", PCAPBasename: pcap, VRLOGFramesSHA: "sha256:frames-" + name, ParamsHash: "sha256:params",
 	}}
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -321,7 +321,9 @@ func TestFreezeSplitKeepsOneSourceInOnePartition(t *testing.T) {
 	f := mustFreeze(t, freezeOptions(tuneEarly, onePartition(far, "far", "hold", SplitRoleHeldOut)))
 	f.Packs[0].Source.PCAPBasename, f.Packs[1].Source.PCAPBasename = "", ""
 	f.Packs[1].Source.VRLOGFramesSHA = f.Packs[0].Source.VRLOGFramesSHA
-	f.Packs[1].Source.FirstSampleNs, f.Packs[1].Source.LastSampleNs = 2e9, 4e9
+	// Packs are ordered by digest, so move whichever is second onto the first.
+	f.Packs[1].Source.FirstSampleNs = f.Packs[0].Source.FirstSampleNs + 1e9
+	f.Packs[1].Source.LastSampleNs = f.Packs[0].Source.LastSampleNs + 1e9
 	f.Tuned = mergeLedgers(f.ownTuning())
 	wantError(t, f.validate(), "are cut from vrlog:sha256:frames-")
 	// And with neither, nothing relates them.
