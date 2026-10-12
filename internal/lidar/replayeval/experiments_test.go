@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
@@ -74,7 +75,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -206,7 +207,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentSupportFilter, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
@@ -330,6 +331,46 @@ func TestEstimateRowsNameTheModelThatUpdatedThem(t *testing.T) {
 	} {
 		if got := stateObservationModelFor(tc.experiments, false, tc.mode); got != string(tc.want) {
 			t.Errorf("%v with mode %q: rows name %s, want %s", tc.experiments, tc.mode, got, tc.want)
+		}
+	}
+}
+
+func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
+	newBM := func(t *testing.T) *l3grid.BackgroundManager {
+		t.Helper()
+		return l3grid.NewBackgroundManager(t.Name(), 4, 16, l3grid.BackgroundParams{}, nil)
+	}
+	cases := []struct {
+		names                                []string
+		disable, volatileOnly, supportFilter bool
+	}{
+		{nil, false, false, false},
+		{[]string{ExperimentNoRegionOverrides}, true, false, false},
+		{[]string{ExperimentRegionOverridesVolatileOnly}, false, true, false},
+		{[]string{ExperimentSupportFilter}, false, false, true},
+		{[]string{ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter}, false, true, true},
+		// Tracker experiments are not the background's to apply.
+		{[]string{ExperimentCascade}, false, false, false},
+	}
+	for _, c := range cases {
+		bm := newBM(t)
+		if err := ApplyBackgroundExperiments(bm, c.names); err != nil {
+			t.Fatalf("%v: %v", c.names, err)
+		}
+		p := bm.Grid.Params
+		if p.DisableRegionOverrides != c.disable || p.RegionOverridesVolatileOnly != c.volatileOnly || (p.SupportFilter != nil) != c.supportFilter {
+			t.Errorf("%v: disable=%v volatileOnly=%v supportFilter=%v, want %v %v %v", c.names,
+				p.DisableRegionOverrides, p.RegionOverridesVolatileOnly, p.SupportFilter != nil,
+				c.disable, c.volatileOnly, c.supportFilter)
+		}
+	}
+	if err := ApplyBackgroundExperiments(newBM(t), []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly}); err == nil {
+		t.Error("no_region_overrides with region_overrides_volatile_only was accepted")
+	}
+	for _, name := range KnownExperiments() {
+		want := name == ExperimentNoRegionOverrides || name == ExperimentRegionOverridesVolatileOnly || name == ExperimentSupportFilter
+		if IsBackgroundExperiment(name) != want {
+			t.Errorf("IsBackgroundExperiment(%s) = %v, want %v", name, !want, want)
 		}
 	}
 }

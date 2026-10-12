@@ -122,3 +122,44 @@ func TestDisableRegionOverridesOffByDefault(t *testing.T) {
 		t.Fatal("DisableRegionOverrides defaults on; the shipped behaviour must stay the default until it is measured")
 	}
 }
+
+func TestRegionOverridesVolatileOnlyKeepsTheVolatileTercile(t *testing.T) {
+	g := settledThreeZoneGrid(t, 0.02)
+	g.Params.RegionOverridesVolatileOnly = true
+
+	for _, ring := range []int{0, 2} {
+		noise, neighbours, alpha := g.effectiveCellParams(g.Idx(ring, 0), 0.02, 3, 0.02)
+		if !approx(noise, 0.02) || neighbours != 3 || !approx(alpha, 0.02) {
+			t.Errorf("ring %d (stable or variable): noise %.4f neighbours %d alpha %.4f, want the globals 0.02, 3, 0.02",
+				ring, noise, neighbours, alpha)
+		}
+	}
+
+	noise, neighbours, alpha := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	if !approx(noise, 0.16) || neighbours != 5 || !approx(alpha, 0.01) {
+		t.Errorf("ring 4 (volatile): noise %.4f neighbours %d alpha %.4f, want the volatile overrides 0.16, 5, 0.01",
+			noise, neighbours, alpha)
+	}
+
+	g.Params.DisableRegionOverrides = true
+	if got := effectiveNoise(g, 4); !approx(got, 0.02) {
+		t.Errorf("volatile ring with both switches on: effective noise %.4f, want the global 0.02 (disable wins)", got)
+	}
+}
+
+func TestRegionOverridesVolatileOnlyServesGlobalsAfterRestore(t *testing.T) {
+	g := settledThreeZoneGrid(t, 0.02)
+	for _, r := range g.RegionMgr.Regions {
+		r.Volatile = false // a restored region carries no tercile
+	}
+	g.Params.RegionOverridesVolatileOnly = true
+	if got := effectiveNoise(g, 4); !approx(got, 0.02) {
+		t.Errorf("restored volatile ring: effective noise %.4f, want the global 0.02", got)
+	}
+}
+
+func TestRegionOverridesVolatileOnlyOffByDefault(t *testing.T) {
+	if makeTestGrid(2, 4).Params.RegionOverridesVolatileOnly {
+		t.Fatal("RegionOverridesVolatileOnly defaults on; the shipped behaviour must stay the default until it is measured")
+	}
+}

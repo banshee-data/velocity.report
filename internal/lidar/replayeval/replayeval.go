@@ -686,16 +686,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, err
 	}
 	bgMgr.SetSourcePath(strings.Join(pcapFiles, "\n"))
-	if hasExperiment(experiments, ExperimentNoRegionOverrides) {
-		if err := bgMgr.SetDisableRegionOverrides(true); err != nil {
-			return nil, fmt.Errorf("apply %s: %w", ExperimentNoRegionOverrides, err)
-		}
-	}
-	if hasExperiment(experiments, ExperimentSupportFilter) {
-		params := l3grid.DefaultSupportFilterParams()
-		if err := bgMgr.SetSupportFilter(&params); err != nil {
-			return nil, fmt.Errorf("apply %s: %w", ExperimentSupportFilter, err)
-		}
+	if err := ApplyBackgroundExperiments(bgMgr, experiments); err != nil {
+		return nil, err
 	}
 
 	// --- L5, L6 ---

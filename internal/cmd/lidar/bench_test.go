@@ -92,3 +92,29 @@ func TestBenchMainRejectsClusterDumpWithRepeats(t *testing.T) {
 		t.Errorf("BenchMain with -clusters-output and -repeat 3 = %d, want 2", code)
 	}
 }
+
+func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
+	got, err := benchExperiments("support_filter,no_region_overrides")
+	if err != nil {
+		t.Fatalf("background experiments refused: %v", err)
+	}
+	if len(got) != 2 || got[0] != "no_region_overrides" || got[1] != "support_filter" {
+		t.Errorf("got %v, want the sorted pair", got)
+	}
+	if got, err := benchExperiments(""); err != nil || len(got) != 0 {
+		t.Errorf("empty flag: %v, %v; want none and no error", got, err)
+	}
+	// A tracker experiment would run as the baseline in the bench and be
+	// reported as the option, so it is refused rather than ignored.
+	for _, name := range []string{"cascade", "solid_body", "not_an_experiment"} {
+		if _, err := benchExperiments(name); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+}
+
+func TestBenchMainRejectsTrackerExperiment(t *testing.T) {
+	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "cascade"}); code != 2 {
+		t.Errorf("BenchMain(-experiment cascade) = %d, want 2", code)
+	}
+}

@@ -452,3 +452,24 @@ func TestIdentityComparesDistinctConfirmedTracksWhenRecorded(t *testing.T) {
 		t.Error("a run that confirmed no track was accepted against a baseline that confirmed 61")
 	}
 }
+
+// TestIdentityRefusesDifferentExperiments: a run with L3 experiments switched
+// on measures a different background model, so it must never be compared with
+// a baseline recorded without them, in either direction.
+func TestIdentityRefusesDifferentExperiments(t *testing.T) {
+	withExperiments := comparableResult()
+	withExperiments.Experiments = []string{"no_region_overrides", "support_filter"}
+
+	err := checkWorkloadIdentity(comparableResult(), withExperiments, DefaultWorkTolerance)
+	if err == nil || !strings.Contains(err.Error(), "experiments") {
+		t.Errorf("a run with experiments was compared with a baseline without them: %v", err)
+	}
+	if err := checkWorkloadIdentity(withExperiments, comparableResult(), DefaultWorkTolerance); err == nil {
+		t.Error("a baseline with experiments was compared with a run without them")
+	}
+	same := comparableResult()
+	same.Experiments = []string{"no_region_overrides", "support_filter"}
+	if err := checkWorkloadIdentity(withExperiments, same, DefaultWorkTolerance); err != nil {
+		t.Errorf("identical experiments were refused: %v", err)
+	}
+}

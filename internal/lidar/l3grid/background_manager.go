@@ -117,6 +117,20 @@ func (bm *BackgroundManager) SetDisableRegionOverrides(v bool) error {
 	return nil
 }
 
+// SetRegionOverridesVolatileOnly keeps the region overrides for the volatile
+// tercile only (replay experiment region_overrides_volatile_only). See
+// BackgroundParams.RegionOverridesVolatileOnly.
+func (bm *BackgroundManager) SetRegionOverridesVolatileOnly(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.RegionOverridesVolatileOnly = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetSupportFilter switches the range-image support filter on with the given
 // parameters, or off with nil (the beam-wise review's E4; replay experiment
 // support_filter). See BackgroundParams.SupportFilter.

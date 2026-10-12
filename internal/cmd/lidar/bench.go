@@ -10,7 +10,9 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/lidarbench"
+	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
 // BenchMain parses lidar-bench flags and runs the pipeline performance
@@ -44,6 +46,8 @@ func BenchMain(args []string) int {
 	fs.Float64Var(&cfg.ProgressSecs, "progress", 10, "Seconds between progress updates during the PCAP read (0 = off)")
 	fs.StringVar(&cfg.ClustersOutput, "clusters-output", "",
 		"Write one JSONL line per cluster per frame (frame, timestamp, centroid, bounding box, point count) for offline scoring")
+	experimentFlag := fs.String("experiment", "",
+		"Default-off L3 replay experiments to switch on, comma separated (no_region_overrides, region_overrides_volatile_only, support_filter); for offline sweeps, never the perf gate")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: lidar-bench -pcap FILE [options]\n\n")
@@ -87,6 +91,17 @@ func BenchMain(args []string) int {
 			return 2
 		}
 	}
+	experiments, err := benchExperiments(*experimentFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "-experiment: %v\n", err)
+		return 2
+	}
+	if len(experiments) > 0 {
+		cfg.Experiments = experiments
+		cfg.ConfigureBackground = func(bm *l3grid.BackgroundManager) error {
+			return replayeval.ApplyBackgroundExperiments(bm, experiments)
+		}
+	}
 	if cfg.Repeats < 1 {
 		fmt.Fprintln(os.Stderr, "-repeat must be at least 1")
 		return 2
@@ -113,4 +128,21 @@ func BenchMain(args []string) int {
 		return 1
 	}
 	return lidarbench.Run(cfg)
+}
+
+// benchExperiments parses -experiment, accepting only the experiments that act
+// on the background model: the benchmark builds its tracker from the tuning
+// config alone, so a tracker or solid-body experiment named here would run as
+// the baseline and be reported as the option.
+func benchExperiments(flagValue string) ([]string, error) {
+	experiments, err := replayeval.ParseExperiments(flagValue)
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range experiments {
+		if !replayeval.IsBackgroundExperiment(name) {
+			return nil, fmt.Errorf("%s is not a background experiment; lidar-bench runs only no_region_overrides, region_overrides_volatile_only and support_filter", name)
+		}
+	}
+	return experiments, nil
 }

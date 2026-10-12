@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // Experiments are the default-off, Go-level options a replay can switch on.
@@ -33,6 +35,12 @@ const (
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
 	ExperimentNoRegionOverrides = "no_region_overrides"
+	// ExperimentRegionOverridesVolatileOnly:
+	// l3grid.BackgroundParams.RegionOverridesVolatileOnly, the beam-wise
+	// review's revised next arm: the region overrides kept for the volatile
+	// tercile only. It contradicts no_region_overrides, so naming both is
+	// refused.
+	ExperimentRegionOverridesVolatileOnly = "region_overrides_volatile_only"
 	// ExperimentSupportFilter: l3grid.BackgroundParams.SupportFilter at
 	// l3grid.DefaultSupportFilterParams, the range-image support filter of
 	// the beam-wise review (E4): a cell's foreground survives only with
@@ -207,6 +215,8 @@ var knownExperiments = map[string]bool{
 	ExperimentFixedLagRTS:         true,
 	ExperimentSolidBody:           true,
 
+	ExperimentRegionOverridesVolatileOnly: true,
+
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
 	ExperimentSolidBodyCourseFaces:    true,
@@ -273,6 +283,48 @@ func ParseExperiments(flagValue string) ([]string, error) {
 		return []string{}, nil
 	}
 	return NormaliseExperiments(strings.Split(flagValue, ","))
+}
+
+// backgroundExperiments are the experiments that act on the L3 background
+// model alone; ApplyBackgroundExperiments is the only place they are applied.
+var backgroundExperiments = map[string]bool{
+	ExperimentNoRegionOverrides:           true,
+	ExperimentRegionOverridesVolatileOnly: true,
+	ExperimentSupportFilter:               true,
+}
+
+// IsBackgroundExperiment reports whether an experiment acts on the L3
+// background model alone, and so can run in a tool that has no tracker
+// options to give it, such as lidar-bench.
+func IsBackgroundExperiment(name string) bool {
+	return backgroundExperiments[name]
+}
+
+// ApplyBackgroundExperiments switches the named L3 experiments on in a
+// background manager before its first frame. Names that are not background
+// experiments are ignored here; the caller decides whether they are allowed.
+func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []string) error {
+	if hasExperiment(experiments, ExperimentNoRegionOverrides) && hasExperiment(experiments, ExperimentRegionOverridesVolatileOnly) {
+		return fmt.Errorf("replay experiments %s and %s contradict each other; name one",
+			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly)
+	}
+	if hasExperiment(experiments, ExperimentNoRegionOverrides) {
+		if err := bgMgr.SetDisableRegionOverrides(true); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentNoRegionOverrides, err)
+		}
+	}
+	if hasExperiment(experiments, ExperimentRegionOverridesVolatileOnly) {
+		if err := bgMgr.SetRegionOverridesVolatileOnly(true); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentRegionOverridesVolatileOnly, err)
+		}
+	}
+	if hasExperiment(experiments, ExperimentSupportFilter) {
+		params := l3grid.DefaultSupportFilterParams()
+		if err := bgMgr.SetSupportFilter(&params); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentSupportFilter, err)
+		}
+	}
+	return nil
 }
 
 func hasExperiment(experiments []string, name string) bool {
