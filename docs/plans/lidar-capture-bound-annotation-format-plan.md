@@ -8,7 +8,7 @@ and moves the existing kirk0 work across by an exact, proven mapping or not at a
 before any annotation is published to the
 [Hugging Face dataset](../../tools/s2-archive/huggingface-dataset-layout.md).
 
-- **Status:** Draft. All four design questions are decided (§8); Phase 0 is partly measured; nothing is built
+- **Status:** Implemented on `dd/lidar/annotation-format-v2` (P0–P6, §10); the kirk0 salvage and the packet key census are recorded in the [migration report](../lidar/operations/annotation-label-set-migration.md)
 - **Layers:** L1 Packets, L2 Frames, L3 Grid, L9 Endpoints (VRLOG, protobuf), L10 Clients (macOS annotation window), annotation storage, offline analysis
 - **Target:** before the first annotation is published; the format and the salvage first, the pipeline locator next
 - **Companion plans:** [VRLOG observation format](lidar-vrlog-observation-format-plan.md), [annotation save latency](lidar-annotation-save-latency-plan.md), [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md), [physical reference review](lidar-physical-reference-review-plan.md), [platform vocabulary](platform-vocabulary-and-data-model-plan.md)
@@ -274,3 +274,37 @@ No questions are open at this stage.
 - Dataset release versioning, multi-dataset and multi-database import.
 - Changes to object semantics, review statuses or the proposal workflow.
 - Object identity across captures.
+
+## 10. Implementation
+
+Built on `dd/lidar/annotation-format-v2`. The operations guide is
+[label sets](../lidar/operations/label-sets.md); the format specification is the
+[label set package README](../../internal/lidar/annotation/labelset/README.md).
+
+| Phase | What landed                                                                                                                                                                                                                                         |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0    | The kirk0 dry run: all 1,833,561 points of both kirk0 packs and all 1,076,843 of the columbus-broadway pack are exactly one decoded return each, none coincident                                                                                    |
+| P1    | `internal/lidar/annotation/labelset`: codec, validation, diff and apply, the locked journal store with replay, restore, publish and roll-forward, binding to PCAP and PCAPNG files, views; version 2 packs; Go parity fixtures for the macOS client |
+| P2    | Packet keys in L1 and L2; return identity in the VRLOG point cloud (proto fields 12–18) and through every decimation; export writes version 2 packs only, and the version 1 writer is gone                                                          |
+| P3    | `velocity lidar labels` (migrate, create, attach, bind, verify, info, project, publish, census) and the exact-mapping migration                                                                                                                     |
+| P4    | The macOS window reads and writes label sets through views; version 1 packs open read-only                                                                                                                                                          |
+| P5    | Linked packs' membership is projected from their label set for splits, physical references, features, the evaluators and the server's pack listing; frozen splits bind cases to the label set's verified capture SHA-256s                           |
+| P6    | `tools/s2-archive/stage-label-sets.py` and the dataset's `labels/` layout                                                                                                                                                                           |
+
+Decided during the build, beyond §3:
+
+- **A linked pack's membership token is the label set's state digest** at the revision, not a digest
+  of the projected sidecar bytes. Physical references, features, facet proposals and frozen splits
+  pin it, and the macOS client and Go agree on it whichever pack shows the membership.
+- **A `foreground_only` export keeps only foreground-classed points.** Clip packs were labelled
+  `foreground_only` while the replay recorded whole frames (the kirk0 clip held 3,394,879 points, of
+  which 134,004 were foreground). The pack is now the run's foreground, as D4 requires.
+- **Physical references, feature proposals and proposal layers stay bound to a pack** (one run's
+  view). Their membership pins name label set revisions through the projection; moving them into
+  the label set is a follow-on.
+- **The macOS window's first save makes two revisions**: the label set's creation from the pack,
+  then the edit, so the first edit can be undone. Saves still run on the main thread; the save
+  latency plan's threading is not taken in.
+- **Returns two objects claimed in one window** in version 1 data, which later validation forbids,
+  are resolved by the migration: a reviewed claim keeps the return and each proposed claim moves it
+  to uncertain. Two reviewed claims refuse the migration.
